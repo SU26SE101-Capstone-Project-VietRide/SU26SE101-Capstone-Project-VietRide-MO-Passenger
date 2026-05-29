@@ -1,0 +1,72 @@
+{
+  "common": {
+    "loading": "Đang tải...",
+    "error": "Đã xảy ra lỗi",
+    "retry": "Thử lại",
+    "cancel": "Hủy",
+    "confirm": "Xác nhận",
+    "save": "Lưu",
+    "delete": "Xóa",
+    "search": "Tìm kiếm",
+    "noResults": "Không tìm thấy kết quả",
+    "networkError": "Không có kết nối internet",
+    "unknownError": "Đã xảy ra lỗi. Vui lòng thử lại.",
+    "ok": "OK"
+  },
+  "auth": {
+    "login": "Đăng nhập",
+    "register": "Đăng ký",
+    "logout": "Đăng xuất",
+    "phone": "Số điện thoại",
+    "password": "Mật khẩu",
+    "forgotPassword": "Quên mật khẩu?",
+    "otpTitle": "Xác minh số điện thoại",
+    "otpSubtitle": "Nhập mã 6 chữ số đã gửi đến {{phone}}",
+    "otpResend": "Gửi lại mã",
+    "welcomeBack": "Chào mừng trở lại!",
+    "createAccount": "Tạo tài khoản"
+  },
+  "nav": {
+    "home": "Trang chủ",
+    "booking": "Đặt vé",
+    "tracking": "Theo dõi",
+    "parcel": "Gửi hàng",
+    "profile": "Cá nhân"
+  },
+  "booking": {
+    "searchRoutes": "Tìm tuyến đường",
+    "departure": "Điểm đi",
+    "destination": "Điểm đến",
+    "date": "Ngày",
+    "passengers": "Hành khách",
+    "findTrips": "Tìm chuyến",
+    "selectSeat": "Chọn ghế",
+    "payment": "Thanh toán",
+    "bookNow": "Đặt ngay",
+    "totalPrice": "Tổng tiền",
+    "voucher": "Mã giảm giá"
+  },
+  "tracking": {
+    "liveTracking": "Theo dõi trực tiếp",
+    "eta": "Thời gian dự kiến đến",
+    "boardingPoint": "Điểm đón",
+    "dropOff": "Điểm trả"
+  },
+  "parcel": {
+    "sendParcel": "Gửi hàng",
+    "trackParcel": "Theo dõi hàng",
+    "senderInfo": "Thông tin người gửi",
+    "receiverInfo": "Thông tin người nhận",
+    "parcelDetails": "Chi tiết bưu kiện",
+    "otpConfirm": "Xác nhận OTP"
+  },
+  "profile": {
+    "myProfile": "Hồ sơ của tôi",
+    "editProfile": "Chỉnh sửa hồ sơ",
+    "settings": "Cài đặt",
+    "bookingHistory": "Lịch sử đặt vé",
+    "language": "Ngôn ngữ",
+    "notifications": "Thông báo",
+    "helpSupport": "Hỗ trợ"
+  }
+}

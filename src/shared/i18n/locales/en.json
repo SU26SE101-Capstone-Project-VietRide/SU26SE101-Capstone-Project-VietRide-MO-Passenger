@@ -1,0 +1,72 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "search": "Search",
+    "noResults": "No results found",
+    "networkError": "No internet connection",
+    "unknownError": "Something went wrong. Please try again.",
+    "ok": "OK"
+  },
+  "auth": {
+    "login": "Log In",
+    "register": "Register",
+    "logout": "Log Out",
+    "phone": "Phone Number",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?",
+    "otpTitle": "Verify Your Number",
+    "otpSubtitle": "Enter the 6-digit code sent to {{phone}}",
+    "otpResend": "Resend Code",
+    "welcomeBack": "Welcome back!",
+    "createAccount": "Create an account"
+  },
+  "nav": {
+    "home": "Home",
+    "booking": "Booking",
+    "tracking": "Tracking",
+    "parcel": "Parcel",
+    "profile": "Profile"
+  },
+  "booking": {
+    "searchRoutes": "Search Routes",
+    "departure": "Departure",
+    "destination": "Destination",
+    "date": "Date",
+    "passengers": "Passengers",
+    "findTrips": "Find Trips",
+    "selectSeat": "Select Seat",
+    "payment": "Payment",
+    "bookNow": "Book Now",
+    "totalPrice": "Total Price",
+    "voucher": "Voucher Code"
+  },
+  "tracking": {
+    "liveTracking": "Live Tracking",
+    "eta": "Estimated Arrival",
+    "boardingPoint": "Boarding Point",
+    "dropOff": "Drop-off Point"
+  },
+  "parcel": {
+    "sendParcel": "Send Parcel",
+    "trackParcel": "Track Parcel",
+    "senderInfo": "Sender Information",
+    "receiverInfo": "Receiver Information",
+    "parcelDetails": "Parcel Details",
+    "otpConfirm": "OTP Confirmation"
+  },
+  "profile": {
+    "myProfile": "My Profile",
+    "editProfile": "Edit Profile",
+    "settings": "Settings",
+    "bookingHistory": "Booking History",
+    "language": "Language",
+    "notifications": "Notifications",
+    "helpSupport": "Help & Support"
+  }
+}
