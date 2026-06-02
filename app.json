@@ -1,4 +1,15 @@
 {
-  "name": "VietRidePassenger",
-  "displayName": "VietRidePassenger"
+  "expo": {
+    "name": "VietRidePassenger",
+    "slug": "viet-ride-passenger",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.vietride.passenger"
+    }
+  }
 }

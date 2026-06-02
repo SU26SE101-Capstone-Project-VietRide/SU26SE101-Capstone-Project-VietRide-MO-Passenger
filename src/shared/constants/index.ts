@@ -3,6 +3,8 @@
  */
 
 export { appConfig } from './config';
+export { ASSETS } from './assets';
+
 
 /** API timeout in milliseconds */
 export const API_TIMEOUT = 15_000;

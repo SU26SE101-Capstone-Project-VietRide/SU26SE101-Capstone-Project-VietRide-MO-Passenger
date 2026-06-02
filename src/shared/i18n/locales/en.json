@@ -31,7 +31,10 @@
     "booking": "Booking",
     "tracking": "Tracking",
     "parcel": "Parcel",
-    "profile": "Profile"
+    "profile": "Profile",
+    "activity": "Activity",
+    "scan": "Scan",
+    "wallet": "Wallet"
   },
   "booking": {
     "searchRoutes": "Search Routes",

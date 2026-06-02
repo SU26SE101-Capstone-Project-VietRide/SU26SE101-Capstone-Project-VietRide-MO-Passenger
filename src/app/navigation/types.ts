@@ -33,6 +33,9 @@ export type BookingStackParamList = {
     bookingId: string;
     amount: number;
   };
+  DigitalTicket: {
+    bookingRef: string;
+  };
 };
 
 // ─── Tracking Stack ───────────────────────────────────────

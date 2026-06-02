@@ -31,7 +31,10 @@
     "booking": "Đặt vé",
     "tracking": "Theo dõi",
     "parcel": "Gửi hàng",
-    "profile": "Cá nhân"
+    "profile": "Cá nhân",
+    "activity": "Hoạt động",
+    "scan": "Quét",
+    "wallet": "Ví"
   },
   "booking": {
     "searchRoutes": "Tìm tuyến đường",
