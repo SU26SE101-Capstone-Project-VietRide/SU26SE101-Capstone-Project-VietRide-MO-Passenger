@@ -11,7 +11,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { Scan, House, MapTrifold, Wallet, User } from 'phosphor-react-native';
+import { Scan, House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native';
 
 import { colors, fontFamilies, spacing, borderRadius } from '@shared/theme';
 
@@ -64,12 +64,12 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: C
         if (route.name === 'Home') {
           label = t('nav.home');
           IconComponent = House;
-        } else if (route.name === 'Booking') {
-          label = t('nav.activity');
-          IconComponent = MapTrifold;
-        } else if (route.name === 'Parcel') {
-          label = t('nav.wallet');
-          IconComponent = Wallet;
+        } else if (route.name === 'Notification') {
+          label = t('profile.notifications');
+          IconComponent = Bell;
+        } else if (route.name === 'BookingHistory') {
+          label = t('profile.bookingHistory', 'History');
+          IconComponent = ClockCounterClockwise;
         } else if (route.name === 'Profile') {
           label = t('nav.profile');
           IconComponent = User;
@@ -86,7 +86,7 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: C
               <IconComponent
                 size={22}
                 weight={isFocused ? 'fill' : 'regular'}
-                color={isFocused ? '#006a67' : '#3c4948'}
+                color={isFocused ? colors.primary : colors.textSecondary}
                 style={styles.tabIcon}
               />
               <Text
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: 72,
+    height: 80,
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   tabContentActive: {
-    backgroundColor: 'rgba(42, 193, 188, 0.18)',
+    backgroundColor: colors.primaryFaded,
   },
   tabIcon: {
     marginBottom: 3,
@@ -149,10 +149,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tabTextActive: {
-    color: '#006a67',
+    color: colors.primary,
   },
   tabTextInactive: {
-    color: '#3c4948',
+    color: colors.textSecondary,
   },
   fabButton: {
     position: 'relative',
@@ -160,11 +160,11 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#006a67',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 10,
-    shadowColor: '#006a67',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 8,

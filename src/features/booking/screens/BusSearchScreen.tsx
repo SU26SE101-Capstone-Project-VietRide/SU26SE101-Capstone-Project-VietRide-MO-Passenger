@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ArrowLeft } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import {
@@ -46,6 +47,19 @@ export function BusSearchScreen(): React.JSX.Element {
 
       {/* Ambient glow */}
       <View style={styles.ambientGlow} />
+
+      {/* Top Header with Back Arrow */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+          style={styles.backButton}
+        >
+          <ArrowLeft size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Buy Tickets</Text>
+        <View style={styles.headerRightPlaceholder} />
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -194,6 +208,30 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#F7F9FF',
+  },
+  header: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.lg,
+    color: colors.textPrimary,
+  },
+  headerRightPlaceholder: {
+    width: 40,
   },
   ambientGlow: {
     position: 'absolute',

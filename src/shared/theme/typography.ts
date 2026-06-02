@@ -10,10 +10,10 @@ import { TextStyle } from 'react-native';
 
 // ─── Font Families ────────────────────────────────────────
 export const fontFamilies = {
-  regular: 'Inter-Regular',
-  medium: 'Inter-Medium',
-  semiBold: 'Inter-SemiBold',
-  bold: 'Inter-Bold',
+  regular: 'BeVietnamPro-Regular',
+  medium: 'BeVietnamPro-Medium',
+  semiBold: 'BeVietnamPro-SemiBold',
+  bold: 'BeVietnamPro-Bold',
 } as const;
 
 // ─── Font Sizes (responsive) ─────────────────────────────

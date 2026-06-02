@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   },
   pointCardSelected: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(10, 126, 164, 0.04)',
+    backgroundColor: colors.primaryFaded,
   },
   pointCardDisabled: {
     opacity: 0.5,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(10, 126, 164, 0.08)',
+    backgroundColor: colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.lg,

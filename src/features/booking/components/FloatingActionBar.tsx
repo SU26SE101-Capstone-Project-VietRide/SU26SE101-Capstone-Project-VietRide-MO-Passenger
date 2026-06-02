@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   seatBadge: {
-    backgroundColor: 'rgba(10, 126, 164, 0.1)',
+    backgroundColor: colors.primaryFaded,
     borderRadius: borderRadius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,

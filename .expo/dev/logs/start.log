@@ -303,3 +303,136 @@
 {"_e":"metro:bundling:done","_t":1780370850830,"id":"1","total":4148,"ms":1418.1641}
 {"_e":"metro:client_log","_t":1780370856099,"level":"warn","data":["The global process.env.EXPO_OS is not defined. This should be inlined by babel-preset-expo during transformation."]}
 {"_e":"metro:client_log","_t":1780370856100,"level":"error","data":["[ReferenceError: Property 'StatusBar' doesn't exist]"]}
+{"_e":"root:init","_t":1780381286707,"format":"v0-jsonl","version":"56.1.13"}
+{"_e":"devserver:start","_t":1780381286719,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\src\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1780381286993,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"metro:instantiate","_t":1780381292994,"atlas":false,"workers":15,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1780381296934,"id":"1","platform":"android","environment":null,"entry":"index.js"}
+{"_e":"metro:bundling:progress","_t":1780381296935,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1780381296938,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1780381297038,"id":"1","progress":0.09289969975605179,"total":292,"current":89}
+{"_e":"metro:bundling:progress","_t":1780381297138,"id":"1","progress":0.3235417894116657,"total":545,"current":310}
+{"_e":"metro:bundling:progress","_t":1780381297238,"id":"1","progress":0.4979190636778416,"total":710,"current":501}
+{"_e":"metro:bundling:progress","_t":1780381297338,"id":"1","progress":0.6537291353205914,"total":867,"current":701}
+{"_e":"metro:bundling:progress","_t":1780381297438,"id":"1","progress":0.8753891211847704,"total":932,"current":872}
+{"_e":"metro:bundling:progress","_t":1780381297636,"id":"1","progress":0.9413619614512472,"total":1008,"current":978}
+{"_e":"metro:bundling:progress","_t":1780381297736,"id":"1","progress":0.9413619614512472,"total":2537,"current":986}
+{"_e":"metro:bundling:progress","_t":1780381297836,"id":"1","progress":0.9413619614512472,"total":2960,"current":1396}
+{"_e":"metro:bundling:progress","_t":1780381297936,"id":"1","progress":0.9413619614512472,"total":3429,"current":1864}
+{"_e":"metro:bundling:progress","_t":1780381298036,"id":"1","progress":0.9413619614512472,"total":3862,"current":2297}
+{"_e":"metro:bundling:progress","_t":1780381298136,"id":"1","progress":0.9413619614512472,"total":4145,"current":2531}
+{"_e":"metro:bundling:progress","_t":1780381298236,"id":"1","progress":0.9413619614512472,"total":4162,"current":2547}
+{"_e":"metro:bundling:progress","_t":1780381298336,"id":"1","progress":0.9413619614512472,"total":4172,"current":3762}
+{"_e":"metro:bundling:progress","_t":1780381298438,"id":"1","progress":0.989651998120102,"total":4241,"current":4219}
+{"_e":"metro:bundling:progress","_t":1780381298553,"id":"1","progress":0.9948326569135968,"total":4252,"current":4241}
+{"_e":"metro:bundling:progress","_t":1780381298654,"id":"1","progress":0.9962406048307519,"total":4252,"current":4244}
+{"_e":"metro:bundling:progress","_t":1780381298756,"id":"1","progress":0.9962406048307519,"total":4264,"current":4251}
+{"_e":"metro:bundling:progress","_t":1780381298867,"id":"1","progress":0.9962406048307519,"total":4264,"current":4254}
+{"_e":"metro:bundling:progress","_t":1780381298902,"id":"1","progress":0.9962406048307519,"total":4264,"current":4255}
+{"_e":"metro:bundling:progress","_t":1780381299007,"id":"1","progress":0.9985969836872884,"total":4275,"current":4272}
+{"_e":"metro:bundling:progress","_t":1780381299116,"id":"1","progress":0.999,"total":4275,"current":4273}
+{"_e":"metro:bundling:progress","_t":1780381299231,"id":"1","progress":0.999,"total":4275,"current":4274}
+{"_e":"metro:bundling:done","_t":1780381299342,"id":"1","total":4275,"ms":2407.5332}
+{"_e":"metro:client_log","_t":1780381305050,"level":"warn","data":["The global process.env.EXPO_OS is not defined. This should be inlined by babel-preset-expo during transformation."]}
+{"_e":"metro:client_log","_t":1780381469421,"level":"log","data":["Notifications pressed"]}
+{"_e":"metro:client_log","_t":1780381471036,"level":"log","data":["Delivery pressed"]}
+{"_e":"metro:client_log","_t":1780381471736,"level":"log","data":["Delivery pressed"]}
+{"_e":"metro:client_log","_t":1780381472103,"level":"log","data":["Buses pressed"]}
+{"_e":"metro:client_log","_t":1780381473937,"level":"log","data":["Buses pressed"]}
+{"_e":"metro:client_log","_t":1780381474369,"level":"log","data":["Delivery pressed"]}
+{"_e":"metro:client_log","_t":1780381474801,"level":"log","data":["Buses pressed"]}
+{"_e":"metro:client_log","_t":1780381475137,"level":"log","data":["Buy Tickets pressed"]}
+{"_e":"metro:client_log","_t":1780381539736,"level":"log","data":["Buy Tickets pressed"]}
+{"_e":"root:init","_t":1780381603632,"format":"v0-jsonl","version":"56.1.13"}
+{"_e":"devserver:start","_t":1780381603648,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\src\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1780381603953,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"metro:instantiate","_t":1780381610332,"atlas":false,"workers":15,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1780381613629,"id":"1","platform":"android","environment":null,"entry":"index.js"}
+{"_e":"metro:bundling:progress","_t":1780381613629,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1780381613631,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1780381613735,"id":"1","progress":0.140625,"total":328,"current":123}
+{"_e":"metro:bundling:progress","_t":1780381613945,"id":"1","progress":0.3287903329246721,"total":579,"current":332}
+{"_e":"metro:bundling:progress","_t":1780381614049,"id":"1","progress":0.3287903329246721,"total":2239,"current":482}
+{"_e":"metro:bundling:progress","_t":1780381614148,"id":"1","progress":0.3287903329246721,"total":2548,"current":830}
+{"_e":"metro:bundling:progress","_t":1780381614249,"id":"1","progress":0.3287903329246721,"total":2908,"current":1191}
+{"_e":"metro:bundling:progress","_t":1780381614348,"id":"1","progress":0.3287903329246721,"total":3284,"current":1566}
+{"_e":"metro:bundling:progress","_t":1780381614448,"id":"1","progress":0.3287903329246721,"total":3803,"current":2085}
+{"_e":"metro:bundling:progress","_t":1780381614548,"id":"1","progress":0.334107516166726,"total":4031,"current":2330}
+{"_e":"metro:bundling:progress","_t":1780381614648,"id":"1","progress":0.6853096022570305,"total":4031,"current":3337}
+{"_e":"metro:bundling:progress","_t":1780381614748,"id":"1","progress":0.948448739020896,"total":4097,"current":3990}
+{"_e":"metro:bundling:progress","_t":1780381614848,"id":"1","progress":0.987364114263043,"total":4260,"current":4233}
+{"_e":"metro:bundling:done","_t":1780381614949,"id":"1","total":4260,"ms":1319.4859}
+{"_e":"metro:client_log","_t":1780381620377,"level":"warn","data":["The global process.env.EXPO_OS is not defined. This should be inlined by babel-preset-expo during transformation."]}
+{"_e":"metro:client_log","_t":1780390701629,"level":"log","data":["Buy Tickets pressed"]}
+{"_e":"metro:client_log","_t":1780390702812,"level":"log","data":["Buy Tickets pressed"]}
+{"_e":"metro:client_log","_t":1780390709929,"level":"log","data":["Deposit pressed"]}
+{"_e":"metro:client_log","_t":1780390710446,"level":"log","data":["Withdraw pressed"]}
+{"_e":"metro:client_log","_t":1780390710779,"level":"log","data":["History pressed"]}
+{"_e":"metro:client_log","_t":1780390720229,"level":"log","data":["Top Up pressed"]}
+{"_e":"metro:client_log","_t":1780390941896,"level":"log","data":["Notifications pressed"]}
+{"_e":"metro:client_log","_t":1780390946412,"level":"log","data":["Buy Tickets pressed"]}
+{"_e":"root:init","_t":1780401920412,"format":"v0-jsonl","version":"56.1.13"}
+{"_e":"devserver:start","_t":1780401920434,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\src\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1780401920835,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"metro:instantiate","_t":1780401928069,"atlas":false,"workers":15,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1780401944477,"id":"1","platform":"android","environment":null,"entry":"index.js"}
+{"_e":"metro:bundling:progress","_t":1780401944479,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1780401944485,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1780401944585,"id":"1","progress":0.07248520710059171,"total":234,"current":63}
+{"_e":"metro:bundling:progress","_t":1780401944685,"id":"1","progress":0.16860428825567242,"total":358,"current":147}
+{"_e":"metro:bundling:progress","_t":1780401944785,"id":"1","progress":0.3219606110339604,"total":534,"current":303}
+{"_e":"metro:bundling:progress","_t":1780401944885,"id":"1","progress":0.46910341024473934,"total":676,"current":463}
+{"_e":"metro:bundling:progress","_t":1780401944985,"id":"1","progress":0.5742513902547026,"total":834,"current":632}
+{"_e":"metro:bundling:progress","_t":1780401945085,"id":"1","progress":0.8619527353529082,"total":908,"current":843}
+{"_e":"metro:bundling:progress","_t":1780401945187,"id":"1","progress":0.9365244536940688,"total":992,"current":960}
+{"_e":"metro:bundling:progress","_t":1780401945312,"id":"1","progress":0.9365244536940688,"total":993,"current":960}
+{"_e":"metro:bundling:progress","_t":1780401945412,"id":"1","progress":0.9365244536940688,"total":2510,"current":966}
+{"_e":"metro:bundling:progress","_t":1780401945512,"id":"1","progress":0.9365244536940688,"total":2528,"current":987}
+{"_e":"metro:bundling:progress","_t":1780401945638,"id":"1","progress":0.9365244536940688,"total":2528,"current":988}
+{"_e":"metro:bundling:progress","_t":1780401945737,"id":"1","progress":0.9365244536940688,"total":3046,"current":1477}
+{"_e":"metro:bundling:progress","_t":1780401945837,"id":"1","progress":0.9365244536940688,"total":3539,"current":1969}
+{"_e":"metro:bundling:progress","_t":1780401945937,"id":"1","progress":0.9365244536940688,"total":4035,"current":2466}
+{"_e":"metro:bundling:progress","_t":1780401946037,"id":"1","progress":0.9365244536940688,"total":4140,"current":2528}
+{"_e":"metro:bundling:progress","_t":1780401946299,"id":"1","progress":0.9365244536940688,"total":4140,"current":2529}
+{"_e":"metro:bundling:progress","_t":1780401946399,"id":"1","progress":0.9480118557419887,"total":4176,"current":4066}
+{"_e":"metro:bundling:progress","_t":1780401946499,"id":"1","progress":0.986456665369626,"total":4268,"current":4239}
+{"_e":"metro:bundling:done","_t":1780401946668,"id":"1","total":4268,"ms":2189.0571}
+{"_e":"metro:client_log","_t":1780401963134,"level":"warn","data":["The global process.env.EXPO_OS is not defined. This should be inlined by babel-preset-expo during transformation."]}
+{"_e":"metro:client_log","_t":1780402359874,"level":"log","data":["Withdraw pressed"]}
+{"_e":"metro:client_log","_t":1780402360374,"level":"log","data":["Deposit pressed"]}
+{"_e":"metro:client_log","_t":1780402360789,"level":"log","data":["History pressed"]}
+{"_e":"metro:client_log","_t":1780402770043,"level":"error","data":["[Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.\n\nCheck the render method of `CreateParcelScreen`.]"]}
+{"_e":"metro:client_log","_t":1780403072277,"level":"error","data":["React has detected a change in the order of Hooks called by CreateParcelScreen. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n\n   Previous render            Next render\n   ------------------------------------------------------\n1. useContext                 useContext\n2. useContext                 useContext\n3. useState                   useState\n4. useState                   useState\n5. useState                   useState\n6. useState                   useState\n7. useState                   useState\n8. useState                   useState\n9. useState                   useState\n10. useState                  useState\n11. useState                  useState\n12. useState                  useState\n13. useState                  useState\n14. useState                  useState\n15. useState                  useState\n16. useState                  useState\n17. useEffect                 useState\n   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"]}
+{"_e":"metro:client_log","_t":1780403072317,"level":"error","data":["[Error: Should have a queue. You are likely calling Hooks conditionally, which is not allowed. (https://react.dev/link/invalid-hook-call)]"]}
+{"_e":"metro:bundling:started","_t":1780403247186,"id":"9","platform":"android","environment":null,"entry":"index.js"}
+{"_e":"metro:bundling:progress","_t":1780403247186,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1780403247248,"id":"9","total":1,"ms":61.8793}
+{"_e":"metro:client_log","_t":1780403252236,"level":"warn","data":["The global process.env.EXPO_OS is not defined. This should be inlined by babel-preset-expo during transformation."]}
+{"_e":"metro:client_log","_t":1780403510031,"level":"error","data":["Internal React error: Expected static flag was missing. Please notify the React team."]}
+{"_e":"metro:client_log","_t":1780403584907,"level":"log","data":["Deposit pressed"]}
+{"_e":"metro:bundling:started","_t":1780404289204,"id":"j","platform":"android","environment":null,"entry":"index.js"}
+{"_e":"metro:bundling:progress","_t":1780404289204,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1780404289280,"id":"j","total":1,"ms":76.7525}
+{"_e":"metro:client_log","_t":1780404294424,"level":"warn","data":["The global process.env.EXPO_OS is not defined. This should be inlined by babel-preset-expo during transformation."]}
+{"_e":"metro:client_log","_t":1780404558727,"level":"error","data":["React has detected a change in the order of Hooks called by ParcelHomeScreen. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n\n   Previous render            Next render\n   ------------------------------------------------------\n1. useContext                 useContext\n2. useContext                 useContext\n3. useState                   useState\n4. useState                   useState\n5. useState                   useState\n6. useState                   useState\n7. useState                   useState\n8. undefined                  useState\n   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"]}
+{"_e":"metro:client_log","_t":1780404558796,"level":"error","data":["[Error: Rendered more hooks than during the previous render.]"]}
+{"_e":"metro:bundling:started","_t":1780404604403,"id":"p","platform":"android","environment":null,"entry":"index.js"}
+{"_e":"metro:bundling:progress","_t":1780404604403,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1780404604465,"id":"p","total":1,"ms":61.4833}
+{"_e":"metro:client_log","_t":1780404609719,"level":"warn","data":["The global process.env.EXPO_OS is not defined. This should be inlined by babel-preset-expo during transformation."]}
+{"_e":"metro:bundling:failed","_t":1780404736613,"id":null,"message":"SyntaxError: C:\\Users\\viett\\SU26SE101-Capstone-Project-VietRide-MO-Passenger\\src\\features\\parcel\\screens\\ParcelHomeScreen.tsx: Unexpected token (489:12)\n\n  487 |     flexDirection: 'row',\n  488 |     alignItems: 'center',\n> 489 |     justify('center'), // Wait, let's fix this syntax: justifyContent: 'center'\n      |             ^\n  490 |     justifyContent: 'center',\n  491 |     backgroundColor: colors.primary,\n  492 |     borderRadius: 16,","importStack":null,"filename":"src\\features\\parcel\\screens\\ParcelHomeScreen.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:failed","_t":1780404736809,"id":null,"message":"SyntaxError: C:\\Users\\viett\\SU26SE101-Capstone-Project-VietRide-MO-Passenger\\src\\features\\parcel\\screens\\ParcelHomeScreen.tsx: Unexpected token (489:12)\n\n  487 |     flexDirection: 'row',\n  488 |     alignItems: 'center',\n> 489 |     justify('center'), // Wait, let's fix this syntax: justifyContent: 'center'\n      |             ^\n  490 |     justifyContent: 'center',\n  491 |     backgroundColor: colors.primary,\n  492 |     borderRadius: 16,","importStack":null,"filename":"src\\features\\parcel\\screens\\ParcelHomeScreen.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:client_log","_t":1780405859367,"level":"error","data":["The action 'NAVIGATE' with payload {\"name\":\"Notification\"} was not handled by any navigator.\n\nDo you have a screen named 'Notification'?\n\nIf you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.\n\nIf you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.\n\nThis is a development-only warning and won't be shown in production."]}
+{"_e":"metro:client_log","_t":1780405862646,"level":"error","data":["The action 'NAVIGATE' with payload {\"name\":\"Notification\"} was not handled by any navigator.\n\nDo you have a screen named 'Notification'?\n\nIf you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.\n\nIf you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.\n\nThis is a development-only warning and won't be shown in production."]}
+{"_e":"metro:bundling:started","_t":1780406102319,"id":"y","platform":"android","environment":null,"entry":"index.js"}
+{"_e":"metro:bundling:progress","_t":1780406102319,"id":"y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1780406102375,"id":"y","total":1,"ms":55.748}
+{"_e":"metro:client_log","_t":1780406107893,"level":"warn","data":["The global process.env.EXPO_OS is not defined. This should be inlined by babel-preset-expo during transformation."]}
+{"_e":"metro:client_log","_t":1780406512297,"level":"error","data":["[ReferenceError: Property 'catMascotImage' doesn't exist]"]}
+{"_e":"metro:client_log","_t":1780406584099,"level":"log","data":["Filter pressed"]}
+{"_e":"metro:client_log","_t":1780406584715,"level":"log","data":["Filter pressed"]}
+{"_e":"metro:bundling:failed","_t":1780407304815,"id":null,"message":"SyntaxError: C:\\Users\\viett\\SU26SE101-Capstone-Project-VietRide-MO-Passenger\\src\\features\\parcel\\screens\\CreateParcelScreen.tsx: Unexpected token, expected \"}\" (1048:11)\n\n  1046 |\n  1047 | const styles = StyleSheet.create({\n> 1048 |   container: {\n       |            ^\n  1049 |     flex: 1,\n  1050 |     backgroundColor: colors.background,\n  1051 |   },","importStack":null,"filename":"src\\features\\parcel\\screens\\CreateParcelScreen.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:failed","_t":1780407310988,"id":null,"message":"SyntaxError: C:\\Users\\viett\\SU26SE101-Capstone-Project-VietRide-MO-Passenger\\src\\features\\parcel\\screens\\CreateParcelScreen.tsx: Unexpected token, expected \"}\" (1044:11)\n\n  1042 |\n  1043 | const styles = StyleSheet.create({\n> 1044 |   container: {\n       |            ^\n  1045 |     flex: 1,\n  1046 |     backgroundColor: colors.background,\n  1047 |   },","importStack":null,"filename":"src\\features\\parcel\\screens\\CreateParcelScreen.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:failed","_t":1780407317565,"id":null,"message":"SyntaxError: C:\\Users\\viett\\SU26SE101-Capstone-Project-VietRide-MO-Passenger\\src\\features\\parcel\\screens\\CreateParcelScreen.tsx: Unexpected token, expected \"}\" (1040:11)\n\n  1038 |\n  1039 | const styles = StyleSheet.create({\n> 1040 |   container: {\n       |            ^\n  1041 |     flex: 1,\n  1042 |     backgroundColor: colors.background,\n  1043 |   },","importStack":null,"filename":"src\\features\\parcel\\screens\\CreateParcelScreen.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:client_log","_t":1780407413190,"level":"log","data":["Filter pressed"]}
+{"_e":"metro:client_log","_t":1780407813961,"level":"error","data":["React has detected a change in the order of Hooks called by CreateParcelScreen. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n\n   Previous render            Next render\n   ------------------------------------------------------\n1. useContext                 useContext\n2. useContext                 useContext\n3. useState                   useContext\n   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"]}

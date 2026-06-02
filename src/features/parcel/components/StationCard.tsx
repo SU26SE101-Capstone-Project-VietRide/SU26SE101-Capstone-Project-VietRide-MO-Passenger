@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Star, MapPin, NavigationArrow } from 'phosphor-react-native';
+import { MapPin, Clock, Package } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import type { Station } from '../types';
 
@@ -11,6 +11,27 @@ interface StationCardProps {
 }
 
 export function StationCard({ station, onSelect, isSelected = false }: StationCardProps): React.JSX.Element {
+  // Dynamically split name into Brand and rest description for premium layout matching the screenshot
+  const getSplitName = (fullName: string) => {
+    const brands = ['FUTA', 'THANH BUOI', 'Thanh Buoi'];
+    for (const brand of brands) {
+      if (fullName.toLowerCase().startsWith(brand.toLowerCase())) {
+        const rest = fullName.substring(brand.length).trim();
+        return { brand: brand.toUpperCase(), rest };
+      }
+    }
+    const firstSpace = fullName.indexOf(' ');
+    if (firstSpace !== -1) {
+      return {
+        brand: fullName.substring(0, firstSpace).toUpperCase(),
+        rest: fullName.substring(firstSpace + 1)
+      };
+    }
+    return { brand: fullName.toUpperCase(), rest: '' };
+  };
+
+  const { brand, rest } = getSplitName(station.name);
+
   return (
     <View style={[styles.card, isSelected && styles.cardSelected]}>
       {station.isClosest && (
@@ -21,32 +42,37 @@ export function StationCard({ station, onSelect, isSelected = false }: StationCa
 
       <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <Text style={styles.name} numberOfLines={2}>
-            {station.name}
-          </Text>
-          <View style={styles.ratingRow}>
-            <Star size={14} color={colors.accent} weight="fill" />
-            <Text style={styles.ratingText}>
-              {station.rating} ({station.reviewsCount} reviews)
-            </Text>
-          </View>
+          <Text style={styles.brandText}>{brand}</Text>
+          {rest ? <Text style={styles.branchText}>{rest}</Text> : null}
         </View>
+      </View>
+
+      <View style={styles.distanceRow}>
+        <MapPin size={15} color={colors.textTertiary} weight="regular" />
+        <Text style={styles.distanceText}>{station.distance}</Text>
       </View>
 
       <Text style={styles.address} numberOfLines={2}>
         {station.address}
       </Text>
 
-      <View style={styles.metaRow}>
-        <View style={styles.badge}>
-          <MapPin size={14} color={colors.primary} weight="bold" />
-          <Text style={styles.badgeText}>{station.distance}</Text>
+      {/* Optional working hours and status badges */}
+      {(station.workingHours || station.acceptingParcels) && (
+        <View style={styles.badgesRow}>
+          {station.workingHours && (
+            <View style={styles.statusBadge}>
+              <Clock size={14} color={colors.primary} weight="regular" />
+              <Text style={styles.statusBadgeText}>{station.workingHours}</Text>
+            </View>
+          )}
+          {station.acceptingParcels && (
+            <View style={styles.statusBadge}>
+              <Package size={14} color={colors.primary} weight="regular" />
+              <Text style={styles.statusBadgeText}>Accepting</Text>
+            </View>
+          )}
         </View>
-        <View style={styles.badge}>
-          <NavigationArrow size={14} color={colors.primary} weight="bold" />
-          <Text style={styles.badgeText}>{station.city}</Text>
-        </View>
-      </View>
+      )}
 
       <TouchableOpacity
         style={[styles.button, isSelected && styles.buttonSelected]}
@@ -75,7 +101,7 @@ const styles = StyleSheet.create({
   },
   cardSelected: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(10, 126, 164, 0.02)',
+    backgroundColor: '#F4FBFB', // Solid opaque light mint to prevent Android shadow bleeding
     borderWidth: 2,
   },
   closestTag: {
@@ -86,6 +112,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderBottomRightRadius: borderRadius.sm,
+    zIndex: 10,
   },
   closestText: {
     fontFamily: fontFamilies.bold,
@@ -94,29 +121,33 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
     marginTop: spacing.xs,
+    marginBottom: spacing.xs,
   },
   titleContainer: {
-    flex: 1,
+    width: '100%',
   },
-  name: {
+  brandText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.lg,
+    color: colors.textPrimary,
+  },
+  branchText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    marginTop: 2,
   },
-  ratingRow: {
+  distanceRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.xs,
   },
-  ratingText: {
+  distanceText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    marginLeft: 4,
+    color: colors.textTertiary,
   },
   address: {
     fontFamily: fontFamilies.regular,
@@ -125,44 +156,44 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     lineHeight: fontSizes.sm * 1.4,
   },
-  metaRow: {
+  badgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.md,
     gap: spacing.sm,
+    marginTop: spacing.md,
   },
-  badge: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surfaceAlt,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: 4,
     borderRadius: borderRadius.sm,
     gap: 4,
   },
-  badgeText: {
+  statusBadgeText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: colors.textPrimary,
   },
   button: {
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: borderRadius.md,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
   },
   buttonSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   buttonText: {
-    fontFamily: fontFamilies.semiBold,
+    fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: colors.primary,
   },
   buttonTextSelected: {
     color: colors.textInverse,

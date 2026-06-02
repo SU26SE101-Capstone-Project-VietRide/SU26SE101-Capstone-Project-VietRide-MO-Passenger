@@ -12,6 +12,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { AuthNavigator } from './AuthNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
+import { BookingNavigator } from '@features/booking';
+import { ParcelNavigator } from '@features/parcel';
+import { ChatbotScreen } from '@features/chatbot';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { colors } from '@shared/theme';
 
@@ -29,7 +32,12 @@ export function RootNavigator(): React.JSX.Element {
       }}
     >
       {isAuthenticated ? (
-        <Stack.Screen name="Main" component={MainTabNavigator} />
+        <>
+          <Stack.Screen name="Main" component={MainTabNavigator} />
+          <Stack.Screen name="Booking" component={BookingNavigator} />
+          <Stack.Screen name="Parcel" component={ParcelNavigator} />
+          <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ animation: 'slide_from_bottom' }} />
+        </>
       ) : (
         <Stack.Screen name="Auth" component={AuthNavigator} />
       )}

@@ -1,57 +1,60 @@
 /**
  * VietRide Design System — Color Tokens
  *
- * A modern, calm, minimalist palette centered around deep teal/ocean blue
- * with warm amber accents. All colors are semantic and purpose-driven.
+ * Implements the official BAEMIN-inspired VietRide brand identity:
+ * - Vibrant Mint Green (#2AC1BC) as primary accent for CTAs
+ * - Deep forest/ocean teal (#006A67) as primary brand shade
+ * - Modern dark charcoal (#181C20) for typographic legibility
+ * - Soft off-white surfaces (#F7F9FF) for bento layout depth
  */
 
 export const colors = {
-  // ─── Primary ────────────────────────────────────────────
-  primary: '#0A7EA4',
-  primaryLight: '#38B2D8',
-  primaryDark: '#065A76',
-  primaryFaded: 'rgba(10, 126, 164, 0.08)',
+  // ─── Primary Brand Teal & Mint Green ────────────────────
+  primary: '#006A67',
+  primaryLight: '#2AC1BC', // Vibrant Mint Green
+  primaryDark: '#004A48',
+  primaryFaded: 'rgba(42, 193, 188, 0.08)', // Mint green faded tint
 
-  // ─── Accent ─────────────────────────────────────────────
-  accent: '#F5A623',
-  accentLight: '#FFD07B',
-  accentDark: '#D4860A',
+  // ─── Accent / Secondary ──────────────────────────────────
+  accent: '#2AC1BC', // Vibrant Mint Green
+  accentLight: '#71F7F1',
+  accentDark: '#00504d',
 
-  // ─── Neutrals / Surfaces ────────────────────────────────
-  background: '#F8FAFB',
-  surface: '#FFFFFF',
-  surfaceAlt: '#F0F4F8',
+  // ─── Neutrals / Bento Surfaces ─────────────────────────
+  background: '#F7F9FF', // Off-white canvas background
+  surface: '#FFFFFF', // Bento Card Pure White surface
+  surfaceAlt: '#F1F4F9', // Surface container low
   surfaceElevated: '#FFFFFF',
 
-  // ─── Text ───────────────────────────────────────────────
-  textPrimary: '#1A2138',
-  textSecondary: '#5E6C84',
-  textTertiary: '#97A0AF',
+  // ─── Typography (Charcoal hierarchy) ─────────────────────
+  textPrimary: '#181C20', // Dark Charcoal
+  textSecondary: '#3C4948', // Secondary slate/grey
+  textTertiary: '#6C7A78', // outline variant
   textInverse: '#FFFFFF',
-  textDisabled: '#C1C7D0',
+  textDisabled: '#BBC9C8',
 
-  // ─── Semantic / Feedback ────────────────────────────────
-  success: '#36B37E',
-  successLight: '#E3FCEF',
-  warning: '#FFAB00',
-  warningLight: '#FFFAE6',
-  error: '#FF5630',
-  errorLight: '#FFEBE6',
-  info: '#0065FF',
-  infoLight: '#DEEBFF',
+  // ─── Semantic Feedback ──────────────────────────────────
+  success: '#2AC1BC', // Mint green success
+  successLight: 'rgba(42, 193, 188, 0.12)',
+  warning: '#EBC300', // sunny tertiary yellow
+  warningLight: '#FFE177',
+  error: '#BA1A1A', // Pop-out coral/red
+  errorLight: '#FFDAD6',
+  info: '#006A67',
+  infoLight: '#F1F4F9',
 
   // ─── Borders & Dividers ─────────────────────────────────
-  border: '#DFE1E6',
-  borderFocused: '#0A7EA4',
-  divider: '#EBECF0',
+  border: '#BBC9C8',
+  borderFocused: '#006A67',
+  divider: '#E5E8EE',
 
-  // ─── Overlay ────────────────────────────────────────────
-  overlay: 'rgba(9, 30, 66, 0.54)',
-  overlayLight: 'rgba(9, 30, 66, 0.25)',
+  // ─── Overlays ───────────────────────────────────────────
+  overlay: 'rgba(24, 28, 32, 0.54)',
+  overlayLight: 'rgba(24, 28, 32, 0.25)',
 
-  // ─── Skeleton / Placeholder ─────────────────────────────
-  skeleton: '#F0F4F8',
-  skeletonHighlight: '#E4E9F0',
+  // ─── Skeletons ──────────────────────────────────────────
+  skeleton: '#EBEBF3',
+  skeletonHighlight: '#E0E3E8',
 
   // ─── Transparent ────────────────────────────────────────
   transparent: 'transparent',

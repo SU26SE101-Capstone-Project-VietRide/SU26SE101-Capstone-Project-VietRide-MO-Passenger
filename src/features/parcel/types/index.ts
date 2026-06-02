@@ -7,6 +7,8 @@ export interface Station {
   rating: number;
   reviewsCount: number;
   city: string;
+  workingHours?: string;
+  acceptingParcels?: boolean;
 }
 
 export interface ParcelShipment {

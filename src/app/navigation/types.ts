@@ -64,14 +64,15 @@ export type ProfileStackParamList = {
   EditProfile: undefined;
   Settings: undefined;
   BookingHistory: undefined;
+  SavedPayments: undefined;
 };
 
 // ─── Main Tab Navigator ──────────────────────────────────
 export type MainTabParamList = {
   Home: undefined;
-  Booking: NavigatorScreenParams<BookingStackParamList>;
+  Notification: undefined;
   Tracking: NavigatorScreenParams<TrackingStackParamList>;
-  Parcel: NavigatorScreenParams<ParcelStackParamList>;
+  BookingHistory: undefined;
   Profile: NavigatorScreenParams<ProfileStackParamList>;
 };
 
@@ -79,6 +80,8 @@ export type MainTabParamList = {
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Main: NavigatorScreenParams<MainTabParamList>;
+  Booking: NavigatorScreenParams<BookingStackParamList>;
+  Parcel: NavigatorScreenParams<ParcelStackParamList>;
   Chatbot: undefined;
 };
 

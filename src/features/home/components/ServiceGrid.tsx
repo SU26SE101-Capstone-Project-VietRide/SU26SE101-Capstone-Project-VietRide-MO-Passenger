@@ -1,17 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
-import { Ticket, Bus, Package } from 'phosphor-react-native';
+import { Ticket, Package } from 'phosphor-react-native';
 
 interface ServiceGridProps {
   onBuyTickets?: () => void;
-  onBuses?: () => void;
   onDelivery?: () => void;
 }
 
 export function ServiceGrid({
   onBuyTickets,
-  onBuses,
   onDelivery,
 }: ServiceGridProps): React.JSX.Element {
   return (
@@ -19,7 +17,7 @@ export function ServiceGrid({
       {/* Large Ticket Card */}
       <TouchableOpacity
         onPress={onBuyTickets}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
         style={styles.largeCard}
       >
         <View style={styles.textContainer}>
@@ -32,32 +30,21 @@ export function ServiceGrid({
         </View>
       </TouchableOpacity>
 
-      {/* Row for Small Cards */}
-      <View style={styles.smallCardsRow}>
-        {/* Buses Card */}
-        <TouchableOpacity
-          onPress={onBuses}
-          activeOpacity={0.8}
-          style={styles.smallCard}
-        >
-          <View style={[styles.smallIconBackground, { backgroundColor: '#ffe177' }]}>
-            <Bus size={32} color="#cc8c00" weight="fill" />
-          </View>
-          <Text style={styles.smallTitle}>Buses</Text>
-        </TouchableOpacity>
+      {/* Large Delivery Card (matching the style and width of Buy Tickets) */}
+      <TouchableOpacity
+        onPress={onDelivery}
+        activeOpacity={0.85}
+        style={[styles.largeCard, styles.deliveryCard]}
+      >
+        <View style={styles.textContainer}>
+          <Text style={styles.largeTitle}>Send Parcel</Text>
+          <Text style={styles.largeSubtitle}>Fast package delivery</Text>
+        </View>
 
-        {/* Delivery Card */}
-        <TouchableOpacity
-          onPress={onDelivery}
-          activeOpacity={0.8}
-          style={styles.smallCard}
-        >
-          <View style={[styles.smallIconBackground, { backgroundColor: '#ffdad7' }]}>
-            <Package size={32} color="#b3261e" weight="fill" />
-          </View>
-          <Text style={styles.smallTitle}>Delivery</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={[styles.largeIconBackground, styles.deliveryIconBackground]}>
+          <Package size={40} color={colors.error} weight="fill" />
+        </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -77,6 +64,11 @@ const styles = StyleSheet.create({
     width: '100%',
     ...shadows.md,
     marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  deliveryCard: {
+    marginBottom: spacing.sm,
   },
   textContainer: {
     flexDirection: 'column',
@@ -85,47 +77,23 @@ const styles = StyleSheet.create({
   largeTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: 24,
-    color: '#181c20',
+    color: colors.textPrimary,
     marginBottom: spacing.xxs,
   },
   largeSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.lg,
-    color: '#3c4948',
+    color: colors.textSecondary,
   },
   largeIconBackground: {
-    backgroundColor: '#2ac1bc',
+    backgroundColor: colors.primaryLight, // Vibrant Mint Green
     borderRadius: borderRadius.xl,
     width: 80,
     height: 80,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  smallCardsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  smallCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 0.48,
-    ...shadows.md,
-  },
-  smallIconBackground: {
-    borderRadius: 20,
-    width: 64,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  smallTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: '#181c20',
+  deliveryIconBackground: {
+    backgroundColor: colors.errorLight, // Coral red container background
   },
 });

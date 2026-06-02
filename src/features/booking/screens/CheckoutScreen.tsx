@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   dropOffOptionActive: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(10, 126, 164, 0.04)',
+    backgroundColor: colors.primaryFaded,
   },
   dropOffEmoji: {
     fontSize: 20,

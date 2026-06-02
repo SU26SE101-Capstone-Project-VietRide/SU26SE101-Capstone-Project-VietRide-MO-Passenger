@@ -7,36 +7,14 @@
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet } from 'react-native';
 
 import type { MainTabParamList } from './types';
-import { fontFamilies, fontSizes } from '@shared/theme';
-import { HomeScreen } from '@features/home';
-import { BookingNavigator } from '@features/booking';
-import { ParcelNavigator } from '@features/parcel';
+import { HomeScreen, NotificationScreen } from '@features/home';
+import { TrackingNavigator } from '@features/tracking';
+import { ProfileNavigator, BookingHistoryScreen } from '@features/profile';
 import { CustomTabBar } from '@shared/components';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
-
-// ─── Placeholder Screens ──────────────────────────────────
-
-function TrackingScreen(): React.JSX.Element {
-  return (
-    <View style={styles.placeholder}>
-      <Text style={styles.placeholderText}>Scan QR Code</Text>
-    </View>
-  );
-}
-
-
-
-function ProfileScreen(): React.JSX.Element {
-  return (
-    <View style={styles.placeholder}>
-      <Text style={styles.placeholderText}>Profile</Text>
-    </View>
-  );
-}
 
 // ─── Navigator ────────────────────────────────────────────
 export function MainTabNavigator(): React.JSX.Element {
@@ -48,25 +26,10 @@ export function MainTabNavigator(): React.JSX.Element {
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Booking" component={BookingNavigator} />
-      <Tab.Screen name="Tracking" component={TrackingScreen} />
-      <Tab.Screen name="Parcel" component={ParcelNavigator} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Notification" component={NotificationScreen} />
+      <Tab.Screen name="Tracking" component={TrackingNavigator} />
+      <Tab.Screen name="BookingHistory" component={BookingHistoryScreen} />
+      <Tab.Screen name="Profile" component={ProfileNavigator} />
     </Tab.Navigator>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────
-const styles = StyleSheet.create({
-  placeholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F7F9FF',
-  },
-  placeholderText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.lg,
-    color: '#3c4948',
-  },
-});

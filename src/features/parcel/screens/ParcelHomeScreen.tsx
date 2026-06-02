@@ -5,26 +5,30 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Modal,
   FlatList,
+  Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import {
-  Bell,
-  Package,
   MapPin,
   CaretDown,
   ArrowRight,
-  MagnifyingGlass,
+  ArrowLeft,
   Gift,
   PlusCircle,
   Truck,
-  CheckCircle,
+  PaperPlaneTilt,
+  Check,
 } from 'phosphor-react-native';
+import { ProfileHeader } from '@shared/components';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ParcelStackParamList } from '@app/navigation/types';
+
+// Static asset imports to comply with security/lazy-loading bundling best practices
+const catMascotImage = require('../../../assets/images/image 1.png');
 
 // Mock list of cities and districts for selection
 const CITIES = ['Ho Chi Minh City', 'Sapa', 'Da Lat', 'Ha Noi'];
@@ -35,25 +39,7 @@ const DISTRICTS: Record<string, string[]> = {
   'Ha Noi': ['Hoan Kiem District', 'Ba Dinh District', 'Tay Ho District', 'Cau Giay District'],
 };
 
-// Mock Recent Shipments
-const RECENT_SHIPMENTS = [
-  {
-    id: 'VR-8829',
-    toLocation: 'Da Lat',
-    status: 'in_transit',
-    date: 'Expected: tomorrow',
-    price: 85000,
-    size: 'medium',
-  },
-  {
-    id: 'VR-7741',
-    toLocation: 'Ho Chi Minh City',
-    status: 'delivered',
-    date: 'Oct 24, 2023',
-    price: 35000,
-    size: 'small',
-  },
-];
+
 
 type ParcelHomeNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelList'>;
 
@@ -103,42 +89,32 @@ export function ParcelHomeScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header */}
-      <View style={styles.header}>
-        <View style={styles.profileRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>VT</Text>
-          </View>
-          <View style={styles.profileTextContainer}>
-            <Text style={styles.greeting}>Xin chào,</Text>
-            <Text style={styles.userName}>Viết Thông</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
-          <Bell size={22} color={colors.textPrimary} weight="medium" />
-        </TouchableOpacity>
-      </View>
+      {/* Shared Reusable Profile Header */}
+      <ProfileHeader />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Welcome Section */}
+        {/* Hello Mascot Greeting */}
         <View style={styles.welcomeSection}>
           <View style={styles.welcomeTextColumn}>
             <Text style={styles.welcomeTitle}>Hello! 👋</Text>
             <Text style={styles.welcomeSubtitle}>Where are we sending joy today?</Text>
+
           </View>
           <View style={styles.mascotContainer}>
-            <View style={styles.mascotGradientCircle}>
-              <Package size={48} color={colors.textInverse} weight="fill" />
-            </View>
+            <Image
+              source={catMascotImage}
+              style={styles.mascotImage}
+              resizeMode="contain"
+            />
           </View>
         </View>
 
-        {/* Action Bento Grid */}
-        <View style={styles.bentoContainer}>
-          <Text style={styles.bentoTitle}>Start a Shipment</Text>
+        {/* Start a Shipment Card */}
+        <View style={styles.startShipmentCard}>
+          <Text style={styles.startShipmentTitle}>Start a Shipment</Text>
 
           {/* From Selector */}
-          <Text style={styles.selectorLabel}>From</Text>
+          <Text style={styles.fieldLabel}>From</Text>
           <TouchableOpacity
             style={styles.selectorField}
             onPress={() => {
@@ -148,12 +124,14 @@ export function ParcelHomeScreen(): React.JSX.Element {
             activeOpacity={0.8}
           >
             <MapPin size={20} color={colors.primary} weight="bold" />
-            <Text style={styles.selectorText}>{fromCity}</Text>
+            <Text style={styles.selectorText}>
+              {fromCity === 'Ho Chi Minh City' ? 'Select Origin City/District' : fromCity}
+            </Text>
             <CaretDown size={16} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* To Selectors */}
-          <Text style={[styles.selectorLabel, { marginTop: spacing.md }]}>To</Text>
+          {/* To Selector */}
+          <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>To</Text>
           <View style={styles.toRow}>
             <TouchableOpacity
               style={[styles.selectorField, { flex: 1 }]}
@@ -163,10 +141,11 @@ export function ParcelHomeScreen(): React.JSX.Element {
               }}
               activeOpacity={0.8}
             >
+              <PaperPlaneTilt size={18} color={colors.primary} weight="bold" />
               <Text style={styles.selectorText} numberOfLines={1}>
-                {toCity}
+                {toCity === 'Sapa' ? 'Select City' : toCity}
               </Text>
-              <CaretDown size={16} color={colors.textSecondary} />
+              <CaretDown size={14} color={colors.textSecondary} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -177,31 +156,32 @@ export function ParcelHomeScreen(): React.JSX.Element {
               }}
               activeOpacity={0.8}
             >
+              <PaperPlaneTilt size={18} color={colors.primary} weight="bold" />
               <Text style={styles.selectorText} numberOfLines={1}>
-                {toDistrict}
+                {toDistrict === 'Select District' ? 'Select District' : toDistrict}
               </Text>
-              <CaretDown size={16} color={colors.textSecondary} />
+              <CaretDown size={14} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {/* Next Button */}
           <TouchableOpacity
-            style={styles.nextButton}
+            style={styles.nextCTAButton}
             onPress={handleStartShipment}
             activeOpacity={0.85}
           >
-            <Text style={styles.nextButtonText}>Next</Text>
+            <Text style={styles.nextCTAButtonText}>Next</Text>
             <ArrowRight size={18} color={colors.textInverse} weight="bold" />
           </TouchableOpacity>
 
-          {/* Quick Track Link */}
+          {/* Track existing shipment Button */}
           <TouchableOpacity
-            style={styles.trackLink}
+            style={styles.trackExistingBtn}
             onPress={() => handleTrackShipment('VR-8829')}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <MagnifyingGlass size={16} color={colors.primary} weight="bold" />
-            <Text style={styles.trackLinkText}>Track existing shipment</Text>
+            <Truck size={16} color={colors.textPrimary} weight="bold" style={{ transform: [{ scaleX: -1 }] }} />
+            <Text style={styles.trackExistingBtnText}>Track existing shipment</Text>
           </TouchableOpacity>
         </View>
 
@@ -214,71 +194,70 @@ export function ParcelHomeScreen(): React.JSX.Element {
             </TouchableOpacity>
           </View>
 
-          {RECENT_SHIPMENTS.map((shipment) => (
-            <TouchableOpacity
-              key={shipment.id}
-              style={styles.shipmentCard}
-              onPress={() => handleTrackShipment(shipment.id)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.shipmentIconContainer}>
-                <Package size={24} color={colors.primary} weight="duotone" />
-              </View>
-              <View style={styles.shipmentInfo}>
-                <View style={styles.shipmentRow}>
-                  <Text style={styles.shipmentDestination}>To: {shipment.toLocation}</Text>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      shipment.status === 'in_transit'
-                        ? styles.badgeTransit
-                        : styles.badgeDelivered,
-                    ]}
-                  >
-                    {shipment.status === 'in_transit' ? (
-                      <Truck size={12} color={colors.accentDark} weight="fill" />
-                    ) : (
-                      <CheckCircle size={12} color={colors.success} weight="fill" />
-                    )}
-                    <Text
-                      style={[
-                        styles.statusText,
-                        shipment.status === 'in_transit'
-                          ? styles.textTransit
-                          : styles.textDelivered,
-                      ]}
-                    >
-                      {shipment.status === 'in_transit' ? 'In Transit' : 'Delivered'}
-                    </Text>
-                  </View>
+          {/* Shipment Card 1: In Transit */}
+          <TouchableOpacity
+            style={styles.shipmentCard}
+            onPress={() => handleTrackShipment('VR-8829')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.shipmentIconContainer}>
+              <Truck size={24} color={colors.primary} weight="bold" />
+            </View>
+            <View style={styles.shipmentInfo}>
+              <View style={styles.shipmentRow}>
+                <Text style={styles.shipmentDestination}>To: Da Lat</Text>
+                <View style={styles.badgeTransit}>
+                  <Text style={styles.textTransit}>In Transit</Text>
                 </View>
-                <Text style={styles.shipmentMeta}>
-                  Order #{shipment.id} • {shipment.date}
-                </Text>
               </View>
-            </TouchableOpacity>
-          ))}
+              <Text style={styles.shipmentMeta}>
+                Order #VR-8829 • Expected: tomorrow
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Shipment Card 2: Delivered */}
+          <TouchableOpacity
+            style={styles.shipmentCard}
+            onPress={() => handleTrackShipment('VR-7741')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.shipmentIconContainer}>
+              <Check size={20} color={colors.textTertiary} weight="bold" />
+            </View>
+            <View style={styles.shipmentInfo}>
+              <View style={styles.shipmentRow}>
+                <Text style={styles.shipmentDestination}>To: Ho Chi Minh City</Text>
+                <View style={styles.badgeDelivered}>
+                  <Text style={styles.textDelivered}>Delivered</Text>
+                </View>
+              </View>
+              <Text style={styles.shipmentMeta}>
+                Order #VR-7741 • Oct 24, 2023
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Illustration Promo Banner */}
         <View style={styles.promoCard}>
           <View style={styles.promoTextContent}>
-            <Text style={styles.promoTitle}>Invite friends, get coins!</Text>
+            <Text style={styles.promoTitle}>Invite friends,</Text>
+            <Text style={styles.promoTitle}>get coins!</Text>
             <Text style={styles.promoDesc}>
               Share your delivery code and get 50,000 VND off your next parcel.
             </Text>
             <TouchableOpacity style={styles.promoButton} activeOpacity={0.8}>
-              <Gift size={16} color={colors.textInverse} weight="fill" />
               <Text style={styles.promoButtonText}>Share Now</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.promoGiftContainer}>
-            <PlusCircle size={64} color="rgba(255, 255, 255, 0.25)" weight="light" style={styles.promoBgCircle} />
-            <Gift size={52} color={colors.accentLight} weight="fill" />
+            <PlusCircle size={64} color="rgba(255, 255, 255, 0.15)" weight="light" style={styles.promoBgCircle} />
+            <Gift size={48} color="rgba(255, 255, 255, 0.3)" weight="fill" />
           </View>
         </View>
-        
-        {/* Extra spacing at the bottom of the ScrollView to clear absolute bottom tab bar */}
+
+        {/* Extra spacing at bottom */}
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -289,27 +268,52 @@ export function ParcelHomeScreen(): React.JSX.Element {
         animationType="slide"
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalContent}
+            activeOpacity={1}
+          >
             <Text style={styles.modalTitle}>
               {selectorType === 'from'
                 ? 'Select Origin City'
                 : selectorType === 'toCity'
-                ? 'Select Destination City'
-                : 'Select District'}
+                  ? 'Select Destination City'
+                  : 'Select District'}
             </Text>
             <FlatList
               data={getSelectorData()}
               keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.modalItem}
-                  onPress={() => handleSelect(item)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.modalItemText}>{item}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const isSelected =
+                  (selectorType === 'from' && item === fromCity) ||
+                  (selectorType === 'toCity' && item === toCity) ||
+                  (selectorType === 'toDistrict' && item === toDistrict);
+
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.modalItem,
+                      isSelected && styles.modalItemSelected
+                    ]}
+                    onPress={() => handleSelect(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.modalItemText,
+                      isSelected && styles.modalItemTextSelected
+                    ]}>
+                      {item}
+                    </Text>
+                    {isSelected && (
+                      <Check size={18} color={colors.primary} weight="bold" />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
               ItemSeparatorComponent={() => <View style={styles.modalSeparator} />}
             />
             <TouchableOpacity
@@ -319,8 +323,8 @@ export function ParcelHomeScreen(): React.JSX.Element {
             >
               <Text style={styles.closeModalButtonText}>Cancel</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
@@ -329,129 +333,75 @@ export function ParcelHomeScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#E6F4F3', // Soft, premium light baby blue/minty canvas matching screenshot
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-  },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primaryFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-  },
-  avatarText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: colors.primary,
-  },
-  profileTextContainer: {
-    justifyContent: 'center',
-  },
-  greeting: {
-    fontFamily: fontFamilies.regular,
-    fontSize: 10,
-    color: colors.textSecondary,
-  },
-  userName: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: colors.textPrimary,
-  },
-  bellButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceAlt,
-  },
+
   scrollContent: {
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
   },
   welcomeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: spacing.md,
+    marginVertical: spacing.lg,
+    paddingRight: spacing.xs,
   },
   welcomeTextColumn: {
-    flex: 1,
+    flex: 1.4,
   },
   welcomeTitle: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xxl,
+    fontSize: 34,
     color: colors.textPrimary,
+    lineHeight: 38,
     marginBottom: spacing.xs,
   },
   welcomeSubtitle: {
     fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
+    fontSize: 18,
     color: colors.textSecondary,
-    lineHeight: fontSizes.sm * 1.3,
+    lineHeight: 24,
   },
   mascotContainer: {
-    width: 80,
-    height: 80,
-    alignItems: 'center',
+    flex: 1,
+    alignItems: 'flex-end',
     justifyContent: 'center',
   },
-  mascotGradientCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.md,
+  mascotImage: {
+    width: 96,
+    height: 96,
   },
-  bentoContainer: {
+  startShipmentCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
+    borderRadius: 28, // super-rounded 28px standard squircle
     padding: spacing.xl,
     ...shadows.md,
     borderWidth: 1,
     borderColor: colors.divider,
     marginBottom: spacing.xxl,
   },
-  bentoTitle: {
+  startShipmentTitle: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
+    fontSize: 20,
     color: colors.textPrimary,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
-  selectorLabel: {
+  fieldLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     marginBottom: spacing.xs,
+    paddingLeft: 2,
   },
   selectorField: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: colors.divider,
-    borderRadius: borderRadius.md,
+    borderRadius: 16, // 16px soft radius
     height: 48,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
@@ -466,33 +416,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  nextButton: {
+  nextCTAButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
+    borderRadius: 16,
     height: 48,
     marginTop: spacing.xl,
-    gap: spacing.sm,
+    gap: spacing.xs,
     ...shadows.sm,
   },
-  nextButtonText: {
+  nextCTAButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: colors.textInverse,
   },
-  trackLink: {
+  trackExistingBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.lg,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 24,
+    height: 44,
+    marginTop: spacing.md,
     gap: spacing.xs,
   },
-  trackLinkText: {
-    fontFamily: fontFamilies.semiBold,
+  trackExistingBtnText: {
+    fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: colors.textPrimary,
   },
   recentSection: {
     marginBottom: spacing.xxl,
@@ -505,11 +458,11 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
+    fontSize: 18,
     color: colors.textPrimary,
   },
   viewAllText: {
-    fontFamily: fontFamilies.medium,
+    fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: colors.primary,
   },
@@ -517,7 +470,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: 24,
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
@@ -525,10 +478,10 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   shipmentIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primaryFaded,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -546,69 +499,70 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: colors.textPrimary,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-    gap: 4,
+    flex: 1,
+    paddingRight: spacing.sm,
   },
   badgeTransit: {
-    backgroundColor: colors.warningLight,
+    backgroundColor: colors.successLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   badgeDelivered: {
-    backgroundColor: colors.successLight,
-  },
-  statusText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: 9,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   textTransit: {
-    color: colors.accentDark,
+    fontFamily: fontFamilies.bold,
+    fontSize: 10,
+    color: colors.primary,
   },
   textDelivered: {
-    color: colors.success,
+    fontFamily: fontFamilies.bold,
+    fontSize: 10,
+    color: colors.textTertiary,
   },
   shipmentMeta: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     color: colors.textTertiary,
+    lineHeight: 16,
   },
   promoCard: {
     flexDirection: 'row',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.xl,
+    backgroundColor: '#CEAB00', // Premium golden mustard yellow color matching tertiary guidelines
+    borderRadius: 24,
     padding: spacing.xl,
     ...shadows.md,
     overflow: 'hidden',
+    position: 'relative',
   },
   promoTextContent: {
     flex: 1.4,
+    zIndex: 2,
   },
   promoTitle: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: colors.textInverse,
+    fontSize: 18,
+    color: '#3A2E00', // Dark contrast text
     marginBottom: spacing.xs,
   },
   promoDesc: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: 'rgba(255, 255, 255, 0.8)',
-    lineHeight: fontSizes.xs * 1.4,
+    color: '#4F4000',
+    lineHeight: 18,
     marginBottom: spacing.md,
   },
   promoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.accent,
-    paddingHorizontal: spacing.md,
+    backgroundColor: '#3A2E00', // Dark brown/charcoal solid pill
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    gap: spacing.xs,
+    borderRadius: 24,
     alignSelf: 'flex-start',
+    ...shadows.sm,
   },
   promoButtonText: {
     fontFamily: fontFamilies.bold,
@@ -616,25 +570,27 @@ const styles = StyleSheet.create({
     color: colors.textInverse,
   },
   promoGiftContainer: {
-    flex: 1,
-    alignItems: 'center',
+    flex: 0.8,
+    alignItems: 'flex-end',
     justifyContent: 'center',
     position: 'relative',
   },
   promoBgCircle: {
     position: 'absolute',
+    opacity: 0.15,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(9, 30, 66, 0.54)',
+    backgroundColor: 'rgba(24, 28, 32, 0.4)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     padding: spacing.xl,
     maxHeight: '60%',
+    ...shadows.lg,
   },
   modalTitle: {
     fontFamily: fontFamilies.bold,
@@ -645,12 +601,23 @@ const styles = StyleSheet.create({
   },
   modalItem: {
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    borderRadius: 12,
+  },
+  modalItemSelected: {
+    backgroundColor: 'rgba(42, 193, 188, 0.08)',
   },
   modalItemText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
     color: colors.textPrimary,
+  },
+  modalItemTextSelected: {
+    fontFamily: fontFamilies.bold,
+    color: colors.primary,
   },
   modalSeparator: {
     height: 1,

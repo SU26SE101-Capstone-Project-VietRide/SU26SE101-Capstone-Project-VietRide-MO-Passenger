@@ -1,21 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   TextInput,
   Switch,
   Image,
+  PanResponder,
+  Modal,
+  Alert,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { Input } from '@shared/components';
 import { useNavigation } from '@react-navigation/native';
 import {
   ArrowLeft,
   Check,
   FileText,
-  Tshirt,
+  TShirt,
   DeviceMobile,
   BowlFood,
   DotsThreeCircle,
@@ -24,12 +29,17 @@ import {
   CreditCard,
   Wallet,
   X,
+  Lightning,
+  FolderOpen,
+  Sliders,
 } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ParcelStackParamList } from '@app/navigation/types';
 import { StationCard, ParcelSkeleton, ErrorView } from '../components';
 import type { Station } from '../types';
+
+const catMascotImage = require('../../../assets/images/image 1.png');
 
 // Mock list of stations
 const MOCK_STATIONS: Station[] = [
@@ -42,15 +52,19 @@ const MOCK_STATIONS: Station[] = [
     rating: 4.8,
     reviewsCount: 82,
     city: 'Ho Chi Minh City',
+    workingHours: '05:00 - 22:00',
+    acceptingParcels: true,
   },
   {
     id: 'ST-002',
     name: 'FUTA Le Hong Phong Office',
     address: '233 Le Hong Phong, Ward 4, District 5, HCMC',
-    distance: '2.5 km away',
+    distance: '3.5 km away',
     rating: 4.6,
     reviewsCount: 68,
     city: 'Ho Chi Minh City',
+    workingHours: '06:00 - 21:00',
+    acceptingParcels: true,
   },
   {
     id: 'ST-003',
@@ -60,6 +74,8 @@ const MOCK_STATIONS: Station[] = [
     rating: 4.7,
     reviewsCount: 115,
     city: 'Ho Chi Minh City',
+    workingHours: '05:00 - 22:00',
+    acceptingParcels: true,
   },
 ];
 
@@ -67,6 +83,7 @@ type CreateParcelNavProp = NativeStackNavigationProp<ParcelStackParamList, 'Crea
 
 export function CreateParcelScreen(): React.JSX.Element {
   const navigation = useNavigation<CreateParcelNavProp>();
+  const insets = useSafeAreaInsets();
 
   // Wizard state
   const [step, setStep] = useState(1);
@@ -86,6 +103,73 @@ export function CreateParcelScreen(): React.JSX.Element {
   const [photos, setPhotos] = useState<string[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'wallet' | 'card'>('wallet');
 
+  // Draggable slider width state
+  const [sliderWidth, setSliderWidth] = useState(0);
+
+  // Simulated Camera / Gallery states
+  const [choiceSheetVisible, setChoiceSheetVisible] = useState(false);
+  const [cameraViewVisible, setCameraViewVisible] = useState(false);
+  const [galleryViewVisible, setGalleryViewVisible] = useState(false);
+  const [selectedGalleryPhotos, setSelectedGalleryPhotos] = useState<number[]>([]);
+  const [flashActive, setFlashActive] = useState(false);
+
+  // Simulated gallery package pictures
+  const MOCK_GALLERY_PHOTOS = [
+    'https://picsum.photos/id/10/400/300',
+    'https://picsum.photos/id/11/400/300',
+    'https://picsum.photos/id/20/400/300',
+    'https://picsum.photos/id/24/400/300',
+    'https://picsum.photos/id/26/400/300',
+    'https://picsum.photos/id/48/400/300',
+  ];
+
+  // Draggable slider touch handler
+  const handleSliderTouch = (locationX: number) => {
+    if (sliderWidth <= 0) return;
+    const ratio = Math.max(0, Math.min(locationX / sliderWidth, 1));
+    const minWeight = 0.5;
+    const maxWeight = weightUnit === 'kg' ? 30 : 66;
+    const calculated = minWeight + ratio * (maxWeight - minWeight);
+    setPackageWeight(Number(calculated.toFixed(1)));
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        handleSliderTouch(evt.nativeEvent.locationX);
+      },
+      onPanResponderMove: (evt) => {
+        handleSliderTouch(evt.nativeEvent.locationX);
+      },
+    })
+  ).current;
+
+  const handleChooseGalleryPhoto = (index: number) => {
+    if (selectedGalleryPhotos.includes(index)) {
+      setSelectedGalleryPhotos(selectedGalleryPhotos.filter((i) => i !== index));
+    } else {
+      setSelectedGalleryPhotos([...selectedGalleryPhotos, index]);
+    }
+  };
+
+  const handleImportGalleryPhotos = () => {
+    const newPhotos = selectedGalleryPhotos.map((idx) => MOCK_GALLERY_PHOTOS[idx]);
+    setPhotos([...photos, ...newPhotos]);
+    setSelectedGalleryPhotos([]);
+    setGalleryViewVisible(false);
+  };
+
+  const handleSnapPhoto = () => {
+    setFlashActive(true);
+    setTimeout(() => {
+      setFlashActive(false);
+      setPhotos([...photos, 'https://picsum.photos/id/60/400/300']);
+      setCameraViewVisible(false);
+    }, 300);
+  };
+
   // Re-trigger simulated skeleton loader when changing steps (Stage 1 and 2)
   useEffect(() => {
     if (step === 1 || step === 2) {
@@ -100,11 +184,11 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   const handleNextStep = () => {
     if (step === 1 && !receivingStation) {
-      alert('Please select a receiving station.');
+      Alert.alert('VietRide', 'Please select a receiving station.');
       return;
     }
     if (step === 2 && !dropoffStation) {
-      alert('Please select a drop-off station.');
+      Alert.alert('VietRide', 'Please select a drop-off station.');
       return;
     }
     if (step === 4) {
@@ -129,7 +213,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   // Mock Photo selector simulator
   const handleAddPhoto = () => {
-    setPhotos([...photos, 'https://picsum.photos/id/10/200/200']);
+    setChoiceSheetVisible(true);
   };
 
   const handleRemovePhoto = (index: number) => {
@@ -160,71 +244,123 @@ export function CreateParcelScreen(): React.JSX.Element {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Top Navbar */}
-      <View style={styles.navbar}>
-        <TouchableOpacity style={styles.navButton} onPress={handleBackStep} activeOpacity={0.7}>
-          <ArrowLeft size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={styles.navHeaderTitleContainer}>
-          <Text style={styles.navTitle}>{getHeaderTitle()}</Text>
-          {(step === 1 || step === 2) && (
-            <Text style={styles.navSubtitle}>HCMC ➔ Sapa • 3 Stations</Text>
-          )}
-        </View>
-        <TouchableOpacity style={styles.navButton} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <X size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
+    <View style={styles.root}>
+      {/* Absolute Background Gradient at the top */}
+      <View style={styles.gradientContainer} pointerEvents="none">
+        <Svg height="460" width="100%">
+          <Defs>
+            <LinearGradient id="headerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.55} />
+              <Stop offset="55%" stopColor="#2AC1BC" stopOpacity={0.18} />
+              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#headerGrad)" />
+        </Svg>
       </View>
 
-      {/* Steps Tracker */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBarBg}>
-          <View
-            style={[
-              styles.progressBarActive,
-              { width: `${((step - 1) / 3) * 100}%` },
-            ]}
-          />
-        </View>
-        <View style={styles.stepsRow}>
-          {[1, 2, 3, 4].map((s) => {
-            const isActive = s === step;
-            const isCompleted = s < step;
-            return (
-              <View key={`step-${s}`} style={styles.stepBubbleContainer}>
-                <View
-                  style={[
-                    styles.stepBubble,
-                    isActive && styles.stepBubbleActive,
-                    isCompleted && styles.stepBubbleCompleted,
-                  ]}
-                >
-                  {isCompleted ? (
-                    <Check size={14} color={colors.textInverse} weight="bold" />
-                  ) : (
-                    <Text
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        {/* Top Navbar */}
+        <View style={styles.navbar}>
+          {/* Row 1: Header Controls */}
+          <View style={styles.navHeaderRow}>
+            <TouchableOpacity style={styles.navButtonLeft} onPress={handleBackStep} activeOpacity={0.7}>
+              <ArrowLeft size={18} color="#006A67" />
+            </TouchableOpacity>
+            <View style={styles.navHeaderTitleContainer}>
+              {(step === 1 || step === 2) ? (
+                <>
+                  <Text style={styles.navSubtitleTeal}>3 Stations</Text>
+                  <Text style={styles.navTitleLarge}>Ho Chi Minh ➔ Sapa</Text>
+                </>
+              ) : (
+                <Text style={styles.navTitle}>{getHeaderTitle()}</Text>
+              )}
+            </View>
+            {(step === 1 || step === 2) ? (
+              <TouchableOpacity style={styles.navButtonRight} onPress={() => console.log('Filter pressed')} activeOpacity={0.7}>
+                <Sliders size={18} color="#FFF" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.navButtonCancel} onPress={handleBackStep} activeOpacity={0.7}>
+                <X size={18} color="#006A67" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Row 2: Compact Steps Tracker inside the Navbar */}
+          <View style={styles.progressContainerInsideNavbar}>
+            <View style={styles.progressBarBgInsideNavbar}>
+              <View
+                style={[
+                  styles.progressBarActiveInsideNavbar,
+                  { width: `${((step - 1) / 3) * 100}%` },
+                ]}
+              />
+            </View>
+            <View style={styles.stepsRowInsideNavbar}>
+              {[1, 2, 3, 4].map((s) => {
+                const isActive = s === step;
+                const isCompleted = s < step;
+                return (
+                  <View key={`step-${s}`} style={styles.stepBubbleContainerInsideNavbar}>
+                    <View
                       style={[
-                        styles.stepText,
-                        isActive && styles.stepTextActive,
-                        isCompleted && styles.stepTextCompleted,
+                        styles.stepBubbleInsideNavbar,
+                        isActive && styles.stepBubbleActiveInsideNavbar,
+                        isCompleted && styles.stepBubbleCompletedInsideNavbar,
                       ]}
                     >
-                      {s}
-                    </Text>
-                  )}
-                </View>
-                <Text style={[styles.stepLabel, isActive && styles.stepLabelActive]}>
-                  {s === 1 ? 'Station' : s === 2 ? 'Drop-off' : s === 3 ? 'Package' : 'Payment'}
-                </Text>
-              </View>
-            );
-          })}
+                      {isCompleted ? (
+                        <Check size={12} color="#006A67" weight="bold" />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.stepTextInsideNavbar,
+                            isActive && styles.stepTextActiveInsideNavbar,
+                            isCompleted && styles.stepTextCompletedInsideNavbar,
+                          ]}
+                        >
+                          {s}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Row 3: Step Heading, Subtext & Mascot (for ALL steps) */}
+          <View style={styles.stepHeaderWithMascotInsideNavbar}>
+            <View style={styles.stepHeaderTextContainer}>
+              <Text style={styles.headingInsideNavbar}>
+                {step === 1 && 'Choose Receiving Station'}
+                {step === 2 && 'Choose Sending Station'}
+                {step === 3 && 'Tell us about your package'}
+                {step === 4 && 'Order Summary'}
+              </Text>
+              <Text style={styles.subtextInsideNavbar}>
+                {step === 1 && 'Where should we pick up?'}
+                {step === 2 && 'Where will you drop off your parcel?'}
+                {step === 3 && 'Help us find the right vehicle for you.'}
+                {step === 4 && 'Confirm details and make payment.'}
+              </Text>
+            </View>
+            <Image
+              source={catMascotImage}
+              style={styles.mascotHeadingImageInsideNavbar}
+              resizeMode="contain"
+            />
+          </View>
         </View>
-      </View>
 
       {/* Main Content Area */}
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 + Math.max(insets.bottom, spacing.md) }]}
+        showsVerticalScrollIndicator={false}
+      >
         {isError ? (
           <ErrorView onRetry={() => setIsError(false)} />
         ) : isLoading ? (
@@ -235,11 +371,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           <View>
             {/* Step 1: Receiving Station */}
             {step === 1 && (
-              <View style={styles.stepContent}>
-                <View style={styles.stepHeader}>
-                  <Text style={styles.heading}>Choose Receiving Station</Text>
-                  <Text style={styles.subtext}>Where should we pick up the parcel?</Text>
-                </View>
+              <View style={[styles.stepContent, styles.stepContentOverlap]}>
                 {MOCK_STATIONS.map((station) => (
                   <StationCard
                     key={station.id}
@@ -253,11 +385,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
             {/* Step 2: Drop-off Station */}
             {step === 2 && (
-              <View style={styles.stepContent}>
-                <View style={styles.stepHeader}>
-                  <Text style={styles.heading}>Choose Drop-off Station</Text>
-                  <Text style={styles.subtext}>Where will you drop off your parcel?</Text>
-                </View>
+              <View style={[styles.stepContent, styles.stepContentOverlap]}>
                 {MOCK_STATIONS.map((station) => (
                   <StationCard
                     key={station.id}
@@ -271,11 +399,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
             {/* Step 3: Package Details Form */}
             {step === 3 && (
-              <View style={styles.stepContent}>
-                <View style={styles.stepHeader}>
-                  <Text style={styles.heading}>Tell us about your package</Text>
-                  <Text style={styles.subtext}>Help us find the right vehicle for you.</Text>
-                </View>
+              <View style={[styles.stepContent, styles.stepContentOverlap]}>
 
                 {/* Package Size Selectors */}
                 <Text style={styles.formLabel}>Package Size</Text>
@@ -298,7 +422,7 @@ export function CreateParcelScreen(): React.JSX.Element {
                     <View style={styles.checkedCircle}>
                       {packageSize === 'medium' && <Check size={10} color={colors.textInverse} weight="bold" />}
                     </View>
-                    <Tshirt size={28} color={packageSize === 'medium' ? colors.primary : colors.textSecondary} />
+                    <TShirt size={28} color={packageSize === 'medium' ? colors.primary : colors.textSecondary} />
                     <Text style={styles.sizeTitle}>Medium</Text>
                     <Text style={styles.sizeSub}>Box / Clothes</Text>
                   </TouchableOpacity>
@@ -348,24 +472,56 @@ export function CreateParcelScreen(): React.JSX.Element {
                     style={styles.weightInput}
                     keyboardType="numeric"
                     value={packageWeight.toString()}
-                    onChangeText={(text) => setPackageWeight(Number(text) || 0)}
+                    onChangeText={(text) => {
+                      const cleanText = text.replace(/[^0-9.]/g, '');
+                      setPackageWeight(Number(cleanText) || 0.5);
+                    }}
                   />
                   <Text style={styles.weightInputUnit}>{weightUnit}</Text>
                 </View>
 
                 {/* Weight slider simulation bar */}
                 <View style={styles.sliderContainer}>
-                  <View style={styles.sliderTrack}>
+                  <View
+                    style={styles.sliderTrack}
+                    onLayout={(event) => {
+                      const { width } = event.nativeEvent.layout;
+                      setSliderWidth(width);
+                    }}
+                    {...panResponder.panHandlers}
+                  >
                     <View
+                      pointerEvents="none"
                       style={[
                         styles.sliderFill,
-                        { width: `${Math.min((packageWeight / (weightUnit === 'kg' ? 30 : 66)) * 100, 100)}%` },
+                        {
+                          width: `${Math.max(
+                            0,
+                            Math.min(
+                              ((packageWeight - 0.5) /
+                                ((weightUnit === 'kg' ? 30 : 66) - 0.5)) *
+                              100,
+                              100
+                            )
+                          )}%`,
+                        },
                       ]}
                     />
                     <View
+                      pointerEvents="none"
                       style={[
                         styles.sliderThumb,
-                        { left: `${Math.min((packageWeight / (weightUnit === 'kg' ? 30 : 66)) * 100, 100)}%` },
+                        {
+                          left: `${Math.max(
+                            0,
+                            Math.min(
+                              ((packageWeight - 0.5) /
+                                ((weightUnit === 'kg' ? 30 : 66) - 0.5)) *
+                              100,
+                              100
+                            )
+                          )}%`,
+                        },
                       ]}
                     />
                   </View>
@@ -383,7 +539,7 @@ export function CreateParcelScreen(): React.JSX.Element {
                   {['Documents', 'Clothing', 'Electronics', 'Food', 'Others'].map((cat) => {
                     const isSelected = packageCategory === cat;
                     let CategoryIcon = FileText;
-                    if (cat === 'Clothing') CategoryIcon = Tshirt;
+                    if (cat === 'Clothing') CategoryIcon = TShirt;
                     if (cat === 'Electronics') CategoryIcon = DeviceMobile;
                     if (cat === 'Food') CategoryIcon = BowlFood;
                     if (cat === 'Others') CategoryIcon = DotsThreeCircle;
@@ -417,36 +573,24 @@ export function CreateParcelScreen(): React.JSX.Element {
                 </View>
 
                 {codEnabled && (
-                  <View style={styles.estimatedValueCard}>
-                    <Text style={styles.formLabel}>COD Collection Amount</Text>
-                    <View style={styles.currencyInputContainer}>
-                      <Text style={styles.currencyPrefix}>₫</Text>
-                      <TextInput
-                        style={styles.currencyInput}
-                        placeholder="Enter COD amount"
-                        keyboardType="numeric"
-                        value={codAmount}
-                        onChangeText={setCodAmount}
-                      />
-                    </View>
-                  </View>
+                  <Input
+                    label="COD Collection Amount"
+                    placeholder="Enter COD amount (₫)"
+                    keyboardType="numeric"
+                    value={codAmount}
+                    onChangeText={setCodAmount}
+                  />
                 )}
 
                 {/* Estimated Value */}
-                <View style={styles.estimatedValueCard}>
-                  <Text style={styles.formLabel}>Estimated Value (Optional)</Text>
-                  <View style={styles.currencyInputContainer}>
-                    <Text style={styles.currencyPrefix}>₫</Text>
-                    <TextInput
-                      style={styles.currencyInput}
-                      placeholder="Enter package value"
-                      keyboardType="numeric"
-                      value={estimatedValue}
-                      onChangeText={setEstimatedValue}
-                    />
-                  </View>
-                  <Text style={styles.formCaption}>For insurance purposes in case of damage.</Text>
-                </View>
+                <Input
+                  label="Estimated Value (Optional)"
+                  placeholder="Enter package value (₫)"
+                  keyboardType="numeric"
+                  value={estimatedValue}
+                  onChangeText={setEstimatedValue}
+                  hint="For insurance purposes in case of damage."
+                />
 
                 {/* Photo Simulation */}
                 <Text style={[styles.formLabel, { marginTop: spacing.lg }]}>Photos (Optional)</Text>
@@ -486,11 +630,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
             {/* Step 4: Summary & Payment */}
             {step === 4 && (
-              <View style={styles.stepContent}>
-                <View style={styles.stepHeader}>
-                  <Text style={styles.heading}>Order Summary</Text>
-                  <Text style={styles.subtext}>Confirm details and make payment.</Text>
-                </View>
+              <View style={[styles.stepContent, styles.stepContentOverlap]}>
 
                 {/* Route bento details card */}
                 <View style={styles.bentoSummaryCard}>
@@ -522,7 +662,7 @@ export function CreateParcelScreen(): React.JSX.Element {
                   <Text style={styles.bentoCardHeading}>Package Specifications</Text>
                   <View style={styles.specCardRow}>
                     <View style={styles.specIcon}>
-                      <Tshirt size={22} color={colors.primary} weight="duotone" />
+                      <TShirt size={22} color={colors.primary} weight="duotone" />
                     </View>
                     <View style={styles.specDetails}>
                       <Text style={styles.specTitle}>
@@ -633,7 +773,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       </ScrollView>
 
       {/* Absolute Next Action Bar */}
-      <View style={styles.actionBar}>
+      <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
         {step === 4 && (
           <View style={styles.priceSummaryBox}>
             <Text style={styles.totalPriceLabel}>Total Amount</Text>
@@ -656,33 +796,301 @@ export function CreateParcelScreen(): React.JSX.Element {
           />
         </TouchableOpacity>
       </View>
+
+      {/* Photo Upload Method Choice Modal (Bottom Sheet Style) */}
+      <Modal
+        visible={choiceSheetVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setChoiceSheetVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setChoiceSheetVisible(false)}
+          />
+          <View style={styles.choiceSheet}>
+            <View style={styles.choiceDragHandle} />
+            <View style={styles.choiceHeader}>
+              <Text style={styles.choiceTitle}>Add Parcel Photo</Text>
+              <Text style={styles.choiceSubtitle}>Choose how you want to upload your package photos</Text>
+            </View>
+
+            <View style={styles.choiceOptionsRow}>
+              <TouchableOpacity
+                style={styles.choiceOptionCard}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setChoiceSheetVisible(false);
+                  setTimeout(() => setCameraViewVisible(true), 100);
+                }}
+              >
+                <View style={[styles.choiceOptionIconBg, { backgroundColor: colors.primaryFaded }]}>
+                  <Camera size={28} color={colors.primary} weight="duotone" />
+                </View>
+                <Text style={styles.choiceOptionTitle}>Use Camera</Text>
+                <Text style={styles.choiceOptionDesc}>Take a live photo of the package</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.choiceOptionCard}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setChoiceSheetVisible(false);
+                  setTimeout(() => setGalleryViewVisible(true), 100);
+                }}
+              >
+                <View style={[styles.choiceOptionIconBg, { backgroundColor: colors.surfaceAlt }]}>
+                  <FolderOpen size={28} color={colors.textSecondary} weight="duotone" />
+                </View>
+                <Text style={styles.choiceOptionTitle}>From Gallery</Text>
+                <Text style={styles.choiceOptionDesc}>Upload from photo library</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.choiceCancelButton}
+              activeOpacity={0.85}
+              onPress={() => setChoiceSheetVisible(false)}
+            >
+              <Text style={styles.choiceCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Simulated Active Camera Viewfinder Modal */}
+      <Modal
+        visible={cameraViewVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setCameraViewVisible(false)}
+      >
+        <SafeAreaView style={styles.cameraContainer}>
+          {/* Top Bar Controls */}
+          <View style={styles.cameraTopBar}>
+            <TouchableOpacity
+              style={styles.cameraCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => setCameraViewVisible(false)}
+            >
+              <X size={20} color={colors.textInverse} />
+            </TouchableOpacity>
+
+            <Text style={styles.cameraModeText}>PHOTO MODE</Text>
+
+            <TouchableOpacity
+              style={[styles.cameraFlashBtn, flashActive && styles.cameraFlashBtnActive]}
+              activeOpacity={0.7}
+              onPress={() => setFlashActive(!flashActive)}
+            >
+              <Lightning
+                size={20}
+                color={flashActive ? colors.warning : colors.textInverse}
+                weight={flashActive ? 'fill' : 'regular'}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Camera Viewfinder Area */}
+          <View style={styles.cameraViewfinder}>
+            {/* Viewfinder 3x3 Grid Overlay */}
+            <View style={styles.gridOverlay}>
+              <View style={styles.gridRow}>
+                <View style={styles.gridCell} />
+                <View style={[styles.gridCell, styles.gridCellMiddleCol]} />
+                <View style={styles.gridCell} />
+              </View>
+              <View style={[styles.gridRow, styles.gridRowMiddleRow]}>
+                <View style={styles.gridCell} />
+                <View style={[styles.gridCell, styles.gridCellMiddleCol]} />
+                <View style={styles.gridCell} />
+              </View>
+              <View style={styles.gridRow}>
+                <View style={styles.gridCell} />
+                <View style={[styles.gridCell, styles.gridCellMiddleCol]} />
+                <View style={styles.gridCell} />
+              </View>
+            </View>
+
+            {/* Simulated Live Viewfinder Content */}
+            <Image
+              source={{ uri: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?q=80&w=600&auto=format&fit=crop' }}
+              style={styles.cameraMockBg}
+            />
+
+            {/* Viewfinder Center Focus Cursor */}
+            <View style={styles.cameraFocusCursor}>
+              <View style={styles.cameraFocusRing} />
+              <Text style={styles.cameraFocusText}>AF-L</Text>
+            </View>
+
+            {/* Snap Shutter Flash Overlay */}
+            {flashActive && (
+              <View style={styles.cameraFlashOverlay} pointerEvents="none" />
+            )}
+          </View>
+
+          {/* Camera Bottom Action Bar */}
+          <View style={styles.cameraBottomBar}>
+            <View style={styles.cameraAlbumPreview}>
+              {photos.length > 0 ? (
+                <Image source={{ uri: photos[photos.length - 1] }} style={styles.cameraAlbumThumb} />
+              ) : (
+                <View style={styles.cameraAlbumEmpty} />
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.cameraShutterOuter}
+              activeOpacity={0.8}
+              onPress={handleSnapPhoto}
+            >
+              <View style={styles.cameraShutterInner} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cameraFlipBtn}
+              activeOpacity={0.7}
+              onPress={() => Alert.alert('VietRide', 'Switched to front camera (simulation)')}
+            >
+              <Text style={styles.cameraFlipText}>FLIP</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Simulated Gallery Photo Selection Modal */}
+      <Modal
+        visible={galleryViewVisible}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={() => setGalleryViewVisible(false)}
+      >
+        <SafeAreaView style={styles.galleryContainer}>
+          {/* Header */}
+          <View style={styles.galleryHeader}>
+            <TouchableOpacity
+              style={styles.galleryCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setSelectedGalleryPhotos([]);
+                setGalleryViewVisible(false);
+              }}
+            >
+              <ArrowLeft size={22} color={colors.textPrimary} />
+            </TouchableOpacity>
+
+            <View style={styles.galleryTitleContainer}>
+              <Text style={styles.galleryTitle}>All Photos</Text>
+              <Text style={styles.gallerySubtitle}>Select package photos to import</Text>
+            </View>
+
+            {selectedGalleryPhotos.length > 0 ? (
+              <Text style={styles.gallerySelectionCount}>{selectedGalleryPhotos.length} selected</Text>
+            ) : (
+              <View style={styles.headerSpacer} />
+            )}
+          </View>
+
+          {/* Photo Grid */}
+          <ScrollView contentContainerStyle={styles.galleryScroll} showsVerticalScrollIndicator={false}>
+            <View style={styles.galleryGrid}>
+              {MOCK_GALLERY_PHOTOS.map((uri, index) => {
+                const isSelected = selectedGalleryPhotos.includes(index);
+                const selectionIndex = selectedGalleryPhotos.indexOf(index);
+                return (
+                  <TouchableOpacity
+                    key={`gallery-item-${index}`}
+                    style={[styles.galleryGridItem, isSelected && styles.galleryGridItemActive]}
+                    activeOpacity={0.85}
+                    onPress={() => handleChooseGalleryPhoto(index)}
+                  >
+                    <Image source={{ uri }} style={styles.galleryImage} />
+                    {isSelected && (
+                      <View style={styles.galleryCheckboxActive}>
+                        <Text style={styles.galleryCheckboxText}>{selectionIndex + 1}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          {/* Bottom Import Action Bar */}
+          <View style={styles.galleryBottomBar}>
+            <TouchableOpacity
+              style={[
+                styles.galleryImportBtn,
+                selectedGalleryPhotos.length === 0 && styles.galleryImportBtnDisabled
+              ]}
+              disabled={selectedGalleryPhotos.length === 0}
+              activeOpacity={0.85}
+              onPress={handleImportGalleryPhotos}
+            >
+              <Text style={styles.galleryImportBtnText}>
+                {selectedGalleryPhotos.length > 0
+                  ? `Import Selected (${selectedGalleryPhotos.length})`
+                  : 'Select Photos to Import'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
+  </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  gradientContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 460,
+    zIndex: 0,
+  },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   navbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    paddingBottom: spacing.lg,
+    backgroundColor: 'transparent',
+    zIndex: 10,
   },
-  navButton: {
+  navButtonLeft: {
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: 'rgba(0, 106, 103, 0.18)',
+  },
+  navButtonRight: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: '#006A67', // Deep teal filter button
+  },
+  navButtonCancel: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 106, 103, 0.18)', // Soft teal ghost cancel button
   },
   navHeaderTitleContainer: {
     alignItems: 'center',
@@ -693,83 +1101,124 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     color: colors.textPrimary,
   },
-  navSubtitle: {
-    fontFamily: fontFamilies.regular,
+  navSubtitleTeal: {
+    fontFamily: fontFamilies.bold,
     fontSize: 10,
-    color: colors.textSecondary,
+    color: '#006A67',
+    letterSpacing: 0.5,
+  },
+  navTitleLarge: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: colors.textPrimary,
     marginTop: 2,
   },
-  progressContainer: {
-    paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    ...shadows.sm,
+  stepHeaderWithMascotInsideNavbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.xl, // Taller Y-spacing as requested
+    paddingHorizontal: spacing.xs,
+    paddingBottom: spacing.xs,
   },
-  progressBarBg: {
+  stepHeaderTextContainer: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  headingInsideNavbar: {
+    fontFamily: fontFamilies.bold,
+    fontSize: 22,
+    color: '#004845', // Deep teal on light mint background
+    lineHeight: 28,
+  },
+  subtextInsideNavbar: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: '#3C6965', // Muted teal-grey
+    marginTop: spacing.xs,
+  },
+  mascotHeadingImageInsideNavbar: {
+    width: 60,
+    height: 60,
+    marginTop: -8,
+  },
+  scrollContainer: {
+    backgroundColor: 'transparent',
+  },
+  stepContentOverlap: {
+    marginTop: -10, // Adjusted vertical overlap margin to prevent card CLOSEST text from being hidden
+  },
+  navHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  progressContainerInsideNavbar: {
+    width: '100%',
+    paddingHorizontal: spacing.xxl,
+    marginTop: spacing.xl, // Expanded vertical spacing
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressBarBgInsideNavbar: {
     height: 4,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: 'rgba(0, 106, 103, 0.12)',
     borderRadius: 2,
     position: 'absolute',
     left: spacing.xxl + 16,
     right: spacing.xxl + 16,
-    top: spacing.md + 14,
-  },
-  progressBarActive: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
-  stepsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  stepBubbleContainer: {
-    alignItems: 'center',
-    width: 50,
-  },
-  stepBubble: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    top: 12,
     zIndex: 1,
   },
-  stepBubbleActive: {
-    backgroundColor: colors.surface,
-    borderColor: colors.primary,
-    borderWidth: 2,
+  progressBarActiveInsideNavbar: {
+    height: '100%',
+    backgroundColor: '#006A67',
+    borderRadius: 2,
   },
-  stepBubbleCompleted: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  stepsRowInsideNavbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    zIndex: 2,
   },
-  stepText: {
+  stepBubbleContainerInsideNavbar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBubbleInsideNavbar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 106, 103, 0.2)',
+  },
+  stepBubbleActiveInsideNavbar: {
+    backgroundColor: '#006A67',
+    borderColor: '#006A67',
+    shadowColor: '#004845',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  stepBubbleCompletedInsideNavbar: {
+    backgroundColor: '#2AC1BC',
+    borderColor: '#2AC1BC',
+  },
+  stepTextInsideNavbar: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    fontSize: fontSizes.sm,
+    color: '#006A67',
   },
-  stepTextActive: {
-    color: colors.primary,
+  stepTextActiveInsideNavbar: {
+    color: '#FFFFFF',
   },
-  stepTextCompleted: {
-    color: colors.textInverse,
-  },
-  stepLabel: {
-    fontFamily: fontFamilies.medium,
-    fontSize: 9,
-    color: colors.textTertiary,
-    marginTop: spacing.xs,
-  },
-  stepLabelActive: {
-    color: colors.primary,
-    fontFamily: fontFamilies.bold,
+  stepTextCompletedInsideNavbar: {
+    color: '#FFFFFF',
   },
   scrollContent: {
     paddingTop: spacing.lg,
@@ -819,7 +1268,7 @@ const styles = StyleSheet.create({
   sizeCardActive: {
     borderColor: colors.primary,
     borderWidth: 2,
-    backgroundColor: 'rgba(10, 126, 164, 0.02)',
+    backgroundColor: '#F4FBFB', // Solid opaque light mint to prevent Android shadow bleeding
   },
   sizeTitle: {
     fontFamily: fontFamilies.bold,
@@ -1198,7 +1647,7 @@ const styles = StyleSheet.create({
   paymentOptionActive: {
     borderColor: colors.primary,
     borderWidth: 1.5,
-    backgroundColor: 'rgba(10, 126, 164, 0.01)',
+    backgroundColor: '#F4FBFB', // Solid opaque light mint to prevent Android shadow bleeding
   },
   paymentRadio: {
     width: 18,
@@ -1341,5 +1790,372 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: colors.textInverse,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(24, 28, 32, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  choiceSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl + 20,
+    ...shadows.lg,
+  },
+  choiceDragHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
+  },
+  choiceHeader: {
+    marginBottom: spacing.xl,
+  },
+  choiceTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.lg,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  choiceSubtitle: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  choiceOptionsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  choiceOptionCard: {
+    flex: 1,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 20,
+    padding: spacing.lg,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.divider,
+  },
+  choiceOptionIconBg: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  choiceOptionTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  choiceOptionDesc: {
+    fontFamily: fontFamilies.regular,
+    fontSize: 9,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  choiceCancelButton: {
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  choiceCancelButtonText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: colors.textPrimary,
+  },
+  cameraContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  cameraTopBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    backgroundColor: '#000000',
+  },
+  cameraCloseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraModeText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: colors.textInverse,
+    letterSpacing: 2,
+  },
+  cameraFlashBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraFlashBtnActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  cameraViewfinder: {
+    flex: 1,
+    aspectRatio: 3 / 4,
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: '#111111',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraMockBg: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  gridOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2,
+  },
+  gridRow: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  gridRowMiddleRow: {
+    borderTopWidth: 0.5,
+    borderBottomWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  gridCell: {
+    flex: 1,
+  },
+  gridCellMiddleCol: {
+    borderLeftWidth: 0.5,
+    borderRightWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  cameraFocusCursor: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  cameraFocusRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 1.5,
+    borderColor: '#FFE177',
+    borderStyle: 'dashed',
+  },
+  cameraFocusText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: 9,
+    color: '#FFE177',
+    marginTop: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  cameraFlashOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#FFFFFF',
+    zIndex: 10,
+  },
+  cameraBottomBar: {
+    height: 120,
+    backgroundColor: '#000000',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xxl,
+  },
+  cameraAlbumPreview: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#222222',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    overflow: 'hidden',
+  },
+  cameraAlbumThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  cameraAlbumEmpty: {
+    flex: 1,
+  },
+  cameraShutterOuter: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 4,
+    borderColor: colors.textInverse,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraShutterInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.textInverse,
+  },
+  cameraFlipBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraFlipText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: 10,
+    color: colors.textInverse,
+  },
+  galleryContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  galleryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  galleryCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  galleryTitleContainer: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  galleryTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: colors.textPrimary,
+  },
+  gallerySubtitle: {
+    fontFamily: fontFamilies.regular,
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  gallerySelectionCount: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: colors.primary,
+  },
+  galleryScroll: {
+    padding: spacing.xl,
+  },
+  galleryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  galleryGridItem: {
+    width: '47%',
+    aspectRatio: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    position: 'relative',
+    ...shadows.sm,
+  },
+  galleryGridItemActive: {
+    borderColor: colors.primary,
+  },
+  galleryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  galleryCheckboxActive: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderWidth: 1.5,
+    borderColor: colors.textInverse,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.sm,
+  },
+  galleryCheckboxText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: 10,
+    color: colors.textInverse,
+  },
+  galleryBottomBar: {
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    ...shadows.lg,
+  },
+  galleryImportBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 24,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.sm,
+  },
+  galleryImportBtnDisabled: {
+    backgroundColor: colors.border,
+  },
+  galleryImportBtnText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: colors.textInverse,
+  },
+  headerSpacer: {
+    width: 40,
   },
 });

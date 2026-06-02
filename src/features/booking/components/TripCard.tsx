@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   badge: {
-    backgroundColor: 'rgba(10, 126, 164, 0.08)',
+    backgroundColor: colors.primaryFaded,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   seatsLeftBadge: {
-    backgroundColor: 'rgba(10, 126, 164, 0.08)',
+    backgroundColor: colors.primaryFaded,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
