@@ -13,6 +13,7 @@ import type { MainTabParamList } from './types';
 import { fontFamilies, fontSizes } from '@shared/theme';
 import { HomeScreen } from '@features/home';
 import { BookingNavigator } from '@features/booking';
+import { ParcelNavigator } from '@features/parcel';
 import { CustomTabBar } from '@shared/components';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -27,13 +28,7 @@ function TrackingScreen(): React.JSX.Element {
   );
 }
 
-function ParcelScreen(): React.JSX.Element {
-  return (
-    <View style={styles.placeholder}>
-      <Text style={styles.placeholderText}>Wallet / Parcel</Text>
-    </View>
-  );
-}
+
 
 function ProfileScreen(): React.JSX.Element {
   return (
@@ -55,7 +50,7 @@ export function MainTabNavigator(): React.JSX.Element {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Booking" component={BookingNavigator} />
       <Tab.Screen name="Tracking" component={TrackingScreen} />
-      <Tab.Screen name="Parcel" component={ParcelScreen} />
+      <Tab.Screen name="Parcel" component={ParcelNavigator} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
