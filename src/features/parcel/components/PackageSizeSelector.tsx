@@ -33,9 +33,11 @@ export const PackageSizeSelector = memo(function PackageSizeSelector({
               onPress={() => onSelect(key)}
               activeOpacity={0.8}
             >
-              <View style={styles.checkedCircle}>
-                {active && <Check size={10} color={colors.textInverse} weight="bold" />}
-              </View>
+              {active && (
+                <View style={styles.checkedCircle}>
+                  <Check size={10} color={colors.textInverse} weight="bold" />
+                </View>
+              )}
               <Icon size={28} color={active ? colors.primary : colors.textSecondary} />
               <Text style={[styles.sizeTitle, active && styles.sizeTitleActive]}>{label}</Text>
               <Text style={[styles.sizeSub, active && styles.sizeSubActive]}>{sub}</Text>

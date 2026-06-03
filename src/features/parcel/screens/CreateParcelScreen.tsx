@@ -236,7 +236,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             <View>
               {/* Step 1: Receiving Station */}
               {step === 1 && (
-                <View style={[styles.stepContent, styles.stepContentOverlap]}>
+                <View style={[styles.stepContent]}>
                   {MOCK_STATIONS.map((station) => (
                     <StationCard
                       key={station.id}
@@ -250,7 +250,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
               {/* Step 2: Drop-off Station */}
               {step === 2 && (
-                <View style={[styles.stepContent, styles.stepContentOverlap]}>
+                <View style={[styles.stepContent]}>
                   {MOCK_STATIONS.map((station) => (
                     <StationCard
                       key={station.id}
@@ -264,7 +264,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
               {/* Step 3: Package Details Form */}
               {step === 3 && (
-                <View style={[styles.stepContent, styles.stepContentOverlap]}>
+                <View style={[styles.stepContent]}>
                   <PackageSizeSelector
                     packageSize={packageSize}
                     onSelect={setPackageSize}
@@ -319,7 +319,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
               {/* Step 4: Summary & Payment */}
               {step === 4 && (
-                <View style={[styles.stepContent, styles.stepContentOverlap]}>
+                <View style={[styles.stepContent]}>
                   <PricingBreakdown
                     receivingStation={receivingStation}
                     dropoffStation={dropoffStation}
@@ -476,7 +476,6 @@ const styles = StyleSheet.create({
   scrollContainer: { flex: 1 },
   scrollContent: { paddingHorizontal: spacing.xl, paddingTop: 0 },
   stepContent: { paddingBottom: 80 },
-  stepContentOverlap: { marginTop: -spacing.md },
   codCard: {
     flexDirection: 'row',
     alignItems: 'center',

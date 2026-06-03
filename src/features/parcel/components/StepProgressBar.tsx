@@ -1,11 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ArrowLeft, Sliders, X, Check } from 'phosphor-react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '@app/navigation/types';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
-
-type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export interface StepProgressBarProps {
   step: number;
@@ -21,7 +17,7 @@ export const StepProgressBar = ({ step, onCancel, onFilter = () => {} }: StepPro
       {/* Row 1: Header Controls */}
       <View style={styles.navHeaderRow}>
         <TouchableOpacity style={styles.navButtonLeft} onPress={onCancel} activeOpacity={0.7}>
-          <ArrowLeft size={18} color="#006A67" />
+          <ArrowLeft size={18} color={colors.primary} />
         </TouchableOpacity>
 
         <View style={styles.navHeaderTitleContainer}>
@@ -37,11 +33,11 @@ export const StepProgressBar = ({ step, onCancel, onFilter = () => {} }: StepPro
 
         {(step === 1 || step === 2) ? (
           <TouchableOpacity style={styles.navButtonRight} onPress={handleFilter} activeOpacity={0.7}>
-            <Sliders size={18} color="#FFF" />
+            <Sliders size={18} color={colors.textInverse} />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.navButtonCancel} onPress={onCancel} activeOpacity={0.7}>
-            <X size={18} color="#006A67" />
+            <X size={18} color={colors.primary} />
           </TouchableOpacity>
         )}
       </View>
@@ -70,7 +66,7 @@ export const StepProgressBar = ({ step, onCancel, onFilter = () => {} }: StepPro
                   ]}
                 >
                   {isCompleted ? (
-                    <Check size={12} color="#006A67" weight="bold" />
+                    <Check size={12} color={colors.textInverse} weight="bold" />
                   ) : (
                     <Text
                       style={[
@@ -112,7 +108,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: 'rgba(0, 106, 103, 0.18)',
+    backgroundColor: colors.primaryFaded,
   },
   navButtonRight: {
     width: 36,
@@ -120,7 +116,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: '#006A67',
+    backgroundColor: colors.primary,
   },
   navButtonCancel: {
     width: 36,
@@ -128,7 +124,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: 'rgba(0, 106, 103, 0.18)',
+    backgroundColor: colors.primaryFaded,
   },
   navHeaderTitleContainer: {
     alignItems: 'center',
@@ -140,12 +136,12 @@ const styles = StyleSheet.create({
   navTitleLarge: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: '#FFFFFF',
+    color: colors.textInverse,
   },
   navSubtitleTeal: {
     fontFamily: fontFamilies.medium,
     fontSize: 10,
-    color: '#B2F0EC',
+    color: colors.accentLight,
     marginBottom: 2,
   },
   progressContainerInsideNavbar: {
@@ -154,14 +150,14 @@ const styles = StyleSheet.create({
   progressBarBgInsideNavbar: {
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: colors.surfaceAlt,
     overflow: 'hidden',
     marginBottom: spacing.sm,
   },
   progressBarActiveInsideNavbar: {
     height: '100%',
     borderRadius: 1.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.textInverse,
   },
   stepsRowInsideNavbar: {
     flexDirection: 'row',
@@ -175,30 +171,30 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: colors.textInverse,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepBubbleActiveInsideNavbar: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: colors.primaryDark,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 5,
   },
   stepBubbleCompletedInsideNavbar: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primaryDark,
   },
   stepTextInsideNavbar: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: '#FFFFFF',
+    color: colors.primary,
   },
   stepTextActiveInsideNavbar: {
-    color: '#006A67',
+    color: colors.textInverse,
   },
   stepTextCompletedInsideNavbar: {
-    color: '#006A67',
+    color: colors.textInverse,
   },
 });

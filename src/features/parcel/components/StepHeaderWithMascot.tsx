@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import type { ColorValue } from 'react-native';
 
 const catMascotImage = require('@assets/images/image 1.png');
 
@@ -59,13 +60,13 @@ const styles = StyleSheet.create({
   headingInsideNavbar: {
     fontFamily: fontFamilies.bold,
     fontSize: 22,
-    color: '#004845',
+    color: colors.primaryDark as ColorValue,
     marginBottom: spacing.xs,
   },
   subtextInsideNavbar: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: '#5F6D6C',
+    color: colors.textSecondary as ColorValue,
   },
   mascotHeadingImageInsideNavbar: {
     width: 52,
