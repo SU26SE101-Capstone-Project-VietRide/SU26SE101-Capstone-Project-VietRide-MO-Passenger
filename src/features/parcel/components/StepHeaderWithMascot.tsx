@@ -1,0 +1,74 @@
+import React from 'react';
+import { View, Text, StyleSheet, Image } from 'react-native';
+import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+
+const catMascotImage = require('@assets/images/image 1.png');
+
+export interface StepHeaderWithMascotProps {
+  step: number;
+}
+
+export const StepHeaderWithMascot = ({ step }: StepHeaderWithMascotProps): React.JSX.Element => {
+  const heading = (() => {
+    switch (step) {
+      case 1: return 'Choose Receiving Station';
+      case 2: return 'Choose Sending Station';
+      case 3: return 'Tell us about your package';
+      case 4: return 'Order Summary';
+      default: return 'Create Parcel';
+    }
+  })();
+
+  const subtext = (() => {
+    switch (step) {
+      case 1: return 'Where should we pick up?';
+      case 2: return 'Where will you drop off your parcel?';
+      case 3: return 'Help us find the right vehicle for you.';
+      case 4: return 'Confirm details and make payment.';
+      default: return '';
+    }
+  })();
+
+  return (
+    <View style={styles.stepHeaderWithMascotInsideNavbar}>
+      <View style={styles.stepHeaderTextContainer}>
+        <Text style={styles.headingInsideNavbar}>{heading}</Text>
+        <Text style={styles.subtextInsideNavbar}>{subtext}</Text>
+      </View>
+      <Image
+        source={catMascotImage}
+        style={styles.mascotHeadingImageInsideNavbar}
+        resizeMode="contain"
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  stepHeaderWithMascotInsideNavbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  stepHeaderTextContainer: {
+    flex: 1.4,
+  },
+  headingInsideNavbar: {
+    fontFamily: fontFamilies.bold,
+    fontSize: 22,
+    color: '#004845',
+    marginBottom: spacing.xs,
+  },
+  subtextInsideNavbar: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: '#5F6D6C',
+  },
+  mascotHeadingImageInsideNavbar: {
+    width: 52,
+    height: 52,
+  },
+});

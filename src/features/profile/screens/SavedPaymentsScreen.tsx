@@ -229,7 +229,10 @@ export function SavedPaymentsScreen(): React.JSX.Element {
                   {/* Delete Button */}
                   <TouchableOpacity
                     style={styles.deleteButton}
-                    onPress={() => handleDelete(method.id)}
+                    onPress={(e) => {
+  e.stopPropagation();
+  handleDelete(method.id);
+}}
                     activeOpacity={0.6}
                   >
                     <Trash size={18} color={colors.error} />

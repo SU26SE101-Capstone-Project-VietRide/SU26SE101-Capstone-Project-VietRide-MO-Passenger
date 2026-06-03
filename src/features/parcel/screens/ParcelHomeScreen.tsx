@@ -26,6 +26,7 @@ import { ProfileHeader } from '@shared/components';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ParcelStackParamList } from '@app/navigation/types';
+import type { RootStackParamList } from '@app/navigation/types';
 
 // Static asset imports to comply with security/lazy-loading bundling best practices
 const catMascotImage = require('../../../assets/images/image 1.png');
@@ -42,9 +43,11 @@ const DISTRICTS: Record<string, string[]> = {
 
 
 type ParcelHomeNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelList'>;
+type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function ParcelHomeScreen(): React.JSX.Element {
   const navigation = useNavigation<ParcelHomeNavProp>();
+const rootNav = useNavigation<RootNavProp>();
 
   // State for selections
   const [fromCity, setFromCity] = useState('Ho Chi Minh City');
@@ -90,7 +93,7 @@ export function ParcelHomeScreen(): React.JSX.Element {
   return (
     <SafeAreaView style={styles.container}>
       {/* Shared Reusable Profile Header */}
-      <ProfileHeader />
+      <ProfileHeader onNotificationPress={() => rootNav.navigate('Main', { screen: 'Notification' })} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Hello Mascot Greeting */}

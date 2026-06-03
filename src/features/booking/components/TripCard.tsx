@@ -13,9 +13,10 @@ import type { BusTrip } from '../types';
 interface TripCardProps {
   trip: BusTrip;
   onPress: (trip: BusTrip) => void;
+  isSelected?: boolean;
 }
 
-export function TripCard({ trip, onPress }: TripCardProps): React.JSX.Element {
+export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): React.JSX.Element {
   const progress = (trip.totalSeats - trip.seatsLeft) / trip.totalSeats;
   const seatsUrgent = trip.seatsLeft <= 5;
 
@@ -27,7 +28,7 @@ export function TripCard({ trip, onPress }: TripCardProps): React.JSX.Element {
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={() => onPress(trip)}
-      style={styles.card}
+      style={[styles.card, isSelected && styles.cardSelected]}
     >
       {/* Top row: badge + price */}
       <View style={styles.topRow}>
@@ -88,7 +89,14 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.xxl,
     marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
     ...shadows.md,
+  },
+  cardSelected: {
+    borderColor: colors.primary,
+    backgroundColor: '#F4FBFB',
+    borderWidth: 2,
   },
   topRow: {
     flexDirection: 'row',

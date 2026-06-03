@@ -5,14 +5,16 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { CheckCircle, QrCode, ArrowLeft, House, MagnifyingGlass, Wallet } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { ParcelStackParamList } from '@app/navigation/types';
+import type { ParcelStackParamList, RootStackParamList } from '@app/navigation/types';
 
 type ParcelDetailRouteProp = RouteProp<ParcelStackParamList, 'ParcelDetail'>;
 type ParcelDetailNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelDetail'>;
+type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function ParcelDetailScreen(): React.JSX.Element {
   const route = useRoute<ParcelDetailRouteProp>();
   const navigation = useNavigation<ParcelDetailNavProp>();
+const rootNav = useNavigation<RootNavProp>();
   const { parcelId } = route.params;
 
   const handleTrack = () => {
@@ -20,7 +22,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
   };
 
   const handleGoHome = () => {
-    navigation.navigate('ParcelList');
+    rootNav.navigate('Main', { screen: 'Home' });
   };
 
   return (
