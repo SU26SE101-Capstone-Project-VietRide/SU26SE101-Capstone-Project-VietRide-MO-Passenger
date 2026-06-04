@@ -93,12 +93,12 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xxl,
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
-    ...shadows.sm,
+    ...shadows.md,
   },
   cardSelected: {
     borderColor: colors.primary,
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.md,
     padding: spacing.xs,
-    ...shadows.sm,
+    ...shadows.md,
   },
   bottomRow: {
     flexDirection: 'row',

@@ -7,7 +7,9 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { AmbientGlow, AppHeader, TimerPill } from './index';
+import { AmbientGlow } from './AmbientGlow';
+import { AppHeader } from './AppHeader';
+import { TimerPill } from './TimerPill';
 import { spacing } from '@shared/theme';
 
 interface ScreenHeaderProps {

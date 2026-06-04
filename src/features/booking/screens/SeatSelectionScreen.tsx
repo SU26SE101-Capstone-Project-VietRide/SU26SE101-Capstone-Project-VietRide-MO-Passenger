@@ -3,17 +3,14 @@
  *
  * Shows route info card, legend, interactive seat grid,
  * and floating bottom bar with seat summary + price + CTA.
- *
- * Refactored: uses ScreenHeader for consistent top chrome,
- * SeatLegend for the inline legend block.
  */
 
 import React, { useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView, StatusBar } from 'react-native';
+import { StyleSheet, ScrollView, StatusBar, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing } from '@shared/theme';
+import { colors, spacing, borderRadius, shadows } from '@shared/theme';
 import { ScreenHeader, FloatingActionBar, RouteProgressRow, SeatLegend } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { SeatGrid } from '../components/SeatGrid';
@@ -46,7 +43,7 @@ export function SeatSelectionScreen(): React.JSX.Element {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      {/* Header with AmbientGlow */}
+      {/* Header */}
       <ScreenHeader
         title="Select Seat"
         onBackPress={() => navigation.goBack()}
@@ -56,23 +53,30 @@ export function SeatSelectionScreen(): React.JSX.Element {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Route Info Card — uses shared RouteProgressRow */}
-        <RouteProgressRow
-          departureCode={trip?.departureCity?.substring(0, 3).toUpperCase() || 'HCM'}
-          departureTime={trip?.departureTime || '22:30'}
-          arrivalCode={trip?.arrivalCity?.substring(0, 5) || 'Da Lat'}
-          arrivalTime={trip?.arrivalTime || '04:30'}
-          durationHours={trip?.durationHours || 6.5}
-        />
+        {/* Route Info Card */}
+        <View style={styles.card}>
+          <RouteProgressRow
+            departureCode={trip?.departureCity ?? ''}
+            departureTime={trip?.departureTime ?? ''}
+            arrivalCode={trip?.arrivalCity ?? ''}
+            arrivalTime={trip?.arrivalTime ?? ''}
+            durationHours={trip?.durationHours}
+          />
+        </View>
 
-        {/* Legend */}
-        <SeatLegend />
+        {/* Seat Legend */}
+        <View style={styles.legendWrap}>
+          <SeatLegend />
+        </View>
 
-        {/* Seat Grid */}
-        <SeatGrid seatMap={seatMap} onSeatPress={toggleSeat} />
+        {/* Seat Grid — seatWrap must NOT constrain width (no alignItems center) so rows spread into 2-2 layout */}
+        <View style={styles.seatWrap}>
+          <SeatGrid seatMap={seatMap} onSeatPress={toggleSeat} />
+        </View>
+
+        <View style={{ height: 160 }} />
       </ScrollView>
 
-      {/* Floating Action Bar */}
       <FloatingActionBar
         selectedSeats={selectedSeats}
         totalPrice={totalPrice()}
@@ -89,7 +93,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: 220,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xxl,
+    ...shadows.md,
+    marginBottom: spacing.lg,
+  },
+  legendWrap: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  seatWrap: {
+    marginTop: spacing.md,
   },
 });

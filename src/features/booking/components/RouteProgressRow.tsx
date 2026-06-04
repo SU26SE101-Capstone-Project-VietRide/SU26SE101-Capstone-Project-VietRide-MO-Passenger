@@ -72,7 +72,7 @@ export const RouteProgressRow = memo(function RouteProgressRow({
 const styles = StyleSheet.create({
   routeCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     padding: spacing.xxl,
     flexDirection: 'row',
     alignItems: 'center',
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
   routeCode: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xxl,
+    fontSize: fontSizes.xl,
     color: colors.textPrimary,
   },
   routeTime: {

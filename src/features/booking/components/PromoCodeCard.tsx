@@ -18,7 +18,7 @@ export const PromoCodeCard = (): React.JSX.Element => (
 const styles = StyleSheet.create({
   promoCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     padding: spacing.xxl,
     flexDirection: 'row',
     alignItems: 'center',
