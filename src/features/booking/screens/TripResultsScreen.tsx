@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   headerDate: {
     fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.xs,
     color: colors.textSecondary,
     marginTop: 2,
   },

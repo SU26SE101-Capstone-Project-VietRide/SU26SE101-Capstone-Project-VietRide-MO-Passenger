@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
   FlatList,
   Image,
 } from 'react-native';
@@ -13,9 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import {
   MapPin,
-  CaretDown,
   ArrowRight,
-  ArrowLeft,
   Gift,
   PlusCircle,
   Truck,
@@ -26,61 +23,19 @@ import { ProfileHeader } from '@shared/components';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ParcelStackParamList } from '@app/navigation/types';
-import type { RootStackParamList } from '@app/navigation/types';
+import { useParcelStore } from '../store/useParcelStore';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 
 // Static asset imports to comply with security/lazy-loading bundling best practices
 const catMascotImage = require('../../../assets/images/image 1.png');
 
-// Mock list of cities and districts for selection
-const CITIES = ['Ho Chi Minh City', 'Sapa', 'Da Lat', 'Ha Noi'];
-const DISTRICTS: Record<string, string[]> = {
-  'Ho Chi Minh City': ['Binh Thanh District', 'District 1', 'District 3', 'District 5', 'District 10'],
-  Sapa: ['Sapa Town', 'Muong Hoa Valley', 'Ta Van Village', 'Lao Chai Village'],
-  'Da Lat': ['Ward 1', 'Ward 3', 'Ward 10', 'Tuyen Lam Lake Area'],
-  'Ha Noi': ['Hoan Kiem District', 'Ba Dinh District', 'Tay Ho District', 'Cau Giay District'],
-};
-
-
-
 type ParcelHomeNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelList'>;
-type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function ParcelHomeScreen(): React.JSX.Element {
   const navigation = useNavigation<ParcelHomeNavProp>();
-const rootNav = useNavigation<RootNavProp>();
-
-  // State for selections
-  const [fromCity, setFromCity] = useState('Ho Chi Minh City');
-  const [toCity, setToCity] = useState('Sapa');
-  const [toDistrict, setToDistrict] = useState('Select District');
-
-  // Modal selectors states
-  const [selectorType, setSelectorType] = useState<'from' | 'toCity' | 'toDistrict' | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-
-  const handleSelect = (item: string) => {
-    if (selectorType === 'from') {
-      setFromCity(item);
-    } else if (selectorType === 'toCity') {
-      setToCity(item);
-      // Reset district when city changes
-      setToDistrict(DISTRICTS[item]?.[0] || 'Select District');
-    } else if (selectorType === 'toDistrict') {
-      setToDistrict(item);
-    }
-    setModalVisible(false);
-    setSelectorType(null);
-  };
-
-  const getSelectorData = () => {
-    if (selectorType === 'from' || selectorType === 'toCity') {
-      return CITIES;
-    }
-    if (selectorType === 'toDistrict') {
-      return DISTRICTS[toCity] || [];
-    }
-    return [];
-  };
+  const user = useAuthStore((state) => state.user);
+  const fullName = user?.fullName || 'Viết Thông';
+  const { fromCity, toCity, toDistrict, setFromCity, setToCity, setToDistrict } = useParcelStore();
 
   const handleStartShipment = () => {
     navigation.navigate('CreateParcel');
@@ -90,10 +45,26 @@ const rootNav = useNavigation<RootNavProp>();
     navigation.navigate('ParcelTracking', { parcelId });
   };
 
+  const openCityPicker = (mode: 'from' | 'to') => {
+    navigation.navigate('CityPicker', { mode });
+  };
+
+  const openDistrictPicker = () => {
+    navigation.navigate('DistrictPicker', { city: toCity });
+  };
+
+  const displayFrom = fromCity || 'Select Origin City/District';
+  const displayTo = toCity || 'Select City';
+  const displayDistrict = toDistrict === 'Select District' ? 'Select District' : toDistrict;
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Shared Reusable Profile Header */}
-      <ProfileHeader onNotificationPress={() => rootNav.navigate('Main', { screen: 'Notification' })} />
+      <ProfileHeader
+  userName={fullName}
+  greeting="Xin chào,"
+  onNotificationPress={() => {}}
+/>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Hello Mascot Greeting */}
@@ -101,7 +72,6 @@ const rootNav = useNavigation<RootNavProp>();
           <View style={styles.welcomeTextColumn}>
             <Text style={styles.welcomeTitle}>Hello! 👋</Text>
             <Text style={styles.welcomeSubtitle}>Where are we sending joy today?</Text>
-
           </View>
           <View style={styles.mascotContainer}>
             <Image
@@ -116,54 +86,37 @@ const rootNav = useNavigation<RootNavProp>();
         <View style={styles.startShipmentCard}>
           <Text style={styles.startShipmentTitle}>Start a Shipment</Text>
 
-          {/* From Selector */}
+          {/* From Selector — navigate to CityPicker */}
           <Text style={styles.fieldLabel}>From</Text>
           <TouchableOpacity
             style={styles.selectorField}
-            onPress={() => {
-              setSelectorType('from');
-              setModalVisible(true);
-            }}
+            onPress={() => openCityPicker('from')}
             activeOpacity={0.8}
           >
             <MapPin size={20} color={colors.primary} weight="bold" />
-            <Text style={styles.selectorText}>
-              {fromCity === 'Ho Chi Minh City' ? 'Select Origin City/District' : fromCity}
-            </Text>
-            <CaretDown size={16} color={colors.textSecondary} />
+            <Text style={styles.selectorText}>{displayFrom}</Text>
           </TouchableOpacity>
 
-          {/* To Selector */}
+          {/* To Selector — navigate to CityPicker */}
           <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>To</Text>
           <View style={styles.toRow}>
             <TouchableOpacity
               style={[styles.selectorField, { flex: 1 }]}
-              onPress={() => {
-                setSelectorType('toCity');
-                setModalVisible(true);
-              }}
+              onPress={() => openCityPicker('to')}
               activeOpacity={0.8}
             >
               <PaperPlaneTilt size={18} color={colors.primary} weight="bold" />
-              <Text style={styles.selectorText} numberOfLines={1}>
-                {toCity === 'Sapa' ? 'Select City' : toCity}
-              </Text>
-              <CaretDown size={14} color={colors.textSecondary} />
+              <Text style={styles.selectorText} numberOfLines={1}>{displayTo}</Text>
             </TouchableOpacity>
 
+            {/* District Selector — navigate to DistrictPicker */}
             <TouchableOpacity
               style={[styles.selectorField, { flex: 1.2 }]}
-              onPress={() => {
-                setSelectorType('toDistrict');
-                setModalVisible(true);
-              }}
+              onPress={openDistrictPicker}
               activeOpacity={0.8}
             >
               <PaperPlaneTilt size={18} color={colors.primary} weight="bold" />
-              <Text style={styles.selectorText} numberOfLines={1}>
-                {toDistrict === 'Select District' ? 'Select District' : toDistrict}
-              </Text>
-              <CaretDown size={14} color={colors.textSecondary} />
+              <Text style={styles.selectorText} numberOfLines={1}>{displayDistrict}</Text>
             </TouchableOpacity>
           </View>
 
@@ -263,72 +216,6 @@ const rootNav = useNavigation<RootNavProp>();
         {/* Extra spacing at bottom */}
         <View style={{ height: 100 }} />
       </ScrollView>
-
-      {/* Modal Selector Popup */}
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setModalVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalContent}
-            activeOpacity={1}
-          >
-            <Text style={styles.modalTitle}>
-              {selectorType === 'from'
-                ? 'Select Origin City'
-                : selectorType === 'toCity'
-                  ? 'Select Destination City'
-                  : 'Select District'}
-            </Text>
-            <FlatList
-              data={getSelectorData()}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => {
-                const isSelected =
-                  (selectorType === 'from' && item === fromCity) ||
-                  (selectorType === 'toCity' && item === toCity) ||
-                  (selectorType === 'toDistrict' && item === toDistrict);
-
-                return (
-                  <TouchableOpacity
-                    style={[
-                      styles.modalItem,
-                      isSelected && styles.modalItemSelected
-                    ]}
-                    onPress={() => handleSelect(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.modalItemText,
-                      isSelected && styles.modalItemTextSelected
-                    ]}>
-                      {item}
-                    </Text>
-                    {isSelected && (
-                      <Check size={18} color={colors.primary} weight="bold" />
-                    )}
-                  </TouchableOpacity>
-                );
-              }}
-              ItemSeparatorComponent={() => <View style={styles.modalSeparator} />}
-            />
-            <TouchableOpacity
-              style={styles.closeModalButton}
-              onPress={() => setModalVisible(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.closeModalButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -336,9 +223,8 @@ const rootNav = useNavigation<RootNavProp>();
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E6F4F3', // Soft, premium light baby blue/minty canvas matching screenshot
+    backgroundColor: '#E6F4F3',
   },
-
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xs,
@@ -377,7 +263,7 @@ const styles = StyleSheet.create({
   },
   startShipmentCard: {
     backgroundColor: colors.surface,
-    borderRadius: 28, // super-rounded 28px standard squircle
+    borderRadius: 28,
     padding: spacing.xl,
     ...shadows.md,
     borderWidth: 1,
@@ -394,7 +280,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
     color: colors.textSecondary,
-    textTransform: 'none',
     marginBottom: spacing.xs,
     paddingLeft: 2,
   },
@@ -404,7 +289,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     borderWidth: 1.2,
     borderColor: colors.divider,
-    borderRadius: 16, // 16px soft radius
+    borderRadius: 16,
     height: 48,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
@@ -535,7 +420,7 @@ const styles = StyleSheet.create({
   },
   promoCard: {
     flexDirection: 'row',
-    backgroundColor: '#CEAB00', // Premium golden mustard yellow color matching tertiary guidelines
+    backgroundColor: '#CEAB00',
     borderRadius: 24,
     padding: spacing.xl,
     ...shadows.md,
@@ -549,7 +434,7 @@ const styles = StyleSheet.create({
   promoTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: 18,
-    color: '#3A2E00', // Dark contrast text
+    color: '#3A2E00',
     marginBottom: spacing.xs,
   },
   promoDesc: {
@@ -560,7 +445,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   promoButton: {
-    backgroundColor: '#3A2E00', // Dark brown/charcoal solid pill
+    backgroundColor: '#3A2E00',
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
     borderRadius: 24,
@@ -581,62 +466,5 @@ const styles = StyleSheet.create({
   promoBgCircle: {
     position: 'absolute',
     opacity: 0.15,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(24, 28, 32, 0.4)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: spacing.xl,
-    maxHeight: '60%',
-    ...shadows.lg,
-  },
-  modalTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
-    color: colors.textPrimary,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  modalItem: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderRadius: 12,
-  },
-  modalItemSelected: {
-    backgroundColor: 'rgba(42, 193, 188, 0.08)',
-  },
-  modalItemText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.md,
-    color: colors.textPrimary,
-  },
-  modalItemTextSelected: {
-    fontFamily: fontFamilies.bold,
-    color: colors.primary,
-  },
-  modalSeparator: {
-    height: 1,
-    backgroundColor: colors.divider,
-  },
-  closeModalButton: {
-    marginTop: spacing.lg,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: borderRadius.md,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeModalButtonText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
   },
 });

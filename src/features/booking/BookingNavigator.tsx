@@ -1,7 +1,7 @@
 /**
  * BookingNavigator — Manages the ticket booking flow
  *
- * Stack: BusSearch -> TripResults -> SeatSelection -> Checkout -> Payment -> DigitalTicket
+ * Stack: BusSearch -> CityPicker/DatePicker/PassengersPicker -> TripResults -> SeatSelection -> Checkout -> Payment -> DigitalTicket
  */
 
 import React from 'react';
@@ -9,6 +9,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { BookingStackParamList } from '@app/navigation/types';
 
 import { BusSearchScreen } from './screens/BusSearchScreen';
+import { CityPickerScreen } from './screens/CityPickerScreen';
+import { DatePicker } from './screens/DatePickerScreen';
+import { PassengersPicker } from './screens/PassengersPickerScreen';
 import { TripResultsScreen } from './screens/TripResultsScreen';
 import { SeatSelectionScreen } from './screens/SeatSelectionScreen';
 import { CheckoutScreen } from './screens/CheckoutScreen';
@@ -27,6 +30,9 @@ export function BookingNavigator(): React.JSX.Element {
       }}
     >
       <Stack.Screen name="SearchRoutes" component={BusSearchScreen} />
+      <Stack.Screen name="CityPicker" component={CityPickerScreen} />
+      <Stack.Screen name="DatePicker" component={DatePicker} />
+      <Stack.Screen name="PassengersPicker" component={PassengersPicker} />
       <Stack.Screen name="RouteResults" component={TripResultsScreen} />
       <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
       <Stack.Screen name="BookingConfirmation" component={CheckoutScreen} />

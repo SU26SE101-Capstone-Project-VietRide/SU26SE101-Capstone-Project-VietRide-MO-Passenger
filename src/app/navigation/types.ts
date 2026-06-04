@@ -18,6 +18,9 @@ export type AuthStackParamList = {
 // ─── Booking Stack (nested inside Main) ───────────────────
 export type BookingStackParamList = {
   SearchRoutes: undefined;
+  CityPicker: { mode: 'from' | 'to' };
+  DatePicker: undefined;
+  PassengersPicker: { current: number };
   RouteResults: {
     departureId: string;
     destinationId: string;
@@ -49,13 +52,11 @@ export type TrackingStackParamList = {
 // ─── Parcel Stack ─────────────────────────────────────────
 export type ParcelStackParamList = {
   ParcelList: undefined;
+  CityPicker: { mode: 'from' | 'to' };
+  DistrictPicker: { city?: string };
   CreateParcel: undefined;
-  ParcelDetail: {
-    parcelId: string;
-  };
-  ParcelTracking: {
-    parcelId: string;
-  };
+  ParcelDetail: { parcelId: string };
+  ParcelTracking: { parcelId: string };
 };
 
 // ─── Profile Stack ────────────────────────────────────────

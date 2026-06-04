@@ -8,6 +8,8 @@ import {
   CreateParcelScreen,
   ParcelDetailScreen,
   ParcelTrackingScreen,
+  ParcelCityPicker,
+  DistrictPicker,
 } from './screens';
 
 const Stack = createNativeStackNavigator<ParcelStackParamList>();
@@ -21,6 +23,8 @@ export function ParcelNavigator(): React.JSX.Element {
       }}
     >
       <Stack.Screen name="ParcelList" component={ParcelHomeScreen} />
+      <Stack.Screen name="CityPicker" component={ParcelCityPicker} />
+      <Stack.Screen name="DistrictPicker" component={DistrictPicker} />
       <Stack.Screen name="CreateParcel" component={CreateParcelScreen} />
       <Stack.Screen
         name="ParcelDetail"

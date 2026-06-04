@@ -1,15 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 
 interface RouteCardProps {
   from: string;
   to: string;
   price: string;
+  onPress?: () => void;
 }
 
-export const RouteCard = ({ from, to, price }: RouteCardProps): React.JSX.Element => (
-  <View style={styles.routeCard}>
+export const RouteCard = ({ from, to, price, onPress }: RouteCardProps): React.JSX.Element => (
+  <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={styles.routeCard}>
     <View style={styles.routeGradient}>
       <View style={styles.routeBadge}>
         <Text style={styles.routeBadgeText}>🔥 Hot</Text>
@@ -23,7 +24,7 @@ export const RouteCard = ({ from, to, price }: RouteCardProps): React.JSX.Elemen
       </Text>
       <Text style={styles.routePrice}>{price}</Text>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({

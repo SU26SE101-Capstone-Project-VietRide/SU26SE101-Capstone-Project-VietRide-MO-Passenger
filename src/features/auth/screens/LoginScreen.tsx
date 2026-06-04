@@ -34,7 +34,7 @@ export function LoginScreen(): React.JSX.Element {
     // Mock login success
     setUser({
       id: 'mock-user-id',
-      fullName: 'VietRide Rider',
+      fullName: 'Viết Thông',
       phone: phone || '0987654321',
       email: null,
       avatarUrl: null,
