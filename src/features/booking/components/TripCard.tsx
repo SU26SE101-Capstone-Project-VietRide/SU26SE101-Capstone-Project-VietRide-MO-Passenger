@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Bus, Van, Bed } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import type { BusTrip } from '../types';
 
@@ -52,7 +53,7 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
           </View>
           <View style={styles.busIconContainer}>
-            <Text style={styles.busIcon}>🚌</Text>
+            <Bus size={16} weight="fill" color={colors.primary} />
           </View>
         </View>
 
@@ -66,9 +67,15 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
       {/* Bottom row: bus type + seats */}
       <View style={styles.bottomRow}>
         <View style={styles.busTypeContainer}>
-          <Text style={styles.busTypeIcon}>
-            {trip.busType === 'sleeper' ? '🛏️' : trip.busType === 'limousine' ? '🚐' : '🚌'}
-          </Text>
+          <View style={styles.busTypeIconWrapper}>
+            {trip.busType === 'sleeper' ? (
+              <Bed size={18} weight="fill" color={colors.primary} />
+            ) : trip.busType === 'limousine' ? (
+              <Van size={18} weight="fill" color={colors.primary} />
+            ) : (
+              <Bus size={18} weight="fill" color={colors.primary} />
+            )}
+          </View>
           <View style={styles.busTypeLabelContainer}>
             <Text style={styles.busTypeText}>{trip.busLabel}</Text>
           </View>
@@ -87,11 +94,11 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    padding: spacing.xxl,
-    marginBottom: spacing.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
-    ...shadows.md,
+    ...shadows.sm,
   },
   cardSelected: {
     borderColor: colors.primary,
@@ -117,7 +124,7 @@ const styles = StyleSheet.create({
   },
   price: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.h3,
+    fontSize: fontSizes.lg,
     color: colors.primary,
   },
   timeRow: {
@@ -133,7 +140,7 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xxl,
+    fontSize: fontSizes.xl,
     color: colors.textPrimary,
   },
   stationText: {
@@ -168,9 +175,6 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     ...shadows.sm,
   },
-  busIcon: {
-    fontSize: 16,
-  },
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -184,9 +188,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  busTypeIcon: {
-    fontSize: 18,
+  busTypeIconWrapper: {
     marginRight: spacing.sm,
+    width: 20,
+    alignItems: 'center',
   },
   busTypeLabelContainer: {
     flex: 1,

@@ -60,7 +60,7 @@ const MOCK_STATIONS: Station[] = [
     name: 'FUTA Le Hong Phong Office',
     address: '233 Le Hong Phong, Ward 4, District 5, HCMC',
     distance: '3.5 km away',
-  isClosest: false,
+    isClosest: false,
     rating: 4.6,
     reviewsCount: 68,
     city: 'Ho Chi Minh City',
@@ -72,7 +72,7 @@ const MOCK_STATIONS: Station[] = [
     name: 'Thanh Buoi Le Hong Phong Branch',
     address: '266-268 Le Hong Phong, Ward 4, District 5, HCMC',
     distance: '3.8 km away',
-  isClosest: false,
+    isClosest: false,
     rating: 4.7,
     reviewsCount: 115,
     city: 'Ho Chi Minh City',
@@ -215,9 +215,9 @@ export function CreateParcelScreen(): React.JSX.Element {
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StepProgressBar
-        step={step}
-        onCancel={() => rootNav.navigate('Main', { screen: 'Home' })}
-      />
+          step={step}
+          onCancel={() => rootNav.navigate('Main', { screen: 'Home' })}
+        />
         <StepHeaderWithMascot step={step} />
 
         {/* Main Content Area */}

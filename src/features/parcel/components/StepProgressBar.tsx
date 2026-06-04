@@ -136,12 +136,12 @@ const styles = StyleSheet.create({
   navTitleLarge: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textInverse,
+    color: colors.primaryDark,
   },
   navSubtitleTeal: {
     fontFamily: fontFamilies.medium,
     fontSize: 10,
-    color: colors.accentLight,
+    color: colors.primary,
     marginBottom: 2,
   },
   progressContainerInsideNavbar: {

@@ -3,31 +3,35 @@
  *
  * Features: From/To inputs with swap, date & passenger pickers,
  * "Search Buses" CTA, Popular Routes, Recent Searches.
+ *
+ * Refactored: shared SearchForm, RouteCard, RecentSearchCard extracted.
  */
 
 import React, { useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  FlatList,
-  StatusBar,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { AmbientGlow, AppHeader, SearchForm, RouteCard, RecentSearchCard } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
-import {
-  MOCK_POPULAR_ROUTES,
-  MOCK_RECENT_SEARCHES,
-} from '../data/mockData';
+import { MOCK_POPULAR_ROUTES, MOCK_RECENT_SEARCHES } from '../data/mockData';
 import type { BookingStackParamList } from '@app/navigation/types';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'SearchRoutes'>;
+
+interface RouteItem {
+  id: string;
+  from: string;
+  to: string;
+  price: string;
+}
+
+interface RecentItem {
+  id: string;
+  route: string;
+  date: string;
+}
 
 export function BusSearchScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
@@ -41,25 +45,23 @@ export function BusSearchScreen(): React.JSX.Element {
     });
   }, [navigation, searchParams]);
 
+  const renderRouteItem = ({ item }: { item: RouteItem }) => (
+    <RouteCard from={item.from} to={item.to} price={item.price} />
+  );
+
+  const renderRecentItem = ({ item }: { item: RecentItem }) => (
+    <RecentSearchCard route={item.route} date={item.date} />
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F9FF" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <AmbientGlow />
 
-      {/* Ambient glow */}
-      <View style={styles.ambientGlow} />
-
-      {/* Top Header with Back Arrow */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Buy Tickets</Text>
-        <View style={styles.headerRightPlaceholder} />
-      </View>
+      <AppHeader
+        title="Buy Tickets"
+        onBackPress={() => navigation.goBack()}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -68,73 +70,27 @@ export function BusSearchScreen(): React.JSX.Element {
         {/* Greeting */}
         <View style={styles.greeting}>
           <View style={styles.greetingText}>
-            <Text style={styles.greetingEmoji}>Hello! 👋</Text>
+            <Text style={styles.greetingHeadline}>Hello! 👋</Text>
             <Text style={styles.greetingSubtitle}>
               Where are we speeding{'\n'}off to today?
             </Text>
           </View>
+          <View style={styles.avatarPlaceholder} />
         </View>
 
-        {/* Search Card */}
-        <View style={styles.searchCard}>
-          <Text style={styles.searchTitle}>Find Your Bus</Text>
-
-          {/* From Input */}
-          <View style={styles.inputRow}>
-            <View style={styles.inputIcon}>
-              <Text style={styles.inputIconText}>📍</Text>
-            </View>
-            <TouchableOpacity style={styles.inputField}>
-              <Text style={searchParams.from ? styles.inputValue : styles.inputPlaceholder}>
-                {searchParams.from || 'From (e.g. Hanoi)'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Swap Button */}
-          <View style={styles.swapRow}>
-            <View style={styles.swapLine} />
-            <TouchableOpacity onPress={swapCities} style={styles.swapButton}>
-              <Text style={styles.swapIcon}>⇅</Text>
-            </TouchableOpacity>
-            <View style={styles.swapLine} />
-          </View>
-
-          {/* To Input */}
-          <View style={styles.inputRow}>
-            <View style={styles.inputIcon}>
-              <Text style={styles.inputIconText}>📍</Text>
-            </View>
-            <TouchableOpacity style={styles.inputField}>
-              <Text style={searchParams.to ? styles.inputValue : styles.inputPlaceholder}>
-                {searchParams.to || 'To (e.g. Sapa)'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Date & Passengers row */}
-          <View style={styles.datePassRow}>
-            <TouchableOpacity style={styles.halfInput}>
-              <Text style={styles.halfInputIcon}>📅</Text>
-              <Text style={styles.halfInputText}>{searchParams.date}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.halfInput}>
-              <Text style={styles.halfInputIcon}>👤</Text>
-              <Text style={styles.halfInputText}>
-                {searchParams.passengers} Pass
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Search CTA */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={handleSearch}
-            style={styles.searchButton}
-          >
-            <Text style={styles.searchButtonText}>Search Buses</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Search Form — extracted component */}
+        <SearchForm
+          from={searchParams.from}
+          to={searchParams.to}
+          date={searchParams.date}
+          passengers={searchParams.passengers}
+          onFromPress={() => {}}
+          onToPress={() => {}}
+          onDatePress={() => {}}
+          onPassengersPress={() => {}}
+          onSwapPress={swapCities}
+          onSearchPress={handleSearch}
+        />
 
         {/* Popular Routes */}
         <View style={styles.sectionHeader}>
@@ -144,35 +100,14 @@ export function BusSearchScreen(): React.JSX.Element {
           </TouchableOpacity>
         </View>
 
-        <FlatList
+        <FlatList<RouteItem>
           horizontal
           showsHorizontalScrollIndicator={false}
           data={MOCK_POPULAR_ROUTES}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.horizontalList}
           scrollEnabled={false}
-          renderItem={({ item }) => (
-            <View style={styles.routeCard}>
-              <View
-                style={[
-                  styles.routeGradient,
-                  { backgroundColor: item.gradientColors[0] },
-                ]}
-              >
-                <View style={styles.routeBadge}>
-                  <Text style={styles.routeBadgeText}>🔥 Hot</Text>
-                </View>
-              </View>
-              <View style={styles.routeInfo}>
-                <Text style={styles.routeName}>
-                  {item.from}
-                  <Text style={styles.routeArrow}> → </Text>
-                  {item.to}
-                </Text>
-                <Text style={styles.routePrice}>{item.price}</Text>
-              </View>
-            </View>
-          )}
+          renderItem={renderRouteItem}
         />
 
         {/* Recent Searches */}
@@ -180,24 +115,14 @@ export function BusSearchScreen(): React.JSX.Element {
           Recent Searches
         </Text>
 
-        <FlatList
+        <FlatList<RecentItem>
           horizontal
           showsHorizontalScrollIndicator={false}
           data={MOCK_RECENT_SEARCHES}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.horizontalList}
           scrollEnabled={false}
-          renderItem={({ item }) => (
-            <View style={styles.recentCard}>
-              <View>
-                <Text style={styles.recentRoute}>{item.route}</Text>
-                <Text style={styles.recentDate}>{item.date}</Text>
-              </View>
-              <TouchableOpacity style={styles.recentButton}>
-                <Text style={styles.recentButtonIcon}>→</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          renderItem={renderRecentItem}
         />
       </ScrollView>
     </SafeAreaView>
@@ -207,41 +132,7 @@ export function BusSearchScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#F7F9FF',
-  },
-  header: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    backgroundColor: 'transparent',
-    zIndex: 10,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
-    color: colors.textPrimary,
-  },
-  headerRightPlaceholder: {
-    width: 40,
-  },
-  ambientGlow: {
-    position: 'absolute',
-    backgroundColor: 'rgba(42, 193, 188, 0.12)',
-    width: 585,
-    height: 585,
-    borderRadius: 9999,
-    top: -176.8,
-    left: -97.5,
-    zIndex: 0,
+    backgroundColor: '#E6F4F3',
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -259,7 +150,7 @@ const styles = StyleSheet.create({
   greetingText: {
     flex: 1,
   },
-  greetingEmoji: {
+  greetingHeadline: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.h2,
     color: colors.textPrimary,
@@ -271,112 +162,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: fontSizes.lg * 1.5,
   },
-  searchCard: {
-    backgroundColor: colors.surface,
+  avatarPlaceholder: {
+    width: 121,
+    height: 121,
     borderRadius: borderRadius.xl,
-    padding: spacing.xxl,
-    ...shadows.lg,
-    marginBottom: spacing.xxl,
-  },
-  searchTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.h3,
-    color: colors.textPrimary,
-    marginBottom: spacing.xl,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    height: 56,
-  },
-  inputIcon: {
-    width: 24,
-    marginRight: spacing.md,
-  },
-  inputIconText: {
-    fontSize: 16,
-  },
-  inputField: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  inputPlaceholder: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.md,
-    color: colors.textTertiary,
-  },
-  inputValue: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.md,
-    color: colors.textPrimary,
-  },
-  swapRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: spacing.sm,
-  },
-  swapLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.divider,
-  },
-  swapButton: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.full,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: spacing.sm,
-    ...shadows.sm,
-  },
-  swapIcon: {
-    fontSize: 18,
-    color: colors.primary,
-  },
-  datePassRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  halfInput: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    height: 48,
-  },
-  halfInputIcon: {
-    fontSize: 14,
-    marginRight: spacing.sm,
-  },
-  halfInputText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.md,
-    color: colors.textPrimary,
-  },
-  searchButton: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-    marginTop: spacing.xl,
-    ...shadows.lg,
-  },
-  searchButtonText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xl,
-    color: colors.textInverse,
+    backgroundColor: colors.surfaceAlt,
+    marginLeft: spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -401,84 +192,5 @@ const styles = StyleSheet.create({
   horizontalList: {
     gap: spacing.lg,
     paddingRight: spacing.lg,
-  },
-  routeCard: {
-    width: 150,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    ...shadows.md,
-    overflow: 'hidden',
-  },
-  routeGradient: {
-    height: 96,
-    borderTopLeftRadius: borderRadius.lg,
-    borderTopRightRadius: borderRadius.lg,
-    justifyContent: 'flex-end',
-    padding: spacing.sm,
-  },
-  routeBadge: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: borderRadius.full,
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  routeBadgeText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: colors.textInverse,
-  },
-  routeInfo: {
-    padding: spacing.lg,
-  },
-  routeName: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  routeArrow: {
-    color: colors.textSecondary,
-  },
-  routePrice: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-  },
-  recentCard: {
-    width: 256,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...shadows.sm,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  recentRoute: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.lg,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  recentDate: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-  },
-  recentButton: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recentButtonIcon: {
-    fontSize: 16,
-    color: colors.primary,
-    fontFamily: fontFamilies.bold,
   },
 });
