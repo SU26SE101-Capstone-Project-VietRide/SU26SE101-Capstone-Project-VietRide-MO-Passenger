@@ -1,5 +1,9 @@
 /**
  * OTPVerificationScreen — Validates user phone number
+ *
+ * Visual style: Parcel booking flow inspired (gradient bg, cat mascot,
+ * mint palette, card surfaces with accent border) with traditional auth layout:
+ * header → OTP inputs in card → resend + verify CTA
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -12,15 +16,18 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { Button } from '@shared/components';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { useAuthStore } from '../store/useAuthStore';
+import { AuthStepHeader } from '../components';
 
 type NavProp = NativeStackNavigationProp<AuthStackParamList, 'OTPVerification'>;
 type ScreenRouteProp = RouteProp<AuthStackParamList, 'OTPVerification'>;
@@ -29,7 +36,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<ScreenRouteProp>();
   const setUser = useAuthStore((state) => state.setUser);
-  
+
   const phone = route.params?.phone || 'your number';
   const CODE_LENGTH = 4;
 
@@ -46,11 +53,8 @@ export function OTPVerificationScreen(): React.JSX.Element {
 
   const handleCodeChange = (text: string, index: number) => {
     const newCode = [...code];
-    // Take only the last character in case of quick typing
     newCode[index] = text.slice(-1);
     setCode(newCode);
-
-    // Auto-advance
     if (text && index < CODE_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -68,7 +72,6 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const handleVerify = useCallback(() => {
     const fullCode = code.join('');
     if (fullCode.length === CODE_LENGTH) {
-      // Mock verification success -> automatically login
       setUser({
         id: 'mock-user-id',
         fullName: 'VietRide Rider',
@@ -80,136 +83,167 @@ export function OTPVerificationScreen(): React.JSX.Element {
   }, [code, setUser, phone]);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F9FF" />
-      <View style={styles.ambientGlow} />
-
-      <View style={styles.navHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+    <View style={styles.root}>
+      {/* Gradient background */}
+      <View style={styles.gradientContainer} pointerEvents="none">
+        <Svg height="520" width="100%">
+          <Defs>
+            <LinearGradient id="otpGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.7} />
+              <Stop offset="35%" stopColor="#2AC1BC" stopOpacity={0.25} />
+              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#otpGrad)" />
+        </Svg>
+        <View style={styles.decorCircle} />
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Verify it's you 📱</Text>
-            <Text style={styles.subtitle}>
-              We sent a 4-digit code to {phone}.
-            </Text>
-          </View>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Header with mascot */}
+            <AuthStepHeader
+              title="Verify it's you"
+              subtitle={`We sent a 4-digit code to ${phone}.`}
+            />
 
-          <View style={styles.otpContainer}>
-            {code.map((digit, index) => (
-              <TextInput
-                key={index}
-                ref={(ref) => { inputRefs.current[index] = ref; }}
-                style={[
-                  styles.otpInput,
-                  digit ? styles.otpInputFilled : null,
-                ]}
-                keyboardType="number-pad"
-                textContentType="oneTimeCode"
-                maxLength={1}
-                value={digit}
-                onChangeText={(text) => handleCodeChange(text, index)}
-                onKeyPress={(e) => handleKeyPress(e, index)}
-                selectTextOnFocus
+            {/* OTP inputs in a card */}
+            <View style={styles.formCard}>
+              <View style={styles.otpContainer}>
+                {code.map((digit, index) => (
+                  <TextInput
+                    key={index}
+                    ref={(ref) => {
+                      inputRefs.current[index] = ref;
+                    }}
+                    style={[
+                      styles.otpInput,
+                      digit ? styles.otpInputFilled : null,
+                    ]}
+                    keyboardType="number-pad"
+                    textContentType="oneTimeCode"
+                    maxLength={1}
+                    value={digit}
+                    onChangeText={(text) => handleCodeChange(text, index)}
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    selectTextOnFocus
+                  />
+                ))}
+              </View>
+
+              <View style={styles.resendContainer}>
+                <Text style={styles.resendText}>Didn't receive code? </Text>
+                {timer > 0 ? (
+                  <Text style={styles.timerText}>
+                    Resend in 00:{timer.toString().padStart(2, '0')}
+                  </Text>
+                ) : (
+                  <TouchableOpacity onPress={() => setTimer(59)}>
+                    <Text style={styles.resendLink}>Resend Now</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <Button
+                title="Verify Code"
+                onPress={handleVerify}
+                disabled={code.join('').length !== CODE_LENGTH}
+                size="lg"
+                fullWidth
               />
-            ))}
-          </View>
+            </View>
 
-          <Button
-            title="Verify Code"
-            onPress={handleVerify}
-            disabled={code.join('').length !== CODE_LENGTH}
-            style={styles.verifyButton}
-          />
+            {/* Divider */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerLabel}>or continue with</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-          <View style={styles.resendContainer}>
-            <Text style={styles.resendText}>Didn't receive code? </Text>
-            {timer > 0 ? (
-              <Text style={styles.timerText}>
-                Resend in 00:{timer.toString().padStart(2, '0')}
-              </Text>
-            ) : (
-              <TouchableOpacity onPress={() => setTimer(59)}>
-                <Text style={styles.resendLink}>Resend Now</Text>
+            {/* Social Auth — icon-only circles */}
+            <View style={styles.socialRow}>
+              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+                <GoogleLogo size={22} color="#4285F4" weight="bold" />
               </TouchableOpacity>
-            )}
+              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+                <AppleLogo size={24} color="#000000" weight="bold" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
+                <FacebookLogo size={22} color="#1877F2" weight="fill" />
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Verified by mistake? </Text>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Text style={styles.footerLink}>Go back</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#F7F9FF',
-  },
-  ambientGlow: {
+  root: { flex: 1, backgroundColor: colors.background },
+  gradientContainer: {
     position: 'absolute',
-    backgroundColor: 'rgba(42, 193, 188, 0.12)',
-    width: 585,
-    height: 585,
-    borderRadius: 9999,
-    top: -176.8,
-    left: -97.5,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 520,
     zIndex: 0,
   },
-  navHeader: {
-    height: 56,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
+  decorCircle: {
+    position: 'absolute',
+    top: 50,
+    right: -50,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(42, 193, 188, 0.07)',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
+  container: { flex: 1, backgroundColor: 'transparent' },
+  keyboardView: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
-  backIcon: {
-    fontSize: 24,
-    color: colors.textPrimary,
-    fontFamily: fontFamilies.bold,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-  },
-  header: {
-    marginBottom: 48,
-  },
-  title: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.h1,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.lg,
-    color: colors.textSecondary,
+  formCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderTopWidth: 3,
+    borderTopColor: colors.primaryLight,
+    ...shadows.md,
+    marginBottom: spacing.xxl,
   },
   otpContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: spacing.xxl,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   otpInput: {
     width: 64,
     height: 64,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     borderWidth: 1.5,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -220,15 +254,13 @@ const styles = StyleSheet.create({
   },
   otpInputFilled: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(10, 126, 164, 0.04)',
-  },
-  verifyButton: {
-    marginBottom: spacing.xxl,
+    backgroundColor: colors.surface,
   },
   resendContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: spacing.xxl,
   },
   resendText: {
     fontFamily: fontFamilies.regular,
@@ -241,6 +273,52 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   resendLink: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: colors.primary,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
+    marginTop: spacing.sm,
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
+  dividerLabel: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: colors.textTertiary,
+    marginHorizontal: spacing.md,
+  },
+  socialRow: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    justifyContent: 'center',
+    marginBottom: spacing.xxl,
+  },
+  socialBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.divider,
+    ...shadows.sm,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+  },
+  footerText: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+  },
+  footerLink: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: colors.primary,

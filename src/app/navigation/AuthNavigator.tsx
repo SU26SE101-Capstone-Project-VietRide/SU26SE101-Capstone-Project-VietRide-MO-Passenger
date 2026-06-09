@@ -6,7 +6,6 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { AuthStackParamList } from './types';
-import { colors } from '@shared/theme';
 
 import {
   LoginScreen,
@@ -24,7 +23,7 @@ export function AuthNavigator(): React.JSX.Element {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: 'transparent' },
         animation: 'slide_from_right',
       }}
     >

@@ -1,5 +1,9 @@
 /**
  * ForgotPasswordScreen — Password reset request
+ *
+ * Visual style: Parcel booking flow inspired (gradient bg, cat mascot,
+ * mint palette, card surfaces with accent border) with traditional auth layout:
+ * header (with back arrow) → form card → success state
  */
 
 import React, { useState, useCallback } from 'react';
@@ -9,15 +13,17 @@ import {
   StyleSheet,
   Platform,
   StatusBar,
-  TouchableOpacity,
   KeyboardAvoidingView,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { Input, Button } from '@shared/components';
 import type { AuthStackParamList } from '@app/navigation/types';
+import { AuthStepHeader } from '../components';
 
 type NavProp = NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
 
@@ -27,145 +33,176 @@ export function ForgotPasswordScreen(): React.JSX.Element {
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = useCallback(() => {
-    // Mock sending reset link
     setSubmitted(true);
   }, []);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F9FF" />
-      <View style={styles.ambientGlow} />
-
-      <View style={styles.navHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+    <View style={styles.root}>
+      {/* Gradient background */}
+      <View style={styles.gradientContainer} pointerEvents="none">
+        <Svg height="520" width="100%">
+          <Defs>
+            <LinearGradient id="forgotGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.7} />
+              <Stop offset="35%" stopColor="#2AC1BC" stopOpacity={0.25} />
+              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#forgotGrad)" />
+        </Svg>
+        <View style={styles.decorCircle} />
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={styles.content}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           {!submitted ? (
-            <>
-              <View style={styles.header}>
-                <Text style={styles.title}>Reset Password 🔐</Text>
-                <Text style={styles.subtitle}>
-                  Enter your phone number or email and we'll send you instructions to reset your password.
-                </Text>
+            <View style={styles.content}>
+              {/* Header with mascot + back arrow */}
+              <AuthStepHeader
+                title="Reset Password"
+                subtitle="Enter your phone number or email to reset your password."
+                onBack={() => navigation.goBack()}
+              />
+
+              {/* Form card */}
+              <View style={styles.formCard}>
+                <View style={styles.inputWrapper}>
+                  <Input
+                    label="Phone Number or Email"
+                    placeholder="e.g. 0987654321"
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    value={emailOrPhone}
+                    onChangeText={setEmailOrPhone}
+                  />
+                </View>
+
+                <Button
+                  title="Send Reset Link"
+                  onPress={handleSubmit}
+                  disabled={!emailOrPhone}
+                  size="lg"
+                  fullWidth
+                />
               </View>
-
-              <Input
-                label="Phone Number or Email"
-                placeholder="e.g. 0987654321"
-                keyboardType="email-address"
-                textContentType="emailAddress"
-                autoComplete="email"
-                autoCapitalize="none"
-                value={emailOrPhone}
-                onChangeText={setEmailOrPhone}
-                containerStyle={{ marginBottom: spacing.xxl }}
-              />
-
-              <Button
-                title="Send Reset Link"
-                onPress={handleSubmit}
-                disabled={!emailOrPhone}
-              />
-            </>
-          ) : (
-            <View style={styles.successContainer}>
-              <View style={styles.successIconBubble}>
-                <Text style={styles.successIcon}>✨</Text>
-              </View>
-              <Text style={styles.title}>Check your inbox</Text>
-              <Text style={[styles.subtitle, { textAlign: 'center', marginBottom: spacing.xxxl }]}>
-                We've sent a reset link to {emailOrPhone}. Please check your spam folder if you don't see it.
-              </Text>
-
-              <Button
-                title="Back to Login"
-                onPress={() => navigation.navigate('Login')}
-              />
             </View>
+          ) : (
+            /* Success state */
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.successScroll}
+            >
+              <View style={styles.successContainer}>
+                <View style={styles.successIconBubble}>
+                  <Text style={styles.successIcon}>✉️</Text>
+                </View>
+                <Text style={styles.successTitle}>Check your inbox</Text>
+                <Text style={styles.successSubtitle}>
+                  We've sent a reset link to {emailOrPhone}. Please check your spam
+                  folder if you don't see it.
+                </Text>
+
+                <Button
+                  title="Back to Login"
+                  onPress={() => navigation.navigate('Login')}
+                  size="lg"
+                  fullWidth
+                  style={styles.backButton}
+                />
+              </View>
+            </ScrollView>
           )}
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#F7F9FF',
-  },
-  ambientGlow: {
+  root: { flex: 1, backgroundColor: colors.background },
+  gradientContainer: {
     position: 'absolute',
-    backgroundColor: 'rgba(42, 193, 188, 0.12)',
-    width: 585,
-    height: 585,
-    borderRadius: 9999,
-    top: -176.8,
-    left: -97.5,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 520,
     zIndex: 0,
   },
-  navHeader: {
-    height: 56,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
+  decorCircle: {
+    position: 'absolute',
+    top: 50,
+    right: -50,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(42, 193, 188, 0.07)',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-  },
-  backIcon: {
-    fontSize: 24,
-    color: colors.textPrimary,
-    fontFamily: fontFamilies.bold,
-  },
-  keyboardView: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: 'transparent' },
+  keyboardView: { flex: 1 },
   content: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.xxl,
     paddingTop: spacing.xl,
   },
-  header: {
-    marginBottom: 48,
+  formCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderTopWidth: 3,
+    borderTopColor: colors.primaryLight,
+    ...shadows.md,
+    marginBottom: spacing.xxl,
   },
-  title: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.h1,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
+  inputWrapper: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.sm,
+    marginBottom: spacing.lg,
   },
-  subtitle: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.lg,
-    color: colors.textSecondary,
-    lineHeight: fontSizes.lg * 1.5,
+  successScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   successContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 100,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.huge,
   },
   successIconBubble: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: 'rgba(54, 179, 126, 0.1)',
+    backgroundColor: colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xxl,
+    borderWidth: 2,
+    borderColor: colors.primaryLight,
   },
-  successIcon: {
-    fontSize: 48,
+  successIcon: { fontSize: 48 },
+  successTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xl,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
+  successSubtitle: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.lg,
+    color: colors.textSecondary,
+    lineHeight: fontSizes.lg * 1.5,
+    textAlign: 'center',
+    marginBottom: spacing.xxxl,
+  },
+  backButton: { marginTop: spacing.xxl, minWidth: 200 },
 });
