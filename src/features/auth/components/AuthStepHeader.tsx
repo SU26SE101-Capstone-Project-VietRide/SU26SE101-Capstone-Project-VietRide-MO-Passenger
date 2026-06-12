@@ -19,6 +19,7 @@ export interface AuthStepHeaderProps {
   title: string;
   subtitle: string;
   onBack?: () => void;
+  showMascot?: boolean;
 }
 
 export const AuthStepHeader = ({

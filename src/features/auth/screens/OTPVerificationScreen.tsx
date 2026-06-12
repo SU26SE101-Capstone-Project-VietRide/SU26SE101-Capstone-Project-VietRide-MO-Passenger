@@ -22,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { GoogleLogo, AppleLogo, FacebookLogo } from 'phosphor-react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { Button } from '@shared/components';
@@ -162,25 +163,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
               />
             </View>
 
-            {/* Divider */}
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerLabel}>or continue with</Text>
-              <View style={styles.dividerLine} />
-            </View>
 
-            {/* Social Auth — icon-only circles */}
-            <View style={styles.socialRow}>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-                <GoogleLogo size={22} color="#4285F4" weight="bold" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-                <AppleLogo size={24} color="#000000" weight="bold" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-                <FacebookLogo size={22} color="#1877F2" weight="fill" />
-              </TouchableOpacity>
-            </View>
           </ScrollView>
 
           {/* Footer */}
@@ -281,7 +264,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.xxl,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
   dividerLabel: {

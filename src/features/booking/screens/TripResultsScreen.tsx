@@ -1,30 +1,20 @@
-/**
- * TripResultsScreen — Search results list with loading/error/empty states
+/** TripResultsScreen — Search results list with loading/error/empty states
  *
- * Shows trip cards for the selected route, or a themed empty/error
- * state with mascot illustrations.
- *
- * Refactored: uses AmbientGlow + AppHeader + shared LoadingState/EmptyState/ErrorState
- * components instead of duplicating inline state UI.
+ * Visual style: matches Parcel home (gradient bg, card surfaces, mint palette)
  */
 
 import React, { useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import { SlidersHorizontal } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
-import { AmbientGlow, AppHeader, LoadingState, EmptyState, ErrorState } from '../components';
-import { useBookingStore } from '../store/useBookingStore';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { SlidersHorizontal, ArrowLeft } from 'phosphor-react-native';
+import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { LoadingState, EmptyState, ErrorState } from '../components';
 import { TripCard } from '../components/TripCard';
+import { useBookingStore } from '../store/useBookingStore';
 import type { BookingStackParamList } from '@app/navigation/types';
 import type { BusTrip } from '../types';
 
@@ -64,11 +54,9 @@ export function TripResultsScreen(): React.JSX.Element {
     if (tripResultsStatus === 'loading') {
       return <LoadingState />;
     }
-
     if (tripResultsStatus === 'error') {
       return <ErrorState onRetry={handleRetry} />;
     }
-
     if (tripResultsStatus === 'empty') {
       return (
         <EmptyState
@@ -79,7 +67,6 @@ export function TripResultsScreen(): React.JSX.Element {
         />
       );
     }
-
     return (
       <FlatList
         data={trips}
@@ -97,61 +84,100 @@ export function TripResultsScreen(): React.JSX.Element {
     );
   };
 
-  const routeInfoCenter = (
-    <View style={styles.headerCenterStack}>
-      <Text style={styles.headerPassengers}>1 Passenger</Text>
-      <View style={styles.routeRow}>
-        <Text style={styles.headerCity}>{departureId}</Text>
-        <Text style={styles.headerArrow}> → </Text>
-        <Text style={styles.headerCity}>{destinationId}</Text>
-      </View>
-      <Text style={styles.headerDate}>Tomorrow, 24 Oct</Text>
-    </View>
-  );
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <AmbientGlow />
-      <AppHeader
-        centerElement={routeInfoCenter}
-        onBackPress={() => navigation.goBack()}
-        rightElement={
+    <View style={styles.root}>
+      {/* Gradient background */}
+      <View style={styles.gradientContainer} pointerEvents="none">
+        <Svg height="300" width="100%">
+          <Defs>
+            <LinearGradient id="resultsGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.1} />
+              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#resultsGrad)" />
+        </Svg>
+      </View>
+
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+            style={styles.backBtn}
+          >
+            <View style={styles.backBubble}>
+              <ArrowLeft size={20} color={colors.primary} weight="bold" />
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerRoute}>
+              {departureId} → {destinationId}
+            </Text>
+            <Text style={styles.headerDate}>Tomorrow, 24 Oct</Text>
+          </View>
+
           <TouchableOpacity style={styles.filterButton} activeOpacity={0.7}>
             <SlidersHorizontal size={20} weight="bold" color={colors.textPrimary} />
           </TouchableOpacity>
-        }
-      />
-      {renderContent()}
-    </SafeAreaView>
+        </View>
+
+        {renderContent()}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  root: {
     flex: 1,
     backgroundColor: '#E6F4F3',
   },
-  headerCenterStack: {
-    alignItems: 'center',
+  gradientContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 300,
+    zIndex: 0,
   },
-  headerPassengers: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
-  routeRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  headerCity: {
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.divider,
+    ...shadows.sm,
+  },
+  backBubble: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerRoute: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: colors.textPrimary,
-  },
-  headerArrow: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
   },
   headerDate: {
     fontFamily: fontFamilies.regular,
@@ -162,8 +188,13 @@ const styles = StyleSheet.create({
   filterButton: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.divider,
+    ...shadows.sm,
   },
   listContent: {
     paddingHorizontal: spacing.xl,

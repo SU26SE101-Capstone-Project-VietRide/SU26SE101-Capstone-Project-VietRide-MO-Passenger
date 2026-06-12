@@ -35,6 +35,7 @@ export function RegisterScreen(): React.JSX.Element {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleRegister = useCallback(() => {
     navigation.navigate('OTPVerification', { phone });
@@ -107,6 +108,17 @@ export function RegisterScreen(): React.JSX.Element {
                   autoComplete="password"
                   value={password}
                   onChangeText={setPassword}
+                />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Input
+                  label="Confirm Password"
+                  placeholder="Confirm your password"
+                  secureTextEntry
+                  textContentType="password"
+                  autoComplete="password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
                 />
               </View>
 
@@ -182,33 +194,33 @@ const styles = StyleSheet.create({
   keyboardView: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: spacing.xxl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
   },
   formCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
-    padding: spacing.xl,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
     borderTopWidth: 3,
     borderTopColor: colors.primaryLight,
     ...shadows.md,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.lg,
   },
   inputWrapper: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    padding: spacing.sm,
-    marginBottom: spacing.lg,
+    padding: spacing.xs,
+    marginBottom: 0,
   },
   termsText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
     color: colors.textTertiary,
     textAlign: 'center',
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
     marginBottom: spacing.lg,
     lineHeight: fontSizes.sm * 1.5,
   },

@@ -76,13 +76,13 @@ const styles = StyleSheet.create({
   },
   largeTitle: {
     fontFamily: fontFamilies.bold,
-    fontSize: 24,
+    fontSize: 20,
     color: colors.textPrimary,
     marginBottom: spacing.xxs,
   },
   largeSubtitle: {
     fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.lg,
+    fontSize: fontSizes.md,
     color: colors.textSecondary,
   },
   largeIconBackground: {

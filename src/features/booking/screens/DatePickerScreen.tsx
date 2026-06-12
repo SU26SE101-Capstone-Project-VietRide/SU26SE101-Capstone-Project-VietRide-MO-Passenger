@@ -1,14 +1,16 @@
 /** DatePicker — chọn ngày đi, set vào Zustand store rồi goBack.
- *  Có thể dùng chung cho Booking và Parcel.
+ * Visual style: matches Parcel flow (gradient bg, mint palette, card surfaces)
  */
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft, CalendarBlank } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
 import type { BookingStackParamList } from '@app/navigation/types';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'DatePicker'>;
@@ -41,142 +43,309 @@ export function DatePicker(): React.JSX.Element {
   };
 
   return (
-    <View style={styles.safe}>
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ArrowLeft size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Select Date</Text>
-        <View style={{ width: 22 }} />
+    <View style={styles.root}>
+      {/* Gradient background */}
+      <View style={styles.gradientContainer} pointerEvents="none">
+        <Svg height="300" width="100%">
+          <Defs>
+            <LinearGradient id="dateGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.12} />
+              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#dateGrad)" />
+        </Svg>
       </View>
 
-      {/* 30-day strip */}
-      <FlatList
-        data={DAYS}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(d) => fmt(d)}
-        contentContainerStyle={styles.strip}
-        renderItem={({ item }) => {
-          const label = DAY_LABELS[item.getDay()];
-          const dateStr = fmt(item);
-          const isToday = dateStr === todayStr;
-          const active = dateStr === selected;
-          return (
-            <TouchableOpacity
-              style={[styles.dayItem, active && styles.dayItemActive]}
-              onPress={() => setSelected(dateStr)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{label}</Text>
-              <Text style={[styles.dayNum, active && styles.dayNumActive]}>{item.getDate()}</Text>
-              {isToday && <Text style={[styles.dayBadge, active && styles.dayBadgeActive]}>Today</Text>}
-            </TouchableOpacity>
-          );
-        }}
-      />
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        {/* Header with back bubble */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+            style={styles.backBtn}
+          >
+            <View style={styles.backBubble}>
+              <ArrowLeft size={20} color={colors.primary} weight="bold" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Select Date</Text>
+          <View style={{ width: 40 }} />
+        </View>
 
-      {/* Month label */}
-      <Text style={styles.monthLabel}>
-        {TODAY.toLocaleString('default', { month: 'long', year: 'numeric' })}
-      </Text>
+        {/* 30-day strip */}
+        <View style={styles.stripCard}>
+          <FlatList
+            data={DAYS}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(d) => fmt(d)}
+            contentContainerStyle={styles.strip}
+            renderItem={({ item }) => {
+              const label = DAY_LABELS[item.getDay()];
+              const dateStr = fmt(item);
+              const isToday = dateStr === todayStr;
+              const active = dateStr === selected;
+              return (
+                <TouchableOpacity
+                  style={[styles.dayItem, active && styles.dayItemActive]}
+                  onPress={() => setSelected(dateStr)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{label}</Text>
+                  <Text style={[styles.dayNum, active && styles.dayNumActive]}>{item.getDate()}</Text>
+                  {isToday && <Text style={[styles.dayBadge, active && styles.dayBadgeActive]}>Today</Text>}
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
 
-      {/* Calendar grid */}
-      <View style={styles.calGrid}>
-        {DAY_LABELS.map((d) => (
-          <Text key={d} style={styles.calWeekday}>{d}</Text>
-        ))}
-        {DAYS.map((d) => {
-          const dateStr = fmt(d);
-          const active = dateStr === selected;
-          const dimmed = d.getMonth() !== TODAY.getMonth();
-          return (
-            <TouchableOpacity
-              key={dateStr}
-              style={[styles.calCell, active && styles.calCellActive]}
-              onPress={() => setSelected(dateStr)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.calCellText, active && styles.calCellTextActive, dimmed && styles.calCellDimmed]}>
-                {d.getDate()}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+        {/* Month label */}
+        <Text style={styles.monthLabel}>
+          {TODAY.toLocaleString('default', { month: 'long', year: 'numeric' })}
+        </Text>
 
-      {/* Confirm */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.confirmBtn} onPress={onConfirm} activeOpacity={0.8}>
-          <CalendarBlank size={18} color={colors.textInverse} />
-          <Text style={styles.confirmText}>Confirm — {selected}</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Calendar grid */}
+        <View style={styles.calCard}>
+          {/* Weekday header row */}
+          <View style={styles.calRow}>
+            {DAY_LABELS.map((d) => (
+              <View key={d} style={styles.calCell}>
+                <Text style={styles.calWeekday}>{d}</Text>
+              </View>
+            ))}
+          </View>
+          {/* Date rows */}
+          {(() => {
+            const offset = DAYS[0].getDay();
+            const allCells: (Date | null)[] = [
+              ...Array.from({ length: offset }, () => null),
+              ...DAYS,
+            ];
+            const rows: (Date | null)[][] = [];
+            for (let i = 0; i < allCells.length; i += 7) {
+              rows.push(allCells.slice(i, i + 7));
+            }
+            return rows.map((row, ri) => (
+              <View key={`row-${ri}`} style={styles.calRow}>
+                {row.map((d, ci) => {
+                  if (!d) return <View key={`empty-${ri}-${ci}`} style={styles.calCell} />;
+                  const dateStr = fmt(d);
+                  const active = dateStr === selected;
+                  const dimmed = d.getMonth() !== TODAY.getMonth();
+                  return (
+                    <TouchableOpacity
+                      key={dateStr}
+                      style={[styles.calCell, active && styles.calCellActive]}
+                      onPress={() => setSelected(dateStr)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.calCellText, active && styles.calCellTextActive, dimmed && styles.calCellDimmed]}>
+                        {d.getDate()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {/* Pad incomplete last row */}
+                {row.length < 7 && Array.from({ length: 7 - row.length }, (_, pi) => (
+                  <View key={`pad-${ri}-${pi}`} style={styles.calCell} />
+                ))}
+              </View>
+            ));
+          })()}
+        </View>
+
+        {/* Confirm */}
+        <View style={styles.footer}>
+          <TouchableOpacity style={styles.confirmBtn} onPress={onConfirm} activeOpacity={0.8}>
+            <CalendarBlank size={18} color={colors.textInverse} />
+            <Text style={styles.confirmText}>Confirm — {selected}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  headerRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md,
+  root: {
+    flex: 1,
+    backgroundColor: '#E6F4F3',
   },
-  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: colors.textPrimary },
-  strip: {
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.sm,
+  gradientContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 300,
+    zIndex: 0,
   },
-  dayItem: {
-    width: 64, aspectRatio: 0.72, borderRadius: borderRadius.lg,
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider,
-    alignItems: 'center', justifyContent: 'center', gap: 2,
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.divider,
     ...shadows.sm,
   },
-  dayItemActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  dayLabel: { fontFamily: fontFamilies.medium, fontSize: fontSizes.xs, color: colors.textTertiary },
-  dayLabelActive: { color: colors.textInverse },
-  dayNum: { fontFamily: fontFamilies.bold, fontSize: fontSizes.xl, color: colors.textPrimary },
-  dayNumActive: { color: colors.textInverse },
+  backBubble: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.lg,
+    color: colors.textPrimary,
+  },
+  stripCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    ...shadows.sm,
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+  },
+  strip: {
+    paddingLeft: spacing.md,
+    paddingRight: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  dayItem: {
+    width: 64,
+    aspectRatio: 0.72,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  dayItemActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    ...shadows.sm,
+  },
+  dayLabel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: colors.textTertiary,
+  },
+  dayLabelActive: {
+    color: colors.textInverse,
+  },
+  dayNum: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xl,
+    color: colors.textPrimary,
+  },
+  dayNumActive: {
+    color: colors.textInverse,
+  },
   dayBadge: {
-    fontFamily: fontFamilies.medium, fontSize: 9, color: colors.primary,
+    fontFamily: fontFamilies.medium,
+    fontSize: 9,
+    color: colors.primary,
     backgroundColor: colors.primaryFaded,
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: borderRadius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
   },
-  dayBadgeActive: { color: colors.textInverse, backgroundColor: 'rgba(255,255,255,0.2)' },
+  dayBadgeActive: {
+    color: colors.textInverse,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
   monthLabel: {
-    fontFamily: fontFamilies.medium, fontSize: fontSizes.sm,
-    color: colors.textSecondary, paddingHorizontal: spacing.lg, marginTop: spacing.sm,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  calGrid: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    paddingHorizontal: spacing.lg, marginTop: spacing.sm,
+  calCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    ...shadows.sm,
+    marginHorizontal: spacing.xl,
+    padding: spacing.md,
+  },
+  calRow: {
+    flexDirection: 'row',
   },
   calWeekday: {
-    width: `${100/7}%`, textAlign: 'center',
-    fontFamily: fontFamilies.medium, fontSize: fontSizes.xs,
-    color: colors.textTertiary, paddingVertical: spacing.xs,
+    textAlign: 'center',
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: colors.textTertiary,
+    paddingVertical: spacing.xs,
   },
   calCell: {
-    width: `${100/7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center',
+    flex: 1,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   calCellActive: {
-    borderRadius: borderRadius.full, backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
   },
   calCellText: {
-    fontFamily: fontFamilies.medium, fontSize: fontSizes.md, color: colors.textPrimary,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.md,
+    color: colors.textPrimary,
   },
-  calCellTextActive: { color: colors.textInverse, fontFamily: fontFamilies.bold },
-  calCellDimmed: { color: colors.textTertiary },
+  calCellTextActive: {
+    color: colors.textInverse,
+    fontFamily: fontFamilies.bold,
+  },
+  calCellDimmed: {
+    color: colors.textTertiary,
+  },
   footer: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    padding: spacing.lg, backgroundColor: colors.background,
-    borderTopWidth: 1, borderTopColor: colors.divider,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: spacing.lg,
+    backgroundColor: '#E6F4F3',
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
   },
   confirmBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: spacing.sm, backgroundColor: colors.primary,
-    borderRadius: borderRadius.lg, height: 52, ...shadows.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.lg,
+    height: 52,
+    ...shadows.md,
   },
-  confirmText: { fontFamily: fontFamilies.bold, fontSize: fontSizes.md, color: colors.textInverse },
+  confirmText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: colors.textInverse,
+  },
 });

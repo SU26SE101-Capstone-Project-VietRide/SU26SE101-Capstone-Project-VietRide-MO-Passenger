@@ -117,7 +117,7 @@ export function LoginScreen(): React.JSX.Element {
                 title="Log In"
                 onPress={handleLogin}
                 disabled={!phone || !password}
-                size="lg"
+                size="md"
                 fullWidth
               />
             </View>
@@ -179,30 +179,30 @@ const styles = StyleSheet.create({
   keyboardView: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: spacing.xxl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
   },
   formCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
-    padding: spacing.xl,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
     borderTopWidth: 3,
     borderTopColor: colors.primaryLight,
     ...shadows.md,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.lg,
   },
   inputWrapper: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    padding: spacing.sm,
-    marginBottom: spacing.lg,
+    padding: spacing.xs,
+    marginBottom: 0,
   },
   forgotButton: {
     alignSelf: 'flex-end',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
     paddingVertical: spacing.xs,
   },
   forgotText: {
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.xxl,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
   dividerLabel: {

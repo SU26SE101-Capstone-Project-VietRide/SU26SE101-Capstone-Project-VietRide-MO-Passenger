@@ -87,7 +87,7 @@ export function ForgotPasswordScreen(): React.JSX.Element {
                   title="Send Reset Link"
                   onPress={handleSubmit}
                   disabled={!emailOrPhone}
-                  size="lg"
+                  size="md"
                   fullWidth
                 />
               </View>
@@ -111,7 +111,7 @@ export function ForgotPasswordScreen(): React.JSX.Element {
                 <Button
                   title="Back to Login"
                   onPress={() => navigation.navigate('Login')}
-                  size="lg"
+                  size="md"
                   fullWidth
                   style={styles.backButton}
                 />

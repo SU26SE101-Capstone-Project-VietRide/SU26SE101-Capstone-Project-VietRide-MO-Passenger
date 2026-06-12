@@ -1,26 +1,19 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import {
-  ArrowLeft,
   Truck,
   Check,
   Clock,
   XCircle,
+  PlusCircle,
+  Gift,
 } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { ParcelStackParamList } from '@app/navigation/types';
-
-type ParcelHomeNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelList'>;
+import { colors, fontFamilies, fontSizes, spacing, shadows } from '@shared/theme';
 
 interface ShipmentItem {
   id: string;
@@ -42,31 +35,17 @@ const MOCK_SHIPMENTS: ShipmentItem[] = [
     status: 'Delivered',
     date: 'Oct 24, 2023',
   },
-  {
-    id: 'VR-9102',
-    destination: 'Hanoi',
-    status: 'Pending',
-    date: 'Oct 28, 2023',
-  },
-  {
-    id: 'VR-5512',
-    destination: 'Da Nang',
-    status: 'Cancelled',
-    date: 'Oct 15, 2023',
-  },
 ];
 
-export function ParcelHomeScreen(): React.JSX.Element {
-  const navigation = useNavigation<ParcelHomeNavProp>();
+interface RecentShipmentsSectionProps {
+  onViewAll: () => void;
+  onTrackShipment: (id: string) => void;
+}
 
-  const handleGoBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
-
-  const handleTrackShipment = useCallback((parcelId: string) => {
-    navigation.navigate('ParcelTracking', { parcelId });
-  }, [navigation]);
-
+export function RecentShipmentsSection({
+  onViewAll,
+  onTrackShipment,
+}: RecentShipmentsSectionProps): React.JSX.Element {
   const renderStatusBadge = (status: ShipmentItem['status']) => {
     switch (status) {
       case 'In Transit':
@@ -114,90 +93,84 @@ export function ParcelHomeScreen(): React.JSX.Element {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} translucent={false} />
-      
-      {/* Top Navbar */}
-      <View style={styles.navbar}>
-        <TouchableOpacity style={styles.navButton} onPress={handleGoBack} activeOpacity={0.7}>
-          <ArrowLeft size={22} color={colors.textPrimary} />
+    <>
+      {/* Recent Shipments Section */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Recent Shipments</Text>
+        <TouchableOpacity activeOpacity={0.6} onPress={onViewAll}>
+          <Text style={styles.viewAllText}>View All</Text>
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Shipment History</Text>
-        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>All Shipments</Text>
-
-        <View style={styles.shipmentList}>
-          {MOCK_SHIPMENTS.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.shipmentCard}
-              onPress={() => handleTrackShipment(item.id)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.shipmentIconContainer}>
-                {renderStatusIcon(item.status)}
-              </View>
-              <View style={styles.shipmentInfo}>
-                <View style={styles.shipmentRow}>
-                  <Text style={styles.shipmentDestination} numberOfLines={1}>
-                    To: {item.destination}
-                  </Text>
-                  {renderStatusBadge(item.status)}
-                </View>
-                <Text style={styles.shipmentMeta}>
-                  Order #{item.id} • {item.date}
+      <View style={styles.shipmentList}>
+        {MOCK_SHIPMENTS.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.shipmentCard}
+            onPress={() => onTrackShipment(item.id)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.shipmentIconContainer}>
+              {renderStatusIcon(item.status)}
+            </View>
+            <View style={styles.shipmentInfo}>
+              <View style={styles.shipmentRow}>
+                <Text style={styles.shipmentDestination} numberOfLines={1}>
+                  To: {item.destination}
                 </Text>
+                {renderStatusBadge(item.status)}
               </View>
-            </TouchableOpacity>
-          ))}
+              <Text style={styles.shipmentMeta}>
+                Order #{item.id} • {item.date}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Illustration Promo Banner */}
+      <View style={styles.promoCard}>
+        <View style={styles.promoTextContent}>
+          <Text style={styles.promoTitle}>Invite friends,</Text>
+          <Text style={styles.promoTitle}>get coins!</Text>
+          <Text style={styles.promoDesc}>
+            Share your delivery code and get 50,000 VND off your next parcel.
+          </Text>
+          <TouchableOpacity style={styles.promoButton} activeOpacity={0.8}>
+            <Text style={styles.promoButtonText}>Share Now</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        <View style={styles.promoGiftContainer}>
+          <PlusCircle
+            size={64}
+            color="rgba(255, 255, 255, 0.15)"
+            weight="light"
+            style={styles.promoBgCircle}
+          />
+          <Gift size={48} color="rgba(255, 255, 255, 0.3)" weight="fill" />
+        </View>
+      </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  navbar: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    ...shadows.sm,
-  },
-  navButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-    backgroundColor: colors.surfaceAlt,
-  },
-  navTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: colors.textPrimary,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.huge,
+    marginBottom: spacing.md,
+    marginTop: spacing.lg,
   },
   sectionTitle: {
     fontFamily: fontFamilies.bold,
-    fontSize: 20,
+    fontSize: 18,
     color: colors.textPrimary,
-    marginBottom: spacing.md,
+  },
+  viewAllText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: colors.primary,
   },
   shipmentList: {
     gap: spacing.sm,
@@ -275,5 +248,56 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     color: colors.textTertiary,
     lineHeight: 16,
+  },
+  promoCard: {
+    flexDirection: 'row',
+    backgroundColor: '#CEAB00',
+    borderRadius: 24,
+    padding: spacing.xl,
+    ...shadows.md,
+    overflow: 'hidden',
+    position: 'relative',
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  promoTextContent: {
+    flex: 1.4,
+    zIndex: 2,
+  },
+  promoTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: 18,
+    color: '#3A2E00',
+    marginBottom: spacing.xs,
+  },
+  promoDesc: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: '#4F4000',
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  promoButton: {
+    backgroundColor: '#3A2E00',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderRadius: 24,
+    alignSelf: 'flex-start',
+    ...shadows.sm,
+  },
+  promoButtonText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: colors.textInverse,
+  },
+  promoGiftContainer: {
+    flex: 0.8,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  promoBgCircle: {
+    position: 'absolute',
+    opacity: 0.15,
   },
 });

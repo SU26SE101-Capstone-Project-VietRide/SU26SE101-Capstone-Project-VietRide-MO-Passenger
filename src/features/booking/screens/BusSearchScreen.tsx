@@ -1,42 +1,26 @@
-/**
- * BusSearchScreen — Landing screen of the booking flow
+/** BusSearchScreen — Landing screen of the booking flow
  *
- * Features: From/To inputs with swap, date & passenger pickers,
- * "Search Buses" CTA, Popular Routes, Recent Searches.
+ * Visual style: matches Parcel home (gradient bg, mascot, mint palette, card surfaces)
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, StatusBar, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
-import { AmbientGlow, SearchForm, RouteCard, RecentSearchCard } from '../components';
+import { MapPin, ArrowRight } from 'phosphor-react-native';
+import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { ProfileHeader } from '@shared/components';
+import { SearchForm, RouteCard, RecentSearchCard } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { MOCK_POPULAR_ROUTES, MOCK_RECENT_SEARCHES } from '../data/mockData';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { BookingStackParamList } from '@app/navigation/types';
-import { ProfileHeader } from '@shared/components';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'SearchRoutes'>;
 
-interface RouteItem {
-  id: string;
-  from: string;
-  to: string;
-  price: string;
-}
-
-interface RecentItem {
-  id: string;
-  route: string;
-  date: string;
-}
-
-const parseRouteString = (route: string): { from: string; to: string } => {
-  const parts = route.split(/\s+to\s+/i);
-  return { from: parts[0]?.trim() || '', to: parts[1]?.trim() || '' };
-};
+const catMascotImage = require('@assets/images/image 1.png');
 
 export function BusSearchScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
@@ -73,13 +57,14 @@ export function BusSearchScreen(): React.JSX.Element {
 
   const handleRecentPress = useCallback(
     (item: { route: string; date: string }) => {
-      const { from, to } = parseRouteString(item.route);
+      const parts = item.route.split(/\s+to\s+/i);
+      const from = parts[0]?.trim() || '';
+      const to = parts[1]?.trim() || '';
       navigateToRoute(from, to, item.date);
     },
     [navigateToRoute],
   );
 
-  // Picker callbacks
   const openCityPicker = useCallback(
     (mode: 'from' | 'to') => {
       navigation.navigate('CityPicker', { mode });
@@ -97,97 +82,163 @@ export function BusSearchScreen(): React.JSX.Element {
     });
   }, [navigation, searchParams.passengers]);
 
-  const renderRouteItem = ({ item }: { item: RouteItem }) => (
-    <RouteCard
-      from={item.from}
-      to={item.to}
-      price={item.price}
-      onPress={() => handlePopularPress(item)}
-    />
+  const renderRouteItem = ({ item }: { item: { id: string; from: string; to: string; price: string } }) => (
+    <RouteCard from={item.from} to={item.to} price={item.price} onPress={() => handlePopularPress(item)} />
   );
 
-  const renderRecentItem = ({ item }: { item: RecentItem }) => (
-    <RecentSearchCard
-      route={item.route}
-      date={item.date}
-      onPress={() => handleRecentPress(item)}
-    />
+  const renderRecentItem = ({ item }: { item: { id: string; route: string; date: string } }) => (
+    <RecentSearchCard route={item.route} date={item.date} onPress={() => handleRecentPress(item)} />
   );
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-      <AmbientGlow />
+    <View style={styles.root}>
+      {/* Gradient background */}
+      <View style={styles.gradientContainer} pointerEvents="none">
+        <Svg height="400" width="100%">
+          <Defs>
+            <LinearGradient id="busGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.12} />
+              <Stop offset="60%" stopColor="#2AC1BC" stopOpacity={0.04} />
+              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#busGrad)" />
+        </Svg>
+      </View>
 
-      <ProfileHeader
-        userName={fullName}
-        greeting="Xin chào,"
-        onNotificationPress={() => {}}
-      />
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Profile Header */}
+          <ProfileHeader
+            userName={fullName}
+            greeting="Xin chào,"
+            onNotificationPress={() => {}}
+          />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Search Form — with real picker callbacks */}
-        <SearchForm
-          from={searchParams.from}
-          to={searchParams.to}
-          date={searchParams.date}
-          passengers={searchParams.passengers}
-          onFromPress={() => openCityPicker('from')}
-          onToPress={() => openCityPicker('to')}
-          onDatePress={openDatePicker}
-          onPassengersPress={openPassengersPicker}
-          onSwapPress={swapCities}
-          onSearchPress={handleSearch}
-        />
+          {/* Welcome section with mascot */}
+          <View style={styles.welcomeSection}>
+            <View style={styles.welcomeTextColumn}>
+              <Text style={styles.welcomeTitle}>Hello! 👋</Text>
+              <Text style={styles.welcomeSubtitle}>Where are we going today?</Text>
+            </View>
+            <View style={styles.mascotContainer}>
+              <Image source={catMascotImage} style={styles.mascotImage} resizeMode="contain" />
+            </View>
+          </View>
 
-        {/* Popular Routes */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Popular Routes</Text>
-          <TouchableOpacity style={styles.seeAllButton}>
-            <Text style={styles.seeAllText}>See all →</Text>
-          </TouchableOpacity>
-        </View>
+          {/* Search Form */}
+          <SearchForm
+            from={searchParams.from}
+            to={searchParams.to}
+            date={searchParams.date}
+            passengers={searchParams.passengers}
+            onFromPress={() => openCityPicker('from')}
+            onToPress={() => openCityPicker('to')}
+            onDatePress={openDatePicker}
+            onPassengersPress={openPassengersPicker}
+            onSwapPress={swapCities}
+            onSearchPress={handleSearch}
+          />
 
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={MOCK_POPULAR_ROUTES}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.horizontalList}
-          renderItem={renderRouteItem}
-        />
+          {/* Popular Routes */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Popular Routes</Text>
+            <TouchableOpacity activeOpacity={0.6}>
+              <Text style={styles.viewAllText}>See all</Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* Recent Searches */}
-        <Text style={[styles.sectionTitle, { marginTop: spacing.xxl }]}>
-          Recent Searches
-        </Text>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={MOCK_POPULAR_ROUTES}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.horizontalList}
+            renderItem={renderRouteItem}
+          />
 
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={MOCK_RECENT_SEARCHES}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.horizontalList}
-          renderItem={renderRecentItem}
-        />
-      </ScrollView>
-    </SafeAreaView>
+          {/* Recent Searches */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Searches</Text>
+          </View>
+
+          <View style={styles.recentList}>
+            {MOCK_RECENT_SEARCHES.map((item) => (
+              <RecentSearchCard
+                key={item.id}
+                route={item.route}
+                date={item.date}
+                onPress={() => handleRecentPress(item)}
+              />
+            ))}
+          </View>
+
+          {/* Bottom spacer */}
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  root: {
     flex: 1,
     backgroundColor: '#E6F4F3',
   },
+  gradientContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 400,
+    zIndex: 0,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   scrollContent: {
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
     paddingBottom: 100,
     zIndex: 5,
+  },
+  welcomeSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: spacing.lg,
+    paddingRight: spacing.xs,
+  },
+  welcomeTextColumn: {
+    flex: 1.4,
+  },
+  welcomeTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: 34,
+    color: colors.textPrimary,
+    lineHeight: 38,
+    marginBottom: spacing.xs,
+  },
+  welcomeSubtitle: {
+    fontFamily: fontFamilies.regular,
+    fontSize: 18,
+    color: colors.textSecondary,
+    lineHeight: 24,
+  },
+  mascotContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  mascotImage: {
+    width: 96,
+    height: 96,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -197,20 +248,19 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xl,
+    fontSize: 18,
     color: colors.textPrimary,
-    marginBottom: spacing.md,
   },
-  seeAllButton: {
-    marginBottom: spacing.md,
-  },
-  seeAllText: {
-    fontFamily: fontFamilies.medium,
+  viewAllText: {
+    fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: colors.primary,
   },
   horizontalList: {
     gap: spacing.lg,
     paddingRight: spacing.lg,
+  },
+  recentList: {
+    gap: spacing.sm,
   },
 });

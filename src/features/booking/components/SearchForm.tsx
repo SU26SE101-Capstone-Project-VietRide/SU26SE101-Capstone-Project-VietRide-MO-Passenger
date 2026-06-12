@@ -1,3 +1,8 @@
+/** SearchForm — From/To/Date/Passengers selectors + Search CTA
+ *
+ * Visual style: matches Parcel home selectors (surfaceAlt bg, rounded, mint accents)
+ */
+
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import {
@@ -5,6 +10,7 @@ import {
   ArrowsDownUp,
   CalendarBlank,
   User,
+  MagnifyingGlass,
 } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 
@@ -33,71 +39,60 @@ export const SearchForm = ({
   onSwapPress,
   onSearchPress,
 }: SearchFormProps): React.JSX.Element => (
-  <View style={styles.searchCard}>
-    <Text style={styles.searchTitle}>Find Your Bus</Text>
+  <View style={styles.card}>
+    <Text style={styles.cardTitle}>Book a Trip</Text>
 
-    {/* From Input */}
-    <View style={styles.inputRow}>
-      <View style={styles.inputIcon}>
-        <MapPin size={16} weight="fill" color={colors.primary} />
-      </View>
-      <TouchableOpacity style={styles.inputField} onPress={onFromPress}>
-        <Text style={from ? styles.inputValue : styles.inputPlaceholder}>
-          {from || 'From (e.g. Hanoi)'}
+    {/* From */}
+    <Text style={styles.fieldLabel}>From</Text>
+    <TouchableOpacity style={styles.selectorField} onPress={onFromPress} activeOpacity={0.8}>
+      <MapPin size={20} color={colors.primary} weight="bold" />
+      <Text style={from ? styles.selectorText : styles.selectorPlaceholder}>
+        {from || 'Select origin city'}
+      </Text>
+    </TouchableOpacity>
+
+    {/* To + Swap */}
+    <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>To</Text>
+    <View style={styles.toRow}>
+      <TouchableOpacity style={[styles.selectorField, { flex: 1 }]} onPress={onToPress} activeOpacity={0.8}>
+        <MapPin size={18} color={colors.primary} weight="bold" />
+        <Text style={to ? styles.selectorText : styles.selectorPlaceholder} numberOfLines={1}>
+          {to || 'Select destination'}
         </Text>
       </TouchableOpacity>
-    </View>
-
-    {/* Swap Button */}
-    <View style={styles.swapRow}>
-      <View style={styles.swapLine} />
-      <TouchableOpacity onPress={onSwapPress} style={styles.swapButton}>
-        <ArrowsDownUp size={18} weight="bold" color={colors.primary} />
+      <TouchableOpacity onPress={onSwapPress} style={styles.swapBtn} activeOpacity={0.7}>
+        <ArrowsDownUp size={18} color={colors.primary} weight="bold" />
       </TouchableOpacity>
-      <View style={styles.swapLine} />
     </View>
 
-    {/* To Input */}
-    <View style={styles.inputRow}>
-      <View style={styles.inputIcon}>
-        <MapPin size={16} weight="fill" color={colors.primary} />
-      </View>
-      <TouchableOpacity style={styles.inputField} onPress={onToPress}>
-        <Text style={to ? styles.inputValue : styles.inputPlaceholder}>
-          {to || 'To (e.g. Sapa)'}
+    {/* Date & Passengers */}
+    <View style={styles.metaRow}>
+      <TouchableOpacity style={styles.metaField} onPress={onDatePress} activeOpacity={0.8}>
+        <CalendarBlank size={16} color={colors.primary} weight="fill" />
+        <Text style={styles.metaText} numberOfLines={1}>{date || 'Select date'}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.metaField} onPress={onPassengersPress} activeOpacity={0.8}>
+        <User size={16} color={colors.primary} weight="fill" />
+        <Text style={styles.metaText} numberOfLines={1}>
+          {typeof passengers === 'number' ? `${passengers} Passenger${passengers > 1 ? 's' : ''}` : '1 Passenger'}
         </Text>
-      </TouchableOpacity>
-    </View>
-
-    {/* Date & Passengers row */}
-    <View style={styles.datePassRow}>
-      <TouchableOpacity style={styles.halfInput} onPress={onDatePress}>
-        <View style={styles.halfInputIconWrapper}>
-          <CalendarBlank size={14} weight="fill" color={colors.primary} />
-        </View>
-        <Text style={styles.halfInputText}>{date}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.halfInput} onPress={onPassengersPress}>
-        <View style={styles.halfInputIconWrapper}>
-          <User size={14} weight="fill" color={colors.primary} />
-        </View>
-        <Text style={styles.halfInputText}>{passengers} Pass</Text>
       </TouchableOpacity>
     </View>
 
     {/* Search CTA */}
     <TouchableOpacity
-      activeOpacity={0.8}
+      activeOpacity={0.85}
       onPress={onSearchPress}
       style={styles.searchButton}
     >
       <Text style={styles.searchButtonText}>Search Buses</Text>
+      <MagnifyingGlass size={18} color={colors.textInverse} weight="bold" />
     </TouchableOpacity>
   </View>
 );
 
 const styles = StyleSheet.create({
-  searchCard: {
+  card: {
     backgroundColor: colors.surface,
     borderRadius: 28,
     padding: spacing.xl,
@@ -106,54 +101,48 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     marginBottom: spacing.xxl,
   },
-  searchTitle: {
+  cardTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: 20,
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
-  inputRow: {
+  fieldLabel: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    paddingLeft: 2,
+  },
+  selectorField: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surfaceAlt,
     borderWidth: 1.2,
     borderColor: colors.divider,
     borderRadius: 16,
-    paddingHorizontal: spacing.md,
     height: 48,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
   },
-  inputIcon: {
-    width: 24,
-    marginRight: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inputField: {
+  selectorText: {
     flex: 1,
-    justifyContent: 'center',
-  },
-  inputPlaceholder: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    color: colors.textTertiary,
-  },
-  inputValue: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: colors.textPrimary,
   },
-  swapRow: {
+  selectorPlaceholder: {
+    flex: 1,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: colors.textTertiary,
+  },
+  toRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: spacing.sm,
+    gap: spacing.sm,
   },
-  swapLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.divider,
-  },
-  swapButton: {
+  swapBtn: {
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
@@ -162,15 +151,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: spacing.sm,
     ...shadows.sm,
   },
-  datePassRow: {
+  metaRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.lg,
   },
-  halfInput: {
+  metaField: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -178,15 +166,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: colors.divider,
     borderRadius: 16,
+    height: 44,
     paddingHorizontal: spacing.md,
-    height: 48,
+    gap: spacing.sm,
   },
-  halfInputIconWrapper: {
-    marginRight: spacing.sm,
-    width: 18,
-    alignItems: 'center',
-  },
-  halfInputText: {
+  metaText: {
+    flex: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: colors.textPrimary,
@@ -198,9 +183,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 16,
     height: 48,
+    marginTop: spacing.xl,
     gap: spacing.xs,
     ...shadows.sm,
-    marginTop: spacing.xl,
   },
   searchButtonText: {
     fontFamily: fontFamilies.bold,

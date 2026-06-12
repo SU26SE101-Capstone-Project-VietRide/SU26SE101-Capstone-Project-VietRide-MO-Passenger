@@ -21,8 +21,9 @@ import {
   Question,
   SignOut,
   CaretRight,
-  Trophy,
   Phone,
+  DownloadSimple,
+  UploadSimple,
 } from 'phosphor-react-native';
 
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
@@ -36,10 +37,6 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   const navigation = useNavigation<ProfileNavProp>();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-
-  // Mock loyalty points & member tier
-  const loyaltyPoints = 580;
-  const loyaltyTier = 'Gold';
 
   const handleLogout = useCallback(() => {
     Alert.alert(
@@ -60,6 +57,22 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       ]
     );
   }, [logout, t]);
+
+  const handleTopUp = useCallback(() => {
+    console.log('Top Up pressed');
+  }, []);
+
+  const handleDeposit = useCallback(() => {
+    console.log('Deposit pressed');
+  }, []);
+
+  const handleWithdraw = useCallback(() => {
+    console.log('Withdraw pressed');
+  }, []);
+
+  const handleHistory = useCallback(() => {
+    console.log('History pressed');
+  }, []);
 
   const profileMenuItems = [
     {
@@ -137,24 +150,59 @@ export function ProfileOverviewScreen(): React.JSX.Element {
           {/* Divider line */}
           <View style={styles.cardDivider} />
 
-          {/* Loyalty Points Card section */}
-          <View style={styles.loyaltySection}>
-            <View style={styles.loyaltyHeader}>
-              <View style={styles.tierBadge}>
-                <Trophy size={16} color={colors.accent} weight="fill" />
-                <Text style={styles.tierText}>{loyaltyTier} Member</Text>
+          {/* Wallet section */}
+          <View style={styles.walletSection}>
+            <View style={styles.walletHeader}>
+              <View style={styles.walletBalanceContainer}>
+                <Text style={styles.walletTitle}>VietRide Wallet</Text>
+                <View style={styles.walletAmountRow}>
+                  <Text style={styles.walletBalanceAmount}>1,500,000</Text>
+                  <Text style={styles.walletCurrencySymbol}>đ</Text>
+                </View>
               </View>
-              <Text style={styles.pointsText}>
-                {loyaltyPoints} <Text style={styles.pointsLabel}>pts</Text>
-              </Text>
+              <TouchableOpacity
+                onPress={handleTopUp}
+                activeOpacity={0.8}
+                style={styles.walletTopUpButton}
+              >
+                <Text style={styles.walletTopUpText}>Top Up</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBarBackground}>
-                <View style={[styles.progressBarFill, { width: '58%' }]} />
-              </View>
-              <Text style={styles.progressLabel}>
-                {1000 - loyaltyPoints} points to Platinum
-              </Text>
+
+            {/* Wallet Actions Row */}
+            <View style={styles.walletActions}>
+              <TouchableOpacity
+                onPress={handleDeposit}
+                activeOpacity={0.7}
+                style={styles.walletActionBtn}
+              >
+                <View style={styles.walletIconBg}>
+                  <DownloadSimple size={20} color={colors.primary} weight="bold" />
+                </View>
+                <Text style={styles.walletActionText}>Deposit</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleWithdraw}
+                activeOpacity={0.7}
+                style={styles.walletActionBtn}
+              >
+                <View style={styles.walletIconBg}>
+                  <UploadSimple size={20} color={colors.primary} weight="bold" />
+                </View>
+                <Text style={styles.walletActionText}>Withdraw</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleHistory}
+                activeOpacity={0.7}
+                style={styles.walletActionBtn}
+              >
+                <View style={styles.walletIconBg}>
+                  <ClockCounterClockwise size={20} color={colors.primary} weight="bold" />
+                </View>
+                <Text style={styles.walletActionText}>History</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -283,58 +331,81 @@ const styles = StyleSheet.create({
     backgroundColor: colors.divider,
     marginVertical: spacing.md,
   },
-  loyaltySection: {
+  walletSection: {
     paddingTop: spacing.xs,
-  },
-  loyaltyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  tierBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.warningLight,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.sm,
-  },
-  tierText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: colors.accentDark,
-    marginLeft: spacing.xs,
-  },
-  pointsText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
-    color: colors.textPrimary,
-  },
-  pointsLabel: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-  },
-  progressContainer: {
     width: '100%',
   },
-  progressBarBackground: {
-    height: 6,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: borderRadius.full,
-    overflow: 'hidden',
-    marginBottom: spacing.xs,
+  walletHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: spacing.md,
   },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: colors.accent,
-    borderRadius: borderRadius.full,
+  walletBalanceContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
   },
-  progressLabel: {
-    fontFamily: fontFamilies.regular,
+  walletTitle: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xxs,
+  },
+  walletAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  walletBalanceAmount: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xxl,
+    color: colors.textPrimary,
+  },
+  walletCurrencySymbol: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+    marginLeft: spacing.xxs,
+  },
+  walletTopUpButton: {
+    backgroundColor: '#2ac1bc',
+    borderRadius: borderRadius.full,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  walletTopUpText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: '#004a48',
+  },
+  walletActions: {
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    paddingTop: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  walletActionBtn: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  walletIconBg: {
+    backgroundColor: colors.primaryFaded,
+    borderRadius: borderRadius.lg,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  walletActionText: {
+    fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: colors.textPrimary,
+    marginTop: 6,
+    textAlign: 'center',
   },
   menuContainer: {
     backgroundColor: colors.surface,
