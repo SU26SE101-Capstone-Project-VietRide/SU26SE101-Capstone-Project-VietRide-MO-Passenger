@@ -45,7 +45,10 @@ export type ProfileStackParamList = {
   ProfileOverview: undefined;
   EditProfile: undefined;
   Settings: undefined;
-  SavedPayments: undefined;
+  Wallet: undefined;
+  TopUp: undefined;
+  Withdraw: undefined;
+  AddPaymentMethod: undefined;
 };
 
 // ─── Main Tab Navigator ──────────────────────────────────

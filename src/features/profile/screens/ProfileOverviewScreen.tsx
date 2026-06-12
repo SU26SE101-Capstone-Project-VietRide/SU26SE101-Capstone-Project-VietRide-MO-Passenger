@@ -59,20 +59,21 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   }, [logout, t]);
 
   const handleTopUp = useCallback(() => {
-    console.log('Top Up pressed');
-  }, []);
+    navigation.navigate('TopUp');
+  }, [navigation]);
 
   const handleDeposit = useCallback(() => {
-    console.log('Deposit pressed');
-  }, []);
+    // Deposit acts the same as Top Up
+    navigation.navigate('TopUp');
+  }, [navigation]);
 
   const handleWithdraw = useCallback(() => {
-    console.log('Withdraw pressed');
-  }, []);
+    navigation.navigate('Withdraw');
+  }, [navigation]);
 
   const handleHistory = useCallback(() => {
-    console.log('History pressed');
-  }, []);
+    navigation.navigate('Wallet'); // Keep history in Wallet screen for now
+  }, [navigation]);
 
   const profileMenuItems = [
     {
@@ -86,12 +87,6 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       title: t('profile.history', 'History'),
       icon: ClockCounterClockwise,
       onPress: () => navigation.navigate('BookingHistory' as any, { initialTab: 'ticket' }),
-    },
-    {
-      id: 'saved-payments',
-      title: t('profile.savedPayments', 'Saved Payments'),
-      icon: CreditCard,
-      onPress: () => navigation.navigate('SavedPayments' as any),
     },
     {
       id: 'settings',

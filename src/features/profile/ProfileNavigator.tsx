@@ -5,7 +5,10 @@ import type { ProfileStackParamList } from '@app/navigation/types';
 import { ProfileOverviewScreen } from './screens/ProfileOverviewScreen';
 import { EditProfileScreen } from './screens/EditProfileScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
-import { SavedPaymentsScreen } from './screens/SavedPaymentsScreen';
+import { WalletScreen } from './screens/WalletScreen';
+import { TopUpScreen } from './screens/TopUpScreen';
+import { WithdrawScreen } from './screens/WithdrawScreen';
+import { AddPaymentMethodScreen } from './screens/AddPaymentMethodScreen';
 
 import { colors } from '@shared/theme';
 
@@ -24,7 +27,10 @@ export function ProfileNavigator(): React.JSX.Element {
       <Stack.Screen name="ProfileOverview" component={ProfileOverviewScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
-      <Stack.Screen name="SavedPayments" component={SavedPaymentsScreen as any} />
+      <Stack.Screen name="Wallet" component={WalletScreen} />
+      <Stack.Screen name="TopUp" component={TopUpScreen} />
+      <Stack.Screen name="Withdraw" component={WithdrawScreen} />
+      <Stack.Screen name="AddPaymentMethod" component={AddPaymentMethodScreen} />
 
     </Stack.Navigator>
   );
