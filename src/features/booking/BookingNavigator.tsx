@@ -12,12 +12,7 @@ import { BusSearchScreen } from './screens/BusSearchScreen';
 import { CityPickerScreen } from './screens/CityPickerScreen';
 import { DatePicker } from './screens/DatePickerScreen';
 import { PassengersPicker } from './screens/PassengersPickerScreen';
-import { TripResultsScreen } from './screens/TripResultsScreen';
-import { SeatSelectionScreen } from './screens/SeatSelectionScreen';
-import { PickUpScreen } from './screens/PickUpScreen';
-import { DropOffScreen } from './screens/DropOffScreen';
-import { CheckoutScreen } from './screens/CheckoutScreen';
-import { PaymentScreen } from './screens/PaymentScreen';
+import { CreateTicketBookingScreen } from './screens/CreateTicketBookingScreen';
 import { DigitalTicketScreen } from './screens/DigitalTicketScreen';
 import { colors } from '@shared/theme';
 
@@ -35,12 +30,7 @@ export function BookingNavigator(): React.JSX.Element {
       <Stack.Screen name="CityPicker" component={CityPickerScreen} />
       <Stack.Screen name="DatePicker" component={DatePicker} />
       <Stack.Screen name="PassengersPicker" component={PassengersPicker} />
-      <Stack.Screen name="RouteResults" component={TripResultsScreen} />
-      <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
-      <Stack.Screen name="PickUpSelection" component={PickUpScreen} />
-      <Stack.Screen name="DropOffSelection" component={DropOffScreen} />
-      <Stack.Screen name="BookingConfirmation" component={CheckoutScreen} />
-      <Stack.Screen name="Payment" component={PaymentScreen} />
+      <Stack.Screen name="CreateTicketBooking" component={CreateTicketBookingScreen} />
       <Stack.Screen
         name="DigitalTicket"
         component={DigitalTicketScreen}

@@ -5,15 +5,17 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft, CalendarBlank } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
+import type { RouteProp } from '@react-navigation/native';
 import type { BookingStackParamList } from '@app/navigation/types';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'DatePicker'>;
+type DatePickerRouteProp = RouteProp<BookingStackParamList, 'DatePicker'>;
 
 const TODAY = new Date();
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -32,13 +34,20 @@ const DAYS = Array.from({ length: 30 }, (_, i) => addDays(TODAY, i));
 
 export function DatePicker(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
+  const route = useRoute<DatePickerRouteProp>();
   const { searchParams, setSearchParams } = useBookingStore();
 
+  const mode = route.params?.mode || 'departure';
   const todayStr = fmt(TODAY);
-  const [selected, setSelected] = useState(searchParams.date || todayStr);
+  const initialDate = mode === 'return' ? searchParams.returnDate : searchParams.date;
+  const [selected, setSelected] = useState(initialDate || todayStr);
 
   const onConfirm = () => {
-    setSearchParams({ date: selected });
+    if (mode === 'return') {
+      setSearchParams({ returnDate: selected });
+    } else {
+      setSearchParams({ date: selected });
+    }
     navigation.goBack();
   };
 
@@ -69,7 +78,7 @@ export function DatePicker(): React.JSX.Element {
               <ArrowLeft size={20} color={colors.primary} weight="bold" />
             </View>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Select Date</Text>
+          <Text style={styles.headerTitle}>Select {mode === 'return' ? 'Return Date' : 'Date'}</Text>
           <View style={{ width: 40 }} />
         </View>
 

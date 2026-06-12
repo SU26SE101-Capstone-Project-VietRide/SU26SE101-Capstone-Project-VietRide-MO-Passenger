@@ -114,7 +114,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const route = useRoute<BookingHistoryRouteProp>();
-  
+
   const [activeMainTab, setActiveMainTab] = useState<'ticket' | 'parcel'>('ticket');
   const [activeTicketFilter, setActiveTicketFilter] = useState<'all' | 'upcoming' | 'past'>('all');
 
@@ -241,8 +241,8 @@ export function BookingHistoryScreen(): React.JSX.Element {
                 {filter === 'all'
                   ? t('common.all', 'All')
                   : filter === 'upcoming'
-                  ? t('profile.upcoming', 'Upcoming')
-                  : t('profile.past', 'Past')}
+                    ? t('profile.upcoming', 'Upcoming')
+                    : t('profile.past', 'Past')}
               </Text>
             </TouchableOpacity>
           ))}
@@ -264,8 +264,8 @@ export function BookingHistoryScreen(): React.JSX.Element {
             </View>
           ) : (
             filteredTickets.map((ticket) => (
-              <TouchableOpacity 
-                key={ticket.id} 
+              <TouchableOpacity
+                key={ticket.id}
                 style={styles.ticketCard}
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('Booking', { screen: 'DigitalTicket', params: { bookingRef: ticket.bookingRef, fromHistory: true } })}
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
+    paddingBottom: 130,
   },
   emptyContainer: {
     paddingVertical: 64,

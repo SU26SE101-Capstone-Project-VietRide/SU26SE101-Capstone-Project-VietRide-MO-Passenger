@@ -53,36 +53,24 @@ export function HomeScreen(): React.JSX.Element {
     navigation.navigate('Notification');
   }, [navigation]);
 
-  // Booking handlers
   const handleTicketSearch = useCallback(() => {
     navigation.navigate('Booking', {
-      screen: 'RouteResults',
-      params: {
-        departureId: searchParams.from || 'Hanoi',
-        destinationId: searchParams.to || 'Sapa',
-        date: searchParams.date,
-        isRoundTrip,
-      },
+      screen: 'CreateTicketBooking',
     });
-  }, [navigation, searchParams, isRoundTrip]);
+  }, [navigation]);
 
   const handlePopularPress = useCallback(
     (item: { from: string; to: string }) => {
       setSearchParams({ from: item.from, to: item.to });
       navigation.navigate('Booking', {
-        screen: 'RouteResults',
-        params: {
-          departureId: item.from,
-          destinationId: item.to,
-          date: searchParams.date,
-        },
+        screen: 'CreateTicketBooking',
       });
     },
-    [navigation, setSearchParams, searchParams.date],
+    [navigation, setSearchParams],
   );
 
   const handleRecentPress = useCallback(
-    (item: { route: string; date: string }) => {
+    (item: { route: string }) => {
       const parts = item.route.split(/\s+to\s+/i);
       const from = parts[0]?.trim() || '';
       const to = parts[1]?.trim() || '';
@@ -102,8 +90,8 @@ export function HomeScreen(): React.JSX.Element {
     [navigation],
   );
 
-  const openBookingDatePicker = useCallback(() => {
-    navigation.navigate('Booking', { screen: 'DatePicker' });
+  const openBookingDatePicker = useCallback((mode: 'departure' | 'return' = 'departure') => {
+    navigation.navigate('Booking', { screen: 'DatePicker', params: { mode } });
   }, [navigation]);
 
   // Parcel handlers
@@ -237,7 +225,7 @@ export function HomeScreen(): React.JSX.Element {
                 <View style={styles.metaRow}>
                   <TouchableOpacity
                     style={styles.metaField}
-                    onPress={openBookingDatePicker}
+                    onPress={() => openBookingDatePicker('departure')}
                     activeOpacity={0.8}
                   >
                     <CalendarBlank size={16} color={colors.primary} weight="fill" />
@@ -245,20 +233,36 @@ export function HomeScreen(): React.JSX.Element {
                       {searchParams.date || 'Select date'}
                     </Text>
                   </TouchableOpacity>
+
+                  {searchParams.isRoundTrip && (
+                    <TouchableOpacity
+                      style={styles.metaField}
+                      onPress={() => openBookingDatePicker('return')}
+                      activeOpacity={0.8}
+                    >
+                      <CalendarBlank size={16} color={colors.primary} weight="fill" />
+                      <Text style={styles.metaText} numberOfLines={1}>
+                        {searchParams.returnDate || 'Return date'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View style={[styles.metaRow, { marginTop: spacing.md }]}>
                   <View style={[styles.metaField, styles.switchField]}>
                     <Text style={styles.switchLabel}>Round-trip</Text>
                     <TouchableOpacity
                       activeOpacity={0.85}
-                      onPress={() => setIsRoundTrip(!isRoundTrip)}
+                      onPress={() => setSearchParams({ isRoundTrip: !searchParams.isRoundTrip })}
                       style={[
                         styles.switchTrack,
-                        isRoundTrip ? styles.switchTrackActive : styles.switchTrackInactive,
+                        searchParams.isRoundTrip ? styles.switchTrackActive : styles.switchTrackInactive,
                       ]}
                     >
                       <View
                         style={[
                           styles.switchThumb,
-                          isRoundTrip ? styles.switchThumbActive : styles.switchThumbInactive,
+                          searchParams.isRoundTrip ? styles.switchThumbActive : styles.switchThumbInactive,
                         ]}
                       />
                     </TouchableOpacity>
@@ -389,7 +393,6 @@ export function HomeScreen(): React.JSX.Element {
                 <RecentSearchCard
                   key={item.id}
                   route={item.route}
-                  date={item.date}
                   onPress={() => handleRecentPress(item)}
                 />
               ))}
@@ -430,7 +433,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xs,
-    paddingBottom: 100,
+    paddingBottom: 80,
     zIndex: 5,
   },
   formContainer: {

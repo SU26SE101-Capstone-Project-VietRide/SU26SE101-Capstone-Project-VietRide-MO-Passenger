@@ -5,15 +5,13 @@ import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from 
 
 interface RecentSearchCardProps {
   route: string;
-  date: string;
   onPress?: () => void;
 }
 
-export const RecentSearchCard = ({ route, date, onPress }: RecentSearchCardProps): React.JSX.Element => (
+export const RecentSearchCard = ({ route, onPress }: RecentSearchCardProps): React.JSX.Element => (
   <View style={styles.recentCard}>
     <View>
       <Text style={styles.recentRoute}>{route}</Text>
-      <Text style={styles.recentDate}>{date}</Text>
     </View>
     <TouchableOpacity style={styles.recentButton} onPress={onPress}>
       <ArrowRight size={16} weight="bold" color={colors.primary} />
@@ -40,14 +38,8 @@ const styles = StyleSheet.create({
   },
   recentRoute: {
     fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.lg,
+    fontSize: fontSizes.md,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  recentDate: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
   },
   recentButton: {
     width: 40,

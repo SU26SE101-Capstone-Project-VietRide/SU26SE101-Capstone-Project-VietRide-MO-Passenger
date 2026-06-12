@@ -5,77 +5,94 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import { ArrowLeft, PencilSimple } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { PencilSimple } from 'phosphor-react-native';
+import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import {
   FloatingActionBar,
   SectionCard,
   InfoRow,
-  StopOption,
 } from '../components';
-import type { BookingStackParamList } from '@app/navigation/types';
 
-type NavProp = NativeStackNavigationProp<BookingStackParamList, 'BookingConfirmation'>;
+interface CheckoutStepProps {
+  onNext: (step: number) => void;
+  onGoToStep: (step: number) => void;
+}
 
-export function CheckoutScreen(): React.JSX.Element {
-  const navigation = useNavigation<NavProp>();
+export function CheckoutScreen({ onNext, onGoToStep }: CheckoutStepProps): React.JSX.Element {
   const {
     contactInfo,
     selectedSeats,
     totalPrice,
-    dropOffPoints,
     selectedDropOff,
     selectDropOff,
     pickUpPoints,
     selectedPickUp,
     selectPickUp,
+    searchParams,
+    outboundState,
+    selectedTrip,
+    setHighestStep,
   } = useBookingStore();
 
+  React.useEffect(() => {
+    setHighestStep(5);
+  }, [setHighestStep]);
+
   const handleNext = useCallback(() => {
-    navigation.navigate('Payment', {
-      bookingId: 'mock-booking',
-      amount: totalPrice(),
-    });
-  }, [navigation, totalPrice]);
+    onNext(6);
+  }, [onNext]);
+
+  const renderLegSummary = (title: string, trip: any, seats: any[], pickUp: any, dropOff: any, onEdit: () => void) => {
+    if (!trip) return null;
+    return (
+      <SectionCard>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <TouchableOpacity style={styles.editButton} onPress={onEdit}>
+            <PencilSimple size={14} weight="bold" color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <InfoRow label="Route" value={`${trip.departure} → ${trip.destination}`} />
+        <InfoRow label="Departure Time" value={`${trip.date} • ${trip.time}`} />
+        <InfoRow label="Seats" value={seats.map((s: any) => s.id).join(', ')} showDivider />
+
+        <View style={{ marginTop: spacing.md }}>
+          <View style={styles.pickupDisplay}>
+            <View style={styles.pickupIconBox}>
+              <Text style={{ fontSize: 16 }}>📍</Text>
+            </View>
+            <View style={styles.pickupTextWrap}>
+              <Text style={styles.pickupLabel}>Boarding at {pickUp?.time || ''}</Text>
+              <Text style={styles.pickupValue}>{pickUp?.name || 'Select pick-up point'}</Text>
+            </View>
+          </View>
+          <Text style={styles.pickupHint}>{pickUp?.address || ''}</Text>
+        </View>
+
+        <View style={{ marginTop: spacing.lg }}>
+          <View style={styles.pickupDisplay}>
+            <View style={styles.pickupIconBox}>
+              <Text style={{ fontSize: 16 }}>📍</Text>
+            </View>
+            <View style={styles.pickupTextWrap}>
+              <Text style={styles.pickupLabel}>Alighting at {dropOff?.time || ''}</Text>
+              <Text style={styles.pickupValue}>{dropOff?.name || 'Select drop-off point'}</Text>
+            </View>
+          </View>
+          <Text style={styles.pickupHint}>{dropOff?.address || ''}</Text>
+        </View>
+      </SectionCard>
+    );
+  };
 
   return (
-    <View style={styles.root}>
-      {/* Gradient background */}
-      <View style={styles.gradientContainer} pointerEvents="none">
-        <Svg height="300" width="100%">
-          <Defs>
-            <LinearGradient id="checkoutGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.1} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
-            </LinearGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill="url(#checkoutGrad)" />
-        </Svg>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Checkout</Text>
       </View>
-
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-
-        {/* Header with back bubble */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-            style={styles.backBtn}
-          >
-            <View style={styles.backBubble}>
-              <ArrowLeft size={20} color={colors.primary} weight="bold" />
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Checkout</Text>
-          <View style={{ width: 40 }} />
-        </View>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -99,112 +116,46 @@ export function CheckoutScreen(): React.JSX.Element {
             <InfoRow label="Email Address" value={contactInfo.email} />
           </SectionCard>
 
-          {/* Pick-up Point Card */}
-          <SectionCard>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardTitle}>Pick-up Point</Text>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => navigation.navigate('PickUpSelection')}
-              >
-                <PencilSimple size={14} weight="bold" color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.pickupDisplay}>
-              <View style={styles.pickupIconBox}>
-                <Text style={{ fontSize: 16 }}>📍</Text>
-              </View>
-              <View style={styles.pickupTextWrap}>
-                <Text style={styles.pickupLabel}>Boarding at {selectedPickUp?.time || ''}</Text>
-                <Text style={styles.pickupValue}>
-                  {selectedPickUp?.name || 'Select pick-up point'}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.pickupHint}>
-              {selectedPickUp?.address || ''}
-            </Text>
-          </SectionCard>
+          {/* Outbound Leg */}
+          {outboundState ? (
+            renderLegSummary('Departure Trip', outboundState.trip, outboundState.seats, outboundState.pickUp, outboundState.dropOff, () => {
+              useBookingStore.setState({ currentLeg: 'outbound', outboundState: null, highestStepReached: 1 });
+              onGoToStep(1);
+            })
+          ) : (
+            renderLegSummary(searchParams.isRoundTrip ? 'Departure Trip' : 'Trip Details', selectedTrip, selectedSeats, selectedPickUp, selectedDropOff, () => {
+              onGoToStep(1);
+            })
+          )}
 
-          {/* Drop-off Point Card */}
-          <SectionCard>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardTitle}>Drop-off Point</Text>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => navigation.navigate('DropOffSelection')}
-              >
-                <PencilSimple size={14} weight="bold" color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.pickupDisplay}>
-              <View style={styles.pickupIconBox}>
-                <Text style={{ fontSize: 16 }}>📍</Text>
-              </View>
-              <View style={styles.pickupTextWrap}>
-                <Text style={styles.pickupLabel}>Alighting at {selectedDropOff?.time || ''}</Text>
-                <Text style={styles.pickupValue}>
-                  {selectedDropOff?.name || 'Select drop-off point'}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.pickupHint}>
-              {selectedDropOff?.address || ''}
-            </Text>
-          </SectionCard>
+          {/* Return Leg */}
+          {searchParams.isRoundTrip && outboundState && (
+            renderLegSummary('Return Trip', selectedTrip, selectedSeats, selectedPickUp, selectedDropOff, () => {
+              useBookingStore.setState({ currentLeg: 'return' });
+              onGoToStep(1);
+            })
+          )}
         </ScrollView>
 
-        {/* Floating Action Bar */}
         <FloatingActionBar
           selectedSeats={selectedSeats}
           totalPrice={totalPrice()}
           ctaLabel="Next"
           onPress={handleNext}
         />
-      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#E6F4F3',
-  },
-  gradientContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
-    zIndex: 0,
-  },
   container: {
     flex: 1,
     backgroundColor: 'transparent',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.divider,
-    ...shadows.sm,
-  },
-  backBubble: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   headerTitle: {
     fontFamily: fontFamilies.bold,

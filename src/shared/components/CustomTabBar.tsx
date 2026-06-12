@@ -71,7 +71,7 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: C
           label = t('profile.notifications');
           IconComponent = Bell;
         } else if (route.name === 'BookingHistory') {
-          label = t('profile.bookingHistory', 'History');
+          label = t('profile.history', 'History');
           IconComponent = ClockCounterClockwise;
         } else if (route.name === 'Profile') {
           label = t('nav.profile');

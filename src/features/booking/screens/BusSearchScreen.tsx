@@ -29,21 +29,13 @@ export function BusSearchScreen(): React.JSX.Element {
   const { searchParams, swapCities, setSearchParams } = useBookingStore();
 
   const handleSearch = useCallback(() => {
-    navigation.navigate('RouteResults', {
-      departureId: searchParams.from || 'Hanoi',
-      destinationId: searchParams.to || 'Sapa',
-      date: searchParams.date,
-    });
-  }, [navigation, searchParams]);
+    navigation.navigate('CreateTicketBooking');
+  }, [navigation]);
 
   const navigateToRoute = useCallback(
     (from: string, to: string, date?: string) => {
       setSearchParams({ from, to, date: date || searchParams.date });
-      navigation.navigate('RouteResults', {
-        departureId: from,
-        destinationId: to,
-        date: date || searchParams.date,
-      });
+      navigation.navigate('CreateTicketBooking');
     },
     [navigation, setSearchParams, searchParams.date],
   );
@@ -56,13 +48,14 @@ export function BusSearchScreen(): React.JSX.Element {
   );
 
   const handleRecentPress = useCallback(
-    (item: { route: string; date: string }) => {
+    (item: { route: string }) => {
       const parts = item.route.split(/\s+to\s+/i);
       const from = parts[0]?.trim() || '';
       const to = parts[1]?.trim() || '';
-      navigateToRoute(from, to, item.date);
+      setSearchParams({ from, to });
+      navigation.navigate('DatePicker');
     },
-    [navigateToRoute],
+    [navigation, setSearchParams],
   );
 
   const openCityPicker = useCallback(
@@ -86,8 +79,8 @@ export function BusSearchScreen(): React.JSX.Element {
     <RouteCard from={item.from} to={item.to} price={item.price} onPress={() => handlePopularPress(item)} />
   );
 
-  const renderRecentItem = ({ item }: { item: { id: string; route: string; date: string } }) => (
-    <RecentSearchCard route={item.route} date={item.date} onPress={() => handleRecentPress(item)} />
+  const renderRecentItem = ({ item }: { item: { id: string; route: string } }) => (
+    <RecentSearchCard route={item.route} onPress={() => handleRecentPress(item)} />
   );
 
   return (
@@ -165,17 +158,14 @@ export function BusSearchScreen(): React.JSX.Element {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Searches</Text>
           </View>
-
-          <View style={styles.recentList}>
-            {MOCK_RECENT_SEARCHES.map((item) => (
-              <RecentSearchCard
-                key={item.id}
-                route={item.route}
-                date={item.date}
-                onPress={() => handleRecentPress(item)}
-              />
-            ))}
-          </View>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={MOCK_RECENT_SEARCHES}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.horizontalList}
+            renderItem={renderRecentItem}
+          />
 
           {/* Bottom spacer */}
           <View style={{ height: 100 }} />

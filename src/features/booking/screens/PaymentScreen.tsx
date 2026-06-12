@@ -4,21 +4,18 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Ticket, Coins, CreditCard, Wallet } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
-import { useBookingStore } from '../store/useBookingStore';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Ticket, Coins, CreditCard, Wallet } from 'phosphor-react-native';
+import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { FloatingActionBar } from '../components';
+import { useBookingStore } from '../store/useBookingStore';
 import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
-import type { BookingStackParamList } from '@app/navigation/types';
 
-type NavProp = NativeStackNavigationProp<BookingStackParamList, 'Payment'>;
+interface PaymentStepProps {
+  onNext: () => void;
+}
 
-export function PaymentScreen(): React.JSX.Element {
-  const navigation = useNavigation<NavProp>();
+export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
   const {
     selectedTrip,
     selectedSeats,
@@ -27,7 +24,15 @@ export function PaymentScreen(): React.JSX.Element {
     setPaymentMethod,
     selectedPickUp,
     selectedDropOff,
+    searchParams,
+    setHighestStep,
   } = useBookingStore();
+
+  React.useEffect(() => {
+    setHighestStep(6);
+  }, [setHighestStep]);
+
+
 
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
@@ -37,8 +42,8 @@ export function PaymentScreen(): React.JSX.Element {
   const finalPrice = baseFare - promoDiscount;
 
   const handlePayNow = useCallback(() => {
-    navigation.navigate('DigitalTicket');
-  }, [navigation]);
+    onNext();
+  }, [onNext]);
 
   const handlePromoApply = useCallback(() => {
     if (promoCode.trim().length > 0) {
@@ -51,24 +56,10 @@ export function PaymentScreen(): React.JSX.Element {
   }, [promoCode]);
 
   return (
-    <View style={styles.root}>
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-            style={styles.backBtn}
-          >
-            <View style={styles.backBubble}>
-              <ArrowLeft size={20} color={colors.textPrimary} weight="bold" />
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Payment Details</Text>
-          <View style={{ width: 40 }} />
-        </View>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Payment Details</Text>
+      </View>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -178,14 +169,12 @@ export function PaymentScreen(): React.JSX.Element {
 
         </ScrollView>
 
-        {/* Floating Action Bar */}
         <FloatingActionBar
           selectedSeats={selectedSeats}
           totalPrice={finalPrice}
           ctaLabel="Pay Now"
           onPress={handlePayNow}
         />
-      </SafeAreaView>
     </View>
   );
 }
@@ -217,35 +206,14 @@ const PaymentOption = ({ selected, label, sub, Icon, iconColor, onSelect }: Paym
 );
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.divider,
-    ...shadows.sm,
-  },
-  backBubble: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   headerTitle: {
     fontFamily: fontFamilies.bold,

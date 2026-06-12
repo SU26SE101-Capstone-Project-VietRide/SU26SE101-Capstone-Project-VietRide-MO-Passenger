@@ -61,40 +61,40 @@ export function ChatbotScreen(): React.JSX.Element {
   // Quick Action Chips definitions
   const quickActionChips = currentLang.startsWith('vi')
     ? [
-        { label: '💵 Xem giá vé xe', value: 'price' },
-        { label: '🎫 Hủy vé & Hoàn tiền', value: 'cancel' },
-        { label: '📦 Cách thức gửi hàng', value: 'parcel' },
-        { label: '📍 Theo dõi hành trình xe', value: 'track' },
-      ]
+      { label: '💵 Xem giá vé xe', value: 'price' },
+      { label: '🎫 Hủy vé & Hoàn tiền', value: 'cancel' },
+      { label: '📦 Cách thức gửi hàng', value: 'parcel' },
+      { label: '📍 Theo dõi hành trình xe', value: 'track' },
+    ]
     : [
-        { label: '💵 Check Ticket Fares', value: 'price' },
-        { label: '🎫 Cancellation & Refund', value: 'cancel' },
-        { label: '📦 How to Send Parcel', value: 'parcel' },
-        { label: '📍 Live Track My Bus', value: 'track' },
-      ];
+      { label: '💵 Check Ticket Fares', value: 'price' },
+      { label: '🎫 Cancellation & Refund', value: 'cancel' },
+      { label: '📦 How to Send Parcel', value: 'parcel' },
+      { label: '📍 Live Track My Bus', value: 'track' },
+    ];
 
   // Auto-responses database
   const getBotResponse = (queryType: string, customText?: string): string => {
     const isVi = currentLang.startsWith('vi');
-    
+
     if (queryType === 'price') {
       return isVi
         ? 'Giá vé VietRide dao động từ 150.000đ (xe giường nằm tiêu chuẩn) đến 280.000đ (Limousine VIP). Bạn có thể vào tab "Đặt vé" ở menu chính để tra cứu chính xác giá vé của từng chặng nhé!'
         : 'VietRide ticket fares start from only 150,000đ for standard sleeper buses and 280,000đ for premium VIP Limousines. You can search live pricing for any route under the "Booking" tab!';
     }
-    
+
     if (queryType === 'cancel') {
       return isVi
-        ? 'Bạn có thể hủy vé trực tiếp trên ứng dụng tối thiểu 24 tiếng trước giờ khởi hành. Hãy vào "Lịch sử đặt vé" -> chọn vé điện tử của bạn -> bấm "Hủy vé". Phí xử lý hủy vé tiêu chuẩn là 10%.'
-        : 'You can easily cancel and refund tickets up to 24 hours prior to departure. Simply go to "Booking History" -> select your digital ticket -> tap "Cancel Ticket". A standard 10% processing fee will apply.';
+        ? 'Bạn có thể hủy vé trực tiếp trên ứng dụng tối thiểu 24 tiếng trước giờ khởi hành. Hãy vào "Lịch sử" -> chọn vé điện tử của bạn -> bấm "Hủy vé". Phí xử lý hủy vé tiêu chuẩn là 10%.'
+        : 'You can easily cancel and refund tickets up to 24 hours prior to departure. Simply go to "History" -> select your digital ticket -> tap "Cancel Ticket". A standard 10% processing fee will apply.';
     }
-    
+
     if (queryType === 'parcel') {
       return isVi
         ? 'Gửi hàng cực kỳ dễ dàng với VietRide! Hãy chọn tab "Gửi hàng" (Parcel) ở menu chính, nhập kích thước bưu kiện, thông tin người gửi/nhận, sau đó đem hàng ra văn phòng nhà xe gần nhất để gửi.'
         : 'Sending a parcel is quick! Head over to the "Parcel" tab at the bottom menu, fill in package details, sender and receiver details, then drop the parcel off at your closest VietRide terminal.';
     }
-    
+
     if (queryType === 'track') {
       return isVi
         ? 'Để xem vị trí xe chạy trực tiếp, bạn hãy truy cập tab "Theo dõi" (Tracking) ở menu dưới cùng, nhập mã vé của bạn (ví dụ: VR-88291) để theo dõi bản đồ GPS và ETA thời gian xe đến.'
@@ -128,7 +128,7 @@ export function ChatbotScreen(): React.JSX.Element {
 
     setMessages((prev) => [...prev, userMsg]);
     setInputText('');
-    
+
     // Auto Scroll to bottom
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 

@@ -83,7 +83,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
     },
     {
       id: 'booking-history',
-      title: t('profile.bookingHistory', 'Booking History'),
+      title: t('profile.history', 'History'),
       icon: ClockCounterClockwise,
       onPress: () => navigation.navigate('BookingHistory' as any, { initialTab: 'ticket' }),
     },
@@ -113,9 +113,9 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-      
+
       {/* Scrollable Container */}
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xxl,
+    paddingBottom: 130,
   },
   headerContainer: {
     paddingVertical: spacing.lg,

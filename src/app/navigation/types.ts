@@ -19,25 +19,9 @@ export type AuthStackParamList = {
 export type BookingStackParamList = {
   SearchRoutes: undefined;
   CityPicker: { mode: 'from' | 'to' };
-  DatePicker: undefined;
+  DatePicker: { mode?: 'departure' | 'return' } | undefined;
   PassengersPicker: { current: number };
-  RouteResults: {
-    departureId: string;
-    destinationId: string;
-    date: string;
-  };
-  SeatSelection: {
-    tripId: string;
-  };
-  PickUpSelection: undefined;
-  DropOffSelection: undefined;
-  BookingConfirmation: {
-    bookingId: string;
-  };
-  Payment: {
-    bookingId: string;
-    amount: number;
-  };
+  CreateTicketBooking: undefined;
   DigitalTicket: {
     bookingRef: string;
     fromHistory?: boolean;

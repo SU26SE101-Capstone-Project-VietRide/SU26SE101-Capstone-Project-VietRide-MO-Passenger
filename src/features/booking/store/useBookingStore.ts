@@ -17,6 +17,13 @@ import type {
   PickUpPoint,
   TripResultsStatus,
 } from '../types';
+
+export interface OutboundState {
+  trip: BusTrip | null;
+  seats: Seat[];
+  pickUp: PickUpPoint | null;
+  dropOff: DropOffPoint | null;
+}
 import {
   MOCK_TRIPS,
   MOCK_SEAT_MAP,
@@ -27,9 +34,16 @@ import {
 
 interface BookingStore {
   // ─── Search ──────────────────────────────────────────
-  searchParams: SearchParams;
-  setSearchParams: (params: Partial<SearchParams>) => void;
+  searchParams: SearchParams & { isRoundTrip?: boolean; returnDate?: string };
+  setSearchParams: (params: Partial<SearchParams & { isRoundTrip?: boolean; returnDate?: string }>) => void;
   swapCities: () => void;
+
+  // ─── Round Trip State ────────────────────────────────
+  currentLeg: 'outbound' | 'return';
+  outboundState: OutboundState | null;
+  saveOutboundLeg: () => void;
+  highestStepReached: number;
+  setHighestStep: (step: number) => void;
 
   // ─── Trip Results ────────────────────────────────────
   tripResultsStatus: TripResultsStatus;
@@ -78,6 +92,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     to: '',
     date: 'Today',
     passengers: 1,
+    isRoundTrip: false,
+    returnDate: '',
   },
   setSearchParams: (params) =>
     set((state) => ({
@@ -92,6 +108,28 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       },
     })),
 
+  // ─── Round Trip State ────────────────────────────────
+  currentLeg: 'outbound',
+  outboundState: null,
+  highestStepReached: 1,
+  setHighestStep: (step) => set((state) => ({ 
+    highestStepReached: Math.max(state.highestStepReached, step) 
+  })),
+  saveOutboundLeg: () => set((state) => ({
+    outboundState: {
+      trip: state.selectedTrip,
+      seats: state.selectedSeats,
+      pickUp: state.selectedPickUp,
+      dropOff: state.selectedDropOff,
+    },
+    currentLeg: 'return',
+    selectedTrip: null,
+    selectedSeats: [],
+    selectedPickUp: state.pickUpPoints[0],
+    selectedDropOff: state.dropOffPoints[0],
+    highestStepReached: 1,
+  })),
+
   // ─── Trip Results ────────────────────────────────────
   tripResultsStatus: 'loading',
   trips: [],
@@ -105,7 +143,11 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
   // ─── Selected Trip ───────────────────────────────────
   selectedTrip: null,
-  selectTrip: (trip) => set({ selectedTrip: trip }),
+  selectTrip: (trip) => set({ 
+    selectedTrip: trip, 
+    selectedSeats: [],
+    highestStepReached: 1, 
+  }),
 
   // ─── Seats ───────────────────────────────────────────
   seatMap: [],
@@ -189,15 +231,23 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
   // ─── Computed ────────────────────────────────────────
   totalPrice: () => {
-    const { selectedTrip, selectedSeats } = get();
-    if (!selectedTrip) return 0;
-    return selectedTrip.price * Math.max(selectedSeats.length, 1);
+    const { selectedTrip, selectedSeats, outboundState } = get();
+    let total = 0;
+    if (selectedTrip) {
+      total += selectedTrip.price * Math.max(selectedSeats.length, 1);
+    }
+    if (outboundState?.trip) {
+      total += outboundState.trip.price * Math.max(outboundState.seats.length, 1);
+    }
+    return total;
   },
 
   // ─── Reset ───────────────────────────────────────────
   resetBooking: () =>
     set({
-      searchParams: { from: '', to: '', date: 'Today', passengers: 1 },
+      searchParams: { from: '', to: '', date: 'Today', passengers: 1, isRoundTrip: false, returnDate: '' },
+      currentLeg: 'outbound',
+      outboundState: null,
       tripResultsStatus: 'loading',
       trips: [],
       selectedTrip: null,
@@ -207,5 +257,6 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       selectedPickUp: MOCK_PICK_UP_POINTS[0],
       selectedDropOff: MOCK_DROP_OFF_POINTS[0],
       paymentMethod: 'vnpay',
+      highestStepReached: 1,
     }),
 }));
