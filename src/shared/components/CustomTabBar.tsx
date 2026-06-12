@@ -8,10 +8,10 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { Scan, House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native';
+import { House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native';
 
 import { colors, fontFamilies, spacing, borderRadius } from '@shared/theme';
 
@@ -42,17 +42,20 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: C
           }
         };
 
-        // Middle Scan FAB Layout
-        if (route.name === 'Tracking') {
+        // Middle AI Chat FAB Layout
+        if (route.name === 'ChatbotTab') {
           return (
             <TouchableOpacity
               key={route.key}
-              onPress={onPress}
+              onPress={() => navigation.navigate('Chatbot')}
               activeOpacity={0.85}
-              style={styles.fabButton}
+              style={[styles.fabButton, { backgroundColor: '#fff', borderWidth: 2, borderColor: colors.primary }]}
             >
-              <Scan size={24} color="#fff" weight="bold" />
-              <Text style={styles.fabText}>{t('nav.scan')}</Text>
+              <Image 
+                source={{ uri: 'https://ui-avatars.com/api/?name=AI&background=0D8ABC&color=fff&size=128' }} 
+                style={{ width: 44, height: 44, borderRadius: 22 }} 
+                resizeMode="contain"
+              />
             </TouchableOpacity>
           );
         }

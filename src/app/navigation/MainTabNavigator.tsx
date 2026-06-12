@@ -10,7 +10,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import type { MainTabParamList } from './types';
 import { HomeScreen, NotificationScreen } from '@features/home';
-import { TrackingNavigator } from '@features/tracking';
+import { View } from 'react-native';
 import { ProfileNavigator, BookingHistoryScreen } from '@features/profile';
 import { CustomTabBar } from '@shared/components';
 
@@ -27,7 +27,7 @@ export function MainTabNavigator(): React.JSX.Element {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Notification" component={NotificationScreen} />
-      <Tab.Screen name="Tracking" component={TrackingNavigator} />
+      <Tab.Screen name="ChatbotTab" component={View} />
       <Tab.Screen name="BookingHistory" component={BookingHistoryScreen} />
       <Tab.Screen name="Profile" component={ProfileNavigator} />
     </Tab.Navigator>

@@ -14,6 +14,8 @@ import { DatePicker } from './screens/DatePickerScreen';
 import { PassengersPicker } from './screens/PassengersPickerScreen';
 import { TripResultsScreen } from './screens/TripResultsScreen';
 import { SeatSelectionScreen } from './screens/SeatSelectionScreen';
+import { PickUpScreen } from './screens/PickUpScreen';
+import { DropOffScreen } from './screens/DropOffScreen';
 import { CheckoutScreen } from './screens/CheckoutScreen';
 import { PaymentScreen } from './screens/PaymentScreen';
 import { DigitalTicketScreen } from './screens/DigitalTicketScreen';
@@ -35,6 +37,8 @@ export function BookingNavigator(): React.JSX.Element {
       <Stack.Screen name="PassengersPicker" component={PassengersPicker} />
       <Stack.Screen name="RouteResults" component={TripResultsScreen} />
       <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />
+      <Stack.Screen name="PickUpSelection" component={PickUpScreen} />
+      <Stack.Screen name="DropOffSelection" component={DropOffScreen} />
       <Stack.Screen name="BookingConfirmation" component={CheckoutScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen

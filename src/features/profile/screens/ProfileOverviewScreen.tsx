@@ -85,7 +85,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       id: 'booking-history',
       title: t('profile.bookingHistory', 'Booking History'),
       icon: ClockCounterClockwise,
-      onPress: () => navigation.navigate('BookingHistory'),
+      onPress: () => navigation.navigate('BookingHistory' as any, { initialTab: 'ticket' }),
     },
     {
       id: 'saved-payments',

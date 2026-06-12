@@ -29,6 +29,8 @@ export type BookingStackParamList = {
   SeatSelection: {
     tripId: string;
   };
+  PickUpSelection: undefined;
+  DropOffSelection: undefined;
   BookingConfirmation: {
     bookingId: string;
   };
@@ -38,24 +40,19 @@ export type BookingStackParamList = {
   };
   DigitalTicket: {
     bookingRef: string;
+    fromHistory?: boolean;
   };
 };
 
-// ─── Tracking Stack ───────────────────────────────────────
-export type TrackingStackParamList = {
-  TrackingOverview: undefined;
-  TripTracker: {
-    tripId: string;
-  };
-};
+
 
 // ─── Parcel Stack ─────────────────────────────────────────
 export type ParcelStackParamList = {
-  ParcelList: undefined;
+
   CityPicker: { mode: 'from' | 'to' };
   DistrictPicker: { city?: string };
   CreateParcel: undefined;
-  ParcelDetail: { parcelId: string };
+  ParcelDetail: { parcelId: string; fromHistory?: boolean; };
   ParcelTracking: { parcelId: string };
 };
 
@@ -64,7 +61,6 @@ export type ProfileStackParamList = {
   ProfileOverview: undefined;
   EditProfile: undefined;
   Settings: undefined;
-  BookingHistory: undefined;
   SavedPayments: undefined;
 };
 
@@ -72,8 +68,8 @@ export type ProfileStackParamList = {
 export type MainTabParamList = {
   Home: undefined;
   Notification: undefined;
-  Tracking: NavigatorScreenParams<TrackingStackParamList>;
-  BookingHistory: undefined;
+  ChatbotTab: undefined;
+  BookingHistory: { initialTab?: 'ticket' | 'parcel' } | undefined;
   Profile: NavigatorScreenParams<ProfileStackParamList>;
 };
 

@@ -29,6 +29,7 @@
     "react-native-config": "^1.6.1",
     "react-native-gesture-handler": "~2.31.1",
     "react-native-keychain": "^10.0.0",
+    "react-native-maps": "1.27.2",
     "react-native-responsive-fontsize": "^0.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "^4.25.2",

@@ -1,4 +1,4 @@
-export { ParcelHomeScreen } from './ParcelHomeScreen';
+
 export { ParcelCityPicker } from './CityPickerScreen';
 export { DistrictPicker } from './DistrictPickerScreen';
 export { CreateParcelScreen } from './CreateParcelScreen';

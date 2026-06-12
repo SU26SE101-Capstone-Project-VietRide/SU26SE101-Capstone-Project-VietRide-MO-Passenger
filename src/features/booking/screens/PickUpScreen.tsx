@@ -1,43 +1,29 @@
-/** SeatSelectionScreen — Interactive seat map for choosing seats
+/** PickUpScreen — Dedicated screen to choose a pick-up point
  *
- * Visual style: matches Parcel flow (gradient bg, mint palette, card surfaces)
+ * Visual style: matches Parcel flow (clean lists, vivid selection states)
  */
 
-import React, { useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView, StatusBar, View, Text, TouchableOpacity } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
-import { FloatingActionBar, RouteProgressRow, SeatLegend } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
-import { SeatGrid } from '../components/SeatGrid';
+import { FloatingActionBar, StopOption } from '../components';
 import type { BookingStackParamList } from '@app/navigation/types';
 
-type NavProp = NativeStackNavigationProp<BookingStackParamList, 'SeatSelection'>;
+type NavProp = NativeStackNavigationProp<BookingStackParamList, 'PickUpSelection'>;
 
-export function SeatSelectionScreen(): React.JSX.Element {
+export function PickUpScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
-  const {
-    selectedTrip,
-    seatMap,
-    selectedSeats,
-    toggleSeat,
-    initSeatMap,
-    totalPrice,
-  } = useBookingStore();
+  const { pickUpPoints, selectedPickUp, selectPickUp, selectedSeats, totalPrice } = useBookingStore();
 
-  useEffect(() => {
-    initSeatMap();
-  }, [initSeatMap]);
-
-  const handleBookNow = useCallback(() => {
-    navigation.navigate('PickUpSelection');
+  const handleNext = useCallback(() => {
+    navigation.navigate('DropOffSelection');
   }, [navigation]);
-
-  const trip = selectedTrip;
 
   return (
     <View style={styles.root}>
@@ -45,12 +31,12 @@ export function SeatSelectionScreen(): React.JSX.Element {
       <View style={styles.gradientContainer} pointerEvents="none">
         <Svg height="300" width="100%">
           <Defs>
-            <LinearGradient id="seatGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <LinearGradient id="pickupGrad" x1="0%" y1="0%" x2="0%" y2="100%">
               <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.1} />
               <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
             </LinearGradient>
           </Defs>
-          <Rect width="100%" height="100%" fill="url(#seatGrad)" />
+          <Rect width="100%" height="100%" fill="url(#pickupGrad)" />
         </Svg>
       </View>
 
@@ -68,43 +54,38 @@ export function SeatSelectionScreen(): React.JSX.Element {
               <ArrowLeft size={20} color={colors.primary} weight="bold" />
             </View>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Select Seat</Text>
+          <Text style={styles.headerTitle}>Select Pick-up</Text>
           <View style={{ width: 40 }} />
         </View>
 
+        {/* Content */}
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Route Info Card */}
-          <View style={styles.card}>
-            <RouteProgressRow
-              departureCode={trip?.departureCity ?? ''}
-              departureTime={trip?.departureTime ?? ''}
-              arrivalCode={trip?.arrivalCity ?? ''}
-              arrivalTime={trip?.arrivalTime ?? ''}
-              durationHours={trip?.durationHours}
+          {pickUpPoints.map((point) => (
+            <StopOption
+              key={point.id}
+              id={point.id}
+              name={point.name}
+              address={point.address}
+              time={point.time}
+              status={point.status}
+              refundAmount={point.refundAmount}
+              disabledReason={point.disabledReason}
+              isSelected={selectedPickUp?.id === point.id}
+              onPress={() => selectPickUp(point)}
+              icon="📍"
             />
-          </View>
-
-          {/* Seat Legend */}
-          <View style={styles.legendWrap}>
-            <SeatLegend />
-          </View>
-
-          {/* Seat Grid */}
-          <View style={styles.seatWrap}>
-            <SeatGrid seatMap={seatMap} onSeatPress={toggleSeat} />
-          </View>
-
-          <View style={{ height: 220 }} />
+          ))}
         </ScrollView>
 
+        {/* Floating Action Bar */}
         <FloatingActionBar
           selectedSeats={selectedSeats}
           totalPrice={totalPrice()}
-          ctaLabel="Continue"
-          onPress={handleBookNow}
+          ctaLabel="Next"
+          onPress={handleNext}
         />
       </SafeAreaView>
     </View>
@@ -159,21 +140,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.sm,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 28,
-    padding: spacing.xxl,
-    ...shadows.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    marginBottom: spacing.lg,
-  },
-  legendWrap: {
-    marginTop: spacing.lg,
-    alignItems: 'center',
-  },
-  seatWrap: {
-    marginTop: spacing.md,
+    paddingBottom: 200,
   },
 });

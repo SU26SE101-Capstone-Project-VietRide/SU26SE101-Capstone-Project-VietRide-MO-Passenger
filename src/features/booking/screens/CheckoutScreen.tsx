@@ -4,7 +4,7 @@
  * Added: pick-up point selector (in addition to existing drop-off)
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -14,12 +14,10 @@ import { ArrowLeft, PencilSimple } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import {
-  ScreenHeader,
   FloatingActionBar,
-  DropOffSheet,
   SectionCard,
   InfoRow,
-  RadioOption,
+  StopOption,
 } from '../components';
 import type { BookingStackParamList } from '@app/navigation/types';
 
@@ -34,10 +32,10 @@ export function CheckoutScreen(): React.JSX.Element {
     dropOffPoints,
     selectedDropOff,
     selectDropOff,
-    searchParams,
+    pickUpPoints,
+    selectedPickUp,
+    selectPickUp,
   } = useBookingStore();
-
-  const [showDropOff, setShowDropOff] = useState(false);
 
   const handleNext = useCallback(() => {
     navigation.navigate('Payment', {
@@ -103,40 +101,56 @@ export function CheckoutScreen(): React.JSX.Element {
 
           {/* Pick-up Point Card */}
           <SectionCard>
-            <Text style={styles.cardTitle}>Pick-up Point</Text>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Pick-up Point</Text>
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => navigation.navigate('PickUpSelection')}
+              >
+                <PencilSimple size={14} weight="bold" color={colors.primary} />
+              </TouchableOpacity>
+            </View>
             <View style={styles.pickupDisplay}>
               <View style={styles.pickupIconBox}>
-                <ArrowLeft size={18} color={colors.primary} weight="bold" style={{ transform: [{ rotate: '180deg' }] }} />
+                <Text style={{ fontSize: 16 }}>📍</Text>
               </View>
               <View style={styles.pickupTextWrap}>
-                <Text style={styles.pickupLabel}>Boarding at</Text>
+                <Text style={styles.pickupLabel}>Boarding at {selectedPickUp?.time || ''}</Text>
                 <Text style={styles.pickupValue}>
-                  {searchParams.from || 'Origin city'}
+                  {selectedPickUp?.name || 'Select pick-up point'}
                 </Text>
               </View>
             </View>
             <Text style={styles.pickupHint}>
-              Board at the main terminal of {searchParams.from || 'your departure city'}.
+              {selectedPickUp?.address || ''}
             </Text>
           </SectionCard>
 
           {/* Drop-off Point Card */}
           <SectionCard>
-            <Text style={styles.cardTitle}>Drop-off Point</Text>
-            <RadioOption
-              label="Terminal"
-              sublabel="Bus Station"
-              iconEmoji="🏢"
-              selected={selectedDropOff?.name === 'Terminal'}
-              onPress={() => setShowDropOff(true)}
-            />
-            <RadioOption
-              label="Along Route"
-              sublabel="Flexible stop"
-              iconEmoji="📍"
-              selected={selectedDropOff?.name !== 'Terminal'}
-              onPress={() => setShowDropOff(true)}
-            />
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Drop-off Point</Text>
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => navigation.navigate('DropOffSelection')}
+              >
+                <PencilSimple size={14} weight="bold" color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.pickupDisplay}>
+              <View style={styles.pickupIconBox}>
+                <Text style={{ fontSize: 16 }}>📍</Text>
+              </View>
+              <View style={styles.pickupTextWrap}>
+                <Text style={styles.pickupLabel}>Alighting at {selectedDropOff?.time || ''}</Text>
+                <Text style={styles.pickupValue}>
+                  {selectedDropOff?.name || 'Select drop-off point'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.pickupHint}>
+              {selectedDropOff?.address || ''}
+            </Text>
           </SectionCard>
         </ScrollView>
 
@@ -146,18 +160,6 @@ export function CheckoutScreen(): React.JSX.Element {
           totalPrice={totalPrice()}
           ctaLabel="Next"
           onPress={handleNext}
-        />
-
-        {/* Drop-off Sheet */}
-        <DropOffSheet
-          visible={showDropOff}
-          onClose={() => setShowDropOff(false)}
-          points={dropOffPoints}
-          currentPointId={selectedDropOff?.id || ''}
-          onConfirm={(point) => {
-            selectDropOff(point);
-            setShowDropOff(false);
-          }}
         />
       </SafeAreaView>
     </View>

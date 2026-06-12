@@ -4,7 +4,7 @@ import type { ParcelStackParamList } from '@app/navigation/types';
 import { colors } from '@shared/theme';
 
 import {
-  ParcelHomeScreen,
+
   CreateParcelScreen,
   ParcelDetailScreen,
   ParcelTrackingScreen,
@@ -22,7 +22,7 @@ export function ParcelNavigator(): React.JSX.Element {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="ParcelList" component={ParcelHomeScreen} />
+
       <Stack.Screen name="CityPicker" component={ParcelCityPicker} />
       <Stack.Screen name="DistrictPicker" component={DistrictPicker} />
       <Stack.Screen name="CreateParcel" component={CreateParcelScreen} />

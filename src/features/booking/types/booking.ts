@@ -39,15 +39,24 @@ export interface SeatRow {
   rightSeats: Seat[];
 }
 
-// ─── Drop-off Points ─────────────────────────────────────
-export type DropOffStatus = 'current' | 'available' | 'disabled';
+// ─── Pick-up & Drop-off Points ─────────────────────────────
+export type StopStatus = 'current' | 'available' | 'disabled';
 
 export interface DropOffPoint {
   id: string;
   name: string;
   address: string;
   time: string;
-  status: DropOffStatus;
+  status: StopStatus;
+  refundAmount?: number;
+}
+
+export interface PickUpPoint {
+  id: string;
+  name: string;
+  address: string;
+  time: string;
+  status: StopStatus;
   refundAmount?: number;
   disabledReason?: string;
 }

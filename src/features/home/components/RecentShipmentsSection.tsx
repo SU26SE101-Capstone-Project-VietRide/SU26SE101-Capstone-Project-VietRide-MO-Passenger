@@ -181,6 +181,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 24,
     padding: spacing.md,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
     ...shadows.sm,

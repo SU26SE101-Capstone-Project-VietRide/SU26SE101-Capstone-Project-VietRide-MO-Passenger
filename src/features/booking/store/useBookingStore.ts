@@ -14,6 +14,7 @@ import type {
   ContactInfo,
   PaymentMethod,
   DropOffPoint,
+  PickUpPoint,
   TripResultsStatus,
 } from '../types';
 import {
@@ -21,6 +22,7 @@ import {
   MOCK_SEAT_MAP,
   MOCK_CONTACT,
   MOCK_DROP_OFF_POINTS,
+  MOCK_PICK_UP_POINTS,
 } from '../data/mockData';
 
 interface BookingStore {
@@ -47,6 +49,11 @@ interface BookingStore {
   // ─── Contact Info ────────────────────────────────────
   contactInfo: ContactInfo;
   setContactInfo: (info: Partial<ContactInfo>) => void;
+
+  // ─── Pick-up ─────────────────────────────────────────
+  pickUpPoints: PickUpPoint[];
+  selectedPickUp: PickUpPoint | null;
+  selectPickUp: (point: PickUpPoint) => void;
 
   // ─── Drop-off ────────────────────────────────────────
   dropOffPoints: DropOffPoint[];
@@ -166,6 +173,11 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       contactInfo: { ...state.contactInfo, ...info },
     })),
 
+  // ─── Pick-up ─────────────────────────────────────────
+  pickUpPoints: MOCK_PICK_UP_POINTS,
+  selectedPickUp: MOCK_PICK_UP_POINTS[0],
+  selectPickUp: (point) => set({ selectedPickUp: point }),
+
   // ─── Drop-off ────────────────────────────────────────
   dropOffPoints: MOCK_DROP_OFF_POINTS,
   selectedDropOff: MOCK_DROP_OFF_POINTS[0],
@@ -192,6 +204,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       seatMap: [],
       selectedSeats: [],
       contactInfo: MOCK_CONTACT,
+      selectedPickUp: MOCK_PICK_UP_POINTS[0],
       selectedDropOff: MOCK_DROP_OFF_POINTS[0],
       paymentMethod: 'vnpay',
     }),

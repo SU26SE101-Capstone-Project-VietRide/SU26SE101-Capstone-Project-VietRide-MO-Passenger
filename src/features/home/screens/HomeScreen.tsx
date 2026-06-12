@@ -129,7 +129,7 @@ export function HomeScreen(): React.JSX.Element {
   }, [navigation]);
 
   const handleOpenShipmentList = useCallback(() => {
-    navigation.navigate('Parcel', { screen: 'ParcelList' });
+    navigation.navigate('BookingHistory', { initialTab: 'parcel' });
   }, [navigation]);
 
   const handleTrackShipment = useCallback(

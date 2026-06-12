@@ -14,8 +14,8 @@ type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
 export function ParcelDetailScreen(): React.JSX.Element {
   const route = useRoute<ParcelDetailRouteProp>();
   const navigation = useNavigation<ParcelDetailNavProp>();
-const rootNav = useNavigation<RootNavProp>();
-  const { parcelId } = route.params;
+  const rootNav = useNavigation<RootNavProp>();
+  const { parcelId, fromHistory } = route.params;
 
   const handleTrack = () => {
     navigation.navigate('ParcelTracking', { parcelId });
@@ -29,22 +29,22 @@ const rootNav = useNavigation<RootNavProp>();
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
       <View style={styles.navbar}>
-        <TouchableOpacity style={styles.navButton} onPress={handleGoHome} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.navButton} onPress={fromHistory ? () => navigation.goBack() : handleGoHome} activeOpacity={0.7}>
           <ArrowLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Delivery Ticket</Text>
-        <TouchableOpacity style={styles.navButton} onPress={handleGoHome} activeOpacity={0.7}>
-          <House size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <Text style={styles.navTitle}>{fromHistory ? 'Delivery Detail' : 'Delivery Ticket'}</Text>
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Success Header Status */}
-        <View style={styles.successHeader}>
-          <CheckCircle size={56} color={colors.success} weight="fill" />
-          <Text style={styles.successTitle}>Booking Successful!</Text>
-          <Text style={styles.successSubtitle}>Your delivery request is confirmed.</Text>
-        </View>
+        {!fromHistory && (
+          <View style={styles.successHeader}>
+            <CheckCircle size={56} color={colors.success} weight="fill" />
+            <Text style={styles.successTitle}>Booking Successful!</Text>
+            <Text style={styles.successSubtitle}>Your delivery request is confirmed.</Text>
+          </View>
+        )}
 
         {/* Ticket Box Card (simulating a premium ticket stub layout) */}
         <View style={styles.ticketCard}>
@@ -112,9 +112,15 @@ const rootNav = useNavigation<RootNavProp>();
           <Text style={styles.trackButtonText}>Track Shipment Status</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.homeButton} onPress={handleGoHome} activeOpacity={0.8}>
-          <Text style={styles.homeButtonText}>Back to Dashboard</Text>
-        </TouchableOpacity>
+        {fromHistory ? (
+          <TouchableOpacity style={styles.homeButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+            <Text style={styles.homeButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.homeButton} onPress={handleGoHome} activeOpacity={0.8}>
+            <Text style={styles.homeButtonText}>Back to Dashboard</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

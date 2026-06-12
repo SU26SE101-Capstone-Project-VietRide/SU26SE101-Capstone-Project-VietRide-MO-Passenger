@@ -129,13 +129,13 @@ const styles = StyleSheet.create({
   },
   priceValue: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.h3,
+    fontSize: fontSizes.lg,
     color: colors.primary,
   },
   ctaButton: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.lg,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -146,13 +146,13 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes.md,
     color: colors.textInverse,
     marginRight: spacing.sm,
   },
   ctaArrow: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes.md,
     color: colors.textInverse,
   },
 });

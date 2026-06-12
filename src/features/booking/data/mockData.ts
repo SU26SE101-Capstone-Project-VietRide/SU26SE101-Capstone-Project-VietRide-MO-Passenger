@@ -10,6 +10,7 @@ import type {
   PopularRoute,
   RecentSearch,
   DropOffPoint,
+  PickUpPoint,
   ContactInfo,
   BookingResult,
 } from '../types';
@@ -159,6 +160,31 @@ export const MOCK_RECENT_SEARCHES: RecentSearch[] = [
   { id: 'rs-1', route: 'Hanoi to Sapa', date: 'Today, 20 Oct' },
   { id: 'rs-2', route: 'HCMC to Da Lat', date: 'Tomorrow, 21 Oct' },
   { id: 'rs-3', route: 'Hanoi to Hai Phong', date: '22 Oct' },
+];
+
+// ─── Pick-up Points ──────────────────────────────────────
+export const MOCK_PICK_UP_POINTS: PickUpPoint[] = [
+  {
+    id: 'pu-1',
+    name: 'Nuoc Ngam Station',
+    address: '1 Ngoc Hoi, Hoang Mai',
+    time: '21:30',
+    status: 'current',
+  },
+  {
+    id: 'pu-2',
+    name: 'My Dinh Station',
+    address: '20 Pham Hung, Nam Tu Liem',
+    time: '22:00',
+    status: 'available',
+  },
+  {
+    id: 'pu-3',
+    name: 'Gia Lam Station',
+    address: '9 Ngo Gia Kham, Long Bien',
+    time: '22:30',
+    status: 'available',
+  },
 ];
 
 // ─── Drop-off Points ─────────────────────────────────────
