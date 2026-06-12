@@ -8,6 +8,7 @@ import {
   Switch,
   Image,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
@@ -102,6 +103,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   // Wizard state
   const [step, setStep] = useState(1);
+  const [highestStepReached, setHighestStepReached] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
 
@@ -152,15 +154,25 @@ export function CreateParcelScreen(): React.JSX.Element {
       return;
     }
     setStep(step + 1);
-  };
-
-  const handleBackStep = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    } else {
-      navigation.goBack();
+    if (step + 1 > highestStepReached) {
+      setHighestStepReached(step + 1);
     }
   };
+
+  const handleBackStep = React.useCallback(() => {
+    if (step > 1) {
+      setStep(step - 1);
+      return true;
+    } else {
+      navigation.goBack();
+      return true;
+    }
+  }, [step, navigation]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handleBackStep);
+    return () => subscription.remove();
+  }, [handleBackStep]);
 
   // Skeleton loader when changing steps (Stage 1 and 2)
   useEffect(() => {
@@ -216,7 +228,9 @@ export function CreateParcelScreen(): React.JSX.Element {
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StepProgressBar
           step={step}
-          onCancel={() => rootNav.navigate('Main', { screen: 'Home' })}
+          highestStepReached={highestStepReached}
+          onStepPress={setStep}
+          onCancel={handleBackStep}
         />
         <StepHeaderWithMascot step={step} />
 

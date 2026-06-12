@@ -5,11 +5,15 @@ import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/
 
 export interface StepProgressBarProps {
   step: number;
+  highestStepReached?: number;
+  onStepPress?: (step: number) => void;
   onCancel: () => void;
   onFilter?: () => void;
 }
 
-export const StepProgressBar = ({ step, onCancel, onFilter = () => {} }: StepProgressBarProps): React.JSX.Element => {
+const STEP_LABELS = ['Origin', 'Dest', 'Item', 'Pay'];
+
+export const StepProgressBar = ({ step, highestStepReached = 1, onStepPress, onCancel, onFilter = () => {} }: StepProgressBarProps): React.JSX.Element => {
   const handleFilter = onFilter;
 
   return (
@@ -57,7 +61,13 @@ export const StepProgressBar = ({ step, onCancel, onFilter = () => {} }: StepPro
             const isActive = s === step;
             const isCompleted = s < step;
             return (
-              <View key={`step-${s}`} style={styles.stepBubbleContainerInsideNavbar}>
+              <TouchableOpacity 
+                key={`step-${s}`} 
+                style={styles.stepBubbleContainerInsideNavbar}
+                activeOpacity={0.7}
+                disabled={!onStepPress || s > highestStepReached}
+                onPress={() => onStepPress && onStepPress(s)}
+              >
                 <View
                   style={[
                     styles.stepBubbleInsideNavbar,
@@ -79,7 +89,10 @@ export const StepProgressBar = ({ step, onCancel, onFilter = () => {} }: StepPro
                     </Text>
                   )}
                 </View>
-              </View>
+                <Text style={[styles.stepSubtext, isActive && styles.stepSubtextActive]}>
+                  {STEP_LABELS[s - 1]}
+                </Text>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -162,10 +175,12 @@ const styles = StyleSheet.create({
   stepsRowInsideNavbar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginTop: -10, // overlap with progress bar line
   },
   stepBubbleContainerInsideNavbar: {
     alignItems: 'center',
+    width: 44, // give fixed width to center text
   },
   stepBubbleInsideNavbar: {
     width: 24,
@@ -196,5 +211,16 @@ const styles = StyleSheet.create({
   },
   stepTextCompletedInsideNavbar: {
     color: colors.textInverse,
+  },
+  stepSubtext: {
+    fontFamily: fontFamilies.medium,
+    fontSize: 10,
+    color: colors.primary,
+    marginTop: 4,
+    opacity: 0.7,
+  },
+  stepSubtextActive: {
+    fontFamily: fontFamilies.bold,
+    opacity: 1,
   },
 });
