@@ -13,7 +13,7 @@ export const colors = {
   primary: '#006A67',
   primaryLight: '#2AC1BC', // Vibrant Mint Green
   primaryDark: '#004A48',
-  primaryFaded: 'rgba(42, 193, 188, 0.08)', // Mint green faded tint
+  primaryFaded: '#EAF8F7', // Mint green faded tint (solid color to prevent Android elevation bugs)
 
   // ─── Accent / Secondary ──────────────────────────────────
   accent: '#2AC1BC', // Vibrant Mint Green

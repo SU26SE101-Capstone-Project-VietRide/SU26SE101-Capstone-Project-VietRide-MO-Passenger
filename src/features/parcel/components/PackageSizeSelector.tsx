@@ -11,9 +11,9 @@ export interface PackageSizeSelectorProps {
 }
 
 const SIZE_OPTIONS: { key: PackageSize; label: string; sub: string; Icon: React.ElementType }[] = [
-  { key: 'small', label: 'Small', sub: 'Docs / Envelopes', Icon: FileText },
-  { key: 'medium', label: 'Medium', sub: 'Box / Clothes', Icon: TShirt },
-  { key: 'large', label: 'Large', sub: 'Luggage / Heavy', Icon: DotsThreeCircle },
+  { key: 'small', label: 'Small', sub: '25x25 cm', Icon: FileText },
+  { key: 'medium', label: 'Medium', sub: '45x45 cm', Icon: TShirt },
+  { key: 'large', label: 'Large', sub: '55x55 cm', Icon: DotsThreeCircle },
 ];
 
 export const PackageSizeSelector = memo(function PackageSizeSelector({
