@@ -15,6 +15,9 @@ import { House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native'
 
 import { colors, fontFamilies, spacing, borderRadius } from '@shared/theme';
 
+// Import local image for AI button
+const appLogoPlaceholder = require('../../assets/images/app_logo_placeholder.png');
+
 interface CustomTabBarProps {
   state: any;
   descriptors: any;
@@ -51,10 +54,10 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: C
               activeOpacity={0.85}
               style={[styles.fabButton, { backgroundColor: '#fff', borderWidth: 2, borderColor: colors.primary }]}
             >
-              <Image 
-                source={{ uri: 'https://ui-avatars.com/api/?name=AI&background=0D8ABC&color=fff&size=128' }} 
-                style={{ width: 44, height: 44, borderRadius: 22 }} 
-                resizeMode="contain"
+              <Image
+                source={appLogoPlaceholder}
+                style={styles.fabImage}
+                resizeMode="cover"
               />
             </TouchableOpacity>
           );
@@ -171,6 +174,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
+    overflow: 'hidden',
+  },
+  fabImage: {
+    width: '100%',
+    height: '100%',
   },
   fabText: {
     fontFamily: fontFamilies.regular,
