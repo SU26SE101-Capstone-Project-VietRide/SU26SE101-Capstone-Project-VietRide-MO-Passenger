@@ -81,13 +81,15 @@ export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.E
   return (
     <View style={styles.container}>
       {/* Header Info */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerRoute}>
-            {currentLeg === 'outbound' ? `${searchParams.from} → ${searchParams.to}` : `${searchParams.to} → ${searchParams.from}`}
-          </Text>
+      {searchParams.from && searchParams.to ? (
+        <View style={styles.headerRow}>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerRoute}>
+              {currentLeg === 'outbound' ? `${searchParams.from} → ${searchParams.to}` : `${searchParams.to} → ${searchParams.from}`}
+            </Text>
+          </View>
         </View>
-      </View>
+      ) : null}
 
       {/* Leg Title */}
       <View style={styles.legTitleContainer}>
