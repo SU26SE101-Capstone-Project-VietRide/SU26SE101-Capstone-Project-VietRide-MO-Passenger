@@ -5,11 +5,39 @@ import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import { OUTBOUND_STEPS, RETURN_STEPS, CHECKOUT_STEP, PAYMENT_STEP } from '../store/useBookingStore';
 
-export interface BookingProgressBarProps {
+interface BookingProgressBarProps {
   step: number;
   totalSteps?: number;
   onStepPress?: (step: number) => void;
 }
+
+const getStepLabel = (step: number, isRoundTrip: boolean): string => {
+  if (isRoundTrip) {
+    switch (step) {
+      case 1: return 'Outbound Trip Selection';
+      case 2: return 'Outbound Seat Selection';
+      case 3: return 'Outbound Pick-up';
+      case 4: return 'Outbound Drop-off';
+      case 5: return 'Return Trip Selection';
+      case 6: return 'Return Seat Selection';
+      case 7: return 'Return Pick-up';
+      case 8: return 'Return Drop-off';
+      case 9: return 'Checkout';
+      case 10: return 'Payment';
+      default: return '';
+    }
+  } else {
+    switch (step) {
+      case 1: return 'Trip Selection';
+      case 2: return 'Seat Selection';
+      case 3: return 'Pick-up';
+      case 4: return 'Drop-off';
+      case 5: return 'Checkout';
+      case 6: return 'Payment';
+      default: return '';
+    }
+  }
+};
 
 export const BookingProgressBar = ({
   step,
@@ -27,6 +55,7 @@ export const BookingProgressBar = ({
   const paymentStep = isRoundTrip ? PAYMENT_STEP : OUTBOUND_STEPS + 3; // 10 or 6
 
   const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
+  const stepLabel = getStepLabel(step, isRoundTrip);
 
   // Determine leg for visual styling
   const isReturnStep = (s: number) => isRoundTrip && s > OUTBOUND_STEPS && s < checkoutStep;
@@ -36,6 +65,11 @@ export const BookingProgressBar = ({
   return (
     <View style={styles.container}>
       <View style={styles.progressContainer}>
+        {/* Current step label */}
+        <View style={styles.stepLabelContainer}>
+          <Text style={styles.stepLabel}>{stepLabel}</Text>
+        </View>
+
         <View style={styles.progressBarBg}>
           <View
             style={[
@@ -90,12 +124,6 @@ export const BookingProgressBar = ({
                     </Text>
                   )}
                 </View>
-                {/* Show labels only for Checkout and Payment steps */}
-                {(isCheckout || isPayment) && (
-                  <Text style={styles.finalStepLabel}>
-                    {isCheckout ? 'Checkout' : 'Payment'}
-                  </Text>
-                )}
               </TouchableOpacity>
             );
           })}
@@ -114,6 +142,17 @@ const styles = StyleSheet.create({
   },
   progressContainer: {
     marginTop: spacing.xs,
+  },
+  stepLabelContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  stepLabel: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: colors.primary,
+    textAlign: 'center',
   },
   progressBarBg: {
     height: 4,
@@ -211,14 +250,5 @@ const styles = StyleSheet.create({
   },
   stepTextPayment: {
     color: colors.textTertiary,
-  },
-  // Final step labels
-  finalStepLabel: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    color: colors.textTertiary,
-    marginTop: 2,
-    textAlign: 'center',
-    width: 50,
   },
 });

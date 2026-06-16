@@ -4,8 +4,7 @@
  */
 
 import React, { useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { SlidersHorizontal } from 'phosphor-react-native';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { LoadingState, EmptyState, ErrorState } from '../components';
 import { TripCard } from '../components/TripCard';
@@ -87,14 +86,7 @@ export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.E
           <Text style={styles.headerRoute}>
             {currentLeg === 'outbound' ? `${searchParams.from} → ${searchParams.to}` : `${searchParams.to} → ${searchParams.from}`}
           </Text>
-          <Text style={styles.headerDate}>
-            {currentLeg === 'outbound' ? searchParams.date : searchParams.returnDate || searchParams.date}
-          </Text>
         </View>
-
-        <TouchableOpacity style={styles.filterButton} activeOpacity={0.7}>
-          <SlidersHorizontal size={20} weight="bold" color={colors.textPrimary} />
-        </TouchableOpacity>
       </View>
 
       {/* Leg Title */}
@@ -132,27 +124,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: colors.textPrimary,
-  },
-  headerDate: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  filterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.divider,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   listContent: {
     paddingHorizontal: spacing.xl,
