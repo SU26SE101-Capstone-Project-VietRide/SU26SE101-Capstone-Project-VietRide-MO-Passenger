@@ -18,7 +18,7 @@ interface TripCardProps {
 }
 
 export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): React.JSX.Element {
-  const progress = (trip.totalSeats - trip.seatsLeft) / trip.totalSeats;
+  const progress = 0.5; //Suy nghi lai cho nay
   const seatsUrgent = trip.seatsLeft <= 5;
 
   const formatPrice = (price: number) => {
@@ -154,14 +154,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
-    marginTop: 6,
+    height: 24,
+    marginTop: 2,
+    position: 'relative',
   },
   progressTrack: {
     width: '100%',
     height: 4,
     backgroundColor: colors.divider,
     borderRadius: 2,
-    marginTop: 10,
   },
   progressFill: {
     height: 4,
@@ -170,10 +171,14 @@ const styles = StyleSheet.create({
   },
   busIconContainer: {
     position: 'absolute',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.xs,
-    ...shadows.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    top: -2,
+    ...shadows.sm,
   },
   bottomRow: {
     flexDirection: 'row',
