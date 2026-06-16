@@ -69,6 +69,12 @@ export function HomeScreen(): React.JSX.Element {
     [navigation, setSearchParams],
   );
 
+  const handleViewAllPopular = useCallback(() => {
+    navigation.navigate('Booking', {
+      screen: 'PopularRoutes',
+    });
+  }, [navigation]);
+
   const handleRecentPress = useCallback(
     (item: { route: string }) => {
       const parts = item.route.split(/\s+to\s+/i);
@@ -356,7 +362,7 @@ export function HomeScreen(): React.JSX.Element {
             {/* Popular Routes */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Popular Routes</Text>
-              <TouchableOpacity activeOpacity={0.6}>
+              <TouchableOpacity activeOpacity={0.6} onPress={handleViewAllPopular}>
                 <Text style={styles.viewAllText}>See all</Text>
               </TouchableOpacity>
             </View>

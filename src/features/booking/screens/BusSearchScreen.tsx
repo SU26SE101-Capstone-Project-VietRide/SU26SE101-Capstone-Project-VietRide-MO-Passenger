@@ -47,6 +47,10 @@ export function BusSearchScreen(): React.JSX.Element {
     [navigateToRoute],
   );
 
+  const handleViewAllPopular = useCallback(() => {
+    navigation.navigate('PopularRoutes');
+  }, [navigation]);
+
   const handleRecentPress = useCallback(
     (item: { route: string }) => {
       const parts = item.route.split(/\s+to\s+/i);
@@ -140,7 +144,7 @@ export function BusSearchScreen(): React.JSX.Element {
           {/* Popular Routes */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Popular Routes</Text>
-            <TouchableOpacity activeOpacity={0.6}>
+            <TouchableOpacity activeOpacity={0.6} onPress={handleViewAllPopular}>
               <Text style={styles.viewAllText}>See all</Text>
             </TouchableOpacity>
           </View>
