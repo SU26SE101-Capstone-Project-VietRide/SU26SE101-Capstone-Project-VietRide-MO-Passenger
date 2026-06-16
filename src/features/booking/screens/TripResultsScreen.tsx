@@ -17,7 +17,6 @@ interface TripResultsStepProps {
 }
 
 export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.Element {
-
   const {
     tripResultsStatus,
     trips,
@@ -35,9 +34,11 @@ export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.E
   const handleTripPress = useCallback(
     (trip: BusTrip) => {
       selectTrip(trip);
-      onNext(2);
+      // Outbound: step 1 -> step 2; Return: step 5 -> step 6
+      const nextStep = currentLeg === 'outbound' ? 2 : 6;
+      onNext(nextStep);
     },
-    [selectTrip, onNext],
+    [selectTrip, onNext, currentLeg],
   );
 
   const handleRetry = useCallback(() => {

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Check } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
+import { OUTBOUND_STEPS, RETURN_STEPS, CHECKOUT_STEP, PAYMENT_STEP } from '../store/useBookingStore';
 
 export interface BookingProgressBarProps {
   step: number;
@@ -10,9 +11,27 @@ export interface BookingProgressBarProps {
   onStepPress?: (step: number) => void;
 }
 
-export const BookingProgressBar = ({ step, totalSteps = 6, onStepPress }: BookingProgressBarProps): React.JSX.Element => {
+export const BookingProgressBar = ({
+  step,
+  totalSteps: propTotalSteps,
+  onStepPress
+}: BookingProgressBarProps): React.JSX.Element => {
+  const { searchParams, highestStepReached } = useBookingStore();
+  const isRoundTrip = searchParams.isRoundTrip ?? false;
+
+  // Calculate total steps based on trip type
+  const totalSteps = propTotalSteps ?? (isRoundTrip ? OUTBOUND_STEPS + RETURN_STEPS + 2 : OUTBOUND_STEPS + 2);
+
+  // Determine checkout and payment step numbers based on trip type
+  const checkoutStep = isRoundTrip ? CHECKOUT_STEP : OUTBOUND_STEPS + 2; // 9 or 5
+  const paymentStep = isRoundTrip ? PAYMENT_STEP : OUTBOUND_STEPS + 3; // 10 or 6
+
   const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
-  const highestStepReached = useBookingStore(state => state.highestStepReached);
+
+  // Determine leg for visual styling
+  const isReturnStep = (s: number) => isRoundTrip && s > OUTBOUND_STEPS && s < checkoutStep;
+  const isCheckoutStep = (s: number) => s === checkoutStep;
+  const isPaymentStep = (s: number) => s === paymentStep;
 
   return (
     <View style={styles.container}>
@@ -29,6 +48,9 @@ export const BookingProgressBar = ({ step, totalSteps = 6, onStepPress }: Bookin
           {steps.map((s) => {
             const isActive = s === step;
             const isCompleted = s < step;
+            const isReturn = isReturnStep(s);
+            const isCheckout = isCheckoutStep(s);
+            const isPayment = isPaymentStep(s);
             return (
               <TouchableOpacity
                 key={`step-${s}`}
@@ -42,6 +64,13 @@ export const BookingProgressBar = ({ step, totalSteps = 6, onStepPress }: Bookin
                     styles.stepBubble,
                     isActive && styles.stepBubbleActive,
                     isCompleted && styles.stepBubbleCompleted,
+                    isReturn && styles.stepBubbleReturn,
+                    isActive && isReturn && styles.stepBubbleActiveReturn,
+                    isCompleted && isReturn && styles.stepBubbleCompletedReturn,
+                    isCheckout && styles.stepBubbleCheckout,
+                    isActive && isCheckout && styles.stepBubbleActiveCheckout,
+                    isPayment && styles.stepBubblePayment,
+                    isActive && isPayment && styles.stepBubbleActivePayment,
                   ]}
                 >
                   {isCompleted ? (
@@ -52,12 +81,21 @@ export const BookingProgressBar = ({ step, totalSteps = 6, onStepPress }: Bookin
                         styles.stepText,
                         isActive && styles.stepTextActive,
                         isCompleted && styles.stepTextCompleted,
+                        isReturn && styles.stepTextReturn,
+                        isCheckout && styles.stepTextCheckout,
+                        isPayment && styles.stepTextPayment,
                       ]}
                     >
                       {s}
                     </Text>
                   )}
                 </View>
+                {/* Show labels only for Checkout and Payment steps */}
+                {(isCheckout || isPayment) && (
+                  <Text style={styles.finalStepLabel}>
+                    {isCheckout ? 'Checkout' : 'Payment'}
+                  </Text>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -87,17 +125,18 @@ const styles = StyleSheet.create({
   progressBarActive: {
     height: '100%',
     borderRadius: 2,
-    backgroundColor: colors.primary, // Using primary color for booking flow
+    backgroundColor: colors.primary,
   },
   stepsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: -16, // pull up to overlap with line
+    alignItems: 'flex-start',
+    marginTop: -16,
   },
   stepBubbleContainer: {
     alignItems: 'center',
     backgroundColor: 'transparent',
+    paddingTop: 8,
   },
   stepBubble: {
     width: 28,
@@ -107,7 +146,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#E6F4F3', // match background to create gap effect
+    borderColor: '#E6F4F3',
   },
   stepBubbleActive: {
     backgroundColor: colors.primary,
@@ -122,6 +161,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: '#E6F4F3',
   },
+  // Return leg steps (5-8) - muted styling
+  stepBubbleReturn: {
+    backgroundColor: colors.surface,
+    borderColor: colors.divider,
+  },
+  stepBubbleActiveReturn: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryFaded,
+  },
+  stepBubbleCompletedReturn: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryFaded,
+  },
+  // Checkout step (9)
+  stepBubbleCheckout: {
+    backgroundColor: colors.surface,
+    borderColor: colors.divider,
+  },
+  stepBubbleActiveCheckout: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryFaded,
+  },
+  // Payment step (10)
+  stepBubblePayment: {
+    backgroundColor: colors.surface,
+    borderColor: colors.divider,
+  },
+  stepBubbleActivePayment: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryFaded,
+  },
   stepText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
@@ -132,5 +202,23 @@ const styles = StyleSheet.create({
   },
   stepTextCompleted: {
     color: colors.textInverse,
+  },
+  stepTextReturn: {
+    color: colors.textTertiary,
+  },
+  stepTextCheckout: {
+    color: colors.textTertiary,
+  },
+  stepTextPayment: {
+    color: colors.textTertiary,
+  },
+  // Final step labels
+  finalStepLabel: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: colors.textTertiary,
+    marginTop: 2,
+    textAlign: 'center',
+    width: 50,
   },
 });

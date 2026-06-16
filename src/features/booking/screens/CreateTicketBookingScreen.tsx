@@ -30,7 +30,32 @@ type NavProp = NativeStackNavigationProp<BookingStackParamList, 'CreateTicketBoo
 export function CreateTicketBookingScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const [step, setStep] = useState(1);
-  const { highestStepReached } = useBookingStore();
+  const { highestStepReached, saveOutboundLeg, totalSteps: getTotalSteps, searchParams } = useBookingStore();
+  const isRoundTrip = searchParams.isRoundTrip ?? false;
+
+  // Reset booking data when search params change (new booking)
+  useEffect(() => {
+    const current = useBookingStore.getState();
+    useBookingStore.setState({
+      ...current,
+      currentLeg: 'outbound',
+      outboundState: null,
+      returnState: null,
+      selectedTrip: null,
+      selectedSeats: [],
+      selectedPickUp: null,
+      selectedDropOff: null,
+      // Do NOT reset pickUpPoints and dropOffPoints - they contain MOCK data
+      contactInfo: { fullName: '', phone: '', email: '', phoneCountryCode: '' },
+      paymentMethod: 'vnpay',
+      highestStepReached: 0,
+      tripResultsStatus: 'loading',
+      trips: [],
+    });
+    setStep(1);
+  }, [searchParams.from, searchParams.to, searchParams.date, searchParams.isRoundTrip]);
+
+  const totalSteps = getTotalSteps();
 
   const handleBack = useCallback(() => {
     if (step > 1) {
@@ -49,30 +74,46 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
 
   const handleStepPress = (targetStep: number) => {
     if (targetStep <= highestStepReached) {
+      // Set currentLeg based on target step for round trips
+      if (searchParams.isRoundTrip) {
+        if (targetStep >= 1 && targetStep <= 4) {
+          useBookingStore.setState({ currentLeg: 'outbound' });
+        } else if (targetStep >= 5 && targetStep <= 8) {
+          useBookingStore.setState({ currentLeg: 'return' });
+        }
+        // Steps 9-10 (checkout/payment) can show either leg, keep current
+      }
       setStep(targetStep);
     }
   };
 
   const handleFinishBooking = () => {
-    navigation.navigate('DigitalTicket');
+    navigation.navigate('DigitalTicket', { bookingRef: 'VR-' + Date.now().toString().slice(-8) });
   };
 
   const renderStep = () => {
-    switch (step) {
-      case 1:
-        return <TripResultsStep onNext={setStep} />;
-      case 2:
-        return <SeatSelectionStep onNext={setStep} />;
-      case 3:
-        return <PickUpStep onNext={setStep} />;
-      case 4:
-        return <DropOffStep onNext={setStep} />;
-      case 5:
-        return <CheckoutStep onNext={setStep} onGoToStep={setStep} />;
-      case 6:
-        return <PaymentStep onNext={handleFinishBooking} />;
-      default:
-        return null;
+    if (isRoundTrip) {
+      // Round trip: 10 steps (4 outbound + 4 return + 2)
+      switch (step) {
+        case 1: case 5: return <TripResultsStep onNext={setStep} />;
+        case 2: case 6: return <SeatSelectionStep onNext={setStep} />;
+        case 3: case 7: return <PickUpStep onNext={setStep} />;
+        case 4: case 8: return <DropOffStep onNext={setStep} />;
+        case 9: return <CheckoutStep onNext={setStep} onGoToStep={setStep} />;
+        case 10: return <PaymentStep onNext={handleFinishBooking} />;
+        default: return null;
+      }
+    } else {
+      // One-way: 6 steps (4 outbound + 2)
+      switch (step) {
+        case 1: return <TripResultsStep onNext={setStep} />;
+        case 2: return <SeatSelectionStep onNext={setStep} />;
+        case 3: return <PickUpStep onNext={setStep} />;
+        case 4: return <DropOffStep onNext={setStep} />;
+        case 5: return <CheckoutStep onNext={setStep} onGoToStep={setStep} />;
+        case 6: return <PaymentStep onNext={handleFinishBooking} />;
+        default: return null;
+      }
     }
   };
 

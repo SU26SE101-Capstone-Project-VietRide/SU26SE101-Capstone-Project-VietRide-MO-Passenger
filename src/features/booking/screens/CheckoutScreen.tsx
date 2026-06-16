@@ -20,32 +20,40 @@ interface CheckoutStepProps {
   onGoToStep: (step: number) => void;
 }
 
-export function CheckoutScreen({ onNext, onGoToStep }: CheckoutStepProps): React.JSX.Element {
+export function CheckoutScreen({
+  onNext,
+  onGoToStep,
+}: CheckoutStepProps): React.JSX.Element {
   const {
     contactInfo,
     selectedSeats,
     totalPrice,
-    selectedDropOff,
-    selectDropOff,
-    pickUpPoints,
-    selectedPickUp,
-    selectPickUp,
     searchParams,
     outboundState,
-    selectedTrip,
+    returnState,
     setHighestStep,
   } = useBookingStore();
 
   React.useEffect(() => {
-    setHighestStep(5);
-  }, [setHighestStep]);
+    const checkoutStep = searchParams.isRoundTrip ? 9 : 5;
+    setHighestStep(checkoutStep); // Checkout step depends on trip type
+  }, [setHighestStep, searchParams.isRoundTrip]);
 
   const handleNext = useCallback(() => {
-    onNext(6);
-  }, [onNext]);
+    const nextStep = searchParams.isRoundTrip ? 10 : 6; // Payment step
+    onNext(nextStep);
+  }, [onNext, searchParams.isRoundTrip]);
 
-  const renderLegSummary = (title: string, trip: any, seats: any[], pickUp: any, dropOff: any, onEdit: () => void) => {
+  const renderLegSummary = (
+    title: string,
+    trip: any,
+    seats: any[],
+    pickUp: any,
+    dropOff: any,
+    onEdit: () => void
+  ) => {
     if (!trip) return null;
+
     return (
       <SectionCard>
         <View style={styles.cardHeaderRow}>
@@ -55,9 +63,9 @@ export function CheckoutScreen({ onNext, onGoToStep }: CheckoutStepProps): React
           </TouchableOpacity>
         </View>
 
-        <InfoRow label="Route" value={`${trip.departure} → ${trip.destination}`} />
-        <InfoRow label="Departure Time" value={`${trip.date} • ${trip.time}`} />
-        <InfoRow label="Seats" value={seats.map((s: any) => s.id).join(', ')} showDivider />
+        <InfoRow label="Route" value={`${trip.departureCity || ''} → ${trip.arrivalCity || ''}`} />
+        <InfoRow label="Departure Time" value={trip.departureTime || ''} />
+        <InfoRow label="Seats" value={seats?.map((s: any) => s.label || s.id || '?').join(', ')} showDivider />
 
         <View style={{ marginTop: spacing.md }}>
           <View style={styles.pickupDisplay}>
@@ -117,23 +125,33 @@ export function CheckoutScreen({ onNext, onGoToStep }: CheckoutStepProps): React
           </SectionCard>
 
           {/* Outbound Leg */}
-          {outboundState ? (
-            renderLegSummary('Departure Trip', outboundState.trip, outboundState.seats, outboundState.pickUp, outboundState.dropOff, () => {
-              useBookingStore.setState({ currentLeg: 'outbound', outboundState: null, highestStepReached: 1 });
-              onGoToStep(1);
-            })
-          ) : (
-            renderLegSummary(searchParams.isRoundTrip ? 'Departure Trip' : 'Trip Details', selectedTrip, selectedSeats, selectedPickUp, selectedDropOff, () => {
-              onGoToStep(1);
-            })
+          {outboundState && (
+            renderLegSummary(
+              'Departure Trip',
+              outboundState.trip,
+              outboundState.seats,
+              outboundState.pickUp,
+              outboundState.dropOff,
+              () => {
+                useBookingStore.setState({ currentLeg: 'outbound', outboundState: null, highestStepReached: 1 });
+                onGoToStep(1);
+              }
+            )
           )}
 
           {/* Return Leg */}
-          {searchParams.isRoundTrip && outboundState && (
-            renderLegSummary('Return Trip', selectedTrip, selectedSeats, selectedPickUp, selectedDropOff, () => {
-              useBookingStore.setState({ currentLeg: 'return' });
-              onGoToStep(1);
-            })
+          {searchParams.isRoundTrip && returnState && (
+            renderLegSummary(
+              'Return Trip',
+              returnState.trip,
+              returnState.seats,
+              returnState.pickUp,
+              returnState.dropOff,
+              () => {
+                useBookingStore.setState({ currentLeg: 'return', returnState: null });
+                onGoToStep(5);
+              }
+            )
           )}
         </ScrollView>
 

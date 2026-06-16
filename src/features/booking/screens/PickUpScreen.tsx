@@ -26,12 +26,14 @@ export function PickUpScreen({ onNext }: PickUpStepProps): React.JSX.Element {
   } = useBookingStore();
 
   React.useEffect(() => {
-    setHighestStep(3);
-  }, [setHighestStep]);
+    setHighestStep(currentLeg === 'outbound' ? 3 : 7);
+  }, [setHighestStep, currentLeg]);
 
   const handleNext = useCallback(() => {
-    onNext(4);
-  }, [onNext]);
+    // Outbound: step 3 -> step 4; Return: step 7 -> step 8
+    const nextStep = currentLeg === 'outbound' ? 4 : 8;
+    onNext(nextStep);
+  }, [onNext, currentLeg]);
 
   return (
     <View style={styles.container}>

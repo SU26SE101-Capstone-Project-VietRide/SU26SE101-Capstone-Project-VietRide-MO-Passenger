@@ -218,7 +218,6 @@ export const MOCK_DROP_OFF_POINTS: DropOffPoint[] = [
     address: 'Truong Son, Tan Binh',
     time: '',
     status: 'disabled',
-    disabledReason: 'Upgrade not allowed for this ticket type',
   },
 ];
 

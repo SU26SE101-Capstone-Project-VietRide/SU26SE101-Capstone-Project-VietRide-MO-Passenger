@@ -14,20 +14,41 @@ interface DropOffStepProps {
 }
 
 export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
-  const { dropOffPoints, selectedDropOff, selectDropOff, selectedSeats, totalPrice, currentLeg, searchParams, saveOutboundLeg, setHighestStep } = useBookingStore();
+  const { dropOffPoints, selectedDropOff, selectDropOff, selectedSeats, totalPrice, currentLeg, searchParams, saveOutboundLeg, saveReturnLeg, setHighestStep, selectedTrip, selectedPickUp } = useBookingStore();
 
   React.useEffect(() => {
-    setHighestStep(4);
-  }, [setHighestStep]);
+    if (searchParams.isRoundTrip) {
+      setHighestStep(currentLeg === 'outbound' ? 4 : 8);
+    } else {
+      setHighestStep(4); // One-way always outbound
+    }
+  }, [setHighestStep, currentLeg, searchParams.isRoundTrip]);
 
   const handleNext = useCallback(() => {
-    if (searchParams.isRoundTrip && currentLeg === 'outbound') {
-      saveOutboundLeg();
-      onNext(1);
+    if (searchParams.isRoundTrip) {
+      if (currentLeg === 'outbound') {
+        saveOutboundLeg();
+        onNext(5); // Navigate to return TripResults (step 5)
+      } else {
+        // currentLeg === 'return'
+        saveReturnLeg();
+        onNext(9); // Navigate to Checkout (step 9)
+      }
     } else {
-      onNext(5);
+      // One-way: save outbound state and stay on outbound leg
+      useBookingStore.setState({
+        outboundState: {
+          trip: selectedTrip,
+          seats: selectedSeats,
+          pickUp: selectedPickUp,
+          dropOff: selectedDropOff,
+        },
+        currentLeg: 'outbound',
+        highestStepReached: 5,
+      });
+      onNext(5); // Go to Checkout (step 5)
     }
-  }, [searchParams, currentLeg, saveOutboundLeg, onNext]);
+  }, [searchParams, currentLeg, saveOutboundLeg, saveReturnLeg, onNext, selectedTrip, selectedSeats, selectedPickUp, selectedDropOff]);
 
   return (
     <View style={styles.container}>
@@ -53,7 +74,6 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
               time={point.time}
               status={point.status}
               refundAmount={point.refundAmount}
-              disabledReason={point.disabledReason}
               isSelected={selectedDropOff?.id === point.id}
               onPress={() => selectDropOff(point)}
               icon="📍"

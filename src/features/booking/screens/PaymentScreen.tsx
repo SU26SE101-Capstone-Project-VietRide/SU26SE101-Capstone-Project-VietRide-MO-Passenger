@@ -3,9 +3,9 @@
  * Visual style: matches Parcel flow (Bento UI, dotted route tracks)
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Ticket, Coins, CreditCard, Wallet } from 'phosphor-react-native';
+import { QrCode, CreditCard } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { FloatingActionBar } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
@@ -17,22 +17,19 @@ interface PaymentStepProps {
 
 export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
   const {
-    selectedTrip,
-    selectedSeats,
     totalPrice,
     paymentMethod,
     setPaymentMethod,
-    selectedPickUp,
-    selectedDropOff,
-    searchParams,
     setHighestStep,
+    outboundState,
+    returnState,
+    searchParams,
   } = useBookingStore();
 
   React.useEffect(() => {
-    setHighestStep(6);
-  }, [setHighestStep]);
-
-
+    const paymentStep = searchParams.isRoundTrip ? 10 : 6;
+    setHighestStep(paymentStep); // Payment is the final step
+  }, [setHighestStep, searchParams.isRoundTrip]);
 
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
@@ -40,6 +37,19 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
 
   const baseFare = totalPrice();
   const finalPrice = baseFare - promoDiscount;
+
+  // Determine which leg to display (return leg for round trip, outbound for one-way)
+  const displayLeg = useMemo(() => {
+    if (searchParams.isRoundTrip) {
+      return returnState; // Show return leg for round trip
+    }
+    return outboundState; // Show outbound for one-way
+  }, [searchParams.isRoundTrip, returnState, outboundState]);
+
+  const trip = displayLeg?.trip;
+  const seats = displayLeg?.seats || [];
+  const pickUp = displayLeg?.pickUp;
+  const dropOff = displayLeg?.dropOff;
 
   const handlePayNow = useCallback(() => {
     onNext();
@@ -77,14 +87,14 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
               </View>
               <View style={styles.routeDetailsText}>
                 <View style={styles.routeStationSection}>
-                  <Text style={styles.routeLabelText}>BOARDING AT {selectedPickUp?.time || ''}</Text>
-                  <Text style={styles.routeStationName}>{selectedPickUp?.name || 'Pick-up Point'}</Text>
-                  <Text style={styles.routeStationCity}>{selectedPickUp?.address || ''}</Text>
+                  <Text style={styles.routeLabelText}>BOARDING AT {pickUp?.time || ''}</Text>
+                  <Text style={styles.routeStationName}>{pickUp?.name || 'Pick-up Point'}</Text>
+                  <Text style={styles.routeStationCity}>{pickUp?.address || ''}</Text>
                 </View>
                 <View style={styles.routeStationSection}>
-                  <Text style={styles.routeLabelText}>ALIGHTING AT {selectedDropOff?.time || ''}</Text>
-                  <Text style={styles.routeStationName}>{selectedDropOff?.name || 'Drop-off Point'}</Text>
-                  <Text style={styles.routeStationCity}>{selectedDropOff?.address || ''}</Text>
+                  <Text style={styles.routeLabelText}>ALIGHTING AT {dropOff?.time || ''}</Text>
+                  <Text style={styles.routeStationName}>{dropOff?.name || 'Drop-off Point'}</Text>
+                  <Text style={styles.routeStationCity}>{dropOff?.address || ''}</Text>
                 </View>
               </View>
             </View>
@@ -95,14 +105,14 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
             <Text style={styles.bentoCardHeading}>Ticket Specifications</Text>
             <View style={styles.specCardRow}>
               <View style={styles.specIcon}>
-                <Ticket size={22} color={colors.primary} weight="duotone" />
+                <CreditCard size={22} color={colors.primary} weight="duotone" />
               </View>
               <View style={styles.specDetails}>
                 <Text style={styles.specTitle}>
-                  {selectedTrip?.busType || 'Bus Ticket'}
+                  {trip?.busType || 'Bus Ticket'}
                 </Text>
                 <Text style={styles.specMeta}>
-                  Seats: {selectedSeats.map((s) => s.label).join(', ')} • Qty: {selectedSeats.length}
+                  Seats: {seats.map((s: any) => s.label).join(', ')} • Qty: {seats.length}
                 </Text>
               </View>
             </View>
@@ -112,18 +122,10 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
           <View style={styles.bentoSummaryCard}>
             <Text style={styles.bentoCardHeading}>Payment Method</Text>
             <PaymentOption
-              selected={paymentMethod === 'wallet'}
-              label="VietRide Wallet"
-              sub="Balance: 250,000₫"
-              Icon={Wallet}
-              iconColor={colors.primary}
-              onSelect={() => setPaymentMethod('wallet')}
-            />
-            <PaymentOption
               selected={paymentMethod === 'vnpay'}
               label="VNPAY / Momo QR"
               sub="Scan app QR to pay"
-              Icon={Coins}
+              Icon={QrCode}
               iconColor={colors.accentDark}
               onSelect={() => setPaymentMethod('vnpay')}
             />
@@ -149,7 +151,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
           <View style={styles.bentoSummaryCard}>
             <Text style={styles.bentoCardHeading}>Payment Breakdown</Text>
             <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Base Ticket Fare ({selectedSeats.length}x)</Text>
+              <Text style={styles.priceLabel}>Base Ticket Fare ({seats.length}x)</Text>
               <Text style={styles.priceValue}>₫{baseFare.toLocaleString('vi-VN')}</Text>
             </View>
             {promoApplied && (
@@ -170,7 +172,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
         </ScrollView>
 
         <FloatingActionBar
-          selectedSeats={selectedSeats}
+          selectedSeats={seats}
           totalPrice={finalPrice}
           ctaLabel="Pay Now"
           onPress={handlePayNow}

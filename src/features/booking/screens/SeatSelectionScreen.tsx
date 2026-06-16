@@ -30,12 +30,14 @@ export function SeatSelectionScreen({ onNext }: SeatSelectionStepProps): React.J
 
   useEffect(() => {
     initSeatMap();
-    setHighestStep(2);
-  }, [initSeatMap, setHighestStep]);
+    setHighestStep(currentLeg === 'outbound' ? 2 : 6);
+  }, [initSeatMap, setHighestStep, currentLeg]);
 
   const handleBookNow = useCallback(() => {
-    onNext(3);
-  }, [onNext]);
+    // Outbound: step 2 -> step 3; Return: step 6 -> step 7
+    const nextStep = currentLeg === 'outbound' ? 3 : 7;
+    onNext(nextStep);
+  }, [onNext, currentLeg]);
 
   const trip = selectedTrip;
 
