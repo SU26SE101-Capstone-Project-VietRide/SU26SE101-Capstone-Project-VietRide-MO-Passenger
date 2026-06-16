@@ -1,76 +1,58 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { ArrowLeft, Truck, CheckCircle, MapPin, CaretUp, CaretDown } from 'phosphor-react-native';
-import { MockMapView, MapPoint } from '@shared/components/MockMapView';
+import { useNavigation } from '@react-navigation/native';
+import { ArrowLeft, Bus, CheckCircle, CaretUp, CaretDown } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { MockMapView, MapPoint } from '@shared/components/MockMapView';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { ParcelStackParamList } from '@app/navigation/types';
+import type { BookingStackParamList } from '@app/navigation/types';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-type ParcelTrackingRouteProp = RouteProp<ParcelStackParamList, 'ParcelTracking'>;
-type ParcelTrackingNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelTracking'>;
+type NavProp = NativeStackNavigationProp<BookingStackParamList, 'Tracking'>;
 
-// Mock tracking milestones
-const MILESTONES = [
+const MOCK_TICKET_STOPS: MapPoint[] = [
   {
-    title: 'In Transit',
-    desc: 'Departure scan, vehicle heading to Sapa terminal.',
-    time: 'Jun 02, 2026 • 11:45 AM',
-    status: 'active', // active, completed, pending
-  },
-  {
-    title: 'Received at Station',
-    desc: 'Parcel processed at FUTA Mien Dong Bus Station.',
-    time: 'Jun 02, 2026 • 09:15 AM',
-    status: 'completed',
-  },
-  {
-    title: 'Booked successfully',
-    desc: 'Delivery booking confirmed online.',
-    time: 'Jun 02, 2026 • 08:00 AM',
-    status: 'completed',
-  },
-  {
-    title: 'Out for Delivery',
-    desc: 'Courier delivering to Sapa recipient.',
-    time: '--',
-    status: 'pending',
-  },
-  {
-    title: 'Delivered',
-    desc: 'Successfully received by recipient.',
-    time: '--',
-    status: 'pending',
-  },
-];
-
-// Mock Map Coordinates
-const PARCEL_TRACKING_POINTS: MapPoint[] = [
-  {
-    id: 'parcel-origin',
-    name: 'FUTA Mien Dong',
-    detail: 'Origin Hub - Parcel processed and scanned.',
+    id: 'stop-1',
+    name: 'Nuoc Ngam Station',
+    detail: 'Origin departure point. Bus departed at 07:00 AM.',
     x: 40,
     y: 260,
     type: 'origin',
     status: 'completed',
   },
   {
-    id: 'parcel-transit',
-    name: 'Da Lat Terminal',
-    detail: 'Transit Center - Parcel sorted and loaded to truck.',
-    x: 150,
-    y: 150,
+    id: 'stop-2',
+    name: 'Phu Ly Rest Stop',
+    detail: 'Completed 15 min rest stop for passenger refreshment.',
+    x: 100,
+    y: 180,
+    type: 'transit',
+    status: 'completed',
+  },
+  {
+    id: 'stop-3',
+    name: 'Yen Bai Terminal',
+    detail: 'Current position. Bus arrived at 10:45 AM, departing soon.',
+    x: 180,
+    y: 130,
     type: 'transit',
     status: 'active',
   },
   {
-    id: 'parcel-dest',
-    name: 'Sapa Office',
-    detail: 'Destination Hub - Parcel out for local delivery.',
+    id: 'stop-4',
+    name: 'Lao Cai Station',
+    detail: 'Upcoming transit stop. Expected ETA: 12:30 PM.',
+    x: 240,
+    y: 80,
+    type: 'transit',
+    status: 'pending',
+  },
+  {
+    id: 'stop-5',
+    name: 'Sapa Bus Station',
+    detail: 'Final destination drop-off point. Expected ETA: 01:30 PM.',
     x: 280,
     y: 40,
     type: 'destination',
@@ -78,10 +60,8 @@ const PARCEL_TRACKING_POINTS: MapPoint[] = [
   },
 ];
 
-export function ParcelTrackingScreen(): React.JSX.Element {
-  const route = useRoute<ParcelTrackingRouteProp>();
-  const navigation = useNavigation<ParcelTrackingNavProp>();
-  const { parcelId } = route.params;
+export function TrackingScreen(): React.JSX.Element {
+  const navigation = useNavigation<NavProp>();
   const [isMinimized, setIsMinimized] = useState(false);
 
   const handleGoBack = () => {
@@ -90,8 +70,8 @@ export function ParcelTrackingScreen(): React.JSX.Element {
 
   return (
     <View style={styles.container}>
-      {/* Background Map View */}
-      <MockMapView points={PARCEL_TRACKING_POINTS} vehicleType="truck" />
+      {/* Background Interactive Mock Map */}
+      <MockMapView points={MOCK_TICKET_STOPS} vehicleType="bus" />
 
       {/* Floating Header */}
       <SafeAreaView edges={['top']} style={styles.floatingHeader}>
@@ -99,7 +79,7 @@ export function ParcelTrackingScreen(): React.JSX.Element {
           <ArrowLeft size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.floatingHeaderBadge}>
-          <Text style={styles.floatingHeaderTitle}>Order Ref: {parcelId}</Text>
+          <Text style={styles.floatingHeaderTitle}>Trip Tracking: Hanoi → Sapa</Text>
         </View>
         <View style={{ width: 44 }} />
       </SafeAreaView>
@@ -119,11 +99,11 @@ export function ParcelTrackingScreen(): React.JSX.Element {
             style={styles.statusHeaderCard}
           >
             <View style={styles.statusIconBackground}>
-              <Truck size={32} color={colors.accentDark} weight="fill" />
+              <Bus size={32} color={colors.primary} weight="fill" />
             </View>
             <View style={styles.statusMeta}>
-              <Text style={styles.statusLabelText}>CURRENT STATUS (TAP TO TOGGLE)</Text>
-              <Text style={styles.statusValueText}>In Transit</Text>
+              <Text style={styles.statusLabelText}>TRIP STATUS (TAP TO TOGGLE)</Text>
+              <Text style={styles.statusValueText}>Heading to Yen Bai</Text>
             </View>
             {isMinimized ? (
               <CaretUp size={20} color={colors.textSecondary} weight="bold" />
@@ -133,17 +113,17 @@ export function ParcelTrackingScreen(): React.JSX.Element {
           </TouchableOpacity>
 
           {/* Timeline Log Section */}
-          <View style={styles.bentoSummaryCard}>
-            <Text style={styles.bentoCardHeading}>Shipment Timeline</Text>
+          <View style={styles.timelineSection}>
+            <Text style={styles.sectionHeading}>Journey Timeline</Text>
             
             <View style={styles.timelineContainer}>
-              {MILESTONES.map((item, idx) => {
-                const isLast = idx === MILESTONES.length - 1;
+              {MOCK_TICKET_STOPS.map((item, idx) => {
+                const isLast = idx === MOCK_TICKET_STOPS.length - 1;
                 const isCompleted = item.status === 'completed';
                 const isActive = item.status === 'active';
 
                 return (
-                  <View key={`milestone-${idx}`} style={styles.timelineRow}>
+                  <View key={`ticket-stop-${item.id}`} style={styles.timelineRow}>
                     {/* Left node point line */}
                     <View style={styles.nodeColumn}>
                       <View
@@ -154,7 +134,7 @@ export function ParcelTrackingScreen(): React.JSX.Element {
                         ]}
                       >
                         {isCompleted && <CheckCircle size={18} color={colors.success} weight="fill" />}
-                        {isActive && <Truck size={14} color={colors.textInverse} weight="fill" />}
+                        {isActive && <Bus size={14} color="#FFF" weight="fill" />}
                         {!isCompleted && !isActive && <View style={styles.nodePendingDot} />}
                       </View>
                       {!isLast && (
@@ -176,10 +156,9 @@ export function ParcelTrackingScreen(): React.JSX.Element {
                           !isCompleted && !isActive && styles.timelineTitlePending,
                         ]}
                       >
-                        {item.title}
+                        {item.name}
                       </Text>
-                      <Text style={styles.timelineDesc}>{item.desc}</Text>
-                      {item.time !== '--' && <Text style={styles.timelineTime}>{item.time}</Text>}
+                      <Text style={styles.timelineDesc}>{item.detail}</Text>
                     </View>
                   </View>
                 );
@@ -196,18 +175,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  mapMarkerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.full,
-    padding: 6,
-    ...shadows.md,
-  },
-  truckMarker: {
-    backgroundColor: colors.primary,
-    padding: 8,
   },
   floatingHeader: {
     position: 'absolute',
@@ -247,7 +214,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: SCREEN_HEIGHT * 0.55,
+    height: SCREEN_HEIGHT * 0.45,
     backgroundColor: colors.surface,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
@@ -277,7 +244,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: colors.warningLight,
+    backgroundColor: colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -296,11 +263,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: 2,
   },
-  bentoSummaryCard: {
+  timelineSection: {
     backgroundColor: colors.surface,
     paddingVertical: spacing.sm,
   },
-  bentoCardHeading: {
+  sectionHeading: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: colors.textPrimary,
@@ -374,11 +341,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 4,
     lineHeight: fontSizes.xs * 1.3,
-  },
-  timelineTime: {
-    fontFamily: fontFamilies.bold,
-    fontSize: 9,
-    color: colors.textTertiary,
-    marginTop: 6,
   },
 });

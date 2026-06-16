@@ -15,6 +15,7 @@ import { DatePicker } from './screens/DatePickerScreen';
 import { PassengersPicker } from './screens/PassengersPickerScreen';
 import { CreateTicketBookingScreen } from './screens/CreateTicketBookingScreen';
 import { DigitalTicketScreen } from './screens/DigitalTicketScreen';
+import { TrackingScreen } from './screens/TrackingScreen';
 import { colors } from '@shared/theme';
 
 const Stack = createNativeStackNavigator<BookingStackParamList>();
@@ -38,6 +39,7 @@ export function BookingNavigator(): React.JSX.Element {
         component={DigitalTicketScreen}
         options={{ gestureEnabled: false }}
       />
+      <Stack.Screen name="Tracking" component={TrackingScreen} />
     </Stack.Navigator>
   );
 }

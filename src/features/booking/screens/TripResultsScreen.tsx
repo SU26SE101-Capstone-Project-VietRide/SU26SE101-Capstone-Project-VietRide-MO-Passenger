@@ -103,7 +103,7 @@ export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.E
       {renderContent()}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.sm,
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   legTitleContainer: {
     paddingHorizontal: spacing.xl,

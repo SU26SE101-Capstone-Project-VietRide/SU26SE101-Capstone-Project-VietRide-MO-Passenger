@@ -22,7 +22,17 @@ import {
   Package,
 } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { colors, fontFamilies, fontSizes, spacing, shadows } from '@shared/theme';
+
+// Local border radius fallback
+const BR = {
+  xs: 4,
+  sm: 6,
+  md: 10,
+  lg: 16,
+  xl: 24,
+  full: 9999,
+} as const;
 
 interface MockTicket {
   id: string;
@@ -394,7 +404,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: borderRadius.full,
+    borderRadius: BR.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -421,7 +431,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: borderRadius.lg,
+    borderRadius: BR.lg,
     backgroundColor: colors.surfaceAlt,
     gap: spacing.sm,
   },
@@ -448,7 +458,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: spacing.sm,
     alignItems: 'center',
-    borderRadius: borderRadius.full,
+    borderRadius: BR.full,
     backgroundColor: colors.transparent,
   },
   activeFilterTab: {
@@ -480,7 +490,7 @@ const styles = StyleSheet.create({
   },
   ticketCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: BR.lg,
     padding: spacing.lg,
     marginBottom: spacing.xl,
     ...shadows.sm,
@@ -508,7 +518,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     paddingVertical: 4,
     paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.sm,
+    borderRadius: BR.sm,
   },
   upcomingBadge: {
     backgroundColor: colors.infoLight,
@@ -571,7 +581,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
+    borderRadius: BR.md,
     marginBottom: spacing.md,
   },
   detailItem: {

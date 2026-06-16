@@ -3,12 +3,22 @@
  * Visual style: matches ParcelDetailScreen (Ticket Box Card layout)
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { CheckCircle, QrCode, ArrowLeft, House, MagnifyingGlass, Wallet, Coins, CreditCard } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { ArrowLeft, MapPin, CheckCircle, QrCode, Coins, CreditCard, Wallet, File } from 'phosphor-react-native';
+import { colors, fontFamilies, fontSizes, spacing, shadows } from '@shared/theme';
+
+// Local border radius fallback
+const BR = {
+  xs: 4,
+  sm: 6,
+  md: 10,
+  lg: 16,
+  xl: 24,
+  full: 9999,
+} as const;
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BookingStackParamList, RootStackParamList } from '@app/navigation/types';
 import { useBookingStore } from '../store/useBookingStore';
@@ -35,6 +45,10 @@ export function DigitalTicketScreen(): React.JSX.Element {
   const handleGoHome = () => {
     rootNav.navigate('Main', { screen: 'Home' });
   };
+
+  const handleTracking = useCallback(() => {
+    navigation.navigate('Tracking');
+  }, [navigation]);
 
   const getPaymentIcon = () => {
     if (paymentMethod === 'vnpay') return <Coins size={12} color={colors.primary} weight="bold" />;
@@ -132,13 +146,22 @@ export function DigitalTicketScreen(): React.JSX.Element {
         {/* Action Buttons */}
         {!isHistory ? (
           <>
-            <TouchableOpacity 
-              style={styles.trackButton} 
-              onPress={() => rootNav.navigate('Main', { screen: 'BookingHistory', params: { initialTab: 'ticket' } })} 
+            <TouchableOpacity
+              style={styles.trackButton}
+              onPress={() => rootNav.navigate('Main', { screen: 'BookingHistory', params: { initialTab: 'ticket' } })}
               activeOpacity={0.85}
             >
-              <MagnifyingGlass size={18} color={colors.textInverse} weight="bold" />
+              <File size={18} color={colors.textInverse} weight="bold" />
               <Text style={styles.trackButtonText}>View My Bookings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.trackButton, styles.trackingButton]}
+              onPress={handleTracking}
+              activeOpacity={0.85}
+            >
+              <MapPin size={18} color={colors.primary} weight="bold" />
+              <Text style={styles.trackingButtonText}>Tracking</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.homeButton} onPress={handleGoHome} activeOpacity={0.8}>
@@ -146,9 +169,20 @@ export function DigitalTicketScreen(): React.JSX.Element {
             </TouchableOpacity>
           </>
         ) : (
-          <TouchableOpacity style={styles.trackButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
-            <Text style={styles.trackButtonText}>Go Back</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={styles.trackButton}
+              onPress={handleTracking}
+              activeOpacity={0.85}
+            >
+              <MapPin size={18} color={colors.textInverse} weight="bold" />
+              <Text style={styles.trackButtonText}>Tracking</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.homeButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+              <Text style={styles.homeButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -207,7 +241,7 @@ const styles = StyleSheet.create({
   },
   ticketCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
+    borderRadius: BR.xl,
     ...shadows.lg,
     borderWidth: 1,
     borderColor: colors.divider,
@@ -221,7 +255,7 @@ const styles = StyleSheet.create({
   qrContainer: {
     padding: spacing.md,
     backgroundColor: colors.surfaceAlt,
-    borderRadius: borderRadius.lg,
+    borderRadius: BR.lg,
     marginBottom: spacing.md,
   },
   qrCaption: {
@@ -341,22 +375,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
+    borderRadius: BR.md,
     height: 48,
     gap: spacing.sm,
     ...shadows.sm,
     marginBottom: spacing.sm,
+  },
+  trackingButton: {
+    backgroundColor: colors.surfaceAlt,
   },
   trackButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: colors.textInverse,
   },
+  trackingButtonText: {
+    color: colors.primary,
+  },
   homeButton: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surfaceAlt,
-    borderRadius: borderRadius.md,
+    borderRadius: BR.md,
     height: 48,
     borderWidth: 1,
     borderColor: colors.divider,

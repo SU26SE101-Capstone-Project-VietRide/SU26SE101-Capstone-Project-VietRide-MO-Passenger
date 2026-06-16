@@ -27,6 +27,7 @@ export type BookingStackParamList = {
     bookingRef: string;
     fromHistory?: boolean;
   };
+  Tracking: undefined;
 };
 
 
