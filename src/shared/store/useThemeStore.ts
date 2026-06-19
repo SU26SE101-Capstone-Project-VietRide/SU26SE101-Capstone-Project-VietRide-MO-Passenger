@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { themes } from '../theme/themes';
 import type { ThemeVariant } from '../theme/types';
 
 interface ThemeState {
@@ -8,6 +7,6 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  currentTheme: 'classic',
+  currentTheme: 'liquid_light',
   setTheme: (variant) => set({ currentTheme: variant }),
 }));

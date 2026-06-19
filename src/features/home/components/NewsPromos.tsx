@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { View, Text, FlatList, Image, Pressable } from 'react-native';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface PromoItem {
   id: string;
@@ -35,6 +37,8 @@ interface NewsPromosProps {
 }
 
 export function NewsPromos({ onPromoPress }: NewsPromosProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>News & Promos</Text>
@@ -46,10 +50,9 @@ export function NewsPromos({ onPromoPress }: NewsPromosProps): React.JSX.Element
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.scrollContainer}
         renderItem={({ item }) => (
-          <TouchableOpacity
+          <Pressable
             onPress={() => onPromoPress?.(item)}
-            activeOpacity={0.9}
-            style={styles.card}
+            style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
           >
             {/* Top Image Banner */}
             <View style={styles.imageContainer}>
@@ -72,14 +75,14 @@ export function NewsPromos({ onPromoPress }: NewsPromosProps): React.JSX.Element
                 {item.description}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         )}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     width: '100%',
     marginVertical: spacing.lg,
@@ -88,26 +91,25 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: 24,
-    color: '#181c20',
+    color: theme.colors.textPrimary,
     marginBottom: spacing.lg,
   },
   scrollContainer: {
     paddingRight: spacing.lg,
   },
   card: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
     width: 280,
     marginRight: spacing.lg,
     overflow: 'hidden',
-    ...shadows.md,
     marginBottom: spacing.md, // allowance for shadow clipping
   },
   imageContainer: {
     height: 128,
     width: '100%',
     position: 'relative',
-    backgroundColor: '#ebeef3',
+    backgroundColor: theme.colors.surfaceAlt,
   },
   image: {
     width: '100%',
@@ -120,12 +122,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     paddingVertical: 4,
     paddingHorizontal: 8,
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
   },
   tagText: {
     fontFamily: fontFamilies.medium,
     fontSize: 10,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
@@ -135,13 +137,17 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: '#181c20',
+    color: theme.colors.textPrimary,
     marginBottom: spacing.xs,
   },
   description: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: '#3c4948',
+    color: theme.colors.textSecondary,
     lineHeight: 16,
+  },
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.98 }],
   },
 });

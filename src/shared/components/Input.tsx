@@ -7,19 +7,18 @@ import {
   View,
   TextInput,
   Text,
-  StyleSheet,
   TextInputProps,
   ViewStyle,
 } from 'react-native';
 
 import {
-  colors,
   fontFamilies,
   fontSizes,
   spacing,
-  borderRadius,
 } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface InputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
@@ -42,28 +41,22 @@ export const Input = forwardRef<TextInput, InputProps>(
     ref,
   ) => {
     const theme = useTheme();
+    const styles = useThemedStyles(createStyles);
     const [isFocused, setIsFocused] = useState(false);
     const hasError = Boolean(error);
-    const isLiquid = theme.variant.startsWith('liquid');
-
-    const liquidInputStyle = isLiquid ? {
-      backgroundColor: theme.isDark ? 'rgba(40,40,40,0.5)' : 'rgba(255,255,255,0.6)',
-      borderColor: theme.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.8)',
-      color: theme.isDark ? '#FFFFFF' : '#181C20',
-    } : undefined;
 
     return (
       <View style={[styles.container, containerStyle]}>
-        {label && (
+        {label ? (
           <Text style={styles.label}>
             {label}
-            {required && <Text style={styles.required}> *</Text>}
+            {required ? <Text style={styles.required}> *</Text> : null}
           </Text>
-        )}
+        ) : null}
 
         <TextInput
           ref={ref}
-          placeholderTextColor={isLiquid ? (theme.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(24,28,32,0.4)') : colors.textTertiary}
+          placeholderTextColor={theme.colors.textTertiary}
           onFocus={(e) => {
             setIsFocused(true);
             textInputProps.onFocus?.(e);
@@ -74,15 +67,14 @@ export const Input = forwardRef<TextInput, InputProps>(
           }}
           style={[
             styles.input,
-            liquidInputStyle,
-            isFocused && styles.inputFocused,
-            hasError && styles.inputError,
+            isFocused ? styles.inputFocused : null,
+            hasError ? styles.inputError : null,
           ]}
           {...textInputProps}
         />
 
-        {hasError && <Text style={styles.errorText}>{error}</Text>}
-        {!hasError && hint && <Text style={styles.hintText}>{hint}</Text>}
+        {hasError ? <Text style={styles.errorText}>{error}</Text> : null}
+        {!hasError && hint ? <Text style={styles.hintText}>{hint}</Text> : null}
       </View>
     );
   },
@@ -92,48 +84,45 @@ Input.displayName = 'Input';
 
 // ─── Styles ───────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     marginBottom: spacing.lg,
   },
   label: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.xs,
   },
   required: {
-    color: colors.error,
+    color: theme.colors.error,
   },
   input: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
+    color: theme.colors.textPrimary,
+    ...theme.components.field,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     minHeight: 48,
   },
   inputFocused: {
-    borderColor: colors.borderFocused,
+    borderColor: theme.colors.borderFocused,
     borderWidth: 1.5,
   },
   inputError: {
-    borderColor: colors.error,
+    borderColor: theme.colors.error,
   },
   errorText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.error,
+    color: theme.colors.error,
     marginTop: spacing.xs,
   },
   hintText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginTop: spacing.xs,
   },
 });

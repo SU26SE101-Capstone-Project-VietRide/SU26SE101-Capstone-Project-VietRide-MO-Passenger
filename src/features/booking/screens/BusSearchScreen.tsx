@@ -4,19 +4,21 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, StatusBar, Image } from 'react-native';
+import { View, Text, ScrollView, FlatList, StatusBar, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MapPin, ArrowRight } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
-import { ProfileHeader } from '@shared/components';
+import { fontFamilies, spacing } from '@shared/theme';
+import { GlassCarouselSection, ProfileHeader } from '@shared/components';
 import { SearchForm, RouteCard, RecentSearchCard } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { MOCK_POPULAR_ROUTES, MOCK_RECENT_SEARCHES } from '../data/mockData';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { BookingStackParamList } from '@app/navigation/types';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'SearchRoutes'>;
 
@@ -27,6 +29,8 @@ export function BusSearchScreen(): React.JSX.Element {
   const user = useAuthStore((state) => state.user);
   const fullName = user?.fullName || 'Viết Thông';
   const { searchParams, swapCities, setSearchParams } = useBookingStore();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const handleSearch = useCallback(() => {
     navigation.navigate('CreateTicketBooking');
@@ -94,9 +98,9 @@ export function BusSearchScreen(): React.JSX.Element {
         <Svg height="400" width="100%">
           <Defs>
             <LinearGradient id="busGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.12} />
-              <Stop offset="60%" stopColor="#2AC1BC" stopOpacity={0.04} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.colors.primaryLight} stopOpacity={0.16} />
+              <Stop offset="60%" stopColor={theme.colors.primaryLight} stopOpacity={0.04} />
+              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#busGrad)" />
@@ -104,7 +108,7 @@ export function BusSearchScreen(): React.JSX.Element {
       </View>
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
@@ -119,7 +123,7 @@ export function BusSearchScreen(): React.JSX.Element {
           {/* Welcome section with mascot */}
           <View style={styles.welcomeSection}>
             <View style={styles.welcomeTextColumn}>
-              <Text style={styles.welcomeTitle}>Hello! 👋</Text>
+              <Text style={styles.welcomeTitle}>Hello!</Text>
               <Text style={styles.welcomeSubtitle}>Where are we going today?</Text>
             </View>
             <View style={styles.mascotContainer}>
@@ -141,48 +145,44 @@ export function BusSearchScreen(): React.JSX.Element {
             onSearchPress={handleSearch}
           />
 
-          {/* Popular Routes */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Popular Routes</Text>
-            <TouchableOpacity activeOpacity={0.6} onPress={handleViewAllPopular}>
-              <Text style={styles.viewAllText}>See all</Text>
-            </TouchableOpacity>
-          </View>
+          <GlassCarouselSection
+            title="Popular Routes"
+            actionLabel="See all"
+            onActionPress={handleViewAllPopular}
+          >
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={MOCK_POPULAR_ROUTES}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.horizontalList}
+              renderItem={renderRouteItem}
+            />
+          </GlassCarouselSection>
 
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={MOCK_POPULAR_ROUTES}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.horizontalList}
-            renderItem={renderRouteItem}
-          />
-
-          {/* Recent Searches */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Searches</Text>
-          </View>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={MOCK_RECENT_SEARCHES}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.horizontalList}
-            renderItem={renderRecentItem}
-          />
+          <GlassCarouselSection title="Recent Searches">
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={MOCK_RECENT_SEARCHES}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.horizontalList}
+              renderItem={renderRecentItem}
+            />
+          </GlassCarouselSection>
 
           {/* Bottom spacer */}
-          <View style={{ height: 100 }} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   root: {
     flex: 1,
-    backgroundColor: '#E6F4F3',
+    backgroundColor: theme.colors.background,
   },
   gradientContainer: {
     position: 'absolute',
@@ -215,14 +215,14 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: 34,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     lineHeight: 38,
     marginBottom: spacing.xs,
   },
   welcomeSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: 18,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     lineHeight: 24,
   },
   mascotContainer: {
@@ -234,27 +234,15 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: 18,
-    color: colors.textPrimary,
-  },
-  viewAllText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: colors.primary,
-  },
   horizontalList: {
     gap: spacing.lg,
+    paddingLeft: spacing.md,
     paddingRight: spacing.lg,
   },
   recentList: {
     gap: spacing.sm,
+  },
+  bottomSpacer: {
+    height: 100,
   },
 });

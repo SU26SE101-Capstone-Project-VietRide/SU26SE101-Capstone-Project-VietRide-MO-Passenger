@@ -2,18 +2,18 @@ import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   StatusBar,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { ProfileHeader } from '@shared/components';
+import { GlassCarouselSection, ProfileHeader } from '@shared/components';
 import { useBookingStore } from '../../booking/store/useBookingStore';
 import { useParcelStore } from '../../parcel/store/useParcelStore';
 import {
@@ -41,10 +41,9 @@ export function HomeScreen(): React.JSX.Element {
   const user = useAuthStore((state) => state.user);
   const fullName = user?.fullName || 'Viết Thông';
   const theme = useTheme();
-  const isLiquid = theme.variant.startsWith('liquid');
+  const styles = useThemedStyles(createStyles);
 
   const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
-  const [isRoundTrip, setIsRoundTrip] = useState(false);
 
   // Booking flow state/actions
   const { searchParams, swapCities, setSearchParams } = useBookingStore();
@@ -141,7 +140,7 @@ export function HomeScreen(): React.JSX.Element {
 
 
   return (
-    <SafeAreaView style={[styles.safeArea, isLiquid && { backgroundColor: theme.colors.background }]} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       {/* Decorative Mint Green Ambient Background Glow */}
@@ -163,35 +162,41 @@ export function HomeScreen(): React.JSX.Element {
         <View style={styles.formContainer}>
           {/* Tabs Segment Control */}
           <View style={styles.tabHeader}>
-            <TouchableOpacity
-              activeOpacity={0.85}
+            <Pressable
               onPress={() => setActiveTab('ticket')}
-              style={[styles.tabButton, activeTab === 'ticket' && styles.activeTabButton]}
+              style={({ pressed }) => [
+                styles.tabButton,
+                activeTab === 'ticket' ? styles.activeTabButton : null,
+                pressed ? styles.pressed : null,
+              ]}
             >
               <Ticket
                 size={18}
-                color={activeTab === 'ticket' ? '#fff' : colors.textSecondary}
+                color={activeTab === 'ticket' ? theme.colors.textInverse : theme.colors.textSecondary}
                 weight={activeTab === 'ticket' ? 'fill' : 'regular'}
               />
-              <Text style={[styles.tabText, activeTab === 'ticket' && styles.activeTabText]}>
+              <Text style={[styles.tabText, activeTab === 'ticket' ? styles.activeTabText : null]}>
                 Buy Ticket
               </Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
-              activeOpacity={0.85}
+            <Pressable
               onPress={() => setActiveTab('parcel')}
-              style={[styles.tabButton, activeTab === 'parcel' && styles.activeTabButton]}
+              style={({ pressed }) => [
+                styles.tabButton,
+                activeTab === 'parcel' ? styles.activeTabButton : null,
+                pressed ? styles.pressed : null,
+              ]}
             >
               <Package
                 size={18}
-                color={activeTab === 'parcel' ? '#fff' : colors.textSecondary}
+                color={activeTab === 'parcel' ? theme.colors.textInverse : theme.colors.textSecondary}
                 weight={activeTab === 'parcel' ? 'fill' : 'regular'}
               />
-              <Text style={[styles.tabText, activeTab === 'parcel' && styles.activeTabText]}>
+              <Text style={[styles.tabText, activeTab === 'parcel' ? styles.activeTabText : null]}>
                 Send Parcel
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Tab Body */}
@@ -200,72 +205,67 @@ export function HomeScreen(): React.JSX.Element {
               // Booking Form
               <View>
                 <Text style={styles.fieldLabel}>From</Text>
-                <TouchableOpacity
+                <Pressable
                   style={styles.selectorField}
                   onPress={() => openBookingCityPicker('from')}
-                  activeOpacity={0.8}
                 >
-                  <MapPin size={20} color={colors.primary} weight="bold" />
+                  <MapPin size={20} color={theme.colors.primary} weight="bold" />
                   <Text style={searchParams.from ? styles.selectorText : styles.selectorPlaceholder}>
                     {searchParams.from || 'Select origin city'}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>To</Text>
+                <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>To</Text>
                 <View style={styles.toRow}>
-                  <TouchableOpacity
-                    style={[styles.selectorField, { flex: 1 }]}
+                  <Pressable
+                    style={[styles.selectorField, styles.selectorFieldGrow]}
                     onPress={() => openBookingCityPicker('to')}
-                    activeOpacity={0.8}
                   >
-                    <MapPin size={18} color={colors.primary} weight="bold" />
+                    <MapPin size={18} color={theme.colors.primary} weight="bold" />
                     <Text
                       style={searchParams.to ? styles.selectorText : styles.selectorPlaceholder}
                       numberOfLines={1}
                     >
                       {searchParams.to || 'Select destination'}
                     </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={swapCities} style={styles.swapBtn} activeOpacity={0.7}>
-                    <ArrowsDownUp size={18} color={colors.primary} weight="bold" />
-                  </TouchableOpacity>
+                  </Pressable>
+                  <Pressable onPress={swapCities} style={styles.swapBtn}>
+                    <ArrowsDownUp size={18} color={theme.colors.primary} weight="bold" />
+                  </Pressable>
                 </View>
 
                 <View style={styles.metaRow}>
-                  <TouchableOpacity
+                  <Pressable
                     style={styles.metaField}
                     onPress={() => openBookingDatePicker('departure')}
-                    activeOpacity={0.8}
                   >
-                    <CalendarBlank size={16} color={colors.primary} weight="fill" />
+                    <CalendarBlank size={16} color={theme.colors.primary} weight="fill" />
                     <Text style={styles.metaText} numberOfLines={1}>
                       {searchParams.date || 'Select date'}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
 
-                  {searchParams.isRoundTrip && (
-                    <TouchableOpacity
+                  {searchParams.isRoundTrip ? (
+                    <Pressable
                       style={styles.metaField}
                       onPress={() => openBookingDatePicker('return')}
-                      activeOpacity={0.8}
                     >
-                      <CalendarBlank size={16} color={colors.primary} weight="fill" />
+                      <CalendarBlank size={16} color={theme.colors.primary} weight="fill" />
                       <Text style={styles.metaText} numberOfLines={1}>
                         {searchParams.returnDate || 'Return date'}
                       </Text>
-                    </TouchableOpacity>
-                  )}
+                    </Pressable>
+                  ) : null}
                 </View>
 
-                <View style={[styles.metaRow, { marginTop: spacing.md }]}>
+                <View style={[styles.metaRow, styles.metaRowCompact]}>
                   <View style={[styles.metaField, styles.switchField]}>
                     <Text style={styles.switchLabel}>Round-trip</Text>
-                    <TouchableOpacity
-                      activeOpacity={0.85}
+                    <Pressable
                       onPress={() => setSearchParams({ isRoundTrip: !searchParams.isRoundTrip })}
                       style={[
                         styles.switchTrack,
-                        searchParams.isRoundTrip ? styles.switchTrackActive : styles.switchTrackInactive,
+                        searchParams.isRoundTrip ? styles.switchTrackActive : null,
                       ]}
                     >
                       <View
@@ -274,56 +274,52 @@ export function HomeScreen(): React.JSX.Element {
                           searchParams.isRoundTrip ? styles.switchThumbActive : styles.switchThumbInactive,
                         ]}
                       />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  activeOpacity={0.85}
+                <Pressable
                   onPress={handleTicketSearch}
                   style={styles.searchButton}
                 >
                   <Text style={styles.searchButtonText}>Search Buses</Text>
-                  <MagnifyingGlass size={18} color={colors.textInverse} weight="bold" />
-                </TouchableOpacity>
+                  <MagnifyingGlass size={18} color={theme.colors.textInverse} weight="bold" />
+                </Pressable>
               </View>
             ) : (
               // Parcel Form
               <View>
                 <Text style={styles.fieldLabel}>From</Text>
-                <TouchableOpacity
+                <Pressable
                   style={styles.selectorField}
                   onPress={() => openParcelCityPicker('from')}
-                  activeOpacity={0.8}
                 >
-                  <MapPin size={20} color={colors.primary} weight="bold" />
+                  <MapPin size={20} color={theme.colors.primary} weight="bold" />
                   <Text style={fromCity ? styles.selectorText : styles.selectorPlaceholder}>
                     {fromCity || 'Select Origin City/District'}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>To</Text>
+                <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>To</Text>
                 <View style={styles.toRow}>
-                  <TouchableOpacity
-                    style={[styles.selectorField, { flex: 1 }]}
+                  <Pressable
+                    style={[styles.selectorField, styles.selectorFieldGrow]}
                     onPress={() => openParcelCityPicker('to')}
-                    activeOpacity={0.8}
                   >
-                    <PaperPlaneTilt size={18} color={colors.primary} weight="bold" />
+                    <PaperPlaneTilt size={18} color={theme.colors.primary} weight="bold" />
                     <Text
                       style={toCity ? styles.selectorText : styles.selectorPlaceholder}
                       numberOfLines={1}
                     >
                       {toCity || 'Select City'}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
 
-                  <TouchableOpacity
-                    style={[styles.selectorField, { flex: 1.2 }]}
+                  <Pressable
+                    style={[styles.selectorField, styles.selectorFieldWide]}
                     onPress={openParcelDistrictPicker}
-                    activeOpacity={0.8}
                   >
-                    <PaperPlaneTilt size={18} color={colors.primary} weight="bold" />
+                    <PaperPlaneTilt size={18} color={theme.colors.primary} weight="bold" />
                     <Text
                       style={
                         toDistrict && toDistrict !== 'Select District'
@@ -334,26 +330,24 @@ export function HomeScreen(): React.JSX.Element {
                     >
                       {toDistrict || 'Select District'}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
 
                 <View style={styles.parcelActionsRow}>
-                  <TouchableOpacity
+                  <Pressable
                     style={styles.nextButton}
                     onPress={handleStartShipment}
-                    activeOpacity={0.85}
                   >
                     <Text style={styles.searchButtonText}>Next</Text>
-                    <ArrowRight size={18} color={colors.textInverse} weight="bold" />
-                  </TouchableOpacity>
+                    <ArrowRight size={18} color={theme.colors.textInverse} weight="bold" />
+                  </Pressable>
 
-                  <TouchableOpacity
+                  <Pressable
                     style={styles.historyBtn}
                     onPress={handleOpenShipmentList}
-                    activeOpacity={0.7}
                   >
-                    <ClockCounterClockwise size={20} color={colors.primary} weight="bold" />
-                  </TouchableOpacity>
+                    <ClockCounterClockwise size={20} color={theme.colors.primary} weight="bold" />
+                  </Pressable>
                 </View>
               </View>
             )}
@@ -362,50 +356,43 @@ export function HomeScreen(): React.JSX.Element {
 
         {activeTab === 'ticket' && (
           <>
-            {/* Popular Routes */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Popular Routes</Text>
-              <TouchableOpacity activeOpacity={0.6} onPress={handleViewAllPopular}>
-                <Text style={styles.viewAllText}>See all</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-              style={{ marginBottom: spacing.lg }}
+            <GlassCarouselSection
+              title="Popular Routes"
+              actionLabel="See all"
+              onActionPress={handleViewAllPopular}
             >
-              {MOCK_POPULAR_ROUTES.map((item) => (
-                <RouteCard
-                  key={item.id}
-                  from={item.from}
-                  to={item.to}
-                  price={item.price}
-                  onPress={() => handlePopularPress(item)}
-                />
-              ))}
-            </ScrollView>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+              >
+                {MOCK_POPULAR_ROUTES.map((item) => (
+                  <RouteCard
+                    key={item.id}
+                    from={item.from}
+                    to={item.to}
+                    price={item.price}
+                    onPress={() => handlePopularPress(item)}
+                  />
+                ))}
+              </ScrollView>
+            </GlassCarouselSection>
 
-            {/* Recent Searches */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Searches</Text>
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-              style={{ marginBottom: spacing.lg }}
-            >
-              {MOCK_RECENT_SEARCHES.map((item) => (
-                <RecentSearchCard
-                  key={item.id}
-                  route={item.route}
-                  onPress={() => handleRecentPress(item)}
-                />
-              ))}
-            </ScrollView>
+            <GlassCarouselSection title="Recent Searches">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+              >
+                {MOCK_RECENT_SEARCHES.map((item) => (
+                  <RecentSearchCard
+                    key={item.id}
+                    route={item.route}
+                    onPress={() => handleRecentPress(item)}
+                  />
+                ))}
+              </ScrollView>
+            </GlassCarouselSection>
 
             {/* News & Promotions */}
             <NewsPromos />
@@ -423,14 +410,13 @@ export function HomeScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  safeContainer: {
-    flex: 1,
-    backgroundColor: '#F7F9FF',
+const createStyles = (theme: AppTheme) => ({
+  safeArea: {
+    ...theme.components.screen,
   },
   ambientGlow: {
     position: 'absolute',
-    backgroundColor: 'rgba(42, 193, 188, 0.12)',
+    backgroundColor: theme.effects.ambientGlow,
     width: 585,
     height: 585,
     borderRadius: 9999,
@@ -446,17 +432,18 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   formContainer: {
-    backgroundColor: colors.surface,
+    ...theme.components.elevatedCard,
+    backgroundColor: theme.effects.isLiquid ? 'rgba(252, 255, 255, 0.88)' : theme.colors.surface,
+    borderColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.9)' : theme.colors.divider,
     borderRadius: 28,
     padding: spacing.xl,
-    ...shadows.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
     marginVertical: spacing.md,
   },
   tabHeader: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.58)' : theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? 'rgba(0, 91, 87, 0.1)' : theme.colors.divider,
     borderRadius: 16,
     padding: 4,
     marginBottom: spacing.lg,
@@ -471,15 +458,17 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   activeTabButton: {
-    backgroundColor: colors.primary,
+    ...theme.components.primaryButton,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   tabText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   activeTabText: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   formBody: {
     width: '100%',
@@ -487,32 +476,41 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: spacing.xs,
     paddingLeft: 2,
+  },
+  fieldLabelWithTopMargin: {
+    marginTop: spacing.md,
   },
   selectorField: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1.2,
-    borderColor: colors.divider,
+    ...theme.components.field,
+    backgroundColor: theme.effects.isLiquid ? 'rgba(252, 255, 255, 0.72)' : theme.colors.surfaceAlt,
+    borderColor: theme.effects.isLiquid ? 'rgba(0, 91, 87, 0.12)' : theme.colors.divider,
     borderRadius: 16,
     height: 48,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
+  selectorFieldGrow: {
+    flex: 1,
+  },
+  selectorFieldWide: {
+    flex: 1.2,
+  },
   selectorText: {
     flex: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   selectorPlaceholder: {
     flex: 1,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   toRow: {
     flexDirection: 'row',
@@ -524,24 +522,27 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.effects.isLiquid ? 'rgba(252, 255, 255, 0.82)' : theme.colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
   },
   metaRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.lg,
   },
+  metaRowCompact: {
+    marginTop: spacing.md,
+  },
   metaField: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1.2,
-    borderColor: colors.divider,
+    ...theme.components.field,
+    backgroundColor: theme.effects.isLiquid ? 'rgba(252, 255, 255, 0.72)' : theme.colors.surfaceAlt,
+    borderColor: theme.effects.isLiquid ? 'rgba(0, 91, 87, 0.12)' : theme.colors.divider,
     borderRadius: 16,
     height: 44,
     paddingHorizontal: spacing.md,
@@ -551,7 +552,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   switchField: {
     justifyContent: 'space-between',
@@ -560,29 +561,26 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   switchTrack: {
     width: 40,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: theme.colors.divider,
     padding: 2,
     justifyContent: 'center',
   },
   switchTrackActive: {
-    backgroundColor: colors.primary,
-  },
-  switchTrackInactive: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: theme.colors.primary,
   },
   switchThumb: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceElevated,
     elevation: 1,
-    shadowColor: '#000',
+    shadowColor: theme.colors.textPrimary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1,
@@ -597,24 +595,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    ...theme.components.primaryButton,
     borderRadius: 16,
     height: 48,
     marginTop: spacing.xl,
     gap: spacing.xs,
-    ...shadows.sm,
   },
   searchButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   nextButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    ...theme.components.primaryButton,
     borderRadius: 16,
     height: 48,
     gap: spacing.xs,
@@ -630,34 +627,20 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    borderWidth: 1.2,
-    borderColor: colors.divider,
-    backgroundColor: colors.surfaceAlt,
+    ...theme.components.field,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-    marginTop: spacing.lg,
-  },
-  sectionTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: 18,
-    color: colors.textPrimary,
-  },
-  viewAllText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: colors.primary,
-  },
   horizontalList: {
     gap: spacing.lg,
+    paddingLeft: spacing.md,
     paddingRight: spacing.lg,
   },
   recentList: {
     gap: spacing.sm,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
 });

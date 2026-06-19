@@ -37,7 +37,7 @@ export function WithdrawScreen(): React.JSX.Element {
     }
 
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     setLoading(false);
     
     Alert.alert('Success', 'Withdrawal requested successfully!', [{ text: 'OK', onPress: () => navigation.goBack() }]);

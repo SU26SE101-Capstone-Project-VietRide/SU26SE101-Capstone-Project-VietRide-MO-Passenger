@@ -2,8 +2,7 @@ import React, { useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Image,
   ScrollView,
   Alert,
@@ -16,7 +15,6 @@ import { useTranslation } from 'react-i18next';
 import {
   User,
   Gear,
-  CreditCard,
   ClockCounterClockwise,
   Question,
   SignOut,
@@ -26,9 +24,10 @@ import {
   UploadSimple,
 } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { getCardStyle } from '@shared/theme/helpers';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { ProfileStackParamList } from '@app/navigation/types';
 
@@ -40,7 +39,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const theme = useTheme();
-  const isLiquid = theme.variant.startsWith('liquid');
+  const styles = useThemedStyles(createStyles);
 
   const handleLogout = useCallback(() => {
     Alert.alert(
@@ -110,7 +109,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   ];
 
   return (
-    <SafeAreaView style={[styles.safeContainer, isLiquid && { backgroundColor: theme.colors.background }]} edges={['top']}>
+    <SafeAreaView style={styles.safeContainer} edges={['top']}>
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       {/* Scrollable Container */}
@@ -120,11 +119,11 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       >
         {/* Title Header */}
         <View style={styles.headerContainer}>
-          <Text style={[styles.headerTitle, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{t('nav.profile', 'Profile')}</Text>
+          <Text style={styles.headerTitle}>{t('nav.profile', 'Profile')}</Text>
         </View>
 
         {/* User Card Bento Wrapper */}
-        <View style={[styles.profileCard, isLiquid && getCardStyle(theme, styles.profileCard)]}>
+        <View style={styles.profileCard}>
           <View style={styles.profileInfoSection}>
             <View style={styles.avatarWrapper}>
               {user?.avatarUrl ? (
@@ -138,96 +137,92 @@ export function ProfileOverviewScreen(): React.JSX.Element {
               )}
             </View>
             <View style={styles.namePhoneWrapper}>
-              <Text style={[styles.fullNameText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{user?.fullName || 'Viết Thông'}</Text>
+              <Text style={styles.fullNameText}>{user?.fullName || 'Viết Thông'}</Text>
               <View style={styles.phoneRow}>
-                <Phone size={14} color={theme.isDark ? '#A0A0A0' : colors.textSecondary} style={styles.phoneIcon} />
-                <Text style={[styles.phoneText, { color: theme.isDark ? '#A0A0A0' : colors.textSecondary }]}>{user?.phone || '+84 987 654 321'}</Text>
+                <Phone size={14} color={theme.colors.textSecondary} style={styles.phoneIcon} />
+                <Text style={styles.phoneText}>{user?.phone || '+84 987 654 321'}</Text>
               </View>
             </View>
           </View>
 
           {/* Divider line */}
-          <View style={[styles.cardDivider, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : colors.divider }]} />
+          <View style={styles.cardDivider} />
 
           <View style={styles.walletSection}>
             <View style={styles.walletHeader}>
               <View style={styles.walletBalanceContainer}>
-                <Text style={[styles.walletTitle, { color: theme.isDark ? '#EBEBF5' : colors.textSecondary }]}>{t('profile.walletBalance', 'Wallet Balance')}</Text>
+                <Text style={styles.walletTitle}>{t('profile.walletBalance', 'Wallet Balance')}</Text>
                 <View style={styles.walletAmountRow}>
-                  <Text style={[styles.walletBalanceAmount, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>425</Text>
-                  <Text style={[styles.walletCurrencySymbol, { color: theme.isDark ? '#EBEBF5' : colors.textSecondary }]}>K ₫</Text>
+                  <Text style={styles.walletBalanceAmount}>425</Text>
+                  <Text style={styles.walletCurrencySymbol}>K ₫</Text>
                 </View>
               </View>
-              <TouchableOpacity
+              <Pressable
                 onPress={handleTopUp}
-                activeOpacity={0.8}
-                style={styles.walletTopUpButton}
+                style={({ pressed }) => [styles.walletTopUpButton, pressed ? styles.pressed : null]}
               >
                 <Text style={styles.walletTopUpText}>Top Up</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
-            <View style={[styles.walletActions, isLiquid && { borderTopColor: theme.isDark ? 'rgba(255,255,255,0.15)' : colors.divider }]}>
-              <TouchableOpacity style={styles.walletActionBtn} onPress={handleDeposit} activeOpacity={0.7}>
-                <View style={[styles.walletIconBg, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : colors.primaryFaded }]}>
-                  <DownloadSimple size={20} color={theme.isDark ? '#FFF' : colors.primary} />
+            <View style={styles.walletActions}>
+              <Pressable style={styles.walletActionBtn} onPress={handleDeposit}>
+                <View style={styles.walletIconBg}>
+                  <DownloadSimple size={20} color={theme.colors.primary} />
                 </View>
-                <Text style={[styles.walletActionText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{t('profile.deposit', 'Deposit')}</Text>
-              </TouchableOpacity>
+                <Text style={styles.walletActionText}>{t('profile.deposit', 'Deposit')}</Text>
+              </Pressable>
 
-              <TouchableOpacity style={styles.walletActionBtn} onPress={handleWithdraw} activeOpacity={0.7}>
-                <View style={[styles.walletIconBg, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : colors.primaryFaded }]}>
-                  <UploadSimple size={20} color={theme.isDark ? '#FFF' : colors.primary} />
+              <Pressable style={styles.walletActionBtn} onPress={handleWithdraw}>
+                <View style={styles.walletIconBg}>
+                  <UploadSimple size={20} color={theme.colors.primary} />
                 </View>
-                <Text style={[styles.walletActionText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{t('profile.withdraw', 'Withdraw')}</Text>
-              </TouchableOpacity>
+                <Text style={styles.walletActionText}>{t('profile.withdraw', 'Withdraw')}</Text>
+              </Pressable>
 
-              <TouchableOpacity style={styles.walletActionBtn} onPress={handleHistory} activeOpacity={0.7}>
-                <View style={[styles.walletIconBg, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : colors.primaryFaded }]}>
-                  <ClockCounterClockwise size={20} color={theme.isDark ? '#FFF' : colors.primary} />
+              <Pressable style={styles.walletActionBtn} onPress={handleHistory}>
+                <View style={styles.walletIconBg}>
+                  <ClockCounterClockwise size={20} color={theme.colors.primary} />
                 </View>
-                <Text style={[styles.walletActionText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{t('profile.history', 'History')}</Text>
-              </TouchableOpacity>
+                <Text style={styles.walletActionText}>{t('profile.history', 'History')}</Text>
+              </Pressable>
             </View>
           </View>
         </View>
 
-        <View style={[styles.menuContainer, isLiquid && getCardStyle(theme, styles.menuContainer)]}>
+        <View style={styles.menuContainer}>
           {profileMenuItems.map((item, index) => {
             const isFirst = index === 0;
             const isLast = index === profileMenuItems.length - 1;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={item.id}
                 style={[
                   styles.menuItem,
                   isFirst && styles.firstMenuItem,
                   isLast && styles.lastMenuItem,
-                  isLiquid && { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.1)' : colors.divider }
                 ]}
                 onPress={item.onPress}
-                activeOpacity={0.7}
               >
                 <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIconContainer, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : colors.primaryFaded }]}>
-                    <item.icon size={18} color={theme.isDark ? '#FFF' : colors.primary} />
+                  <View style={styles.menuIconContainer}>
+                    <item.icon size={18} color={theme.colors.primary} />
                   </View>
-                  <Text style={[styles.menuItemTitle, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{item.title}</Text>
+                  <Text style={styles.menuItemTitle}>{item.title}</Text>
                 </View>
-                <CaretRight size={16} color={theme.isDark ? '#A0A0A0' : colors.textTertiary} weight="bold" />
-              </TouchableOpacity>
+                <CaretRight size={16} color={theme.colors.textTertiary} weight="bold" />
+              </Pressable>
             );
           })}
         </View>
 
-        <TouchableOpacity
-          style={[styles.logoutButton, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,60,60,0.1)' : colors.surface }]}
+        <Pressable
+          style={({ pressed }) => [styles.logoutButton, pressed ? styles.pressed : null]}
           onPress={handleLogout}
-          activeOpacity={0.7}
         >
-          <SignOut size={20} color={colors.error} weight="bold" />
+          <SignOut size={20} color={theme.colors.error} weight="bold" />
           <Text style={styles.logoutText}>{t('auth.logout', 'Log Out')}</Text>
-        </TouchableOpacity>
+        </Pressable>
 
         <Text style={styles.versionText}>VietRide Passenger • v1.0.0</Text>
       </ScrollView>
@@ -235,10 +230,9 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   safeContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
+    ...theme.components.screen,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -250,13 +244,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xxl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   profileCard: {
-    backgroundColor: colors.surface,
+    ...theme.components.elevatedCard,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
-    ...shadows.sm,
     marginBottom: spacing.xl,
   },
   profileInfoSection: {
@@ -268,7 +261,7 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: borderRadius.full,
     overflow: 'hidden',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -279,14 +272,14 @@ const styles = StyleSheet.create({
   initialsAvatar: {
     width: '100%',
     height: '100%',
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     justifyContent: 'center',
     alignItems: 'center',
   },
   initialsText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xxl,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   namePhoneWrapper: {
     marginLeft: spacing.lg,
@@ -295,7 +288,7 @@ const styles = StyleSheet.create({
   fullNameText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.xs,
   },
   phoneRow: {
@@ -308,11 +301,11 @@ const styles = StyleSheet.create({
   phoneText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: colors.divider,
+    backgroundColor: theme.colors.divider,
     marginVertical: spacing.md,
   },
   walletSection: {
@@ -333,7 +326,7 @@ const styles = StyleSheet.create({
   walletTitle: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: spacing.xxs,
   },
   walletAmountRow: {
@@ -343,16 +336,16 @@ const styles = StyleSheet.create({
   walletBalanceAmount: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xxl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   walletCurrencySymbol: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginLeft: spacing.xxs,
   },
   walletTopUpButton: {
-    backgroundColor: '#2ac1bc',
+    backgroundColor: theme.colors.primaryLight,
     borderRadius: borderRadius.full,
     paddingVertical: 6,
     paddingHorizontal: 16,
@@ -362,11 +355,11 @@ const styles = StyleSheet.create({
   walletTopUpText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: '#004a48',
+    color: theme.colors.primaryDark,
   },
   walletActions: {
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: theme.colors.divider,
     paddingTop: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -377,7 +370,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   walletIconBg: {
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     borderRadius: borderRadius.lg,
     width: 44,
     height: 44,
@@ -387,14 +380,13 @@ const styles = StyleSheet.create({
   walletActionText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginTop: 6,
     textAlign: 'center',
   },
   menuContainer: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.lg,
-    ...shadows.sm,
     marginBottom: spacing.xl,
     overflow: 'hidden',
   },
@@ -405,7 +397,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: theme.colors.divider,
   },
   firstMenuItem: {
     borderTopLeftRadius: borderRadius.lg,
@@ -424,7 +416,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: borderRadius.sm,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
@@ -432,30 +424,30 @@ const styles = StyleSheet.create({
   menuItemTitle: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.error,
-    borderRadius: borderRadius.lg,
+    ...theme.components.dangerButton,
     paddingVertical: spacing.md,
-    ...shadows.sm,
     marginBottom: spacing.xl,
   },
   logoutText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
-    color: colors.error,
+    color: theme.colors.error,
     marginLeft: spacing.sm,
   },
   versionText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     textAlign: 'center',
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
 });

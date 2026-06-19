@@ -1,0 +1,33 @@
+{
+  "tasks": {
+    "enabled": true,
+    "autoTrackProgress": true,
+    "compactOlderThanDays": 7,
+    "maxConcurrentTasks": 3
+  },
+  "hooks": {
+    "beforeTaskStart": {
+      "createPlanFile": true,
+      "updateClaudeMD": true,
+      "validateTaskDefinition": true
+    },
+    "beforeTaskComplete": {
+      "removePlanFile": true,
+      "archiveTaskIfNeeded": false,
+      "updateClaudeMDStatus": true
+    },
+    "onTaskBlocked": {
+      "notifyUser": true,
+      "updateBlockedStatus": true
+    }
+  },
+  "mcp": {
+    "enabled": true,
+    "autoWatch": true
+  },
+  "general": {
+    "compactOutput": true,
+    "preserveContext": true,
+    "fileComparison": "diff"
+  }
+}

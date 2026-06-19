@@ -66,7 +66,7 @@ export function EditProfileScreen(): React.JSX.Element {
     setLoading(true);
 
     // Simulate server update delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await new Promise<void>((resolve) => setTimeout(resolve, 800));
 
     if (user) {
       setUser({

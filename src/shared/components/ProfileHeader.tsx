@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, Bell } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 export interface ProfileHeaderProps {
   showBackButton?: boolean;
@@ -26,7 +28,7 @@ export function ProfileHeader({
 }: ProfileHeaderProps): React.JSX.Element {
   const navigation = useNavigation<any>();
   const theme = useTheme();
-  const isLiquid = theme.variant.startsWith('liquid');
+  const styles = useThemedStyles(createStyles);
 
   const handleBack = () => {
     if (onBackPress) {
@@ -48,35 +50,39 @@ export function ProfileHeader({
     <View style={styles.topProfileBar}>
       <View style={styles.profileRow}>
         {showBackButton && navigation.canGoBack() && (
-          <TouchableOpacity
+          <Pressable
             onPress={handleBack}
-            activeOpacity={0.7}
-            style={[styles.backButton, isLiquid && { backgroundColor: theme.glassOverlay }]}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed ? styles.pressed : null,
+            ]}
           >
-            <ArrowLeft size={22} color={theme.isDark ? '#FFF' : colors.textPrimary} />
-          </TouchableOpacity>
+            <ArrowLeft size={22} color={theme.colors.textPrimary} />
+          </Pressable>
         )}
         <Image source={avatarSource} style={styles.headerAvatar} />
         <View style={styles.profileTextContainer}>
-          <Text style={[styles.greetingText, { color: theme.isDark ? '#EBEBF5' : colors.textSecondary }]}>{greeting}</Text>
-          <Text style={[styles.userNameText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{userName}</Text>
+          <Text style={styles.greetingText}>{greeting}</Text>
+          <Text style={styles.userNameText}>{userName}</Text>
         </View>
       </View>
       
       {showNotificationButton && (
-        <TouchableOpacity
+        <Pressable
           onPress={handleNotification}
-          style={[styles.bellButton, isLiquid && { backgroundColor: theme.glassOverlay }]}
-          activeOpacity={0.7}
+          style={({ pressed }) => [
+            styles.bellButton,
+            pressed ? styles.pressed : null,
+          ]}
         >
-          <Bell size={22} color={theme.isDark ? '#FFF' : colors.textPrimary} />
-        </TouchableOpacity>
+          <Bell size={22} color={theme.colors.textPrimary} />
+        </Pressable>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   topProfileBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -92,12 +98,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   backButton: {
+    ...theme.components.headerButton,
     width: 36,
     height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     marginRight: 4,
   },
   headerAvatar: {
@@ -105,7 +108,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
   },
   profileTextContainer: {
     justifyContent: 'center',
@@ -113,19 +116,20 @@ const styles = StyleSheet.create({
   greetingText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   userNameText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   bellButton: {
+    ...theme.components.headerButton,
     width: 40,
     height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
   },
 });

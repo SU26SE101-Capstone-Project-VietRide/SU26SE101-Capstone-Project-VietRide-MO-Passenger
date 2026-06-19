@@ -7,16 +7,17 @@
 
 import React from 'react';
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
-  StyleSheet,
   ActivityIndicator,
   ViewStyle,
   TextStyle,
 } from 'react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -45,116 +46,113 @@ export function Button({
   textStyle,
 }: ButtonProps): React.JSX.Element {
   const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const isDisabled = disabled || loading;
-
-  const isLiquid = theme.variant.startsWith('liquid');
-  const liquidContainerStyle = isLiquid && variant === 'primary' ? {
-    backgroundColor: theme.isDark ? 'rgba(42,193,188,0.7)' : 'rgba(42,193,188,0.85)',
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderWidth: 1,
-  } : undefined;
+  const variantStyle = getVariantStyle(theme, variant);
 
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
       disabled={isDisabled}
-      activeOpacity={0.7}
-      style={[
-        styles.base,
-        variantStyles[variant].container,
-        sizeStyles[size].container,
-        liquidContainerStyle,
-        fullWidth && styles.fullWidth,
-        isDisabled && styles.disabled,
-        style,
-      ]}
+      style={({ pressed }) => [
+          styles.base,
+          variantStyle.container,
+          sizeStyles[size].container,
+          fullWidth ? styles.fullWidth : null,
+          pressed && !isDisabled ? styles.pressed : null,
+          isDisabled ? styles.disabled : null,
+          style,
+        ]}
     >
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' ? colors.textInverse : colors.primary}
+          color={variant === 'primary' ? theme.colors.textInverse : theme.colors.primary}
         />
       ) : (
         <Text
           style={[
             styles.text,
-            variantStyles[variant].text,
+            variantStyle.text,
             sizeStyles[size].text,
-            isDisabled && styles.disabledText,
+            isDisabled ? styles.disabledText : null,
             textStyle,
           ]}
         >
           {title}
         </Text>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
 // ─── Base Styles ──────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   base: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: borderRadius.md,
+    ...theme.components.primaryButton,
   },
   text: {
     fontFamily: fontFamilies.semiBold,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   fullWidth: {
     width: '100%',
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
   disabled: {
     opacity: 0.5,
   },
   disabledText: {
-    color: colors.textDisabled,
+    color: theme.colors.textDisabled,
   },
 });
 
 // ─── Variant Styles ───────────────────────────────────────
 
-const variantStyles: Record<
-  ButtonVariant,
-  { container: ViewStyle; text: TextStyle }
-> = {
-  primary: {
-    container: {
-      backgroundColor: colors.primary,
-    },
-    text: {
-      color: colors.textInverse,
-    },
-  },
-  secondary: {
-    container: {
-      backgroundColor: colors.primaryFaded,
-    },
-    text: {
-      color: colors.primary,
-    },
-  },
-  outline: {
-    container: {
-      backgroundColor: colors.transparent,
-      borderWidth: 1.5,
-      borderColor: colors.primary,
-    },
-    text: {
-      color: colors.primary,
-    },
-  },
-  ghost: {
-    container: {
-      backgroundColor: colors.transparent,
-    },
-    text: {
-      color: colors.primary,
-    },
-  },
+const getVariantStyle = (
+  theme: AppTheme,
+  variant: ButtonVariant,
+): { container: ViewStyle; text: TextStyle } => {
+  switch (variant) {
+    case 'secondary':
+      return {
+        container: theme.components.secondaryButton,
+        text: { color: theme.colors.primary },
+      };
+    case 'outline':
+      return {
+        container: {
+          backgroundColor: theme.colors.transparent,
+          borderWidth: 1.5,
+          borderColor: theme.colors.primary,
+          borderRadius: theme.components.primaryButton.borderRadius,
+        },
+        text: { color: theme.colors.primary },
+      };
+    case 'ghost':
+      return {
+        container: {
+          backgroundColor: theme.colors.transparent,
+          borderWidth: 0,
+          shadowOpacity: 0,
+          elevation: 0,
+        },
+        text: { color: theme.colors.primary },
+      };
+    case 'primary':
+    default:
+      return {
+        container: theme.components.primaryButton,
+        text: { color: theme.colors.textInverse },
+      };
+  }
 };
 
 // ─── Size Styles ──────────────────────────────────────────

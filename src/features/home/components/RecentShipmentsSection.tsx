@@ -2,8 +2,7 @@ import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import {
   Truck,
@@ -13,7 +12,10 @@ import {
   PlusCircle,
   Gift,
 } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface ShipmentItem {
   id: string;
@@ -46,6 +48,9 @@ export function RecentShipmentsSection({
   onViewAll,
   onTrackShipment,
 }: RecentShipmentsSectionProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const renderStatusBadge = (status: ShipmentItem['status']) => {
     switch (status) {
       case 'In Transit':
@@ -80,13 +85,13 @@ export function RecentShipmentsSection({
   const renderStatusIcon = (status: ShipmentItem['status']) => {
     switch (status) {
       case 'In Transit':
-        return <Truck size={24} color={colors.primary} weight="bold" />;
+        return <Truck size={24} color={theme.colors.primary} weight="bold" />;
       case 'Delivered':
-        return <Check size={20} color={colors.textTertiary} weight="bold" />;
+        return <Check size={20} color={theme.colors.textTertiary} weight="bold" />;
       case 'Pending':
         return <Clock size={22} color="#B45309" weight="bold" />;
       case 'Cancelled':
-        return <XCircle size={22} color={colors.error} weight="bold" />;
+        return <XCircle size={22} color={theme.colors.error} weight="bold" />;
       default:
         return null;
     }
@@ -97,18 +102,17 @@ export function RecentShipmentsSection({
       {/* Recent Shipments Section */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recent Shipments</Text>
-        <TouchableOpacity activeOpacity={0.6} onPress={onViewAll}>
+        <Pressable onPress={onViewAll}>
           <Text style={styles.viewAllText}>View All</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <View style={styles.shipmentList}>
         {MOCK_SHIPMENTS.map((item) => (
-          <TouchableOpacity
+          <Pressable
             key={item.id}
-            style={styles.shipmentCard}
+            style={({ pressed }) => [styles.shipmentCard, pressed ? styles.pressed : null]}
             onPress={() => onTrackShipment(item.id)}
-            activeOpacity={0.8}
           >
             <View style={styles.shipmentIconContainer}>
               {renderStatusIcon(item.status)}
@@ -124,7 +128,7 @@ export function RecentShipmentsSection({
                 Order #{item.id} • {item.date}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
 
@@ -136,9 +140,9 @@ export function RecentShipmentsSection({
           <Text style={styles.promoDesc}>
             Share your delivery code and get 50,000 VND off your next parcel.
           </Text>
-          <TouchableOpacity style={styles.promoButton} activeOpacity={0.8}>
+          <Pressable style={({ pressed }) => [styles.promoButton, pressed ? styles.pressed : null]}>
             <Text style={styles.promoButtonText}>Share Now</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
         <View style={styles.promoGiftContainer}>
           <PlusCircle
@@ -154,7 +158,7 @@ export function RecentShipmentsSection({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -165,12 +169,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: 18,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   viewAllText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   shipmentList: {
     gap: spacing.sm,
@@ -178,19 +182,16 @@ const styles = StyleSheet.create({
   shipmentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: 24,
     padding: spacing.md,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    ...shadows.sm,
   },
   shipmentIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -207,7 +208,7 @@ const styles = StyleSheet.create({
   shipmentDestination: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     flex: 1,
     paddingRight: spacing.sm,
   },
@@ -221,41 +222,41 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   badgeTransit: {
-    backgroundColor: colors.successLight,
+    backgroundColor: theme.colors.successLight,
   },
   textTransit: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   badgeDelivered: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceAlt,
   },
   textDelivered: {
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   badgePending: {
-    backgroundColor: colors.warningLight,
+    backgroundColor: theme.colors.warningLight,
   },
   textPending: {
     color: '#B45309',
   },
   badgeCancelled: {
-    backgroundColor: colors.errorLight,
+    backgroundColor: theme.colors.errorLight,
   },
   textCancelled: {
-    color: colors.error,
+    color: theme.colors.error,
   },
   shipmentMeta: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     lineHeight: 16,
   },
   promoCard: {
     flexDirection: 'row',
-    backgroundColor: '#CEAB00',
+    backgroundColor: theme.isDark ? 'rgba(206, 171, 0, 0.22)' : '#F3CF3B',
     borderRadius: 24,
     padding: spacing.xl,
-    ...shadows.md,
+    ...theme.effects.cardShadow,
     overflow: 'hidden',
     position: 'relative',
     marginTop: spacing.lg,
@@ -284,12 +285,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: 24,
     alignSelf: 'flex-start',
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
   },
   promoButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   promoGiftContainer: {
     flex: 0.8,
@@ -300,5 +301,9 @@ const styles = StyleSheet.create({
   promoBgCircle: {
     position: 'absolute',
     opacity: 0.15,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
 });

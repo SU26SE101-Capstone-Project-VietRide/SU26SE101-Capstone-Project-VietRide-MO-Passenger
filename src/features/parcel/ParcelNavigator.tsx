@@ -1,7 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { ParcelStackParamList } from '@app/navigation/types';
-import { colors } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 
 import {
 
@@ -15,11 +15,13 @@ import {
 const Stack = createNativeStackNavigator<ParcelStackParamList>();
 
 export function ParcelNavigator(): React.JSX.Element {
+  const theme = useTheme();
+
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
 

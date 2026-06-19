@@ -1,23 +1,22 @@
-import { ViewStyle, TextStyle, Platform } from 'react-native';
-import { ThemeVariant, AppTheme } from './types';
-import { themes } from './themes';
+import type { TextStyle, ViewStyle } from 'react-native';
+import type { AppTheme } from './types';
 
 export const getCardStyle = (theme: AppTheme, baseStyle: any = {}): ViewStyle => {
   return {
     ...baseStyle,
-    backgroundColor: theme.cardStyle.backgroundColor,
-    borderColor: theme.cardStyle.borderColor,
+    ...theme.components.card,
   };
 };
 
 export const getSurfaceStyle = (theme: AppTheme, baseStyle: any = {}): ViewStyle => {
   return {
     ...baseStyle,
-    backgroundColor: theme.surfaceStyle.backgroundColor,
-    borderColor: theme.surfaceStyle.borderColor,
+    ...theme.components.surface,
   };
 };
 
 export const getTextStyle = (theme: AppTheme): TextStyle => ({
-  color: theme.isDark ? '#FFFFFF' : '#181C20',
+  color: theme.colors.textPrimary,
 });
+
+export const isLiquidTheme = (theme: AppTheme): boolean => theme.effects.isLiquid;

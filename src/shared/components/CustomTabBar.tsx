@@ -8,14 +8,15 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native';
 
-import { colors, fontFamilies, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { getCardStyle } from '@shared/theme/helpers';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 // Import local image for AI button
 const appLogoPlaceholder = require('../../assets/images/app_logo_placeholder.png');
@@ -30,10 +31,12 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: C
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const theme = useTheme();
-  const isLiquid = theme.variant.startsWith('liquid');
+  const styles = useThemedStyles(createStyles);
+  const bottomInset = Math.max(insets.bottom, spacing.sm);
 
   return (
-    <View style={[styles.tabBarContainer, isLiquid && getCardStyle(theme, styles.tabBarContainer), { paddingBottom: insets.bottom || spacing.sm }]}>
+    <View style={[styles.tabBarContainer, { height: 70 + bottomInset }]}>
+      <View style={styles.tabBarSheen} pointerEvents="none" />
       {state.routes.map((route: any, index: number) => {
         const isFocused = state.index === index;
 
@@ -52,18 +55,21 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: C
         // Middle AI Chat FAB Layout
         if (route.name === 'ChatbotTab') {
           return (
-            <TouchableOpacity
-              key={route.key}
-              onPress={() => navigation.navigate('Chatbot')}
-              activeOpacity={0.85}
-              style={[styles.fabButton, { backgroundColor: '#fff', borderWidth: 2, borderColor: colors.primary }]}
-            >
-              <Image
-                source={appLogoPlaceholder}
-                style={styles.fabImage}
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
+            <View key={route.key} style={[styles.fabSlot, { paddingBottom: bottomInset }]}>
+              <Pressable
+                onPress={() => navigation.navigate('Chatbot')}
+                style={({ pressed }) => [
+                  styles.fabButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Image
+                  source={appLogoPlaceholder}
+                  style={styles.fabImage}
+                  resizeMode="cover"
+                />
+              </Pressable>
+            </View>
           );
         }
 
@@ -86,70 +92,93 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: C
         }
 
         return (
-          <TouchableOpacity
+          <Pressable
             key={route.key}
             onPress={onPress}
-            activeOpacity={0.7}
-            style={styles.tabButton}
+            style={({ pressed }) => [
+              styles.tabButton,
+              { paddingBottom: bottomInset },
+              pressed ? styles.pressed : null,
+            ]}
           >
-            <View style={[styles.tabContent, isFocused && styles.tabContentActive, isFocused && isLiquid && { backgroundColor: theme.colors.primaryFaded }]}>
+            {isFocused ? <View style={styles.activeTabFill} pointerEvents="none" /> : null}
+            <View style={styles.tabContent}>
               <IconComponent
                 size={22}
                 weight={isFocused ? 'fill' : 'regular'}
-                color={isFocused ? colors.primary : (theme.isDark ? '#A0A0A0' : colors.textSecondary)}
+                color={isFocused ? theme.colors.primary : theme.colors.textSecondary}
                 style={styles.tabIcon}
               />
               <Text
                 style={[
                   styles.tabText,
-                  { color: theme.isDark ? '#FFF' : colors.textPrimary },
                   isFocused ? styles.tabTextActive : styles.tabTextInactive,
                 ]}
+                numberOfLines={1}
               >
                 {label}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   tabBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: colors.surface,
+    ...theme.components.tabBar,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: 80,
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
+    overflow: 'visible',
+  },
+  tabBarSheen: {
+    position: 'absolute',
+    top: 1,
+    left: 12,
+    right: 12,
+    height: 18,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.42)' : 'transparent',
   },
   tabButton: {
     flex: 1,
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
+    paddingTop: spacing.sm,
+    overflow: 'hidden',
+  },
+  activeTabFill: {
+    position: 'absolute',
+    top: 6,
+    left: 5,
+    right: 5,
+    bottom: 0,
+    ...theme.components.activeTab,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
   },
   tabContent: {
+    position: 'relative',
+    zIndex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  tabContentActive: {
-    backgroundColor: colors.primaryFaded,
+    paddingHorizontal: spacing.xs,
+    width: '100%',
   },
   tabIcon: {
     marginBottom: 3,
@@ -158,28 +187,39 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.regular,
     fontSize: 10,
     textAlign: 'center',
+    color: theme.colors.textSecondary,
   },
   tabTextActive: {
-    color: colors.primary,
+    color: theme.colors.primary,
+    fontFamily: fontFamilies.semiBold,
   },
   tabTextInactive: {
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
+  },
+  fabSlot: {
+    width: 74,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
   },
   fabButton: {
     position: 'relative',
-    top: -16,
+    top: -19,
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.surfaceElevated,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 10,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    ...theme.effects.floatingShadow,
     overflow: 'hidden',
+  },
+  pressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.97 }],
   },
   fabImage: {
     width: '100%',
@@ -188,7 +228,7 @@ const styles = StyleSheet.create({
   fabText: {
     fontFamily: fontFamilies.regular,
     fontSize: 9,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
     marginTop: 2,
   },
 });

@@ -11,16 +11,18 @@ import { TopUpScreen } from './screens/TopUpScreen';
 import { WithdrawScreen } from './screens/WithdrawScreen';
 import { AddPaymentMethodScreen } from './screens/AddPaymentMethodScreen';
 
-import { colors } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
 
 export function ProfileNavigator(): React.JSX.Element {
+  const theme = useTheme();
+
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
         animation: 'slide_from_right',
       }}
       initialRouteName="ProfileOverview"

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { Input, Button, LoadingOverlay } from '@shared/components';
 
 export function AddPaymentMethodScreen(): React.JSX.Element {
@@ -40,7 +40,7 @@ export function AddPaymentMethodScreen(): React.JSX.Element {
     }
 
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     setLoading(false);
     Alert.alert('Success', 'Payment method added!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
   };

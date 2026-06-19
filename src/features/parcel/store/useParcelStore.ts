@@ -6,7 +6,7 @@
  */
 
 import { create } from 'zustand';
-import type { ParcelBookingState, Station } from '../types';
+import type { ParcelBookingState, Station } from '../types/index';
 
 interface ParcelStore {
   // ─── Locations ──────────────────────────────────────

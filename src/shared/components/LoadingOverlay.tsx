@@ -6,10 +6,12 @@
  */
 
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
 
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface LoadingOverlayProps {
   visible: boolean;
@@ -21,25 +23,17 @@ export function LoadingOverlay({
   message,
 }: LoadingOverlayProps): React.JSX.Element | null {
   const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   if (!visible) {
     return null;
   }
 
-  const isLiquid = theme.variant.startsWith('liquid');
-
   return (
-    <View style={[styles.overlay, { backgroundColor: isLiquid ? theme.glassOverlay : colors.overlay }]}>
-      <View style={[
-        styles.content, 
-        isLiquid && { 
-          backgroundColor: theme.surfaceStyle.backgroundColor,
-          borderColor: theme.surfaceStyle.borderColor,
-          borderWidth: 1,
-        }
-      ]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        {message && <Text style={[styles.message, isLiquid && { color: theme.isDark ? '#FFF' : '#181C20' }]}>{message}</Text>}
+    <View style={styles.overlay}>
+      <View style={styles.content}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        {message ? <Text style={styles.message}>{message}</Text> : null}
       </View>
     </View>
   );
@@ -47,20 +41,20 @@ export function LoadingOverlay({
 
 // ─── Styles ───────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   overlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.overlay,
+    backgroundColor: theme.effects.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
   },
   content: {
-    backgroundColor: colors.surface,
+    ...theme.components.elevatedCard,
     borderRadius: 16,
     paddingVertical: spacing.xxl,
     paddingHorizontal: spacing.xxxl,
@@ -70,7 +64,7 @@ const styles = StyleSheet.create({
   message: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: spacing.md,
     textAlign: 'center',
   },

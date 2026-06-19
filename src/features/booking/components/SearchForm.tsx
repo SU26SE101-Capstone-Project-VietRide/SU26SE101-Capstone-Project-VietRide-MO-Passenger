@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import {
   MapPin,
   ArrowsDownUp,
@@ -12,7 +12,10 @@ import {
   User,
   MagnifyingGlass,
 } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface SearchFormProps {
   from?: string;
@@ -38,104 +41,113 @@ export const SearchForm = ({
   onPassengersPress,
   onSwapPress,
   onSearchPress,
-}: SearchFormProps): React.JSX.Element => (
-  <View style={styles.card}>
-    <Text style={styles.cardTitle}>Book a Trip</Text>
+}: SearchFormProps): React.JSX.Element => {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Book a Trip</Text>
 
     {/* From */}
-    <Text style={styles.fieldLabel}>From</Text>
-    <TouchableOpacity style={styles.selectorField} onPress={onFromPress} activeOpacity={0.8}>
-      <MapPin size={20} color={colors.primary} weight="bold" />
-      <Text style={from ? styles.selectorText : styles.selectorPlaceholder}>
-        {from || 'Select origin city'}
-      </Text>
-    </TouchableOpacity>
+      <Text style={styles.fieldLabel}>From</Text>
+      <Pressable style={styles.selectorField} onPress={onFromPress}>
+        <MapPin size={20} color={theme.colors.primary} weight="bold" />
+        <Text style={from ? styles.selectorText : styles.selectorPlaceholder}>
+          {from || 'Select origin city'}
+        </Text>
+      </Pressable>
 
     {/* To + Swap */}
-    <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>To</Text>
-    <View style={styles.toRow}>
-      <TouchableOpacity style={[styles.selectorField, { flex: 1 }]} onPress={onToPress} activeOpacity={0.8}>
-        <MapPin size={18} color={colors.primary} weight="bold" />
-        <Text style={to ? styles.selectorText : styles.selectorPlaceholder} numberOfLines={1}>
-          {to || 'Select destination'}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={onSwapPress} style={styles.swapBtn} activeOpacity={0.7}>
-        <ArrowsDownUp size={18} color={colors.primary} weight="bold" />
-      </TouchableOpacity>
-    </View>
+      <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>To</Text>
+      <View style={styles.toRow}>
+        <Pressable style={[styles.selectorField, styles.selectorFieldGrow]} onPress={onToPress}>
+          <MapPin size={18} color={theme.colors.primary} weight="bold" />
+          <Text style={to ? styles.selectorText : styles.selectorPlaceholder} numberOfLines={1}>
+            {to || 'Select destination'}
+          </Text>
+        </Pressable>
+        <Pressable onPress={onSwapPress} style={styles.swapBtn}>
+          <ArrowsDownUp size={18} color={theme.colors.primary} weight="bold" />
+        </Pressable>
+      </View>
 
     {/* Date & Passengers */}
-    <View style={styles.metaRow}>
-      <TouchableOpacity style={styles.metaField} onPress={onDatePress} activeOpacity={0.8}>
-        <CalendarBlank size={16} color={colors.primary} weight="fill" />
-        <Text style={styles.metaText} numberOfLines={1}>{date || 'Select date'}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.metaField} onPress={onPassengersPress} activeOpacity={0.8}>
-        <User size={16} color={colors.primary} weight="fill" />
-        <Text style={styles.metaText} numberOfLines={1}>
-          {typeof passengers === 'number' ? `${passengers} Passenger${passengers > 1 ? 's' : ''}` : '1 Passenger'}
-        </Text>
-      </TouchableOpacity>
-    </View>
+      <View style={styles.metaRow}>
+        <Pressable style={styles.metaField} onPress={onDatePress}>
+          <CalendarBlank size={16} color={theme.colors.primary} weight="fill" />
+          <Text style={styles.metaText} numberOfLines={1}>{date || 'Select date'}</Text>
+        </Pressable>
+        <Pressable style={styles.metaField} onPress={onPassengersPress}>
+          <User size={16} color={theme.colors.primary} weight="fill" />
+          <Text style={styles.metaText} numberOfLines={1}>
+            {typeof passengers === 'number' ? `${passengers} Passenger${passengers > 1 ? 's' : ''}` : '1 Passenger'}
+          </Text>
+        </Pressable>
+      </View>
 
     {/* Search CTA */}
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={onSearchPress}
-      style={styles.searchButton}
-    >
-      <Text style={styles.searchButtonText}>Search Buses</Text>
-      <MagnifyingGlass size={18} color={colors.textInverse} weight="bold" />
-    </TouchableOpacity>
-  </View>
-);
+      <Pressable
+        onPress={onSearchPress}
+        style={({ pressed }) => [styles.searchButton, pressed ? styles.pressed : null]}
+      >
+        <Text style={styles.searchButtonText}>Search Buses</Text>
+        <MagnifyingGlass size={18} color={theme.colors.textInverse} weight="bold" />
+      </Pressable>
+    </View>
+  );
+};
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   card: {
-    backgroundColor: colors.surface,
+    ...theme.components.elevatedCard,
+    backgroundColor: theme.effects.isLiquid ? 'rgba(252, 255, 255, 0.88)' : theme.colors.surface,
+    borderColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.9)' : theme.colors.divider,
     borderRadius: 28,
     padding: spacing.xl,
-    ...shadows.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
     marginBottom: spacing.xxl,
   },
   cardTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: 20,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.md,
   },
   fieldLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: spacing.xs,
     paddingLeft: 2,
+  },
+  fieldLabelWithTopMargin: {
+    marginTop: spacing.md,
   },
   selectorField: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1.2,
-    borderColor: colors.divider,
+    ...theme.components.field,
+    backgroundColor: theme.effects.isLiquid ? 'rgba(252, 255, 255, 0.72)' : theme.colors.surfaceAlt,
+    borderColor: theme.effects.isLiquid ? 'rgba(0, 91, 87, 0.12)' : theme.colors.divider,
     borderRadius: 16,
     height: 48,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
+  selectorFieldGrow: {
+    flex: 1,
+  },
   selectorText: {
     flex: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   selectorPlaceholder: {
     flex: 1,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   toRow: {
     flexDirection: 'row',
@@ -147,11 +159,11 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.effects.isLiquid ? 'rgba(252, 255, 255, 0.82)' : theme.colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
   },
   metaRow: {
     flexDirection: 'row',
@@ -162,9 +174,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1.2,
-    borderColor: colors.divider,
+    ...theme.components.field,
+    backgroundColor: theme.effects.isLiquid ? 'rgba(252, 255, 255, 0.72)' : theme.colors.surfaceAlt,
+    borderColor: theme.effects.isLiquid ? 'rgba(0, 91, 87, 0.12)' : theme.colors.divider,
     borderRadius: 16,
     height: 44,
     paddingHorizontal: spacing.md,
@@ -174,22 +186,25 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   searchButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    ...theme.components.primaryButton,
     borderRadius: 16,
     height: 48,
     marginTop: spacing.xl,
     gap: spacing.xs,
-    ...shadows.sm,
   },
   searchButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
 });

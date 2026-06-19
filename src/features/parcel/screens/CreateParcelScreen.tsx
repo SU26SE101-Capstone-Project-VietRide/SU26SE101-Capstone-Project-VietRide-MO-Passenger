@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   Switch,
@@ -16,14 +15,13 @@ import { Input } from '@shared/components';
 import { useNavigation } from '@react-navigation/native';
 import {
   ArrowLeft,
-  Camera,
-  Coins,
-  CreditCard,
-  Wallet,
 } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { ParcelStackParamList, RootStackParamList } from '@app/navigation/types';
+import type { ParcelStackParamList } from '@app/navigation/types';
 import type { Station } from '../types';
 import {
   StationCard,
@@ -37,11 +35,8 @@ import {
   PhotoUploadSection,
   PhotoChoiceSheet,
   CameraViewfinder,
-  PromoCodeInput,
   PricingBreakdown,
 } from '../components';
-
-const catMascotImage = require('../../../assets/images/image 1.png');
 
 const MOCK_STATIONS: Station[] = [
   {
@@ -92,14 +87,14 @@ const MOCK_GALLERY_PHOTOS = [
 ];
 
 type CreateParcelNavProp = NativeStackNavigationProp<ParcelStackParamList, 'CreateParcel'>;
-type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
 
 type PackageSize = 'small' | 'medium' | 'large';
 
 export function CreateParcelScreen(): React.JSX.Element {
   const navigation = useNavigation<CreateParcelNavProp>();
-  const rootNav = useNavigation<RootNavProp>();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   // Wizard state
   const [step, setStep] = useState(1);
@@ -216,9 +211,9 @@ export function CreateParcelScreen(): React.JSX.Element {
         <Svg height="460" width="100%">
           <Defs>
             <LinearGradient id="headerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.55} />
-              <Stop offset="55%" stopColor="#2AC1BC" stopOpacity={0.18} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.colors.primaryLight} stopOpacity={0.36} />
+              <Stop offset="55%" stopColor={theme.colors.primaryLight} stopOpacity={0.12} />
+              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#headerGrad)" />
@@ -300,8 +295,8 @@ export function CreateParcelScreen(): React.JSX.Element {
                     <Switch
                       value={codEnabled}
                       onValueChange={setCodEnabled}
-                      trackColor={{ false: colors.border, true: colors.primary }}
-                      thumbColor={colors.surface}
+                      trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                      thumbColor={theme.colors.surfaceElevated}
                     />
                   </View>
                   {codEnabled && (
@@ -378,12 +373,12 @@ export function CreateParcelScreen(): React.JSX.Element {
             <Text style={styles.nextActionButtonText}>
               {step === 4 ? 'Confirm & Pay' : 'Next Step'}
             </Text>
-            <ArrowLeft
-              size={18}
-              color={colors.textInverse}
-              weight="bold"
-              style={{ transform: [{ rotate: '180deg' }] }}
-            />
+                  <ArrowLeft
+                    size={18}
+                    color={theme.colors.textInverse}
+                    weight="bold"
+                    style={{ transform: [{ rotate: '180deg' }] }}
+                  />
           </TouchableOpacity>
         </View>
 
@@ -418,7 +413,7 @@ export function CreateParcelScreen(): React.JSX.Element {
                     setGalleryViewVisible(false);
                   }}
                 >
-                  <ArrowLeft size={22} color={colors.textPrimary} />
+                  <ArrowLeft size={22} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
                 <View style={styles.galleryTitleContainer}>
                   <Text style={styles.galleryTitle}>All Photos</Text>
@@ -483,8 +478,8 @@ export function CreateParcelScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+const createStyles = (theme: AppTheme) => ({
+  root: { flex: 1, backgroundColor: theme.colors.background },
   gradientContainer: { position: 'absolute', top: 0, left: 0, right: 0, height: 460, zIndex: 0 },
   container: { flex: 1, backgroundColor: 'transparent' },
   scrollContainer: { flex: 1 },
@@ -494,36 +489,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
     marginBottom: spacing.md,
   },
   codMeta: { flex: 1, paddingRight: spacing.md },
   codTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: 2,
   },
   codDesc: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   actionBar: {
+    ...theme.components.actionBar,
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    ...shadows.lg,
   },
   priceSummaryBox: {
     flexDirection: 'row',
@@ -534,22 +524,21 @@ const styles = StyleSheet.create({
   totalPriceLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   totalPriceValue: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   nextActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    ...theme.components.primaryButton,
     borderRadius: borderRadius.md,
     height: 52,
     gap: spacing.sm,
-    ...shadows.sm,
   },
   nextActionButtonSummary: {
     marginTop: 0,
@@ -557,17 +546,21 @@ const styles = StyleSheet.create({
   nextActionButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   // Gallery modal (inline because it's small + tightly coupled to photo state)
   galleryModalRoot: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: colors.surface,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: theme.colors.surface,
     zIndex: 100,
   },
   galleryContainer: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
   },
   galleryHeader: {
     flexDirection: 'row',
@@ -575,7 +568,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: theme.colors.divider,
     gap: spacing.md,
   },
   galleryCloseBtn: {
@@ -589,17 +582,17 @@ const styles = StyleSheet.create({
   galleryTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   gallerySubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   gallerySelectionCount: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   headerSpacer: { width: 80 },
   galleryScroll: { padding: spacing.md },
@@ -617,7 +610,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   galleryGridItemActive: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
   },
   galleryImage: { width: '100%', height: '100%' },
   galleryCheckboxActive: {
@@ -627,34 +620,34 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   galleryCheckboxText: {
     fontFamily: fontFamilies.bold,
     fontSize: 10,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   galleryBottomBar: {
     padding: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    backgroundColor: colors.surface,
+    borderTopColor: theme.colors.divider,
+    backgroundColor: theme.colors.surface,
   },
   galleryImportBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     borderRadius: borderRadius.md,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   galleryImportBtnDisabled: {
-    backgroundColor: colors.divider,
+    backgroundColor: theme.colors.divider,
   },
   galleryImportBtnText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
 });

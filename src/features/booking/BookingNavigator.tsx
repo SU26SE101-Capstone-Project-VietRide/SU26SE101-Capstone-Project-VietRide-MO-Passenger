@@ -16,16 +16,18 @@ import { PassengersPicker } from './screens/PassengersPickerScreen';
 import { CreateTicketBookingScreen } from './screens/CreateTicketBookingScreen';
 import { DigitalTicketScreen } from './screens/DigitalTicketScreen';
 import { TrackingScreen } from './screens/TrackingScreen';
-import { colors } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 
 const Stack = createNativeStackNavigator<BookingStackParamList>();
 
 export function BookingNavigator(): React.JSX.Element {
+  const theme = useTheme();
+
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <Stack.Screen name="SearchRoutes" component={BusSearchScreen} />

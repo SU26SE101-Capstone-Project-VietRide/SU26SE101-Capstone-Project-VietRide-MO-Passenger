@@ -16,18 +16,19 @@ import { BookingNavigator } from '@features/booking';
 import { ParcelNavigator } from '@features/parcel';
 import { ChatbotScreen } from '@features/chatbot';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { colors } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator(): React.JSX.Element {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const theme = useTheme();
 
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
         animation: 'fade',
       }}
     >

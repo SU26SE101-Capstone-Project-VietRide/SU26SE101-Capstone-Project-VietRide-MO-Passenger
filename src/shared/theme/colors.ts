@@ -3,33 +3,33 @@
  *
  * Implements the official BAEMIN-inspired VietRide brand identity:
  * - Vibrant Mint Green (#2AC1BC) as primary accent for CTAs
- * - Deep forest/ocean teal (#006A67) as primary brand shade
+ * - Deep glass teal (#007A76) as primary brand shade
  * - Modern dark charcoal (#181C20) for typographic legibility
  * - Soft off-white surfaces (#F7F9FF) for bento layout depth
  */
 
 export const colors = {
   // ─── Primary Brand Teal & Mint Green ────────────────────
-  primary: '#006A67',
-  primaryLight: '#2AC1BC', // Vibrant Mint Green
-  primaryDark: '#004A48',
-  primaryFaded: '#EAF8F7', // Mint green faded tint (solid color to prevent Android elevation bugs)
+  primary: '#007A76',
+  primaryLight: '#33D3CD', // Vibrant Mint Green
+  primaryDark: '#005653',
+  primaryFaded: '#E7F8F7', // Solid fallback tint for legacy static styles
 
   // ─── Accent / Secondary ──────────────────────────────────
   accent: '#2AC1BC', // Vibrant Mint Green
-  accentLight: '#71F7F1',
-  accentDark: '#00504d',
+  accentLight: '#80FFF8',
+  accentDark: '#006A67',
 
   // ─── Neutrals / Bento Surfaces ─────────────────────────
-  background: '#F7F9FF', // Off-white canvas background
+  background: '#F4F8FA', // Liquid Glass light canvas background
   surface: '#FFFFFF', // Bento Card Pure White surface
-  surfaceAlt: '#F1F4F9', // Surface container low
+  surfaceAlt: '#EEF7F7', // Surface container low
   surfaceElevated: '#FFFFFF',
 
   // ─── Typography (Charcoal hierarchy) ─────────────────────
-  textPrimary: '#181C20', // Dark Charcoal
-  textSecondary: '#3C4948', // Secondary slate/grey
-  textTertiary: '#6C7A78', // outline variant
+  textPrimary: '#13211F', // Dark Charcoal
+  textSecondary: '#435A57', // Secondary slate/grey
+  textTertiary: '#70817F', // outline variant
   textInverse: '#FFFFFF',
   textDisabled: '#BBC9C8',
 
@@ -44,17 +44,17 @@ export const colors = {
   infoLight: '#F1F4F9',
 
   // ─── Borders & Dividers ─────────────────────────────────
-  border: '#BBC9C8',
-  borderFocused: '#006A67',
-  divider: '#E5E8EE',
+  border: 'rgba(0, 106, 103, 0.18)',
+  borderFocused: '#007A76',
+  divider: 'rgba(0, 106, 103, 0.12)',
 
   // ─── Overlays ───────────────────────────────────────────
-  overlay: 'rgba(24, 28, 32, 0.54)',
-  overlayLight: 'rgba(24, 28, 32, 0.25)',
+  overlay: 'rgba(19, 33, 31, 0.38)',
+  overlayLight: 'rgba(19, 33, 31, 0.16)',
 
   // ─── Skeletons ──────────────────────────────────────────
-  skeleton: '#EBEBF3',
-  skeletonHighlight: '#E0E3E8',
+  skeleton: '#EAF1F1',
+  skeletonHighlight: '#F8FCFC',
 
   // ─── Transparent ────────────────────────────────────────
   transparent: 'transparent',

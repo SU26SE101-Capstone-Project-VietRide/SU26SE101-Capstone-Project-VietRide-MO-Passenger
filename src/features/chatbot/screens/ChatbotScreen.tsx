@@ -134,7 +134,7 @@ export function ChatbotScreen(): React.JSX.Element {
 
     // 2. Trigger Typing Status
     setIsTyping(true);
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await new Promise<void>((resolve) => setTimeout(resolve, 1200));
 
     // 3. Add AI bot Response
     const botReplyText = getBotResponse(isPresetCode || '', text);
