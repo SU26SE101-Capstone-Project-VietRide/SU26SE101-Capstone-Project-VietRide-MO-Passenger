@@ -16,9 +16,12 @@
  */
 
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { Text, Pressable, ViewStyle } from 'react-native';
 import { Camera } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface ImageUploadSlotProps {
   /** Called when the user taps the empty slot. */
@@ -43,45 +46,47 @@ export const ImageUploadSlot = memo(function ImageUploadSlot({
   style,
   accessibilityHint,
 }: ImageUploadSlotProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
+    <Pressable
       onPress={onPress}
       style={[compact ? styles.slotCompact : styles.slot, style]}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={accessibilityHint ?? helperText}
     >
-      <Camera size={compact ? 24 : 32} color={colors.textTertiary} weight="light" />
+      <Camera size={compact ? 24 : 32} color={theme.colors.textTertiary} weight="light" />
       <Text style={compact ? styles.labelCompact : styles.label}>{label}</Text>
-      {!compact && (
+      {!compact ? (
         <Text style={styles.helper}>{helperText}</Text>
-      )}
-    </TouchableOpacity>
+      ) : null}
+    </Pressable>
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   slot: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1.5,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     borderStyle: 'dashed',
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.xxl,
     gap: spacing.sm,
     minHeight: 140,
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
   },
   slotCompact: {
     width: 80,
     height: 80,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1.5,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
@@ -90,20 +95,20 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
   },
   labelCompact: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.xs,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     marginTop: spacing.xs,
   },
   helper: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     textAlign: 'center',
   },
 });

@@ -5,8 +5,11 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface LoadingStateProps {
   /** Optional custom loading text (default: "Finding the best routes…") */
@@ -14,12 +17,15 @@ interface LoadingStateProps {
 }
 
 export const LoadingState = ({ text = 'Finding the best routes…' }: LoadingStateProps): React.JSX.Element => {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <View style={styles.mascotContainer}>
         <View style={styles.mascotBorder}>
           <View style={styles.mascotInner}>
-            <ActivityIndicator size="large" color={colors.primary} />
+            <ActivityIndicator size="large" color={theme.colors.primary} />
           </View>
         </View>
       </View>
@@ -29,7 +35,7 @@ export const LoadingState = ({ text = 'Finding the best routes…' }: LoadingSta
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     alignItems: 'center',
@@ -45,7 +51,7 @@ const styles = StyleSheet.create({
     height: 96,
     borderRadius: borderRadius.xl,
     borderWidth: 3,
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.sm,
@@ -54,22 +60,22 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: borderRadius.lg,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.md,
+    ...theme.effects.cardShadow,
   },
   title: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.h3,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     marginBottom: spacing.md,
   },
   subtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
 });

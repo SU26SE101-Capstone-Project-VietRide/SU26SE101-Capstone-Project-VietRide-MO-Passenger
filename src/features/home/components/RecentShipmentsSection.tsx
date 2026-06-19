@@ -253,7 +253,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   promoCard: {
     flexDirection: 'row',
-    backgroundColor: theme.isDark ? 'rgba(206, 171, 0, 0.22)' : '#F3CF3B',
+    backgroundColor: theme.isDark ? 'rgba(255, 225, 119, 0.14)' : '#F3CF3B',
+    borderWidth: theme.effects.isLiquid ? 1 : 0,
+    borderColor: theme.isDark ? 'rgba(255, 225, 119, 0.22)' : 'transparent',
     borderRadius: 24,
     padding: spacing.xl,
     ...theme.effects.cardShadow,
@@ -269,18 +271,18 @@ const createStyles = (theme: AppTheme) => ({
   promoTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: 18,
-    color: '#3A2E00',
+    color: theme.isDark ? '#FFECA3' : '#3A2E00',
     marginBottom: spacing.xs,
   },
   promoDesc: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: '#4F4000',
+    color: theme.isDark ? 'rgba(255, 236, 163, 0.78)' : '#4F4000',
     lineHeight: 18,
     marginBottom: spacing.md,
   },
   promoButton: {
-    backgroundColor: '#3A2E00',
+    backgroundColor: theme.isDark ? '#FFE177' : '#3A2E00',
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
     borderRadius: 24,
@@ -290,7 +292,7 @@ const createStyles = (theme: AppTheme) => ({
   promoButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: theme.colors.textInverse,
+    color: theme.isDark ? '#2B2200' : theme.colors.textInverse,
   },
   promoGiftContainer: {
     flex: 0.8,

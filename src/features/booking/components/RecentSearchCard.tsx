@@ -37,9 +37,9 @@ const createStyles = (theme: AppTheme) => ({
   recentCard: {
     width: 256,
     position: 'relative',
-    backgroundColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.5)' : theme.colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.72)' : theme.colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     flexDirection: 'row',
@@ -53,7 +53,7 @@ const createStyles = (theme: AppTheme) => ({
     left: 0,
     right: 0,
     height: 32,
-    backgroundColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.34)' : 'transparent',
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSheen : 'transparent',
   },
   cardRim: {
     position: 'absolute',
@@ -63,7 +63,7 @@ const createStyles = (theme: AppTheme) => ({
     bottom: 1,
     borderRadius: borderRadius.lg - 1,
     borderWidth: theme.effects.isLiquid ? 1 : 0,
-    borderColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.42)' : 'transparent',
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : 'transparent',
   },
   recentRoute: {
     fontFamily: fontFamilies.semiBold,

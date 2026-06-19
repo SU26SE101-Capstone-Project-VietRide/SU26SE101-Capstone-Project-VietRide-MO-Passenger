@@ -1,7 +1,10 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { FileText, TShirt, DotsThreeCircle, Check } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 export type PackageSize = 'small' | 'medium' | 'large';
 
@@ -20,6 +23,9 @@ export const PackageSizeSelector = memo(function PackageSizeSelector({
   packageSize,
   onSelect,
 }: PackageSizeSelectorProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <>
       <Text style={styles.formLabel}>Package Size</Text>
@@ -27,21 +33,24 @@ export const PackageSizeSelector = memo(function PackageSizeSelector({
         {SIZE_OPTIONS.map(({ key, label, sub, Icon }) => {
           const active = packageSize === key;
           return (
-            <TouchableOpacity
+            <Pressable
               key={key}
-              style={[styles.sizeCard, active && styles.sizeCardActive]}
+              style={({ pressed }) => [
+                styles.sizeCard,
+                active && styles.sizeCardActive,
+                pressed ? styles.pressed : null,
+              ]}
               onPress={() => onSelect(key)}
-              activeOpacity={0.8}
             >
               {active && (
                 <View style={styles.checkedCircle}>
-                  <Check size={10} color={colors.textInverse} weight="bold" />
+                  <Check size={10} color={theme.colors.textInverse} weight="bold" />
                 </View>
               )}
-              <Icon size={28} color={active ? colors.primary : colors.textSecondary} />
+              <Icon size={28} color={active ? theme.colors.primary : theme.colors.textSecondary} />
               <Text style={[styles.sizeTitle, active && styles.sizeTitleActive]}>{label}</Text>
               <Text style={[styles.sizeSub, active && styles.sizeSubActive]}>{sub}</Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
@@ -49,11 +58,11 @@ export const PackageSizeSelector = memo(function PackageSizeSelector({
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   formLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.sm,
   },
   sizeCardRow: {
@@ -67,14 +76,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.lg,
     borderRadius: borderRadius.lg,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1.5,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     position: 'relative',
   },
   sizeCardActive: {
-    borderColor: colors.primary,
-    backgroundColor: '#E6F7F6',
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
   checkedCircle: {
     position: 'absolute',
@@ -83,26 +96,26 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sizeTitle: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginTop: spacing.xs,
   },
   sizeTitleActive: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   sizeSub: {
     fontFamily: fontFamilies.regular,
     fontSize: 10,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginTop: 2,
   },
   sizeSubActive: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
 });

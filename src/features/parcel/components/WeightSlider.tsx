@@ -1,7 +1,9 @@
 import React, { memo, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Pressable } from 'react-native';
 import { PanResponder } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 export interface WeightSliderProps {
   value: number;
@@ -16,6 +18,7 @@ export const WeightSlider = memo(function WeightSlider({
   onValueChange,
   onUnitChange,
 }: WeightSliderProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
   const sliderWidthRef = useRef(0);
 
   const handleSliderTouch = (locationX: number) => {
@@ -45,7 +48,7 @@ export const WeightSlider = memo(function WeightSlider({
     <>
       <Text style={styles.formLabel}>Weight</Text>
       <View style={styles.unitToggleRow}>
-        <TouchableOpacity
+        <Pressable
           style={[styles.unitButton, unit === 'kg' && styles.unitButtonActive]}
           onPress={() => {
             if (unit === 'lbs') {
@@ -55,8 +58,8 @@ export const WeightSlider = memo(function WeightSlider({
           }}
         >
           <Text style={[styles.unitText, unit === 'kg' && styles.unitTextActive]}>kg</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+        </Pressable>
+        <Pressable
           style={[styles.unitButton, unit === 'lbs' && styles.unitButtonActive]}
           onPress={() => {
             if (unit === 'kg') {
@@ -66,7 +69,7 @@ export const WeightSlider = memo(function WeightSlider({
           }}
         >
           <Text style={[styles.unitText, unit === 'lbs' && styles.unitTextActive]}>lbs</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <View style={styles.weightInputCard}>
@@ -103,16 +106,16 @@ export const WeightSlider = memo(function WeightSlider({
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   formLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.sm,
   },
   unitToggleRow: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderRadius: borderRadius.full,
     padding: 3,
     marginBottom: spacing.md,
@@ -124,8 +127,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
   },
   unitButtonActive: {
-    backgroundColor: colors.primary,
-    shadowColor: '#000',
+    backgroundColor: theme.colors.primary,
+    shadowColor: theme.isDark ? '#000000' : '#003D3B',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12,
     shadowRadius: 3,
@@ -134,18 +137,18 @@ const styles = StyleSheet.create({
   unitText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   unitTextActive: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   weightInputCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.fieldSurface : theme.colors.surfaceAlt,
     borderRadius: borderRadius.lg,
     borderWidth: 1.2,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.fieldBorder : theme.colors.divider,
     paddingHorizontal: spacing.lg,
     height: 52,
     marginBottom: spacing.lg,
@@ -154,13 +157,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fontFamilies.bold,
     fontSize: 22,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     padding: 0,
   },
   weightInputUnit: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginLeft: spacing.sm,
   },
   sliderContainer: {
@@ -169,7 +172,7 @@ const styles = StyleSheet.create({
   sliderTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.divider,
+    backgroundColor: theme.colors.divider,
     position: 'relative',
     overflow: 'visible',
   },
@@ -179,7 +182,7 @@ const styles = StyleSheet.create({
     top: 0,
     height: '100%',
     borderRadius: 3,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   sliderThumb: {
     position: 'absolute',
@@ -187,10 +190,10 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 3,
-    borderColor: colors.primary,
-    shadowColor: '#000',
+    borderColor: theme.colors.primary,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -204,6 +207,6 @@ const styles = StyleSheet.create({
   sliderLimitText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
 });

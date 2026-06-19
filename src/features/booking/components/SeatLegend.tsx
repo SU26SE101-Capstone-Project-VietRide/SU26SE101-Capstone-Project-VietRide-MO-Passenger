@@ -1,34 +1,49 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { View, Text } from 'react-native';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface SeatLegendProps {
   items?: { label: string; color: string; borderColor?: string }[];
 }
 
-const DEFAULT_ITEMS = [
-  { label: 'Available', color: colors.surface, borderColor: colors.border },
-  { label: 'Selected', color: colors.primary, borderColor: colors.primary },
-  { label: 'Sold', color: colors.surfaceAlt, borderColor: colors.divider },
-];
+export const SeatLegend = ({ items }: SeatLegendProps): React.JSX.Element => {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const legendItems = items ?? [
+    {
+      label: 'Available',
+      color: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+      borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.border,
+    },
+    { label: 'Selected', color: theme.colors.primary, borderColor: theme.colors.primary },
+    {
+      label: 'Sold',
+      color: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+      borderColor: theme.colors.divider,
+    },
+  ];
 
-export const SeatLegend = ({ items = DEFAULT_ITEMS }: SeatLegendProps): React.JSX.Element => (
-  <View style={styles.legend}>
-    {items.map((item) => (
-      <View key={item.label} style={styles.legendItem}>
-        <View
-          style={[
-            styles.legendDot,
-            { backgroundColor: item.color, borderColor: item.borderColor ?? item.color },
-          ]}
-        />
-        <Text style={styles.legendText}>{item.label}</Text>
-      </View>
-    ))}
-  </View>
-);
+  return (
+    <View style={styles.legend}>
+      {legendItems.map((item) => (
+        <View key={item.label} style={styles.legendItem}>
+          <View
+            style={[
+              styles.legendDot,
+              { backgroundColor: item.color, borderColor: item.borderColor ?? item.color },
+            ]}
+          />
+          <Text style={styles.legendText}>{item.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+};
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   legend: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -49,6 +64,6 @@ const styles = StyleSheet.create({
   legendText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
 });

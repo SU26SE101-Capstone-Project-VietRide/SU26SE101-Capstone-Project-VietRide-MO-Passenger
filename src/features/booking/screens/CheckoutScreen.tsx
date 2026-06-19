@@ -5,9 +5,12 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { PencilSimple } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import {
   FloatingActionBar,
@@ -24,6 +27,8 @@ export function CheckoutScreen({
   onNext,
   onGoToStep,
 }: CheckoutStepProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const {
     contactInfo,
     selectedSeats,
@@ -58,9 +63,9 @@ export function CheckoutScreen({
       <SectionCard>
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>{title}</Text>
-          <TouchableOpacity style={styles.editButton} onPress={onEdit}>
-            <PencilSimple size={14} weight="bold" color={colors.primary} />
-          </TouchableOpacity>
+          <Pressable style={({ pressed }) => [styles.editButton, pressed ? styles.editButtonPressed : null]} onPress={onEdit}>
+            <PencilSimple size={14} weight="bold" color={theme.colors.primary} />
+          </Pressable>
         </View>
 
         <InfoRow label="Route" value={`${trip.departureCity || ''} → ${trip.arrivalCity || ''}`} />
@@ -110,9 +115,9 @@ export function CheckoutScreen({
           <SectionCard>
             <View style={styles.cardHeaderRow}>
               <Text style={styles.cardTitle}>Contact Info</Text>
-              <TouchableOpacity style={styles.editButton}>
-                <PencilSimple size={14} weight="bold" color={colors.primary} />
-              </TouchableOpacity>
+              <Pressable style={({ pressed }) => [styles.editButton, pressed ? styles.editButtonPressed : null]}>
+                <PencilSimple size={14} weight="bold" color={theme.colors.primary} />
+              </Pressable>
             </View>
 
             <InfoRow label="Full Name" value={contactInfo.fullName} />
@@ -165,7 +170,7 @@ export function CheckoutScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -178,7 +183,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -187,7 +192,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.h3,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.xl,
   },
   cardHeaderRow: {
@@ -200,25 +205,29 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  editButtonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.94 }],
   },
   pickupDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderRadius: 16,
     padding: spacing.md,
     borderWidth: 1.2,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   pickupIconBox: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -228,18 +237,18 @@ const styles = StyleSheet.create({
   pickupLabel: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginBottom: 2,
   },
   pickupValue: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   pickupHint: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: spacing.sm,
     lineHeight: 18,
   },

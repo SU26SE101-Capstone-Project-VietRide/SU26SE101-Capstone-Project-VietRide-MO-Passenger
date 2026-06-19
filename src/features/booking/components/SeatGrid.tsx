@@ -6,8 +6,10 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { View, Text, Pressable } from 'react-native';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import type { SeatRow, Seat } from '../types';
 
 interface SeatGridProps {
@@ -18,23 +20,25 @@ interface SeatGridProps {
 function SeatButton({
   seat,
   onPress,
+  styles,
 }: {
   seat: Seat;
   onPress: (id: string) => void;
+  styles: any;
 }): React.JSX.Element {
   const isSelected = seat.status === 'selected';
   const isSold = seat.status === 'sold';
 
   return (
-    <TouchableOpacity
-      activeOpacity={isSold ? 1 : 0.7}
+    <Pressable
       onPress={() => !isSold && onPress(seat.id)}
-      style={[
+      style={({ pressed }) => [
         styles.seat,
         seat.status === 'available' && styles.seatAvailable,
         isSelected && styles.seatSelected,
         isSold && styles.seatSold,
         isSelected && { transform: [{ scale: 1.05 }] },
+        pressed && !isSold && { opacity: 0.82 },
       ]}
     >
       <Text
@@ -46,11 +50,13 @@ function SeatButton({
       >
         {seat.label}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
 export function SeatGrid({ seatMap, onSeatPress }: SeatGridProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       {/* Steering wheel indicator */}
@@ -66,7 +72,7 @@ export function SeatGrid({ seatMap, onSeatPress }: SeatGridProps): React.JSX.Ele
           {/* Left pair */}
           <View style={styles.seatPair}>
             {row.leftSeats.map((seat) => (
-              <SeatButton key={seat.id} seat={seat} onPress={onSeatPress} />
+              <SeatButton key={seat.id} seat={seat} onPress={onSeatPress} styles={styles} />
             ))}
           </View>
 
@@ -76,7 +82,7 @@ export function SeatGrid({ seatMap, onSeatPress }: SeatGridProps): React.JSX.Ele
           {/* Right pair */}
           <View style={styles.seatPair}>
             {row.rightSeats.map((seat) => (
-              <SeatButton key={seat.id} seat={seat} onPress={onSeatPress} />
+              <SeatButton key={seat.id} seat={seat} onPress={onSeatPress} styles={styles} />
             ))}
           </View>
         </View>
@@ -85,12 +91,11 @@ export function SeatGrid({ seatMap, onSeatPress }: SeatGridProps): React.JSX.Ele
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.lg,
     padding: spacing.xxl,
-    ...shadows.md,
   },
   steeringRow: {
     flexDirection: 'row',
@@ -105,7 +110,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -134,27 +139,27 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   seatAvailable: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.border,
   },
   seatSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-    ...shadows.md,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+    ...theme.effects.floatingShadow,
   },
   seatSold: {
-    backgroundColor: colors.surfaceAlt,
-    borderColor: colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    borderColor: theme.colors.divider,
   },
   seatLabel: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   seatLabelSelected: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   seatLabelSold: {
-    color: colors.textDisabled,
+    color: theme.colors.textDisabled,
   },
 });

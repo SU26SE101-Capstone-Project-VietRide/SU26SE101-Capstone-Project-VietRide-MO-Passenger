@@ -5,9 +5,12 @@
  */
 
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, ViewStyle } from 'react-native';
 import { Bus } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface RouteProgressRowProps {
   departureCode: string;
@@ -33,15 +36,17 @@ export const RouteProgressRow = memo(function RouteProgressRow({
   busIcon,
   style,
 }: RouteProgressRowProps): React.JSX.Element {
-  const centerIcon = busIcon ?? <Bus size={14} weight="fill" color={colors.primary} />;
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const centerIcon = busIcon ?? <Bus size={14} weight="fill" color={theme.colors.primary} />;
   return (
     <View style={[styles.routeCard, style]}>
       <View style={styles.routeEndpoint}>
         <Text style={styles.routeCode}>{departureCode}</Text>
         <Text style={styles.routeTime}>{departureTime}</Text>
-        {departureName && (
+        {departureName ? (
           <Text style={styles.routeName}>{departureName}</Text>
-        )}
+        ) : null}
       </View>
 
       <View style={styles.routeCenter}>
@@ -51,33 +56,32 @@ export const RouteProgressRow = memo(function RouteProgressRow({
             {centerIcon}
           </View>
         </View>
-        {durationHours != null && (
+        {durationHours != null ? (
           <Text style={styles.routeDuration}>{durationHours}h</Text>
-        )}
+        ) : null}
       </View>
 
       <View style={[styles.routeEndpoint, styles.routeEndpointRight]}>
         <Text style={styles.routeCode}>{arrivalCode}</Text>
         <Text style={styles.routeTime}>{arrivalTime}</Text>
-        {arrivalName && (
+        {arrivalName ? (
           <Text style={[styles.routeName, styles.routeNameRight]}>
             {arrivalName}
           </Text>
-        )}
+        ) : null}
       </View>
     </View>
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   routeCard: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
     padding: spacing.xxl,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.xl,
-    ...shadows.md,
   },
   routeEndpoint: {
     flex: 1,
@@ -88,18 +92,18 @@ const styles = StyleSheet.create({
   routeCode: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   routeTime: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: spacing.xs,
   },
   routeName: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginTop: spacing.xs / 2,
   },
   routeNameRight: {
@@ -117,14 +121,14 @@ const styles = StyleSheet.create({
   routeLineBar: {
     flex: 1,
     height: 2,
-    backgroundColor: colors.divider,
+    backgroundColor: theme.colors.divider,
   },
   routeIconBubble: {
     position: 'absolute',
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
     left: '50%',
@@ -133,7 +137,7 @@ const styles = StyleSheet.create({
   routeDuration: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: spacing.xs,
   },
 });

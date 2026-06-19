@@ -2,8 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Image,
   ScrollView,
   Modal,
@@ -17,7 +16,10 @@ import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Camera, ArrowLeft, Check } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { Input, Button, LoadingOverlay } from '@shared/components';
 
@@ -34,6 +36,8 @@ const PRESET_AVATARS = [
 export function EditProfileScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
 
@@ -88,7 +92,10 @@ export function EditProfileScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
       
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -96,13 +103,12 @@ export function EditProfileScreen(): React.JSX.Element {
       >
         {/* Navigation Top Bar */}
         <View style={styles.topBar}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => navigation.goBack()}
             style={styles.backButton}
-            activeOpacity={0.7}
           >
-            <ArrowLeft size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
+            <ArrowLeft size={24} color={theme.colors.textPrimary} />
+          </Pressable>
           <Text style={styles.topBarTitle}>{t('profile.editProfile', 'Edit Profile')}</Text>
           <View style={styles.topBarRightPlaceholder} />
         </View>
@@ -114,16 +120,15 @@ export function EditProfileScreen(): React.JSX.Element {
         >
           {/* Avatar Section */}
           <View style={styles.avatarSection}>
-            <TouchableOpacity
+            <Pressable
               style={styles.avatarContainer}
               onPress={() => setIsAvatarModalVisible(true)}
-              activeOpacity={0.8}
             >
               <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
               <View style={styles.cameraIconBadge}>
-                <Camera size={16} color={colors.textInverse} weight="fill" />
+                <Camera size={16} color={theme.colors.textInverse} weight="fill" />
               </View>
-            </TouchableOpacity>
+            </Pressable>
             <Text style={styles.changePhotoText}>
               {t('profile.changePhoto', 'Change Profile Picture')}
             </Text>
@@ -185,12 +190,11 @@ export function EditProfileScreen(): React.JSX.Element {
         animationType="slide"
         onRequestClose={() => setIsAvatarModalVisible(false)}
       >
-        <TouchableOpacity
+        <Pressable
           style={styles.modalOverlay}
-          activeOpacity={1}
           onPress={() => setIsAvatarModalVisible(false)}
         >
-          <View style={styles.modalContent}>
+          <Pressable style={styles.modalContent} onPress={(event) => event.stopPropagation()}>
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderBar} />
               <Text style={styles.modalTitle}>
@@ -206,37 +210,36 @@ export function EditProfileScreen(): React.JSX.Element {
               renderItem={({ item }) => {
                 const isSelected = item === avatarUrl;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     style={styles.avatarOptionWrapper}
                     onPress={() => selectPresetAvatar(item)}
-                    activeOpacity={0.8}
                   >
                     <View style={styles.avatarOptionBorder}>
                       <Image source={{ uri: item }} style={styles.presetAvatarImage} />
-                      {isSelected && (
+                      {isSelected ? (
                         <View style={styles.selectedBadge}>
-                          <Check size={12} color={colors.textInverse} weight="bold" />
+                          <Check size={12} color={theme.colors.textInverse} weight="bold" />
                         </View>
-                      )}
+                      ) : null}
                     </View>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               }}
             />
-          </View>
-        </TouchableOpacity>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* Loading Overlay */}
-      {loading && <LoadingOverlay visible />}
+      {loading ? <LoadingOverlay visible /> : null}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   safeContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -248,8 +251,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    backgroundColor: colors.surface,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
   },
   backButton: {
     width: 40,
@@ -261,7 +264,7 @@ const styles = StyleSheet.create({
   topBarTitle: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   topBarRightPlaceholder: {
     width: 40,
@@ -280,8 +283,10 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: borderRadius.full,
-    ...shadows.sm,
-    backgroundColor: colors.surfaceAlt,
+    ...theme.effects.cardShadow,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    borderWidth: 2,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
   },
   avatarImage: {
     width: '100%',
@@ -292,19 +297,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     width: 32,
     height: 32,
     borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.surface,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
   },
   changePhotoText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
     marginTop: spacing.md,
   },
   formContainer: {
@@ -316,13 +321,13 @@ const styles = StyleSheet.create({
   readOnlyLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.xs,
   },
   readOnlyInput: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.fieldSurface : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.effects.isLiquid ? theme.effects.fieldBorder : theme.colors.border,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -332,12 +337,12 @@ const styles = StyleSheet.create({
   readOnlyText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   readOnlyHint: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginTop: spacing.xs,
   },
   saveButton: {
@@ -346,33 +351,37 @@ const styles = StyleSheet.create({
   // Preset Avatar Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: colors.overlay,
+    backgroundColor: theme.effects.scrim,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     borderTopLeftRadius: borderRadius.lg,
     borderTopRightRadius: borderRadius.lg,
     paddingBottom: Platform.OS === 'ios' ? spacing.xxl : spacing.xl,
     maxHeight: '60%',
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
+    borderBottomWidth: 0,
+    ...theme.effects.floatingShadow,
   },
   modalHeader: {
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   modalHeaderBar: {
     width: 36,
     height: 4,
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.border,
     borderRadius: borderRadius.full,
     marginBottom: spacing.sm,
   },
   modalTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   avatarListContent: {
     paddingHorizontal: spacing.lg,
@@ -388,8 +397,9 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.border,
     overflow: 'hidden',
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
   },
   presetAvatarImage: {
     width: '100%',
@@ -402,7 +412,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: 'rgba(10, 126, 164, 0.4)', // transparent primary tint
+    backgroundColor: theme.colors.primaryFaded,
     justifyContent: 'center',
     alignItems: 'center',
   },

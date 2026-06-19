@@ -5,13 +5,16 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, BackHandler } from 'react-native';
+import { View, Pressable, StatusBar, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, shadows } from '@shared/theme';
+import { spacing } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 import { useBookingStore } from '../store/useBookingStore';
 import { BookingProgressBar } from '../components/BookingProgressBar';
@@ -31,6 +34,8 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const [step, setStep] = useState(1);
   const { highestStepReached, saveOutboundLeg, totalSteps: getTotalSteps, searchParams } = useBookingStore();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const isRoundTrip = searchParams.isRoundTrip ?? false;
 
   // Reset booking data when search params change (new booking)
@@ -124,8 +129,8 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
         <Svg height="300" width="100%">
           <Defs>
             <LinearGradient id="mainGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.1} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.colors.primaryLight} stopOpacity={theme.isDark ? 0.18 : 0.14} />
+              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#mainGrad)" />
@@ -133,19 +138,18 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
       </View>
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
         {/* Global Header */}
         <View style={styles.header}>
-          <TouchableOpacity
+          <Pressable
             onPress={handleBack}
-            activeOpacity={0.7}
-            style={styles.backBtn}
+            style={({ pressed }) => [styles.backBtn, pressed ? styles.backBtnPressed : null]}
           >
             <View style={styles.backBubble}>
-              <ArrowLeft size={20} color={colors.primary} weight="bold" />
+              <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Global Progress Bar */}
@@ -158,10 +162,10 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   root: {
     flex: 1,
-    backgroundColor: '#E6F4F3',
+    backgroundColor: theme.colors.background,
   },
   gradientContainer: {
     position: 'absolute',
@@ -183,15 +187,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.divider,
-    ...shadows.sm,
+    ...theme.components.headerButton,
+  },
+  backBtnPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.96 }],
   },
   backBubble: {
     alignItems: 'center',

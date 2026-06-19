@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   StatusBar,
 } from 'react-native';
@@ -11,7 +10,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Bell, Ticket, Package, Tag, Check, Trash } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface NotificationItem {
   id: string;
@@ -24,6 +26,8 @@ interface NotificationItem {
 
 export function NotificationScreen(): React.JSX.Element {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([
     {
@@ -78,46 +82,49 @@ export function NotificationScreen(): React.JSX.Element {
     switch (type) {
       case 'trip':
         return {
-          icon: <Ticket size={20} color="#006A67" weight="fill" />,
-          bg: 'rgba(0, 106, 103, 0.10)',
-          accent: '#006A67',
+          icon: <Ticket size={20} color={theme.colors.primary} weight="fill" />,
+          bg: theme.colors.primaryFaded,
+          accent: theme.colors.primary,
         };
       case 'parcel':
         return {
-          icon: <Package size={20} color={colors.success} weight="fill" />,
-          bg: 'rgba(34, 197, 94, 0.10)',
-          accent: colors.success,
+          icon: <Package size={20} color={theme.colors.success} weight="fill" />,
+          bg: theme.colors.successLight,
+          accent: theme.colors.success,
         };
       case 'promo':
         return {
-          icon: <Tag size={20} color={colors.warning} weight="fill" />,
-          bg: 'rgba(245, 158, 11, 0.10)',
-          accent: colors.warning,
+          icon: <Tag size={20} color={theme.colors.warning} weight="fill" />,
+          bg: theme.colors.warningLight,
+          accent: theme.colors.warning,
         };
     }
   };
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
 
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Bell size={24} color={colors.textPrimary} style={styles.headerIcon} />
+          <Bell size={24} color={theme.colors.textPrimary} style={styles.headerIcon} />
           <Text style={styles.headerTitle}>{t('profile.notifications', 'Notifications')}</Text>
         </View>
 
-        {notifications.length > 0 && (
+        {notifications.length > 0 ? (
           <View style={styles.headerActions}>
-            <TouchableOpacity onPress={handleMarkAllRead} style={styles.actionButton} activeOpacity={0.6}>
-              <Check size={18} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleClearAll} style={styles.actionButton} activeOpacity={0.6}>
-              <Trash size={18} color={colors.error} />
-            </TouchableOpacity>
+            <Pressable onPress={handleMarkAllRead} style={styles.actionButton}>
+              <Check size={18} color={theme.colors.primary} />
+            </Pressable>
+            <Pressable onPress={handleClearAll} style={styles.actionButton}>
+              <Trash size={18} color={theme.colors.error} />
+            </Pressable>
           </View>
-        )}
+        ) : null}
       </View>
 
       {/* List */}
@@ -127,26 +134,25 @@ export function NotificationScreen(): React.JSX.Element {
       >
         {notifications.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Bell size={48} color={colors.textTertiary} weight="thin" />
+            <Bell size={48} color={theme.colors.textTertiary} weight="thin" />
             <Text style={styles.emptyText}>{t('notification.noNotifications', 'No notifications yet.')}</Text>
           </View>
         ) : (
           notifications.map((item) => {
             const meta = getIconMeta(item.type);
             return (
-              <TouchableOpacity
+              <Pressable
                 key={item.id}
                 style={[
                   styles.notificationCard,
-                  item.isUnread && styles.unreadCard,
+                  item.isUnread ? styles.unreadCard : null,
                 ]}
                 onPress={() => handleToggleRead(item.id)}
-                activeOpacity={0.85}
               >
-                {/* Left accent stripe — only visible when unread */}
-                {item.isUnread && (
+                {/* Left accent stripe only visible when unread */}
+                {item.isUnread ? (
                   <View style={[styles.unreadStripe, { backgroundColor: meta.accent }]} />
-                )}
+                ) : null}
 
                 <View style={styles.cardContent}>
                   {/* Type icon with colour-matched tinted background */}
@@ -159,7 +165,7 @@ export function NotificationScreen(): React.JSX.Element {
                       <Text
                         style={[
                           styles.cardTitle,
-                          item.isUnread && styles.cardTitleUnread,
+                          item.isUnread ? styles.cardTitleUnread : null,
                         ]}
                       >
                         {item.title}
@@ -171,7 +177,7 @@ export function NotificationScreen(): React.JSX.Element {
                     </Text>
                   </View>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             );
           })
         )}
@@ -180,10 +186,10 @@ export function NotificationScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   safeContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -192,8 +198,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    backgroundColor: colors.surface,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -205,7 +211,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xxl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   headerActions: {
     flexDirection: 'row',
@@ -217,7 +223,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.sm,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -232,26 +240,26 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginTop: spacing.md,
   },
   notificationCard: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.divider,
-    overflow: 'hidden', // clips accent stripe to card rounded corners
-    ...shadows.sm,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    overflow: 'hidden',
+    ...theme.effects.cardShadow,
   },
   unreadCard: {
-    // Keep white background — the left stripe is the sole unread indicator
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surfaceElevated,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.border,
   },
   unreadStripe: {
     width: 4,
-    alignSelf: 'stretch', // fills full card height automatically
+    alignSelf: 'stretch',
   },
   cardContent: {
     flex: 1,
@@ -280,7 +288,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     flex: 1,
     marginRight: spacing.sm,
   },
@@ -290,12 +298,12 @@ const styles = StyleSheet.create({
   cardTime: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   cardBody: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     lineHeight: 18,
   },
 });

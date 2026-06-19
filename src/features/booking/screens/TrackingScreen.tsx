@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, Bus, CheckCircle, CaretUp, CaretDown } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { MockMapView, MapPoint } from '@shared/components/MockMapView';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BookingStackParamList } from '@app/navigation/types';
 
@@ -62,6 +65,8 @@ const MOCK_TICKET_STOPS: MapPoint[] = [
 
 export function TrackingScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [isMinimized, setIsMinimized] = useState(false);
 
   const handleGoBack = () => {
@@ -75,17 +80,17 @@ export function TrackingScreen(): React.JSX.Element {
 
       {/* Floating Header */}
       <SafeAreaView edges={['top']} style={styles.floatingHeader}>
-        <TouchableOpacity style={styles.navButton} onPress={handleGoBack} activeOpacity={0.8}>
-          <ArrowLeft size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <Pressable style={styles.navButton} onPress={handleGoBack}>
+          <ArrowLeft size={22} color={theme.colors.textPrimary} />
+        </Pressable>
         <View style={styles.floatingHeaderBadge}>
-          <Text style={styles.floatingHeaderTitle}>Trip Tracking: Hanoi → Sapa</Text>
+          <Text style={styles.floatingHeaderTitle}>Trip Tracking: Hanoi to Sapa</Text>
         </View>
         <View style={{ width: 44 }} />
       </SafeAreaView>
 
       {/* Bottom Floating Sheet containing Timeline */}
-      <View style={[styles.bottomSheetContainer, isMinimized && styles.bottomSheetMinimized]}>
+      <View style={[styles.bottomSheetContainer, isMinimized ? styles.bottomSheetMinimized : null]}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
@@ -93,24 +98,23 @@ export function TrackingScreen(): React.JSX.Element {
           scrollEnabled={!isMinimized}
         >
           {/* Status Header Badge Card */}
-          <TouchableOpacity
-            activeOpacity={0.8}
+          <Pressable
             onPress={() => setIsMinimized(!isMinimized)}
             style={styles.statusHeaderCard}
           >
             <View style={styles.statusIconBackground}>
-              <Bus size={32} color={colors.primary} weight="fill" />
+              <Bus size={32} color={theme.colors.primary} weight="fill" />
             </View>
             <View style={styles.statusMeta}>
               <Text style={styles.statusLabelText}>TRIP STATUS (TAP TO TOGGLE)</Text>
               <Text style={styles.statusValueText}>Heading to Yen Bai</Text>
             </View>
             {isMinimized ? (
-              <CaretUp size={20} color={colors.textSecondary} weight="bold" />
+              <CaretUp size={20} color={theme.colors.textSecondary} weight="bold" />
             ) : (
-              <CaretDown size={20} color={colors.textSecondary} weight="bold" />
+              <CaretDown size={20} color={theme.colors.textSecondary} weight="bold" />
             )}
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Timeline Log Section */}
           <View style={styles.timelineSection}>
@@ -129,22 +133,22 @@ export function TrackingScreen(): React.JSX.Element {
                       <View
                         style={[
                           styles.nodeCircle,
-                          isCompleted && styles.nodeCompleted,
-                          isActive && styles.nodeActive,
+                          isCompleted ? styles.nodeCompleted : null,
+                          isActive ? styles.nodeActive : null,
                         ]}
                       >
-                        {isCompleted && <CheckCircle size={18} color={colors.success} weight="fill" />}
-                        {isActive && <Bus size={14} color="#FFF" weight="fill" />}
-                        {!isCompleted && !isActive && <View style={styles.nodePendingDot} />}
+                        {isCompleted ? <CheckCircle size={18} color={theme.colors.success} weight="fill" /> : null}
+                        {isActive ? <Bus size={14} color={theme.colors.textInverse} weight="fill" /> : null}
+                        {!isCompleted && !isActive ? <View style={styles.nodePendingDot} /> : null}
                       </View>
-                      {!isLast && (
+                      {!isLast ? (
                         <View
                           style={[
                             styles.timelineLine,
-                            (isCompleted || isActive) && styles.timelineLineCompleted,
+                            isCompleted || isActive ? styles.timelineLineCompleted : null,
                           ]}
                         />
-                      )}
+                      ) : null}
                     </View>
 
                     {/* Right item textual content */}
@@ -152,8 +156,8 @@ export function TrackingScreen(): React.JSX.Element {
                       <Text
                         style={[
                           styles.timelineTitle,
-                          isActive && styles.timelineTitleActive,
-                          !isCompleted && !isActive && styles.timelineTitlePending,
+                          isActive ? styles.timelineTitleActive : null,
+                          !isCompleted && !isActive ? styles.timelineTitlePending : null,
                         ]}
                       >
                         {item.name}
@@ -171,10 +175,10 @@ export function TrackingScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   floatingHeader: {
     position: 'absolute',
@@ -189,25 +193,24 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   navButton: {
+    ...theme.components.headerButton,
     width: 44,
     height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
     borderRadius: 22,
-    backgroundColor: colors.surface,
-    ...shadows.sm,
   },
   floatingHeaderBadge: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
+    ...theme.effects.cardShadow,
   },
   floatingHeaderTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   bottomSheetContainer: {
     position: 'absolute',
@@ -215,13 +218,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: SCREEN_HEIGHT * 0.45,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    ...shadows.lg,
-    elevation: 20,
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
+    borderBottomWidth: 0,
+    ...theme.effects.floatingShadow,
   },
   bottomSheetMinimized: {
     height: 112,
@@ -235,16 +238,18 @@ const styles = StyleSheet.create({
   statusHeaderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   statusIconBackground: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -255,22 +260,22 @@ const styles = StyleSheet.create({
   statusLabelText: {
     fontFamily: fontFamilies.bold,
     fontSize: 9,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   statusValueText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginTop: 2,
   },
   timelineSection: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
     paddingVertical: spacing.sm,
   },
   sectionHeading: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.md,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -291,32 +296,32 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     zIndex: 1,
   },
   nodeCompleted: {
     backgroundColor: 'transparent',
   },
   nodeActive: {
-    backgroundColor: colors.primary,
-    ...shadows.sm,
+    backgroundColor: theme.colors.primary,
+    ...theme.effects.cardShadow,
   },
   nodePendingDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.textDisabled,
+    backgroundColor: theme.colors.textDisabled,
   },
   timelineLine: {
     width: 2,
     flex: 1,
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.border,
     position: 'absolute',
     top: 24,
     bottom: -8,
   },
   timelineLineCompleted: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   timelineContent: {
     flex: 1,
@@ -326,19 +331,19 @@ const styles = StyleSheet.create({
   timelineTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   timelineTitleActive: {
-    color: colors.primary,
+    color: theme.colors.primary,
     fontSize: fontSizes.md,
   },
   timelineTitlePending: {
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   timelineDesc: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: 4,
     lineHeight: fontSizes.xs * 1.3,
   },

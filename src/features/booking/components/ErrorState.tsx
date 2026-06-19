@@ -5,9 +5,12 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { WifiSlash, ArrowClockwise } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface ErrorStateProps {
   /** Optional retry action callback */
@@ -15,11 +18,14 @@ interface ErrorStateProps {
 }
 
 export const ErrorState = ({ onRetry }: ErrorStateProps): React.JSX.Element => {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <View style={styles.illustrationContainer}>
         <View style={styles.illustrationCircle}>
-          <WifiSlash size={64} weight="thin" color={colors.primary} />
+          <WifiSlash size={64} weight="thin" color={theme.colors.primary} />
         </View>
       </View>
       <Text style={styles.title}>Oops! Lost Connection</Text>
@@ -28,20 +34,19 @@ export const ErrorState = ({ onRetry }: ErrorStateProps): React.JSX.Element => {
         signal and try again.
       </Text>
       {onRetry != null && (
-        <TouchableOpacity
-          activeOpacity={0.8}
+        <Pressable
           onPress={onRetry}
-          style={styles.retryButton}
+          style={({ pressed }) => [styles.retryButton, pressed ? styles.retryButtonPressed : null]}
         >
-          <ArrowClockwise size={16} weight="bold" color={colors.textInverse} style={styles.retryIconSpacing} />
+          <ArrowClockwise size={16} weight="bold" color={theme.colors.textInverse} style={styles.retryIconSpacing} />
           <Text style={styles.retryText}>Try Again</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     alignItems: 'center',
@@ -56,21 +61,21 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.h3,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     marginBottom: spacing.md,
   },
   subtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: fontSizes.md * 1.6,
     maxWidth: 300,
@@ -78,12 +83,15 @@ const styles = StyleSheet.create({
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    ...theme.components.primaryButton,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xxxl,
     marginTop: spacing.xxl,
-    ...shadows.lg,
+  },
+  retryButtonPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
   },
   retryIconSpacing: {
     marginRight: spacing.sm,
@@ -91,6 +99,6 @@ const styles = StyleSheet.create({
   retryText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
 });

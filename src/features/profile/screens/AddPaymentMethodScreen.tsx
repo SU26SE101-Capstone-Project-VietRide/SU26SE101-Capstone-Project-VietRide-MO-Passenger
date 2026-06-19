@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { Input, Button, LoadingOverlay } from '@shared/components';
 
 export function AddPaymentMethodScreen(): React.JSX.Element {
   const navigation = useNavigation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [activeTab, setActiveTab] = useState<'card' | 'momo' | 'vnpay'>('card');
   const [loading, setLoading] = useState(false);
 
@@ -48,23 +53,23 @@ export function AddPaymentMethodScreen(): React.JSX.Element {
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color={colors.textPrimary} weight="bold" />
-        </TouchableOpacity>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <ArrowLeft size={20} color={theme.colors.textPrimary} weight="bold" />
+        </Pressable>
         <Text style={styles.headerTitle}>Add Payment Method</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.tabBar}>
-        <TouchableOpacity style={[styles.tabItem, activeTab === 'card' && styles.activeTabItem]} onPress={() => setActiveTab('card')}>
-          <Text style={[styles.tabLabel, activeTab === 'card' && styles.activeTabLabel]}>Credit Card</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tabItem, activeTab === 'momo' && styles.activeTabItem]} onPress={() => setActiveTab('momo')}>
-          <Text style={[styles.tabLabel, activeTab === 'momo' && styles.activeTabLabel]}>Momo</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tabItem, activeTab === 'vnpay' && styles.activeTabItem]} onPress={() => setActiveTab('vnpay')}>
-          <Text style={[styles.tabLabel, activeTab === 'vnpay' && styles.activeTabLabel]}>VNPay</Text>
-        </TouchableOpacity>
+        <Pressable style={[styles.tabItem, activeTab === 'card' ? styles.activeTabItem : null]} onPress={() => setActiveTab('card')}>
+          <Text style={[styles.tabLabel, activeTab === 'card' ? styles.activeTabLabel : null]}>Credit Card</Text>
+        </Pressable>
+        <Pressable style={[styles.tabItem, activeTab === 'momo' ? styles.activeTabItem : null]} onPress={() => setActiveTab('momo')}>
+          <Text style={[styles.tabLabel, activeTab === 'momo' ? styles.activeTabLabel : null]}>Momo</Text>
+        </Pressable>
+        <Pressable style={[styles.tabItem, activeTab === 'vnpay' ? styles.activeTabItem : null]} onPress={() => setActiveTab('vnpay')}>
+          <Text style={[styles.tabLabel, activeTab === 'vnpay' ? styles.activeTabLabel : null]}>VNPay</Text>
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -85,23 +90,23 @@ export function AddPaymentMethodScreen(): React.JSX.Element {
         )}
         <Button title="Add Method" onPress={handleAddPayment} fullWidth style={{ marginTop: spacing.md }} />
       </ScrollView>
-      {loading && <LoadingOverlay visible />}
+      {loading ? <LoadingOverlay visible /> : null}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: colors.surface },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: colors.textPrimary },
-  tabBar: { flexDirection: 'row', backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider },
+const createStyles = (theme: AppTheme) => ({
+  root: { flex: 1, backgroundColor: theme.colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider },
+  backBtn: { ...theme.components.headerButton, width: 40, height: 40, borderRadius: 20 },
+  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
+  tabBar: { flexDirection: 'row', backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider },
   tabItem: { flex: 1, paddingVertical: spacing.md, alignItems: 'center' },
-  activeTabItem: { borderBottomWidth: 2, borderBottomColor: colors.primary },
-  tabLabel: { fontFamily: fontFamilies.medium, fontSize: fontSizes.sm, color: colors.textSecondary },
-  activeTabLabel: { color: colors.primary },
+  activeTabItem: { borderBottomWidth: 2, borderBottomColor: theme.colors.primary, backgroundColor: theme.colors.primaryFaded },
+  tabLabel: { fontFamily: fontFamilies.medium, fontSize: fontSizes.sm, color: theme.colors.textSecondary },
+  activeTabLabel: { color: theme.colors.primary },
   content: { padding: spacing.xl },
   formRow: { flexDirection: 'row', justifyContent: 'space-between' },
   formCol: { width: '47%' },
-  walletHint: { fontFamily: fontFamilies.regular, fontSize: fontSizes.xs, color: colors.textTertiary, lineHeight: 16, marginBottom: spacing.lg },
+  walletHint: { fontFamily: fontFamilies.regular, fontSize: fontSizes.xs, color: theme.colors.textTertiary, lineHeight: 16, marginBottom: spacing.lg },
 });

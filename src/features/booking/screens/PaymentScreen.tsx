@@ -4,9 +4,12 @@
  */
 
 import React, { useCallback, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { QrCode, CreditCard } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { FloatingActionBar } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
@@ -16,6 +19,8 @@ interface PaymentStepProps {
 }
 
 export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const {
     totalPrice,
     paymentMethod,
@@ -105,7 +110,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
             <Text style={styles.bentoCardHeading}>Ticket Specifications</Text>
             <View style={styles.specCardRow}>
               <View style={styles.specIcon}>
-                <CreditCard size={22} color={colors.primary} weight="duotone" />
+                <CreditCard size={22} color={theme.colors.primary} weight="duotone" />
               </View>
               <View style={styles.specDetails}>
                 <Text style={styles.specTitle}>
@@ -126,7 +131,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
               label="VNPAY / Momo QR"
               sub="Scan app QR to pay"
               Icon={QrCode}
-              iconColor={colors.accentDark}
+              iconColor={theme.colors.accentDark}
               onSelect={() => setPaymentMethod('vnpay')}
             />
             <PaymentOption
@@ -134,7 +139,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
               label="Credit / Debit Card"
               sub="Visa, Mastercard, JCB"
               Icon={CreditCard}
-              iconColor={colors.success}
+              iconColor={theme.colors.success}
               onSelect={() => setPaymentMethod('card')}
             />
           </View>
@@ -157,7 +162,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
             {promoApplied && (
               <View style={styles.priceRow}>
                 <Text style={styles.priceLabel}>Promo Discount</Text>
-                <Text style={[styles.priceValue, { color: colors.success }]}>
+                <Text style={[styles.priceValue, { color: theme.colors.success }]}>
                   -₫{promoDiscount.toLocaleString('vi-VN')}
                 </Text>
               </View>
@@ -190,24 +195,31 @@ interface PaymentOptionProps {
   onSelect: () => void;
 }
 
-const PaymentOption = ({ selected, label, sub, Icon, iconColor, onSelect }: PaymentOptionProps) => (
-  <TouchableOpacity
-    style={[styles.paymentOption, selected && styles.paymentOptionActive]}
-    onPress={onSelect}
-    activeOpacity={0.8}
-  >
-    <View style={styles.paymentRadio}>{selected && <View style={styles.paymentRadioDot} />}</View>
-    <View style={styles.paymentIconBackground}>
-      <Icon size={20} color={iconColor} weight="bold" />
-    </View>
-    <View style={styles.paymentOptionText}>
-      <Text style={styles.paymentTitle}>{label}</Text>
-      <Text style={styles.paymentSubtitle}>{sub}</Text>
-    </View>
-  </TouchableOpacity>
-);
+const PaymentOption = ({ selected, label, sub, Icon, iconColor, onSelect }: PaymentOptionProps) => {
+  const styles = useThemedStyles(createStyles);
 
-const styles = StyleSheet.create({
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.paymentOption,
+        selected && styles.paymentOptionActive,
+        pressed ? styles.paymentOptionPressed : null,
+      ]}
+      onPress={onSelect}
+    >
+      <View style={styles.paymentRadio}>{selected ? <View style={styles.paymentRadioDot} /> : null}</View>
+      <View style={styles.paymentIconBackground}>
+        <Icon size={20} color={iconColor} weight="bold" />
+      </View>
+      <View style={styles.paymentOptionText}>
+        <Text style={styles.paymentTitle}>{label}</Text>
+        <Text style={styles.paymentSubtitle}>{sub}</Text>
+      </View>
+    </Pressable>
+  );
+};
+
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -220,7 +232,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -228,10 +240,8 @@ const styles = StyleSheet.create({
     paddingBottom: 220,
   },
   bentoSummaryCard: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.divider,
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
@@ -242,12 +252,12 @@ const styles = StyleSheet.create({
     width: 3.5,
     height: 18,
     borderRadius: 2,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   bentoCardHeading: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.md,
   },
   summaryRoute: {
@@ -263,7 +273,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     marginTop: 6,
   },
   dottedDivider: {
@@ -271,14 +281,14 @@ const styles = StyleSheet.create({
     width: 2,
     borderStyle: 'dashed',
     borderLeftWidth: 1.5,
-    borderLeftColor: colors.divider,
+    borderLeftColor: theme.colors.divider,
     marginVertical: 4,
   },
   dotEnd: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.textSecondary,
+    backgroundColor: theme.colors.textSecondary,
     marginBottom: 4,
   },
   routeDetailsText: {
@@ -290,18 +300,18 @@ const styles = StyleSheet.create({
   routeLabelText: {
     fontFamily: fontFamilies.bold,
     fontSize: 9,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginBottom: 2,
   },
   routeStationName: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   routeStationCity: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   specCardRow: {
     flexDirection: 'row',
@@ -312,7 +322,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -322,35 +332,39 @@ const styles = StyleSheet.create({
   specTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   specMeta: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   paymentOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderRadius: borderRadius.lg,
     borderWidth: 1.2,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
   paymentOptionActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryFaded,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  paymentOptionPressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.99 }],
   },
   paymentRadio: {
     width: 18,
     height: 18,
     borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
@@ -359,13 +373,13 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   paymentIconBackground: {
     width: 36,
     height: 36,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
@@ -376,12 +390,12 @@ const styles = StyleSheet.create({
   paymentTitle: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   paymentSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: 1,
   },
   priceRow: {
@@ -393,29 +407,29 @@ const styles = StyleSheet.create({
   priceLabel: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     flex: 1,
     paddingRight: spacing.md,
   },
   priceValue: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     textAlign: 'right',
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: colors.divider,
+    backgroundColor: theme.colors.divider,
     marginVertical: spacing.sm,
   },
   totalLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   totalValue: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
 });

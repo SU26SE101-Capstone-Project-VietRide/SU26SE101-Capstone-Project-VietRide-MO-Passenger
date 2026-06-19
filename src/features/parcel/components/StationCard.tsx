@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { MapPin, Clock, Package } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import type { Station } from '../types';
 
 interface StationCardProps {
@@ -11,6 +14,9 @@ interface StationCardProps {
 }
 
 export function StationCard({ station, onSelect, isSelected = false }: StationCardProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   // Dynamically split name into Brand and rest description for premium layout matching the screenshot
   const getSplitName = (fullName: string) => {
     const brands = ['FUTA', 'THANH BUOI', 'Thanh Buoi'];
@@ -48,7 +54,7 @@ export function StationCard({ station, onSelect, isSelected = false }: StationCa
       </View>
 
       <View style={styles.distanceRow}>
-        <MapPin size={15} color={colors.textTertiary} weight="regular" />
+        <MapPin size={15} color={theme.colors.textTertiary} weight="regular" />
         <Text style={styles.distanceText}>{station.distance}</Text>
       </View>
 
@@ -61,54 +67,54 @@ export function StationCard({ station, onSelect, isSelected = false }: StationCa
         <View style={styles.badgesRow}>
           {station.workingHours && (
             <View style={styles.statusBadge}>
-              <Clock size={14} color={colors.primary} weight="regular" />
+              <Clock size={14} color={theme.colors.primary} weight="regular" />
               <Text style={styles.statusBadgeText}>{station.workingHours}</Text>
             </View>
           )}
           {station.acceptingParcels && (
             <View style={styles.statusBadge}>
-              <Package size={14} color={colors.primary} weight="regular" />
+              <Package size={14} color={theme.colors.primary} weight="regular" />
               <Text style={styles.statusBadgeText}>Accepting</Text>
             </View>
           )}
         </View>
       )}
 
-      <TouchableOpacity
-        style={[styles.button, isSelected && styles.buttonSelected]}
+      <Pressable
+        style={({ pressed }) => [
+          styles.button,
+          isSelected && styles.buttonSelected,
+          pressed ? styles.pressed : null,
+        ]}
         onPress={() => onSelect(station)}
-        activeOpacity={0.8}
       >
         <Text style={[styles.buttonText, isSelected && styles.buttonTextSelected]}>
           {isSelected ? 'Station Selected' : 'Select this Station'}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   card: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    ...shadows.sm,
     position: 'relative',
     overflow: 'hidden',
   },
   cardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: '#F4FBFB', // Solid opaque light mint to prevent Android shadow bleeding
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
     borderWidth: 2,
   },
   closestTag: {
     position: 'absolute',
     top: 0,
     left: 0,
-    backgroundColor: colors.accent,
+    backgroundColor: theme.colors.accent,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderBottomRightRadius: borderRadius.sm,
@@ -117,7 +123,7 @@ const styles = StyleSheet.create({
   closestText: {
     fontFamily: fontFamilies.bold,
     fontSize: 9,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
     letterSpacing: 0.5,
   },
   header: {
@@ -130,12 +136,12 @@ const styles = StyleSheet.create({
   brandText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   branchText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginTop: 2,
   },
   distanceRow: {
@@ -147,12 +153,12 @@ const styles = StyleSheet.create({
   distanceText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   address: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: spacing.sm,
     lineHeight: fontSizes.sm * 1.4,
   },
@@ -165,7 +171,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: borderRadius.sm,
@@ -174,7 +180,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   button: {
     backgroundColor: 'transparent',
@@ -184,18 +190,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: spacing.lg,
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
   },
   buttonSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
   buttonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   buttonTextSelected: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
 });

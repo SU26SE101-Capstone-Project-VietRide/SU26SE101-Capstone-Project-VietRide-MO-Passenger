@@ -2,8 +2,7 @@ import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   StatusBar,
   Alert,
@@ -26,7 +25,10 @@ import {
   CheckCircle,
 } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 // -- Types
 interface Transaction {
@@ -59,6 +61,8 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
 export function WalletScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   
   // -- State
   const [balance, setBalance] = useState(1500000);
@@ -88,9 +92,9 @@ export function WalletScreen(): React.JSX.Element {
   // -- Rendering
   const renderTransactionIcon = (type: Transaction['type']) => {
     switch (type) {
-      case 'deposit': case 'refund': return <ArrowDownLeft size={20} color={colors.success} weight="bold" />;
-      case 'payment': return <Ticket size={20} color={colors.primary} weight="bold" />;
-      case 'withdraw': return <ArrowUpRight size={20} color={colors.error} weight="bold" />;
+      case 'deposit': case 'refund': return <ArrowDownLeft size={20} color={theme.colors.success} weight="bold" />;
+      case 'payment': return <Ticket size={20} color={theme.colors.primary} weight="bold" />;
+      case 'withdraw': return <ArrowUpRight size={20} color={theme.colors.error} weight="bold" />;
     }
   };
 
@@ -101,8 +105,8 @@ export function WalletScreen(): React.JSX.Element {
         <Svg height="300" width="100%">
           <Defs>
             <LinearGradient id="walletGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.15} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.colors.primary} stopOpacity={theme.isDark ? 0.18 : 0.15} />
+              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#walletGrad)" />
@@ -110,13 +114,13 @@ export function WalletScreen(): React.JSX.Element {
       </View>
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backBtn} activeOpacity={0.7}>
-            <ArrowLeft size={20} color={colors.textPrimary} weight="bold" />
-          </TouchableOpacity>
+          <Pressable onPress={handleBack} style={styles.backBtn}>
+            <ArrowLeft size={20} color={theme.colors.textPrimary} weight="bold" />
+          </Pressable>
           <Text style={styles.headerTitle}>Wallet & Payments</Text>
           <View style={{ width: 40 }} />
         </View>
@@ -125,7 +129,7 @@ export function WalletScreen(): React.JSX.Element {
           {/* 1. BALANCE CARD */}
           <View style={styles.balanceCard}>
             <View style={styles.balanceHeader}>
-              <WalletIcon size={24} color={colors.primary} weight="duotone" />
+              <WalletIcon size={24} color={theme.colors.primary} weight="duotone" />
               <Text style={styles.balanceTitle}>VietRide Wallet</Text>
             </View>
             <View style={styles.amountRow}>
@@ -134,41 +138,41 @@ export function WalletScreen(): React.JSX.Element {
             </View>
 
             <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('TopUp')} activeOpacity={0.85}>
+              <Pressable style={styles.actionButton} onPress={() => navigation.navigate('TopUp')}>
                 <View style={styles.actionIconBg}>
-                  <DownloadSimple size={20} color={colors.primary} weight="bold" />
+                  <DownloadSimple size={20} color={theme.colors.primary} weight="bold" />
                 </View>
                 <Text style={styles.actionText}>Top Up</Text>
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('Withdraw')} activeOpacity={0.85}>
+              <Pressable style={styles.actionButton} onPress={() => navigation.navigate('Withdraw')}>
                 <View style={styles.actionIconBg}>
-                  <UploadSimple size={20} color={colors.primary} weight="bold" />
+                  <UploadSimple size={20} color={theme.colors.primary} weight="bold" />
                 </View>
                 <Text style={styles.actionText}>Withdraw</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
 
           {/* 2. LINKED PAYMENT METHODS */}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Linked Methods</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('AddPaymentMethod')}>
+            <Pressable onPress={() => navigation.navigate('AddPaymentMethod')}>
               <Text style={styles.addText}>+ Add</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {paymentMethods.length === 0 ? (
              <Text style={styles.emptyText}>No saved payment methods yet.</Text>
           ) : (
             paymentMethods.map(method => (
-              <TouchableOpacity key={method.id} style={[styles.paymentCard, method.isDefault && styles.defaultPaymentCard]} onPress={() => handleSetDefault(method.id)} activeOpacity={0.8}>
+              <Pressable key={method.id} style={[styles.paymentCard, method.isDefault ? styles.defaultPaymentCard : null]} onPress={() => handleSetDefault(method.id)}>
                 <View style={styles.paymentCardRow}>
                   <View style={styles.brandIconContainer}>
                     {method.type === 'card' ? (
-                      <CreditCard size={24} color={colors.primary} weight="duotone" />
+                      <CreditCard size={24} color={theme.colors.primary} weight="duotone" />
                     ) : (
-                      <Phone size={24} color={colors.success} weight="duotone" />
+                      <Phone size={24} color={theme.colors.success} weight="duotone" />
                     )}
                   </View>
                   <View style={styles.cardDetails}>
@@ -176,13 +180,16 @@ export function WalletScreen(): React.JSX.Element {
                     <Text style={styles.cardNumber}>{method.type === 'card' ? method.cardNumberMasked : method.phoneNumber}</Text>
                   </View>
                   <View style={styles.actionIconsRow}>
-                    {method.isDefault && <CheckCircle size={24} color={colors.primary} weight="fill" />}
-                    <TouchableOpacity onPress={() => handleDeleteMethod(method.id)} style={{ padding: spacing.xs, marginLeft: spacing.sm }}>
-                      <Trash size={18} color={colors.error} />
-                    </TouchableOpacity>
+                    {method.isDefault ? <CheckCircle size={24} color={theme.colors.primary} weight="fill" /> : null}
+                    <Pressable onPress={(event) => {
+                      event.stopPropagation();
+                      handleDeleteMethod(method.id);
+                    }} style={{ padding: spacing.xs, marginLeft: spacing.sm }}>
+                      <Trash size={18} color={theme.colors.error} />
+                    </Pressable>
                   </View>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             ))
           )}
 
@@ -195,7 +202,7 @@ export function WalletScreen(): React.JSX.Element {
             return (
               <View key={item.id} style={styles.transactionCard}>
                 <View style={styles.transactionLeft}>
-                  <View style={[styles.iconWrapper, { backgroundColor: isPositive ? '#E6F8EB' : colors.primaryFaded }]}>
+                  <View style={[styles.iconWrapper, { backgroundColor: isPositive ? theme.colors.successLight : theme.colors.primaryFaded }]}>
                     {renderTransactionIcon(item.type)}
                   </View>
                   <View style={styles.transactionDetails}>
@@ -204,10 +211,10 @@ export function WalletScreen(): React.JSX.Element {
                   </View>
                 </View>
                 <View style={styles.transactionRight}>
-                  <Text style={[styles.transactionAmount, { color: isPositive ? colors.success : colors.textPrimary }]}>
+                  <Text style={[styles.transactionAmount, { color: isPositive ? theme.colors.success : theme.colors.textPrimary }]}>
                     {isPositive ? '+' : ''}{item.amount.toLocaleString()} đ
                   </Text>
-                  {item.status === 'pending' && <Text style={styles.pendingText}>Pending</Text>}
+                  {item.status === 'pending' ? <Text style={styles.pendingText}>Pending</Text> : null}
                 </View>
               </View>
             );
@@ -218,50 +225,50 @@ export function WalletScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F8FAF9' },
+const createStyles = (theme: AppTheme) => ({
+  root: { flex: 1, backgroundColor: theme.colors.background },
   gradientContainer: { position: 'absolute', top: 0, left: 0, right: 0, height: 300, zIndex: 0 },
   safeArea: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.lg },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.divider, ...shadows.sm },
-  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: colors.textPrimary },
+  backBtn: { ...theme.components.headerButton, width: 40, height: 40, borderRadius: 20 },
+  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
   scrollContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
   
-  balanceCard: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.xl, ...shadows.sm, marginBottom: spacing.xl, borderWidth: 1, borderColor: 'rgba(42, 193, 188, 0.2)' },
+  balanceCard: { backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface, borderRadius: borderRadius.lg, padding: spacing.xl, ...theme.effects.floatingShadow, marginBottom: spacing.xl, borderWidth: 1, borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.primaryFaded },
   balanceHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs },
-  balanceTitle: { fontFamily: fontFamilies.medium, fontSize: fontSizes.sm, color: colors.textSecondary, marginLeft: spacing.sm },
+  balanceTitle: { fontFamily: fontFamilies.medium, fontSize: fontSizes.sm, color: theme.colors.textSecondary, marginLeft: spacing.sm },
   amountRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: spacing.xl },
-  amountText: { fontFamily: fontFamilies.bold, fontSize: 36, color: colors.textPrimary },
-  currencyText: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: colors.textSecondary, marginLeft: spacing.xs },
+  amountText: { fontFamily: fontFamilies.bold, fontSize: 36, color: theme.colors.textPrimary },
+  currencyText: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textSecondary, marginLeft: spacing.xs },
   
-  actionRow: { flexDirection: 'row', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: spacing.lg },
+  actionRow: { flexDirection: 'row', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider, paddingTop: spacing.lg },
   actionButton: { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 },
-  actionIconBg: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primaryFaded, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
-  actionText: { fontFamily: fontFamilies.medium, fontSize: fontSizes.sm, color: colors.textPrimary },
+  actionIconBg: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.primaryFaded, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm, borderWidth: 1, borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.primaryFaded },
+  actionText: { fontFamily: fontFamilies.medium, fontSize: fontSizes.sm, color: theme.colors.textPrimary },
 
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
-  sectionTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: colors.textPrimary },
-  addText: { fontFamily: fontFamilies.semiBold, fontSize: fontSizes.md, color: colors.primary },
+  sectionTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
+  addText: { fontFamily: fontFamilies.semiBold, fontSize: fontSizes.md, color: theme.colors.primary },
   
-  paymentCard: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1.5, borderColor: colors.border, ...shadows.sm },
-  defaultPaymentCard: { borderColor: colors.primary, backgroundColor: colors.primaryFaded },
+  paymentCard: { backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1.5, borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.border, ...theme.effects.cardShadow },
+  defaultPaymentCard: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryFaded },
   paymentCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  brandIconContainer: { width: 44, height: 44, borderRadius: borderRadius.md, backgroundColor: colors.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
+  brandIconContainer: { width: 44, height: 44, borderRadius: borderRadius.md, backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
   cardDetails: { flex: 1, justifyContent: 'center' },
   actionIconsRow: { flexDirection: 'row', alignItems: 'center' },
-  brandName: { fontFamily: fontFamilies.bold, fontSize: fontSizes.md, color: colors.textPrimary },
-  cardNumber: { fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  brandName: { fontFamily: fontFamilies.bold, fontSize: fontSizes.md, color: theme.colors.textPrimary },
+  cardNumber: { fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, color: theme.colors.textSecondary, marginTop: 2 },
   defaultBadge: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs, marginLeft: 60 },
-  defaultText: { fontFamily: fontFamilies.medium, fontSize: fontSizes.xs, color: colors.primary, marginLeft: spacing.xs },
-  emptyText: { fontFamily: fontFamilies.regular, fontSize: fontSizes.md, color: colors.textTertiary, textAlign: 'center', marginVertical: spacing.md },
+  defaultText: { fontFamily: fontFamilies.medium, fontSize: fontSizes.xs, color: theme.colors.primary, marginLeft: spacing.xs },
+  emptyText: { fontFamily: fontFamilies.regular, fontSize: fontSizes.md, color: theme.colors.textTertiary, textAlign: 'center', marginVertical: spacing.md },
 
-  transactionCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.divider, ...shadows.sm },
+  transactionCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider, ...theme.effects.cardShadow },
   transactionLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: spacing.sm },
   iconWrapper: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginRight: spacing.md },
   transactionDetails: { flex: 1 },
-  transactionTitle: { fontFamily: fontFamilies.semiBold, fontSize: fontSizes.sm, color: colors.textPrimary, marginBottom: 2 },
-  transactionDate: { fontFamily: fontFamilies.regular, fontSize: 11, color: colors.textSecondary },
+  transactionTitle: { fontFamily: fontFamilies.semiBold, fontSize: fontSizes.sm, color: theme.colors.textPrimary, marginBottom: 2 },
+  transactionDate: { fontFamily: fontFamilies.regular, fontSize: 11, color: theme.colors.textSecondary },
   transactionRight: { alignItems: 'flex-end' },
   transactionAmount: { fontFamily: fontFamilies.bold, fontSize: fontSizes.md },
-  pendingText: { fontFamily: fontFamilies.medium, fontSize: 10, color: colors.warning, marginTop: 2 },
+  pendingText: { fontFamily: fontFamilies.medium, fontSize: 10, color: theme.colors.warning, marginTop: 2 },
 });

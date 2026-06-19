@@ -7,7 +7,8 @@
 
 import React, { memo } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { colors, spacing, borderRadius, shadows } from '@shared/theme';
+import { spacing } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 
 interface SectionCardProps {
   children: React.ReactNode;
@@ -20,8 +21,10 @@ export const SectionCard = memo(function SectionCard({
   style,
   testID,
 }: SectionCardProps): React.JSX.Element {
+  const theme = useTheme();
+
   return (
-    <View style={[styles.card, style]} testID={testID}>
+    <View style={[theme.components.card, styles.card, style]} testID={testID}>
       {children}
     </View>
   );
@@ -29,10 +32,7 @@ export const SectionCard = memo(function SectionCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
     padding: spacing.xxl,
     marginBottom: spacing.lg,
-    ...shadows.md,
   },
 });

@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Check } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import { OUTBOUND_STEPS, RETURN_STEPS, CHECKOUT_STEP, PAYMENT_STEP } from '../store/useBookingStore';
 
@@ -45,6 +48,8 @@ export const BookingProgressBar = ({
   onStepPress
 }: BookingProgressBarProps): React.JSX.Element => {
   const { searchParams, highestStepReached } = useBookingStore();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const isRoundTrip = searchParams.isRoundTrip ?? false;
 
   // Calculate total steps based on trip type
@@ -86,10 +91,12 @@ export const BookingProgressBar = ({
             const isCheckout = isCheckoutStep(s);
             const isPayment = isPaymentStep(s);
             return (
-              <TouchableOpacity
+              <Pressable
                 key={`step-${s}`}
-                style={styles.stepBubbleContainer}
-                activeOpacity={0.7}
+                style={({ pressed }) => [
+                  styles.stepBubbleContainer,
+                  pressed && s <= highestStepReached ? styles.stepBubblePressed : null,
+                ]}
                 disabled={!onStepPress || s > highestStepReached}
                 onPress={() => onStepPress && onStepPress(s)}
               >
@@ -108,7 +115,7 @@ export const BookingProgressBar = ({
                   ]}
                 >
                   {isCompleted ? (
-                    <Check size={12} color={colors.textInverse} weight="bold" />
+                    <Check size={12} color={theme.colors.textInverse} weight="bold" />
                   ) : (
                     <Text
                       style={[
@@ -124,7 +131,7 @@ export const BookingProgressBar = ({
                     </Text>
                   )}
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>
@@ -133,7 +140,7 @@ export const BookingProgressBar = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.lg,
@@ -151,20 +158,20 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
     textAlign: 'center',
   },
   progressBarBg: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     overflow: 'hidden',
     marginBottom: spacing.sm,
   },
   progressBarActive: {
     height: '100%',
     borderRadius: 2,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   stepsRow: {
     flexDirection: 'row',
@@ -177,78 +184,82 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     paddingTop: 8,
   },
+  stepBubblePressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.96 }],
+  },
   stepBubble: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#E6F4F3',
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   stepBubbleActive: {
-    backgroundColor: colors.primary,
-    borderColor: '#E6F4F3',
-    shadowColor: colors.primary,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.primaryFaded,
+    shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.35,
     shadowRadius: 6,
     elevation: 5,
   },
   stepBubbleCompleted: {
-    backgroundColor: colors.primary,
-    borderColor: '#E6F4F3',
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.primaryFaded,
   },
   // Return leg steps (5-8) - muted styling
   stepBubbleReturn: {
-    backgroundColor: colors.surface,
-    borderColor: colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   stepBubbleActiveReturn: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primaryFaded,
   },
   stepBubbleCompletedReturn: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primaryFaded,
   },
   // Checkout step (9)
   stepBubbleCheckout: {
-    backgroundColor: colors.surface,
-    borderColor: colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   stepBubbleActiveCheckout: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primaryFaded,
   },
   // Payment step (10)
   stepBubblePayment: {
-    backgroundColor: colors.surface,
-    borderColor: colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   stepBubbleActivePayment: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primaryFaded,
   },
   stepText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   stepTextActive: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   stepTextCompleted: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   stepTextReturn: {
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   stepTextCheckout: {
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   stepTextPayment: {
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
 });

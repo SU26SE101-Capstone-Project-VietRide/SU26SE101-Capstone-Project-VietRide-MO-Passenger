@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { View, Text, Pressable } from 'react-native';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface StopOptionProps {
   id: string;
@@ -27,15 +29,16 @@ export function StopOption({
   icon = '📍',
 }: StopOptionProps): React.JSX.Element {
   const isDisabled = status === 'disabled';
+  const styles = useThemedStyles(createStyles);
 
   return (
-    <TouchableOpacity
-      activeOpacity={isDisabled ? 1 : 0.7}
+    <Pressable
       onPress={() => !isDisabled && onPress()}
-      style={[
+      style={({ pressed }) => [
         styles.pointCard,
         isSelected && styles.pointCardSelected,
         isDisabled && styles.pointCardDisabled,
+        pressed && !isDisabled && styles.pointCardPressed,
       ]}
     >
       {/* Icon */}
@@ -64,7 +67,7 @@ export function StopOption({
         {time ? (
           <Text style={styles.pointTime}>{time}</Text>
         ) : null}
-        {refundAmount ? (
+        {refundAmount != null ? (
           <View style={styles.refundRow}>
             <Text style={styles.refundIcon}>💰</Text>
             <Text style={styles.refundText}>
@@ -87,42 +90,46 @@ export function StopOption({
             isSelected && styles.radioSelected,
           ]}
         >
-          {isSelected && <View style={styles.radioDot} />}
+          {isSelected ? <View style={styles.radioDot} /> : null}
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   pointCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: borderRadius.lg,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.border,
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
   pointCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryFaded,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
   },
   pointCardDisabled: {
     opacity: 0.5,
+  },
+  pointCardPressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.99 }],
   },
   pointIcon: {
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.lg,
   },
   pointIconDisabled: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
   },
   pointIconText: {
     fontSize: 16,
@@ -133,23 +140,23 @@ const styles = StyleSheet.create({
   pointName: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.xs,
   },
   pointNameDisabled: {
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   pointAddress: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     lineHeight: fontSizes.sm * 1.6,
     marginBottom: spacing.xs,
   },
   pointTime: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginTop: spacing.xs,
   },
   refundRow: {
@@ -164,12 +171,12 @@ const styles = StyleSheet.create({
   refundText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.success,
+    color: theme.colors.success,
   },
   disabledReason: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     fontStyle: 'italic',
     marginTop: spacing.xs,
   },
@@ -178,18 +185,18 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: spacing.xs,
   },
   radioSelected: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
   },
   radioDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
 });

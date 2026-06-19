@@ -4,8 +4,10 @@
  */
 
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { View, Text, ViewStyle } from 'react-native';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface TripSummaryRowProps {
   label: string;
@@ -22,6 +24,8 @@ export const TripSummaryRow = memo(function TripSummaryRow({
   showDivider = false,
   style,
 }: TripSummaryRowProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={[styles.wrap, style]}>
       <Text
@@ -34,12 +38,12 @@ export const TripSummaryRow = memo(function TripSummaryRow({
       >
         {value}
       </Text>
-      {showDivider && <View style={styles.divider} />}
+      {showDivider ? <View style={styles.divider} /> : null}
     </View>
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -48,26 +52,26 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   labelTotal: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   value: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   valueTotal: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.h3,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.divider,
+    backgroundColor: theme.colors.divider,
     marginVertical: spacing.lg,
   },
 });

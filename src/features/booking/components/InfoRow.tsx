@@ -5,8 +5,10 @@
  */
 
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { View, Text, ViewStyle } from 'react-native';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface InfoRowProps {
   label: string;
@@ -21,33 +23,35 @@ export const InfoRow = memo(function InfoRow({
   showDivider = false,
   style,
 }: InfoRowProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={[styles.wrap, style]}>
       <Text style={styles.label}>{label}</Text>
       <Text style={styles.value}>{value}</Text>
-      {showDivider && <View style={styles.divider} />}
+      {showDivider ? <View style={styles.divider} /> : null}
     </View>
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   wrap: {
     marginBottom: spacing.lg,
   },
   label: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.xs,
   },
   value: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.divider,
+    backgroundColor: theme.colors.divider,
     marginTop: spacing.lg,
   },
 });

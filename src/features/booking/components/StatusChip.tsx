@@ -9,7 +9,9 @@
 
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import type { AppTheme } from '@shared/theme';
 
 type ChipVariant = 'success' | 'error' | 'warning' | 'info' | 'neutral';
 
@@ -19,12 +21,19 @@ interface StatusChipProps {
   style?: ViewStyle;
 }
 
-const variantStyles: Record<ChipVariant, { bg: string; text: string }> = {
-  success: { bg: 'rgba(42,193,188,0.12)', text: colors.primary },
-  error: { bg: 'rgba(255,77,77,0.12)', text: '#FF4B4B' },
-  warning: { bg: 'rgba(235,195,0,0.15)', text: '#8A6D00' },
-  info: { bg: 'rgba(42,193,188,0.12)', text: colors.primary },
-  neutral: { bg: colors.surfaceAlt, text: colors.textSecondary },
+const getVariantStyle = (theme: AppTheme, variant: ChipVariant): { bg: string; text: string } => {
+  const styles: Record<ChipVariant, { bg: string; text: string }> = {
+    success: { bg: theme.colors.successLight, text: theme.colors.success },
+    error: { bg: theme.colors.errorLight, text: theme.colors.error },
+    warning: { bg: theme.colors.warningLight, text: theme.colors.warning },
+    info: { bg: theme.colors.infoLight, text: theme.colors.primary },
+    neutral: {
+      bg: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+      text: theme.colors.textSecondary,
+    },
+  };
+
+  return styles[variant];
 };
 
 export const StatusChip = memo(function StatusChip({
@@ -32,7 +41,8 @@ export const StatusChip = memo(function StatusChip({
   variant = 'info',
   style,
 }: StatusChipProps): React.JSX.Element {
-  const palette = variantStyles[variant];
+  const theme = useTheme();
+  const palette = getVariantStyle(theme, variant);
   return (
     <View style={[styles.chip, { backgroundColor: palette.bg }, style]}>
       <Text style={[styles.label, { color: palette.text }]}>{label}</Text>

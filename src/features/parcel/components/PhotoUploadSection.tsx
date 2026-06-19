@@ -1,7 +1,10 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 import { Camera, X } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 export interface PhotoUploadSectionProps {
   photos: string[];
@@ -14,51 +17,52 @@ export const PhotoUploadSection = memo(function PhotoUploadSection({
   onAdd,
   onRemove,
 }: PhotoUploadSectionProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.photoContainer}>
       {photos.length === 0 ? (
-        <TouchableOpacity style={styles.photoUploadBox} onPress={onAdd} activeOpacity={0.7}>
-          <Camera size={32} color={colors.textTertiary} weight="light" />
+        <Pressable style={({ pressed }) => [styles.photoUploadBox, pressed ? styles.pressed : null]} onPress={onAdd}>
+          <Camera size={32} color={theme.colors.textTertiary} weight="light" />
           <Text style={styles.uploadMainText}>Add parcel photos</Text>
           <Text style={styles.uploadSubText}>Support JPG, PNG up to 5MB</Text>
-        </TouchableOpacity>
+        </Pressable>
       ) : (
         <View style={styles.photoGrid}>
           {photos.map((uri, idx) => (
             <View key={`photo-${idx}`} style={styles.thumbnailWrapper}>
               <Image source={{ uri }} style={styles.thumbnail} />
-              <TouchableOpacity
+              <Pressable
                 style={styles.removePhotoBadge}
                 onPress={() => onRemove(idx)}
-                activeOpacity={0.7}
               >
-                <X size={10} color={colors.textInverse} weight="bold" />
-              </TouchableOpacity>
+                <X size={10} color={theme.colors.textInverse} weight="bold" />
+              </Pressable>
             </View>
           ))}
-          <TouchableOpacity
+          <Pressable
             style={[styles.photoUploadBox, styles.photoUploadBoxThumbnail]}
             onPress={onAdd}
-            activeOpacity={0.7}
           >
-            <Camera size={24} color={colors.textTertiary} />
-          </TouchableOpacity>
+            <Camera size={24} color={theme.colors.textTertiary} />
+          </Pressable>
         </View>
       )}
     </View>
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   photoContainer: {
     marginTop: spacing.lg,
   },
   photoUploadBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1.5,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     borderRadius: borderRadius.lg,
     borderStyle: 'dashed',
     paddingVertical: spacing.xxl,
@@ -67,12 +71,12 @@ const styles = StyleSheet.create({
   uploadMainText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   uploadSubText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   photoGrid: {
     flexDirection: 'row',
@@ -86,7 +90,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   thumbnail: {
     width: '100%',
@@ -99,7 +103,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: theme.effects.scrim,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -108,8 +112,12 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: borderRadius.md,
     borderWidth: 1.5,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     borderStyle: 'dashed',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
 });

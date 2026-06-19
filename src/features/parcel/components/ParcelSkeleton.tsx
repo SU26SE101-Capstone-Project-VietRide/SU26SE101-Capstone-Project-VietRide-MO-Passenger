@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet } from 'react-native';
-import { colors, spacing, borderRadius } from '@shared/theme';
+import { View, Animated } from 'react-native';
+import { spacing, borderRadius } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface ParcelSkeletonProps {
   type?: 'station' | 'shipment' | 'summary';
@@ -8,6 +10,7 @@ interface ParcelSkeletonProps {
 }
 
 export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
   const fadeAnim = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
@@ -82,31 +85,31 @@ export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonPr
 
   return (
     <View style={styles.container}>
-      {type === 'station' && Array.from({ length: count }).map((_, i) => renderStationSkeleton(i))}
-      {type === 'shipment' && Array.from({ length: count }).map((_, i) => renderShipmentSkeleton(i))}
-      {type === 'summary' && renderSummarySkeleton()}
+      {type === 'station' ? Array.from({ length: count }).map((_, i) => renderStationSkeleton(i)) : null}
+      {type === 'shipment' ? Array.from({ length: count }).map((_, i) => renderShipmentSkeleton(i)) : null}
+      {type === 'summary' ? renderSummarySkeleton() : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     width: '100%',
   },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     position: 'relative',
     overflow: 'hidden',
   },
   closestTagStub: {
     width: 60,
     height: 16,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     position: 'absolute',
     top: 0,
     left: 0,
@@ -122,26 +125,26 @@ const styles = StyleSheet.create({
   titleStub: {
     width: '65%',
     height: 18,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.xs,
   },
   ratingStub: {
     width: '25%',
     height: 14,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.xs,
   },
   addressLineStub: {
     width: '95%',
     height: 14,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.xs,
     marginBottom: spacing.xs,
   },
   addressLineStubShort: {
     width: '60%',
     height: 14,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.xs,
     marginBottom: spacing.md,
   },
@@ -153,30 +156,30 @@ const styles = StyleSheet.create({
   badgeStub: {
     width: 80,
     height: 24,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.sm,
   },
   buttonStub: {
     width: '100%',
     height: 40,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.md,
   },
   shipmentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   shipmentIconStub: {
     width: 48,
     height: 48,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     marginRight: spacing.md,
   },
   shipmentInfo: {
@@ -191,19 +194,19 @@ const styles = StyleSheet.create({
   shipmentDestStub: {
     width: '50%',
     height: 16,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.xs,
   },
   shipmentBadgeStub: {
     width: 70,
     height: 20,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.full,
   },
   shipmentSubstub: {
     width: '80%',
     height: 12,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.xs,
   },
   routeItemStub: {
@@ -216,18 +219,18 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
   },
   routeTextStub: {
     width: '70%',
     height: 16,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.xs,
   },
   dividerStub: {
     width: 2,
     height: 20,
-    backgroundColor: colors.skeleton,
+    backgroundColor: theme.colors.skeleton,
     marginLeft: 5,
   },
 });

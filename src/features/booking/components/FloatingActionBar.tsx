@@ -6,8 +6,10 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { View, Text, Pressable } from 'react-native';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import type { Seat } from '../types';
 
 interface FloatingActionBarProps {
@@ -25,6 +27,7 @@ export function FloatingActionBar({
   onPress,
   disabled = false,
 }: FloatingActionBarProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
   const formatPrice = (price: number) => {
     return `${price.toLocaleString('vi-VN')}đ`;
   };
@@ -53,35 +56,34 @@ export function FloatingActionBar({
       </View>
 
       {/* CTA Button */}
-      <TouchableOpacity
-        activeOpacity={0.8}
+      <Pressable
         onPress={onPress}
         disabled={disabled || selectedSeats.length === 0}
-        style={[
+        style={({ pressed }) => [
           styles.ctaButton,
           (disabled || selectedSeats.length === 0) && styles.ctaDisabled,
+          pressed && !(disabled || selectedSeats.length === 0) ? styles.ctaPressed : null,
         ]}
       >
         <Text style={styles.ctaText}>{ctaLabel}</Text>
         <Text style={styles.ctaArrow}>→</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.surface,
+    ...theme.components.actionBar,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxxl,
-    ...shadows.xl,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -94,7 +96,7 @@ const styles = StyleSheet.create({
   seatsLabel: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: spacing.xs,
   },
   seatBadges: {
@@ -103,7 +105,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   seatBadge: {
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     borderRadius: borderRadius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
@@ -111,12 +113,12 @@ const styles = StyleSheet.create({
   seatBadgeText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   noSeatsText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   priceInfo: {
     alignItems: 'flex-end',
@@ -124,35 +126,38 @@ const styles = StyleSheet.create({
   priceLabel: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: spacing.xs,
   },
   priceValue: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   ctaButton: {
-    backgroundColor: colors.primary,
+    ...theme.components.primaryButton,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.lg,
   },
   ctaDisabled: {
     opacity: 0.5,
   },
+  ctaPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
+  },
   ctaText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
     marginRight: spacing.sm,
   },
   ctaArrow: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
 });

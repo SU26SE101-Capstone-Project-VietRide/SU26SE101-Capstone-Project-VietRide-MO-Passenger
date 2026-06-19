@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   StatusBar,
 } from 'react-native';
@@ -22,7 +21,10 @@ import {
   Package,
 } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 // Local border radius fallback
 const BR = {
@@ -124,6 +126,8 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const route = useRoute<BookingHistoryRouteProp>();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const [activeMainTab, setActiveMainTab] = useState<'ticket' | 'parcel'>('ticket');
   const [activeTicketFilter, setActiveTicketFilter] = useState<'all' | 'upcoming' | 'past'>('all');
@@ -174,13 +178,13 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const renderParcelStatusIcon = (status: ShipmentItem['status']) => {
     switch (status) {
       case 'In Transit':
-        return <Truck size={24} color={colors.primary} weight="bold" />;
+        return <Truck size={24} color={theme.colors.primary} weight="bold" />;
       case 'Delivered':
-        return <Check size={20} color={colors.textTertiary} weight="bold" />;
+        return <Check size={20} color={theme.colors.textTertiary} weight="bold" />;
       case 'Pending':
-        return <Clock size={22} color="#B45309" weight="bold" />;
+        return <Clock size={22} color={theme.colors.warning} weight="bold" />;
       case 'Cancelled':
-        return <XCircle size={22} color={colors.error} weight="bold" />;
+        return <XCircle size={22} color={theme.colors.error} weight="bold" />;
       default:
         return null;
     }
@@ -188,17 +192,19 @@ export function BookingHistoryScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
 
       {/* Navigation Top Bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity
+        <Pressable
           onPress={() => navigation.goBack()}
           style={styles.backButton}
-          activeOpacity={0.7}
         >
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+          <ArrowLeft size={24} color={theme.colors.textPrimary} />
+        </Pressable>
         <Text style={styles.topBarTitle}>
           {t('profile.history', 'History')}
         </Text>
@@ -207,45 +213,42 @@ export function BookingHistoryScreen(): React.JSX.Element {
 
       {/* Main Tabs (Ticket vs Parcel) */}
       <View style={styles.mainTabContainer}>
-        <TouchableOpacity
-          style={[styles.mainTabButton, activeMainTab === 'ticket' && styles.mainTabButtonActive]}
+        <Pressable
+          style={[styles.mainTabButton, activeMainTab === 'ticket' ? styles.mainTabButtonActive : null]}
           onPress={() => setActiveMainTab('ticket')}
-          activeOpacity={0.8}
         >
-          <Ticket size={20} color={activeMainTab === 'ticket' ? '#fff' : colors.textSecondary} weight={activeMainTab === 'ticket' ? 'fill' : 'regular'} />
-          <Text style={[styles.mainTabText, activeMainTab === 'ticket' && styles.mainTabTextActive]}>
+          <Ticket size={20} color={activeMainTab === 'ticket' ? theme.colors.textInverse : theme.colors.textSecondary} weight={activeMainTab === 'ticket' ? 'fill' : 'regular'} />
+          <Text style={[styles.mainTabText, activeMainTab === 'ticket' ? styles.mainTabTextActive : null]}>
             Tickets
           </Text>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={[styles.mainTabButton, activeMainTab === 'parcel' && styles.mainTabButtonActive]}
+        <Pressable
+          style={[styles.mainTabButton, activeMainTab === 'parcel' ? styles.mainTabButtonActive : null]}
           onPress={() => setActiveMainTab('parcel')}
-          activeOpacity={0.8}
         >
-          <Package size={20} color={activeMainTab === 'parcel' ? '#fff' : colors.textSecondary} weight={activeMainTab === 'parcel' ? 'fill' : 'regular'} />
-          <Text style={[styles.mainTabText, activeMainTab === 'parcel' && styles.mainTabTextActive]}>
+          <Package size={20} color={activeMainTab === 'parcel' ? theme.colors.textInverse : theme.colors.textSecondary} weight={activeMainTab === 'parcel' ? 'fill' : 'regular'} />
+          <Text style={[styles.mainTabText, activeMainTab === 'parcel' ? styles.mainTabTextActive : null]}>
             Parcels
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
-      {activeMainTab === 'ticket' && (
+      {activeMainTab === 'ticket' ? (
         <View style={styles.filterContainer}>
           {(['all', 'upcoming', 'past'] as const).map((filter) => (
-            <TouchableOpacity
+            <Pressable
               key={filter}
               style={[
                 styles.filterTab,
-                activeTicketFilter === filter && styles.activeFilterTab,
+                activeTicketFilter === filter ? styles.activeFilterTab : null,
               ]}
               onPress={() => setActiveTicketFilter(filter)}
-              activeOpacity={0.7}
             >
               <Text
                 style={[
                   styles.filterLabel,
-                  activeTicketFilter === filter && styles.activeFilterLabel,
+                  activeTicketFilter === filter ? styles.activeFilterLabel : null,
                 ]}
               >
                 {filter === 'all'
@@ -254,10 +257,10 @@ export function BookingHistoryScreen(): React.JSX.Element {
                     ? t('profile.upcoming', 'Upcoming')
                     : t('profile.past', 'Past')}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
-      )}
+      ) : null}
 
       {/* Scroll List */}
       <ScrollView
@@ -267,37 +270,36 @@ export function BookingHistoryScreen(): React.JSX.Element {
         {activeMainTab === 'ticket' ? (
           filteredTickets.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ticket size={48} color={colors.textTertiary} weight="thin" />
+              <Ticket size={48} color={theme.colors.textTertiary} weight="thin" />
               <Text style={styles.emptyText}>
                 {t('profile.noTickets', 'No ticket history found.')}
               </Text>
             </View>
           ) : (
             filteredTickets.map((ticket) => (
-              <TouchableOpacity
+              <Pressable
                 key={ticket.id}
                 style={styles.ticketCard}
-                activeOpacity={0.8}
                 onPress={() => navigation.navigate('Booking', { screen: 'DigitalTicket', params: { bookingRef: ticket.bookingRef, fromHistory: true } })}
               >
                 {/* Card Header */}
                 <View style={styles.ticketHeader}>
                   <View style={styles.refRow}>
-                    <Ticket size={18} color={colors.primary} style={styles.ticketIcon} />
+                    <Ticket size={18} color={theme.colors.primary} style={styles.ticketIcon} />
                     <Text style={styles.refText}>{ticket.bookingRef}</Text>
                   </View>
                   <View
                     style={[
                       styles.statusBadge,
-                      ticket.status === 'upcoming' && styles.upcomingBadge,
-                      ticket.status === 'completed' && styles.completedBadge,
+                      ticket.status === 'upcoming' ? styles.upcomingBadge : null,
+                      ticket.status === 'completed' ? styles.completedBadge : null,
                     ]}
                   >
                     <Text
                       style={[
                         styles.statusText,
-                        ticket.status === 'upcoming' && styles.upcomingStatusText,
-                        ticket.status === 'completed' && styles.completedStatusText,
+                        ticket.status === 'upcoming' ? styles.upcomingStatusText : null,
+                        ticket.status === 'completed' ? styles.completedStatusText : null,
                       ]}
                     >
                       {ticket.status === 'upcoming'
@@ -327,15 +329,15 @@ export function BookingHistoryScreen(): React.JSX.Element {
                 {/* Details Row */}
                 <View style={styles.detailsRow}>
                   <View style={styles.detailItem}>
-                    <CalendarBlank size={16} color={colors.textSecondary} style={styles.detailIcon} />
+                    <CalendarBlank size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
                     <Text style={styles.detailValueText}>{ticket.date}</Text>
                   </View>
                   <View style={styles.detailItem}>
-                    <Clock size={16} color={colors.textSecondary} style={styles.detailIcon} />
+                    <Clock size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
                     <Text style={styles.detailValueText}>{ticket.time}</Text>
                   </View>
                   <View style={styles.detailItem}>
-                    <MapPin size={16} color={colors.textSecondary} style={styles.detailIcon} />
+                    <MapPin size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
                     <Text style={styles.detailValueText}>Seat {ticket.seatNumber}</Text>
                   </View>
                 </View>
@@ -345,24 +347,23 @@ export function BookingHistoryScreen(): React.JSX.Element {
                   <Text style={styles.priceLabel}>{t('booking.totalPrice', 'Total Price')}</Text>
                   <Text style={styles.priceValue}>{ticket.price}</Text>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             ))
           )
         ) : (
           /* Parcel List Rendering */
           MOCK_SHIPMENTS.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Package size={48} color={colors.textTertiary} weight="thin" />
+              <Package size={48} color={theme.colors.textTertiary} weight="thin" />
               <Text style={styles.emptyText}>No shipment history found.</Text>
             </View>
           ) : (
             <View style={styles.parcelList}>
               {MOCK_SHIPMENTS.map((item) => (
-                <TouchableOpacity
+                <Pressable
                   key={item.id}
                   style={styles.parcelCard}
                   onPress={() => navigation.navigate('Parcel', { screen: 'ParcelDetail', params: { parcelId: item.id, fromHistory: true } })}
-                  activeOpacity={0.8}
                 >
                   <View style={styles.parcelIconContainer}>
                     {renderParcelStatusIcon(item.status)}
@@ -378,7 +379,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
                       Order #{item.id} • {item.date}
                     </Text>
                   </View>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           )
@@ -388,10 +389,10 @@ export function BookingHistoryScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   safeContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   topBar: {
     height: 56,
@@ -399,7 +400,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   backButton: {
     width: 40,
@@ -411,7 +414,7 @@ const styles = StyleSheet.create({
   topBarTitle: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   topBarRightPlaceholder: {
     width: 40,
@@ -420,9 +423,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     gap: spacing.md,
   },
   mainTabButton: {
@@ -432,45 +435,48 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: BR.lg,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     gap: spacing.sm,
   },
   mainTabButtonActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
   mainTabText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   mainTabTextActive: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   filterTab: {
     flex: 1,
     paddingVertical: spacing.sm,
     alignItems: 'center',
     borderRadius: BR.full,
-    backgroundColor: colors.transparent,
+    backgroundColor: 'transparent',
   },
   activeFilterTab: {
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
   },
   filterLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   activeFilterLabel: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -485,17 +491,17 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginTop: spacing.md,
   },
   ticketCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: BR.lg,
     padding: spacing.lg,
     marginBottom: spacing.xl,
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   ticketHeader: {
     flexDirection: 'row',
@@ -513,7 +519,7 @@ const styles = StyleSheet.create({
   refText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   statusBadge: {
     paddingVertical: 4,
@@ -521,20 +527,20 @@ const styles = StyleSheet.create({
     borderRadius: BR.sm,
   },
   upcomingBadge: {
-    backgroundColor: colors.infoLight,
+    backgroundColor: theme.colors.infoLight,
   },
   completedBadge: {
-    backgroundColor: colors.successLight,
+    backgroundColor: theme.colors.successLight,
   },
   statusText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
   },
   upcomingStatusText: {
-    color: colors.info,
+    color: theme.colors.info,
   },
   completedStatusText: {
-    color: colors.success,
+    color: theme.colors.success,
   },
   routeContainer: {
     flexDirection: 'row',
@@ -550,19 +556,19 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
   },
   timelineLine: {
     width: 1.5,
     flex: 1,
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.border,
     marginVertical: 4,
   },
   redDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.error,
+    backgroundColor: theme.colors.error,
   },
   routeTextContainer: {
     flex: 1,
@@ -573,16 +579,18 @@ const styles = StyleSheet.create({
   stationText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   detailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     borderRadius: BR.md,
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   detailItem: {
     flexDirection: 'row',
@@ -594,25 +602,25 @@ const styles = StyleSheet.create({
   detailValueText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   ticketFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     paddingTop: spacing.md,
   },
   priceLabel: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   priceValue: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
 
   /* Parcel Styles */
@@ -622,19 +630,19 @@ const styles = StyleSheet.create({
   parcelCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: 24,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.divider,
-    ...shadows.sm,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    ...theme.effects.cardShadow,
   },
   parcelIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -651,7 +659,7 @@ const styles = StyleSheet.create({
   parcelDestination: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     flex: 1,
     paddingRight: spacing.sm,
   },
@@ -665,33 +673,33 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   badgeTransit: {
-    backgroundColor: colors.successLight,
+    backgroundColor: theme.colors.successLight,
   },
   textTransit: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   badgeDelivered: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
   },
   textDelivered: {
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   badgePending: {
-    backgroundColor: colors.warningLight,
+    backgroundColor: theme.colors.warningLight,
   },
   textPending: {
-    color: '#B45309',
+    color: theme.colors.warning,
   },
   badgeCancelled: {
-    backgroundColor: colors.errorLight,
+    backgroundColor: theme.colors.errorLight,
   },
   textCancelled: {
-    color: colors.error,
+    color: theme.colors.error,
   },
   parcelMeta: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     lineHeight: 16,
   },
 });

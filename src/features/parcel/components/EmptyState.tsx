@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Package } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface EmptyStateProps {
   title: string;
@@ -18,23 +21,26 @@ export function EmptyState({
   onPressButton,
   icon,
 }: EmptyStateProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <View style={styles.iconContainer}>
-        {icon || <Package size={48} color={colors.textTertiary} weight="light" />}
+        {icon || <Package size={48} color={theme.colors.textTertiary} weight="light" />}
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>
-      {buttonText && onPressButton && (
-        <TouchableOpacity style={styles.button} onPress={onPressButton} activeOpacity={0.8}>
+      {buttonText && onPressButton ? (
+        <Pressable style={styles.button} onPress={onPressButton}>
           <Text style={styles.buttonText}>{buttonText}</Text>
-        </TouchableOpacity>
-      )}
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -46,7 +52,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
@@ -54,21 +60,21 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   description: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: fontSizes.sm * 1.5,
     marginBottom: spacing.xl,
     paddingHorizontal: spacing.md,
   },
   button: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.md,
@@ -79,6 +85,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
 });

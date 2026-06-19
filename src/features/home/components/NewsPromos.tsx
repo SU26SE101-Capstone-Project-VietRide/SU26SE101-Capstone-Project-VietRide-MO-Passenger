@@ -127,7 +127,7 @@ const createStyles = (theme: AppTheme) => ({
   tagText: {
     fontFamily: fontFamilies.medium,
     fontSize: 10,
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },

@@ -3,7 +3,7 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Switch,
   Image,
   Alert,
@@ -299,7 +299,7 @@ export function CreateParcelScreen(): React.JSX.Element {
                       thumbColor={theme.colors.surfaceElevated}
                     />
                   </View>
-                  {codEnabled && (
+                  {codEnabled ? (
                     <Input
                       label="COD Collection Amount"
                       placeholder="Enter COD amount (₫)"
@@ -307,7 +307,7 @@ export function CreateParcelScreen(): React.JSX.Element {
                       value={codAmount}
                       onChangeText={setCodAmount}
                     />
-                  )}
+                  ) : null}
 
                   <Input
                     label="Estimated Value (Optional)"
@@ -359,16 +359,15 @@ export function CreateParcelScreen(): React.JSX.Element {
 
         {/* Absolute Next Action Bar */}
         <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-          {step === 4 && (
+          {step === 4 ? (
             <View style={styles.priceSummaryBox}>
               <Text style={styles.totalPriceLabel}>Total Amount</Text>
               <Text style={styles.totalPriceValue}>₫{totalPrice.toLocaleString()}</Text>
             </View>
-          )}
-          <TouchableOpacity
-            style={[styles.nextActionButton, step === 4 && styles.nextActionButtonSummary]}
+          ) : null}
+          <Pressable
+            style={[styles.nextActionButton, step === 4 ? styles.nextActionButtonSummary : null]}
             onPress={handleNextStep}
-            activeOpacity={0.85}
           >
             <Text style={styles.nextActionButtonText}>
               {step === 4 ? 'Confirm & Pay' : 'Next Step'}
@@ -379,7 +378,7 @@ export function CreateParcelScreen(): React.JSX.Element {
                     weight="bold"
                     style={{ transform: [{ rotate: '180deg' }] }}
                   />
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Photo Upload Method Choice Modal */}
@@ -401,20 +400,19 @@ export function CreateParcelScreen(): React.JSX.Element {
         />
 
         {/* Simulated Gallery Photo Selection Modal */}
-        {galleryViewVisible && (
+        {galleryViewVisible ? (
           <View style={styles.galleryModalRoot}>
             <View style={styles.galleryContainer}>
               <View style={styles.galleryHeader}>
-                <TouchableOpacity
+                <Pressable
                   style={styles.galleryCloseBtn}
-                  activeOpacity={0.7}
                   onPress={() => {
                     setSelectedGalleryPhotos([]);
                     setGalleryViewVisible(false);
                   }}
                 >
                   <ArrowLeft size={22} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
+                </Pressable>
                 <View style={styles.galleryTitleContainer}>
                   <Text style={styles.galleryTitle}>All Photos</Text>
                   <Text style={styles.gallerySubtitle}>Select package photos to import</Text>
@@ -436,31 +434,29 @@ export function CreateParcelScreen(): React.JSX.Element {
                     const isSelected = selectedGalleryPhotos.includes(index);
                     const selectionIndex = selectedGalleryPhotos.indexOf(index);
                     return (
-                      <TouchableOpacity
+                      <Pressable
                         key={`gallery-item-${index}`}
-                        style={[styles.galleryGridItem, isSelected && styles.galleryGridItemActive]}
-                        activeOpacity={0.85}
+                        style={[styles.galleryGridItem, isSelected ? styles.galleryGridItemActive : null]}
                         onPress={() => handleChooseGalleryPhoto(index)}
                       >
                         <Image source={{ uri }} style={styles.galleryImage} />
-                        {isSelected && (
+                        {isSelected ? (
                           <View style={styles.galleryCheckboxActive}>
                             <Text style={styles.galleryCheckboxText}>{selectionIndex + 1}</Text>
                           </View>
-                        )}
-                      </TouchableOpacity>
+                        ) : null}
+                      </Pressable>
                     );
                   })}
                 </View>
               </ScrollView>
               <View style={styles.galleryBottomBar}>
-                <TouchableOpacity
+                <Pressable
                   style={[
                     styles.galleryImportBtn,
-                    selectedGalleryPhotos.length === 0 && styles.galleryImportBtnDisabled,
+                    selectedGalleryPhotos.length === 0 ? styles.galleryImportBtnDisabled : null,
                   ]}
                   disabled={selectedGalleryPhotos.length === 0}
-                  activeOpacity={0.85}
                   onPress={handleImportGalleryPhotos}
                 >
                   <Text style={styles.galleryImportBtnText}>
@@ -468,11 +464,11 @@ export function CreateParcelScreen(): React.JSX.Element {
                       ? `Import Selected (${selectedGalleryPhotos.length})`
                       : 'Select Photos to Import'}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </View>
           </View>
-        )}
+        ) : null}
       </SafeAreaView>
     </View>
   );

@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Modal, Image } from 'react-native';
 import { X, Lightning } from 'phosphor-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 export interface CameraViewfinderProps {
   visible: boolean;
@@ -21,33 +23,36 @@ export const CameraViewfinder = ({
   onToggleFlash,
   onSnap,
   lastPhotoUri,
-}: CameraViewfinderProps): React.JSX.Element => (
-  <Modal
-    visible={visible}
-    transparent
-    animationType="fade"
-    onRequestClose={onClose}
-  >
-    <SafeAreaView style={styles.cameraContainer}>
+}: CameraViewfinderProps): React.JSX.Element => {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView style={styles.cameraContainer}>
       {/* Top Bar Controls */}
       <View style={styles.cameraTopBar}>
-        <TouchableOpacity style={styles.cameraCloseBtn} activeOpacity={0.7} onPress={onClose}>
-          <X size={20} color={colors.textInverse} />
-        </TouchableOpacity>
+        <Pressable style={styles.cameraCloseBtn} onPress={onClose}>
+          <X size={20} color={theme.colors.textInverse} />
+        </Pressable>
 
         <Text style={styles.cameraModeText}>PHOTO MODE</Text>
 
-        <TouchableOpacity
-          style={[styles.cameraFlashBtn, flashActive && styles.cameraFlashBtnActive]}
-          activeOpacity={0.7}
+        <Pressable
+          style={[styles.cameraFlashBtn, flashActive ? styles.cameraFlashBtnActive : null]}
           onPress={onToggleFlash}
         >
           <Lightning
             size={20}
-            color={flashActive ? colors.warning : colors.textInverse}
+            color={flashActive ? theme.colors.warning : theme.colors.textInverse}
             weight={flashActive ? 'fill' : 'regular'}
           />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Camera Viewfinder Area */}
@@ -84,7 +89,7 @@ export const CameraViewfinder = ({
         </View>
 
         {/* Snap Shutter Flash Overlay */}
-        {flashActive && <View style={styles.cameraFlashOverlay} pointerEvents="none" />}
+        {flashActive ? <View style={styles.cameraFlashOverlay} pointerEvents="none" /> : null}
       </View>
 
       {/* Camera Bottom Action Bar */}
@@ -97,23 +102,23 @@ export const CameraViewfinder = ({
           )}
         </View>
 
-        <TouchableOpacity style={styles.cameraShutterOuter} activeOpacity={0.8} onPress={onSnap}>
+        <Pressable style={styles.cameraShutterOuter} onPress={onSnap}>
           <View style={styles.cameraShutterInner} />
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
+        <Pressable
           style={styles.cameraFlipBtn}
-          activeOpacity={0.7}
           onPress={() => {/* flip handled at parent */}}
         >
           <Text style={styles.cameraFlipText}>FLIP</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </SafeAreaView>
   </Modal>
-);
+  );
+};
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   cameraContainer: {
     flex: 1,
     backgroundColor: '#000000',
@@ -136,7 +141,7 @@ const styles = StyleSheet.create({
   cameraModeText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
     letterSpacing: 1.5,
   },
   cameraFlashBtn: {
@@ -212,7 +217,7 @@ const styles = StyleSheet.create({
   },
   cameraFlashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.textPrimary,
     zIndex: 5,
   },
   cameraBottomBar: {
@@ -228,7 +233,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: borderRadius.md,
     overflow: 'hidden',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceAlt,
   },
   cameraAlbumThumb: {
     width: '100%',
@@ -253,7 +258,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.textPrimary,
   },
   cameraFlipBtn: {
     width: 52,
@@ -266,7 +271,7 @@ const styles = StyleSheet.create({
   cameraFlipText: {
     fontFamily: fontFamilies.bold,
     fontSize: 11,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
     letterSpacing: 0.5,
   },
 });

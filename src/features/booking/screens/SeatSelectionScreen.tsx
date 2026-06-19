@@ -4,8 +4,10 @@
  */
 
 import React, { useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView, View, Text } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { ScrollView, View, Text } from 'react-native';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { FloatingActionBar, RouteProgressRow, SeatLegend } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { SeatGrid } from '../components/SeatGrid';
@@ -27,6 +29,7 @@ export function SeatSelectionScreen({ onNext }: SeatSelectionStepProps): React.J
     searchParams,
     setHighestStep,
   } = useBookingStore();
+  const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
     initSeatMap();
@@ -89,7 +92,7 @@ export function SeatSelectionScreen({ onNext }: SeatSelectionStepProps): React.J
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -102,19 +105,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.sm,
   },
   card: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: 28,
     padding: spacing.xxl,
-    ...shadows.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
     marginBottom: spacing.lg,
   },
   legendWrap: {

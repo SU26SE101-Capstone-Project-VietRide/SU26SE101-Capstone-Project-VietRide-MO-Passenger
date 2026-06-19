@@ -2,8 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   Modal,
   StatusBar,
@@ -21,13 +20,18 @@ import {
   CheckCircle,
 } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { Input, Button, LoadingOverlay } from '@shared/components';
 import type { PaymentMethod } from '../types';
 
 export function SavedPaymentsScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   // Mock list of initial payment methods
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
@@ -160,17 +164,19 @@ export function SavedPaymentsScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
 
       {/* Navigation Top Bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity
+        <Pressable
           onPress={() => navigation.goBack()}
           style={styles.backButton}
-          activeOpacity={0.7}
         >
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+          <ArrowLeft size={24} color={theme.colors.textPrimary} />
+        </Pressable>
         <Text style={styles.topBarTitle}>{t('profile.savedPayments', 'Saved Payments')}</Text>
         <View style={styles.topBarRightPlaceholder} />
       </View>
@@ -185,7 +191,7 @@ export function SavedPaymentsScreen(): React.JSX.Element {
 
         {paymentMethods.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <CreditCard size={48} color={colors.textTertiary} weight="thin" />
+            <CreditCard size={48} color={theme.colors.textTertiary} weight="thin" />
             <Text style={styles.emptyText}>
               {t('profile.noPaymentMethods', 'No saved payment methods yet.')}
             </Text>
@@ -193,23 +199,22 @@ export function SavedPaymentsScreen(): React.JSX.Element {
         ) : (
           <View style={styles.listContainer}>
             {paymentMethods.map((method) => (
-              <TouchableOpacity
+              <Pressable
                 key={method.id}
                 style={[
                   styles.paymentCard,
-                  method.isDefault && styles.defaultPaymentCard,
+                  method.isDefault ? styles.defaultPaymentCard : null,
                 ]}
                 onPress={() => handleSetDefault(method.id)}
-                activeOpacity={0.8}
               >
                 {/* Brand / Logo indicators */}
                 <View style={styles.cardHeader}>
                   <View style={styles.brandRow}>
                     <View style={styles.brandIconContainer}>
                       {method.type === 'card' ? (
-                        <CreditCard size={24} color={colors.primary} weight="duotone" />
+                        <CreditCard size={24} color={theme.colors.primary} weight="duotone" />
                       ) : (
-                        <Phone size={24} color={colors.success} weight="duotone" />
+                        <Phone size={24} color={theme.colors.success} weight="duotone" />
                       )}
                     </View>
                     <View style={styles.cardDetails}>
@@ -227,47 +232,45 @@ export function SavedPaymentsScreen(): React.JSX.Element {
                   </View>
                   
                   {/* Delete Button */}
-                  <TouchableOpacity
+                  <Pressable
                     style={styles.deleteButton}
                     onPress={(e) => {
-  e.stopPropagation();
-  handleDelete(method.id);
-}}
-                    activeOpacity={0.6}
+                      e.stopPropagation();
+                      handleDelete(method.id);
+                    }}
                   >
-                    <Trash size={18} color={colors.error} />
-                  </TouchableOpacity>
+                    <Trash size={18} color={theme.colors.error} />
+                  </Pressable>
                 </View>
 
-                {method.type === 'card' && (
+                {method.type === 'card' ? (
                   <Text style={styles.holderName}>{method.cardHolder}</Text>
-                )}
+                ) : null}
 
                 {/* Default indicator */}
-                {method.isDefault && (
+                {method.isDefault ? (
                   <View style={styles.defaultBadge}>
-                    <CheckCircle size={14} color={colors.primary} weight="fill" />
+                    <CheckCircle size={14} color={theme.colors.primary} weight="fill" />
                     <Text style={styles.defaultText}>
                       {t('profile.primary', 'Primary Method')}
                     </Text>
                   </View>
-                )}
-              </TouchableOpacity>
+                ) : null}
+              </Pressable>
             ))}
           </View>
         )}
 
         {/* Add Payment Button */}
-        <TouchableOpacity
+        <Pressable
           style={styles.addButton}
           onPress={() => setIsAddModalVisible(true)}
-          activeOpacity={0.8}
         >
-          <Plus size={20} color={colors.textInverse} weight="bold" />
+          <Plus size={20} color={theme.colors.textInverse} weight="bold" />
           <Text style={styles.addButtonText}>
             {t('profile.addPaymentMethod', 'Add Payment Method')}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </ScrollView>
 
       {/* Add Payment Method Modal */}
@@ -286,46 +289,42 @@ export function SavedPaymentsScreen(): React.JSX.Element {
                 <Text style={styles.modalTitle}>
                   {t('profile.addMethod', 'Add Payment Method')}
                 </Text>
-                <TouchableOpacity
+                <Pressable
                   onPress={() => setIsAddModalVisible(false)}
-                  activeOpacity={0.6}
                 >
                   <Text style={styles.closeText}>{t('common.cancel', 'Cancel')}</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </View>
 
             {/* Selection Tabs */}
             <View style={styles.tabBar}>
-              <TouchableOpacity
-                style={[styles.tabItem, activeTab === 'card' && styles.activeTabItem]}
+              <Pressable
+                style={[styles.tabItem, activeTab === 'card' ? styles.activeTabItem : null]}
                 onPress={() => setActiveTab('card')}
-                activeOpacity={0.7}
               >
-                <Text style={[styles.tabLabel, activeTab === 'card' && styles.activeTabLabel]}>
+                <Text style={[styles.tabLabel, activeTab === 'card' ? styles.activeTabLabel : null]}>
                   Credit Card
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity
-                style={[styles.tabItem, activeTab === 'momo' && styles.activeTabItem]}
+              <Pressable
+                style={[styles.tabItem, activeTab === 'momo' ? styles.activeTabItem : null]}
                 onPress={() => setActiveTab('momo')}
-                activeOpacity={0.7}
               >
-                <Text style={[styles.tabLabel, activeTab === 'momo' && styles.activeTabLabel]}>
+                <Text style={[styles.tabLabel, activeTab === 'momo' ? styles.activeTabLabel : null]}>
                   Momo Wallet
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity
-                style={[styles.tabItem, activeTab === 'vnpay' && styles.activeTabItem]}
+              <Pressable
+                style={[styles.tabItem, activeTab === 'vnpay' ? styles.activeTabItem : null]}
                 onPress={() => setActiveTab('vnpay')}
-                activeOpacity={0.7}
               >
-                <Text style={[styles.tabLabel, activeTab === 'vnpay' && styles.activeTabLabel]}>
+                <Text style={[styles.tabLabel, activeTab === 'vnpay' ? styles.activeTabLabel : null]}>
                   VNPay
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             {/* Form Fields */}
@@ -404,15 +403,15 @@ export function SavedPaymentsScreen(): React.JSX.Element {
       </Modal>
 
       {/* Loading Overlay */}
-      {loading && <LoadingOverlay visible />}
+      {loading ? <LoadingOverlay visible /> : null}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   safeContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   topBar: {
     height: 56,
@@ -421,8 +420,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    backgroundColor: colors.surface,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
   },
   backButton: {
     width: 40,
@@ -434,7 +433,7 @@ const styles = StyleSheet.create({
   topBarTitle: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   topBarRightPlaceholder: {
     width: 40,
@@ -447,7 +446,7 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: spacing.xl,
   },
   emptyContainer: {
@@ -458,24 +457,24 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginTop: spacing.md,
   },
   listContainer: {
     marginBottom: spacing.xl,
   },
   paymentCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    ...shadows.sm,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.border,
+    ...theme.effects.cardShadow,
   },
   defaultPaymentCard: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryFaded,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -490,7 +489,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
@@ -501,12 +500,12 @@ const styles = StyleSheet.create({
   brandName: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   cardNumber: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   deleteButton: {
@@ -515,7 +514,7 @@ const styles = StyleSheet.create({
   holderName: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginTop: spacing.md,
     letterSpacing: 1,
   },
@@ -527,47 +526,51 @@ const styles = StyleSheet.create({
   defaultText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.primary,
+    color: theme.colors.primary,
     marginLeft: spacing.xs,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
     marginTop: spacing.sm,
   },
   addButtonText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
     marginLeft: spacing.sm,
   },
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: colors.overlay,
+    backgroundColor: theme.effects.scrim,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     borderTopLeftRadius: borderRadius.lg,
     borderTopRightRadius: borderRadius.lg,
     height: '80%',
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
+    borderBottomWidth: 0,
+    ...theme.effects.floatingShadow,
   },
   modalHeader: {
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   modalHeaderBar: {
     width: 36,
     height: 4,
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.border,
     borderRadius: borderRadius.full,
     marginBottom: spacing.md,
   },
@@ -581,17 +584,17 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   closeText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.error,
+    color: theme.colors.error,
   },
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   tabItem: {
     flex: 1,
@@ -600,15 +603,16 @@ const styles = StyleSheet.create({
   },
   activeTabItem: {
     borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
+    borderBottomColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
   },
   tabLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   activeTabLabel: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   modalFormContent: {
     paddingHorizontal: spacing.xl,
@@ -625,7 +629,7 @@ const styles = StyleSheet.create({
   walletHint: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     lineHeight: 16,
     marginBottom: spacing.lg,
   },

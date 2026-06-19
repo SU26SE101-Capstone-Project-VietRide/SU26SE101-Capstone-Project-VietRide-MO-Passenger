@@ -6,11 +6,12 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Bus, Van, Bed } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { getCardStyle } from '@shared/theme/helpers';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import type { BusTrip } from '../types';
 
 interface TripCardProps {
@@ -21,7 +22,7 @@ interface TripCardProps {
 
 export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): React.JSX.Element {
   const theme = useTheme();
-  const isLiquid = theme.variant.startsWith('liquid');
+  const styles = useThemedStyles(createStyles);
   const progress = 0.5; //Suy nghi lai cho nay
   const seatsUrgent = trip.seatsLeft <= 5;
 
@@ -30,10 +31,13 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
   };
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
+    <Pressable
       onPress={() => onPress(trip)}
-      style={[styles.card, isLiquid && getCardStyle(theme, styles.card), isSelected && styles.cardSelected]}
+      style={({ pressed }) => [
+        styles.card,
+        isSelected ? styles.cardSelected : null,
+        pressed ? styles.pressed : null,
+      ]}
     >
       {/* Top row: badge + price */}
       <View style={styles.topRow}>
@@ -47,7 +51,7 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
       <View style={styles.timeRow}>
         {/* Departure */}
         <View style={styles.timeBlock}>
-          <Text style={[styles.timeText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{trip.departureTime}</Text>
+          <Text style={styles.timeText}>{trip.departureTime}</Text>
           <Text style={styles.stationText}>{trip.departureStation}</Text>
         </View>
 
@@ -56,15 +60,15 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
           </View>
-          <View style={[styles.busIconContainer, isLiquid && getCardStyle(theme, styles.busIconContainer)]}>
-            <Bus size={16} weight="fill" color={colors.primary} />
+          <View style={styles.busIconContainer}>
+            <Bus size={16} weight="fill" color={theme.colors.primary} />
           </View>
         </View>
 
         {/* Arrival */}
         <View style={[styles.timeBlock, styles.timeBlockRight]}>
-          <Text style={[styles.timeText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{trip.arrivalTime}</Text>
-          <Text style={[styles.stationText, { textAlign: 'right' }]}>{trip.arrivalStation}</Text>
+          <Text style={styles.timeText}>{trip.arrivalTime}</Text>
+          <Text style={[styles.stationText, styles.stationTextRight]}>{trip.arrivalStation}</Text>
         </View>
       </View>
 
@@ -73,15 +77,15 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
         <View style={styles.busTypeContainer}>
           <View style={styles.busTypeIconWrapper}>
             {trip.busType === 'sleeper' ? (
-              <Bed size={18} weight="fill" color={colors.primary} />
+              <Bed size={18} weight="fill" color={theme.colors.primary} />
             ) : trip.busType === 'limousine' ? (
-              <Van size={18} weight="fill" color={colors.primary} />
+              <Van size={18} weight="fill" color={theme.colors.primary} />
             ) : (
-              <Bus size={18} weight="fill" color={colors.primary} />
+              <Bus size={18} weight="fill" color={theme.colors.primary} />
             )}
           </View>
           <View style={styles.busTypeLabelContainer}>
-            <Text style={[styles.busTypeText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{trip.busLabel}</Text>
+            <Text style={styles.busTypeText}>{trip.busLabel}</Text>
           </View>
         </View>
         <View style={[styles.seatsLeftBadge, seatsUrgent && styles.seatsLeftUrgent]}>
@@ -90,23 +94,20 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   card: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
     padding: spacing.xxl,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    ...shadows.md,
   },
   cardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: '#F4FBFB',
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
     borderWidth: 2,
   },
   topRow: {
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   badge: {
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
@@ -124,12 +125,12 @@ const styles = StyleSheet.create({
   badgeText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   price: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   timeRow: {
     flexDirection: 'row',
@@ -145,13 +146,16 @@ const styles = StyleSheet.create({
   timeText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   stationText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: 2,
+  },
+  stationTextRight: {
+    textAlign: 'right',
   },
   progressContainer: {
     flex: 1,
@@ -165,12 +169,12 @@ const styles = StyleSheet.create({
   progressTrack: {
     width: '100%',
     height: 4,
-    backgroundColor: colors.divider,
+    backgroundColor: theme.colors.divider,
     borderRadius: 2,
   },
   progressFill: {
     height: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     borderRadius: 2,
   },
   busIconContainer: {
@@ -178,18 +182,20 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+    borderWidth: theme.effects.isLiquid ? 1 : 0,
+    borderColor: theme.effects.glassBorder,
     alignItems: 'center',
     justifyContent: 'center',
     top: -2,
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
   },
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: theme.colors.divider,
     paddingTop: spacing.lg,
   },
   busTypeContainer: {
@@ -208,23 +214,27 @@ const styles = StyleSheet.create({
   busTypeText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   seatsLeftBadge: {
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
   },
   seatsLeftUrgent: {
-    backgroundColor: colors.errorLight,
+    backgroundColor: theme.colors.errorLight,
   },
   seatsLeftText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   seatsLeftTextUrgent: {
-    color: colors.error,
+    color: theme.colors.error,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
 });

@@ -148,7 +148,7 @@ const createStyles = (theme: AppTheme) => ({
     height: 18,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    backgroundColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.42)' : 'transparent',
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSheen : 'transparent',
   },
   tabButton: {
     flex: 1,
@@ -209,7 +209,7 @@ const createStyles = (theme: AppTheme) => ({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: theme.colors.surfaceElevated,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surfaceElevated,
     borderWidth: 2,
     borderColor: theme.colors.primary,
     alignItems: 'center',

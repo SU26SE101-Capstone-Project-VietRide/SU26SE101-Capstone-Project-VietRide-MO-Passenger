@@ -10,6 +10,17 @@ export type ThemeEffectTokens = {
   glassOverlay: string;
   glassStroke: string;
   glassHighlight: string;
+  glassSurface: string;
+  glassSurfaceSoft: string;
+  glassSurfaceStrong: string;
+  glassBorder: string;
+  glassBorderStrong: string;
+  glassSheen: string;
+  glassTint: string;
+  fieldSurface: string;
+  fieldBorder: string;
+  tabBarSurface: string;
+  tabActiveSurface: string;
   scrim: string;
   cardShadow: ViewStyle;
   floatingShadow: ViewStyle;

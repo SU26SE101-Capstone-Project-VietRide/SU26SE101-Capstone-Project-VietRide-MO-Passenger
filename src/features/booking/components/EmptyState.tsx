@@ -5,9 +5,12 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { ArrowClockwise } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface EmptyStateProps {
   /** Emoji or icon displayed inside the circle */
@@ -29,6 +32,9 @@ export const EmptyState = ({
   actionLabel,
   onAction,
 }: EmptyStateProps): React.JSX.Element => {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <View style={styles.illustrationContainer}>
@@ -41,20 +47,19 @@ export const EmptyState = ({
         <Text style={styles.subtitle}>{subtitle}</Text>
       )}
       {actionLabel != null && onAction != null && (
-        <TouchableOpacity
-          activeOpacity={0.8}
+        <Pressable
           onPress={onAction}
-          style={styles.actionButton}
+          style={({ pressed }) => [styles.actionButton, pressed ? styles.actionButtonPressed : null]}
         >
-          <ArrowClockwise size={16} weight="bold" color={colors.textInverse} style={styles.actionIconSpacing} />
+          <ArrowClockwise size={16} weight="bold" color={theme.colors.textInverse} style={styles.actionIconSpacing} />
           <Text style={styles.actionText}>{actionLabel}</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     alignItems: 'center',
@@ -69,7 +74,7 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -79,14 +84,14 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.h3,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     marginBottom: spacing.md,
   },
   subtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: fontSizes.md * 1.6,
     maxWidth: 300,
@@ -94,12 +99,15 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    ...theme.components.primaryButton,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xxxl,
     marginTop: spacing.xxl,
-    ...shadows.lg,
+  },
+  actionButtonPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
   },
   actionIconSpacing: {
     marginRight: spacing.sm,
@@ -107,6 +115,6 @@ const styles = StyleSheet.create({
   actionText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
 });

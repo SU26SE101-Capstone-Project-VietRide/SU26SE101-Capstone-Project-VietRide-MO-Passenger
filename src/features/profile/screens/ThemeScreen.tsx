@@ -40,7 +40,15 @@ export function ThemeScreen(): React.JSX.Element {
             onPress={() => setTheme(key as ThemeVariant)}
           >
             <View style={[styles.previewRail, { backgroundColor: themeOption.colors.background }]}>
-              <View style={[styles.previewCard, { backgroundColor: themeOption.colors.surfaceElevated }]} />
+              <View
+                style={[
+                  styles.previewCard,
+                  {
+                    backgroundColor: themeOption.colors.surfaceElevated,
+                    borderColor: themeOption.effects.glassBorder,
+                  },
+                ]}
+              />
             </View>
             <View style={styles.themeInfo}>
               <Text style={styles.themeName}>{themeOption.name}</Text>
@@ -48,7 +56,7 @@ export function ThemeScreen(): React.JSX.Element {
                 {themeOption.variant === 'liquid_light'
                   ? 'Glass surfaces for light mode'
                   : themeOption.isDark
-                    ? 'Dim glass surfaces'
+                    ? 'Nocturne glass surfaces'
                     : 'Original VietRide palette'}
               </Text>
             </View>
@@ -101,7 +109,6 @@ const createStyles = (theme: AppTheme) => ({
     height: 24,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.7)',
   },
   themeInfo: { flex: 1 },
   themeName: {

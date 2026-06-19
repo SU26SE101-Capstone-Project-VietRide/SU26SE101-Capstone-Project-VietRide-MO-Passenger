@@ -4,8 +4,10 @@
  */
 
 import React, { useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { View, Text, FlatList } from 'react-native';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { LoadingState, EmptyState, ErrorState } from '../components';
 import { TripCard } from '../components/TripCard';
 import { useBookingStore } from '../store/useBookingStore';
@@ -25,6 +27,7 @@ export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.E
     currentLeg,
     searchParams,
   } = useBookingStore();
+  const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
     searchTrips();
@@ -105,7 +108,7 @@ export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.E
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -125,7 +128,7 @@ const styles = StyleSheet.create({
   headerRoute: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   listContent: {
     paddingHorizontal: spacing.xl,
@@ -139,6 +142,6 @@ const styles = StyleSheet.create({
   legTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
 });

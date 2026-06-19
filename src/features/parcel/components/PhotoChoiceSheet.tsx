@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, Pressable, Modal } from 'react-native';
 import { Camera, FolderOpen } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 export interface PhotoChoiceSheetProps {
   visible: boolean;
@@ -15,15 +18,19 @@ export const PhotoChoiceSheet = ({
   onClose,
   onCamera,
   onGallery,
-}: PhotoChoiceSheetProps): React.JSX.Element => (
-  <Modal
-    visible={visible}
-    transparent
-    animationType="slide"
-    onRequestClose={onClose}
-  >
-    <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-      <TouchableOpacity style={styles.choiceSheet} activeOpacity={1}>
+}: PhotoChoiceSheetProps): React.JSX.Element => {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+    <Pressable style={styles.modalOverlay} onPress={onClose}>
+      <Pressable style={styles.choiceSheet} onPress={(event) => event.stopPropagation()}>
         <View style={styles.choiceDragHandle} />
         <View style={styles.choiceHeader}>
           <Text style={styles.choiceTitle}>Add Parcel Photo</Text>
@@ -33,63 +40,62 @@ export const PhotoChoiceSheet = ({
         </View>
 
         <View style={styles.choiceOptionsRow}>
-          <TouchableOpacity
+          <Pressable
             style={styles.choiceOptionCard}
-            activeOpacity={0.8}
             onPress={() => {
               onClose();
               setTimeout(onCamera, 100);
             }}
           >
-            <View style={[styles.choiceOptionIconBg, { backgroundColor: colors.primaryFaded }]}>
-              <Camera size={28} color={colors.primary} weight="duotone" />
+            <View style={[styles.choiceOptionIconBg, { backgroundColor: theme.colors.primaryFaded }]}>
+              <Camera size={28} color={theme.colors.primary} weight="duotone" />
             </View>
             <Text style={styles.choiceOptionTitle}>Use Camera</Text>
             <Text style={styles.choiceOptionDesc}>Take a live photo of the package</Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
+          <Pressable
             style={styles.choiceOptionCard}
-            activeOpacity={0.8}
             onPress={() => {
               onClose();
               setTimeout(onGallery, 100);
             }}
           >
-            <View style={[styles.choiceOptionIconBg, { backgroundColor: colors.surfaceAlt }]}>
-              <FolderOpen size={28} color={colors.textSecondary} weight="duotone" />
+            <View style={[styles.choiceOptionIconBg, { backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt }]}>
+              <FolderOpen size={28} color={theme.colors.textSecondary} weight="duotone" />
             </View>
             <Text style={styles.choiceOptionTitle}>From Gallery</Text>
             <Text style={styles.choiceOptionDesc}>Upload from photo library</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
-        <TouchableOpacity style={styles.choiceCancelButton} activeOpacity={0.85} onPress={onClose}>
+        <Pressable style={styles.choiceCancelButton} onPress={onClose}>
           <Text style={styles.choiceCancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Pressable>
   </Modal>
-);
+  );
+};
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(24, 28, 32, 0.4)',
+    backgroundColor: theme.effects.scrim,
     justifyContent: 'flex-end',
   },
   choiceSheet: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: spacing.xl,
     paddingBottom: Math.max(spacing.xxl, 34),
-    ...shadows.lg,
+    ...theme.effects.floatingShadow,
   },
   choiceDragHandle: {
     width: 36,
     height: 4,
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.border,
     borderRadius: borderRadius.full,
     alignSelf: 'center',
     marginBottom: spacing.lg,
@@ -101,13 +107,13 @@ const styles = StyleSheet.create({
   choiceTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.xs,
   },
   choiceSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   choiceOptionsRow: {
@@ -120,9 +126,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     gap: spacing.sm,
   },
   choiceOptionIconBg: {
@@ -136,26 +142,26 @@ const styles = StyleSheet.create({
   choiceOptionTitle: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   choiceOptionDesc: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     textAlign: 'center',
   },
   choiceCancelButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderRadius: borderRadius.md,
     height: 48,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   choiceCancelButtonText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
 });

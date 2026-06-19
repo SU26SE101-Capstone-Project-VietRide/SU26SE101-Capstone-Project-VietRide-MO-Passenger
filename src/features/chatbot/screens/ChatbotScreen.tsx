@@ -2,8 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
   FlatList,
   ScrollView,
   KeyboardAvoidingView,
@@ -16,7 +15,10 @@ import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, PaperPlaneRight, Robot } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { Input } from '@shared/components';
 
 interface Message {
@@ -29,6 +31,8 @@ interface Message {
 export function ChatbotScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const currentLang = i18n.language || 'vi';
 
   // Refs for flatlist scroll
@@ -154,7 +158,10 @@ export function ChatbotScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -163,16 +170,15 @@ export function ChatbotScreen(): React.JSX.Element {
       >
         {/* Header bar */}
         <View style={styles.header}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => navigation.goBack()}
             style={styles.backButton}
-            activeOpacity={0.7}
           >
-            <ArrowLeft size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
+            <ArrowLeft size={24} color={theme.colors.textPrimary} />
+          </Pressable>
           <View style={styles.botInfo}>
             <View style={styles.botAvatar}>
-              <Robot size={20} color={colors.textInverse} weight="fill" />
+              <Robot size={20} color={theme.colors.textInverse} weight="fill" />
             </View>
             <View>
               <Text style={styles.botName}>VietRide AI Helper</Text>
@@ -198,11 +204,11 @@ export function ChatbotScreen(): React.JSX.Element {
                   isUser ? styles.userRow : styles.botRow,
                 ]}
               >
-                {!isUser && (
+                {!isUser ? (
                   <View style={styles.bubbleBotAvatar}>
-                    <Robot size={14} color={colors.primary} weight="bold" />
+                    <Robot size={14} color={theme.colors.primary} weight="bold" />
                   </View>
-                )}
+                ) : null}
                 <View
                   style={[
                     styles.bubble,
@@ -223,10 +229,10 @@ export function ChatbotScreen(): React.JSX.Element {
             isTyping ? (
               <View style={[styles.messageRow, styles.botRow]}>
                 <View style={styles.bubbleBotAvatar}>
-                  <Robot size={14} color={colors.primary} weight="bold" />
+                  <Robot size={14} color={theme.colors.primary} weight="bold" />
                 </View>
                 <View style={[styles.bubble, styles.botBubble, styles.typingBubble]}>
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
                 </View>
               </View>
             ) : null
@@ -241,14 +247,13 @@ export function ChatbotScreen(): React.JSX.Element {
             contentContainerStyle={styles.chipsScrollContent}
           >
             {quickActionChips.map((chip) => (
-              <TouchableOpacity
+              <Pressable
                 key={chip.value}
                 style={styles.chipButton}
                 onPress={() => handleSendMessage(chip.label, chip.value)}
-                activeOpacity={0.7}
               >
                 <Text style={styles.chipLabel}>{chip.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </ScrollView>
         </View>
@@ -263,27 +268,26 @@ export function ChatbotScreen(): React.JSX.Element {
             onSubmitEditing={() => handleSendMessage(inputText)}
             returnKeyType="send"
           />
-          <TouchableOpacity
+          <Pressable
             style={[
               styles.sendButton,
-              !inputText.trim() && styles.disabledSendButton,
+              !inputText.trim() ? styles.disabledSendButton : null,
             ]}
             onPress={() => handleSendMessage(inputText)}
             disabled={!inputText.trim()}
-            activeOpacity={0.7}
           >
-            <PaperPlaneRight size={20} color={colors.textInverse} weight="fill" />
-          </TouchableOpacity>
+            <PaperPlaneRight size={20} color={theme.colors.textInverse} weight="fill" />
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   safeContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -295,8 +299,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    backgroundColor: colors.surface,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
   },
   backButton: {
     width: 40,
@@ -313,7 +317,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,
@@ -321,12 +325,12 @@ const styles = StyleSheet.create({
   botName: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   botStatus: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.success,
+    color: theme.colors.success,
     marginTop: 1,
   },
   headerRightPlaceholder: {
@@ -353,7 +357,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,
@@ -363,17 +367,17 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
   },
   userBubble: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     borderBottomRightRadius: 2,
   },
   botBubble: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderBottomLeftRadius: 2,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   typingBubble: {
     paddingVertical: spacing.sm,
@@ -387,10 +391,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   userMessageText: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   botMessageText: {
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   timestampText: {
     fontFamily: fontFamilies.regular,
@@ -399,43 +403,43 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   userTimestamp: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: theme.isDark ? 'rgba(3, 19, 18, 0.68)' : 'rgba(255, 255, 255, 0.7)',
   },
   botTimestamp: {
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   chipsContainer: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.background,
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   chipsScrollContent: {
     paddingHorizontal: spacing.xl,
   },
   chipButton: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surface,
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
     borderRadius: borderRadius.full,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginRight: spacing.sm,
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
   },
   chipLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   textInputContainer: {
     flex: 1,
@@ -443,16 +447,16 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   sendButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     width: 48,
     height: 48,
     borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
   },
   disabledSendButton: {
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.border,
     shadowOpacity: 0,
   },
 });

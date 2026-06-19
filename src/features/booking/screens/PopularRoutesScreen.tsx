@@ -2,8 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
   TextInput,
   FlatList,
   StatusBar,
@@ -12,7 +11,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft, MapPin, MagnifyingGlass, ArrowRight, Fire } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -75,6 +77,8 @@ export function PopularRoutesScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const { setSearchParams } = useBookingStore();
   const [query, setQuery] = useState('');
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const filteredRoutes = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -99,10 +103,9 @@ export function PopularRoutesScreen(): React.JSX.Element {
     const endColor = item.gradientColors?.[1] || '#2AC1BC';
 
     return (
-      <TouchableOpacity
-        activeOpacity={0.85}
+      <Pressable
         onPress={() => handleRoutePress(item)}
-        style={styles.cardContainer}
+        style={({ pressed }) => [styles.cardContainer, pressed ? styles.pressed : null]}
       >
         <View style={styles.cardGradientWrapper}>
           <Svg height="100" width="100%">
@@ -115,11 +118,11 @@ export function PopularRoutesScreen(): React.JSX.Element {
             <Rect width="100%" height="100%" fill={`url(#grad-${item.id})`} />
           </Svg>
           <View style={styles.badge}>
-            <Fire size={12} color="#FFF" weight="fill" />
+            <Fire size={12} color={theme.colors.textInverse} weight="fill" />
             <Text style={styles.badgeText}>Popular</Text>
           </View>
           <View style={styles.cardIcon}>
-            <MapPin size={24} color="#FFF" weight="bold" />
+            <MapPin size={24} color={theme.colors.textInverse} weight="bold" />
           </View>
         </View>
 
@@ -128,14 +131,14 @@ export function PopularRoutesScreen(): React.JSX.Element {
             <Text style={styles.cityName} numberOfLines={1}>
               {item.from}
             </Text>
-            <ArrowRight size={14} color={colors.textSecondary} weight="bold" />
+            <ArrowRight size={14} color={theme.colors.textSecondary} weight="bold" />
             <Text style={styles.cityName} numberOfLines={1}>
               {item.to}
             </Text>
           </View>
           <Text style={styles.priceText}>{item.price}</Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -146,8 +149,8 @@ export function PopularRoutesScreen(): React.JSX.Element {
         <Svg height="300" width="100%">
           <Defs>
             <LinearGradient id="popularGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.12} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.colors.primaryLight} stopOpacity={theme.isDark ? 0.18 : 0.14} />
+              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#popularGrad)" />
@@ -155,28 +158,27 @@ export function PopularRoutesScreen(): React.JSX.Element {
       </View>
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-            style={styles.backBtn}
+            style={({ pressed }) => [styles.backBtn, pressed ? styles.pressed : null]}
           >
-            <ArrowLeft size={20} color={colors.primary} weight="bold" />
-          </TouchableOpacity>
+            <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
+          </Pressable>
           <Text style={styles.headerTitle}>Popular Routes</Text>
           <View style={{ width: 40 }} />
         </View>
 
         {/* Search bar */}
         <View style={styles.searchBox}>
-          <MagnifyingGlass size={18} color={colors.textTertiary} weight="bold" />
+          <MagnifyingGlass size={18} color={theme.colors.textTertiary} weight="bold" />
           <TextInput
             style={styles.searchInput}
             placeholder="Search routes or cities..."
-            placeholderTextColor={colors.textTertiary}
+            placeholderTextColor={theme.colors.textTertiary}
             value={query}
             onChangeText={setQuery}
             returnKeyType="search"
@@ -203,10 +205,10 @@ export function PopularRoutesScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   root: {
     flex: 1,
-    backgroundColor: '#F7F9FF',
+    backgroundColor: theme.colors.background,
   },
   gradientContainer: {
     position: 'absolute',
@@ -229,20 +231,16 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.divider,
-    ...shadows.sm,
+    ...theme.components.headerButton,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
   headerTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   searchBox: {
     flexDirection: 'row',
@@ -252,17 +250,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     height: 48,
     borderRadius: 16,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.fieldSurface : theme.colors.surface,
     borderWidth: 1.2,
-    borderColor: colors.divider,
-    ...shadows.sm,
+    borderColor: theme.effects.isLiquid ? theme.effects.fieldBorder : theme.colors.divider,
+    ...theme.effects.cardShadow,
     marginBottom: spacing.lg,
   },
   searchInput: {
     flex: 1,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     padding: 0,
   },
   listContainer: {
@@ -275,16 +273,12 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     width: CARD_WIDTH,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: borderRadius.lg,
-    elevation: 2,
-    shadowColor: '#212529',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     overflow: 'hidden',
+    ...theme.effects.cardShadow,
   },
   cardGradientWrapper: {
     height: 100,
@@ -307,7 +301,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs - 2,
-    color: '#FFF',
+    color: theme.colors.textInverse,
   },
   cardIcon: {
     position: 'absolute',
@@ -326,12 +320,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   priceText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -340,6 +334,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
 });

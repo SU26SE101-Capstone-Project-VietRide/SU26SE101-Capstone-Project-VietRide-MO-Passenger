@@ -5,8 +5,11 @@
  */
 
 import React, { memo, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ViewStyle } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { View, Text, TextInput, ViewStyle } from 'react-native';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface PromoRowProps {
   onApply?: (code: string) => void;
@@ -19,6 +22,8 @@ export const PromoRow = memo(function PromoRow({
   applied = false,
   style,
 }: PromoRowProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [code, setCode] = useState('');
 
   const handleApply = () => {
@@ -42,7 +47,7 @@ export const PromoRow = memo(function PromoRow({
           value={code}
           onChangeText={setCode}
           placeholder="Enter code"
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor={theme.colors.textTertiary}
           onSubmitEditing={handleApply}
           returnKeyType="done"
         />
@@ -55,20 +60,22 @@ export const PromoRow = memo(function PromoRow({
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.xxl,
     flexDirection: 'row',
     alignItems: 'center',
-    ...shadows.md,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    ...theme.effects.cardShadow,
   },
   iconBox: {
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.lg,
@@ -82,31 +89,31 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: 2,
   },
   hint: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   input: {
     flex: 1,
     marginLeft: spacing.lg,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: theme.effects.isLiquid ? theme.effects.fieldBorder : theme.colors.border,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     minWidth: 100,
     textAlign: 'right',
   },
   appliedBadge: {
     marginLeft: spacing.lg,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 1,
@@ -114,6 +121,6 @@ const styles = StyleSheet.create({
   appliedText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.xs,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
 });

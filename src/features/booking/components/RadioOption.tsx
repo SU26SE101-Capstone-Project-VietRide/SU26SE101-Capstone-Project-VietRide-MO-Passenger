@@ -6,8 +6,10 @@
  */
 
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { View, Text, Pressable, ViewStyle } from 'react-native';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface RadioOptionProps {
   label: string;
@@ -28,23 +30,25 @@ export const RadioOption = memo(function RadioOption({
   onPress,
   style,
 }: RadioOptionProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
+    <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={[
+      style={({ pressed }) => [
         styles.option,
         selected && styles.optionSelected,
         disabled && styles.optionDisabled,
+        pressed && !disabled && styles.optionPressed,
         style,
       ]}
     >
-      {iconEmoji && (
+      {iconEmoji ? (
         <View style={[styles.iconBox, selected && styles.iconBoxActive]}>
           <Text style={styles.iconEmoji}>{iconEmoji}</Text>
         </View>
-      )}
+      ) : null}
       <View style={styles.textBlock}>
         <Text style={[styles.label, selected && styles.labelActive]}>{label}</Text>
         {sublabel ? (
@@ -52,42 +56,45 @@ export const RadioOption = memo(function RadioOption({
         ) : null}
       </View>
       <View style={[styles.radio, selected && styles.radioSelected]}>
-        {selected && <View style={styles.radioDot} />}
+        {selected ? <View style={styles.radioDot} /> : null}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.border,
     borderRadius: borderRadius.md,
     padding: spacing.lg,
     marginBottom: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
   },
   optionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryFaded,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
   },
   optionDisabled: {
     opacity: 0.45,
+  },
+  optionPressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.99 }],
   },
   iconBox: {
     width: 40,
     height: 40,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.lg,
-    ...shadows.sm,
   },
   iconBoxActive: {
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
   },
   iconEmoji: {
     fontSize: 18,
@@ -98,33 +105,33 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: 2,
   },
   labelActive: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   sublabel: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   radio: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioSelected: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
 });

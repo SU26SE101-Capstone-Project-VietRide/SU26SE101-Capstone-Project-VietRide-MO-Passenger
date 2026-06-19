@@ -1,7 +1,10 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Pressable } from 'react-native';
 import { Check } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 export interface PromoCodeInputProps {
   code: string;
@@ -16,6 +19,9 @@ export const PromoCodeInput = memo(function PromoCodeInput({
   applied,
   onApply,
 }: PromoCodeInputProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.bentoSummaryCard}>
       <Text style={styles.bentoCardHeading}>Promo Code</Text>
@@ -25,24 +31,28 @@ export const PromoCodeInput = memo(function PromoCodeInput({
           value={code}
           onChangeText={onChange}
           placeholder="Enter promo code"
+          placeholderTextColor={theme.colors.textTertiary}
           autoCapitalize="characters"
           editable={!applied}
         />
-        <TouchableOpacity
-          style={[styles.promoApplyButton, applied && styles.promoApplyButtonActive]}
+        <Pressable
+          style={({ pressed }) => [
+            styles.promoApplyButton,
+            applied && styles.promoApplyButtonActive,
+            pressed && !applied && code.trim() ? styles.promoApplyButtonPressed : null,
+          ]}
           onPress={onApply}
-          activeOpacity={0.8}
           disabled={applied || !code.trim()}
         >
           <Text style={[styles.promoApplyButtonText, applied && styles.promoApplyButtonTextActive]}>
             {applied ? 'Applied' : 'Apply'}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
       {applied && (
         <View style={styles.promoAppliedRow}>
           <View style={styles.promoSuccessBadge}>
-            <Check size={12} color={colors.success} weight="bold" />
+            <Check size={12} color={theme.colors.success} weight="bold" />
             <Text style={styles.promoSuccessText}>WELCOME50K Applied</Text>
           </View>
         </View>
@@ -51,19 +61,17 @@ export const PromoCodeInput = memo(function PromoCodeInput({
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   bentoSummaryCard: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.divider,
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
   bentoCardHeading: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.md,
   },
   promoInputRow: {
@@ -76,33 +84,37 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.fieldSurface : theme.colors.surfaceAlt,
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.fieldBorder : theme.colors.divider,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   promoApplyButton: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   promoApplyButtonActive: {
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
+  },
+  promoApplyButtonPressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
   promoApplyButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   promoApplyButtonTextActive: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   promoAppliedRow: {
     flexDirection: 'row',
@@ -111,7 +123,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: theme.colors.divider,
   },
   promoSuccessBadge: {
     flexDirection: 'row',
@@ -121,6 +133,6 @@ const styles = StyleSheet.create({
   promoSuccessText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.success,
+    color: theme.colors.success,
   },
 });

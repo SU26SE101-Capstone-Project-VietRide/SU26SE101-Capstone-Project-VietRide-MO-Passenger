@@ -4,8 +4,10 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { View, Text, ScrollView } from 'react-native';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import { FloatingActionBar, StopOption } from '../components';
 
@@ -15,6 +17,7 @@ interface DropOffStepProps {
 
 export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
   const { dropOffPoints, selectedDropOff, selectDropOff, selectedSeats, totalPrice, currentLeg, searchParams, saveOutboundLeg, saveReturnLeg, setHighestStep, selectedTrip, selectedPickUp } = useBookingStore();
+  const styles = useThemedStyles(createStyles);
 
   React.useEffect(() => {
     if (searchParams.isRoundTrip) {
@@ -91,7 +94,7 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -104,7 +107,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,

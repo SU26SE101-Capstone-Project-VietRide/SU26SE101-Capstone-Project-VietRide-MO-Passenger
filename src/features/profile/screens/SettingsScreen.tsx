@@ -2,8 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Switch,
   ScrollView,
   StatusBar,
@@ -13,12 +12,17 @@ import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Bell, Translate, ShieldCheck, Info, Palette } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { useAppStore } from '@shared/store/useAppStore';
 
 export function SettingsScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation<any>();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const setLocaleStore = useAppStore((state) => state.setLocale);
   const localeStore = useAppStore((state) => state.locale);
 
@@ -37,17 +41,19 @@ export function SettingsScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
 
       {/* Navigation Top Bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity
+        <Pressable
           onPress={() => navigation.goBack()}
           style={styles.backButton}
-          activeOpacity={0.7}
         >
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+          <ArrowLeft size={24} color={theme.colors.textPrimary} />
+        </Pressable>
         <Text style={styles.topBarTitle}>{t('profile.settings', 'Settings')}</Text>
         <View style={styles.topBarRightPlaceholder} />
       </View>
@@ -59,74 +65,71 @@ export function SettingsScreen(): React.JSX.Element {
         {/* Section 1: Language Settings */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Translate size={18} color={colors.primary} style={styles.sectionIcon} />
+            <Translate size={18} color={theme.colors.primary} style={styles.sectionIcon} />
             <Text style={styles.sectionTitle}>{t('profile.language', 'Language')}</Text>
           </View>
 
           <View style={styles.card}>
-            <TouchableOpacity
+            <Pressable
               style={[
                 styles.languageRow,
-                currentLanguage.startsWith('vi') && styles.activeLanguageRow,
+                currentLanguage.startsWith('vi') ? styles.activeLanguageRow : null,
               ]}
               onPress={() => handleLanguageChange('vi')}
-              activeOpacity={0.7}
             >
               <View style={styles.languageTextContainer}>
                 <Text style={styles.languageLabel}>Tiếng Việt</Text>
                 <Text style={styles.languageSubLabel}>Vietnamese</Text>
               </View>
-              {currentLanguage.startsWith('vi') && (
+              {currentLanguage.startsWith('vi') ? (
                 <View style={styles.radioCheck} />
-              )}
-            </TouchableOpacity>
+              ) : null}
+            </Pressable>
 
             <View style={styles.rowDivider} />
 
-            <TouchableOpacity
+            <Pressable
               style={[
                 styles.languageRow,
-                currentLanguage.startsWith('en') && styles.activeLanguageRow,
+                currentLanguage.startsWith('en') ? styles.activeLanguageRow : null,
               ]}
               onPress={() => handleLanguageChange('en')}
-              activeOpacity={0.7}
             >
               <View style={styles.languageTextContainer}>
                 <Text style={styles.languageLabel}>English</Text>
                 <Text style={styles.languageSubLabel}>Tiếng Anh</Text>
               </View>
-              {currentLanguage.startsWith('en') && (
+              {currentLanguage.startsWith('en') ? (
                 <View style={styles.radioCheck} />
-              )}
-            </TouchableOpacity>
+              ) : null}
+            </Pressable>
           </View>
         </View>
 
         {/* Section: Appearance */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Palette size={18} color={colors.primary} style={styles.sectionIcon} />
+            <Palette size={18} color={theme.colors.primary} style={styles.sectionIcon} />
             <Text style={styles.sectionTitle}>Appearance</Text>
           </View>
 
           <View style={styles.card}>
-            <TouchableOpacity
+            <Pressable
               style={styles.settingRow}
               onPress={() => navigation.navigate('ThemeSettings')}
-              activeOpacity={0.7}
             >
               <View style={styles.settingTextContainer}>
                 <Text style={styles.settingLabel}>Theme & Visuals</Text>
                 <Text style={styles.settingDesc}>Choose Liquid Glass or Classic mode</Text>
               </View>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
         {/* Section 2: Push Notifications */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Bell size={18} color={colors.primary} style={styles.sectionIcon} />
+            <Bell size={18} color={theme.colors.primary} style={styles.sectionIcon} />
             <Text style={styles.sectionTitle}>{t('profile.notifications', 'Notifications')}</Text>
           </View>
 
@@ -143,8 +146,8 @@ export function SettingsScreen(): React.JSX.Element {
               <Switch
                 value={tripNotif}
                 onValueChange={setTripNotif}
-                trackColor={{ false: colors.border, true: colors.primaryLight }}
-                thumbColor={tripNotif ? colors.primary : colors.divider}
+                trackColor={{ false: theme.colors.border, true: theme.colors.primaryLight }}
+                thumbColor={tripNotif ? theme.colors.primary : theme.colors.divider}
               />
             </View>
 
@@ -162,8 +165,8 @@ export function SettingsScreen(): React.JSX.Element {
               <Switch
                 value={parcelNotif}
                 onValueChange={setParcelNotif}
-                trackColor={{ false: colors.border, true: colors.primaryLight }}
-                thumbColor={parcelNotif ? colors.primary : colors.divider}
+                trackColor={{ false: theme.colors.border, true: theme.colors.primaryLight }}
+                thumbColor={parcelNotif ? theme.colors.primary : theme.colors.divider}
               />
             </View>
 
@@ -181,8 +184,8 @@ export function SettingsScreen(): React.JSX.Element {
               <Switch
                 value={promoNotif}
                 onValueChange={setPromoNotif}
-                trackColor={{ false: colors.border, true: colors.primaryLight }}
-                thumbColor={promoNotif ? colors.primary : colors.divider}
+                trackColor={{ false: theme.colors.border, true: theme.colors.primaryLight }}
+                thumbColor={promoNotif ? theme.colors.primary : theme.colors.divider}
               />
             </View>
           </View>
@@ -191,30 +194,30 @@ export function SettingsScreen(): React.JSX.Element {
         {/* Section 3: Privacy & About */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <ShieldCheck size={18} color={colors.primary} style={styles.sectionIcon} />
+            <ShieldCheck size={18} color={theme.colors.primary} style={styles.sectionIcon} />
             <Text style={styles.sectionTitle}>{t('profile.privacyAbout', 'About & Legal')}</Text>
           </View>
 
           <View style={styles.card}>
-            <TouchableOpacity style={styles.legalRow} activeOpacity={0.6}>
+            <Pressable style={styles.legalRow}>
               <View style={styles.legalTextContainer}>
                 <Text style={styles.settingLabel}>{t('profile.terms', 'Terms of Service')}</Text>
               </View>
-            </TouchableOpacity>
+            </Pressable>
 
             <View style={styles.rowDivider} />
 
-            <TouchableOpacity style={styles.legalRow} activeOpacity={0.6}>
+            <Pressable style={styles.legalRow}>
               <View style={styles.legalTextContainer}>
                 <Text style={styles.settingLabel}>{t('profile.privacyPolicy', 'Privacy Policy')}</Text>
               </View>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
         {/* Support Note */}
         <View style={styles.supportNote}>
-          <Info size={16} color={colors.textTertiary} style={styles.supportNoteIcon} />
+          <Info size={16} color={theme.colors.textTertiary} style={styles.supportNoteIcon} />
           <Text style={styles.supportNoteText}>
             VietRide uses end-to-end encryption for security. All data stays local to your phone.
           </Text>
@@ -224,10 +227,10 @@ export function SettingsScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   safeContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   topBar: {
     height: 56,
@@ -236,8 +239,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    backgroundColor: colors.surface,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
   },
   backButton: {
     width: 40,
@@ -249,7 +252,7 @@ const styles = StyleSheet.create({
   topBarTitle: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   topBarRightPlaceholder: {
     width: 40,
@@ -273,12 +276,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: borderRadius.lg,
-    ...shadows.sm,
+    ...theme.effects.cardShadow,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     overflow: 'hidden',
   },
   languageRow: {
@@ -287,10 +292,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
   },
   activeLanguageRow: {
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
   },
   languageTextContainer: {
     flex: 1,
@@ -298,30 +303,30 @@ const styles = StyleSheet.create({
   languageLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   languageSubLabel: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   radioCheck: {
     width: 14,
     height: 14,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     borderWidth: 2,
-    borderColor: colors.surface,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     elevation: 2,
-    shadowColor: colors.primary,
+    shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1,
   },
   rowDivider: {
     height: 1,
-    backgroundColor: colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   settingRow: {
     flexDirection: 'row',
@@ -337,12 +342,12 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   settingDesc: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: 2,
     lineHeight: 15,
   },
@@ -366,7 +371,7 @@ const styles = StyleSheet.create({
   supportNoteText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     flex: 1,
     lineHeight: 15,
   },

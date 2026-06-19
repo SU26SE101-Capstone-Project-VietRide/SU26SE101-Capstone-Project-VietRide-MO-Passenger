@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, CreditCard, Phone, CheckCircle } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { Input, Button, LoadingOverlay } from '@shared/components';
 
 export function TopUpScreen(): React.JSX.Element {
   const navigation = useNavigation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -40,9 +45,9 @@ export function TopUpScreen(): React.JSX.Element {
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={20} color={colors.textPrimary} weight="bold" />
-        </TouchableOpacity>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <ArrowLeft size={20} color={theme.colors.textPrimary} weight="bold" />
+        </Pressable>
         <Text style={styles.headerTitle}>Top Up Wallet</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -57,52 +62,51 @@ export function TopUpScreen(): React.JSX.Element {
         />
         <View style={styles.presetRow}>
           {[100000, 200000, 500000].map(amt => (
-            <TouchableOpacity key={amt} style={styles.presetBadge} onPress={() => setAmount(amt.toString())}>
+            <Pressable key={amt} style={styles.presetBadge} onPress={() => setAmount(amt.toString())}>
               <Text style={styles.presetText}>{amt.toLocaleString()} đ</Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
 
         <Text style={[styles.sectionTitle, { marginTop: spacing.xl, marginBottom: spacing.sm }]}>Funding Source</Text>
         {paymentMethods.map(method => (
-          <TouchableOpacity 
+          <Pressable 
             key={method.id} 
-            style={[styles.fundingCard, selectedFundingSource === method.id && styles.fundingCardActive]}
+            style={[styles.fundingCard, selectedFundingSource === method.id ? styles.fundingCardActive : null]}
             onPress={() => setSelectedFundingSource(method.id)}
-            activeOpacity={0.7}
           >
             <View style={styles.brandIconContainer}>
-              {method.type === 'card' ? <CreditCard size={24} color={colors.primary} /> : <Phone size={24} color={colors.success} />}
+              {method.type === 'card' ? <CreditCard size={24} color={theme.colors.primary} /> : <Phone size={24} color={theme.colors.success} />}
             </View>
             <View style={styles.cardDetails}>
               <Text style={styles.brandName}>{method.type === 'card' ? method.brand?.toUpperCase() : method.providerName}</Text>
               <Text style={styles.cardNumber}>{method.type === 'card' ? method.cardNumberMasked : method.phoneNumber}</Text>
             </View>
-            {selectedFundingSource === method.id && <CheckCircle size={24} color={colors.primary} weight="fill" />}
-          </TouchableOpacity>
+            {selectedFundingSource === method.id ? <CheckCircle size={24} color={theme.colors.primary} weight="fill" /> : null}
+          </Pressable>
         ))}
 
         <Button title="Confirm Top Up" onPress={handleConfirmTopUp} fullWidth style={{ marginTop: spacing.xl }} />
       </ScrollView>
-      {loading && <LoadingOverlay visible />}
+      {loading ? <LoadingOverlay visible /> : null}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: colors.surface },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: colors.textPrimary },
+const createStyles = (theme: AppTheme) => ({
+  root: { flex: 1, backgroundColor: theme.colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider },
+  backBtn: { ...theme.components.headerButton, width: 40, height: 40, borderRadius: 20 },
+  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
   content: { padding: spacing.xl },
   presetRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
-  presetBadge: { backgroundColor: colors.primaryFaded, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: borderRadius.full },
-  presetText: { fontFamily: fontFamilies.semiBold, fontSize: fontSizes.sm, color: colors.primary },
-  sectionTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: colors.textPrimary },
-  fundingCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.divider },
-  fundingCardActive: { borderColor: colors.primary, backgroundColor: colors.primaryFaded },
-  brandIconContainer: { width: 44, height: 44, borderRadius: borderRadius.md, backgroundColor: colors.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
+  presetBadge: { backgroundColor: theme.colors.primaryFaded, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: borderRadius.full, borderWidth: 1, borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.primaryFaded },
+  presetText: { fontFamily: fontFamilies.semiBold, fontSize: fontSizes.sm, color: theme.colors.primary },
+  sectionTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
+  fundingCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider },
+  fundingCardActive: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryFaded },
+  brandIconContainer: { width: 44, height: 44, borderRadius: borderRadius.md, backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
   cardDetails: { flex: 1, justifyContent: 'center' },
-  brandName: { fontFamily: fontFamilies.bold, fontSize: fontSizes.md, color: colors.textPrimary },
-  cardNumber: { fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  brandName: { fontFamily: fontFamilies.bold, fontSize: fontSizes.md, color: theme.colors.textPrimary },
+  cardNumber: { fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, color: theme.colors.textSecondary, marginTop: 2 },
 });

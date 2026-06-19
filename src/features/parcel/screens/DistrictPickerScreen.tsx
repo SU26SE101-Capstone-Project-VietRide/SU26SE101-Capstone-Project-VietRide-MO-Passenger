@@ -4,9 +4,12 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList } from 'react-native';
+import { View, Text, Pressable, TextInput, FlatList } from 'react-native';
 import { ArrowLeft, MapPin } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { useParcelStore } from '../store/useParcelStore';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -31,6 +34,8 @@ const DISTRICTS: Record<string, string[]> = {
 
 export function DistrictPicker(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { toCity, toDistrict, setToDistrict } = useParcelStore();
   const route = navigation.getState().routes;
   const lastParams = (route[route.length - 1]?.params ?? {}) as { city?: string };
@@ -55,19 +60,19 @@ export function DistrictPicker(): React.JSX.Element {
   return (
     <View style={styles.safe}>
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ArrowLeft size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Select District — {city}</Text>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <ArrowLeft size={22} color={theme.colors.textPrimary} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Select District - {city}</Text>
         <View style={{ width: 22 }} />
       </View>
 
       <View style={styles.searchBox}>
-        <MapPin size={16} color={colors.textTertiary} />
+        <MapPin size={16} color={theme.colors.textTertiary} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search district..."
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor={theme.colors.textTertiary}
           value={query}
           onChangeText={setQuery}
           autoFocus
@@ -82,17 +87,16 @@ export function DistrictPicker(): React.JSX.Element {
         renderItem={({ item }) => {
           const active = item === toDistrict;
           return (
-            <TouchableOpacity
-              style={[styles.item, active && styles.itemActive]}
+            <Pressable
+              style={({ pressed }) => [styles.item, active && styles.itemActive, pressed ? styles.pressed : null]}
               onPress={() => onSelect(item)}
-              activeOpacity={0.7}
             >
-              <MapPin size={16} color={active ? colors.textInverse : colors.primary} />
+              <MapPin size={16} color={active ? theme.colors.textInverse : theme.colors.primary} />
               <View style={styles.itemTextWrap}>
                 <Text style={[styles.itemName, active && styles.itemNameActive]}>{item}</Text>
               </View>
-              {active && <Text style={styles.checkMark}>✓</Text>}
-            </TouchableOpacity>
+              {active ? <Text style={styles.checkMark}>✓</Text> : null}
+            </Pressable>
           );
         }}
         ListEmptyComponent={<Text style={styles.empty}>No districts found for this city</Text>}
@@ -101,8 +105,8 @@ export function DistrictPicker(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+const createStyles = (theme: AppTheme) => ({
+  safe: { flex: 1, backgroundColor: theme.colors.background },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -111,7 +115,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
-  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: colors.textPrimary },
+  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -120,16 +124,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     height: 44,
     borderRadius: borderRadius.lg,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.fieldSurface : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.fieldBorder : theme.colors.divider,
     marginBottom: spacing.md,
   },
   searchInput: {
     flex: 1,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     padding: 0,
   },
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
@@ -141,20 +145,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: theme.colors.divider,
   },
   itemActive: {
-    backgroundColor: colors.primary,
-    borderBottomColor: colors.primary,
+    backgroundColor: theme.colors.primary,
+    borderBottomColor: theme.colors.primary,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.99 }],
   },
   itemTextWrap: { flex: 1 },
-  itemName: { fontFamily: fontFamilies.medium, fontSize: fontSizes.md, color: colors.textPrimary },
-  itemNameActive: { color: colors.textInverse, fontFamily: fontFamilies.bold },
-  checkMark: { fontFamily: fontFamilies.bold, fontSize: fontSizes.md, color: colors.textInverse },
+  itemName: { fontFamily: fontFamilies.medium, fontSize: fontSizes.md, color: theme.colors.textPrimary },
+  itemNameActive: { color: theme.colors.textInverse, fontFamily: fontFamilies.bold },
+  checkMark: { fontFamily: fontFamilies.bold, fontSize: fontSizes.md, color: theme.colors.textInverse },
   empty: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     textAlign: 'center',
     marginTop: spacing.xxl,
   },

@@ -1,7 +1,10 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { FileText, TShirt, DeviceMobile, BowlFood, DotsThreeCircle } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 export interface CategoryChipsProps {
   value: string;
@@ -20,27 +23,29 @@ export const CategoryChips = memo(function CategoryChips({
   value,
   onChange,
 }: CategoryChipsProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.chipRow}>
       {CATEGORIES.map(({ key, label, Icon }) => {
         const active = value === key;
         return (
-          <TouchableOpacity
+          <Pressable
             key={key}
-            style={[styles.chip, active && styles.chipActive]}
+            style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed ? styles.pressed : null]}
             onPress={() => onChange(key)}
-            activeOpacity={0.7}
           >
-            <Icon size={16} color={active ? colors.textInverse : colors.textSecondary} />
+            <Icon size={16} color={active ? theme.colors.textInverse : theme.colors.textSecondary} />
             <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -54,21 +59,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
   chipText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   chipTextActive: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
     fontFamily: fontFamilies.semiBold,
   },
 });

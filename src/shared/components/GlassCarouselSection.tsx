@@ -51,8 +51,8 @@ const createStyles = (theme: AppTheme) => ({
     position: 'relative',
     borderRadius: 28,
     borderWidth: theme.effects.isLiquid ? 1 : 0,
-    borderColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.72)' : 'transparent',
-    backgroundColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.24)' : 'transparent',
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : 'transparent',
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : 'transparent',
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
     marginTop: spacing.lg,
@@ -66,7 +66,7 @@ const createStyles = (theme: AppTheme) => ({
     right: 1,
     bottom: 1,
     borderRadius: 27,
-    backgroundColor: theme.effects.isLiquid ? 'rgba(234, 255, 253, 0.18)' : 'transparent',
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassTint : 'transparent',
   },
   sectionRim: {
     position: 'absolute',
@@ -76,7 +76,7 @@ const createStyles = (theme: AppTheme) => ({
     height: 44,
     borderTopLeftRadius: 27,
     borderTopRightRadius: 27,
-    backgroundColor: theme.effects.isLiquid ? 'rgba(255, 255, 255, 0.3)' : 'transparent',
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSheen : 'transparent',
   },
   header: {
     flexDirection: 'row',

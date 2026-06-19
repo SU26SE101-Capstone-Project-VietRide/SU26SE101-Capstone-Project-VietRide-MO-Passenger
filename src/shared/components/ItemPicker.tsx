@@ -9,11 +9,12 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList } from 'react-native';
+import { View, Text, Pressable, TextInput, FlatList } from 'react-native';
 import { ArrowLeft, MagnifyingGlass } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { getCardStyle } from '@shared/theme/helpers';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 interface ItemPickerProps<T> {
   title: string;
@@ -38,7 +39,7 @@ export function ItemPicker<T>({
 }: ItemPickerProps<T>): React.JSX.Element {
   const [query, setQuery] = useState(initialQuery);
   const theme = useTheme();
-  const isLiquid = theme.variant.startsWith('liquid');
+  const styles = useThemedStyles(createStyles);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -47,21 +48,21 @@ export function ItemPicker<T>({
   }, [items, query, searchBy]);
 
   return (
-    <View style={[styles.safe, isLiquid && { backgroundColor: theme.colors.background }]}>
+    <View style={styles.safe}>
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => (onSelect as any)('__BACK__')} activeOpacity={0.7}>
-          <ArrowLeft size={22} color={theme.isDark ? '#FFF' : colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{title}</Text>
-        <View style={{ width: 22 }} />
+        <Pressable onPress={() => (onSelect as any)('__BACK__')} style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}>
+          <ArrowLeft size={22} color={theme.colors.textPrimary} />
+        </Pressable>
+        <Text style={styles.headerTitle}>{title}</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <View style={[styles.searchBox, isLiquid && getCardStyle(theme, styles.searchBox)]}>
-        <MagnifyingGlass size={16} color={theme.isDark ? '#A0A0A0' : colors.textTertiary} />
+      <View style={styles.searchBox}>
+        <MagnifyingGlass size={16} color={theme.colors.textTertiary} />
         <TextInput
-          style={[styles.searchInput, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}
+          style={styles.searchInput}
           placeholder={searchPlaceholder}
-          placeholderTextColor={theme.isDark ? '#A0A0A0' : colors.textTertiary}
+          placeholderTextColor={theme.colors.textTertiary}
           value={query}
           onChangeText={setQuery}
           autoFocus
@@ -77,7 +78,7 @@ export function ItemPicker<T>({
           <Text style={styles.empty}>Nothing found</Text>
         }
       />
-      {filtered.map((item, idx) => (
+      {filtered.map((item) => (
         <React.Fragment key={keyExtractor(item)}>
           {renderItem(item)}
         </React.Fragment>
@@ -86,24 +87,34 @@ export function ItemPicker<T>({
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+const createStyles = (theme: AppTheme) => ({
+  safe: { flex: 1, backgroundColor: theme.colors.background },
   headerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md,
   },
-  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: colors.textPrimary },
+  headerButton: {
+    ...theme.components.headerButton,
+    width: 38,
+    height: 38,
+  },
+  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
+  headerSpacer: { width: 38 },
   searchBox: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     marginHorizontal: spacing.lg, paddingHorizontal: spacing.md,
     height: 44, borderRadius: borderRadius.lg,
-    backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.divider,
+    ...theme.components.field,
     marginBottom: spacing.md,
   },
-  searchInput: { flex: 1, fontFamily: fontFamilies.regular, fontSize: fontSizes.md, color: colors.textPrimary, padding: 0 },
+  searchInput: { flex: 1, fontFamily: fontFamilies.regular, fontSize: fontSizes.md, color: theme.colors.textPrimary, padding: 0 },
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
   empty: {
     fontFamily: fontFamilies.regular, fontSize: fontSizes.md,
-    color: colors.textTertiary, textAlign: 'center', marginTop: spacing.xxl,
+    color: theme.colors.textTertiary, textAlign: 'center', marginTop: spacing.xxl,
+  },
+  pressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.96 }],
   },
 });

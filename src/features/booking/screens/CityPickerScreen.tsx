@@ -5,15 +5,18 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, StatusBar } from 'react-native';
+import { View, Text, Pressable, TextInput, FlatList, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft, MapPin, MagnifyingGlass } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import type { BookingStackParamList } from '@app/navigation/types';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'CityPicker'>;
 
@@ -39,6 +42,8 @@ const CITIES: City[] = [
 
 export function CityPickerScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { searchParams, setSearchParams } = useBookingStore();
   const route = navigation.getState().routes;
   const lastParams = (route[route.length - 1]?.params ?? {}) as { mode?: 'from' | 'to' };
@@ -69,8 +74,8 @@ export function CityPickerScreen(): React.JSX.Element {
         <Svg height="300" width="100%">
           <Defs>
             <LinearGradient id="cityGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.12} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.colors.primaryLight} stopOpacity={theme.isDark ? 0.18 : 0.12} />
+              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#cityGrad)" />
@@ -78,32 +83,31 @@ export function CityPickerScreen(): React.JSX.Element {
       </View>
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
         {/* Header with back bubble */}
         <View style={styles.header}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-            style={styles.backBtn}
+            style={({ pressed }) => [styles.backBtn, pressed ? styles.pressed : null]}
           >
             <View style={styles.backBubble}>
-              <ArrowLeft size={20} color={colors.primary} weight="bold" />
+              <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
             </View>
-          </TouchableOpacity>
+          </Pressable>
           <Text style={styles.headerTitle}>
             {mode === 'from' ? 'Departure City' : 'Destination City'}
           </Text>
-          <View style={{ width: 40 }} />
+          <View style={styles.headerSpacer} />
         </View>
 
         {/* Search box */}
         <View style={styles.searchBox}>
-          <MagnifyingGlass size={16} color={colors.textTertiary} weight="bold" />
+          <MagnifyingGlass size={16} color={theme.colors.textTertiary} weight="bold" />
           <TextInput
             style={styles.searchInput}
             placeholder="Search city..."
-            placeholderTextColor={colors.textTertiary}
+            placeholderTextColor={theme.colors.textTertiary}
             value={query}
             onChangeText={setQuery}
             autoFocus
@@ -118,22 +122,21 @@ export function CityPickerScreen(): React.JSX.Element {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.item}
+            <Pressable
+              style={({ pressed }) => [styles.item, pressed ? styles.pressed : null]}
               onPress={() => onSelect(item.name)}
-              activeOpacity={0.7}
             >
               <View style={styles.itemIcon}>
-                <MapPin size={16} color={colors.primary} weight="fill" />
+                <MapPin size={16} color={theme.colors.primary} weight="fill" />
               </View>
               <View style={styles.itemTextWrap}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 {item.region ? <Text style={styles.itemRegion}>{item.region}</Text> : null}
               </View>
               <View style={styles.itemArrow}>
-                <ArrowLeft size={16} color={colors.textTertiary} weight="bold" style={{ transform: [{ rotate: '180deg' }] }} />
+                <ArrowLeft size={16} color={theme.colors.textTertiary} weight="bold" style={styles.arrowForward} />
               </View>
-            </TouchableOpacity>
+            </Pressable>
           )}
           ListEmptyComponent={
             <Text style={styles.empty}>No cities found</Text>
@@ -144,10 +147,10 @@ export function CityPickerScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   root: {
     flex: 1,
-    backgroundColor: '#E6F4F3',
+    backgroundColor: theme.colors.background,
   },
   gradientContainer: {
     position: 'absolute',
@@ -173,12 +176,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: colors.divider,
-    ...shadows.sm,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    ...theme.effects.cardShadow,
   },
   backBubble: {
     alignItems: 'center',
@@ -187,7 +190,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
+  },
+  headerSpacer: {
+    width: 40,
   },
   searchBox: {
     flexDirection: 'row',
@@ -197,17 +203,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     height: 48,
     borderRadius: 16,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.fieldSurface : theme.colors.surface,
     borderWidth: 1.2,
-    borderColor: colors.divider,
-    ...shadows.sm,
+    borderColor: theme.effects.isLiquid ? theme.effects.fieldBorder : theme.colors.divider,
+    ...theme.effects.cardShadow,
     marginBottom: spacing.md,
   },
   searchInput: {
     flex: 1,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     padding: 0,
   },
   list: {
@@ -220,13 +226,13 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: theme.colors.divider,
   },
   itemIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -236,27 +242,34 @@ const styles = StyleSheet.create({
   itemName: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   itemRegion: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginTop: 2,
   },
   itemArrow: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
   empty: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     textAlign: 'center',
     marginTop: spacing.xxl,
+  },
+  arrowForward: {
+    transform: [{ rotate: '180deg' }],
+  },
+  pressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.98 }],
   },
 });

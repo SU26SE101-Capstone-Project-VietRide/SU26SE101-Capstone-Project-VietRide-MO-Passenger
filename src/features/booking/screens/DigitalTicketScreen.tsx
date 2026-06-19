@@ -4,11 +4,14 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { ArrowLeft, MapPin, CheckCircle, QrCode, Coins, CreditCard, Wallet, File } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 // Local border radius fallback
 const BR = {
@@ -30,6 +33,8 @@ export function DigitalTicketScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const rootNav = useNavigation<RootNavProp>();
   const route = useRoute<RouteProp<BookingStackParamList, 'DigitalTicket'>>();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const isHistory = route.params?.fromHistory;
   const ticketRef = route.params?.bookingRef || `B-${Math.floor(Math.random() * 1000000)}`;
 
@@ -51,9 +56,9 @@ export function DigitalTicketScreen(): React.JSX.Element {
   }, [navigation]);
 
   const getPaymentIcon = () => {
-    if (paymentMethod === 'vnpay') return <Coins size={12} color={colors.primary} weight="bold" />;
-    if (paymentMethod === 'card') return <CreditCard size={12} color={colors.primary} weight="bold" />;
-    return <Wallet size={12} color={colors.primary} weight="bold" />;
+    if (paymentMethod === 'vnpay') return <Coins size={12} color={theme.colors.primary} weight="bold" />;
+    if (paymentMethod === 'card') return <CreditCard size={12} color={theme.colors.primary} weight="bold" />;
+    return <Wallet size={12} color={theme.colors.primary} weight="bold" />;
   };
 
   const getPaymentLabel = () => {
@@ -66,9 +71,9 @@ export function DigitalTicketScreen(): React.JSX.Element {
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
       <View style={styles.navbar}>
-        <TouchableOpacity style={styles.navButton} onPress={isHistory ? () => navigation.goBack() : handleGoHome} activeOpacity={0.7}>
-          <ArrowLeft size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <Pressable style={({ pressed }) => [styles.navButton, pressed ? styles.pressed : null]} onPress={isHistory ? () => navigation.goBack() : handleGoHome}>
+          <ArrowLeft size={22} color={theme.colors.textPrimary} />
+        </Pressable>
         <Text style={styles.navTitle}>{isHistory ? 'Ticket Detail' : 'Bus Ticket'}</Text>
         <View style={{ width: 36 }} />
       </View>
@@ -77,7 +82,7 @@ export function DigitalTicketScreen(): React.JSX.Element {
         {/* Success Header Status */}
         {!isHistory && (
           <View style={styles.successHeader}>
-            <CheckCircle size={56} color={colors.success} weight="fill" />
+            <CheckCircle size={56} color={theme.colors.success} weight="fill" />
             <Text style={styles.successTitle}>Booking Successful!</Text>
             <Text style={styles.successSubtitle}>Your ticket is ready. Show this QR to the driver.</Text>
           </View>
@@ -88,7 +93,7 @@ export function DigitalTicketScreen(): React.JSX.Element {
           {/* Ticket Header QR */}
           <View style={styles.qrSection}>
             <View style={styles.qrContainer}>
-              <QrCode size={128} color={colors.textPrimary} weight="light" />
+              <QrCode size={128} color={theme.colors.textPrimary} weight="light" />
             </View>
             <Text style={styles.qrCaption}>Scan this QR at the bus door</Text>
             <Text style={styles.ticketIdText}>Ticket Ref: {ticketRef}</Text>
@@ -146,42 +151,39 @@ export function DigitalTicketScreen(): React.JSX.Element {
         {/* Action Buttons */}
         {!isHistory ? (
           <>
-            <TouchableOpacity
+            <Pressable
               style={styles.trackButton}
               onPress={() => rootNav.navigate('Main', { screen: 'BookingHistory', params: { initialTab: 'ticket' } })}
-              activeOpacity={0.85}
             >
-              <File size={18} color={colors.textInverse} weight="bold" />
+              <File size={18} color={theme.colors.textInverse} weight="bold" />
               <Text style={styles.trackButtonText}>View My Bookings</Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
+            <Pressable
               style={[styles.trackButton, styles.trackingButton]}
               onPress={handleTracking}
-              activeOpacity={0.85}
             >
-              <MapPin size={18} color={colors.primary} weight="bold" />
+              <MapPin size={18} color={theme.colors.primary} weight="bold" />
               <Text style={styles.trackingButtonText}>Tracking</Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity style={styles.homeButton} onPress={handleGoHome} activeOpacity={0.8}>
+            <Pressable style={styles.homeButton} onPress={handleGoHome}>
               <Text style={styles.homeButtonText}>Back to Dashboard</Text>
-            </TouchableOpacity>
+            </Pressable>
           </>
         ) : (
           <>
-            <TouchableOpacity
+            <Pressable
               style={styles.trackButton}
               onPress={handleTracking}
-              activeOpacity={0.85}
             >
-              <MapPin size={18} color={colors.textInverse} weight="bold" />
+              <MapPin size={18} color={theme.colors.textInverse} weight="bold" />
               <Text style={styles.trackButtonText}>Tracking</Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity style={styles.homeButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+            <Pressable style={styles.homeButton} onPress={() => navigation.goBack()}>
               <Text style={styles.homeButtonText}>Go Back</Text>
-            </TouchableOpacity>
+            </Pressable>
           </>
         )}
       </ScrollView>
@@ -189,10 +191,10 @@ export function DigitalTicketScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   navbar: {
     flexDirection: 'row',
@@ -201,9 +203,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   navButton: {
     width: 36,
@@ -211,12 +213,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+  },
+  pressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.96 }],
   },
   navTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -230,21 +236,19 @@ const styles = StyleSheet.create({
   successTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   successSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   ticketCard: {
-    backgroundColor: colors.surface,
+    ...theme.components.elevatedCard,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     borderRadius: BR.xl,
-    ...shadows.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
     overflow: 'visible',
     marginBottom: spacing.xxl,
   },
@@ -254,25 +258,25 @@ const styles = StyleSheet.create({
   },
   qrContainer: {
     padding: spacing.md,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderRadius: BR.lg,
     marginBottom: spacing.md,
   },
   qrCaption: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: 4,
   },
   ticketIdText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   dashedDivider: {
     height: 2,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     borderStyle: 'dashed',
     position: 'relative',
     marginVertical: spacing.sm,
@@ -284,9 +288,9 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
     borderRightWidth: 1,
-    borderRightColor: colors.divider,
+    borderRightColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   sideCutoutRight: {
     position: 'absolute',
@@ -295,9 +299,9 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
     borderLeftWidth: 1,
-    borderLeftColor: colors.divider,
+    borderLeftColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   detailsSection: {
     padding: spacing.xl,
@@ -313,18 +317,18 @@ const styles = StyleSheet.create({
   routeLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: 9,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginBottom: 4,
   },
   routeName: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   routeCity: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   specsGrid: {
@@ -339,13 +343,13 @@ const styles = StyleSheet.create({
   specLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: 9,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginBottom: 4,
   },
   specValue: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   paymentMethodLabel: {
     flexDirection: 'row',
@@ -358,52 +362,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: theme.colors.divider,
   },
   totalLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   totalValue: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   trackButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    ...theme.components.primaryButton,
     borderRadius: BR.md,
     height: 48,
     gap: spacing.sm,
-    ...shadows.sm,
     marginBottom: spacing.sm,
   },
   trackingButton: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
   },
   trackButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   trackingButtonText: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   homeButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderRadius: BR.md,
     height: 48,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   homeButtonText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
 });

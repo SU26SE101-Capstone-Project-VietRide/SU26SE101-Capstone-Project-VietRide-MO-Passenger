@@ -3,13 +3,16 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, Pressable, FlatList, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft, CalendarBlank } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import type { RouteProp } from '@react-navigation/native';
 import type { BookingStackParamList } from '@app/navigation/types';
@@ -36,6 +39,8 @@ export function DatePicker(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<DatePickerRouteProp>();
   const { searchParams, setSearchParams } = useBookingStore();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const mode = route.params?.mode || 'departure';
   const todayStr = fmt(TODAY);
@@ -58,8 +63,8 @@ export function DatePicker(): React.JSX.Element {
         <Svg height="300" width="100%">
           <Defs>
             <LinearGradient id="dateGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.12} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.colors.primaryLight} stopOpacity={theme.isDark ? 0.18 : 0.14} />
+              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#dateGrad)" />
@@ -67,17 +72,17 @@ export function DatePicker(): React.JSX.Element {
       </View>
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         {/* Header with back bubble */}
         <View style={styles.header}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-            style={styles.backBtn}
+            style={({ pressed }) => [styles.backBtn, pressed ? styles.backBtnPressed : null]}
           >
             <View style={styles.backBubble}>
-              <ArrowLeft size={20} color={colors.primary} weight="bold" />
+              <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
             </View>
-          </TouchableOpacity>
+          </Pressable>
           <Text style={styles.headerTitle}>Select {mode === 'return' ? 'Return Date' : 'Date'}</Text>
           <View style={{ width: 40 }} />
         </View>
@@ -96,15 +101,18 @@ export function DatePicker(): React.JSX.Element {
               const isToday = dateStr === todayStr;
               const active = dateStr === selected;
               return (
-                <TouchableOpacity
-                  style={[styles.dayItem, active && styles.dayItemActive]}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.dayItem,
+                    active && styles.dayItemActive,
+                    pressed ? styles.pressed : null,
+                  ]}
                   onPress={() => setSelected(dateStr)}
-                  activeOpacity={0.7}
                 >
                   <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{label}</Text>
                   <Text style={[styles.dayNum, active && styles.dayNumActive]}>{item.getDate()}</Text>
-                  {isToday && <Text style={[styles.dayBadge, active && styles.dayBadgeActive]}>Today</Text>}
-                </TouchableOpacity>
+                  {isToday ? <Text style={[styles.dayBadge, active && styles.dayBadgeActive]}>Today</Text> : null}
+                </Pressable>
               );
             }}
           />
@@ -144,16 +152,19 @@ export function DatePicker(): React.JSX.Element {
                   const active = dateStr === selected;
                   const dimmed = d.getMonth() !== TODAY.getMonth();
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={dateStr}
-                      style={[styles.calCell, active && styles.calCellActive]}
+                      style={({ pressed }) => [
+                        styles.calCell,
+                        active && styles.calCellActive,
+                        pressed ? styles.calCellPressed : null,
+                      ]}
                       onPress={() => setSelected(dateStr)}
-                      activeOpacity={0.7}
                     >
                       <Text style={[styles.calCellText, active && styles.calCellTextActive, dimmed && styles.calCellDimmed]}>
                         {d.getDate()}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
                 {/* Pad incomplete last row */}
@@ -167,20 +178,20 @@ export function DatePicker(): React.JSX.Element {
 
         {/* Confirm */}
         <View style={styles.footer}>
-          <TouchableOpacity style={styles.confirmBtn} onPress={onConfirm} activeOpacity={0.8}>
-            <CalendarBlank size={18} color={colors.textInverse} />
-            <Text style={styles.confirmText}>Confirm — {selected}</Text>
-          </TouchableOpacity>
+          <Pressable style={({ pressed }) => [styles.confirmBtn, pressed ? styles.pressed : null]} onPress={onConfirm}>
+            <CalendarBlank size={18} color={theme.colors.textInverse} />
+            <Text style={styles.confirmText}>Confirm - {selected}</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   root: {
     flex: 1,
-    backgroundColor: '#E6F4F3',
+    backgroundColor: theme.colors.background,
   },
   gradientContainer: {
     position: 'absolute',
@@ -203,15 +214,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.divider,
-    ...shadows.sm,
+    ...theme.components.headerButton,
+  },
+  backBtnPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.96 }],
   },
   backBubble: {
     alignItems: 'center',
@@ -220,14 +227,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   stripCard: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    ...shadows.sm,
     marginHorizontal: spacing.xl,
     marginBottom: spacing.md,
     overflow: 'hidden',
@@ -242,61 +246,62 @@ const styles = StyleSheet.create({
     width: 64,
     aspectRatio: 0.72,
     borderRadius: borderRadius.lg,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   dayItemActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-    ...shadows.sm,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+    ...theme.effects.cardShadow,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
   dayLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   dayLabelActive: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   dayNum: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   dayNumActive: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
   dayBadge: {
     fontFamily: fontFamilies.medium,
     fontSize: 9,
-    color: colors.primary,
-    backgroundColor: colors.primaryFaded,
+    color: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: borderRadius.full,
   },
   dayBadgeActive: {
-    color: colors.textInverse,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    color: theme.colors.textInverse,
+    backgroundColor: theme.effects.glassSheen,
   },
   monthLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     paddingHorizontal: spacing.xl,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },
   calCard: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    ...shadows.sm,
     marginHorizontal: spacing.xl,
     padding: spacing.md,
   },
@@ -307,7 +312,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     paddingVertical: spacing.xs,
   },
   calCell: {
@@ -318,19 +323,22 @@ const styles = StyleSheet.create({
   },
   calCellActive: {
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
+  },
+  calCellPressed: {
+    opacity: 0.72,
   },
   calCellText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
   },
   calCellTextActive: {
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
     fontFamily: fontFamilies.bold,
   },
   calCellDimmed: {
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   footer: {
     position: 'absolute',
@@ -338,23 +346,22 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: spacing.lg,
-    backgroundColor: '#E6F4F3',
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.background,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
   },
   confirmBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.primary,
+    ...theme.components.primaryButton,
     borderRadius: borderRadius.lg,
     height: 52,
-    ...shadows.md,
   },
   confirmText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
   },
 });

@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
-import type { ColorValue } from 'react-native';
+import { View, Text, Image } from 'react-native';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import type { AppTheme } from '@shared/theme';
 
 const catMascotImage = require('@assets/images/image 1.png');
 
@@ -10,6 +11,7 @@ export interface StepHeaderWithMascotProps {
 }
 
 export const StepHeaderWithMascot = ({ step }: StepHeaderWithMascotProps): React.JSX.Element => {
+  const styles = useThemedStyles(createStyles);
   const heading = (() => {
     switch (step) {
       case 1: return 'Choose Receiving Station';
@@ -45,7 +47,7 @@ export const StepHeaderWithMascot = ({ step }: StepHeaderWithMascotProps): React
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   stepHeaderWithMascotInsideNavbar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -60,13 +62,13 @@ const styles = StyleSheet.create({
   headingInsideNavbar: {
     fontFamily: fontFamilies.bold,
     fontSize: 22,
-    color: colors.primaryDark as ColorValue,
+    color: theme.colors.primaryDark,
     marginBottom: spacing.xs,
   },
   subtextInsideNavbar: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary as ColorValue,
+    color: theme.colors.textSecondary,
   },
   mascotHeadingImageInsideNavbar: {
     width: 52,
