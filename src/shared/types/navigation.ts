@@ -7,7 +7,6 @@ export type {
   AuthStackParamList,
   MainTabParamList,
   BookingStackParamList,
-  TrackingStackParamList,
   ParcelStackParamList,
   ProfileStackParamList,
 } from '@app/navigation/types';

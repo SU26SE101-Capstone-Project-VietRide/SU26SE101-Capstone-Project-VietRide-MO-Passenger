@@ -9,6 +9,7 @@ import React from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 
 import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 
 interface LoadingOverlayProps {
   visible: boolean;
@@ -19,15 +20,26 @@ export function LoadingOverlay({
   visible,
   message,
 }: LoadingOverlayProps): React.JSX.Element | null {
+  const theme = useTheme();
+
   if (!visible) {
     return null;
   }
 
+  const isLiquid = theme.variant.startsWith('liquid');
+
   return (
-    <View style={styles.overlay}>
-      <View style={styles.content}>
+    <View style={[styles.overlay, { backgroundColor: isLiquid ? theme.glassOverlay : colors.overlay }]}>
+      <View style={[
+        styles.content, 
+        isLiquid && { 
+          backgroundColor: theme.surfaceStyle.backgroundColor,
+          borderColor: theme.surfaceStyle.borderColor,
+          borderWidth: 1,
+        }
+      ]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        {message && <Text style={styles.message}>{message}</Text>}
+        {message && <Text style={[styles.message, isLiquid && { color: theme.isDark ? '#FFF' : '#181C20' }]}>{message}</Text>}
       </View>
     </View>
   );

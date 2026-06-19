@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: colors.divider,
-    shadowColor: colors.shadow,
+    shadowColor: colors.textPrimary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 3,

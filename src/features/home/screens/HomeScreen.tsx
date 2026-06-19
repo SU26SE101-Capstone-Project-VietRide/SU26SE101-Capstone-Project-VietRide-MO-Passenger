@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { ProfileHeader } from '@shared/components';
 import { useBookingStore } from '../../booking/store/useBookingStore';
@@ -39,6 +40,8 @@ export function HomeScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const user = useAuthStore((state) => state.user);
   const fullName = user?.fullName || 'Viết Thông';
+  const theme = useTheme();
+  const isLiquid = theme.variant.startsWith('liquid');
 
   const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
   const [isRoundTrip, setIsRoundTrip] = useState(false);
@@ -138,8 +141,8 @@ export function HomeScreen(): React.JSX.Element {
 
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f7f9ff" />
+    <SafeAreaView style={[styles.safeArea, isLiquid && { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       {/* Decorative Mint Green Ambient Background Glow */}
       <View style={styles.ambientGlow} />

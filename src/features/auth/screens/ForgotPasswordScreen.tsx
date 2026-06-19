@@ -196,6 +196,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
+  otpInput: {
+    letterSpacing: 8,
+    fontSize: fontSizes.xxl,
+  },
+  errorText: {
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
   successSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.lg,

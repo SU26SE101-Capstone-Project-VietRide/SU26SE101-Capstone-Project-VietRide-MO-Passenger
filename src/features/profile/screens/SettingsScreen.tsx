@@ -11,14 +11,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Bell, Translate, ShieldCheck, Info } from 'phosphor-react-native';
+import { ArrowLeft, Bell, Translate, ShieldCheck, Info, Palette } from 'phosphor-react-native';
 
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { useAppStore } from '@shared/store/useAppStore';
 
 export function SettingsScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const setLocaleStore = useAppStore((state) => state.setLocale);
   const localeStore = useAppStore((state) => state.locale);
 
@@ -98,6 +98,27 @@ export function SettingsScreen(): React.JSX.Element {
               {currentLanguage.startsWith('en') && (
                 <View style={styles.radioCheck} />
               )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Section: Appearance */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Palette size={18} color={colors.primary} style={styles.sectionIcon} />
+            <Text style={styles.sectionTitle}>Appearance</Text>
+          </View>
+
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.settingRow}
+              onPress={() => navigation.navigate('ThemeSettings')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingLabel}>Theme & Visuals</Text>
+                <Text style={styles.settingDesc}>Choose Liquid Glass or Classic mode</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>

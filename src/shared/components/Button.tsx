@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -43,7 +44,15 @@ export function Button({
   style,
   textStyle,
 }: ButtonProps): React.JSX.Element {
+  const theme = useTheme();
   const isDisabled = disabled || loading;
+
+  const isLiquid = theme.variant.startsWith('liquid');
+  const liquidContainerStyle = isLiquid && variant === 'primary' ? {
+    backgroundColor: theme.isDark ? 'rgba(42,193,188,0.7)' : 'rgba(42,193,188,0.85)',
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 1,
+  } : undefined;
 
   return (
     <TouchableOpacity
@@ -54,6 +63,7 @@ export function Button({
         styles.base,
         variantStyles[variant].container,
         sizeStyles[size].container,
+        liquidContainerStyle,
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
         style,

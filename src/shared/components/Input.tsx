@@ -19,6 +19,7 @@ import {
   spacing,
   borderRadius,
 } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 
 interface InputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
@@ -40,8 +41,16 @@ export const Input = forwardRef<TextInput, InputProps>(
     },
     ref,
   ) => {
+    const theme = useTheme();
     const [isFocused, setIsFocused] = useState(false);
     const hasError = Boolean(error);
+    const isLiquid = theme.variant.startsWith('liquid');
+
+    const liquidInputStyle = isLiquid ? {
+      backgroundColor: theme.isDark ? 'rgba(40,40,40,0.5)' : 'rgba(255,255,255,0.6)',
+      borderColor: theme.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.8)',
+      color: theme.isDark ? '#FFFFFF' : '#181C20',
+    } : undefined;
 
     return (
       <View style={[styles.container, containerStyle]}>
@@ -54,7 +63,7 @@ export const Input = forwardRef<TextInput, InputProps>(
 
         <TextInput
           ref={ref}
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor={isLiquid ? (theme.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(24,28,32,0.4)') : colors.textTertiary}
           onFocus={(e) => {
             setIsFocused(true);
             textInputProps.onFocus?.(e);
@@ -65,6 +74,7 @@ export const Input = forwardRef<TextInput, InputProps>(
           }}
           style={[
             styles.input,
+            liquidInputStyle,
             isFocused && styles.inputFocused,
             hasError && styles.inputError,
           ]}

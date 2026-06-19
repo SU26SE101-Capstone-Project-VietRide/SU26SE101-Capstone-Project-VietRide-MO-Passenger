@@ -24,6 +24,8 @@ import { GoogleLogo, AppleLogo, FacebookLogo } from 'phosphor-react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { Input, Button } from '@shared/components';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { getCardStyle } from '@shared/theme/helpers';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { useAuthStore } from '../store/useAuthStore';
 import { AuthStepHeader } from '../components';
@@ -33,6 +35,8 @@ type NavProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 export function LoginScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const setUser = useAuthStore((state) => state.setUser);
+  const theme = useTheme();
+  const isLiquid = theme.variant.startsWith('liquid');
 
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -48,15 +52,15 @@ export function LoginScreen(): React.JSX.Element {
   }, [setUser, phone]);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, isLiquid && { backgroundColor: theme.colors.background }]}>
       {/* Gradient background with decorative accent */}
       <View style={styles.gradientContainer} pointerEvents="none">
         <Svg height="520" width="100%">
           <Defs>
             <LinearGradient id="loginGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.7} />
-              <Stop offset="35%" stopColor="#2AC1BC" stopOpacity={0.25} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.isDark ? theme.colors.primaryDark : "#2AC1BC"} stopOpacity={0.7} />
+              <Stop offset="35%" stopColor={theme.isDark ? theme.colors.primaryDark : "#2AC1BC"} stopOpacity={0.25} />
+              <Stop offset="100%" stopColor={theme.isDark ? theme.colors.background : "#FFFFFF"} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#loginGrad)" />
@@ -82,7 +86,7 @@ export function LoginScreen(): React.JSX.Element {
             />
 
             {/* Form card — mint accent top border, elevated shadow */}
-            <View style={styles.formCard}>
+            <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
               <View style={styles.inputWrapper}>
                 <Input
                   label="Phone Number"

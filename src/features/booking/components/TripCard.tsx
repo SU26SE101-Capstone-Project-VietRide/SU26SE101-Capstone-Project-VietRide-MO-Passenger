@@ -9,6 +9,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Bus, Van, Bed } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { getCardStyle } from '@shared/theme/helpers';
 import type { BusTrip } from '../types';
 
 interface TripCardProps {
@@ -18,6 +20,8 @@ interface TripCardProps {
 }
 
 export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): React.JSX.Element {
+  const theme = useTheme();
+  const isLiquid = theme.variant.startsWith('liquid');
   const progress = 0.5; //Suy nghi lai cho nay
   const seatsUrgent = trip.seatsLeft <= 5;
 
@@ -29,7 +33,7 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={() => onPress(trip)}
-      style={[styles.card, isSelected && styles.cardSelected]}
+      style={[styles.card, isLiquid && getCardStyle(theme, styles.card), isSelected && styles.cardSelected]}
     >
       {/* Top row: badge + price */}
       <View style={styles.topRow}>
@@ -43,7 +47,7 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
       <View style={styles.timeRow}>
         {/* Departure */}
         <View style={styles.timeBlock}>
-          <Text style={styles.timeText}>{trip.departureTime}</Text>
+          <Text style={[styles.timeText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{trip.departureTime}</Text>
           <Text style={styles.stationText}>{trip.departureStation}</Text>
         </View>
 
@@ -52,14 +56,14 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
           </View>
-          <View style={styles.busIconContainer}>
+          <View style={[styles.busIconContainer, isLiquid && getCardStyle(theme, styles.busIconContainer)]}>
             <Bus size={16} weight="fill" color={colors.primary} />
           </View>
         </View>
 
         {/* Arrival */}
         <View style={[styles.timeBlock, styles.timeBlockRight]}>
-          <Text style={styles.timeText}>{trip.arrivalTime}</Text>
+          <Text style={[styles.timeText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{trip.arrivalTime}</Text>
           <Text style={[styles.stationText, { textAlign: 'right' }]}>{trip.arrivalStation}</Text>
         </View>
       </View>
@@ -77,7 +81,7 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
             )}
           </View>
           <View style={styles.busTypeLabelContainer}>
-            <Text style={styles.busTypeText}>{trip.busLabel}</Text>
+            <Text style={[styles.busTypeText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{trip.busLabel}</Text>
           </View>
         </View>
         <View style={[styles.seatsLeftBadge, seatsUrgent && styles.seatsLeftUrgent]}>

@@ -12,6 +12,8 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList } from 'react-native';
 import { ArrowLeft, MagnifyingGlass } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { getCardStyle } from '@shared/theme/helpers';
 
 interface ItemPickerProps<T> {
   title: string;
@@ -35,6 +37,8 @@ export function ItemPicker<T>({
   searchBy,
 }: ItemPickerProps<T>): React.JSX.Element {
   const [query, setQuery] = useState(initialQuery);
+  const theme = useTheme();
+  const isLiquid = theme.variant.startsWith('liquid');
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -43,21 +47,21 @@ export function ItemPicker<T>({
   }, [items, query, searchBy]);
 
   return (
-    <View style={styles.safe}>
+    <View style={[styles.safe, isLiquid && { backgroundColor: theme.colors.background }]}>
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => (onSelect as any)('__BACK__')} activeOpacity={0.7}>
-          <ArrowLeft size={22} color={colors.textPrimary} />
+          <ArrowLeft size={22} color={theme.isDark ? '#FFF' : colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text style={[styles.headerTitle, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{title}</Text>
         <View style={{ width: 22 }} />
       </View>
 
-      <View style={styles.searchBox}>
-        <MagnifyingGlass size={16} color={colors.textTertiary} />
+      <View style={[styles.searchBox, isLiquid && getCardStyle(theme, styles.searchBox)]}>
+        <MagnifyingGlass size={16} color={theme.isDark ? '#A0A0A0' : colors.textTertiary} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}
           placeholder={searchPlaceholder}
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor={theme.isDark ? '#A0A0A0' : colors.textTertiary}
           value={query}
           onChangeText={setQuery}
           autoFocus

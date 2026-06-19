@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions, PanResponder } fr
 import Svg, { Path, Circle, G, Line, Rect, Pattern, Defs, Text as SvgText } from 'react-native-svg';
 import { Bus, Truck, MapPin, Plus, Minus, Target } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { getCardStyle } from '@shared/theme/helpers';
 
 export interface MapPoint {
   id: string;
@@ -20,6 +22,8 @@ interface MockMapViewProps {
 }
 
 export function MockMapView({ points, vehicleType }: MockMapViewProps): React.JSX.Element {
+  const theme = useTheme();
+  const isLiquid = theme.variant.startsWith('liquid');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragStart = useRef({ x: 0, y: 0 });
@@ -74,7 +78,7 @@ export function MockMapView({ points, vehicleType }: MockMapViewProps): React.JS
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: isLiquid ? theme.colors.background : '#EDF4F6' }]}>
       {/* Map Content View */}
       <View style={styles.mapViewport} {...panResponder.panHandlers}>
         <Svg
@@ -172,7 +176,7 @@ export function MockMapView({ points, vehicleType }: MockMapViewProps): React.JS
                   <SvgText
                     x={p.x}
                     y={p.y - 14}
-                    fill={colors.textPrimary}
+                    fill={theme.isDark ? '#FFFFFF' : colors.textPrimary}
                     fontSize="7"
                     fontWeight="bold"
                     textAnchor="middle"
@@ -215,10 +219,10 @@ export function MockMapView({ points, vehicleType }: MockMapViewProps): React.JS
 
         {/* Selected Landmark Popover / Tooltip */}
         {selectedPoint && (
-          <View style={styles.calloutCard}>
+          <View style={[styles.calloutCard, isLiquid && getCardStyle(theme, styles.calloutCard)]}>
             <View style={styles.calloutHeader}>
               <MapPin size={16} color={colors.primary} weight="fill" />
-              <Text style={styles.calloutTitle}>{selectedPoint.name}</Text>
+              <Text style={[styles.calloutTitle, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{selectedPoint.name}</Text>
               <View
                 style={[
                   styles.statusBadge,
@@ -238,13 +242,13 @@ export function MockMapView({ points, vehicleType }: MockMapViewProps): React.JS
 
       {/* Floating Controls (Map overlay) */}
       <View style={styles.controlsContainer}>
-        <TouchableOpacity style={styles.controlBtn} onPress={handleZoomIn} activeOpacity={0.7}>
-          <Plus size={20} color={colors.textPrimary} weight="bold" />
+        <TouchableOpacity style={[styles.controlBtn, isLiquid && getCardStyle(theme, styles.controlBtn)]} onPress={handleZoomIn} activeOpacity={0.7}>
+          <Plus size={20} color={theme.isDark ? '#FFF' : colors.textPrimary} weight="bold" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.controlBtn} onPress={handleZoomOut} activeOpacity={0.7}>
-          <Minus size={20} color={colors.textPrimary} weight="bold" />
+        <TouchableOpacity style={[styles.controlBtn, isLiquid && getCardStyle(theme, styles.controlBtn)]} onPress={handleZoomOut} activeOpacity={0.7}>
+          <Minus size={20} color={theme.isDark ? '#FFF' : colors.textPrimary} weight="bold" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.controlBtn} onPress={handleRecenter} activeOpacity={0.7}>
+        <TouchableOpacity style={[styles.controlBtn, isLiquid && getCardStyle(theme, styles.controlBtn)]} onPress={handleRecenter} activeOpacity={0.7}>
           <Target size={20} color={colors.primary} weight="bold" />
         </TouchableOpacity>
       </View>

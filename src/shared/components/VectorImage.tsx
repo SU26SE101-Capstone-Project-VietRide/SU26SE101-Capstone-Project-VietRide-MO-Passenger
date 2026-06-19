@@ -8,6 +8,7 @@
 import React from 'react';
 import { Image, ImageStyle, StyleProp } from 'react-native';
 import { SvgUri } from 'react-native-svg';
+import { useTheme } from '@shared/contexts/ThemeContext';
 
 interface VectorImageProps {
   source: string;
@@ -24,6 +25,9 @@ export function VectorImage({
   style,
   color,
 }: VectorImageProps): React.JSX.Element {
+  const theme = useTheme();
+  const iconColor = color || (theme.isDark ? '#FFFFFF' : '#181C20');
+
   if (source && source.endsWith('.svg')) {
     return (
       <SvgUri
@@ -31,7 +35,7 @@ export function VectorImage({
         width={width}
         height={height}
         style={style as any}
-        color={color}
+        color={iconColor}
       />
     );
   }

@@ -27,6 +27,8 @@ import {
 } from 'phosphor-react-native';
 
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { getCardStyle } from '@shared/theme/helpers';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { ProfileStackParamList } from '@app/navigation/types';
 
@@ -37,6 +39,8 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   const navigation = useNavigation<ProfileNavProp>();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const theme = useTheme();
+  const isLiquid = theme.variant.startsWith('liquid');
 
   const handleLogout = useCallback(() => {
     Alert.alert(
@@ -106,8 +110,8 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   ];
 
   return (
-    <SafeAreaView style={styles.safeContainer} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+    <SafeAreaView style={[styles.safeContainer, isLiquid && { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       {/* Scrollable Container */}
       <ScrollView
@@ -116,11 +120,11 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       >
         {/* Title Header */}
         <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>{t('nav.profile', 'Profile')}</Text>
+          <Text style={[styles.headerTitle, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{t('nav.profile', 'Profile')}</Text>
         </View>
 
         {/* User Card Bento Wrapper */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, isLiquid && getCardStyle(theme, styles.profileCard)]}>
           <View style={styles.profileInfoSection}>
             <View style={styles.avatarWrapper}>
               {user?.avatarUrl ? (
@@ -134,25 +138,24 @@ export function ProfileOverviewScreen(): React.JSX.Element {
               )}
             </View>
             <View style={styles.namePhoneWrapper}>
-              <Text style={styles.fullNameText}>{user?.fullName || 'Viết Thông'}</Text>
+              <Text style={[styles.fullNameText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{user?.fullName || 'Viết Thông'}</Text>
               <View style={styles.phoneRow}>
-                <Phone size={14} color={colors.textSecondary} style={styles.phoneIcon} />
-                <Text style={styles.phoneText}>{user?.phone || '+84 987 654 321'}</Text>
+                <Phone size={14} color={theme.isDark ? '#A0A0A0' : colors.textSecondary} style={styles.phoneIcon} />
+                <Text style={[styles.phoneText, { color: theme.isDark ? '#A0A0A0' : colors.textSecondary }]}>{user?.phone || '+84 987 654 321'}</Text>
               </View>
             </View>
           </View>
 
           {/* Divider line */}
-          <View style={styles.cardDivider} />
+          <View style={[styles.cardDivider, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : colors.divider }]} />
 
-          {/* Wallet section */}
           <View style={styles.walletSection}>
             <View style={styles.walletHeader}>
               <View style={styles.walletBalanceContainer}>
-                <Text style={styles.walletTitle}>VietRide Wallet</Text>
+                <Text style={[styles.walletTitle, { color: theme.isDark ? '#EBEBF5' : colors.textSecondary }]}>{t('profile.walletBalance', 'Wallet Balance')}</Text>
                 <View style={styles.walletAmountRow}>
-                  <Text style={styles.walletBalanceAmount}>1,500,000</Text>
-                  <Text style={styles.walletCurrencySymbol}>đ</Text>
+                  <Text style={[styles.walletBalanceAmount, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>425</Text>
+                  <Text style={[styles.walletCurrencySymbol, { color: theme.isDark ? '#EBEBF5' : colors.textSecondary }]}>K ₫</Text>
                 </View>
               </View>
               <TouchableOpacity
@@ -164,82 +167,68 @@ export function ProfileOverviewScreen(): React.JSX.Element {
               </TouchableOpacity>
             </View>
 
-            {/* Wallet Actions Row */}
-            <View style={styles.walletActions}>
-              <TouchableOpacity
-                onPress={handleDeposit}
-                activeOpacity={0.7}
-                style={styles.walletActionBtn}
-              >
-                <View style={styles.walletIconBg}>
-                  <DownloadSimple size={20} color={colors.primary} weight="bold" />
+            <View style={[styles.walletActions, isLiquid && { borderTopColor: theme.isDark ? 'rgba(255,255,255,0.15)' : colors.divider }]}>
+              <TouchableOpacity style={styles.walletActionBtn} onPress={handleDeposit} activeOpacity={0.7}>
+                <View style={[styles.walletIconBg, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : colors.primaryFaded }]}>
+                  <DownloadSimple size={20} color={theme.isDark ? '#FFF' : colors.primary} />
                 </View>
-                <Text style={styles.walletActionText}>Deposit</Text>
+                <Text style={[styles.walletActionText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{t('profile.deposit', 'Deposit')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={handleWithdraw}
-                activeOpacity={0.7}
-                style={styles.walletActionBtn}
-              >
-                <View style={styles.walletIconBg}>
-                  <UploadSimple size={20} color={colors.primary} weight="bold" />
+              <TouchableOpacity style={styles.walletActionBtn} onPress={handleWithdraw} activeOpacity={0.7}>
+                <View style={[styles.walletIconBg, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : colors.primaryFaded }]}>
+                  <UploadSimple size={20} color={theme.isDark ? '#FFF' : colors.primary} />
                 </View>
-                <Text style={styles.walletActionText}>Withdraw</Text>
+                <Text style={[styles.walletActionText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{t('profile.withdraw', 'Withdraw')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={handleHistory}
-                activeOpacity={0.7}
-                style={styles.walletActionBtn}
-              >
-                <View style={styles.walletIconBg}>
-                  <ClockCounterClockwise size={20} color={colors.primary} weight="bold" />
+              <TouchableOpacity style={styles.walletActionBtn} onPress={handleHistory} activeOpacity={0.7}>
+                <View style={[styles.walletIconBg, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : colors.primaryFaded }]}>
+                  <ClockCounterClockwise size={20} color={theme.isDark ? '#FFF' : colors.primary} />
                 </View>
-                <Text style={styles.walletActionText}>History</Text>
+                <Text style={[styles.walletActionText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{t('profile.history', 'History')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {/* Menu Options Group */}
-        <View style={styles.menuContainer}>
+        <View style={[styles.menuContainer, isLiquid && getCardStyle(theme, styles.menuContainer)]}>
           {profileMenuItems.map((item, index) => {
-            const IconComponent = item.icon;
+            const isFirst = index === 0;
+            const isLast = index === profileMenuItems.length - 1;
             return (
               <TouchableOpacity
                 key={item.id}
                 style={[
                   styles.menuItem,
-                  index === 0 && styles.firstMenuItem,
-                  index === profileMenuItems.length - 1 && styles.lastMenuItem,
+                  isFirst && styles.firstMenuItem,
+                  isLast && styles.lastMenuItem,
+                  isLiquid && { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.1)' : colors.divider }
                 ]}
                 onPress={item.onPress}
-                activeOpacity={0.6}
+                activeOpacity={0.7}
               >
                 <View style={styles.menuItemLeft}>
-                  <View style={styles.menuIconContainer}>
-                    <IconComponent size={20} color={colors.primary} weight="regular" />
+                  <View style={[styles.menuIconContainer, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : colors.primaryFaded }]}>
+                    <item.icon size={18} color={theme.isDark ? '#FFF' : colors.primary} />
                   </View>
-                  <Text style={styles.menuItemTitle}>{item.title}</Text>
+                  <Text style={[styles.menuItemTitle, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{item.title}</Text>
                 </View>
-                <CaretRight size={18} color={colors.textTertiary} weight="bold" />
+                <CaretRight size={16} color={theme.isDark ? '#A0A0A0' : colors.textTertiary} weight="bold" />
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Log Out Button */}
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[styles.logoutButton, isLiquid && { backgroundColor: theme.isDark ? 'rgba(255,60,60,0.1)' : colors.surface }]}
           onPress={handleLogout}
           activeOpacity={0.7}
         >
-          <SignOut size={20} color={colors.error} weight="regular" />
+          <SignOut size={20} color={colors.error} weight="bold" />
           <Text style={styles.logoutText}>{t('auth.logout', 'Log Out')}</Text>
         </TouchableOpacity>
 
-        {/* Footnote */}
         <Text style={styles.versionText}>VietRide Passenger • v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>

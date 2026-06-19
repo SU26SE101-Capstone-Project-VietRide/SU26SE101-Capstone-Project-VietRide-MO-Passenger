@@ -14,6 +14,8 @@ import { useTranslation } from 'react-i18next';
 import { House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native';
 
 import { colors, fontFamilies, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { getCardStyle } from '@shared/theme/helpers';
 
 // Import local image for AI button
 const appLogoPlaceholder = require('../../assets/images/app_logo_placeholder.png');
@@ -27,9 +29,11 @@ interface CustomTabBarProps {
 export function CustomTabBar({ state, descriptors: _descriptors, navigation }: CustomTabBarProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isLiquid = theme.variant.startsWith('liquid');
 
   return (
-    <View style={[styles.tabBarContainer, { paddingBottom: insets.bottom || spacing.sm }]}>
+    <View style={[styles.tabBarContainer, isLiquid && getCardStyle(theme, styles.tabBarContainer), { paddingBottom: insets.bottom || spacing.sm }]}>
       {state.routes.map((route: any, index: number) => {
         const isFocused = state.index === index;
 
@@ -88,16 +92,17 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: C
             activeOpacity={0.7}
             style={styles.tabButton}
           >
-            <View style={[styles.tabContent, isFocused && styles.tabContentActive]}>
+            <View style={[styles.tabContent, isFocused && styles.tabContentActive, isFocused && isLiquid && { backgroundColor: theme.colors.primaryFaded }]}>
               <IconComponent
                 size={22}
                 weight={isFocused ? 'fill' : 'regular'}
-                color={isFocused ? colors.primary : colors.textSecondary}
+                color={isFocused ? colors.primary : (theme.isDark ? '#A0A0A0' : colors.textSecondary)}
                 style={styles.tabIcon}
               />
               <Text
                 style={[
                   styles.tabText,
+                  { color: theme.isDark ? '#FFF' : colors.textPrimary },
                   isFocused ? styles.tabTextActive : styles.tabTextInactive,
                 ]}
               >

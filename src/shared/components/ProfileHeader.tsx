@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, Bell } from 'phosphor-react-native';
 import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 
 export interface ProfileHeaderProps {
   showBackButton?: boolean;
@@ -24,6 +25,8 @@ export function ProfileHeader({
   avatarSource = require('../../assets/images/Avatar.png'),
 }: ProfileHeaderProps): React.JSX.Element {
   const navigation = useNavigation<any>();
+  const theme = useTheme();
+  const isLiquid = theme.variant.startsWith('liquid');
 
   const handleBack = () => {
     if (onBackPress) {
@@ -48,25 +51,25 @@ export function ProfileHeader({
           <TouchableOpacity
             onPress={handleBack}
             activeOpacity={0.7}
-            style={styles.backButton}
+            style={[styles.backButton, isLiquid && { backgroundColor: theme.glassOverlay }]}
           >
-            <ArrowLeft size={22} color={colors.textPrimary} />
+            <ArrowLeft size={22} color={theme.isDark ? '#FFF' : colors.textPrimary} />
           </TouchableOpacity>
         )}
         <Image source={avatarSource} style={styles.headerAvatar} />
         <View style={styles.profileTextContainer}>
-          <Text style={styles.greetingText}>{greeting}</Text>
-          <Text style={styles.userNameText}>{userName}</Text>
+          <Text style={[styles.greetingText, { color: theme.isDark ? '#EBEBF5' : colors.textSecondary }]}>{greeting}</Text>
+          <Text style={[styles.userNameText, { color: theme.isDark ? '#FFF' : colors.textPrimary }]}>{userName}</Text>
         </View>
       </View>
       
       {showNotificationButton && (
         <TouchableOpacity
           onPress={handleNotification}
-          style={styles.bellButton}
+          style={[styles.bellButton, isLiquid && { backgroundColor: theme.glassOverlay }]}
           activeOpacity={0.7}
         >
-          <Bell size={22} color={colors.textPrimary} />
+          <Bell size={22} color={theme.isDark ? '#FFF' : colors.textPrimary} />
         </TouchableOpacity>
       )}
     </View>
