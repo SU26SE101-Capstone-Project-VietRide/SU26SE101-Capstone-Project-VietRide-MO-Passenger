@@ -143,8 +143,11 @@ export function HomeScreen(): React.JSX.Element {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
-      {/* Decorative Mint Green Ambient Background Glow */}
-      <View style={styles.ambientGlow} />
+      <View style={styles.backgroundLayer} pointerEvents="none">
+        <View style={styles.ambientGlow} />
+        <View style={styles.secondaryGlow} />
+        <View style={styles.contentShield} />
+      </View>
 
       {/* Header - TopAppBar */}
       <ProfileHeader
@@ -413,17 +416,50 @@ export function HomeScreen(): React.JSX.Element {
 const createStyles = (theme: AppTheme) => ({
   safeArea: {
     ...theme.components.screen,
+    overflow: 'hidden',
+  },
+  backgroundLayer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 0,
   },
   ambientGlow: {
     position: 'absolute',
     backgroundColor: theme.effects.ambientGlow,
-    width: 585,
-    height: 585,
+    width: 456,
+    height: 456,
+    borderRadius: 228,
+    top: -172,
+    left: -96,
+    opacity: theme.effects.isLiquid ? 1 : 0,
+    transform: [{ scaleX: 1.28 }, { scaleY: 0.82 }, { rotate: '-12deg' }],
+  },
+  secondaryGlow: {
+    position: 'absolute',
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassTint : 'transparent',
+    width: 318,
+    height: 318,
     borderRadius: 9999,
-    top: -176.8,
-    left: -97.5,
-    zIndex: 0,
-    transform: [{ scale: 1.0 }],
+    top: 128,
+    right: -152,
+    opacity: theme.effects.isLiquid ? (theme.isDark ? 0.9 : 0.72) : 0,
+    transform: [{ scaleX: 0.78 }, { scaleY: 1.18 }, { rotate: '18deg' }],
+  },
+  contentShield: {
+    position: 'absolute',
+    top: 132,
+    left: -28,
+    right: -28,
+    height: 444,
+    borderRadius: 48,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.isDark
+        ? 'rgba(3, 17, 17, 0.5)'
+        : 'rgba(248, 253, 253, 0.58)'
+      : 'transparent',
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
