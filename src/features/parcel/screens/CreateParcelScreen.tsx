@@ -20,6 +20,14 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import type { PromoOffer } from '@shared/utils/promo';
+import {
+  calculatePromoDiscount,
+  findPromoByCode,
+  formatCurrency,
+  isPromoExpired,
+  normalizePromoCode,
+} from '@shared/utils/promo';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ParcelStackParamList } from '@app/navigation/types';
 import type { Station } from '../types';
@@ -90,6 +98,29 @@ type CreateParcelNavProp = NativeStackNavigationProp<ParcelStackParamList, 'Crea
 
 type PackageSize = 'small' | 'medium' | 'large';
 
+const PARCEL_PROMOS: PromoOffer[] = [
+  {
+    id: 'parcel-ship-15k',
+    code: 'SHIP15K',
+    title: 'Save 15K on parcel delivery',
+    description: 'For standard parcel shipping from ₫80,000.',
+    discountLabel: '15K OFF',
+    expiresAt: '2026-12-31T23:59:59+07:00',
+    minimumSpend: 80000,
+    discount: { type: 'fixed', amount: 15000 },
+  },
+  {
+    id: 'parcel-heavy-8',
+    code: 'HEAVY8',
+    title: '8% off heavy parcels',
+    description: 'Best for medium and large packages with weight surcharge.',
+    discountLabel: '8% OFF',
+    expiresAt: '2026-09-30T23:59:59+07:00',
+    minimumSpend: 120000,
+    discount: { type: 'percent', percent: 8, maxAmount: 40000 },
+  },
+];
+
 export function CreateParcelScreen(): React.JSX.Element {
   const navigation = useNavigation<CreateParcelNavProp>();
   const insets = useSafeAreaInsets();
@@ -115,7 +146,8 @@ export function CreateParcelScreen(): React.JSX.Element {
   const [photos, setPhotos] = useState<string[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'wallet' | 'card'>('wallet');
   const [promoCode, setPromoCode] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState<PromoOffer | null>(null);
+  const [promoError, setPromoError] = useState<string | undefined>(undefined);
 
   // Simulated Camera / Gallery states
   const [choiceSheetVisible, setChoiceSheetVisible] = useState(false);
@@ -128,8 +160,9 @@ export function CreateParcelScreen(): React.JSX.Element {
   const baseFare = 15000;
   const sizeMultiplier = packageSize === 'small' ? 1 : packageSize === 'medium' ? 1.5 : 2.5;
   const weightSurcharge = Math.ceil(packageWeight * 34000 * sizeMultiplier);
-  const promoDiscount = promoApplied ? 15000 : 0;
-  const totalPrice = baseFare + weightSurcharge - promoDiscount;
+  const promoSubtotal = baseFare + weightSurcharge;
+  const promoDiscount = appliedPromo ? calculatePromoDiscount(appliedPromo, promoSubtotal) : 0;
+  const totalPrice = Math.max(promoSubtotal - promoDiscount, 0);
 
   const handleNextStep = () => {
     if (step === 1 && !receivingStation) {
@@ -200,9 +233,55 @@ export function CreateParcelScreen(): React.JSX.Element {
     }, 300);
   };
 
-  const handlePromoApply = () => {
-    if (!promoApplied && promoCode.trim()) setPromoApplied(true);
-  };
+  const handlePromoCodeChange = React.useCallback((text: string) => {
+    const normalizedCode = text.toUpperCase();
+    setPromoCode(normalizedCode);
+    setPromoError(undefined);
+    setAppliedPromo((currentPromo) => {
+      if (!currentPromo) {
+        return null;
+      }
+
+      return normalizePromoCode(normalizedCode) === normalizePromoCode(currentPromo.code)
+        ? currentPromo
+        : null;
+    });
+  }, []);
+
+  const handlePromoApply = React.useCallback((nextCode: string, selectedPromo?: PromoOffer) => {
+    const normalizedCode = normalizePromoCode(nextCode);
+    const promo = selectedPromo || findPromoByCode(PARCEL_PROMOS, normalizedCode);
+
+    setPromoCode(normalizedCode);
+
+    if (!normalizedCode) {
+      setAppliedPromo(null);
+      setPromoError('Enter a promo code to apply.');
+      return false;
+    }
+
+    if (!promo) {
+      setAppliedPromo(null);
+      setPromoError('This promo code is not available for parcel booking.');
+      return false;
+    }
+
+    if (isPromoExpired(promo)) {
+      setAppliedPromo(null);
+      setPromoError('This promo code has expired.');
+      return false;
+    }
+
+    if (promo.minimumSpend && promoSubtotal < promo.minimumSpend) {
+      setAppliedPromo(null);
+      setPromoError(`Minimum parcel fare is ${formatCurrency(promo.minimumSpend)}.`);
+      return false;
+    }
+
+    setAppliedPromo(promo);
+    setPromoError(undefined);
+    return true;
+  }, [promoSubtotal]);
 
   return (
     <View style={styles.root}>
@@ -343,13 +422,15 @@ export function CreateParcelScreen(): React.JSX.Element {
                     promoDiscount={promoDiscount}
                     totalPrice={totalPrice}
                     promoCode={promoCode}
-                    promoApplied={promoApplied}
-                    onPromoCodeChange={setPromoCode}
-                    onPromoApply={handlePromoApply}
+                    promoApplied={Boolean(appliedPromo)}
+                    onPromoCodeChange={handlePromoCodeChange}
+                    onPromoApplyCode={handlePromoApply}
+                    availablePromos={PARCEL_PROMOS}
+                    selectedPromoCode={appliedPromo?.code}
+                    appliedPromoLabel={appliedPromo ? `${appliedPromo.code} Applied` : undefined}
+                    promoError={promoError}
                     paymentMethod={paymentMethod}
                     onPaymentMethodChange={setPaymentMethod}
-                    step={step}
-                    onPayPress={handleNextStep}
                   />
                 </View>
               )}

@@ -10,6 +10,14 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import type { PromoOffer } from '@shared/utils/promo';
+import {
+  calculatePromoDiscount,
+  findPromoByCode,
+  formatCurrency,
+  isPromoExpired,
+  normalizePromoCode,
+} from '@shared/utils/promo';
 import { FloatingActionBar } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
@@ -17,6 +25,29 @@ import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
 interface PaymentStepProps {
   onNext: () => void;
 }
+
+const TICKET_PROMOS: PromoOffer[] = [
+  {
+    id: 'ticket-vietride-50k',
+    code: 'VIETRIDE50',
+    title: 'Save 50K on bus tickets',
+    description: 'For one-way and round-trip ticket bookings from ₫300,000.',
+    discountLabel: '50K OFF',
+    expiresAt: '2026-12-31T23:59:59+07:00',
+    minimumSpend: 300000,
+    discount: { type: 'fixed', amount: 50000 },
+  },
+  {
+    id: 'ticket-summer-10',
+    code: 'SUMMER10',
+    title: '10% off selected trips',
+    description: 'Limited campaign for sleeper and limousine routes.',
+    discountLabel: '10% OFF',
+    expiresAt: '2026-08-31T23:59:59+07:00',
+    minimumSpend: 200000,
+    discount: { type: 'percent', percent: 10, maxAmount: 80000 },
+  },
+];
 
 export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
   const theme = useTheme();
@@ -37,11 +68,15 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
   }, [setHighestStep, searchParams.isRoundTrip]);
 
   const [promoCode, setPromoCode] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
-  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [appliedPromo, setAppliedPromo] = useState<PromoOffer | null>(null);
+  const [promoError, setPromoError] = useState<string | undefined>(undefined);
 
   const baseFare = totalPrice();
-  const finalPrice = baseFare - promoDiscount;
+  const promoDiscount = useMemo(
+    () => (appliedPromo ? calculatePromoDiscount(appliedPromo, baseFare) : 0),
+    [appliedPromo, baseFare],
+  );
+  const finalPrice = Math.max(baseFare - promoDiscount, 0);
 
   // Determine which leg to display (return leg for round trip, outbound for one-way)
   const displayLeg = useMemo(() => {
@@ -60,15 +95,55 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     onNext();
   }, [onNext]);
 
-  const handlePromoApply = useCallback(() => {
-    if (promoCode.trim().length > 0) {
-      setPromoApplied(true);
-      setPromoDiscount(50000); // Mock discount
-    } else {
-      setPromoApplied(false);
-      setPromoDiscount(0);
+  const handlePromoCodeChange = useCallback((text: string) => {
+    const normalizedCode = text.toUpperCase();
+    setPromoCode(normalizedCode);
+    setPromoError(undefined);
+    setAppliedPromo((currentPromo) => {
+      if (!currentPromo) {
+        return null;
+      }
+
+      return normalizePromoCode(normalizedCode) === normalizePromoCode(currentPromo.code)
+        ? currentPromo
+        : null;
+    });
+  }, []);
+
+  const handlePromoApply = useCallback((nextCode: string, selectedPromo?: PromoOffer) => {
+    const normalizedCode = normalizePromoCode(nextCode);
+    const promo = selectedPromo || findPromoByCode(TICKET_PROMOS, normalizedCode);
+
+    setPromoCode(normalizedCode);
+
+    if (!normalizedCode) {
+      setAppliedPromo(null);
+      setPromoError('Enter a promo code to apply.');
+      return false;
     }
-  }, [promoCode]);
+
+    if (!promo) {
+      setAppliedPromo(null);
+      setPromoError('This promo code is not available for ticket booking.');
+      return false;
+    }
+
+    if (isPromoExpired(promo)) {
+      setAppliedPromo(null);
+      setPromoError('This promo code has expired.');
+      return false;
+    }
+
+    if (promo.minimumSpend && baseFare < promo.minimumSpend) {
+      setAppliedPromo(null);
+      setPromoError(`Minimum ticket fare is ${formatCurrency(promo.minimumSpend)}.`);
+      return false;
+    }
+
+    setAppliedPromo(promo);
+    setPromoError(undefined);
+    return true;
+  }, [baseFare]);
 
   return (
     <View style={styles.container}>
@@ -147,9 +222,13 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
           {/* Promo Code */}
           <PromoCodeInput
             code={promoCode}
-            onChange={setPromoCode}
-            applied={promoApplied}
-            onApply={handlePromoApply}
+            onChange={handlePromoCodeChange}
+            applied={Boolean(appliedPromo)}
+            onApplyCode={handlePromoApply}
+            promos={TICKET_PROMOS}
+            selectedPromoCode={appliedPromo?.code}
+            appliedLabel={appliedPromo ? `${appliedPromo.code} Applied` : undefined}
+            errorText={promoError}
           />
 
           {/* Pricing Breakdown details card */}
@@ -159,14 +238,14 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
               <Text style={styles.priceLabel}>Base Ticket Fare ({seats.length}x)</Text>
               <Text style={styles.priceValue}>₫{baseFare.toLocaleString('vi-VN')}</Text>
             </View>
-            {promoApplied && (
+            {appliedPromo ? (
               <View style={styles.priceRow}>
                 <Text style={styles.priceLabel}>Promo Discount</Text>
                 <Text style={[styles.priceValue, { color: theme.colors.success }]}>
                   -₫{promoDiscount.toLocaleString('vi-VN')}
                 </Text>
               </View>
-            )}
+            ) : null}
             <View style={styles.summaryDivider} />
             <View style={[styles.priceRow, { marginTop: spacing.md }]}>
               <Text style={styles.totalLabel}>Total Price</Text>

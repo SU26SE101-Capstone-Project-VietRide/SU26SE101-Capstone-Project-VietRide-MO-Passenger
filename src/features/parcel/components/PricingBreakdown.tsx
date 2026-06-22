@@ -5,6 +5,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import type { PromoOffer } from '@shared/utils/promo';
 import { PromoCodeInput } from './PromoCodeInput';
 
 export interface PricingBreakdownProps {
@@ -23,11 +24,13 @@ export interface PricingBreakdownProps {
   promoCode: string;
   promoApplied: boolean;
   onPromoCodeChange: (text: string) => void;
-  onPromoApply: () => void;
+  onPromoApplyCode: (code: string, promo?: PromoOffer) => boolean | void;
+  availablePromos: PromoOffer[];
+  selectedPromoCode?: string;
+  appliedPromoLabel?: string;
+  promoError?: string;
   paymentMethod: 'vnpay' | 'wallet' | 'card';
   onPaymentMethodChange: (method: 'vnpay' | 'wallet' | 'card') => void;
-  step: number;
-  onPayPress: () => void;
 }
 
 export const PricingBreakdown = ({
@@ -46,11 +49,13 @@ export const PricingBreakdown = ({
   promoCode,
   promoApplied,
   onPromoCodeChange,
-  onPromoApply,
+  onPromoApplyCode,
+  availablePromos,
+  selectedPromoCode,
+  appliedPromoLabel,
+  promoError,
   paymentMethod,
   onPaymentMethodChange,
-  step,
-  onPayPress,
 }: PricingBreakdownProps): React.JSX.Element => {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -135,7 +140,11 @@ export const PricingBreakdown = ({
         code={promoCode}
         onChange={onPromoCodeChange}
         applied={promoApplied}
-        onApply={onPromoApply}
+        onApplyCode={onPromoApplyCode}
+        promos={availablePromos}
+        selectedPromoCode={selectedPromoCode}
+        appliedLabel={appliedPromoLabel}
+        errorText={promoError}
       />
 
       {/* Pricing Breakdown details card */}
@@ -151,12 +160,14 @@ export const PricingBreakdown = ({
           </Text>
           <Text style={styles.priceValue}>₫{weightSurcharge.toLocaleString()}</Text>
         </View>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Promo Discount</Text>
-          <Text style={[styles.priceValue, { color: theme.colors.success }]}>
-            -₫{promoDiscount.toLocaleString()}
-          </Text>
-        </View>
+        {promoApplied ? (
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Promo Discount</Text>
+            <Text style={[styles.priceValue, { color: theme.colors.success }]}>
+              -₫{promoDiscount.toLocaleString()}
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.summaryDivider} />
         <View style={[styles.priceRow, { marginTop: spacing.md }]}>
           <Text style={styles.totalLabel}>Total Price</Text>
