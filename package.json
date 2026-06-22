@@ -21,6 +21,7 @@
     "axios": "^1.16.1",
     "expo": "^56.0.8",
     "expo-font": "~56.0.5",
+    "expo-image-picker": "~56.0.18",
     "i18next": "^26.3.0",
     "phosphor-react-native": "^3.0.6",
     "react": "19.2.3",

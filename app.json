@@ -5,6 +5,14 @@
     "version": "0.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "VietRide cần quyền mở thư viện ảnh để cập nhật ảnh đại diện."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true
     },

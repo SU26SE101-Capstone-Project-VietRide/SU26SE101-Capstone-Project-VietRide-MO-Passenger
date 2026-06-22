@@ -10,7 +10,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Bell, Translate, ShieldCheck, Info, Palette } from 'phosphor-react-native';
+import {
+  ArrowLeft,
+  Bell,
+  CaretRight,
+  Info,
+  LockKey,
+  Palette,
+  ShieldCheck,
+  Translate,
+} from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -125,6 +134,29 @@ export function SettingsScreen(): React.JSX.Element {
                 <Text style={styles.settingLabel}>Theme & Visuals</Text>
                 <Text style={styles.settingDesc}>Choose Light or Dark Liquid Glass mode</Text>
               </View>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Section: Security */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <LockKey size={18} color={theme.colors.primary} style={styles.sectionIcon} />
+            <Text style={styles.sectionTitle}>Security</Text>
+          </View>
+
+          <View style={styles.card}>
+            <Pressable
+              style={styles.settingRow}
+              onPress={() => navigation.navigate('SecuritySettings')}
+            >
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingLabel}>Account Security</Text>
+                <Text style={styles.settingDesc}>
+                  Change password, check signed-in devices and recent logins
+                </Text>
+              </View>
+              <CaretRight size={16} color={theme.colors.textTertiary} weight="bold" />
             </Pressable>
           </View>
         </View>

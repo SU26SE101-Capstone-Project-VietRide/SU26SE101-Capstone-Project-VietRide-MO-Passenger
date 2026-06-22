@@ -61,6 +61,8 @@ export type ProfileStackParamList = {
   ProfileOverview: undefined;
   EditProfile: undefined;
   Settings: undefined;
+  SecuritySettings: undefined;
+  ChangePassword: undefined;
   ThemeSettings: undefined;
   Wallet: undefined;
   TopUp: undefined;

@@ -5,6 +5,8 @@ import type { ProfileStackParamList } from '@app/navigation/types';
 import { ProfileOverviewScreen } from './screens/ProfileOverviewScreen';
 import { EditProfileScreen } from './screens/EditProfileScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { SecurityScreen } from './screens/SecurityScreen';
+import { ChangePasswordScreen } from './screens/ChangePasswordScreen';
 import { ThemeScreen } from './screens/ThemeScreen';
 import { WalletScreen } from './screens/WalletScreen';
 import { TopUpScreen } from './screens/TopUpScreen';
@@ -30,6 +32,8 @@ export function ProfileNavigator(): React.JSX.Element {
       <Stack.Screen name="ProfileOverview" component={ProfileOverviewScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="SecuritySettings" component={SecurityScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="ThemeSettings" component={ThemeScreen} />
       <Stack.Screen name="Wallet" component={WalletScreen} />
       <Stack.Screen name="TopUp" component={TopUpScreen} />

@@ -1,108 +1,177 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   Pressable,
   Image,
   ScrollView,
-  Modal,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useTranslation } from 'react-i18next';
-import { Camera, ArrowLeft, Check } from 'phosphor-react-native';
+import { useMutation } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
+import { Camera, ArrowLeft, CheckCircle } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { Input, Button, LoadingOverlay } from '@shared/components';
+import { Button, Input } from '@shared/components';
+import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
+import { getApiErrorMessage, toApiError } from '@shared/api/errors';
+import {
+  apiProfileFieldErrors,
+  editProfileFieldErrors,
+  editProfileSchema,
+  type EditProfileField,
+} from '../validation/profileValidation';
+import {
+  completeProfile,
+  updateProfile,
+  uploadAvatar,
+  type AvatarUploadFile,
+} from '../api/profileApi';
 
-// 6 Curated high-fidelity mock avatar illustration URLs
-const PRESET_AVATARS = [
-  'https://i.pravatar.cc/150?img=11',
-  'https://i.pravatar.cc/150?img=12',
-  'https://i.pravatar.cc/150?img=26',
-  'https://i.pravatar.cc/150?img=33',
-  'https://i.pravatar.cc/150?img=47',
-  'https://i.pravatar.cc/150?img=60',
-];
+interface SelectedAvatar {
+  uri: string;
+  file: AvatarUploadFile;
+}
+
+const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
+
+const getAssetName = (asset: ImagePicker.ImagePickerAsset): string => {
+  if (asset.fileName?.trim()) {
+    return asset.fileName.trim();
+  }
+
+  const extension = asset.mimeType?.split('/')[1] || 'jpg';
+  return `vietride-avatar.${extension}`;
+};
 
 export function EditProfileScreen(): React.JSX.Element {
-  const { t } = useTranslation();
   const navigation = useNavigation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
+  const [displayName, setDisplayName] = useState(user?.displayName || user?.fullName || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [selectedAvatar, setSelectedAvatar] = useState<SelectedAvatar | null>(null);
+  const [errors, setErrors] = useState<Partial<Record<EditProfileField, string>>>({});
 
-  // States
-  const [fullName, setFullName] = useState(user?.fullName || '');
-  const [email, setEmail] = useState(user?.email || '');
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || PRESET_AVATARS[0]);
-  const [isAvatarModalVisible, setIsAvatarModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ fullName?: string; email?: string }>({});
+  const bottomTabClearance =
+    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
+  const avatarUri = selectedAvatar?.uri || user?.avatarUrl;
+  const avatarInitial = (displayName.trim() || user?.email || 'V').charAt(0).toUpperCase();
+  const canCompletePhone = !user?.phone;
 
-  const validateForm = useCallback(() => {
-    const newErrors: { fullName?: string; email?: string } = {};
-    if (!fullName.trim()) {
-      newErrors.fullName = t('profile.errNameRequired', 'Full Name is required');
-    }
-    if (email.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        newErrors.email = t('profile.errEmailInvalid', 'Invalid email address');
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const parsed = editProfileSchema.safeParse({ displayName, phone });
+
+      if (!parsed.success) {
+        setErrors(editProfileFieldErrors(parsed.error));
+        return null;
       }
+
+      setErrors({});
+
+      let nextUser = user;
+      const nextDisplayName = parsed.data.displayName;
+      const displayNameChanged = Boolean(user && nextDisplayName !== user.displayName);
+      const phoneChanged = Boolean(canCompletePhone && parsed.data.phone);
+
+      if (displayNameChanged) {
+        nextUser = await updateProfile({ displayName: nextDisplayName });
+      }
+
+      if (phoneChanged) {
+        nextUser = await completeProfile({ phone: parsed.data.phone });
+      }
+
+      if (selectedAvatar) {
+        nextUser = await uploadAvatar(selectedAvatar.file);
+      }
+
+      return nextUser;
+    },
+    onSuccess: (nextUser) => {
+      if (nextUser) {
+        setUser(nextUser);
+        navigation.goBack();
+      }
+    },
+    onError: (error) => {
+      const apiError = toApiError(error);
+
+      if (apiError.fields.length > 0) {
+        setErrors(apiProfileFieldErrors<EditProfileField>(apiError.fields));
+      }
+
+      Alert.alert('Không thể cập nhật hồ sơ', getApiErrorMessage(apiError));
+    },
+  });
+
+  const hasUnsavedChanges = useMemo(
+    () =>
+      displayName.trim() !== (user?.displayName || user?.fullName || '') ||
+      phone.trim() !== (user?.phone || '') ||
+      Boolean(selectedAvatar),
+    [displayName, phone, selectedAvatar, user?.displayName, user?.fullName, user?.phone],
+  );
+
+  const handlePickAvatar = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert(
+        'Cần quyền truy cập ảnh',
+        'VietRide cần quyền mở thư viện ảnh để bạn chọn ảnh đại diện.',
+      );
+      return;
     }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }, [fullName, email, t]);
 
-  const handleSave = useCallback(async () => {
-    if (!validateForm()) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.82,
+    });
 
-    setLoading(true);
-
-    // Simulate server update delay
-    await new Promise<void>((resolve) => setTimeout(resolve, 800));
-
-    if (user) {
-      setUser({
-        ...user,
-        fullName,
-        email: email.trim() ? email : null,
-        avatarUrl,
-      });
+    if (result.canceled || result.assets.length === 0) {
+      return;
     }
 
-    setLoading(false);
-    navigation.goBack();
-  }, [fullName, email, avatarUrl, user, setUser, navigation, validateForm]);
+    const asset = result.assets[0];
 
-  const selectPresetAvatar = (url: string) => {
-    setAvatarUrl(url);
-    setIsAvatarModalVisible(false);
-  };
+    setSelectedAvatar({
+      uri: asset.uri,
+      file: {
+        uri: asset.uri,
+        name: getAssetName(asset),
+        type: asset.mimeType || 'image/jpeg',
+      },
+    });
+  }, []);
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
+    <SafeAreaView style={styles.safeContainer} edges={['top']}>
       <StatusBar
         barStyle={theme.isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.colors.background}
       />
-      
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
       >
-        {/* Navigation Top Bar */}
         <View style={styles.topBar}>
           <Pressable
             onPress={() => navigation.goBack()}
@@ -110,131 +179,100 @@ export function EditProfileScreen(): React.JSX.Element {
           >
             <ArrowLeft size={24} color={theme.colors.textPrimary} />
           </Pressable>
-          <Text style={styles.topBarTitle}>{t('profile.editProfile', 'Edit Profile')}</Text>
+          <Text style={styles.topBarTitle}>Chỉnh sửa hồ sơ</Text>
           <View style={styles.topBarRightPlaceholder} />
         </View>
 
-        {/* Scrollable Form */}
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+          scrollIndicatorInsets={{ bottom: bottomTabClearance }}
           onScroll={handleTabBarScroll}
           scrollEventThrottle={16}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Avatar Section */}
           <View style={styles.avatarSection}>
             <Pressable
               style={styles.avatarContainer}
-              onPress={() => setIsAvatarModalVisible(true)}
+              onPress={handlePickAvatar}
             >
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.initialsAvatar}>
+                  <Text style={styles.initialsText}>{avatarInitial}</Text>
+                </View>
+              )}
               <View style={styles.cameraIconBadge}>
                 <Camera size={16} color={theme.colors.textInverse} weight="fill" />
               </View>
             </Pressable>
-            <Text style={styles.changePhotoText}>
-              {t('profile.changePhoto', 'Change Profile Picture')}
-            </Text>
+            <Text style={styles.changePhotoText}>Đổi ảnh đại diện</Text>
+            {selectedAvatar ? (
+              <View style={styles.pendingAvatarNote}>
+                <CheckCircle size={14} color={theme.colors.primary} weight="fill" />
+                <Text style={styles.pendingAvatarText}>Ảnh mới đang chờ lưu</Text>
+              </View>
+            ) : null}
           </View>
 
-          {/* Form Fields */}
           <View style={styles.formContainer}>
             <Input
-              label={t('profile.fullNameLabel', 'Full Name')}
-              value={fullName}
+              label="Họ và tên"
+              value={displayName}
               onChangeText={(text) => {
-                setFullName(text);
-                if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: undefined }));
+                setDisplayName(text);
+                if (errors.displayName) {
+                  setErrors((prev) => ({ ...prev, displayName: undefined }));
+                }
               }}
-              placeholder={t('profile.fullNamePlaceholder', 'Enter full name')}
-              error={errors.fullName}
+              placeholder="Nhập họ và tên"
+              error={errors.displayName}
+              autoCapitalize="words"
               required
             />
 
-            <Input
-              label={t('profile.emailLabel', 'Email Address')}
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
-              }}
-              placeholder={t('profile.emailPlaceholder', 'Enter email address')}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              error={errors.email}
-            />
-
-            {/* Read-only Phone Field */}
             <View style={styles.readOnlyContainer}>
-              <Text style={styles.readOnlyLabel}>{t('auth.phone', 'Phone Number')}</Text>
+              <Text style={styles.readOnlyLabel}>Email</Text>
               <View style={styles.readOnlyInput}>
-                <Text style={styles.readOnlyText}>{user?.phone || '+84 987 654 321'}</Text>
+                <Text style={styles.readOnlyText}>{user?.email || 'Chưa có email'}</Text>
               </View>
               <Text style={styles.readOnlyHint}>
-                {t('profile.phoneChangeHint', 'Phone number cannot be changed directly.')}
+                Email dùng để đăng nhập nên chưa thể thay đổi trên app.
               </Text>
             </View>
+
+            <Input
+              label="Số điện thoại"
+              value={phone}
+              onChangeText={(text) => {
+                setPhone(text);
+                if (errors.phone) {
+                  setErrors((prev) => ({ ...prev, phone: undefined }));
+                }
+              }}
+              placeholder="+84901234567"
+              keyboardType="phone-pad"
+              editable={canCompletePhone}
+              error={errors.phone}
+              hint={
+                canCompletePhone
+                  ? 'Backend hiện chỉ hỗ trợ bổ sung số điện thoại một lần.'
+                  : 'Backend hiện chưa cho đổi số điện thoại đã xác thực.'
+              }
+            />
           </View>
 
-          {/* Action Button */}
           <Button
-            title={t('common.save', 'Save Changes')}
-            onPress={handleSave}
+            title="Lưu thay đổi"
+            onPress={() => saveMutation.mutate()}
+            loading={saveMutation.isPending}
+            disabled={!hasUnsavedChanges}
             fullWidth
             style={styles.saveButton}
           />
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* Preset Avatar Selection Modal */}
-      <Modal
-        visible={isAvatarModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsAvatarModalVisible(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setIsAvatarModalVisible(false)}
-        >
-          <Pressable style={styles.modalContent} onPress={(event) => event.stopPropagation()}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderBar} />
-              <Text style={styles.modalTitle}>
-                {t('profile.selectAvatar', 'Select Profile Picture')}
-              </Text>
-            </View>
-
-            <FlatList
-              data={PRESET_AVATARS}
-              keyExtractor={(item) => item}
-              numColumns={3}
-              contentContainerStyle={styles.avatarListContent}
-              renderItem={({ item }) => {
-                const isSelected = item === avatarUrl;
-                return (
-                  <Pressable
-                    style={styles.avatarOptionWrapper}
-                    onPress={() => selectPresetAvatar(item)}
-                  >
-                    <View style={styles.avatarOptionBorder}>
-                      <Image source={{ uri: item }} style={styles.presetAvatarImage} />
-                      {isSelected ? (
-                        <View style={styles.selectedBadge}>
-                          <Check size={12} color={theme.colors.textInverse} weight="bold" />
-                        </View>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                );
-              }}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Loading Overlay */}
-      {loading ? <LoadingOverlay visible /> : null}
     </SafeAreaView>
   );
 }
@@ -275,7 +313,6 @@ const createStyles = (theme: AppTheme) => ({
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
   },
   avatarSection: {
     alignItems: 'center',
@@ -283,8 +320,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   avatarContainer: {
     position: 'relative',
-    width: 100,
-    height: 100,
+    width: 104,
+    height: 104,
     borderRadius: borderRadius.full,
     ...theme.effects.cardShadow,
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
@@ -295,6 +332,19 @@ const createStyles = (theme: AppTheme) => ({
     width: '100%',
     height: '100%',
     borderRadius: borderRadius.full,
+  },
+  initialsAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  initialsText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.h2,
+    color: theme.colors.primary,
   },
   cameraIconBadge: {
     position: 'absolute',
@@ -314,6 +364,21 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
     color: theme.colors.primary,
     marginTop: spacing.md,
+  },
+  pendingAvatarNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  pendingAvatarText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+    marginLeft: spacing.xs,
   },
   formContainer: {
     marginBottom: spacing.xl,
@@ -350,73 +415,5 @@ const createStyles = (theme: AppTheme) => ({
   },
   saveButton: {
     marginTop: spacing.sm,
-  },
-  // Preset Avatar Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: theme.effects.scrim,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
-    borderTopLeftRadius: borderRadius.lg,
-    borderTopRightRadius: borderRadius.lg,
-    paddingBottom: Platform.OS === 'ios' ? spacing.xxl : spacing.xl,
-    maxHeight: '60%',
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
-    borderBottomWidth: 0,
-    ...theme.effects.floatingShadow,
-  },
-  modalHeader: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-  },
-  modalHeaderBar: {
-    width: 36,
-    height: 4,
-    backgroundColor: theme.colors.border,
-    borderRadius: borderRadius.full,
-    marginBottom: spacing.sm,
-  },
-  modalTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: theme.colors.textPrimary,
-  },
-  avatarListContent: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-  },
-  avatarOptionWrapper: {
-    margin: spacing.md,
-  },
-  avatarOptionBorder: {
-    position: 'relative',
-    width: 80,
-    height: 80,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.border,
-    overflow: 'hidden',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
-  },
-  presetAvatarImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: borderRadius.full,
-  },
-  selectedBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: theme.colors.primaryFaded,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });
