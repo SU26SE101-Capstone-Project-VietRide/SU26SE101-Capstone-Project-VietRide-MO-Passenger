@@ -241,7 +241,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   bentoSummaryCard: {
     ...theme.components.card,
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
@@ -255,7 +255,7 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.primary,
   },
   bentoCardHeading: {
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
     marginBottom: spacing.md,
@@ -298,13 +298,13 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.md,
   },
   routeLabelText: {
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
     fontSize: 9,
     color: theme.colors.textTertiary,
     marginBottom: 2,
   },
   routeStationName: {
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },
@@ -319,9 +319,9 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.md,
   },
   specIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: borderRadius.md,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.lg,
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
@@ -330,7 +330,7 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
   },
   specTitle: {
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },
@@ -345,7 +345,7 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderRadius: borderRadius.lg,
-    borderWidth: 1.2,
+    borderWidth: 1,
     borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -423,7 +423,7 @@ const createStyles = (theme: AppTheme) => ({
     marginVertical: spacing.sm,
   },
   totalLabel: {
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
   },

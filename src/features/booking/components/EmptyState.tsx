@@ -1,12 +1,12 @@
 /**
- * EmptyState — Themed empty state with mascot illustration
+ * EmptyState - Refined empty state for booking screens.
  *
  * Used across booking screens when there are no results to show.
  */
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { ArrowClockwise } from 'phosphor-react-native';
+import { ArrowClockwise, MagnifyingGlass } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -26,7 +26,7 @@ interface EmptyStateProps {
 }
 
 export const EmptyState = ({
-  emoji = '🚌',
+  emoji,
   title,
   subtitle,
   actionLabel,
@@ -37,24 +37,28 @@ export const EmptyState = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.illustrationContainer}>
-        <View style={styles.illustrationCircle}>
-          <Text style={styles.illustrationEmoji}>{emoji}</Text>
+      <View style={styles.panel}>
+        <View style={styles.iconWrap}>
+          {emoji ? (
+            <Text style={styles.illustrationEmoji}>{emoji}</Text>
+          ) : (
+            <MagnifyingGlass size={30} weight="duotone" color={theme.colors.primary} />
+          )}
         </View>
+        <Text style={styles.title}>{title}</Text>
+        {subtitle != null && subtitle.trim().length > 0 && (
+          <Text style={styles.subtitle}>{subtitle}</Text>
+        )}
+        {actionLabel != null && onAction != null && (
+          <Pressable
+            onPress={onAction}
+            style={({ pressed }) => [styles.actionButton, pressed ? styles.actionButtonPressed : null]}
+          >
+            <ArrowClockwise size={15} weight="bold" color={theme.colors.textInverse} style={styles.actionIconSpacing} />
+            <Text style={styles.actionText}>{actionLabel}</Text>
+          </Pressable>
+        )}
       </View>
-      <Text style={styles.title}>{title}</Text>
-      {subtitle != null && subtitle.trim().length > 0 && (
-        <Text style={styles.subtitle}>{subtitle}</Text>
-      )}
-      {actionLabel != null && onAction != null && (
-        <Pressable
-          onPress={onAction}
-          style={({ pressed }) => [styles.actionButton, pressed ? styles.actionButtonPressed : null]}
-        >
-          <ArrowClockwise size={16} weight="bold" color={theme.colors.textInverse} style={styles.actionIconSpacing} />
-          <Text style={styles.actionText}>{actionLabel}</Text>
-        </Pressable>
-      )}
     </View>
   );
 };
@@ -62,48 +66,52 @@ export const EmptyState = ({
 const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: spacing.xl,
-    paddingBottom: 80,
+    paddingTop: spacing.md,
+    paddingBottom: 120,
   },
-  illustrationContainer: {
-    marginBottom: spacing.xxl,
+  panel: {
+    ...theme.components.card,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.xxxl,
   },
-  illustrationCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+  iconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: borderRadius.full,
     backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing.lg,
   },
   illustrationEmoji: {
-    fontSize: 64,
+    fontSize: 28,
   },
   title: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.h3,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xl,
     color: theme.colors.textPrimary,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   subtitle: {
     fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: fontSizes.md * 1.6,
-    maxWidth: 300,
+    lineHeight: fontSizes.sm * 1.6,
+    maxWidth: 280,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     ...theme.components.primaryButton,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xxxl,
-    marginTop: spacing.xxl,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.xl,
   },
   actionButtonPressed: {
     opacity: 0.88,
@@ -113,8 +121,8 @@ const createStyles = (theme: AppTheme) => ({
     marginRight: spacing.sm,
   },
   actionText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
     color: theme.colors.textInverse,
   },
 });

@@ -77,11 +77,11 @@ export const RouteProgressRow = memo(function RouteProgressRow({
 const createStyles = (theme: AppTheme) => ({
   routeCard: {
     ...theme.components.card,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xxl,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
   },
   routeEndpoint: {
     flex: 1,
@@ -91,12 +91,12 @@ const createStyles = (theme: AppTheme) => ({
   },
   routeCode: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
   },
   routeTime: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
     marginTop: spacing.xs,
   },
@@ -111,7 +111,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   routeCenter: {
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   routeLine: {
     flexDirection: 'row',
@@ -135,8 +135,8 @@ const createStyles = (theme: AppTheme) => ({
     marginLeft: -14,
   },
   routeDuration: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
     marginTop: spacing.xs,
   },

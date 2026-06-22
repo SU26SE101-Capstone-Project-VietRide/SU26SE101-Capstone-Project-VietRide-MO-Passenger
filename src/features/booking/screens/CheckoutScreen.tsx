@@ -6,7 +6,7 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { PencilSimple } from 'phosphor-react-native';
+import { MapPinLine, PencilSimple } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -75,7 +75,7 @@ export function CheckoutScreen({
         <View style={{ marginTop: spacing.md }}>
           <View style={styles.pickupDisplay}>
             <View style={styles.pickupIconBox}>
-              <Text style={{ fontSize: 16 }}>📍</Text>
+              <MapPinLine size={18} weight="duotone" color={theme.colors.primary} />
             </View>
             <View style={styles.pickupTextWrap}>
               <Text style={styles.pickupLabel}>Boarding at {pickUp?.time || ''}</Text>
@@ -88,7 +88,7 @@ export function CheckoutScreen({
         <View style={{ marginTop: spacing.lg }}>
           <View style={styles.pickupDisplay}>
             <View style={styles.pickupIconBox}>
-              <Text style={{ fontSize: 16 }}>📍</Text>
+              <MapPinLine size={18} weight="duotone" color={theme.colors.primary} />
             </View>
             <View style={styles.pickupTextWrap}>
               <Text style={styles.pickupLabel}>Alighting at {dropOff?.time || ''}</Text>
@@ -190,16 +190,15 @@ const createStyles = (theme: AppTheme) => ({
     paddingBottom: 220,
   },
   cardTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.h3,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
-    marginBottom: spacing.xl,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
   },
   editButton: {
     width: 32,
@@ -218,9 +217,9 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     gap: spacing.md,
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
-    borderRadius: 16,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
-    borderWidth: 1.2,
+    borderWidth: 1,
     borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
   pickupIconBox: {
@@ -235,13 +234,13 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
   },
   pickupLabel: {
-    fontFamily: fontFamilies.regular,
+    fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
     marginBottom: 2,
   },
   pickupValue: {
-    fontFamily: fontFamilies.medium,
+    fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },

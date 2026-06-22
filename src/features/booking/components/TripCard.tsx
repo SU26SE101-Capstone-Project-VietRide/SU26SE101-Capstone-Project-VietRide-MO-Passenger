@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { Bus, Van, Bed } from 'phosphor-react-native';
+import { Bus, Van, Bed, Clock } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -41,10 +41,20 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
     >
       {/* Top row: badge + price */}
       <View style={styles.topRow}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{trip.operatorBadge}</Text>
+        <View style={styles.operatorBlock}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText} numberOfLines={1}>
+              {trip.operatorBadge}
+            </Text>
+          </View>
+          <Text style={styles.busLabelText} numberOfLines={1}>
+            {trip.busLabel}
+          </Text>
         </View>
-        <Text style={styles.price}>{formatPrice(trip.price)}</Text>
+        <View style={styles.priceBlock}>
+          <Text style={styles.priceLabel}>From</Text>
+          <Text style={styles.price}>{formatPrice(trip.price)}</Text>
+        </View>
       </View>
 
       {/* Time row: departure → arrival with progress */}
@@ -52,7 +62,9 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
         {/* Departure */}
         <View style={styles.timeBlock}>
           <Text style={styles.timeText}>{trip.departureTime}</Text>
-          <Text style={styles.stationText}>{trip.departureStation}</Text>
+          <Text style={styles.stationText} numberOfLines={2}>
+            {trip.departureStation}
+          </Text>
         </View>
 
         {/* Bus icon separator */}
@@ -68,29 +80,37 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
         {/* Arrival */}
         <View style={[styles.timeBlock, styles.timeBlockRight]}>
           <Text style={styles.timeText}>{trip.arrivalTime}</Text>
-          <Text style={[styles.stationText, styles.stationTextRight]}>{trip.arrivalStation}</Text>
+          <Text style={[styles.stationText, styles.stationTextRight]} numberOfLines={2}>
+            {trip.arrivalStation}
+          </Text>
         </View>
       </View>
 
-      {/* Bottom row: bus type + seats */}
+      {/* Bottom row: bus type + duration + seats */}
       <View style={styles.bottomRow}>
-        <View style={styles.busTypeContainer}>
-          <View style={styles.busTypeIconWrapper}>
-            {trip.busType === 'sleeper' ? (
-              <Bed size={18} weight="fill" color={theme.colors.primary} />
-            ) : trip.busType === 'limousine' ? (
-              <Van size={18} weight="fill" color={theme.colors.primary} />
-            ) : (
-              <Bus size={18} weight="fill" color={theme.colors.primary} />
-            )}
-          </View>
-          <View style={styles.busTypeLabelContainer}>
-            <Text style={styles.busTypeText}>{trip.busLabel}</Text>
-          </View>
+        <View style={styles.metaChip}>
+          {trip.busType === 'sleeper' ? (
+            <Bed size={15} weight="fill" color={theme.colors.primary} />
+          ) : trip.busType === 'limousine' ? (
+            <Van size={15} weight="fill" color={theme.colors.primary} />
+          ) : (
+            <Bus size={15} weight="fill" color={theme.colors.primary} />
+          )}
+          <Text style={styles.metaText}>
+            {trip.busType === 'sleeper'
+              ? 'Sleeper'
+              : trip.busType === 'limousine'
+                ? 'Limousine'
+                : 'Standard'}
+          </Text>
+        </View>
+        <View style={styles.metaChip}>
+          <Clock size={15} weight="bold" color={theme.colors.textSecondary} />
+          <Text style={styles.metaText}>{trip.durationHours}h</Text>
         </View>
         <View style={[styles.seatsLeftBadge, seatsUrgent && styles.seatsLeftUrgent]}>
           <Text style={[styles.seatsLeftText, seatsUrgent && styles.seatsLeftTextUrgent]}>
-            {trip.seatsLeft} Seats Left
+            {trip.seatsLeft} seats left
           </Text>
         </View>
       </View>
@@ -101,8 +121,8 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
 const createStyles = (theme: AppTheme) => ({
   card: {
     ...theme.components.card,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xxl,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     marginBottom: spacing.md,
   },
   cardSelected: {
@@ -112,20 +132,42 @@ const createStyles = (theme: AppTheme) => ({
   },
   topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: spacing.xl,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  operatorBlock: {
+    flex: 1,
+    minWidth: 0,
   },
   badge: {
     backgroundColor: theme.colors.primaryFaded,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   badgeText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+  },
+  busLabelText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: theme.colors.primary,
+    color: theme.colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  priceBlock: {
+    alignItems: 'flex-end',
+  },
+  priceLabel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+    marginBottom: 1,
   },
   price: {
     fontFamily: fontFamilies.bold,
@@ -134,8 +176,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   timeRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: spacing.xl,
+    alignItems: 'center',
+    marginBottom: spacing.lg,
   },
   timeBlock: {
     flex: 1,
@@ -145,14 +187,15 @@ const createStyles = (theme: AppTheme) => ({
   },
   timeText: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes.xxl,
     color: theme.colors.textPrimary,
   },
   stationText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
-    marginTop: 2,
+    lineHeight: fontSizes.sm * 1.45,
+    marginTop: spacing.xs,
   },
   stationTextRight: {
     textAlign: 'right',
@@ -162,14 +205,14 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
-    height: 24,
+    height: 34,
     marginTop: 2,
     position: 'relative',
   },
   progressTrack: {
     width: '100%',
     height: 4,
-    backgroundColor: theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.divider,
     borderRadius: 2,
   },
   progressFill: {
@@ -179,41 +222,40 @@ const createStyles = (theme: AppTheme) => ({
   },
   busIconContainer: {
     position: 'absolute',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
-    borderWidth: theme.effects.isLiquid ? 1 : 0,
-    borderColor: theme.effects.glassBorder,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
     alignItems: 'center',
     justifyContent: 'center',
-    top: -2,
+    top: 2,
     ...theme.effects.cardShadow,
   },
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: theme.colors.divider,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.md,
   },
-  busTypeContainer: {
+  metaChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: spacing.xs,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 1,
   },
-  busTypeIconWrapper: {
-    marginRight: spacing.sm,
-    width: 20,
-    alignItems: 'center',
-  },
-  busTypeLabelContainer: {
-    flex: 1,
-  },
-  busTypeText: {
+  metaText: {
     fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.xs,
     color: theme.colors.textPrimary,
   },
   seatsLeftBadge: {
@@ -226,8 +268,8 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.errorLight,
   },
   seatsLeftText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
     color: theme.colors.primary,
   },
   seatsLeftTextUrgent: {

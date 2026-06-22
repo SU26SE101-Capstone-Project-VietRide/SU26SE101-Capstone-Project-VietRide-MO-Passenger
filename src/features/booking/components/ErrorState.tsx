@@ -1,5 +1,5 @@
 /**
- * ErrorState — Connection error state with retry action
+ * ErrorState - Connection error state with retry action.
  *
  * Used when the booking API fails to load.
  */
@@ -23,25 +23,24 @@ export const ErrorState = ({ onRetry }: ErrorStateProps): React.JSX.Element => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.illustrationContainer}>
-        <View style={styles.illustrationCircle}>
-          <WifiSlash size={64} weight="thin" color={theme.colors.primary} />
+      <View style={styles.panel}>
+        <View style={styles.iconWrap}>
+          <WifiSlash size={30} weight="duotone" color={theme.colors.primary} />
         </View>
+        <Text style={styles.title}>Connection failed</Text>
+        <Text style={styles.subtitle}>
+          We could not refresh live trip data. Check your connection and try again.
+        </Text>
+        {onRetry != null && (
+          <Pressable
+            onPress={onRetry}
+            style={({ pressed }) => [styles.retryButton, pressed ? styles.retryButtonPressed : null]}
+          >
+            <ArrowClockwise size={15} weight="bold" color={theme.colors.textInverse} style={styles.retryIconSpacing} />
+            <Text style={styles.retryText}>Try Again</Text>
+          </Pressable>
+        )}
       </View>
-      <Text style={styles.title}>Oops! Lost Connection</Text>
-      <Text style={styles.subtitle}>
-        We can't find any rides without the internet. Please check your
-        signal and try again.
-      </Text>
-      {onRetry != null && (
-        <Pressable
-          onPress={onRetry}
-          style={({ pressed }) => [styles.retryButton, pressed ? styles.retryButtonPressed : null]}
-        >
-          <ArrowClockwise size={16} weight="bold" color={theme.colors.textInverse} style={styles.retryIconSpacing} />
-          <Text style={styles.retryText}>Try Again</Text>
-        </Pressable>
-      )}
     </View>
   );
 };
@@ -49,45 +48,49 @@ export const ErrorState = ({ onRetry }: ErrorStateProps): React.JSX.Element => {
 const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: spacing.xl,
-    paddingBottom: 80,
+    paddingTop: spacing.md,
+    paddingBottom: 120,
   },
-  illustrationContainer: {
-    marginBottom: spacing.xxl,
+  panel: {
+    ...theme.components.card,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.xxxl,
   },
-  illustrationCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+  iconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: borderRadius.full,
     backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing.lg,
   },
   title: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.h3,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xl,
     color: theme.colors.textPrimary,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   subtitle: {
     fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: fontSizes.md * 1.6,
-    maxWidth: 300,
+    lineHeight: fontSizes.sm * 1.6,
+    maxWidth: 280,
   },
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     ...theme.components.primaryButton,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xxxl,
-    marginTop: spacing.xxl,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.xl,
   },
   retryButtonPressed: {
     opacity: 0.88,
@@ -97,8 +100,8 @@ const createStyles = (theme: AppTheme) => ({
     marginRight: spacing.sm,
   },
   retryText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
     color: theme.colors.textInverse,
   },
 });

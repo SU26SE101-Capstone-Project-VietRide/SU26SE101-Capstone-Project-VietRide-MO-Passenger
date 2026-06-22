@@ -25,7 +25,6 @@ export function SeatSelectionScreen({ onNext }: SeatSelectionStepProps): React.J
     initSeatMap,
     totalPrice,
     currentLeg,
-    paymentMethod,
     searchParams,
     setHighestStep,
   } = useBookingStore();
@@ -59,15 +58,14 @@ export function SeatSelectionScreen({ onNext }: SeatSelectionStepProps): React.J
           contentContainerStyle={styles.scrollContent}
         >
           {/* Route Info Card */}
-          <View style={styles.card}>
-            <RouteProgressRow
-              departureCode={trip?.departureCity ?? ''}
-              departureTime={trip?.departureTime ?? ''}
-              arrivalCode={trip?.arrivalCity ?? ''}
-              arrivalTime={trip?.arrivalTime ?? ''}
-              durationHours={trip?.durationHours}
-            />
-          </View>
+          <RouteProgressRow
+            departureCode={trip?.departureCity ?? ''}
+            departureTime={trip?.departureTime ?? ''}
+            arrivalCode={trip?.arrivalCity ?? ''}
+            arrivalTime={trip?.arrivalTime ?? ''}
+            durationHours={trip?.durationHours}
+            style={styles.routeSummary}
+          />
 
           {/* Seat Legend */}
           <View style={styles.legendWrap}>
@@ -79,7 +77,7 @@ export function SeatSelectionScreen({ onNext }: SeatSelectionStepProps): React.J
             <SeatGrid seatMap={seatMap} onSeatPress={toggleSeat} />
           </View>
 
-          <View style={{ height: 220 }} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
 
         <FloatingActionBar
@@ -111,11 +109,8 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.sm,
   },
-  card: {
-    ...theme.components.card,
-    borderRadius: 28,
-    padding: spacing.xxl,
-    marginBottom: spacing.lg,
+  routeSummary: {
+    marginBottom: spacing.md,
   },
   legendWrap: {
     marginTop: spacing.lg,
@@ -123,5 +118,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   seatWrap: {
     marginTop: spacing.md,
+  },
+  bottomSpacer: {
+    height: 220,
   },
 });

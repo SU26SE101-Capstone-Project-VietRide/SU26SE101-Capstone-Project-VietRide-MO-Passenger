@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { Coins, MapPinLine, WarningCircle } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 
@@ -26,14 +28,16 @@ export function StopOption({
   disabledReason,
   isSelected,
   onPress,
-  icon = '📍',
 }: StopOptionProps): React.JSX.Element {
   const isDisabled = status === 'disabled';
+  const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
     <Pressable
       onPress={() => !isDisabled && onPress()}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isSelected, disabled: isDisabled }}
       style={({ pressed }) => [
         styles.pointCard,
         isSelected && styles.pointCardSelected,
@@ -45,12 +49,15 @@ export function StopOption({
       <View
         style={[
           styles.pointIcon,
+          isSelected && styles.pointIconSelected,
           isDisabled && styles.pointIconDisabled,
         ]}
       >
-        <Text style={styles.pointIconText}>
-          {isDisabled ? '🚫' : icon}
-        </Text>
+        {isDisabled ? (
+          <WarningCircle size={20} weight="duotone" color={theme.colors.textTertiary} />
+        ) : (
+          <MapPinLine size={20} weight={isSelected ? 'fill' : 'duotone'} color={isSelected ? theme.colors.textInverse : theme.colors.primary} />
+        )}
       </View>
 
       {/* Info */}
@@ -65,11 +72,13 @@ export function StopOption({
         </Text>
         <Text style={styles.pointAddress}>{address}</Text>
         {time ? (
-          <Text style={styles.pointTime}>{time}</Text>
+          <View style={styles.timePill}>
+            <Text style={styles.pointTime}>{time}</Text>
+          </View>
         ) : null}
         {refundAmount != null ? (
           <View style={styles.refundRow}>
-            <Text style={styles.refundIcon}>💰</Text>
+            <Coins size={14} weight="bold" color={theme.colors.success} />
             <Text style={styles.refundText}>
               Refund: {refundAmount.toLocaleString('vi-VN')} VND
             </Text>
@@ -103,9 +112,9 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'flex-start',
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: borderRadius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.border,
-    padding: spacing.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
   },
   pointCardSelected: {
@@ -120,28 +129,29 @@ const createStyles = (theme: AppTheme) => ({
     transform: [{ scale: 0.99 }],
   },
   pointIcon: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: borderRadius.full,
     backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.lg,
+    marginRight: spacing.md,
+  },
+  pointIconSelected: {
+    backgroundColor: theme.colors.primary,
   },
   pointIconDisabled: {
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
   },
-  pointIconText: {
-    fontSize: 16,
-  },
   pointInfo: {
     flex: 1,
+    minWidth: 0,
   },
   pointName: {
     fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.lg,
+    fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
-    marginBottom: spacing.xs,
+    lineHeight: fontSizes.md * 1.35,
   },
   pointNameDisabled: {
     color: theme.colors.textTertiary,
@@ -150,53 +160,60 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
-    lineHeight: fontSizes.sm * 1.6,
-    marginBottom: spacing.xs,
+    lineHeight: fontSizes.sm * 1.45,
+    marginTop: spacing.xs,
+  },
+  timePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.sm,
   },
   pointTime: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
     color: theme.colors.textPrimary,
-    marginTop: spacing.xs,
   },
   refundRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.xs,
     marginTop: spacing.sm,
-  },
-  refundIcon: {
-    fontSize: 12,
-    marginRight: spacing.xs,
   },
   refundText: {
     fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.xs,
     color: theme.colors.success,
   },
   disabledReason: {
     fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
     fontStyle: 'italic',
     marginTop: spacing.xs,
   },
   radio: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
     borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.xs,
+    marginLeft: spacing.sm,
+    marginTop: 1,
   },
   radioSelected: {
     borderColor: theme.colors.primary,
   },
   radioDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: theme.colors.primary,
   },
 });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { ArrowLeft, Sliders, X, Check } from 'phosphor-react-native';
-import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { ArrowLeft, FunnelSimple, X, Check } from 'phosphor-react-native';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
@@ -42,7 +42,7 @@ export const StepProgressBar = ({ step, highestStepReached = 1, onStepPress, onC
 
         {(step === 1 || step === 2) ? (
           <Pressable style={({ pressed }) => [styles.navButtonRight, pressed ? styles.pressed : null]} onPress={handleFilter}>
-            <Sliders size={18} color={theme.colors.textInverse} />
+            <FunnelSimple size={19} weight="bold" color={theme.colors.textInverse} />
           </Pressable>
         ) : (
           <Pressable style={({ pressed }) => [styles.navButtonCancel, pressed ? styles.pressed : null]} onPress={onCancel}>

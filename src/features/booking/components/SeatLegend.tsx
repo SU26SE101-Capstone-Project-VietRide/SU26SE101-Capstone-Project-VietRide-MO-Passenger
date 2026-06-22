@@ -47,8 +47,16 @@ const createStyles = (theme: AppTheme) => ({
   legend: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: spacing.xxl,
-    marginBottom: spacing.xl,
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: spacing.md,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
   },
   legendItem: {
     flexDirection: 'row',
@@ -56,14 +64,14 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
   },
   legendDot: {
-    width: 20,
-    height: 20,
+    width: 14,
+    height: 14,
     borderRadius: borderRadius.xs,
-    borderWidth: 1.5,
+    borderWidth: 1.2,
   },
   legendText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
   },
 });

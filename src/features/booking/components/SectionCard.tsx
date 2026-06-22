@@ -32,7 +32,7 @@ export const SectionCard = memo(function SectionCard({
 
 const styles = StyleSheet.create({
   card: {
-    padding: spacing.xxl,
-    marginBottom: spacing.lg,
+    padding: spacing.xl,
+    marginBottom: spacing.md,
   },
 });

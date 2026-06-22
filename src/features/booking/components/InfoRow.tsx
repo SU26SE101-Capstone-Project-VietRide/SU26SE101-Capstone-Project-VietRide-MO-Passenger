@@ -36,18 +36,19 @@ export const InfoRow = memo(function InfoRow({
 
 const createStyles = (theme: AppTheme) => ({
   wrap: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   label: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
     marginBottom: spacing.xs,
   },
   value: {
-    fontFamily: fontFamilies.regular,
+    fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: theme.colors.textSecondary,
+    color: theme.colors.textPrimary,
+    lineHeight: fontSizes.sm * 1.45,
   },
   divider: {
     height: 1,

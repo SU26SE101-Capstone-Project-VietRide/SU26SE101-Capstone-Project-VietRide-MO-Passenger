@@ -24,6 +24,17 @@ export interface BusTrip {
   durationHours: number;
 }
 
+// ─── Trip Filters ────────────────────────────────────────
+export type TripTimeSlot = 'all' | 'morning' | 'afternoon' | 'evening' | 'night';
+export type TripPriceRange = 'all' | 'under_350k' | '350k_450k' | 'over_450k';
+
+export interface TripFilterState {
+  operatorBadge: string | 'all';
+  busType: BusType | 'all';
+  timeSlot: TripTimeSlot;
+  priceRange: TripPriceRange;
+}
+
 // ─── Seats ────────────────────────────────────────────────
 export type SeatStatus = 'available' | 'selected' | 'sold';
 

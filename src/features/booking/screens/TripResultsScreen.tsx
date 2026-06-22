@@ -3,7 +3,7 @@
  * Visual style: matches Parcel home (gradient bg, card surfaces, mint palette)
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { View, Text, FlatList } from 'react-native';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
@@ -11,13 +11,90 @@ import type { AppTheme } from '@shared/theme';
 import { LoadingState, EmptyState, ErrorState } from '../components';
 import { TripCard } from '../components/TripCard';
 import { useBookingStore } from '../store/useBookingStore';
-import type { BusTrip } from '../types';
+import type { BusTrip, TripFilterState, TripPriceRange, TripTimeSlot } from '../types';
 
 interface TripResultsStepProps {
   onNext: (step: number) => void;
+  filters?: TripFilterState;
+  onClearFilters?: () => void;
 }
 
-export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.Element {
+const defaultFilters: TripFilterState = {
+  operatorBadge: 'all',
+  busType: 'all',
+  timeSlot: 'all',
+  priceRange: 'all',
+};
+
+const isFilterActive = (filters: TripFilterState): boolean => {
+  return filters.operatorBadge !== 'all'
+    || filters.busType !== 'all'
+    || filters.timeSlot !== 'all'
+    || filters.priceRange !== 'all';
+};
+
+const parseDepartureHour = (time: string): number => {
+  const [hour] = time.split(':');
+  return Number.parseInt(hour, 10);
+};
+
+const matchesTimeSlot = (trip: BusTrip, timeSlot: TripTimeSlot): boolean => {
+  if (timeSlot === 'all') {
+    return true;
+  }
+
+  const hour = parseDepartureHour(trip.departureTime);
+
+  if (Number.isNaN(hour)) {
+    return true;
+  }
+
+  switch (timeSlot) {
+    case 'morning':
+      return hour >= 5 && hour < 12;
+    case 'afternoon':
+      return hour >= 12 && hour < 17;
+    case 'evening':
+      return hour >= 17 && hour < 22;
+    case 'night':
+      return hour >= 22 || hour < 5;
+    default:
+      return true;
+  }
+};
+
+const matchesPriceRange = (trip: BusTrip, priceRange: TripPriceRange): boolean => {
+  switch (priceRange) {
+    case 'under_350k':
+      return trip.price < 350000;
+    case '350k_450k':
+      return trip.price >= 350000 && trip.price <= 450000;
+    case 'over_450k':
+      return trip.price > 450000;
+    default:
+      return true;
+  }
+};
+
+const filterTrips = (trips: BusTrip[], filters: TripFilterState): BusTrip[] => {
+  return trips.filter((trip) => {
+    const matchesOperator = filters.operatorBadge === 'all'
+      || trip.operatorBadge === filters.operatorBadge;
+    const matchesBusType = filters.busType === 'all'
+      || trip.busType === filters.busType;
+
+    return matchesOperator
+      && matchesBusType
+      && matchesTimeSlot(trip, filters.timeSlot)
+      && matchesPriceRange(trip, filters.priceRange);
+  });
+};
+
+export function TripResultsScreen({
+  onNext,
+  filters = defaultFilters,
+  onClearFilters,
+}: TripResultsStepProps): React.JSX.Element {
   const {
     tripResultsStatus,
     trips,
@@ -28,6 +105,9 @@ export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.E
     searchParams,
   } = useBookingStore();
   const styles = useThemedStyles(createStyles);
+  const hasActiveFilters = isFilterActive(filters);
+  const visibleTrips = useMemo(() => filterTrips(trips, filters), [filters, trips]);
+  const hasLoadedTrips = trips.length > 0;
 
   useEffect(() => {
     searchTrips();
@@ -48,7 +128,7 @@ export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.E
   }, [searchTrips]);
 
   const renderContent = () => {
-    if (tripResultsStatus === 'loading') {
+    if (tripResultsStatus === 'loading' && !hasLoadedTrips) {
       return <LoadingState />;
     }
     if (tripResultsStatus === 'error') {
@@ -64,9 +144,22 @@ export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.E
         />
       );
     }
+    if (visibleTrips.length === 0) {
+      return (
+        <EmptyState
+          title={hasActiveFilters ? 'No trips match your filters' : 'No rides found today'}
+          subtitle={hasActiveFilters
+            ? 'Try another operator, time window, or fare range.'
+            : 'Try adjusting your filters or checking a different date.'}
+          actionLabel={hasActiveFilters ? 'Clear Filters' : 'Search Again'}
+          onAction={hasActiveFilters && onClearFilters ? onClearFilters : handleRetry}
+        />
+      );
+    }
+
     return (
       <FlatList
-        data={trips}
+        data={visibleTrips}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -83,17 +176,6 @@ export function TripResultsScreen({ onNext }: TripResultsStepProps): React.JSX.E
 
   return (
     <View style={styles.container}>
-      {/* Header Info */}
-      {searchParams.from && searchParams.to ? (
-        <View style={styles.headerRow}>
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerRoute}>
-              {currentLeg === 'outbound' ? `${searchParams.from} → ${searchParams.to}` : `${searchParams.to} → ${searchParams.from}`}
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
       {/* Leg Title */}
       <View style={styles.legTitleContainer}>
         <Text style={styles.legTitle}>
@@ -112,23 +194,6 @@ const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'flex-start',
-  },
-  headerRoute: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
-    color: theme.colors.textPrimary,
   },
   listContent: {
     paddingHorizontal: spacing.xl,

@@ -59,11 +59,11 @@ export function SeatGrid({ seatMap, onSeatPress }: SeatGridProps): React.JSX.Ele
 
   return (
     <View style={styles.container}>
-      {/* Steering wheel indicator */}
-      <View style={styles.steeringRow}>
-        <View style={styles.steeringSpacer} />
-        <View style={styles.steeringIcon}>
-          <Text style={styles.steeringEmoji}>🔘</Text>
+      {/* Driver indicator */}
+      <View style={styles.driverRow}>
+        <View style={styles.driverBadge}>
+          <View style={styles.driverDot} />
+          <Text style={styles.driverLabel}>Driver</Text>
         </View>
       </View>
 
@@ -95,48 +95,55 @@ const createStyles = (theme: AppTheme) => ({
   container: {
     ...theme.components.card,
     borderRadius: borderRadius.lg,
-    padding: spacing.xxl,
+    padding: spacing.xl,
   },
-  steeringRow: {
+  driverRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: spacing.lg,
-    paddingRight: spacing.xs,
+    marginBottom: spacing.md,
   },
-  steeringSpacer: {
-    flex: 1,
-  },
-  steeringIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.full,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+  driverBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
-  steeringEmoji: {
-    fontSize: 16,
+  driverDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.textTertiary,
+  },
+  driverLabel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   seatPair: {
     flexDirection: 'row',
     flex: 1,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   aisle: {
-    width: 56,
+    width: 44,
   },
   seat: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1.2,
   },
   seatAvailable: {
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,

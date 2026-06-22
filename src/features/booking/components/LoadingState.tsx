@@ -1,7 +1,7 @@
 /**
- * LoadingState — Centered loading indicator with optional mascot
+ * LoadingState - Skeleton route cards for booking fetches.
  *
- * Used when booking data is being fetched.
+ * Keeps the results area stable while the booking API is resolving.
  */
 
 import React from 'react';
@@ -16,21 +16,52 @@ interface LoadingStateProps {
   text?: string;
 }
 
+const skeletonCards = [0, 1, 2] as const;
+
 export const LoadingState = ({ text = 'Finding the best routes…' }: LoadingStateProps): React.JSX.Element => {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
     <View style={styles.container}>
-      <View style={styles.mascotContainer}>
-        <View style={styles.mascotBorder}>
-          <View style={styles.mascotInner}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-          </View>
+      <View style={styles.headerRow}>
+        <ActivityIndicator size="small" color={theme.colors.primary} />
+        <View style={styles.copyBlock}>
+          <Text style={styles.title}>{text}</Text>
+          <Text style={styles.subtitle}>Checking live seats and fares.</Text>
         </View>
       </View>
-      <Text style={styles.title}>{text}</Text>
-      <Text style={styles.subtitle}>Our tiny buses are speeding your way!</Text>
+
+      {skeletonCards.map((item) => (
+        <View key={item} style={styles.skeletonCard}>
+          <View style={styles.skeletonTopRow}>
+            <View style={styles.skeletonPill} />
+            <View style={styles.skeletonPrice} />
+          </View>
+
+          <View style={styles.skeletonRouteRow}>
+            <View style={styles.skeletonTimeBlock}>
+              <View style={styles.skeletonTime} />
+              <View style={styles.skeletonLineShort} />
+            </View>
+
+            <View style={styles.skeletonTrackWrap}>
+              <View style={styles.skeletonTrack} />
+              <View style={styles.skeletonBubble} />
+            </View>
+
+            <View style={[styles.skeletonTimeBlock, styles.skeletonTimeBlockRight]}>
+              <View style={styles.skeletonTime} />
+              <View style={styles.skeletonLineShort} />
+            </View>
+          </View>
+
+          <View style={styles.skeletonBottomRow}>
+            <View style={styles.skeletonLineMedium} />
+            <View style={styles.skeletonSeatPill} />
+          </View>
+        </View>
+      ))}
     </View>
   );
 };
@@ -38,44 +69,116 @@ export const LoadingState = ({ text = 'Finding the best routes…' }: LoadingSta
 const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: spacing.xl,
-    paddingBottom: 80,
+    paddingTop: spacing.md,
+    paddingBottom: 120,
   },
-  mascotContainer: {
-    marginBottom: spacing.xxl,
-  },
-  mascotBorder: {
-    width: 96,
-    height: 96,
-    borderRadius: borderRadius.xl,
-    borderWidth: 3,
-    borderColor: theme.colors.primary,
+  headerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.sm,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
   },
-  mascotInner: {
-    width: 80,
-    height: 80,
+  copyBlock: {
+    flex: 1,
+  },
+  skeletonCard: {
+    ...theme.components.card,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.colors.primaryFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.effects.cardShadow,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
   },
   title: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.h3,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
   },
   subtitle: {
     fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    marginTop: 2,
+  },
+  skeletonTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  skeletonPill: {
+    width: 112,
+    height: 24,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.skeleton,
+  },
+  skeletonPrice: {
+    width: 64,
+    height: 22,
+    borderRadius: borderRadius.sm,
+    backgroundColor: theme.colors.skeletonHighlight,
+  },
+  skeletonRouteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  skeletonTimeBlock: {
+    flex: 1,
+  },
+  skeletonTimeBlockRight: {
+    alignItems: 'flex-end',
+  },
+  skeletonTime: {
+    width: 58,
+    height: 22,
+    borderRadius: borderRadius.sm,
+    backgroundColor: theme.colors.skeletonHighlight,
+    marginBottom: spacing.xs,
+  },
+  skeletonLineShort: {
+    width: 72,
+    height: 12,
+    borderRadius: borderRadius.xs,
+    backgroundColor: theme.colors.skeleton,
+  },
+  skeletonTrackWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 32,
+    paddingHorizontal: spacing.sm,
+  },
+  skeletonTrack: {
+    width: '100%',
+    height: 3,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.skeleton,
+  },
+  skeletonBubble: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.skeletonHighlight,
+  },
+  skeletonBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.divider,
+    paddingTop: spacing.md,
+  },
+  skeletonLineMedium: {
+    width: 148,
+    height: 14,
+    borderRadius: borderRadius.xs,
+    backgroundColor: theme.colors.skeleton,
+  },
+  skeletonSeatPill: {
+    width: 84,
+    height: 24,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.skeletonHighlight,
   },
 });
