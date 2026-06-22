@@ -9,9 +9,13 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 
 // ─── Auth Stack ───────────────────────────────────────────
 export type AuthStackParamList = {
-  Login: undefined;
+  Login: { email?: string; verified?: boolean } | undefined;
   Register: undefined;
-  OTPVerification: { phone: string };
+  OTPVerification: {
+    email: string;
+    phone?: string;
+    otpTtlMinutes?: number;
+  };
   ForgotPassword: undefined;
 };
 
@@ -74,7 +78,6 @@ export type RootStackParamList = {
 
 // ─── Declaration merging for useNavigation type safety ────
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}
   }

@@ -1,9 +1,5 @@
 /**
- * RegisterScreen — Account creation flow
- *
- * Visual style: Parcel booking flow inspired (gradient bg, cat mascot,
- * mint palette, card surfaces with accent border) with traditional auth layout:
- * header → form card → social login → footer
+ * RegisterScreen - Account creation flow backed by Identity /v1/auth/register.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -15,51 +11,137 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { GoogleLogo, AppleLogo, FacebookLogo } from 'phosphor-react-native';
+import { useMutation } from '@tanstack/react-query';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { Input, Button } from '@shared/components';
+import { useApiError } from '@shared/hooks';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { getCardStyle } from '@shared/theme/helpers';
 import type { AuthStackParamList } from '@app/navigation/types';
+import { register } from '../api/authApi';
 import { AuthStepHeader } from '../components';
 
 type NavProp = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
+interface RegisterFormErrors {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+  confirmPassword?: string;
+}
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function RegisterScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
+  const { errorMessage, clearError, handleError } = useApiError();
+  const theme = useTheme();
+  const isLiquid = theme.variant.startsWith('liquid');
 
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [errors, setErrors] = useState<RegisterFormErrors>({});
+
+  const registerMutation = useMutation({
+    mutationFn: register,
+    onSuccess: (response) => {
+      navigation.navigate('OTPVerification', {
+        email: response.email,
+        phone,
+        otpTtlMinutes: response.otpTtlMinutes,
+      });
+    },
+    onError: handleError,
+  });
+
+  const validateForm = useCallback(() => {
+    const nextErrors: RegisterFormErrors = {};
+
+    if (!fullName.trim()) {
+      nextErrors.fullName = 'Full name is required.';
+    }
+
+    if (!email.trim()) {
+      nextErrors.email = 'Email is required.';
+    } else if (!emailPattern.test(email.trim())) {
+      nextErrors.email = 'Invalid email address.';
+    }
+
+    if (!phone.trim()) {
+      nextErrors.phone = 'Phone number is required.';
+    }
+
+    if (!password) {
+      nextErrors.password = 'Password is required.';
+    } else if (password.length < 8) {
+      nextErrors.password = 'Password must be at least 8 characters.';
+    }
+
+    if (confirmPassword !== password) {
+      nextErrors.confirmPassword = 'Passwords do not match.';
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }, [confirmPassword, email, fullName, password, phone]);
 
   const handleRegister = useCallback(() => {
-    navigation.navigate('OTPVerification', { phone });
-  }, [navigation, phone]);
+    clearError();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    registerMutation.mutate({
+      email,
+      password,
+      displayName: fullName,
+      phone,
+    });
+  }, [clearError, email, fullName, password, phone, registerMutation, validateForm]);
+
+  const clearFieldError = useCallback((field: keyof RegisterFormErrors) => {
+    setErrors((prev) => ({ ...prev, [field]: undefined }));
+    clearError();
+  }, [clearError]);
+
+  const isSubmitDisabled =
+    !fullName.trim() ||
+    !email.trim() ||
+    !phone.trim() ||
+    !password ||
+    !confirmPassword ||
+    registerMutation.isPending;
 
   return (
-    <View style={styles.root}>
-      {/* Gradient background with decorative accent */}
+    <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
       <View style={styles.gradientContainer} pointerEvents="none">
         <Svg height="520" width="100%">
           <Defs>
             <LinearGradient id="registerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.7} />
-              <Stop offset="35%" stopColor="#2AC1BC" stopOpacity={0.25} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.7} />
+              <Stop offset="35%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.25} />
+              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#registerGrad)" />
         </Svg>
-        <View style={styles.decorCircle} />
+        <View style={[styles.decorCircle, { backgroundColor: theme.effects.ambientGlow }]} />
       </View>
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         <KeyboardAvoidingView
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -69,14 +151,12 @@ export function RegisterScreen(): React.JSX.Element {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Header with mascot */}
             <AuthStepHeader
               title="Join the ride"
               subtitle="Create an account to book and track your journeys."
             />
 
-            {/* Form card — mint accent top border, elevated shadow */}
-            <View style={styles.formCard}>
+            <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
               <View style={styles.inputWrapper}>
                 <Input
                   label="Full Name"
@@ -85,18 +165,42 @@ export function RegisterScreen(): React.JSX.Element {
                   textContentType="name"
                   autoComplete="name"
                   value={fullName}
-                  onChangeText={setFullName}
+                  error={errors.fullName}
+                  onChangeText={(value) => {
+                    setFullName(value);
+                    clearFieldError('fullName');
+                  }}
+                />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Input
+                  label="Email"
+                  placeholder="user@example.com"
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  value={email}
+                  error={errors.email}
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    clearFieldError('email');
+                  }}
                 />
               </View>
               <View style={styles.inputWrapper}>
                 <Input
                   label="Phone Number"
-                  placeholder="Enter your phone number"
+                  placeholder="0900000000"
                   keyboardType="phone-pad"
                   textContentType="telephoneNumber"
                   autoComplete="tel"
                   value={phone}
-                  onChangeText={setPhone}
+                  error={errors.phone}
+                  onChangeText={(value) => {
+                    setPhone(value);
+                    clearFieldError('phone');
+                  }}
                 />
               </View>
               <View style={styles.inputWrapper}>
@@ -104,10 +208,14 @@ export function RegisterScreen(): React.JSX.Element {
                   label="Password"
                   placeholder="Create a strong password"
                   secureTextEntry
-                  textContentType="password"
-                  autoComplete="password"
+                  textContentType="newPassword"
+                  autoComplete="password-new"
                   value={password}
-                  onChangeText={setPassword}
+                  error={errors.password}
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    clearFieldError('password');
+                  }}
                 />
               </View>
               <View style={styles.inputWrapper}>
@@ -115,55 +223,51 @@ export function RegisterScreen(): React.JSX.Element {
                   label="Confirm Password"
                   placeholder="Confirm your password"
                   secureTextEntry
-                  textContentType="password"
-                  autoComplete="password"
+                  textContentType="newPassword"
+                  autoComplete="password-new"
                   value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  error={errors.confirmPassword}
+                  onChangeText={(value) => {
+                    setConfirmPassword(value);
+                    clearFieldError('confirmPassword');
+                  }}
                 />
               </View>
 
-              <Text style={styles.termsText}>
+              {errorMessage ? (
+                <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                  {errorMessage}
+                </Text>
+              ) : null}
+
+              <Text style={[styles.termsText, { color: theme.colors.textTertiary }]}>
                 By creating an account, you agree to our{' '}
-                <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
-                <Text style={styles.termsLink}>Privacy Policy</Text>.
+                <Text style={[styles.termsLink, { color: theme.colors.primary }]}>Terms of Service</Text> and{' '}
+                <Text style={[styles.termsLink, { color: theme.colors.primary }]}>Privacy Policy</Text>.
               </Text>
 
               <Button
                 title="Create Account"
                 onPress={handleRegister}
-                disabled={!fullName || !phone || !password}
+                disabled={isSubmitDisabled}
+                loading={registerMutation.isPending}
                 size="lg"
                 fullWidth
               />
             </View>
 
-            {/* Divider */}
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerLabel}>or continue with</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Social Auth — icon-only circles */}
-            <View style={styles.socialRow}>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-                <GoogleLogo size={22} color="#4285F4" weight="bold" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-                <AppleLogo size={24} color="#000000" weight="bold" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-                <FacebookLogo size={22} color="#1877F2" weight="fill" />
-              </TouchableOpacity>
-            </View>
           </ScrollView>
 
-          {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.footerLink}>Log in</Text>
-            </TouchableOpacity>
+            <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
+              Already have an account?{' '}
+            </Text>
+            <Pressable
+              onPress={() => navigation.navigate('Login')}
+              style={({ pressed }) => (pressed ? styles.pressed : null)}
+            >
+              <Text style={[styles.footerLink, { color: theme.colors.primary }]}>Log in</Text>
+            </Pressable>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -210,10 +314,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   inputWrapper: {
-    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.xs,
     marginBottom: 0,
+  },
+  errorText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: colors.error,
+    marginBottom: spacing.sm,
   },
   termsText: {
     fontFamily: fontFamilies.regular,
@@ -227,36 +336,6 @@ const styles = StyleSheet.create({
   termsLink: {
     color: colors.primary,
     fontFamily: fontFamilies.medium,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xxl,
-    marginTop: spacing.sm,
-  },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
-  dividerLabel: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    color: colors.textTertiary,
-    marginHorizontal: spacing.md,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    justifyContent: 'center',
-    marginBottom: spacing.xxl,
-  },
-  socialBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.divider,
-    ...shadows.sm,
   },
   footer: {
     flexDirection: 'row',
@@ -273,5 +352,8 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: colors.primary,
+  },
+  pressed: {
+    opacity: 0.75,
   },
 });

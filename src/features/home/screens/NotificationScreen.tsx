@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   Pressable,
-  ScrollView,
+  FlatList,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import type { ListRenderItem } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Bell, Ticket, Package, Tag, Check, Trash } from 'phosphor-react-native';
 
@@ -14,18 +15,24 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
+
+type NotificationType = 'trip' | 'parcel' | 'promo';
 
 interface NotificationItem {
   id: string;
-  type: 'trip' | 'parcel' | 'promo';
+  type: NotificationType;
   title: string;
   body: string;
   time: string;
   isUnread: boolean;
 }
 
+const NOTIFICATION_BOTTOM_CONTENT_GAP = spacing.huge;
+
 export function NotificationScreen(): React.JSX.Element {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -64,21 +71,28 @@ export function NotificationScreen(): React.JSX.Element {
     },
   ]);
 
-  const handleMarkAllRead = () => {
+  const unreadCount = useMemo(
+    () => notifications.reduce((count, item) => count + (item.isUnread ? 1 : 0), 0),
+    [notifications],
+  );
+  const bottomTabClearance =
+    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + NOTIFICATION_BOTTOM_CONTENT_GAP;
+
+  const handleMarkAllRead = useCallback(() => {
     setNotifications((prev) => prev.map((item) => ({ ...item, isUnread: false })));
-  };
+  }, []);
 
-  const handleClearAll = () => {
+  const handleClearAll = useCallback(() => {
     setNotifications([]);
-  };
+  }, []);
 
-  const handleToggleRead = (id: string) => {
+  const handleNotificationPress = useCallback((id: string) => {
     setNotifications((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, isUnread: !item.isUnread } : item))
+      prev.map((item) => (item.id === id && item.isUnread ? { ...item, isUnread: false } : item)),
     );
-  };
+  }, []);
 
-  const getIconMeta = (type: 'trip' | 'parcel' | 'promo') => {
+  const getIconMeta = useCallback((type: NotificationType) => {
     switch (type) {
       case 'trip':
         return {
@@ -99,7 +113,87 @@ export function NotificationScreen(): React.JSX.Element {
           accent: theme.colors.warning,
         };
     }
-  };
+  }, [theme.colors.primary, theme.colors.primaryFaded, theme.colors.success, theme.colors.successLight, theme.colors.warning, theme.colors.warningLight]);
+
+  const renderNotificationItem = useCallback<ListRenderItem<NotificationItem>>(
+    ({ item }) => {
+      const meta = getIconMeta(item.type);
+
+      return (
+        <Pressable
+          style={({ pressed }) => [
+            styles.notificationRow,
+            item.isUnread ? styles.unreadRow : null,
+            pressed ? styles.pressedRow : null,
+          ]}
+          onPress={() => handleNotificationPress(item.id)}
+        >
+          <View style={styles.avatarColumn}>
+            <View
+              style={[
+                styles.iconContainer,
+                {
+                  backgroundColor: item.isUnread
+                    ? meta.bg
+                    : theme.effects.isLiquid
+                      ? theme.effects.glassSurfaceSoft
+                      : theme.colors.surfaceAlt,
+                },
+              ]}
+            >
+              {meta.icon}
+            </View>
+          </View>
+
+          <View style={styles.messageContent}>
+            <View style={styles.messageTopLine}>
+              <Text
+                style={[
+                  styles.cardTitle,
+                  item.isUnread ? styles.cardTitleUnread : styles.cardTitleRead,
+                ]}
+                numberOfLines={1}
+              >
+                {item.title}
+              </Text>
+              <Text style={[styles.cardTime, item.isUnread ? styles.cardTimeUnread : null]}>
+                {item.time}
+              </Text>
+            </View>
+
+            <Text
+              style={[
+                styles.cardBody,
+                item.isUnread ? styles.cardBodyUnread : styles.cardBodyRead,
+              ]}
+              numberOfLines={2}
+            >
+              {item.body}
+            </Text>
+          </View>
+
+          <View style={styles.trailingColumn}>
+            {item.isUnread ? (
+              <View style={[styles.unreadDot, { backgroundColor: meta.accent }]} />
+            ) : null}
+          </View>
+        </Pressable>
+      );
+    },
+    [getIconMeta, handleNotificationPress, styles, theme.colors.surfaceAlt, theme.effects.glassSurfaceSoft, theme.effects.isLiquid],
+  );
+
+  const renderEmptyState = useCallback(
+    () => (
+      <View style={styles.emptyContainer}>
+        <Bell size={48} color={theme.colors.textTertiary} weight="thin" />
+        <Text style={styles.emptyText}>{t('notification.noNotifications', 'No notifications yet.')}</Text>
+      </View>
+    ),
+    [styles.emptyContainer, styles.emptyText, t, theme.colors.textTertiary],
+  );
+
+  const keyExtractor = useCallback((item: NotificationItem) => item.id, []);
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
@@ -112,13 +206,27 @@ export function NotificationScreen(): React.JSX.Element {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Bell size={24} color={theme.colors.textPrimary} style={styles.headerIcon} />
-          <Text style={styles.headerTitle}>{t('profile.notifications', 'Notifications')}</Text>
+          <View>
+            <Text style={styles.headerTitle}>{t('profile.notifications', 'Notifications')}</Text>
+            <Text style={styles.headerSubtitle}>
+              {unreadCount > 0
+                ? t('notification.unreadCount', '{{count}} unread', { count: unreadCount })
+                : t('notification.allCaughtUp', 'All caught up')}
+            </Text>
+          </View>
         </View>
 
         {notifications.length > 0 ? (
           <View style={styles.headerActions}>
-            <Pressable onPress={handleMarkAllRead} style={styles.actionButton}>
-              <Check size={18} color={theme.colors.primary} />
+            <Pressable
+              onPress={handleMarkAllRead}
+              disabled={unreadCount === 0}
+              style={[
+                styles.actionButton,
+                unreadCount === 0 ? styles.actionButtonDisabled : null,
+              ]}
+            >
+              <Check size={18} color={unreadCount === 0 ? theme.colors.textDisabled : theme.colors.primary} />
             </Pressable>
             <Pressable onPress={handleClearAll} style={styles.actionButton}>
               <Trash size={18} color={theme.colors.error} />
@@ -128,60 +236,20 @@ export function NotificationScreen(): React.JSX.Element {
       </View>
 
       {/* List */}
-      <ScrollView
+      <FlatList
+        data={notifications}
+        keyExtractor={keyExtractor}
+        renderItem={renderNotificationItem}
+        ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {notifications.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Bell size={48} color={theme.colors.textTertiary} weight="thin" />
-            <Text style={styles.emptyText}>{t('notification.noNotifications', 'No notifications yet.')}</Text>
-          </View>
-        ) : (
-          notifications.map((item) => {
-            const meta = getIconMeta(item.type);
-            return (
-              <Pressable
-                key={item.id}
-                style={[
-                  styles.notificationCard,
-                  item.isUnread ? styles.unreadCard : null,
-                ]}
-                onPress={() => handleToggleRead(item.id)}
-              >
-                {/* Left accent stripe only visible when unread */}
-                {item.isUnread ? (
-                  <View style={[styles.unreadStripe, { backgroundColor: meta.accent }]} />
-                ) : null}
-
-                <View style={styles.cardContent}>
-                  {/* Type icon with colour-matched tinted background */}
-                  <View style={[styles.iconContainer, { backgroundColor: meta.bg }]}>
-                    {meta.icon}
-                  </View>
-
-                  <View style={styles.textContainer}>
-                    <View style={styles.titleRow}>
-                      <Text
-                        style={[
-                          styles.cardTitle,
-                          item.isUnread ? styles.cardTitleUnread : null,
-                        ]}
-                      >
-                        {item.title}
-                      </Text>
-                      <Text style={styles.cardTime}>{item.time}</Text>
-                    </View>
-                    <Text style={styles.cardBody} numberOfLines={2}>
-                      {item.body}
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
-            );
-          })
-        )}
-      </ScrollView>
+        contentContainerStyle={[
+          styles.listContent,
+          notifications.length === 0 ? styles.emptyListContent : null,
+          { paddingBottom: bottomTabClearance },
+        ]}
+        contentInsetAdjustmentBehavior="automatic"
+        scrollIndicatorInsets={{ bottom: bottomTabClearance }}
+      />
     </SafeAreaView>
   );
 }
@@ -204,6 +272,7 @@ const createStyles = (theme: AppTheme) => ({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   headerIcon: {
     marginRight: spacing.sm,
@@ -212,6 +281,12 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xxl,
     color: theme.colors.textPrimary,
+  },
+  headerSubtitle: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+    marginTop: spacing.xxs,
   },
   headerActions: {
     flexDirection: 'row',
@@ -227,12 +302,18 @@ const createStyles = (theme: AppTheme) => ({
     borderWidth: 1,
     borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
   },
-  scrollContent: {
+  actionButtonDisabled: {
+    opacity: 0.45,
+  },
+  listContent: {
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
+    paddingTop: spacing.lg,
+  },
+  emptyListContent: {
+    flexGrow: 1,
   },
   emptyContainer: {
+    flex: 1,
     paddingVertical: 96,
     alignItems: 'center',
     justifyContent: 'center',
@@ -243,67 +324,98 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textTertiary,
     marginTop: spacing.md,
   },
-  notificationCard: {
-    flexDirection: 'row',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-    overflow: 'hidden',
-    ...theme.effects.cardShadow,
-  },
-  unreadCard: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surfaceElevated,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.border,
-  },
-  unreadStripe: {
-    width: 4,
-    alignSelf: 'stretch',
-  },
-  cardContent: {
-    flex: 1,
+  notificationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.lg,
+    minHeight: 82,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.transparent,
+    backgroundColor: theme.colors.transparent,
+  },
+  unreadRow: {
+    backgroundColor: theme.effects.isLiquid
+      ? theme.isDark
+        ? 'rgba(85, 241, 232, 0.13)'
+        : 'rgba(0, 125, 120, 0.09)'
+      : theme.colors.primaryFaded,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.primaryFaded,
+  },
+  pressedRow: {
+    opacity: 0.82,
+    transform: [{ scale: 0.99 }],
+  },
+  avatarColumn: {
+    width: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
   },
   iconContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: borderRadius.md,
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     flexShrink: 0,
   },
-  textContainer: {
+  messageContent: {
     flex: 1,
+    minWidth: 0,
   },
-  titleRow: {
+  messageTopLine: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: spacing.xs,
+    alignItems: 'center',
+    marginBottom: spacing.xxs,
+    gap: spacing.sm,
   },
   cardTitle: {
-    fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
-    color: theme.colors.textPrimary,
     flex: 1,
-    marginRight: spacing.sm,
+  },
+  cardTitleRead: {
+    fontFamily: fontFamilies.semiBold,
+    color: theme.colors.textSecondary,
   },
   cardTitleUnread: {
     fontFamily: fontFamilies.bold,
+    color: theme.colors.textPrimary,
   },
   cardTime: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
   },
+  cardTimeUnread: {
+    fontFamily: fontFamilies.bold,
+    color: theme.colors.primary,
+  },
   cardBody: {
-    fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: theme.colors.textSecondary,
     lineHeight: 18,
+  },
+  cardBodyRead: {
+    fontFamily: fontFamilies.regular,
+    color: theme.colors.textTertiary,
+  },
+  cardBodyUnread: {
+    fontFamily: fontFamilies.medium,
+    color: theme.colors.textSecondary,
+  },
+  trailingColumn: {
+    width: 18,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginLeft: spacing.sm,
+  },
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: borderRadius.full,
   },
 });

@@ -8,7 +8,7 @@ import {
   Alert,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
@@ -28,20 +28,59 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { ProfileStackParamList } from '@app/navigation/types';
 
 type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList>;
+const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
 
 export function ProfileOverviewScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<ProfileNavProp>();
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
+  const isGuest = useAuthStore((state) => state.isGuest);
   const logout = useAuthStore((state) => state.logout);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const displayName = user?.fullName ?? (isGuest ? 'Guest traveler' : 'VietRide Passenger');
+  const displayPhone = user?.phone ?? (isGuest ? 'Sign in to save trips and wallet' : 'No phone number');
+  const displayInitial = displayName.charAt(0).toUpperCase();
+  const bottomTabClearance =
+    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
 
-  const handleLogout = useCallback(() => {
+  const handleRequireAccount = useCallback(() => {
+    if (!isGuest) {
+      return true;
+    }
+
+    Alert.alert(
+      'Sign in required',
+      'Please sign in or create an account to use this feature.',
+      [
+        {
+          text: t('common.cancel', 'Cancel'),
+          style: 'cancel',
+        },
+        {
+          text: 'Sign in',
+          onPress: async () => {
+            await logout();
+          },
+        },
+      ],
+    );
+
+    return false;
+  }, [isGuest, logout, t]);
+
+  const handleLogout = useCallback(async () => {
+    if (isGuest) {
+      await logout();
+      return;
+    }
+
     Alert.alert(
       t('auth.logout', 'Log Out'),
       t('profile.logoutConfirm', 'Are you sure you want to log out of VietRide?'),
@@ -59,31 +98,51 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         },
       ]
     );
-  }, [logout, t]);
+  }, [isGuest, logout, t]);
 
   const handleTopUp = useCallback(() => {
+    if (!handleRequireAccount()) {
+      return;
+    }
+
     navigation.navigate('TopUp');
-  }, [navigation]);
+  }, [handleRequireAccount, navigation]);
 
   const handleDeposit = useCallback(() => {
+    if (!handleRequireAccount()) {
+      return;
+    }
+
     // Deposit acts the same as Top Up
     navigation.navigate('TopUp');
-  }, [navigation]);
+  }, [handleRequireAccount, navigation]);
 
   const handleWithdraw = useCallback(() => {
+    if (!handleRequireAccount()) {
+      return;
+    }
+
     navigation.navigate('Withdraw');
-  }, [navigation]);
+  }, [handleRequireAccount, navigation]);
 
   const handleHistory = useCallback(() => {
+    if (!handleRequireAccount()) {
+      return;
+    }
+
     navigation.navigate('Wallet'); // Keep history in Wallet screen for now
-  }, [navigation]);
+  }, [handleRequireAccount, navigation]);
 
   const profileMenuItems = [
     {
       id: 'edit-profile',
       title: t('profile.editProfile', 'Edit Profile'),
       icon: User,
-      onPress: () => navigation.navigate('EditProfile'),
+      onPress: () => {
+        if (handleRequireAccount()) {
+          navigation.navigate('EditProfile');
+        }
+      },
     },
     {
       id: 'booking-history',
@@ -115,7 +174,9 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       {/* Scrollable Container */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+        contentInsetAdjustmentBehavior="automatic"
+        scrollIndicatorInsets={{ bottom: bottomTabClearance }}
       >
         {/* Title Header */}
         <View style={styles.headerContainer}>
@@ -131,16 +192,16 @@ export function ProfileOverviewScreen(): React.JSX.Element {
               ) : (
                 <View style={styles.initialsAvatar}>
                   <Text style={styles.initialsText}>
-                    {user?.fullName?.charAt(0).toUpperCase() || 'V'}
+                    {displayInitial}
                   </Text>
                 </View>
               )}
             </View>
             <View style={styles.namePhoneWrapper}>
-              <Text style={styles.fullNameText}>{user?.fullName || 'Viết Thông'}</Text>
+              <Text style={styles.fullNameText}>{displayName}</Text>
               <View style={styles.phoneRow}>
                 <Phone size={14} color={theme.colors.textSecondary} style={styles.phoneIcon} />
-                <Text style={styles.phoneText}>{user?.phone || '+84 987 654 321'}</Text>
+                <Text style={styles.phoneText}>{displayPhone}</Text>
               </View>
             </View>
           </View>
@@ -153,8 +214,8 @@ export function ProfileOverviewScreen(): React.JSX.Element {
               <View style={styles.walletBalanceContainer}>
                 <Text style={styles.walletTitle}>{t('profile.walletBalance', 'Wallet Balance')}</Text>
                 <View style={styles.walletAmountRow}>
-                  <Text style={styles.walletBalanceAmount}>425</Text>
-                  <Text style={styles.walletCurrencySymbol}>K ₫</Text>
+                  <Text style={styles.walletBalanceAmount}>{isGuest ? '--' : '425'}</Text>
+                  <Text style={styles.walletCurrencySymbol}>{isGuest ? '' : 'K ₫'}</Text>
                 </View>
               </View>
               <Pressable
@@ -217,11 +278,17 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         </View>
 
         <Pressable
-          style={({ pressed }) => [styles.logoutButton, pressed ? styles.pressed : null]}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            isGuest ? styles.signInButton : null,
+            pressed ? styles.pressed : null,
+          ]}
           onPress={handleLogout}
         >
-          <SignOut size={20} color={theme.colors.error} weight="bold" />
-          <Text style={styles.logoutText}>{t('auth.logout', 'Log Out')}</Text>
+          <SignOut size={20} color={isGuest ? theme.colors.primary : theme.colors.error} weight="bold" />
+          <Text style={[styles.logoutText, isGuest ? styles.signInText : null]}>
+            {isGuest ? 'Sign in / Register' : t('auth.logout', 'Log Out')}
+          </Text>
         </Pressable>
 
         <Text style={styles.versionText}>VietRide Passenger • v1.0.0</Text>
@@ -235,8 +302,8 @@ const createStyles = (theme: AppTheme) => ({
     ...theme.components.screen,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: spacing.xl,
-    paddingBottom: 130,
   },
   headerContainer: {
     paddingVertical: spacing.lg,
@@ -434,11 +501,17 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.md,
     marginBottom: spacing.xl,
   },
+  signInButton: {
+    ...theme.components.secondaryButton,
+  },
   logoutText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
     color: theme.colors.error,
     marginLeft: spacing.sm,
+  },
+  signInText: {
+    color: theme.colors.primary,
   },
   versionText: {
     fontFamily: fontFamilies.regular,

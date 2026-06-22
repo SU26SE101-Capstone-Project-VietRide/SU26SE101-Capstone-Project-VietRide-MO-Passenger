@@ -7,9 +7,11 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing } from '@shared/theme';
-import type { ColorValue } from 'react-native';
+import { View, Text, Image, Pressable } from 'react-native';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import type { AppTheme } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
 import { ArrowLeft } from 'phosphor-react-native';
 
 const catMascotImage = require('@assets/images/image 1.png');
@@ -27,28 +29,38 @@ export const AuthStepHeader = ({
   title,
   subtitle,
   onBack,
-}: AuthStepHeaderProps): React.JSX.Element => (
-  <View style={styles.root}>
-    {onBack && (
-      <TouchableOpacity
-        style={styles.backBtn}
-        onPress={onBack}
-        activeOpacity={0.7}
-      >
-        <View style={styles.backBubble}>
-          <ArrowLeft size={20} color={colors.primary} weight="bold" />
-        </View>
-      </TouchableOpacity>
-    )}
-    <View style={[styles.textWrap, onBack && styles.textWrapWithBack]}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
-    </View>
-    <Image source={catMascotImage} style={styles.mascot} resizeMode="contain" />
-  </View>
-);
+  showMascot = true,
+}: AuthStepHeaderProps): React.JSX.Element => {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
-const styles = StyleSheet.create({
+  return (
+    <View style={styles.root}>
+      {onBack ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.backBtn,
+            pressed ? styles.pressed : null,
+          ]}
+          onPress={onBack}
+        >
+          <View style={styles.backBubble}>
+            <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
+          </View>
+        </Pressable>
+      ) : null}
+      <View style={[styles.textWrap, onBack ? styles.textWrapWithBack : null]}>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
+      </View>
+      {showMascot ? (
+        <Image source={catMascotImage} style={styles.mascot} resizeMode="contain" />
+      ) : null}
+    </View>
+  );
+};
+
+const createStyles = (theme: AppTheme) => ({
   root: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -68,14 +80,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: colors.divider,
-    shadowColor: colors.textPrimary,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
+    shadowColor: theme.colors.textPrimary,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
+    shadowOpacity: theme.isDark ? 0.18 : 0.08,
     shadowRadius: 3,
     elevation: 2,
   },
@@ -86,17 +98,20 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fontFamilies.bold,
     fontSize: 24,
-    color: colors.primaryDark as ColorValue,
+    color: theme.isDark ? theme.colors.textPrimary : theme.colors.primaryDark,
     marginBottom: spacing.xs,
   },
   subtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textSecondary as ColorValue,
+    color: theme.colors.textSecondary,
     lineHeight: fontSizes.md * 1.5,
   },
   mascot: {
     width: 72,
     height: 72,
+  },
+  pressed: {
+    opacity: 0.75,
   },
 });

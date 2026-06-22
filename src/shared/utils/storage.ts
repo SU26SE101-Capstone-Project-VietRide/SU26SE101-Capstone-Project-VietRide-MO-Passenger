@@ -8,6 +8,11 @@
 import * as Keychain from 'react-native-keychain';
 import { TOKEN_SERVICE_KEY } from '@shared/constants';
 
+export interface SecureTokenBundle {
+  accessToken: string;
+  refreshToken: string;
+}
+
 /**
  * Store access token (and optional refresh token) securely in the device keychain.
  */
@@ -31,56 +36,54 @@ export async function setToken(
 }
 
 /**
- * Retrieve the stored access token from the device keychain.
- * Returns null if no token is stored or if retrieval fails.
+ * Retrieve both tokens from the device keychain.
  */
-export async function getToken(): Promise<string | null> {
+export async function getTokenBundle(): Promise<SecureTokenBundle | null> {
   try {
     const credentials = await Keychain.getGenericPassword({
       service: TOKEN_SERVICE_KEY,
     });
 
-    if (credentials) {
-      const parsed = JSON.parse(credentials.password) as {
-        accessToken: string;
-        refreshToken?: string;
-      };
-      return parsed.accessToken;
+    if (!credentials) {
+      return null;
     }
 
-    return null;
+    const parsed = JSON.parse(credentials.password) as {
+      accessToken?: string;
+      refreshToken?: string;
+    };
+
+    if (!parsed.accessToken || !parsed.refreshToken) {
+      return null;
+    }
+
+    return {
+      accessToken: parsed.accessToken,
+      refreshToken: parsed.refreshToken,
+    };
   } catch (error) {
     if (__DEV__) {
-      console.error('[Keychain] Failed to retrieve token:', error);
+      console.error('[Keychain] Failed to retrieve token bundle:', error);
     }
     return null;
   }
 }
 
 /**
+ * Retrieve the stored access token from the device keychain.
+ * Returns null if no token is stored or if retrieval fails.
+ */
+export async function getToken(): Promise<string | null> {
+  const bundle = await getTokenBundle();
+  return bundle?.accessToken ?? null;
+}
+
+/**
  * Retrieve the stored refresh token from the device keychain.
  */
 export async function getRefreshToken(): Promise<string | null> {
-  try {
-    const credentials = await Keychain.getGenericPassword({
-      service: TOKEN_SERVICE_KEY,
-    });
-
-    if (credentials) {
-      const parsed = JSON.parse(credentials.password) as {
-        accessToken: string;
-        refreshToken?: string;
-      };
-      return parsed.refreshToken ?? null;
-    }
-
-    return null;
-  } catch (error) {
-    if (__DEV__) {
-      console.error('[Keychain] Failed to retrieve refresh token:', error);
-    }
-    return null;
-  }
+  const bundle = await getTokenBundle();
+  return bundle?.refreshToken ?? null;
 }
 
 /**

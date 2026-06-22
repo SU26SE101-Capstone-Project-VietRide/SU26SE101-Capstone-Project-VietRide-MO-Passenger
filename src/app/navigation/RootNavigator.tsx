@@ -2,7 +2,7 @@
  * Root Navigator — Switches between Auth and Main flows
  *
  * Uses the auth store to determine which navigator to render.
- * When the user is authenticated, Main (tabs) is shown;
+ * When the user is authenticated or browsing as guest, Main (tabs) is shown;
  * otherwise Auth (login/register) is shown.
  */
 
@@ -15,14 +15,24 @@ import { MainTabNavigator } from './MainTabNavigator';
 import { BookingNavigator } from '@features/booking';
 import { ParcelNavigator } from '@features/parcel';
 import { ChatbotScreen } from '@features/chatbot';
-import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { useAuthInitializer, useAuthStore } from '@features/auth';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { LoadingOverlay } from '@shared/components';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator(): React.JSX.Element {
+  useAuthInitializer();
+
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isGuest = useAuthStore((state) => state.isGuest);
+  const isAuthLoading = useAuthStore((state) => state.isAuthLoading);
   const theme = useTheme();
+  const canEnterApp = isAuthenticated || isGuest;
+
+  if (isAuthLoading) {
+    return <LoadingOverlay visible message="Đang kiểm tra phiên đăng nhập..." />;
+  }
 
   return (
     <Stack.Navigator
@@ -32,7 +42,7 @@ export function RootNavigator(): React.JSX.Element {
         animation: 'fade',
       }}
     >
-      {isAuthenticated ? (
+      {canEnterApp ? (
         <>
           <Stack.Screen name="Main" component={MainTabNavigator} />
           <Stack.Screen name="Booking" component={BookingNavigator} />

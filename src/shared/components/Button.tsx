@@ -93,7 +93,6 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.components.primaryButton,
   },
   text: {
     fontFamily: fontFamilies.semiBold,
@@ -116,6 +115,15 @@ const createStyles = (theme: AppTheme) => ({
 
 // ─── Variant Styles ───────────────────────────────────────
 
+const flatButtonSurface = {
+  shadowColor: 'transparent',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0,
+  shadowRadius: 0,
+  elevation: 0,
+  boxShadow: 'none',
+} as ViewStyle;
+
 const getVariantStyle = (
   theme: AppTheme,
   variant: ButtonVariant,
@@ -129,6 +137,7 @@ const getVariantStyle = (
     case 'outline':
       return {
         container: {
+          ...flatButtonSurface,
           backgroundColor: theme.colors.transparent,
           borderWidth: 1.5,
           borderColor: theme.colors.primary,
@@ -139,10 +148,10 @@ const getVariantStyle = (
     case 'ghost':
       return {
         container: {
+          ...flatButtonSurface,
           backgroundColor: theme.colors.transparent,
           borderWidth: 0,
-          shadowOpacity: 0,
-          elevation: 0,
+          borderRadius: theme.components.primaryButton.borderRadius,
         },
         text: { color: theme.colors.primary },
       };

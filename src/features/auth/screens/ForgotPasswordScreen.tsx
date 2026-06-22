@@ -1,9 +1,5 @@
 /**
- * ForgotPasswordScreen — Password reset request
- *
- * Visual style: Parcel booking flow inspired (gradient bg, cat mascot,
- * mint palette, card surfaces with accent border) with traditional auth layout:
- * header (with back arrow) → form card → success state
+ * ForgotPasswordScreen - calls the real reset-request endpoint when available.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -19,93 +15,137 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useMutation } from '@tanstack/react-query';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { Input, Button } from '@shared/components';
+import { useApiError } from '@shared/hooks';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { getCardStyle } from '@shared/theme/helpers';
 import type { AuthStackParamList } from '@app/navigation/types';
+import { requestPasswordReset } from '../api/authApi';
 import { AuthStepHeader } from '../components';
 
 type NavProp = NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
 
 export function ForgotPasswordScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
+  const { errorMessage, clearError, handleError } = useApiError();
+  const theme = useTheme();
+  const isLiquid = theme.variant.startsWith('liquid');
   const [emailOrPhone, setEmailOrPhone] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedMessage, setSubmittedMessage] = useState<string | null>(null);
+
+  const resetMutation = useMutation({
+    mutationFn: requestPasswordReset,
+    onSuccess: (response) => {
+      setSubmittedMessage(response.message || 'Please check your inbox for reset instructions.');
+    },
+    onError: handleError,
+  });
 
   const handleSubmit = useCallback(() => {
-    setSubmitted(true);
-  }, []);
+    clearError();
+    resetMutation.mutate({ emailOrPhone });
+  }, [clearError, emailOrPhone, resetMutation]);
 
   return (
-    <View style={styles.root}>
-      {/* Gradient background */}
+    <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
       <View style={styles.gradientContainer} pointerEvents="none">
         <Svg height="520" width="100%">
           <Defs>
             <LinearGradient id="forgotGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#2AC1BC" stopOpacity={0.7} />
-              <Stop offset="35%" stopColor="#2AC1BC" stopOpacity={0.25} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.7} />
+              <Stop offset="35%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.25} />
+              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#forgotGrad)" />
         </Svg>
-        <View style={styles.decorCircle} />
+        <View style={[styles.decorCircle, { backgroundColor: theme.effects.ambientGlow }]} />
       </View>
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         <KeyboardAvoidingView
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          {!submitted ? (
-            <View style={styles.content}>
-              {/* Header with mascot + back arrow */}
+          {!submittedMessage ? (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentInsetAdjustmentBehavior="automatic"
+              contentContainerStyle={styles.scrollContent}
+            >
               <AuthStepHeader
                 title="Reset Password"
-                subtitle="Enter your phone number or email to reset your password."
+                subtitle="Enter your account email or phone number."
                 onBack={() => navigation.goBack()}
+                showMascot={false}
               />
 
-              {/* Form card */}
-              <View style={styles.formCard}>
+              <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
                 <View style={styles.inputWrapper}>
                   <Input
-                    label="Phone Number or Email"
-                    placeholder="e.g. 0987654321"
+                    label="Email or Phone Number"
+                    placeholder="user@example.com"
                     keyboardType="email-address"
                     textContentType="emailAddress"
                     autoComplete="email"
                     autoCapitalize="none"
                     value={emailOrPhone}
-                    onChangeText={setEmailOrPhone}
+                    onChangeText={(value) => {
+                      setEmailOrPhone(value);
+                      clearError();
+                    }}
                   />
                 </View>
+
+                {errorMessage ? (
+                  <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                    {errorMessage}
+                  </Text>
+                ) : null}
+
+                <Text style={[styles.helperText, { color: theme.colors.textTertiary }]}>
+                  If the account exists, VietRide will send reset instructions to the verified contact.
+                </Text>
 
                 <Button
                   title="Send Reset Link"
                   onPress={handleSubmit}
-                  disabled={!emailOrPhone}
+                  disabled={!emailOrPhone.trim() || resetMutation.isPending}
+                  loading={resetMutation.isPending}
                   size="md"
                   fullWidth
                 />
               </View>
-            </View>
+            </ScrollView>
           ) : (
-            /* Success state */
             <ScrollView
               showsVerticalScrollIndicator={false}
+              contentInsetAdjustmentBehavior="automatic"
               contentContainerStyle={styles.successScroll}
             >
               <View style={styles.successContainer}>
-                <View style={styles.successIconBubble}>
-                  <Text style={styles.successIcon}>✉️</Text>
+                <View
+                  style={[
+                    styles.successIconBubble,
+                    {
+                      backgroundColor: theme.colors.primaryFaded,
+                      borderColor: theme.colors.primaryLight,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.successIcon, { color: theme.colors.primary }]}>OK</Text>
                 </View>
-                <Text style={styles.successTitle}>Check your inbox</Text>
-                <Text style={styles.successSubtitle}>
-                  We've sent a reset link to {emailOrPhone}. Please check your spam
-                  folder if you don't see it.
+                <Text style={[styles.successTitle, { color: theme.colors.textPrimary }]}>
+                  Check your inbox
+                </Text>
+                <Text style={[styles.successSubtitle, { color: theme.colors.textSecondary }]}>
+                  {submittedMessage}
                 </Text>
 
                 <Button
@@ -145,38 +185,50 @@ const styles = StyleSheet.create({
   },
   container: { flex: 1, backgroundColor: 'transparent' },
   keyboardView: { flex: 1 },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.xxl,
-    paddingTop: spacing.xl,
-  },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 0,
+      paddingTop: 0,
+      paddingBottom: spacing.xxxl,
+    },
   formCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
-    padding: spacing.xl,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.divider,
     borderTopWidth: 3,
     borderTopColor: colors.primaryLight,
     ...shadows.md,
     marginBottom: spacing.xxl,
+    marginHorizontal: spacing.xl,
   },
   inputWrapper: {
-    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  errorText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: colors.error,
+    marginBottom: spacing.md,
+  },
+  helperText: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    lineHeight: fontSizes.sm * 1.5,
     marginBottom: spacing.lg,
   },
   successScroll: {
     flexGrow: 1,
     justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxxl,
   },
   successContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.huge,
   },
   successIconBubble: {
     width: 96,
@@ -189,18 +241,14 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primaryLight,
   },
-  successIcon: { fontSize: 48 },
+  successIcon: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.lg,
+    color: colors.primary,
+  },
   successTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  otpInput: {
-    letterSpacing: 8,
-    fontSize: fontSizes.xxl,
-  },
-  errorText: {
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },

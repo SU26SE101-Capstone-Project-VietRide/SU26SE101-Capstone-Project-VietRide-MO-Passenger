@@ -27,7 +27,8 @@ const catMascotImage = require('@assets/images/image 1.png');
 export function BusSearchScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const user = useAuthStore((state) => state.user);
-  const fullName = user?.fullName || 'Viết Thông';
+  const isGuest = useAuthStore((state) => state.isGuest);
+  const fullName = user?.fullName ?? (isGuest ? 'Guest' : 'VietRide');
   const { searchParams, swapCities, setSearchParams } = useBookingStore();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);

@@ -39,7 +39,8 @@ import { RecentShipmentsSection } from '../components/RecentShipmentsSection';
 export function HomeScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const user = useAuthStore((state) => state.user);
-  const fullName = user?.fullName || 'Viết Thông';
+  const isGuest = useAuthStore((state) => state.isGuest);
+  const fullName = user?.fullName ?? (isGuest ? 'Guest' : 'VietRide');
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 

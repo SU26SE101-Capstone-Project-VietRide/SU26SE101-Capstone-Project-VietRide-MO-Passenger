@@ -16,7 +16,35 @@ import axios, {
 
 import { appConfig } from '@shared/constants/config';
 import { API_TIMEOUT } from '@shared/constants';
-import { getToken, clearToken } from '@shared/utils/storage';
+import { getToken, getRefreshToken, setToken, clearToken } from '@shared/utils/storage';
+import type { ApiEnvelope } from './errors';
+
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuthRefresh?: boolean;
+    _retry?: boolean;
+  }
+
+  export interface InternalAxiosRequestConfig {
+    skipAuthRefresh?: boolean;
+    _retry?: boolean;
+  }
+}
+
+interface TokenBundleDto {
+  accessToken: string;
+  refreshToken: string;
+  expiresInSeconds: number;
+}
+
+type UnauthorizedHandler = () => void;
+
+let refreshPromise: Promise<string | null> | null = null;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export const setUnauthorizedHandler = (handler: UnauthorizedHandler | null): void => {
+  unauthorizedHandler = handler;
+};
 
 // ─── Instance ─────────────────────────────────────────────
 
@@ -28,6 +56,57 @@ export const apiClient = axios.create({
     Accept: 'application/json',
   },
 });
+
+const refreshClient = axios.create({
+  baseURL: appConfig.apiBaseUrl,
+  timeout: API_TIMEOUT,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+});
+
+const isAuthRoute = (url?: string): boolean => Boolean(url?.startsWith('/auth/'));
+
+const refreshAccessToken = async (): Promise<string | null> => {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const refreshToken = await getRefreshToken();
+
+      if (!refreshToken) {
+        return null;
+      }
+
+      try {
+        const response = await refreshClient.post<ApiEnvelope<TokenBundleDto>>(
+          '/auth/refresh',
+          { refreshToken },
+        );
+
+        if (!response.data.success) {
+          return null;
+        }
+
+        const stored = await setToken(response.data.data.accessToken, response.data.data.refreshToken);
+
+        if (!stored) {
+          return null;
+        }
+
+        return response.data.data.accessToken;
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[API] Token refresh failed:', error);
+        }
+        return null;
+      }
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
+};
 
 // ─── Request Interceptor ──────────────────────────────────
 
@@ -60,15 +139,29 @@ apiClient.interceptors.response.use(
   },
   async (error: AxiosError) => {
     const status = error.response?.status;
+    const originalRequest = error.config as InternalAxiosRequestConfig | undefined;
 
     // Handle 401 — Unauthorized (token expired or invalid)
-    if (status === 401) {
-      await clearToken();
+    if (
+      status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !originalRequest.skipAuthRefresh &&
+      !isAuthRoute(originalRequest.url)
+    ) {
+      originalRequest._retry = true;
+      const nextAccessToken = await refreshAccessToken();
 
-      // The auth store listener will detect the token clear
-      // and navigate to the Auth flow automatically.
+      if (nextAccessToken) {
+        originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`;
+        return apiClient(originalRequest);
+      }
+
+      await clearToken();
+      unauthorizedHandler?.();
+
       if (__DEV__) {
-        console.warn('[API] 401 — Token expired, clearing credentials.');
+        console.warn('[API] 401 — Refresh failed, clearing credentials.');
       }
     }
 
@@ -94,8 +187,13 @@ apiClient.interceptors.response.use(
 
 export interface ApiResponse<T> {
   data: T;
-  message: string;
+  message?: string | null;
+  statusCode: number;
   success: boolean;
+  meta?: {
+    traceId: string;
+    timestamp: string;
+  };
 }
 
 export interface PaginatedResponse<T> {

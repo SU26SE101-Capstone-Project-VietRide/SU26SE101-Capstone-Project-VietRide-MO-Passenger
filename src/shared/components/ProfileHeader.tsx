@@ -22,7 +22,7 @@ export function ProfileHeader({
   onBackPress,
   showNotificationButton = true,
   onNotificationPress,
-  userName = 'Viết Thông',
+  userName = 'Guest',
   greeting = 'Xin chào,',
   avatarSource = require('../../assets/images/Avatar.png'),
 }: ProfileHeaderProps): React.JSX.Element {

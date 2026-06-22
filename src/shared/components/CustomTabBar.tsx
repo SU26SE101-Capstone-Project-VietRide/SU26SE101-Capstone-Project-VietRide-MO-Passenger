@@ -21,6 +21,8 @@ import type { AppTheme } from '@shared/theme';
 // Import local image for AI button
 const appLogoPlaceholder = require('../../assets/images/app_logo_placeholder.png');
 
+export const CUSTOM_TAB_BAR_BASE_HEIGHT = 70;
+
 interface CustomTabBarProps {
   state: any;
   descriptors: any;
@@ -35,7 +37,7 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: C
   const bottomInset = Math.max(insets.bottom, spacing.sm);
 
   return (
-    <View style={[styles.tabBarContainer, { height: 70 + bottomInset }]}>
+    <View style={[styles.tabBarContainer, { height: CUSTOM_TAB_BAR_BASE_HEIGHT + bottomInset }]}>
       <View style={styles.tabBarSheen} pointerEvents="none" />
       {state.routes.map((route: any, index: number) => {
         const isFocused = state.index === index;
