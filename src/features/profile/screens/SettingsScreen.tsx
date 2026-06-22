@@ -14,7 +14,7 @@ import { ArrowLeft, Bell, Translate, ShieldCheck, Info, Palette } from 'phosphor
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAppStore } from '@shared/store/useAppStore';
 
@@ -23,6 +23,7 @@ export function SettingsScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
   const setLocaleStore = useAppStore((state) => state.setLocale);
   const localeStore = useAppStore((state) => state.locale);
 
@@ -61,6 +62,8 @@ export function SettingsScreen(): React.JSX.Element {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        onScroll={handleTabBarScroll}
+        scrollEventThrottle={16}
       >
         {/* Section 1: Language Settings */}
         <View style={styles.sectionContainer}>
@@ -120,7 +123,7 @@ export function SettingsScreen(): React.JSX.Element {
             >
               <View style={styles.settingTextContainer}>
                 <Text style={styles.settingLabel}>Theme & Visuals</Text>
-                <Text style={styles.settingDesc}>Choose Liquid Glass or Classic mode</Text>
+                <Text style={styles.settingDesc}>Choose Light or Dark Liquid Glass mode</Text>
               </View>
             </Pressable>
           </View>

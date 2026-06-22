@@ -17,7 +17,7 @@ import { MOCK_POPULAR_ROUTES, MOCK_RECENT_SEARCHES } from '../data/mockData';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { BookingStackParamList } from '@app/navigation/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'SearchRoutes'>;
@@ -27,11 +27,10 @@ const catMascotImage = require('@assets/images/image 1.png');
 export function BusSearchScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const user = useAuthStore((state) => state.user);
-  const isGuest = useAuthStore((state) => state.isGuest);
-  const fullName = user?.fullName ?? (isGuest ? 'Guest' : 'VietRide');
   const { searchParams, swapCities, setSearchParams } = useBookingStore();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
 
   const handleSearch = useCallback(() => {
     navigation.navigate('CreateTicketBooking');
@@ -113,10 +112,12 @@ export function BusSearchScreen(): React.JSX.Element {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          onScroll={handleTabBarScroll}
+          scrollEventThrottle={16}
         >
           {/* Profile Header */}
           <ProfileHeader
-            userName={fullName}
+            userName={user?.fullName}
             greeting="Xin chào,"
             onNotificationPress={() => {}}
           />

@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { GlassCarouselSection, ProfileHeader } from '@shared/components';
@@ -39,10 +39,9 @@ import { RecentShipmentsSection } from '../components/RecentShipmentsSection';
 export function HomeScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const user = useAuthStore((state) => state.user);
-  const isGuest = useAuthStore((state) => state.isGuest);
-  const fullName = user?.fullName ?? (isGuest ? 'Guest' : 'VietRide');
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
 
   const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
 
@@ -153,7 +152,7 @@ export function HomeScreen(): React.JSX.Element {
       {/* Header - TopAppBar */}
       <ProfileHeader
         showBackButton={false}
-        userName={fullName}
+        userName={user?.fullName}
         onNotificationPress={handleNotificationPress}
       />
 
@@ -161,6 +160,8 @@ export function HomeScreen(): React.JSX.Element {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        onScroll={handleTabBarScroll}
+        scrollEventThrottle={16}
       >
         {/* Unified Tabbed Form Container */}
         <View style={styles.formContainer}>

@@ -23,7 +23,7 @@ import {
 
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 
 // Local border radius fallback
@@ -128,6 +128,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const route = useRoute<BookingHistoryRouteProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
 
   const [activeMainTab, setActiveMainTab] = useState<'ticket' | 'parcel'>('ticket');
   const [activeTicketFilter, setActiveTicketFilter] = useState<'all' | 'upcoming' | 'past'>('all');
@@ -266,6 +267,8 @@ export function BookingHistoryScreen(): React.JSX.Element {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        onScroll={handleTabBarScroll}
+        scrollEventThrottle={16}
       >
         {activeMainTab === 'ticket' ? (
           filteredTickets.length === 0 ? (

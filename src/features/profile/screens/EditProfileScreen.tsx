@@ -18,7 +18,7 @@ import { Camera, ArrowLeft, Check } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { Input, Button, LoadingOverlay } from '@shared/components';
@@ -38,6 +38,7 @@ export function EditProfileScreen(): React.JSX.Element {
   const navigation = useNavigation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
 
@@ -117,6 +118,8 @@ export function EditProfileScreen(): React.JSX.Element {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          onScroll={handleTabBarScroll}
+          scrollEventThrottle={16}
         >
           {/* Avatar Section */}
           <View style={styles.avatarSection}>

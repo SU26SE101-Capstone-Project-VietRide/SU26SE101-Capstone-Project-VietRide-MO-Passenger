@@ -6,7 +6,7 @@ import { ArrowLeft } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { Input, Button, LoadingOverlay } from '@shared/components';
 
@@ -14,6 +14,7 @@ export function AddPaymentMethodScreen(): React.JSX.Element {
   const navigation = useNavigation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
   const [activeTab, setActiveTab] = useState<'card' | 'momo' | 'vnpay'>('card');
   const [loading, setLoading] = useState(false);
 
@@ -57,7 +58,7 @@ export function AddPaymentMethodScreen(): React.JSX.Element {
           <ArrowLeft size={20} color={theme.colors.textPrimary} weight="bold" />
         </Pressable>
         <Text style={styles.headerTitle}>Add Payment Method</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.topBarRightPlaceholder} />
       </View>
 
       <View style={styles.tabBar}>
@@ -72,7 +73,12 @@ export function AddPaymentMethodScreen(): React.JSX.Element {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        onScroll={handleTabBarScroll}
+        scrollEventThrottle={16}
+      >
         {activeTab === 'card' ? (
           <>
             <Input label="Card Number" value={cardNumber} onChangeText={t => setCardNumber(formatCardNumber(t))} placeholder="4111 2222 3333 4444" keyboardType="numeric" maxLength={19} />
@@ -100,6 +106,7 @@ const createStyles = (theme: AppTheme) => ({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider },
   backBtn: { ...theme.components.headerButton, width: 40, height: 40, borderRadius: 20 },
   headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
+  topBarRightPlaceholder: { width: 40 },
   tabBar: { flexDirection: 'row', backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider },
   tabItem: { flex: 1, paddingVertical: spacing.md, alignItems: 'center' },
   activeTabItem: { borderBottomWidth: 2, borderBottomColor: theme.colors.primary, backgroundColor: theme.colors.primaryFaded },

@@ -13,7 +13,7 @@ import { Bell, Ticket, Package, Tag, Check, Trash } from 'phosphor-react-native'
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 
@@ -35,6 +35,7 @@ export function NotificationScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([
     {
@@ -249,6 +250,8 @@ export function NotificationScreen(): React.JSX.Element {
         ]}
         contentInsetAdjustmentBehavior="automatic"
         scrollIndicatorInsets={{ bottom: bottomTabClearance }}
+        onScroll={handleTabBarScroll}
+        scrollEventThrottle={16}
       />
     </SafeAreaView>
   );

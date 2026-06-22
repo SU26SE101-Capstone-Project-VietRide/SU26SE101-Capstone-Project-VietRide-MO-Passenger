@@ -1,7 +1,7 @@
 import type { ViewStyle } from 'react-native';
 import type { colors } from './colors';
 
-export type ThemeVariant = 'classic' | 'liquid_light' | 'liquid_dark';
+export type ThemeVariant = 'liquid_light' | 'liquid_dark';
 export type ThemeColors = Record<keyof typeof colors, string>;
 
 export type ThemeEffectTokens = {

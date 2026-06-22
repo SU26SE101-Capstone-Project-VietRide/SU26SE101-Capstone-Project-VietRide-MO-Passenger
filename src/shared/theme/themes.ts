@@ -1,6 +1,6 @@
 import type { ViewStyle } from 'react-native';
 import { colors } from './colors';
-import { borderRadius, shadows } from './spacing';
+import { borderRadius } from './spacing';
 import type { AppTheme, ThemeColors, ThemeComponentTokens, ThemeEffectTokens, ThemeVariant } from './types';
 
 const continuous = { borderCurve: 'continuous' } as ViewStyle;
@@ -13,30 +13,6 @@ const shadow = (
     ...legacy,
     boxShadow,
   }) as ViewStyle;
-
-const classicColors: ThemeColors = {
-  ...colors,
-  primary: '#006A67',
-  primaryLight: '#2AC1BC',
-  primaryDark: '#004A48',
-  primaryFaded: '#EAF8F7',
-  accentLight: '#71F7F1',
-  accentDark: '#00504d',
-  background: '#F7F9FF',
-  surface: '#FFFFFF',
-  surfaceAlt: '#F1F4F9',
-  surfaceElevated: '#FFFFFF',
-  textPrimary: '#181C20',
-  textSecondary: '#3C4948',
-  textTertiary: '#6C7A78',
-  border: '#BBC9C8',
-  borderFocused: '#006A67',
-  divider: '#E5E8EE',
-  overlay: 'rgba(24, 28, 32, 0.54)',
-  overlayLight: 'rgba(24, 28, 32, 0.25)',
-  skeleton: '#EBEBF3',
-  skeletonHighlight: '#E0E3E8',
-};
 
 const liquidLightColors: ThemeColors = {
   ...colors,
@@ -92,28 +68,6 @@ const liquidDarkColors: ThemeColors = {
   overlayLight: 'rgba(3, 10, 10, 0.48)',
   skeleton: 'rgba(255, 255, 255, 0.08)',
   skeletonHighlight: 'rgba(255, 255, 255, 0.16)',
-};
-
-const classicEffects: ThemeEffectTokens = {
-  isLiquid: false,
-  ambientGlow: 'rgba(42, 193, 188, 0.10)',
-  glassOverlay: 'rgba(24, 28, 32, 0.54)',
-  glassStroke: colors.divider,
-  glassHighlight: colors.surface,
-  glassSurface: colors.surface,
-  glassSurfaceSoft: colors.surfaceAlt,
-  glassSurfaceStrong: colors.surfaceElevated,
-  glassBorder: colors.divider,
-  glassBorderStrong: colors.border,
-  glassSheen: colors.transparent,
-  glassTint: colors.transparent,
-  fieldSurface: colors.surfaceAlt,
-  fieldBorder: colors.divider,
-  tabBarSurface: colors.surface,
-  tabActiveSurface: colors.primaryFaded,
-  scrim: colors.overlay,
-  cardShadow: shadows.sm,
-  floatingShadow: shadows.lg,
 };
 
 const liquidLightEffects: ThemeEffectTokens = {
@@ -309,7 +263,6 @@ const createTheme = (
 };
 
 export const themes: Record<ThemeVariant, AppTheme> = {
-  classic: createTheme('classic', 'Classic', false, classicColors, classicEffects, 'light', 10),
   liquid_light: createTheme(
     'liquid_light',
     'Liquid Glass Light',

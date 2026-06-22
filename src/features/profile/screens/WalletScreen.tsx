@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import {
   ArrowLeft,
@@ -27,7 +26,7 @@ import {
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 
 // -- Types
@@ -59,14 +58,14 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
 ];
 
 export function WalletScreen(): React.JSX.Element {
-  const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
   
   // -- State
-  const [balance, setBalance] = useState(1500000);
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+  const [balance] = useState(1500000);
+  const [transactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
     { id: '1', type: 'card', brand: 'visa', cardNumberMasked: '•••• •••• •••• 4242', cardHolder: 'VIET THONG', isDefault: true },
     { id: '2', type: 'momo', phoneNumber: '0987 *** 321', providerName: 'Momo Wallet', isDefault: false },
@@ -122,10 +121,15 @@ export function WalletScreen(): React.JSX.Element {
             <ArrowLeft size={20} color={theme.colors.textPrimary} weight="bold" />
           </Pressable>
           <Text style={styles.headerTitle}>Wallet & Payments</Text>
-          <View style={{ width: 40 }} />
+          <View style={styles.topBarRightPlaceholder} />
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          onScroll={handleTabBarScroll}
+          scrollEventThrottle={16}
+        >
           {/* 1. BALANCE CARD */}
           <View style={styles.balanceCard}>
             <View style={styles.balanceHeader}>
@@ -232,6 +236,7 @@ const createStyles = (theme: AppTheme) => ({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.lg },
   backBtn: { ...theme.components.headerButton, width: 40, height: 40, borderRadius: 20 },
   headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
+  topBarRightPlaceholder: { width: 40 },
   scrollContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
   
   balanceCard: { backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface, borderRadius: borderRadius.lg, padding: spacing.xl, ...theme.effects.floatingShadow, marginBottom: spacing.xl, borderWidth: 1, borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.primaryFaded },

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, Pressable, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, Bell } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { AppTheme } from '@shared/theme';
 
 export interface ProfileHeaderProps {
@@ -22,13 +23,27 @@ export function ProfileHeader({
   onBackPress,
   showNotificationButton = true,
   onNotificationPress,
-  userName = 'Guest',
+  userName,
   greeting = 'Xin chào,',
   avatarSource = require('../../assets/images/Avatar.png'),
 }: ProfileHeaderProps): React.JSX.Element {
   const navigation = useNavigation<any>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const authUser = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const logout = useAuthStore((state) => state.logout);
+  const resolvedUserName =
+    authUser?.fullName || authUser?.displayName || userName || 'VietRide Passenger';
+  const shouldShowGreeting = isAuthenticated && resolvedUserName.trim().length > 0;
+
+  const handleAuthPress = useCallback(() => {
+    logout().catch((error) => {
+      if (__DEV__) {
+        console.warn('[Auth] Unable to open auth flow from profile header:', error);
+      }
+    });
+  }, [logout]);
 
   const handleBack = () => {
     if (onBackPress) {
@@ -49,7 +64,7 @@ export function ProfileHeader({
   return (
     <View style={styles.topProfileBar}>
       <View style={styles.profileRow}>
-        {showBackButton && navigation.canGoBack() && (
+        {showBackButton && navigation.canGoBack() ? (
           <Pressable
             onPress={handleBack}
             style={({ pressed }) => [
@@ -59,15 +74,32 @@ export function ProfileHeader({
           >
             <ArrowLeft size={22} color={theme.colors.textPrimary} />
           </Pressable>
-        )}
+        ) : null}
         <Image source={avatarSource} style={styles.headerAvatar} />
-        <View style={styles.profileTextContainer}>
-          <Text style={styles.greetingText}>{greeting}</Text>
-          <Text style={styles.userNameText}>{userName}</Text>
-        </View>
+        {shouldShowGreeting ? (
+          <View style={styles.profileTextContainer}>
+            <Text style={styles.greetingText}>{greeting}</Text>
+            <Text style={styles.userNameText} numberOfLines={1}>
+              {resolvedUserName}
+            </Text>
+          </View>
+        ) : (
+          <Pressable
+            onPress={handleAuthPress}
+            style={({ pressed }) => [
+              styles.authPromptButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.authPromptEyebrow}>Bạn chưa đăng nhập</Text>
+            <Text style={styles.authPromptText} numberOfLines={1}>
+              Đăng nhập / Đăng ký
+            </Text>
+          </Pressable>
+        )}
       </View>
       
-      {showNotificationButton && (
+      {showNotificationButton ? (
         <Pressable
           onPress={handleNotification}
           style={({ pressed }) => [
@@ -77,7 +109,7 @@ export function ProfileHeader({
         >
           <Bell size={22} color={theme.colors.textPrimary} />
         </Pressable>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -96,6 +128,8 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flex: 1,
+    minWidth: 0,
   },
   backButton: {
     ...theme.components.headerButton,
@@ -112,6 +146,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   profileTextContainer: {
     justifyContent: 'center',
+    flex: 1,
+    minWidth: 0,
   },
   greetingText: {
     fontFamily: fontFamilies.regular,
@@ -122,6 +158,22 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
+  },
+  authPromptButton: {
+    justifyContent: 'center',
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: spacing.xs,
+  },
+  authPromptEyebrow: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  authPromptText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
   },
   bellButton: {
     ...theme.components.headerButton,

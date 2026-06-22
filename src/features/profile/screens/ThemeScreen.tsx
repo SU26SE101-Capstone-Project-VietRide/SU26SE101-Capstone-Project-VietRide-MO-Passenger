@@ -7,7 +7,7 @@ import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemeStore } from '@shared/store/useThemeStore';
 import { themes } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import type { AppTheme, ThemeVariant } from '@shared/theme';
 
@@ -15,13 +15,11 @@ const THEME_OPTIONS = Object.entries(themes) as Array<[ThemeVariant, AppTheme]>;
 const THEME_SCREEN_BOTTOM_GAP = spacing.huge;
 
 const themeCaptions: Record<ThemeVariant, string> = {
-  classic: 'Clean, crisp VietRide interface',
   liquid_light: 'Bright glass with soft refraction',
   liquid_dark: 'Dark glass with teal glow',
 };
 
 const themeTags: Record<ThemeVariant, string> = {
-  classic: 'Classic',
   liquid_light: 'Light',
   liquid_dark: 'Dark',
 };
@@ -33,6 +31,7 @@ export function ThemeScreen(): React.JSX.Element {
   const setTheme = useThemeStore((state) => state.setTheme);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
   const bottomTabClearance =
     CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + THEME_SCREEN_BOTTOM_GAP;
 
@@ -134,6 +133,8 @@ export function ThemeScreen(): React.JSX.Element {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
         contentInsetAdjustmentBehavior="automatic"
         scrollIndicatorInsets={{ bottom: bottomTabClearance }}
+        onScroll={handleTabBarScroll}
+        scrollEventThrottle={16}
       >
         {THEME_OPTIONS.map(([key, themeOption]) => {
           const isSelected = currentThemeVariant === key;

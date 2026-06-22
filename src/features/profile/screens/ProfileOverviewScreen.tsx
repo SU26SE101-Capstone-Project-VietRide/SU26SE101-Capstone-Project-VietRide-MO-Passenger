@@ -26,7 +26,7 @@ import {
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
@@ -44,6 +44,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   const logout = useAuthStore((state) => state.logout);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
   const displayName = user?.fullName ?? (isGuest ? 'Guest traveler' : 'VietRide Passenger');
   const displayPhone = user?.phone ?? (isGuest ? 'Sign in to save trips and wallet' : 'No phone number');
   const displayInitial = displayName.charAt(0).toUpperCase();
@@ -177,6 +178,8 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
         contentInsetAdjustmentBehavior="automatic"
         scrollIndicatorInsets={{ bottom: bottomTabClearance }}
+        onScroll={handleTabBarScroll}
+        scrollEventThrottle={16}
       >
         {/* Title Header */}
         <View style={styles.headerContainer}>

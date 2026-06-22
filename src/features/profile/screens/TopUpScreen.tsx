@@ -6,7 +6,7 @@ import { ArrowLeft, CreditCard, Phone, CheckCircle } from 'phosphor-react-native
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { Input, Button, LoadingOverlay } from '@shared/components';
 
@@ -14,6 +14,7 @@ export function TopUpScreen(): React.JSX.Element {
   const navigation = useNavigation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -49,10 +50,15 @@ export function TopUpScreen(): React.JSX.Element {
           <ArrowLeft size={20} color={theme.colors.textPrimary} weight="bold" />
         </Pressable>
         <Text style={styles.headerTitle}>Top Up Wallet</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.topBarRightPlaceholder} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        onScroll={handleTabBarScroll}
+        scrollEventThrottle={16}
+      >
         <Input
           label="Amount (đ)"
           value={amount}
@@ -98,6 +104,7 @@ const createStyles = (theme: AppTheme) => ({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider },
   backBtn: { ...theme.components.headerButton, width: 40, height: 40, borderRadius: 20 },
   headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
+  topBarRightPlaceholder: { width: 40 },
   content: { padding: spacing.xl },
   presetRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
   presetBadge: { backgroundColor: theme.colors.primaryFaded, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: borderRadius.full, borderWidth: 1, borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.primaryFaded },
