@@ -344,17 +344,17 @@ Common error codes in Identity:
 
 ```bash
 # Register
-curl -X POST https://api.vietride.dev/v1/auth/register \
+curl -X POST https://api.vietride.online/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"Pass123!","displayName":"Test User"}'
 
 # Login
-curl -X POST https://api.vietride.dev/v1/auth/login \
+curl -X POST https://api.vietride.online/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"Pass123!"}'
 
 # Get user
-curl https://api.vietride.dev/v1/users/me \
+curl https://api.vietride.online/v1/users/me \
   -H "Authorization: Bearer <token>"
 ```
 

@@ -1,7 +1,9 @@
 /**
- * Type-safe wrapper around optional Metro/Expo environment values.
- * Keep this file free of native-module imports so the app can boot in Expo runtimes.
+ * Type-safe wrapper around native and Metro/Expo environment values.
  */
+
+import Config from 'react-native-config';
+import { normalizeUrlBase } from '@shared/utils/url';
 
 type Environment = 'development' | 'staging' | 'production';
 
@@ -17,11 +19,12 @@ interface AppConfig {
 
 type EnvRecord = Record<string, string | undefined>;
 
+const nativeEnv = Config as EnvRecord;
 const runtimeEnv = ((globalThis as unknown as { process?: { env?: EnvRecord } }).process?.env ?? {}) as EnvRecord;
 
 const getEnvValue = (...keys: string[]) => {
   for (const key of keys) {
-    const value = runtimeEnv[key];
+    const value = nativeEnv[key] ?? runtimeEnv[key];
 
     if (value && value.trim().length > 0) {
       return value;
@@ -41,9 +44,19 @@ const normalizeEnv = (value?: string): Environment => {
 
 const env = normalizeEnv(getEnvValue('EXPO_PUBLIC_APP_ENV', 'APP_ENV', 'ENV'));
 
+const requireEnvValue = (name: string, ...keys: string[]): string => {
+  const value = getEnvValue(...keys);
+
+  if (!value) {
+    throw new Error(`[Config] Missing ${name}. Set one of: ${keys.join(', ')}`);
+  }
+
+  return value;
+};
+
 export const appConfig: AppConfig = {
-  apiBaseUrl: getEnvValue('EXPO_PUBLIC_API_BASE_URL', 'API_BASE_URL') ?? 'https://api.vietride.dev/v1',
-  wsUrl: getEnvValue('EXPO_PUBLIC_WS_URL', 'WS_URL') ?? 'wss://ws.vietride.dev',
+  apiBaseUrl: normalizeUrlBase(requireEnvValue('API_BASE_URL', 'EXPO_PUBLIC_API_BASE_URL', 'API_BASE_URL')),
+  wsUrl: normalizeUrlBase(requireEnvValue('WS_URL', 'EXPO_PUBLIC_WS_URL', 'WS_URL')),
   googleMapsApiKey: getEnvValue('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY', 'GOOGLE_MAPS_API_KEY') ?? '',
   env,
   isDev: env === 'development',

@@ -1,5 +1,5 @@
 /**
- * OTPVerificationScreen - verifies the registration email OTP.
+ * PasswordResetOtpScreen - confirms the password-reset OTP and receives a reset token.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -29,7 +29,7 @@ import { useApiError } from '@shared/hooks';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
 import type { AuthStackParamList } from '@app/navigation/types';
-import { verifyEmail } from '../api/authApi';
+import { confirmPasswordResetOtp } from '../api/authApi';
 import { AuthStepHeader } from '../components';
 import {
   AUTH_CODE_LENGTH,
@@ -39,8 +39,8 @@ import {
   type FieldErrorMap,
 } from '../validation/authValidation';
 
-type NavProp = NativeStackNavigationProp<AuthStackParamList, 'OTPVerification'>;
-type ScreenRouteProp = RouteProp<AuthStackParamList, 'OTPVerification'>;
+type NavProp = NativeStackNavigationProp<AuthStackParamList, 'PasswordResetOtp'>;
+type ScreenRouteProp = RouteProp<AuthStackParamList, 'PasswordResetOtp'>;
 type OtpFormField = 'code';
 type OtpFormErrors = FieldErrorMap<OtpFormField>;
 
@@ -55,21 +55,21 @@ const formatTimer = (seconds: number): string => {
   return `${minutes}:${remainingSeconds}`;
 };
 
-export function OTPVerificationScreen(): React.JSX.Element {
+export function PasswordResetOtpScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<ScreenRouteProp>();
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
   const isLiquid = theme.variant.startsWith('liquid');
 
-  const { email, phone, otpTtlMinutes = 5 } = route.params;
+  const { email, otpTtlMinutes = 5, debugOtpCode } = route.params;
   const [code, setCode] = useState<string[]>(Array(AUTH_CODE_LENGTH).fill(''));
   const [timer, setTimer] = useState(Math.max(otpTtlMinutes * 60, 1));
   const [errors, setErrors] = useState<OtpFormErrors>({});
   const inputRefs = useRef<Array<TextInput | null>>([]);
 
-  const verifyMutation = useMutation({
-    mutationFn: verifyEmail,
+  const confirmMutation = useMutation({
+    mutationFn: confirmPasswordResetOtp,
   });
 
   useEffect(() => {
@@ -127,9 +127,8 @@ export function OTPVerificationScreen(): React.JSX.Element {
     }
   };
 
-  const handleVerify = useCallback(async () => {
+  const handleConfirm = useCallback(async () => {
     const fullCode = code.join('');
-
     const parsed = otpSchema.safeParse({ code: fullCode });
 
     if (!parsed.success) {
@@ -140,15 +139,15 @@ export function OTPVerificationScreen(): React.JSX.Element {
     clearError();
 
     try {
-      await verifyMutation.mutateAsync({
+      const response = await confirmMutation.mutateAsync({
         email,
         code: parsed.data.code,
-        purpose: 'REGISTRATION',
       });
 
-      navigation.navigate('Login', {
+      navigation.navigate('ResetPassword', {
         email,
-        verified: true,
+        resetToken: response.resetToken,
+        resetTokenTtlMinutes: response.resetTokenTtlMinutes,
       });
     } catch (error) {
       const apiError = handleError(error);
@@ -157,9 +156,9 @@ export function OTPVerificationScreen(): React.JSX.Element {
         otpFieldAliases,
       ));
     }
-  }, [clearError, code, email, handleError, navigation, verifyMutation]);
+  }, [clearError, code, confirmMutation, email, handleError, navigation]);
 
-  const isPending = verifyMutation.isPending;
+  const isPending = confirmMutation.isPending;
   const fullCode = code.join('');
   const isExpired = timer === 0;
   const codeError = errors.code;
@@ -170,13 +169,13 @@ export function OTPVerificationScreen(): React.JSX.Element {
       <View style={styles.gradientContainer} pointerEvents="none">
         <Svg height="520" width="100%">
           <Defs>
-            <LinearGradient id="otpGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <LinearGradient id="resetOtpGrad" x1="0%" y1="0%" x2="0%" y2="100%">
               <Stop offset="0%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.7} />
               <Stop offset="35%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.25} />
               <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
-          <Rect width="100%" height="100%" fill="url(#otpGrad)" />
+          <Rect width="100%" height="100%" fill="url(#resetOtpGrad)" />
         </Svg>
         <View style={[styles.decorCircle, { backgroundColor: theme.effects.ambientGlow }]} />
       </View>
@@ -190,11 +189,14 @@ export function OTPVerificationScreen(): React.JSX.Element {
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
+            contentInsetAdjustmentBehavior="automatic"
             keyboardShouldPersistTaps="handled"
           >
             <AuthStepHeader
-              title="Verify it's you"
-              subtitle={`We sent a 6-digit code to ${email}${phone ? ` (${phone})` : ''}.`}
+              title="Enter reset code"
+              subtitle={`We sent a 6-digit code to ${email}.`}
+              onBack={() => navigation.goBack()}
+              showMascot={false}
             />
 
             <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
@@ -222,7 +224,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
                     maxLength={AUTH_CODE_LENGTH}
                     value={digit}
                     editable={!isPending}
-                    accessibilityLabel={`Verification code digit ${index + 1}`}
+                    accessibilityLabel={`Password reset code digit ${index + 1}`}
                     onChangeText={(text) => handleCodeChange(text, index)}
                     onKeyPress={(e) => handleKeyPress(e, index)}
                     selectTextOnFocus
@@ -232,7 +234,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
 
               <View style={styles.resendContainer}>
                 <Text style={[styles.resendText, { color: theme.colors.textSecondary }]}>
-                  {isExpired ? 'Code expired. Please register again.' : 'Code expires in '}
+                  {isExpired ? 'Code expired. Please request a new code.' : 'Code expires in '}
                 </Text>
                 {!isExpired ? (
                   <Text style={[styles.timerText, { color: theme.colors.textTertiary }]}>
@@ -241,6 +243,12 @@ export function OTPVerificationScreen(): React.JSX.Element {
                 ) : null}
               </View>
 
+              {debugOtpCode ? (
+                <Text style={[styles.mockHintText, { color: theme.colors.primary }]}>
+                  Dev code: {debugOtpCode}
+                </Text>
+              ) : null}
+
               {visibleError ? (
                 <Text style={[styles.errorText, { color: theme.colors.error }]}>
                   {visibleError}
@@ -248,8 +256,8 @@ export function OTPVerificationScreen(): React.JSX.Element {
               ) : null}
 
               <Button
-                title="Verify Code"
-                onPress={handleVerify}
+                title="Confirm Code"
+                onPress={handleConfirm}
                 disabled={fullCode.length !== AUTH_CODE_LENGTH || isPending || isExpired}
                 loading={isPending}
                 size="lg"
@@ -263,10 +271,10 @@ export function OTPVerificationScreen(): React.JSX.Element {
               Wrong email?{' '}
             </Text>
             <Pressable
-              onPress={() => navigation.goBack()}
+              onPress={() => navigation.navigate('ForgotPassword')}
               style={({ pressed }) => (pressed ? styles.pressed : null)}
             >
-              <Text style={[styles.footerLink, { color: theme.colors.primary }]}>Go back</Text>
+              <Text style={[styles.footerLink, { color: theme.colors.primary }]}>Start over</Text>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -345,6 +353,13 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
     color: colors.textTertiary,
+  },
+  mockHintText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: colors.primary,
+    marginBottom: spacing.md,
+    textAlign: 'center',
   },
   errorText: {
     fontFamily: fontFamilies.medium,

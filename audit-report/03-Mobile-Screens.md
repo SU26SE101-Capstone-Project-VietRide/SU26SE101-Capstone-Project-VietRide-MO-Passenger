@@ -450,7 +450,7 @@ src/
 | GET | `/v1/tracking/trips/{tripId}/latest` | - | `{ currentLocation: {lat, lng}, stops[] }` | Get latest location |
 | GET | `/v1/tracking/trips/{tripId}/eta` | - | `{ eta: number, nextStop: Stop }` | Get ETA |
 | GET | `/v1/tracking/trips/{tripId}/trail` | - | `Array<{lat, lng, timestamp}>` | Get location trail |
-| WebSocket | `wss://ws.vietride.dev/tracking/{tripId}` | - | Real-time updates | Real-time location |
+| WebSocket | `wss://ws.vietride.online/tracking/{tripId}` | - | Real-time updates | Real-time location |
 
 **✅ EXISTS:** REST endpoints in Tracking service
 **⚠️ MISSING:** WebSocket server
@@ -578,7 +578,7 @@ src/
 | Method | Endpoint | Request | Response | Purpose |
 |--------|----------|---------|----------|---------|
 | GET | `/v1/parcel/{parcelId}/tracking` | - | `{ milestones[], currentLocation }` | Get tracking data |
-| WebSocket | `wss://ws.vietride.dev/parcel/{parcelId}` | - | Real-time updates | Real-time tracking |
+| WebSocket | `wss://ws.vietride.online/parcel/{parcelId}` | - | Real-time updates | Real-time tracking |
 
 **❌ MISSING:** Entire endpoints
 
@@ -869,7 +869,7 @@ src/
 | Method | Endpoint | Request | Response | Purpose |
 |--------|----------|---------|----------|---------|
 | POST | `/v1/chatbot/message` | `{ message, language?, context? }` | `{ reply, suggestions?, quickActions? }` | Send message |
-| WebSocket | `wss://ws.vietride.dev/chatbot` | - | Real-time chat | Streaming responses |
+| WebSocket | `wss://ws.vietride.online/chatbot` | - | Real-time chat | Streaming responses |
 
 **⚠️ ISSUE:** Backend has `/api/v1/rag/chat` but requires Internal JWT (for service-to-service), not public.
 

@@ -14,7 +14,7 @@
 - **RAG** (NestJS) - Chatbot, feedback, documents
 - **Tracking** (.NET 8) - GPS tracking, ETA
 
-**Gateway URL:** `https://api.vietride.dev` (dev: `http://localhost:3000`)
+**Gateway URL:** `https://api.vietride.online` (dev: `http://localhost:3000`)
 **Auth:** JWT (RS256) + Internal JWT (HS256)
 **Response Format:** `ApiResponse<T>` envelope
 

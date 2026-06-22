@@ -71,7 +71,7 @@ export interface RegisterResponse {
 export interface VerifyEmailPayload {
   email: string;
   code: string;
-  purpose: 'REGISTRATION' | 'RESET_PASSWORD' | string;
+  purpose: 'REGISTRATION' | 'PASSWORD_RESET' | 'SET_INITIAL_PASSWORD' | string;
 }
 
 export interface VerifyEmailResponse {
@@ -80,12 +80,36 @@ export interface VerifyEmailResponse {
 }
 
 export interface PasswordResetPayload {
-  emailOrPhone: string;
+  email: string;
 }
 
 export interface PasswordResetResponse {
   success: boolean;
   message: string;
+  otpTtlMinutes: number;
+  debugOtpCode?: string;
+  mocked?: boolean;
+}
+
+export interface ConfirmPasswordResetOtpPayload {
+  email: string;
+  code: string;
+}
+
+export interface ConfirmPasswordResetOtpResponse {
+  resetToken: string;
+  resetTokenTtlMinutes: number;
+  mocked?: boolean;
+}
+
+export interface ResetPasswordPayload {
+  resetToken: string;
+  newPassword: string;
+}
+
+export interface ResetPasswordResponse {
+  userId: string;
+  status: UserStatus;
 }
 
 export interface GoogleLoginPayload {

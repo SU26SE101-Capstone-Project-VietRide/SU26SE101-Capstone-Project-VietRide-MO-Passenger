@@ -75,6 +75,8 @@ const fallbackMessages: Record<string, string> = {
   AUTH_OTP_INVALID: 'Mã xác thực không đúng.',
   AUTH_OTP_EXPIRED: 'Mã xác thực đã hết hạn.',
   AUTH_OTP_RATE_LIMIT_EXCEEDED: 'Bạn đã yêu cầu OTP quá nhiều lần. Vui lòng thử lại sau.',
+  AUTH_PASSWORD_RESET_TOKEN_INVALID: 'Phiên đặt lại mật khẩu không hợp lệ. Vui lòng yêu cầu mã mới.',
+  AUTH_PASSWORD_RESET_TOKEN_EXPIRED: 'Phiên đặt lại mật khẩu đã hết hạn. Vui lòng yêu cầu mã mới.',
   AUTH_TOKEN_INVALID: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
   VALIDATION_ERROR: 'Thông tin chưa hợp lệ. Vui lòng kiểm tra lại.',
 };

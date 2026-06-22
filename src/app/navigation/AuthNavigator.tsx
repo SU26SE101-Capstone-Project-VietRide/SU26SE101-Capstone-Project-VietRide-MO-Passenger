@@ -12,6 +12,8 @@ import {
   RegisterScreen,
   OTPVerificationScreen,
   ForgotPasswordScreen,
+  PasswordResetOtpScreen,
+  ResetPasswordScreen,
 } from '@features/auth';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -31,6 +33,8 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="PasswordResetOtp" component={PasswordResetOtpScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     </Stack.Navigator>
   );
 }

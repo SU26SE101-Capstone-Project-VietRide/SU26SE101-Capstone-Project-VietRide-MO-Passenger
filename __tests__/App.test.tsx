@@ -16,8 +16,8 @@ jest.mock('@react-native-community/netinfo', () => ({
 
 jest.mock('react-native-config', () => ({
   ENV: 'development',
-  API_BASE_URL: 'https://api.vietride.dev/v1',
-  WS_URL: 'wss://ws.vietride.dev',
+  API_BASE_URL: 'https://api.vietride.online/v1',
+  WS_URL: 'wss://ws.vietride.online',
   GOOGLE_MAPS_API_KEY: '',
 }));
 

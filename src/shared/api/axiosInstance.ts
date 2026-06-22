@@ -17,6 +17,7 @@ import axios, {
 import { appConfig } from '@shared/constants/config';
 import { API_TIMEOUT } from '@shared/constants';
 import { getToken, getRefreshToken, setToken, clearToken } from '@shared/utils/storage';
+import { joinUrl, normalizeApiPath, normalizeUrlBase, isAbsoluteUrl } from '@shared/utils/url';
 import type { ApiEnvelope } from './errors';
 
 declare module 'axios' {
@@ -66,7 +67,13 @@ const refreshClient = axios.create({
   },
 });
 
-const isAuthRoute = (url?: string): boolean => Boolean(url?.startsWith('/auth/'));
+const isAuthRoute = (url?: string): boolean => {
+  if (!url || isAbsoluteUrl(url)) {
+    return false;
+  }
+
+  return normalizeApiPath(url).startsWith('/auth/');
+};
 
 const refreshAccessToken = async (): Promise<string | null> => {
   if (!refreshPromise) {
@@ -112,6 +119,14 @@ const refreshAccessToken = async (): Promise<string | null> => {
 
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    if (config.baseURL) {
+      config.baseURL = normalizeUrlBase(config.baseURL);
+    }
+
+    if (config.url && !isAbsoluteUrl(config.url)) {
+      config.url = normalizeApiPath(config.url);
+    }
+
     const token = await getToken();
 
     if (token) {
@@ -120,7 +135,7 @@ apiClient.interceptors.request.use(
 
     if (__DEV__) {
       console.log(
-        `[API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`,
+        `[API] ${config.method?.toUpperCase()} ${joinUrl(config.baseURL, config.url)}`,
       );
     }
 

@@ -26,29 +26,74 @@ import { getCardStyle } from '@shared/theme/helpers';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { requestPasswordReset } from '../api/authApi';
 import { AuthStepHeader } from '../components';
+import {
+  apiFieldErrors,
+  forgotPasswordSchema,
+  zodFieldErrors,
+  type FieldErrorMap,
+} from '../validation/authValidation';
 
 type NavProp = NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
+type ForgotPasswordFormField = 'email';
+type ForgotPasswordFormErrors = FieldErrorMap<ForgotPasswordFormField>;
+
+const forgotPasswordFieldAliases: Partial<Record<string, ForgotPasswordFormField>> = {
+  email: 'email',
+};
 
 export function ForgotPasswordScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
   const isLiquid = theme.variant.startsWith('liquid');
-  const [emailOrPhone, setEmailOrPhone] = useState('');
-  const [submittedMessage, setSubmittedMessage] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [errors, setErrors] = useState<ForgotPasswordFormErrors>({});
 
   const resetMutation = useMutation({
     mutationFn: requestPasswordReset,
-    onSuccess: (response) => {
-      setSubmittedMessage(response.message || 'Please check your inbox for reset instructions.');
-    },
-    onError: handleError,
   });
 
-  const handleSubmit = useCallback(() => {
+  const clearFieldError = useCallback(() => {
+    setErrors({});
     clearError();
-    resetMutation.mutate({ emailOrPhone });
-  }, [clearError, emailOrPhone, resetMutation]);
+  }, [clearError]);
+
+  const validateField = useCallback(() => {
+    const parsed = forgotPasswordSchema.safeParse({ email });
+
+    if (parsed.success) {
+      setErrors({});
+      return;
+    }
+
+    setErrors(zodFieldErrors<ForgotPasswordFormField>(parsed.error));
+  }, [email]);
+
+  const handleSubmit = useCallback(async () => {
+    clearError();
+
+    const parsed = forgotPasswordSchema.safeParse({ email });
+
+    if (!parsed.success) {
+      setErrors(zodFieldErrors<ForgotPasswordFormField>(parsed.error));
+      return;
+    }
+
+    try {
+      const response = await resetMutation.mutateAsync(parsed.data);
+      navigation.navigate('PasswordResetOtp', {
+        email: parsed.data.email,
+        otpTtlMinutes: response.otpTtlMinutes,
+        debugOtpCode: response.debugOtpCode,
+      });
+    } catch (error) {
+      const apiError = handleError(error);
+      setErrors(apiFieldErrors<ForgotPasswordFormField>(
+        apiError.fields,
+        forgotPasswordFieldAliases,
+      ));
+    }
+  }, [clearError, email, handleError, navigation, resetMutation]);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
@@ -72,92 +117,59 @@ export function ForgotPasswordScreen(): React.JSX.Element {
           style={styles.keyboardView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          {!submittedMessage ? (
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentInsetAdjustmentBehavior="automatic"
-              contentContainerStyle={styles.scrollContent}
-            >
-              <AuthStepHeader
-                title="Reset Password"
-                subtitle="Enter your account email or phone number."
-                onBack={() => navigation.goBack()}
-                showMascot={false}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentInsetAdjustmentBehavior="automatic"
+            contentContainerStyle={styles.scrollContent}
+          >
+            <AuthStepHeader
+              title="Reset Password"
+              subtitle="Enter your account email to receive a 6-digit reset code."
+              onBack={() => navigation.goBack()}
+              showMascot={false}
+            />
+
+            <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
+              <View style={styles.inputWrapper}>
+                <Input
+                  label="Email"
+                  placeholder="user@example.com"
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  value={email}
+                  required
+                  error={errors.email}
+                  onBlur={validateField}
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    clearFieldError();
+                  }}
+                />
+              </View>
+
+              {errorMessage ? (
+                <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                  {errorMessage}
+                </Text>
+              ) : null}
+
+              <Text style={[styles.helperText, { color: theme.colors.textTertiary }]}>
+                If the account exists, VietRide will send a reset code to the verified email.
+              </Text>
+
+              <Button
+                title="Send Reset Code"
+                onPress={handleSubmit}
+                disabled={!email.trim() || resetMutation.isPending}
+                loading={resetMutation.isPending}
+                size="md"
+                fullWidth
               />
-
-              <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
-                <View style={styles.inputWrapper}>
-                  <Input
-                    label="Email or Phone Number"
-                    placeholder="user@example.com"
-                    keyboardType="email-address"
-                    textContentType="emailAddress"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    value={emailOrPhone}
-                    onChangeText={(value) => {
-                      setEmailOrPhone(value);
-                      clearError();
-                    }}
-                  />
-                </View>
-
-                {errorMessage ? (
-                  <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                    {errorMessage}
-                  </Text>
-                ) : null}
-
-                <Text style={[styles.helperText, { color: theme.colors.textTertiary }]}>
-                  If the account exists, VietRide will send reset instructions to the verified contact.
-                </Text>
-
-                <Button
-                  title="Send Reset Link"
-                  onPress={handleSubmit}
-                  disabled={!emailOrPhone.trim() || resetMutation.isPending}
-                  loading={resetMutation.isPending}
-                  size="md"
-                  fullWidth
-                />
-              </View>
-            </ScrollView>
-          ) : (
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentInsetAdjustmentBehavior="automatic"
-              contentContainerStyle={styles.successScroll}
-            >
-              <View style={styles.successContainer}>
-                <View
-                  style={[
-                    styles.successIconBubble,
-                    {
-                      backgroundColor: theme.colors.primaryFaded,
-                      borderColor: theme.colors.primaryLight,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.successIcon, { color: theme.colors.primary }]}>OK</Text>
-                </View>
-                <Text style={[styles.successTitle, { color: theme.colors.textPrimary }]}>
-                  Check your inbox
-                </Text>
-                <Text style={[styles.successSubtitle, { color: theme.colors.textSecondary }]}>
-                  {submittedMessage}
-                </Text>
-
-                <Button
-                  title="Back to Login"
-                  onPress={() => navigation.navigate('Login')}
-                  size="md"
-                  fullWidth
-                  style={styles.backButton}
-                />
-              </View>
-            </ScrollView>
-          )}
+            </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>

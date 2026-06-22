@@ -27,18 +27,29 @@ import { getCardStyle } from '@shared/theme/helpers';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { register } from '../api/authApi';
 import { AuthStepHeader } from '../components';
+import {
+  apiFieldErrors,
+  registerSchema,
+  zodFieldErrors,
+  type FieldErrorMap,
+} from '../validation/authValidation';
 
 type NavProp = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
+type RegisterFormField =
+  | 'fullName'
+  | 'email'
+  | 'phone'
+  | 'password'
+  | 'confirmPassword';
+type RegisterFormErrors = FieldErrorMap<RegisterFormField>;
 
-interface RegisterFormErrors {
-  fullName?: string;
-  email?: string;
-  phone?: string;
-  password?: string;
-  confirmPassword?: string;
-}
-
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const registerFieldAliases: Partial<Record<string, RegisterFormField>> = {
+  displayName: 'fullName',
+  email: 'email',
+  phone: 'phone',
+  password: 'password',
+  confirmPassword: 'confirmPassword',
+};
 
 export function RegisterScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
@@ -55,61 +66,83 @@ export function RegisterScreen(): React.JSX.Element {
 
   const registerMutation = useMutation({
     mutationFn: register,
-    onSuccess: (response) => {
-      navigation.navigate('OTPVerification', {
-        email: response.email,
-        phone,
-        otpTtlMinutes: response.otpTtlMinutes,
-      });
-    },
-    onError: handleError,
   });
 
-  const validateForm = useCallback(() => {
-    const nextErrors: RegisterFormErrors = {};
+  const validateField = useCallback((field: RegisterFormField) => {
+    const parsed = registerSchema.safeParse({
+      displayName: fullName,
+      email,
+      phone,
+      password,
+      confirmPassword,
+    });
 
-    if (!fullName.trim()) {
-      nextErrors.fullName = 'Full name is required.';
-    }
-
-    if (!email.trim()) {
-      nextErrors.email = 'Email is required.';
-    } else if (!emailPattern.test(email.trim())) {
-      nextErrors.email = 'Invalid email address.';
-    }
-
-    if (!phone.trim()) {
-      nextErrors.phone = 'Phone number is required.';
-    }
-
-    if (!password) {
-      nextErrors.password = 'Password is required.';
-    } else if (password.length < 8) {
-      nextErrors.password = 'Password must be at least 8 characters.';
-    }
-
-    if (confirmPassword !== password) {
-      nextErrors.confirmPassword = 'Passwords do not match.';
-    }
-
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  }, [confirmPassword, email, fullName, password, phone]);
-
-  const handleRegister = useCallback(() => {
-    clearError();
-
-    if (!validateForm()) {
+    if (parsed.success) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
       return;
     }
 
-    registerMutation.mutate({
-      email,
-      password,
+    const nextErrors = zodFieldErrors<RegisterFormField>(
+      parsed.error,
+      registerFieldAliases,
+    );
+    setErrors((prev) => ({ ...prev, [field]: nextErrors[field] }));
+  }, [confirmPassword, email, fullName, password, phone]);
+
+  const handleRegister = useCallback(async () => {
+    clearError();
+
+    const parsed = registerSchema.safeParse({
       displayName: fullName,
+      email,
       phone,
+      password,
+      confirmPassword,
     });
-  }, [clearError, email, fullName, password, phone, registerMutation, validateForm]);
+
+    if (!parsed.success) {
+      setErrors(zodFieldErrors<RegisterFormField>(
+        parsed.error,
+        registerFieldAliases,
+      ));
+      return;
+    }
+
+    const payload = {
+      email: parsed.data.email,
+      password: parsed.data.password,
+      displayName: parsed.data.displayName,
+      phone: parsed.data.phone,
+    };
+
+    try {
+      const response = await registerMutation.mutateAsync(payload);
+      navigation.navigate('OTPVerification', {
+        email: response.email,
+        phone: payload.phone,
+        otpTtlMinutes: response.otpTtlMinutes,
+      });
+    } catch (error) {
+      const apiError = handleError(error);
+      setErrors((prev) => ({
+        ...prev,
+        ...apiFieldErrors<RegisterFormField>(
+          apiError.fields,
+          registerFieldAliases,
+        ),
+      }));
+    }
+  }, [
+    clearError,
+    confirmPassword,
+    email,
+    fullName,
+    handleError,
+    navigation,
+    password,
+    phone,
+    registerMutation,
+  ]);
 
   const clearFieldError = useCallback((field: keyof RegisterFormErrors) => {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -165,7 +198,9 @@ export function RegisterScreen(): React.JSX.Element {
                   textContentType="name"
                   autoComplete="name"
                   value={fullName}
+                  required
                   error={errors.fullName}
+                  onBlur={() => validateField('fullName')}
                   onChangeText={(value) => {
                     setFullName(value);
                     clearFieldError('fullName');
@@ -181,7 +216,9 @@ export function RegisterScreen(): React.JSX.Element {
                   autoComplete="email"
                   autoCapitalize="none"
                   value={email}
+                  required
                   error={errors.email}
+                  onBlur={() => validateField('email')}
                   onChangeText={(value) => {
                     setEmail(value);
                     clearFieldError('email');
@@ -196,7 +233,10 @@ export function RegisterScreen(): React.JSX.Element {
                   textContentType="telephoneNumber"
                   autoComplete="tel"
                   value={phone}
+                  required
                   error={errors.phone}
+                  hint="Vietnam phone number, e.g. 0901234567 or +84901234567."
+                  onBlur={() => validateField('phone')}
                   onChangeText={(value) => {
                     setPhone(value);
                     clearFieldError('phone');
@@ -211,7 +251,10 @@ export function RegisterScreen(): React.JSX.Element {
                   textContentType="newPassword"
                   autoComplete="password-new"
                   value={password}
+                  required
                   error={errors.password}
+                  hint="At least 8 characters with a letter and a number."
+                  onBlur={() => validateField('password')}
                   onChangeText={(value) => {
                     setPassword(value);
                     clearFieldError('password');
@@ -226,7 +269,9 @@ export function RegisterScreen(): React.JSX.Element {
                   textContentType="newPassword"
                   autoComplete="password-new"
                   value={confirmPassword}
+                  required
                   error={errors.confirmPassword}
+                  onBlur={() => validateField('confirmPassword')}
                   onChangeText={(value) => {
                     setConfirmPassword(value);
                     clearFieldError('confirmPassword');

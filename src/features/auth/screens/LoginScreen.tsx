@@ -29,9 +29,17 @@ import type { AuthStackParamList } from '@app/navigation/types';
 import { login } from '../api/authApi';
 import { useAuthStore } from '../store/useAuthStore';
 import { AuthStepHeader } from '../components';
+import {
+  apiFieldErrors,
+  loginSchema,
+  zodFieldErrors,
+  type FieldErrorMap,
+} from '../validation/authValidation';
 
 type NavProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 type ScreenRouteProp = RouteProp<AuthStackParamList, 'Login'>;
+type LoginFormField = 'email' | 'password';
+type LoginFormErrors = FieldErrorMap<LoginFormField>;
 
 export function LoginScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
@@ -44,22 +52,48 @@ export function LoginScreen(): React.JSX.Element {
 
   const [email, setEmail] = useState(route.params?.email ?? '');
   const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState<LoginFormErrors>({});
 
   const loginMutation = useMutation({
     mutationFn: login,
   });
 
+  const clearFieldError = useCallback((field: LoginFormField) => {
+    setErrors((prev) => ({ ...prev, [field]: undefined }));
+    clearError();
+  }, [clearError]);
+
+  const validateField = useCallback((field: LoginFormField) => {
+    const parsed = loginSchema.safeParse({ email, password });
+
+    if (parsed.success) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+      return;
+    }
+
+    const nextErrors = zodFieldErrors<LoginFormField>(parsed.error);
+    setErrors((prev) => ({ ...prev, [field]: nextErrors[field] }));
+  }, [email, password]);
+
   const handleLogin = useCallback(async () => {
     clearError();
 
+    const parsed = loginSchema.safeParse({ email, password });
+
+    if (!parsed.success) {
+      setErrors(zodFieldErrors<LoginFormField>(parsed.error));
+      return;
+    }
+
     try {
-      const session = await loginMutation.mutateAsync({
-        email,
-        password,
-      });
+      const session = await loginMutation.mutateAsync(parsed.data);
       await setSession(session);
     } catch (error) {
-      handleError(error);
+      const apiError = handleError(error);
+      setErrors((prev) => ({
+        ...prev,
+        ...apiFieldErrors<LoginFormField>(apiError.fields),
+      }));
     }
   }, [clearError, email, handleError, loginMutation, password, setSession]);
 
@@ -118,9 +152,12 @@ export function LoginScreen(): React.JSX.Element {
                   autoComplete="email"
                   autoCapitalize="none"
                   value={email}
+                  required
+                  error={errors.email}
+                  onBlur={() => validateField('email')}
                   onChangeText={(value) => {
                     setEmail(value);
-                    clearError();
+                    clearFieldError('email');
                   }}
                 />
               </View>
@@ -132,9 +169,12 @@ export function LoginScreen(): React.JSX.Element {
                   textContentType="password"
                   autoComplete="password"
                   value={password}
+                  required
+                  error={errors.password}
+                  onBlur={() => validateField('password')}
                   onChangeText={(value) => {
                     setPassword(value);
-                    clearError();
+                    clearFieldError('password');
                   }}
                 />
               </View>

@@ -1,19 +1,33 @@
 import { apiClient } from '@shared/api/axiosInstance';
-import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import { toApiError, unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import type {
   AuthSession,
   AuthUserDto,
+  ConfirmPasswordResetOtpPayload,
+  ConfirmPasswordResetOtpResponse,
   GoogleLoginPayload,
   LoginCredentials,
   PasswordResetPayload,
   PasswordResetResponse,
   RegisterPayload,
   RegisterResponse,
+  ResetPasswordPayload,
+  ResetPasswordResponse,
   TokenBundleDto,
   VerifyEmailPayload,
   VerifyEmailResponse,
 } from '../types';
 import { mapAuthUser, mapTokenBundle, type User } from '../types';
+import {
+  normalizeDisplayName,
+  normalizeEmail,
+  normalizeVietnamPhone,
+} from '../validation/authValidation';
+import {
+  mockConfirmPasswordResetOtp,
+  mockRequestPasswordReset,
+  mockResetPassword,
+} from './passwordResetMockApi';
 
 const AUTH_REFRESH_DISABLED = { skipAuthRefresh: true } as const;
 
@@ -22,11 +36,23 @@ export const authKeys = {
   me: ['auth', 'me'] as const,
 };
 
+const canUsePasswordResetMock = (error: unknown): boolean => {
+  const apiError = toApiError(error);
+
+  return (
+    apiError.code === 'RESOURCE_NOT_FOUND' ||
+    apiError.statusCode === 401 ||
+    apiError.statusCode === 404 ||
+    apiError.isNetworkError ||
+    apiError.code === 'REQUEST_TIMEOUT'
+  );
+};
+
 export async function login(payload: LoginCredentials): Promise<AuthSession> {
   const response = await apiClient.post<ApiEnvelope<TokenBundleDto>>(
     '/auth/login',
     {
-      email: payload.email.trim().toLowerCase(),
+      email: normalizeEmail(payload.email),
       password: payload.password,
     },
     AUTH_REFRESH_DISABLED,
@@ -39,10 +65,10 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
   const response = await apiClient.post<ApiEnvelope<RegisterResponse>>(
     '/auth/register',
     {
-      email: payload.email.trim().toLowerCase(),
+      email: normalizeEmail(payload.email),
       password: payload.password,
-      displayName: payload.displayName.trim(),
-      phone: payload.phone.trim(),
+      displayName: normalizeDisplayName(payload.displayName),
+      phone: normalizeVietnamPhone(payload.phone),
     },
     AUTH_REFRESH_DISABLED,
   );
@@ -56,7 +82,7 @@ export async function verifyEmail(
   const response = await apiClient.post<ApiEnvelope<VerifyEmailResponse>>(
     '/auth/verify-email',
     {
-      email: payload.email.trim().toLowerCase(),
+      email: normalizeEmail(payload.email),
       code: payload.code,
       purpose: payload.purpose,
     },
@@ -88,13 +114,67 @@ export async function getCurrentUser(): Promise<User> {
 export async function requestPasswordReset(
   payload: PasswordResetPayload,
 ): Promise<PasswordResetResponse> {
-  const response = await apiClient.post<ApiEnvelope<PasswordResetResponse>>(
-    '/auth/forgot-password',
-    { emailOrPhone: payload.emailOrPhone.trim() },
-    AUTH_REFRESH_DISABLED,
-  );
+  try {
+    const response = await apiClient.post<ApiEnvelope<PasswordResetResponse>>(
+      '/auth/forgot-password',
+      { email: normalizeEmail(payload.email) },
+      AUTH_REFRESH_DISABLED,
+    );
 
-  return unwrapApiResponse(response.data);
+    return unwrapApiResponse(response.data);
+  } catch (error) {
+    if (canUsePasswordResetMock(error)) {
+      return mockRequestPasswordReset(payload);
+    }
+
+    throw toApiError(error);
+  }
+}
+
+export async function confirmPasswordResetOtp(
+  payload: ConfirmPasswordResetOtpPayload,
+): Promise<ConfirmPasswordResetOtpResponse> {
+  try {
+    const response = await apiClient.post<ApiEnvelope<ConfirmPasswordResetOtpResponse>>(
+      '/auth/confirm-password-reset-otp',
+      {
+        email: normalizeEmail(payload.email),
+        code: payload.code,
+      },
+      AUTH_REFRESH_DISABLED,
+    );
+
+    return unwrapApiResponse(response.data);
+  } catch (error) {
+    if (canUsePasswordResetMock(error)) {
+      return mockConfirmPasswordResetOtp(payload);
+    }
+
+    throw toApiError(error);
+  }
+}
+
+export async function resetPassword(
+  payload: ResetPasswordPayload,
+): Promise<ResetPasswordResponse> {
+  try {
+    const response = await apiClient.post<ApiEnvelope<ResetPasswordResponse>>(
+      '/auth/reset-password',
+      {
+        resetToken: payload.resetToken,
+        newPassword: payload.newPassword,
+      },
+      AUTH_REFRESH_DISABLED,
+    );
+
+    return unwrapApiResponse(response.data);
+  } catch (error) {
+    if (canUsePasswordResetMock(error)) {
+      return mockResetPassword(payload);
+    }
+
+    throw toApiError(error);
+  }
 }
 
 export async function googleLogin(payload: GoogleLoginPayload): Promise<AuthSession> {

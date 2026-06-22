@@ -17,6 +17,16 @@ export type AuthStackParamList = {
     otpTtlMinutes?: number;
   };
   ForgotPassword: undefined;
+  PasswordResetOtp: {
+    email: string;
+    otpTtlMinutes?: number;
+    debugOtpCode?: string;
+  };
+  ResetPassword: {
+    email: string;
+    resetToken: string;
+    resetTokenTtlMinutes?: number;
+  };
 };
 
 // ─── Booking Stack (nested inside Main) ───────────────────
