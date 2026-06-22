@@ -105,11 +105,25 @@ const makeRouteLabel = (
   to: string,
 ): string => `${from} → ${to}`;
 
-const makeCompanionRouteLabel = (
-  label: 'Outbound' | 'Return',
+const makeRoundTripRouteLabel = (
   from: string,
   to: string,
-): string => `${label} · ${from} → ${to}`;
+): string => `${from} ⇄ ${to}`;
+
+const makeHeaderContextLabel = (
+  label: 'One-way' | 'Outbound' | 'Return',
+  dateLabel: string,
+  departureTime?: string,
+): string => {
+  return [label, dateLabel || 'Select date', departureTime].filter(Boolean).join(' • ');
+};
+
+const makeTravelDateRangeLabel = (
+  outboundDate: string,
+  returnDate?: string,
+): string => {
+  return `${outboundDate || 'Depart date'} ↔ ${returnDate || 'Return date'}`;
+};
 
 function FilterChip({
   label,
@@ -311,42 +325,42 @@ function AnimatedRouteHeader({
 }: RouteHeaderSnapshot): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const animation = useRef(new Animated.Value(1)).current;
-  const [visible, setVisible] = useState<RouteHeaderSnapshot>({ primary, secondary });
-  const [previous, setPrevious] = useState<RouteHeaderSnapshot | null>(null);
-  const visibleRef = useRef(visible);
-  const keyRef = useRef(`${primary}|${secondary ?? ''}`);
+  const [visibleSecondary, setVisibleSecondary] = useState<string | undefined>(secondary);
+  const [previousSecondary, setPreviousSecondary] = useState<string | null>(null);
+  const visibleRef = useRef(visibleSecondary);
+  const keyRef = useRef(secondary ?? '');
 
   useEffect(() => {
-    visibleRef.current = visible;
-  }, [visible]);
+    visibleRef.current = visibleSecondary;
+  }, [visibleSecondary]);
 
   useEffect(() => {
-    const nextKey = `${primary}|${secondary ?? ''}`;
+    const nextKey = secondary ?? '';
 
     if (nextKey === keyRef.current) {
       return;
     }
 
-    setPrevious(visibleRef.current);
-    setVisible({ primary, secondary });
+    setPreviousSecondary(visibleRef.current ?? null);
+    setVisibleSecondary(secondary);
     keyRef.current = nextKey;
     animation.setValue(0);
 
     const transition = Animated.timing(animation, {
       toValue: 1,
-      duration: 280,
-      easing: Easing.out(Easing.cubic),
+      duration: 420,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     });
 
     transition.start(({ finished }) => {
       if (finished) {
-        setPrevious(null);
+        setPreviousSecondary(null);
       }
     });
 
     return () => transition.stop();
-  }, [animation, primary, secondary]);
+  }, [animation, secondary]);
 
   const incomingStyle = {
     opacity: animation,
@@ -375,29 +389,45 @@ function AnimatedRouteHeader({
     ],
   };
 
-  const renderSnapshot = (snapshot: RouteHeaderSnapshot) => (
-    <>
-      <Text style={styles.routePrimary} numberOfLines={1}>
-        {snapshot.primary}
+  const renderSecondary = (value?: string | null) => {
+    if (!value) {
+      return null;
+    }
+
+    return (
+      <Text
+        style={styles.routeSecondary}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        adjustsFontSizeToFit
+        minimumFontScale={0.86}
+      >
+        {value}
       </Text>
-      {snapshot.secondary ? (
-        <Text style={styles.routeSecondary} numberOfLines={1}>
-          {snapshot.secondary}
-        </Text>
-      ) : null}
-    </>
-  );
+    );
+  };
 
   return (
     <View style={styles.routeHeaderShell}>
-      {previous ? (
-        <Animated.View style={[styles.routeHeaderLayer, outgoingStyle]}>
-          {renderSnapshot(previous)}
+      <Text
+        style={styles.routePrimary}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        adjustsFontSizeToFit
+        minimumFontScale={0.82}
+      >
+        {primary}
+      </Text>
+      <View style={styles.routeSecondaryShell}>
+        {previousSecondary ? (
+          <Animated.View style={[styles.routeHeaderLayer, outgoingStyle]}>
+            {renderSecondary(previousSecondary)}
+          </Animated.View>
+        ) : null}
+        <Animated.View style={[styles.routeHeaderLayer, incomingStyle]}>
+          {renderSecondary(visibleSecondary)}
         </Animated.View>
-      ) : null}
-      <Animated.View style={[styles.routeHeaderLayer, incomingStyle]}>
-        {renderSnapshot(visible)}
-      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -407,7 +437,15 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
   const [step, setStep] = useState(1);
   const [tripFilters, setTripFilters] = useState<TripFilterState>(DEFAULT_TRIP_FILTERS);
   const [filterVisible, setFilterVisible] = useState(false);
-  const { highestStepReached, searchParams, currentLeg, trips } = useBookingStore();
+  const {
+    highestStepReached,
+    searchParams,
+    currentLeg,
+    trips,
+    selectedTrip,
+    outboundState,
+    returnState,
+  } = useBookingStore();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const isRoundTrip = searchParams.isRoundTrip ?? false;
@@ -450,29 +488,55 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     }
 
     if (!isRoundTrip) {
+      const trip = selectedTrip ?? outboundState?.trip;
+
       return {
         primary: makeRouteLabel(from, to),
+        secondary: makeHeaderContextLabel('One-way', searchParams.date, trip?.departureTime),
       };
     }
+
+    const isCheckoutOrPaymentStep = step >= 9;
 
     const stepLeg = step >= 5 && step <= 8
       ? 'return'
       : step >= 9
         ? currentLeg
         : 'outbound';
+    const activeTrip = stepLeg === 'return'
+      ? selectedTrip ?? returnState?.trip
+      : selectedTrip ?? outboundState?.trip;
+    const activeDate = stepLeg === 'return'
+      ? searchParams.returnDate || 'Return date'
+      : searchParams.date;
 
-    if (stepLeg === 'return') {
+    if (isCheckoutOrPaymentStep) {
       return {
-        primary: makeRouteLabel(to, from),
-        secondary: makeCompanionRouteLabel('Outbound', from, to),
+        primary: makeRoundTripRouteLabel(from, to),
+        secondary: makeTravelDateRangeLabel(searchParams.date, searchParams.returnDate),
       };
     }
 
     return {
-      primary: makeRouteLabel(from, to),
-      secondary: makeCompanionRouteLabel('Return', to, from),
+      primary: makeRoundTripRouteLabel(from, to),
+      secondary: makeHeaderContextLabel(
+        stepLeg === 'return' ? 'Return' : 'Outbound',
+        activeDate,
+        activeTrip?.departureTime,
+      ),
     };
-  }, [currentLeg, isRoundTrip, searchParams.from, searchParams.to, step]);
+  }, [
+    currentLeg,
+    isRoundTrip,
+    outboundState?.trip,
+    returnState?.trip,
+    searchParams.date,
+    searchParams.from,
+    searchParams.returnDate,
+    searchParams.to,
+    selectedTrip,
+    step,
+  ]);
 
   const handleBack = useCallback(() => {
     if (step > 1) {
@@ -708,10 +772,18 @@ const createStyles = (theme: AppTheme) => ({
     minWidth: 0,
     height: 46,
     justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  routeSecondaryShell: {
+    width: '100%',
+    height: 18,
+    marginTop: spacing.xs,
     overflow: 'hidden',
   },
   routeHeaderLayer: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     justifyContent: 'center',
@@ -722,13 +794,14 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
     textAlign: 'center',
+    maxWidth: '100%',
   },
   routeSecondary: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    marginTop: spacing.xs,
+    maxWidth: '100%',
   },
   filterModalRoot: {
     flex: 1,
