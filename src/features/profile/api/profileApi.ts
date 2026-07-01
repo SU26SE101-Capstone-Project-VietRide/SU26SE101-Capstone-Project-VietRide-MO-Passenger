@@ -6,6 +6,7 @@ import {
   normalizeDisplayName,
   normalizeVietnamPhone,
 } from '@features/auth/validation/authValidation';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 
 const canUseProfileMock = (error: unknown): boolean => {
   const apiError = toApiError(error);
@@ -107,7 +108,9 @@ export async function completeProfile(payload: CompleteProfilePayload): Promise<
     },
   );
 
-  return getProfile();
+  const updatedUser = await getProfile();
+  useAuthStore.getState().setUser(updatedUser);
+  return updatedUser;
 }
 
 export async function updateProfile(payload: UpdateProfilePayload): Promise<User> {
@@ -120,7 +123,9 @@ export async function updateProfile(payload: UpdateProfilePayload): Promise<User
           : undefined,
       },
     );
-    return userFromEnvelope(response.data);
+    const updatedUser = userFromEnvelope(response.data);
+    useAuthStore.getState().setUser(updatedUser);
+    return updatedUser;
   } catch (error) {
     if (canUseProfileMock(error)) {
       console.warn('[profileApi] updateProfile: BE endpoint not available, returning current user');
@@ -156,7 +161,9 @@ export async function uploadAvatar(file: AvatarUploadFile): Promise<User> {
       },
     );
 
-    return userFromEnvelope(response.data);
+    const updatedUser = userFromEnvelope(response.data);
+    useAuthStore.getState().setUser(updatedUser);
+    return updatedUser;
   } catch (error) {
     if (canUseProfileMock(error)) {
       if (__DEV__) {
