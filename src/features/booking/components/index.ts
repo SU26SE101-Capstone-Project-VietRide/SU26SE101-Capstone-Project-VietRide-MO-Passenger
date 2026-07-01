@@ -18,6 +18,7 @@ export { RouteProgressRow } from './RouteProgressRow';
 export { StatusChip } from './StatusChip';
 export { StopOption } from './StopOption';
 export { BookingProgressBar } from './BookingProgressBar';
+export * from './ContactInfoModal';
 export { RadioOption } from './RadioOption';
 export { TripSummaryRow } from './TripSummaryRow';
 export { PromoRow } from './PromoRow';

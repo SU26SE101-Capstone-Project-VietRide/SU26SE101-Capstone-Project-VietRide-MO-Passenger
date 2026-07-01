@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -9,6 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { useBookingHistory } from '../../booking/hooks/useBookingHistory';
+import type { BookingHistoryItem } from '../../booking/types/booking';
 import {
   ArrowLeft,
   Clock,
@@ -36,87 +39,7 @@ const BR = {
   full: 9999,
 } as const;
 
-interface MockTicket {
-  id: string;
-  bookingRef: string;
-  departure: string;
-  destination: string;
-  date: string;
-  time: string;
-  price: string;
-  status: 'upcoming' | 'completed' | 'cancelled';
-  seatNumber: string;
-}
 
-interface ShipmentItem {
-  id: string;
-  destination: string;
-  status: 'In Transit' | 'Delivered' | 'Pending' | 'Cancelled';
-  date: string;
-}
-
-const mockTickets: MockTicket[] = [
-  {
-    id: '1',
-    bookingRef: 'VR-88291',
-    departure: 'Hồ Chí Minh (Bến xe Miền Đông)',
-    destination: 'Đà Lạt (Bến xe Liên Tỉnh)',
-    date: '05/06/2026',
-    time: '08:00 AM',
-    price: '280,000đ',
-    status: 'upcoming',
-    seatNumber: 'A03',
-  },
-  {
-    id: '2',
-    bookingRef: 'VR-42110',
-    departure: 'Hồ Chí Minh (Văn phòng Quận 1)',
-    destination: 'Nha Trang (Văn phòng Diên Khánh)',
-    date: '28/05/2026',
-    time: '10:30 PM',
-    price: '350,000đ',
-    status: 'completed',
-    seatNumber: 'B08',
-  },
-  {
-    id: '3',
-    bookingRef: 'VR-19283',
-    departure: 'Đà Nẵng (Bến xe Trung Tâm)',
-    destination: 'Huế (Bến xe Phía Nam)',
-    date: '12/04/2026',
-    time: '02:00 PM',
-    price: '150,000đ',
-    status: 'completed',
-    seatNumber: 'A01',
-  },
-];
-
-const MOCK_SHIPMENTS: ShipmentItem[] = [
-  {
-    id: 'VR-8829',
-    destination: 'Da Lat',
-    status: 'In Transit',
-    date: 'Expected: tomorrow',
-  },
-  {
-    id: 'VR-7741',
-    destination: 'Ho Chi Minh City',
-    status: 'Delivered',
-    date: 'Oct 24, 2023',
-  },
-  {
-    id: 'VR-9102',
-    destination: 'Hanoi',
-    status: 'Pending',
-    date: 'Oct 28, 2023',
-  },
-  {
-    id: 'VR-5512',
-    destination: 'Da Nang',
-    status: 'Cancelled',
-    date: 'Oct 15, 2023',
-  },
-];
 
 type BookingHistoryRouteProp = RouteProp<{
   params: { initialTab?: 'ticket' | 'parcel' };
@@ -130,66 +53,17 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
 
-  const [activeMainTab, setActiveMainTab] = useState<'ticket' | 'parcel'>('ticket');
   const [activeTicketFilter, setActiveTicketFilter] = useState<'all' | 'upcoming' | 'past'>('all');
 
-  useEffect(() => {
-    if (route.params?.initialTab) {
-      setActiveMainTab(route.params.initialTab);
-    }
-  }, [route.params?.initialTab]);
+  const { data: tickets = [], isLoading, error } = useBookingHistory();
 
-  const filteredTickets = mockTickets.filter((ticket) => {
-    if (activeTicketFilter === 'upcoming') return ticket.status === 'upcoming';
-    if (activeTicketFilter === 'past') return ticket.status === 'completed' || ticket.status === 'cancelled';
+  const filteredTickets = tickets.filter((ticket) => {
+    if (activeTicketFilter === 'upcoming') return ticket.status === 'PENDING' || ticket.status === 'CONFIRMED';
+    if (activeTicketFilter === 'past') return ticket.status === 'COMPLETED' || ticket.status === 'CANCELLED';
     return true;
   });
 
-  const renderParcelStatusBadge = (status: ShipmentItem['status']) => {
-    switch (status) {
-      case 'In Transit':
-        return (
-          <View style={[styles.parcelBadge, styles.badgeTransit]}>
-            <Text style={[styles.parcelBadgeText, styles.textTransit]}>In Transit</Text>
-          </View>
-        );
-      case 'Delivered':
-        return (
-          <View style={[styles.parcelBadge, styles.badgeDelivered]}>
-            <Text style={[styles.parcelBadgeText, styles.textDelivered]}>Delivered</Text>
-          </View>
-        );
-      case 'Pending':
-        return (
-          <View style={[styles.parcelBadge, styles.badgePending]}>
-            <Text style={[styles.parcelBadgeText, styles.textPending]}>Pending</Text>
-          </View>
-        );
-      case 'Cancelled':
-        return (
-          <View style={[styles.parcelBadge, styles.badgeCancelled]}>
-            <Text style={[styles.parcelBadgeText, styles.textCancelled]}>Cancelled</Text>
-          </View>
-        );
-      default:
-        return null;
-    }
-  };
 
-  const renderParcelStatusIcon = (status: ShipmentItem['status']) => {
-    switch (status) {
-      case 'In Transit':
-        return <Truck size={24} color={theme.colors.primary} weight="bold" />;
-      case 'Delivered':
-        return <Check size={20} color={theme.colors.textTertiary} weight="bold" />;
-      case 'Pending':
-        return <Clock size={22} color={theme.colors.warning} weight="bold" />;
-      case 'Cancelled':
-        return <XCircle size={22} color={theme.colors.error} weight="bold" />;
-      default:
-        return null;
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safeContainer}>
@@ -212,56 +86,31 @@ export function BookingHistoryScreen(): React.JSX.Element {
         <View style={styles.topBarRightPlaceholder} />
       </View>
 
-      {/* Main Tabs (Ticket vs Parcel) */}
-      <View style={styles.mainTabContainer}>
-        <Pressable
-          style={[styles.mainTabButton, activeMainTab === 'ticket' ? styles.mainTabButtonActive : null]}
-          onPress={() => setActiveMainTab('ticket')}
-        >
-          <Ticket size={20} color={activeMainTab === 'ticket' ? theme.colors.textInverse : theme.colors.textSecondary} weight={activeMainTab === 'ticket' ? 'fill' : 'regular'} />
-          <Text style={[styles.mainTabText, activeMainTab === 'ticket' ? styles.mainTabTextActive : null]}>
-            Tickets
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.mainTabButton, activeMainTab === 'parcel' ? styles.mainTabButtonActive : null]}
-          onPress={() => setActiveMainTab('parcel')}
-        >
-          <Package size={20} color={activeMainTab === 'parcel' ? theme.colors.textInverse : theme.colors.textSecondary} weight={activeMainTab === 'parcel' ? 'fill' : 'regular'} />
-          <Text style={[styles.mainTabText, activeMainTab === 'parcel' ? styles.mainTabTextActive : null]}>
-            Parcels
-          </Text>
-        </Pressable>
-      </View>
-
-      {activeMainTab === 'ticket' ? (
-        <View style={styles.filterContainer}>
-          {(['all', 'upcoming', 'past'] as const).map((filter) => (
-            <Pressable
-              key={filter}
+      <View style={styles.filterContainer}>
+        {(['all', 'upcoming', 'past'] as const).map((filter) => (
+          <Pressable
+            key={filter}
+            style={[
+              styles.filterTab,
+              activeTicketFilter === filter ? styles.activeFilterTab : null,
+            ]}
+            onPress={() => setActiveTicketFilter(filter)}
+          >
+            <Text
               style={[
-                styles.filterTab,
-                activeTicketFilter === filter ? styles.activeFilterTab : null,
+                styles.filterLabel,
+                activeTicketFilter === filter ? styles.activeFilterLabel : null,
               ]}
-              onPress={() => setActiveTicketFilter(filter)}
             >
-              <Text
-                style={[
-                  styles.filterLabel,
-                  activeTicketFilter === filter ? styles.activeFilterLabel : null,
-                ]}
-              >
-                {filter === 'all'
-                  ? t('common.all', 'All')
-                  : filter === 'upcoming'
-                    ? t('profile.upcoming', 'Upcoming')
-                    : t('profile.past', 'Past')}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+              {filter === 'all'
+                ? t('common.all', 'All')
+                : filter === 'upcoming'
+                  ? t('profile.upcoming', 'Upcoming')
+                  : t('profile.past', 'Past')}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
       {/* Scroll List */}
       <ScrollView
@@ -270,8 +119,11 @@ export function BookingHistoryScreen(): React.JSX.Element {
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}
       >
-        {activeMainTab === 'ticket' ? (
-          filteredTickets.length === 0 ? (
+        {isLoading ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Loading...</Text>
+            </View>
+          ) : filteredTickets.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ticket size={48} color={theme.colors.textTertiary} weight="thin" />
               <Text style={styles.emptyText}>
@@ -279,35 +131,40 @@ export function BookingHistoryScreen(): React.JSX.Element {
               </Text>
             </View>
           ) : (
-            filteredTickets.map((ticket) => (
+            filteredTickets.map((ticket) => {
+              const dt = ticket.departureDateTime || '';
+              const date = dt.split('T')[0] || '';
+              const time = dt.split('T')[1]?.substring(0, 5) || '';
+              const isUpcoming = ticket.status === 'PENDING' || ticket.status === 'CONFIRMED';
+              const isCompleted = ticket.status === 'COMPLETED';
+
+              return (
               <Pressable
                 key={ticket.id}
                 style={styles.ticketCard}
-                onPress={() => navigation.navigate('Booking', { screen: 'DigitalTicket', params: { bookingRef: ticket.bookingRef, fromHistory: true } })}
+                onPress={() => navigation.navigate('Booking', { screen: 'DigitalTicket', params: { bookingRef: ticket.bookingCode, fromHistory: true } })}
               >
                 {/* Card Header */}
                 <View style={styles.ticketHeader}>
                   <View style={styles.refRow}>
                     <Ticket size={18} color={theme.colors.primary} style={styles.ticketIcon} />
-                    <Text style={styles.refText}>{ticket.bookingRef}</Text>
+                    <Text style={styles.refText}>{ticket.bookingCode}</Text>
                   </View>
                   <View
                     style={[
                       styles.statusBadge,
-                      ticket.status === 'upcoming' ? styles.upcomingBadge : null,
-                      ticket.status === 'completed' ? styles.completedBadge : null,
+                      isUpcoming ? styles.upcomingBadge : null,
+                      isCompleted ? styles.completedBadge : null,
                     ]}
                   >
                     <Text
                       style={[
                         styles.statusText,
-                        ticket.status === 'upcoming' ? styles.upcomingStatusText : null,
-                        ticket.status === 'completed' ? styles.completedStatusText : null,
+                        isUpcoming ? styles.upcomingStatusText : null,
+                        isCompleted ? styles.completedStatusText : null,
                       ]}
                     >
-                      {ticket.status === 'upcoming'
-                        ? t('profile.upcoming', 'Upcoming')
-                        : t('profile.completed', 'Completed')}
+                      {ticket.status}
                     </Text>
                   </View>
                 </View>
@@ -321,10 +178,10 @@ export function BookingHistoryScreen(): React.JSX.Element {
                   </View>
                   <View style={styles.routeTextContainer}>
                     <Text style={styles.stationText} numberOfLines={1}>
-                      {ticket.departure}
+                      {ticket.originStationName}
                     </Text>
                     <Text style={styles.stationText} numberOfLines={1}>
-                      {ticket.destination}
+                      {ticket.destinationStationName}
                     </Text>
                   </View>
                 </View>
@@ -333,60 +190,27 @@ export function BookingHistoryScreen(): React.JSX.Element {
                 <View style={styles.detailsRow}>
                   <View style={styles.detailItem}>
                     <CalendarBlank size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
-                    <Text style={styles.detailValueText}>{ticket.date}</Text>
+                    <Text style={styles.detailValueText}>{date}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Clock size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
-                    <Text style={styles.detailValueText}>{ticket.time}</Text>
+                    <Text style={styles.detailValueText}>{time}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <MapPin size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
-                    <Text style={styles.detailValueText}>Seat {ticket.seatNumber}</Text>
+                    <Text style={styles.detailValueText} numberOfLines={1}>{ticket.originStationName} - {ticket.destinationStationName}</Text>
                   </View>
                 </View>
 
                 {/* Card Footer */}
                 <View style={styles.ticketFooter}>
                   <Text style={styles.priceLabel}>{t('booking.totalPrice', 'Total Price')}</Text>
-                  <Text style={styles.priceValue}>{ticket.price}</Text>
+                  <Text style={styles.priceValue}>{ticket.totalAmount.toLocaleString()}đ</Text>
                 </View>
               </Pressable>
-            ))
-          )
-        ) : (
-          /* Parcel List Rendering */
-          MOCK_SHIPMENTS.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Package size={48} color={theme.colors.textTertiary} weight="thin" />
-              <Text style={styles.emptyText}>No shipment history found.</Text>
-            </View>
-          ) : (
-            <View style={styles.parcelList}>
-              {MOCK_SHIPMENTS.map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={styles.parcelCard}
-                  onPress={() => navigation.navigate('Parcel', { screen: 'ParcelDetail', params: { parcelId: item.id, fromHistory: true } })}
-                >
-                  <View style={styles.parcelIconContainer}>
-                    {renderParcelStatusIcon(item.status)}
-                  </View>
-                  <View style={styles.parcelInfo}>
-                    <View style={styles.parcelRow}>
-                      <Text style={styles.parcelDestination} numberOfLines={1}>
-                        To: {item.destination}
-                      </Text>
-                      {renderParcelStatusBadge(item.status)}
-                    </View>
-                    <Text style={styles.parcelMeta}>
-                      Order #{item.id} • {item.date}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          )
-        )}
+            );
+            })
+          )}
       </ScrollView>
     </SafeAreaView>
   );

@@ -4,25 +4,8 @@
  * All types used across the ticket booking flow.
  */
 
-// ─── Bus Trip ─────────────────────────────────────────────
-export type BusType = 'sleeper' | 'limousine' | 'standard';
-
-export interface BusTrip {
-  id: string;
-  operatorBadge: string; // e.g. "⭐ VietRide"
-  departureCity: string;
-  arrivalCity: string;
-  departureTime: string; // e.g. "07:00"
-  arrivalTime: string;   // e.g. "13:30"
-  departureStation: string;
-  arrivalStation: string;
-  price: number;
-  busType: BusType;
-  busLabel: string;       // e.g. "Luxury Sleeper 34s"
-  seatsLeft: number;
-  totalSeats: number;
-  durationHours: number;
-}
+import type { BusType, BusTrip } from '../../trip/types/trip';
+export type { BusType, BusTrip };
 
 // ─── Trip Filters ────────────────────────────────────────
 export type TripTimeSlot = 'all' | 'morning' | 'afternoon' | 'evening' | 'night';
@@ -55,6 +38,8 @@ export type StopStatus = 'current' | 'available' | 'disabled';
 
 export interface DropOffPoint {
   id: string;
+  stationId?: string;
+  stopId?: string;
   name: string;
   address: string;
   time: string;
@@ -64,6 +49,8 @@ export interface DropOffPoint {
 
 export interface PickUpPoint {
   id: string;
+  stationId?: string;
+  stopId?: string;
   name: string;
   address: string;
   time: string;
@@ -78,6 +65,7 @@ export interface ContactInfo {
   phoneCountryCode: string;
   phone: string;
   email: string;
+  idNumber?: string;
 }
 
 // ─── Payment ──────────────────────────────────────────────
@@ -109,19 +97,62 @@ export interface RecentSearch {
 
 // ─── Booking Result ───────────────────────────────────────
 export interface BookingResult {
-  bookingRef: string;
-  operatorName: string;
-  operatorSubtitle: string;
-  status: 'CONFIRMED';
-  departureCode: string;
-  departureName: string;
-  arrivalCode: string;
-  arrivalName: string;
-  departureDate: string;
-  departureTime: string;
-  seatNumber: string;
-  passengerName: string;
+  bookingId: string;
+  bookingCode: string;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  totalAmount: number;
+  discountAmount: number;
+  paymentRedirectUrl: string | null;
+}
+
+export interface RoundTripResult {
+  bookingGroupId: string;
+  outbound: { bookingId: string; bookingCode: string; totalAmount: number; discountAmount: number };
+  return: { bookingId: string; bookingCode: string; totalAmount: number; discountAmount: number };
+  grandTotal: number;
+  paymentRedirectUrl: string | null;
 }
 
 // ─── Trip Results State ───────────────────────────────────
 export type TripResultsStatus = 'loading' | 'success' | 'empty' | 'error';
+
+// ─── API Payloads ─────────────────────────────────────────
+export interface CreateBookingPayload {
+  tripId: string;
+  pickup: {
+    stationId?: string;
+    stopId?: string;
+  };
+  dropoff: {
+    stationId?: string;
+    stopId?: string;
+  };
+  seats: Array<{
+    seatNumber: string;
+    passenger: {
+      fullName: string;
+      phoneNumber: string;
+      idNumber?: string;
+    };
+  }>;
+  voucherCode?: string;
+  paymentMethod: 'WALLET' | 'VNPAY';
+}
+
+export interface CreateRoundTripPayload {
+  outbound: Omit<CreateBookingPayload, 'voucherCode' | 'paymentMethod'>;
+  return: Omit<CreateBookingPayload, 'voucherCode' | 'paymentMethod'>;
+  voucherCode?: string;
+  paymentMethod: 'WALLET' | 'VNPAY';
+}
+
+export interface BookingHistoryItem {
+  id: string; // bookingId
+  bookingCode: string;
+  tripId: string;
+  originStationName: string;
+  destinationStationName: string;
+  departureDateTime: string;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  totalAmount: number;
+}

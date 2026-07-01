@@ -16,6 +16,7 @@ import {
   FloatingActionBar,
   SectionCard,
   InfoRow,
+  ContactInfoModal,
 } from '../components';
 
 interface CheckoutStepProps {
@@ -38,6 +39,8 @@ export function CheckoutScreen({
     returnState,
     setHighestStep,
   } = useBookingStore();
+
+  const [isContactModalVisible, setIsContactModalVisible] = React.useState(false);
 
   React.useEffect(() => {
     const checkoutStep = searchParams.isRoundTrip ? 9 : 5;
@@ -115,7 +118,10 @@ export function CheckoutScreen({
           <SectionCard>
             <View style={styles.cardHeaderRow}>
               <Text style={styles.cardTitle}>Contact Info</Text>
-              <Pressable style={({ pressed }) => [styles.editButton, pressed ? styles.editButtonPressed : null]}>
+              <Pressable 
+                onPress={() => setIsContactModalVisible(true)}
+                style={({ pressed }) => [styles.editButton, pressed ? styles.editButtonPressed : null]}
+              >
                 <PencilSimple size={14} weight="bold" color={theme.colors.primary} />
               </Pressable>
             </View>
@@ -126,7 +132,8 @@ export function CheckoutScreen({
               value={contactInfo.phone}
               showDivider
             />
-            <InfoRow label="Email Address" value={contactInfo.email} />
+            <InfoRow label="Email Address" value={contactInfo.email} showDivider />
+            <InfoRow label="ID Number" value={contactInfo.idNumber || 'Not provided'} />
           </SectionCard>
 
           {/* Outbound Leg */}
@@ -165,6 +172,11 @@ export function CheckoutScreen({
           totalPrice={totalPrice()}
           ctaLabel="Next"
           onPress={handleNext}
+        />
+
+        <ContactInfoModal 
+          visible={isContactModalVisible} 
+          onClose={() => setIsContactModalVisible(false)} 
         />
     </View>
   );

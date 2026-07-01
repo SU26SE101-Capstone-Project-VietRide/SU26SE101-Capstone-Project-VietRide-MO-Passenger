@@ -16,7 +16,12 @@ import type {
   DropOffPoint,
   PickUpPoint,
   TripResultsStatus,
+  BookingResult,
+  RoundTripResult
 } from '../types';
+import { searchTrips, getSeatMap } from '../../trip/api/tripApi';
+import { createBooking as apiCreateBooking, createRoundTripBooking } from '../api/bookingApi';
+import { getMockStationId } from '../utils/stationMapper';
 
 export interface OutboundState {
   trip: BusTrip | null;
@@ -106,6 +111,12 @@ interface BookingStore {
   paymentMethod: PaymentMethod;
   setPaymentMethod: (method: PaymentMethod) => void;
 
+  // ─── Create Booking ──────────────────────────────────
+  bookingStatus: 'idle' | 'loading' | 'success' | 'error';
+  bookingResult: BookingResult | RoundTripResult | null;
+  bookingError: string | null;
+  createBooking: () => Promise<void>;
+
   // ─── Reset ───────────────────────────────────────────
   resetBooking: () => void;
 }
@@ -172,12 +183,35 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   // ─── Trip Results ────────────────────────────────────
   tripResultsStatus: 'loading',
   trips: [],
-  searchTrips: () => {
+  searchTrips: async () => {
+    const { searchParams } = get();
     set({ tripResultsStatus: 'loading', trips: [] });
-    // Simulate network delay
-    setTimeout(() => {
-      set({ tripResultsStatus: 'success', trips: MOCK_TRIPS });
-    }, 2000);
+    try {
+      const originStationId = getMockStationId(searchParams.from, '3fa85f64-5717-4562-b3fc-2c963f66afa6');
+      const destinationStationId = getMockStationId(searchParams.to, '3fa85f64-5717-4562-b3fc-2c963f66afa7');
+
+      // Parse date "Today", "Tomorrow" or format it
+      let departureDate = new Date().toLocaleDateString('en-CA');
+      if (searchParams.date === 'Tomorrow') {
+        const tmr = new Date();
+        tmr.setDate(tmr.getDate() + 1);
+        departureDate = tmr.toLocaleDateString('en-CA');
+      } else if (searchParams.date !== 'Today') {
+        // assume it's already a valid date string or parse it
+        // for now just fallback to today
+      }
+
+      const trips = await searchTrips({
+        originStationId,
+        destinationStationId,
+        departureDate,
+        passengerCount: searchParams.passengers,
+      });
+      set({ tripResultsStatus: trips.length === 0 ? 'empty' : 'success', trips });
+    } catch (error) {
+      console.warn('[Booking] Search trips failed:', error);
+      set({ tripResultsStatus: 'error' });
+    }
   },
 
   // ─── Selected Trip ───────────────────────────────────
@@ -191,21 +225,15 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   // ─── Seats ───────────────────────────────────────────
   seatMap: [],
   selectedSeats: [],
-  initSeatMap: () => {
-    // Deep clone so mutations don't affect mock source
-    const cloned = MOCK_SEAT_MAP.map((row) => ({
-      ...row,
-      leftSeats: row.leftSeats.map((s) => ({ ...s })),
-      rightSeats: row.rightSeats.map((s) => ({ ...s })),
-    }));
-    // Collect initially selected seats
-    const selected: Seat[] = [];
-    cloned.forEach((row) => {
-      [...row.leftSeats, ...row.rightSeats].forEach((s) => {
-        if (s.status === 'selected') selected.push(s);
-      });
-    });
-    set({ seatMap: cloned, selectedSeats: selected });
+  initSeatMap: async () => {
+    const { selectedTrip } = get();
+    if (!selectedTrip?.id) return;
+    try {
+      const seatRows = await getSeatMap(selectedTrip.id);
+      set({ seatMap: seatRows, selectedSeats: [] });
+    } catch (error) {
+      console.warn('[Booking] Seat map fetch failed:', error);
+    }
   },
   toggleSeat: (seatId) =>
     set((state) => {
@@ -268,18 +296,106 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   paymentMethod: 'vnpay',
   setPaymentMethod: (method) => set({ paymentMethod: method }),
 
+  // ─── Create Booking ──────────────────────────────────
+  bookingStatus: 'idle',
+  bookingResult: null,
+  bookingError: null,
+  createBooking: async () => {
+    const state = get();
+    set({ bookingStatus: 'loading', bookingError: null });
+
+    try {
+      if (state.searchParams.isRoundTrip && state.outboundState && state.returnState) {
+        // Round trip
+        const payload = {
+          outbound: {
+            tripId: state.outboundState.trip!.id,
+            pickup: {
+              stationId: state.outboundState.pickUp?.stationId,
+              stopId: state.outboundState.pickUp?.stopId || state.outboundState.pickUp?.id,
+            },
+            dropoff: {
+              stationId: state.outboundState.dropOff?.stationId,
+              stopId: state.outboundState.dropOff?.stopId || state.outboundState.dropOff?.id,
+            },
+            seats: state.outboundState.seats.map((s) => ({
+              seatNumber: s.id,
+              passenger: {
+                fullName: state.contactInfo.fullName,
+                phoneNumber: state.contactInfo.phone,
+                idNumber: state.contactInfo.idNumber,
+              }
+            })),
+          },
+          return: {
+            tripId: state.returnState.trip!.id,
+            pickup: {
+              stationId: state.returnState.pickUp?.stationId,
+              stopId: state.returnState.pickUp?.stopId || state.returnState.pickUp?.id,
+            },
+            dropoff: {
+              stationId: state.returnState.dropOff?.stationId,
+              stopId: state.returnState.dropOff?.stopId || state.returnState.dropOff?.id,
+            },
+            seats: state.returnState.seats.map((s) => ({
+              seatNumber: s.id,
+              passenger: {
+                fullName: state.contactInfo.fullName,
+                phoneNumber: state.contactInfo.phone,
+                idNumber: state.contactInfo.idNumber,
+              }
+            })),
+          },
+          paymentMethod: state.paymentMethod === 'vnpay' ? 'VNPAY' : 'WALLET' as 'VNPAY' | 'WALLET',
+        };
+        const result = await createRoundTripBooking(payload);
+        set({ bookingStatus: 'success', bookingResult: result });
+      } else {
+        // One way
+        const payload = {
+          tripId: state.selectedTrip!.id,
+          pickup: {
+            stationId: state.selectedPickUp?.stationId,
+            stopId: state.selectedPickUp?.stopId || state.selectedPickUp?.id,
+          },
+          dropoff: {
+            stationId: state.selectedDropOff?.stationId,
+            stopId: state.selectedDropOff?.stopId || state.selectedDropOff?.id,
+          },
+          seats: state.selectedSeats.map((s) => ({
+            seatNumber: s.id,
+            passenger: {
+              fullName: state.contactInfo.fullName,
+              phoneNumber: state.contactInfo.phone,
+              idNumber: state.contactInfo.idNumber,
+            }
+          })),
+          paymentMethod: state.paymentMethod === 'vnpay' ? 'VNPAY' : 'WALLET' as 'VNPAY' | 'WALLET',
+        };
+        const result = await apiCreateBooking(payload);
+        set({ bookingStatus: 'success', bookingResult: result });
+      }
+    } catch (error: any) {
+      console.error('[Booking] Create failed:', error);
+      set({ 
+        bookingStatus: 'error', 
+        bookingError: error.response?.data?.message || 'Có lỗi xảy ra khi đặt vé'
+      });
+    }
+  },
+
   // ─── Computed ────────────────────────────────────────
   totalPrice: () => {
     const { selectedTrip, selectedSeats, outboundState, returnState } = get();
     let total = 0;
     if (selectedTrip) {
-      total += selectedTrip.price * Math.max(selectedSeats.length, 1);
+      total += selectedTrip.price * selectedSeats.length;
     }
     if (outboundState?.trip) {
-      total += outboundState.trip.price * Math.max(outboundState.seats.length, 1);
+      total += outboundState.trip.price * outboundState.seats.length;
     }
     if (returnState?.trip) {
-      total += returnState.trip.price * Math.max(returnState.seats.length, 1);
+      total += returnState.trip.price * returnState.seats.length;
     }
     return total;
   },
