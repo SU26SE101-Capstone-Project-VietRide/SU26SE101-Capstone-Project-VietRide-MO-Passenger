@@ -15,7 +15,12 @@ import { MainTabNavigator } from './MainTabNavigator';
 import { BookingNavigator } from '@features/booking';
 import { ParcelNavigator } from '@features/parcel';
 import { ChatbotScreen } from '@features/chatbot';
-import { useAuthInitializer, useAuthStore } from '@features/auth';
+import {
+  useAuthInitializer,
+  useAuthStore,
+  useAuthSync,
+  useTokenRefreshScheduler,
+} from '@features/auth';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { LoadingOverlay } from '@shared/components';
 
@@ -23,6 +28,8 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator(): React.JSX.Element {
   useAuthInitializer();
+  useAuthSync();
+  useTokenRefreshScheduler();
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isGuest = useAuthStore((state) => state.isGuest);

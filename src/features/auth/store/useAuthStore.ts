@@ -7,9 +7,18 @@
 
 import { create } from 'zustand';
 
-import { clearToken, getRefreshToken, getToken, setToken } from '@shared/utils/storage';
+import { queryClient } from '@shared/api/queryClient';
+import { toApiError } from '@shared/api/errors';
+import {
+  isTokenExpired,
+  isTokenExpiringSoon,
+  refreshStoredTokenBundle,
+  shouldForceLogoutAfterRefreshFailure,
+  type RefreshTokenBundleDto,
+} from '@shared/api/tokenRefresh';
+import { clearToken, getRefreshToken, getTokenBundle, setToken } from '@shared/utils/storage';
 import * as authApi from '../api/authApi';
-import type { AuthSession, User } from '../types';
+import { mapAuthUser, type AuthSession, type AuthUserDto, type User } from '../types';
 
 interface AuthState {
   user: User | null;
@@ -37,6 +46,49 @@ const unauthenticatedState = {
   authError: null,
 } satisfies Pick<AuthState, 'user' | 'isAuthenticated' | 'isGuest' | 'isAuthLoading' | 'authError'>;
 
+const AUTH_ME_STALE_TIME_MS = 5 * 60 * 1000;
+
+const cacheUser = (user: User): void => {
+  queryClient.setQueryData(authApi.authKeys.me, user);
+};
+
+const clearAuthCache = (): void => {
+  queryClient.removeQueries({ queryKey: authApi.authKeys.all });
+};
+
+const fetchCurrentUser = (): Promise<User> => {
+  return queryClient.fetchQuery({
+    queryKey: authApi.authKeys.me,
+    queryFn: authApi.getCurrentUser,
+    staleTime: AUTH_ME_STALE_TIME_MS,
+  });
+};
+
+const shouldKeepLocalSession = (error: unknown): boolean => {
+  const apiError = toApiError(error);
+
+  return (
+    apiError.isNetworkError ||
+    apiError.code === 'REQUEST_TIMEOUT' ||
+    Boolean(apiError.statusCode && apiError.statusCode >= 500)
+  );
+};
+
+const authSessionFromRefreshBundle = async (
+  bundle: RefreshTokenBundleDto,
+): Promise<AuthSession> => {
+  const user = bundle.user
+    ? mapAuthUser(bundle.user as AuthUserDto)
+    : await fetchCurrentUser();
+
+  return {
+    accessToken: bundle.accessToken,
+    refreshToken: bundle.refreshToken,
+    expiresInSeconds: bundle.expiresInSeconds,
+    user,
+  };
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
@@ -45,11 +97,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   authError: null,
 
   setSession: async (session) => {
-    const stored = await setToken(session.accessToken, session.refreshToken);
+    const stored = await setToken(
+      session.accessToken,
+      session.refreshToken,
+      session.expiresInSeconds,
+    );
 
     if (!stored) {
       throw new Error('Không thể lưu phiên đăng nhập an toàn trên thiết bị.');
     }
+
+    cacheUser(session.user);
 
     set({
       user: session.user,
@@ -61,41 +119,75 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   setUser: (user) =>
-    set({
-      user,
-      isAuthenticated: true,
-      isGuest: false,
-      isAuthLoading: false,
-      authError: null,
-    }),
+    {
+      cacheUser(user);
+      set({
+        user,
+        isAuthenticated: true,
+        isGuest: false,
+        isAuthLoading: false,
+        authError: null,
+      });
+    },
 
   continueAsGuest: () =>
-    set({
-      user: null,
-      isAuthenticated: false,
-      isGuest: true,
-      isAuthLoading: false,
-      authError: null,
-    }),
+    {
+      clearAuthCache();
+      set({
+        user: null,
+        isAuthenticated: false,
+        isGuest: true,
+        isAuthLoading: false,
+        authError: null,
+      });
+    },
 
   setAuthLoading: (loading) => set({ isAuthLoading: loading }),
 
   clearAuthError: () => set({ authError: null }),
 
-  resetAuthState: () => set(unauthenticatedState),
+  resetAuthState: () => {
+    clearAuthCache();
+    set(unauthenticatedState);
+  },
 
   initializeAuth: async () => {
     set({ isAuthLoading: true, authError: null });
 
     try {
-      const token = await getToken();
+      const tokenBundle = await getTokenBundle();
 
-      if (!token) {
+      if (!tokenBundle) {
         set(unauthenticatedState);
         return;
       }
 
-      const user = await authApi.getCurrentUser();
+      let user: User | null = null;
+
+      if (isTokenExpired(tokenBundle) || isTokenExpiringSoon(tokenBundle)) {
+        const refreshResult = await refreshStoredTokenBundle();
+
+        if (refreshResult.success) {
+          const session = await authSessionFromRefreshBundle(refreshResult.data);
+          user = session.user;
+          cacheUser(user);
+        } else if (
+          isTokenExpired(tokenBundle) &&
+          shouldForceLogoutAfterRefreshFailure(refreshResult)
+        ) {
+          await clearToken();
+          clearAuthCache();
+          set({
+            ...unauthenticatedState,
+            authError: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+          });
+          return;
+        }
+      }
+
+      if (!user) {
+        user = await fetchCurrentUser();
+      }
 
       set({
         user,
@@ -105,31 +197,73 @@ export const useAuthStore = create<AuthState>((set) => ({
         authError: null,
       });
     } catch (error) {
-      await clearToken();
+      if (shouldKeepLocalSession(error)) {
+        const cachedUser = queryClient.getQueryData<User>(authApi.authKeys.me) ?? null;
+
+        set({
+          user: cachedUser,
+          isAuthenticated: true,
+          isGuest: false,
+          isAuthLoading: false,
+          authError: error instanceof Error ? error.message : 'Không thể đồng bộ hồ sơ lúc này.',
+        });
+        return;
+      }
+
+      const refreshResult = await refreshStoredTokenBundle();
+
+      if (refreshResult.success) {
+        const session = await authSessionFromRefreshBundle(refreshResult.data);
+        cacheUser(session.user);
+        set({
+          user: session.user,
+          isAuthenticated: true,
+          isGuest: false,
+          isAuthLoading: false,
+          authError: null,
+        });
+        return;
+      }
+
+      if (shouldForceLogoutAfterRefreshFailure(refreshResult)) {
+        await clearToken();
+        clearAuthCache();
+
+        set({
+          ...unauthenticatedState,
+          authError: error instanceof Error ? error.message : 'Phiên đăng nhập không hợp lệ.',
+        });
+        return;
+      }
+
+      const cachedUser = queryClient.getQueryData<User>(authApi.authKeys.me) ?? null;
 
       set({
-        ...unauthenticatedState,
-        authError: error instanceof Error ? error.message : 'Phiên đăng nhập không hợp lệ.',
+        user: cachedUser,
+        isAuthenticated: true,
+        isGuest: false,
+        isAuthLoading: false,
+        authError: error instanceof Error ? error.message : 'Không thể đồng bộ hồ sơ lúc này.',
       });
     }
   },
 
   refreshSession: async () => {
-    const refreshToken = await getRefreshToken();
+    const refreshResult = await refreshStoredTokenBundle();
 
-    if (!refreshToken) {
-      await clearToken();
-      set(unauthenticatedState);
+    if (!refreshResult.success) {
+      if (shouldForceLogoutAfterRefreshFailure(refreshResult)) {
+        await clearToken();
+        clearAuthCache();
+        set(unauthenticatedState);
+      }
+
       return null;
     }
 
     try {
-      const session = await authApi.refreshSession(refreshToken);
-      const stored = await setToken(session.accessToken, session.refreshToken);
-
-      if (!stored) {
-        throw new Error('Không thể lưu phiên đăng nhập an toàn trên thiết bị.');
-      }
+      const session = await authSessionFromRefreshBundle(refreshResult.data);
+      cacheUser(session.user);
 
       set({
         user: session.user,
@@ -141,13 +275,20 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       return session;
     } catch (error) {
-      await clearToken();
+      if (shouldKeepLocalSession(error)) {
+        set({
+          isAuthLoading: false,
+          authError: error instanceof Error ? error.message : 'Không thể đồng bộ hồ sơ lúc này.',
+        });
+        return null;
+      }
 
+      await clearToken();
+      clearAuthCache();
       set({
         ...unauthenticatedState,
         authError: error instanceof Error ? error.message : 'Không thể làm mới phiên đăng nhập.',
       });
-
       return null;
     }
   },
@@ -165,6 +306,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     } finally {
       await clearToken();
+      clearAuthCache();
       set(unauthenticatedState);
     }
   },

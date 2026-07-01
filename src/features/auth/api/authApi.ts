@@ -1,5 +1,6 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import { toApiError, unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import { refreshStoredTokenBundle } from '@shared/api/tokenRefresh';
 import type {
   AuthSession,
   AuthUserDto,
@@ -92,14 +93,24 @@ export async function verifyEmail(
   return unwrapApiResponse(response.data);
 }
 
-export async function refreshSession(refreshToken: string): Promise<AuthSession> {
-  const response = await apiClient.post<ApiEnvelope<TokenBundleDto>>(
-    '/auth/refresh',
-    { refreshToken },
-    AUTH_REFRESH_DISABLED,
-  );
+export async function refreshSession(_refreshToken?: string): Promise<AuthSession> {
+  const refreshResult = await refreshStoredTokenBundle();
 
-  return mapTokenBundle(unwrapApiResponse(response.data));
+  if (!refreshResult.success) {
+    throw refreshResult.error ?? new Error('Không thể làm mới phiên đăng nhập.');
+  }
+
+  const { accessToken, refreshToken, expiresInSeconds, user } = refreshResult.data;
+  const mappedUser = user
+    ? mapAuthUser(user as AuthUserDto)
+    : await getCurrentUser();
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresInSeconds,
+    user: mappedUser,
+  };
 }
 
 export async function logout(refreshToken: string): Promise<void> {

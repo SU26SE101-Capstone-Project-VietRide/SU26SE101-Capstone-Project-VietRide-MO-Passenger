@@ -16,9 +16,13 @@ import axios, {
 
 import { appConfig } from '@shared/constants/config';
 import { API_TIMEOUT } from '@shared/constants';
-import { getToken, getRefreshToken, setToken, clearToken } from '@shared/utils/storage';
+import { clearToken, getTokenBundle } from '@shared/utils/storage';
 import { joinUrl, normalizeApiPath, normalizeUrlBase, isAbsoluteUrl } from '@shared/utils/url';
-import type { ApiEnvelope } from './errors';
+import {
+  isTokenExpiringSoon,
+  refreshStoredTokenBundle,
+  shouldForceLogoutAfterRefreshFailure,
+} from './tokenRefresh';
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -32,15 +36,8 @@ declare module 'axios' {
   }
 }
 
-interface TokenBundleDto {
-  accessToken: string;
-  refreshToken: string;
-  expiresInSeconds: number;
-}
-
 type UnauthorizedHandler = () => void;
 
-let refreshPromise: Promise<string | null> | null = null;
 let unauthorizedHandler: UnauthorizedHandler | null = null;
 
 export const setUnauthorizedHandler = (handler: UnauthorizedHandler | null): void => {
@@ -58,61 +55,12 @@ export const apiClient = axios.create({
   },
 });
 
-const refreshClient = axios.create({
-  baseURL: appConfig.apiBaseUrl,
-  timeout: API_TIMEOUT,
-  headers: {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  },
-});
-
 const isAuthRoute = (url?: string): boolean => {
   if (!url || isAbsoluteUrl(url)) {
     return false;
   }
 
   return normalizeApiPath(url).startsWith('/auth/');
-};
-
-const refreshAccessToken = async (): Promise<string | null> => {
-  if (!refreshPromise) {
-    refreshPromise = (async () => {
-      const refreshToken = await getRefreshToken();
-
-      if (!refreshToken) {
-        return null;
-      }
-
-      try {
-        const response = await refreshClient.post<ApiEnvelope<TokenBundleDto>>(
-          '/auth/refresh',
-          { refreshToken },
-        );
-
-        if (!response.data.success) {
-          return null;
-        }
-
-        const stored = await setToken(response.data.data.accessToken, response.data.data.refreshToken);
-
-        if (!stored) {
-          return null;
-        }
-
-        return response.data.data.accessToken;
-      } catch (error) {
-        if (__DEV__) {
-          console.warn('[API] Token refresh failed:', error);
-        }
-        return null;
-      }
-    })().finally(() => {
-      refreshPromise = null;
-    });
-  }
-
-  return refreshPromise;
 };
 
 // ─── Request Interceptor ──────────────────────────────────
@@ -127,16 +75,42 @@ apiClient.interceptors.request.use(
       config.url = normalizeApiPath(config.url);
     }
 
-    const token = await getToken();
+    const tokenBundle = await getTokenBundle();
+    let accessToken = tokenBundle?.accessToken ?? null;
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (
+      tokenBundle &&
+      !config.skipAuthRefresh &&
+      !isAuthRoute(config.url) &&
+      isTokenExpiringSoon(tokenBundle)
+    ) {
+      const refreshResult = await refreshStoredTokenBundle();
+
+      if (refreshResult.success) {
+        accessToken = refreshResult.data.accessToken;
+      } else if (shouldForceLogoutAfterRefreshFailure(refreshResult)) {
+        await clearToken();
+        unauthorizedHandler?.();
+        accessToken = null;
+      }
+    }
+
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
 
     if (__DEV__) {
-      console.log(
-        `[API] ${config.method?.toUpperCase()} ${joinUrl(config.baseURL, config.url)}`,
-      );
+      const reqId = Math.random().toString(36).slice(2, 10);
+      console.groupCollapsed(`[API REQ ${reqId}] ${config.method?.toUpperCase()} ${joinUrl(config.baseURL, config.url)}`);
+      console.log('  Headers:', JSON.parse(JSON.stringify(config.headers)));
+      if (config.data) {
+        console.log('  Body:', config.data);
+      }
+      if (config.params) {
+        console.log('  Params:', config.params);
+      }
+      console.groupEnd();
+      (config as unknown as Record<string, unknown>)._reqId = reqId;
     }
 
     return config;
@@ -150,6 +124,13 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
+    if (__DEV__) {
+      const reqId = (response.config as unknown as Record<string, unknown>)?._reqId ?? '????';
+      console.groupCollapsed(`[API RES ${reqId}] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
+      console.log('  Status:', response.status, response.statusText);
+      console.log('  Data:', response.data);
+      console.groupEnd();
+    }
     return response;
   },
   async (error: AxiosError) => {
@@ -165,18 +146,20 @@ apiClient.interceptors.response.use(
       !isAuthRoute(originalRequest.url)
     ) {
       originalRequest._retry = true;
-      const nextAccessToken = await refreshAccessToken();
+      const refreshResult = await refreshStoredTokenBundle();
 
-      if (nextAccessToken) {
-        originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`;
+      if (refreshResult.success) {
+        originalRequest.headers.Authorization = `Bearer ${refreshResult.data.accessToken}`;
         return apiClient(originalRequest);
       }
 
-      await clearToken();
-      unauthorizedHandler?.();
+      if (shouldForceLogoutAfterRefreshFailure(refreshResult)) {
+        await clearToken();
+        unauthorizedHandler?.();
 
-      if (__DEV__) {
-        console.warn('[API] 401 — Refresh failed, clearing credentials.');
+        if (__DEV__) {
+          console.warn('[API] 401 — Refresh token invalid, clearing credentials.');
+        }
       }
     }
 

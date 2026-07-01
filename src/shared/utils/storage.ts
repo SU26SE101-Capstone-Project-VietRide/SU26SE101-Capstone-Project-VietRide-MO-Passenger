@@ -11,6 +11,8 @@ import { TOKEN_SERVICE_KEY } from '@shared/constants';
 export interface SecureTokenBundle {
   accessToken: string;
   refreshToken: string;
+  expiresAt?: number;
+  issuedAt?: number;
 }
 
 /**
@@ -19,11 +21,17 @@ export interface SecureTokenBundle {
 export async function setToken(
   accessToken: string,
   refreshToken?: string,
+  expiresInSeconds?: number,
 ): Promise<boolean> {
   try {
+    const issuedAt = Date.now();
+    const expiresAt = expiresInSeconds && expiresInSeconds > 0
+      ? issuedAt + expiresInSeconds * 1000
+      : undefined;
+
     await Keychain.setGenericPassword(
       'accessToken',
-      JSON.stringify({ accessToken, refreshToken }),
+      JSON.stringify({ accessToken, refreshToken, expiresAt, issuedAt }),
       { service: TOKEN_SERVICE_KEY },
     );
     return true;
@@ -51,6 +59,8 @@ export async function getTokenBundle(): Promise<SecureTokenBundle | null> {
     const parsed = JSON.parse(credentials.password) as {
       accessToken?: string;
       refreshToken?: string;
+      expiresAt?: number;
+      issuedAt?: number;
     };
 
     if (!parsed.accessToken || !parsed.refreshToken) {
@@ -60,6 +70,8 @@ export async function getTokenBundle(): Promise<SecureTokenBundle | null> {
     return {
       accessToken: parsed.accessToken,
       refreshToken: parsed.refreshToken,
+      expiresAt: typeof parsed.expiresAt === 'number' ? parsed.expiresAt : undefined,
+      issuedAt: typeof parsed.issuedAt === 'number' ? parsed.issuedAt : undefined,
     };
   } catch (error) {
     if (__DEV__) {
