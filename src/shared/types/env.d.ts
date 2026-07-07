@@ -1,16 +1,15 @@
 /**
- * Type declarations for react-native-config environment variables.
- * Ensures type safety when accessing Config.XXX.
+ * Type declarations for Expo environment variables.
+ *
+ * Expo inlines EXPO_PUBLIC_* variables from .env into process.env at build
+ * time.  This declaration enables type-safe access.
  */
 
-declare module 'react-native-config' {
-  export interface NativeConfig {
-    API_BASE_URL?: string;
-    WS_URL?: string;
-    GOOGLE_MAPS_API_KEY?: string;
-    ENV?: string;
+declare namespace NodeJS {
+  interface ProcessEnv {
+    EXPO_PUBLIC_API_BASE_URL?: string;
+    EXPO_PUBLIC_WS_URL?: string;
+    EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?: string;
+    EXPO_PUBLIC_APP_ENV?: string;
   }
-
-  export const Config: NativeConfig;
-  export default Config;
 }

@@ -1,7 +1,6 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
-apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -83,20 +82,12 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
-    ndkVersion "28.2.13676358"
+    ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace 'com.vietride.passenger'
-
-    externalNativeBuild {
-        cmake {
-            if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-                buildStagingDirectory "C:/vr-cxx"
-            }
-        }
-    }
     defaultConfig {
         applicationId 'com.vietride.passenger'
         minSdkVersion rootProject.ext.minSdkVersion
@@ -105,12 +96,6 @@ android {
         versionName "0.0.1"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
-
-        externalNativeBuild {
-            cmake {
-                arguments "-DCMAKE_OBJECT_PATH_MAX=1024"
-            }
-        }
     }
     signingConfigs {
         debug {

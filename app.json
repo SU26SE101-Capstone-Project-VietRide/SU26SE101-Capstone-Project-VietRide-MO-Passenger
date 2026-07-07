@@ -11,7 +11,8 @@
         {
           "photosPermission": "VietRide cần quyền mở thư viện ảnh để cập nhật ảnh đại diện."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "ios": {
       "supportsTablet": true

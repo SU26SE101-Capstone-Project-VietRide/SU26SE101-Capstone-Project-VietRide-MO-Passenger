@@ -1,8 +1,10 @@
 /**
- * Type-safe wrapper around native and Metro/Expo environment values.
+ * Type-safe wrapper around Expo's built-in environment variables.
+ *
+ * Expo inlines EXPO_PUBLIC_* env vars from .env at build time via
+ * process.env.EXPO_PUBLIC_XXX.  No native modules needed.
  */
 
-import Config from 'react-native-config';
 import { normalizeUrlBase } from '@shared/utils/url';
 
 type Environment = 'development' | 'staging' | 'production';
@@ -17,23 +19,6 @@ interface AppConfig {
   readonly isProd: boolean;
 }
 
-type EnvRecord = Record<string, string | undefined>;
-
-const nativeEnv = Config as EnvRecord;
-const runtimeEnv = ((globalThis as unknown as { process?: { env?: EnvRecord } }).process?.env ?? {}) as EnvRecord;
-
-const getEnvValue = (...keys: string[]) => {
-  for (const key of keys) {
-    const value = nativeEnv[key] ?? runtimeEnv[key];
-
-    if (value && value.trim().length > 0) {
-      return value;
-    }
-  }
-
-  return undefined;
-};
-
 const normalizeEnv = (value?: string): Environment => {
   if (value === 'staging' || value === 'production') {
     return value;
@@ -42,22 +27,22 @@ const normalizeEnv = (value?: string): Environment => {
   return 'development';
 };
 
-const env = normalizeEnv(getEnvValue('EXPO_PUBLIC_APP_ENV', 'APP_ENV', 'ENV'));
+const env = normalizeEnv(process.env.EXPO_PUBLIC_APP_ENV);
 
-const requireEnvValue = (name: string, ...keys: string[]): string => {
-  const value = getEnvValue(...keys);
+const requireEnvValue = (name: string): string => {
+  const value = process.env[name];
 
-  if (!value) {
-    throw new Error(`[Config] Missing ${name}. Set one of: ${keys.join(', ')}`);
+  if (!value || value.trim().length === 0) {
+    throw new Error(`[Config] Missing environment variable: ${name}`);
   }
 
   return value;
 };
 
 export const appConfig: AppConfig = {
-  apiBaseUrl: normalizeUrlBase(requireEnvValue('API_BASE_URL', 'EXPO_PUBLIC_API_BASE_URL', 'API_BASE_URL')),
-  wsUrl: normalizeUrlBase(requireEnvValue('WS_URL', 'EXPO_PUBLIC_WS_URL', 'WS_URL')),
-  googleMapsApiKey: getEnvValue('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY', 'GOOGLE_MAPS_API_KEY') ?? '',
+  apiBaseUrl: normalizeUrlBase(requireEnvValue('EXPO_PUBLIC_API_BASE_URL')),
+  wsUrl: normalizeUrlBase(requireEnvValue('EXPO_PUBLIC_WS_URL')),
+  googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
   env,
   isDev: env === 'development',
   isStaging: env === 'staging',
