@@ -26,3 +26,4 @@ export { ImageUploadSlot } from './ImageUploadSlot';
 export { SearchForm } from './SearchForm';
 export { RouteCard } from './RouteCard';
 export { RecentSearchCard } from './RecentSearchCard';
+export { PassengerCountInput } from './PassengerCountInput';

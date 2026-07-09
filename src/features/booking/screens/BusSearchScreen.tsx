@@ -19,6 +19,8 @@ import type { BookingStackParamList } from '@app/navigation/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { useLocations } from '@features/location/hooks/useLocations';
+import { findLocationByName } from '../utils/searchParams';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'SearchRoutes'>;
 
@@ -31,6 +33,11 @@ export function BusSearchScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const { data: locations = [] } = useLocations();
+  const isSearchDisabled = !searchParams.originLocationCode
+    || !searchParams.destinationLocationCode
+    || searchParams.originLocationCode === searchParams.destinationLocationCode
+    || !searchParams.date;
 
   const handleSearch = useCallback(() => {
     navigation.navigate('CreateTicketBooking');
@@ -38,10 +45,22 @@ export function BusSearchScreen(): React.JSX.Element {
 
   const navigateToRoute = useCallback(
     (from: string, to: string, date?: string) => {
-      setSearchParams({ from, to, date: date || searchParams.date });
-      navigation.navigate('CreateTicketBooking');
+      const origin = findLocationByName(locations, from);
+      const destination = findLocationByName(locations, to);
+      setSearchParams({
+        from: origin?.name ?? from,
+        to: destination?.name ?? to,
+        originLocationCode: origin?.code ?? '',
+        destinationLocationCode: destination?.code ?? '',
+        originStationId: '',
+        destinationStationId: '',
+        originStationName: '',
+        destinationStationName: '',
+        date: date || searchParams.date,
+      });
+      navigation.navigate('CityPicker', { mode: 'from' });
     },
-    [navigation, setSearchParams, searchParams.date],
+    [locations, navigation, setSearchParams, searchParams.date],
   );
 
   const handlePopularPress = useCallback(
@@ -60,10 +79,21 @@ export function BusSearchScreen(): React.JSX.Element {
       const parts = item.route.split(/\s+to\s+/i);
       const from = parts[0]?.trim() || '';
       const to = parts[1]?.trim() || '';
-      setSearchParams({ from, to });
-      navigation.navigate('DatePicker');
+      const origin = findLocationByName(locations, from);
+      const destination = findLocationByName(locations, to);
+      setSearchParams({
+        from: origin?.name ?? from,
+        to: destination?.name ?? to,
+        originLocationCode: origin?.code ?? '',
+        destinationLocationCode: destination?.code ?? '',
+        originStationId: '',
+        destinationStationId: '',
+        originStationName: '',
+        destinationStationName: '',
+      });
+      navigation.navigate('CityPicker', { mode: 'from' });
     },
-    [navigation, setSearchParams],
+    [locations, navigation, setSearchParams],
   );
 
   const openCityPicker = useCallback(
@@ -77,11 +107,12 @@ export function BusSearchScreen(): React.JSX.Element {
     navigation.navigate('DatePicker');
   }, [navigation]);
 
-  const openPassengersPicker = useCallback(() => {
-    navigation.navigate('PassengersPicker', {
-      current: typeof searchParams.passengers === 'number' ? searchParams.passengers : 1,
-    });
-  }, [navigation, searchParams.passengers]);
+  const handlePassengersChange = useCallback(
+    (passengers: number) => {
+      setSearchParams({ passengers });
+    },
+    [setSearchParams],
+  );
 
   const renderRouteItem = ({ item }: { item: { id: string; from: string; to: string; price: string } }) => (
     <RouteCard from={item.from} to={item.to} price={item.price} onPress={() => handlePopularPress(item)} />
@@ -135,16 +166,17 @@ export function BusSearchScreen(): React.JSX.Element {
 
           {/* Search Form */}
           <SearchForm
-            from={searchParams.from}
-            to={searchParams.to}
+            from={searchParams.originStationName || searchParams.from}
+            to={searchParams.destinationStationName || searchParams.to}
             date={searchParams.date}
             passengers={searchParams.passengers}
             onFromPress={() => openCityPicker('from')}
             onToPress={() => openCityPicker('to')}
             onDatePress={openDatePicker}
-            onPassengersPress={openPassengersPicker}
+            onPassengersChange={handlePassengersChange}
             onSwapPress={swapCities}
             onSearchPress={handleSearch}
+            searchDisabled={isSearchDisabled}
           />
 
           <GlassCarouselSection

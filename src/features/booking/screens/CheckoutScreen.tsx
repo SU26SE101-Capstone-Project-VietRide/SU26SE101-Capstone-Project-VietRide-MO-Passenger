@@ -12,6 +12,7 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
+import type { BusTrip, DropOffPoint, PickUpPoint, Seat } from '../types';
 import {
   FloatingActionBar,
   SectionCard,
@@ -33,6 +34,9 @@ export function CheckoutScreen({
   const {
     contactInfo,
     selectedSeats,
+    selectedTrip,
+    selectedPickUp,
+    selectedDropOff,
     totalPrice,
     searchParams,
     outboundState,
@@ -41,23 +45,49 @@ export function CheckoutScreen({
   } = useBookingStore();
 
   const [isContactModalVisible, setIsContactModalVisible] = React.useState(false);
+  const [contactWarning, setContactWarning] = React.useState<string | null>(null);
+
+  const isContactComplete = React.useMemo(
+    () => Boolean(contactInfo.fullName.trim() && contactInfo.phone.trim() && contactInfo.idNumber.trim()),
+    [contactInfo.fullName, contactInfo.idNumber, contactInfo.phone],
+  );
+
+  const checkoutSeats = React.useMemo(() => {
+    if (!searchParams.isRoundTrip) {
+      return selectedSeats;
+    }
+
+    return [...(outboundState?.seats ?? []), ...(returnState?.seats ?? [])];
+  }, [outboundState?.seats, returnState?.seats, searchParams.isRoundTrip, selectedSeats]);
 
   React.useEffect(() => {
     const checkoutStep = searchParams.isRoundTrip ? 9 : 5;
     setHighestStep(checkoutStep); // Checkout step depends on trip type
   }, [setHighestStep, searchParams.isRoundTrip]);
 
+  React.useEffect(() => {
+    if (isContactComplete) {
+      setContactWarning(null);
+    }
+  }, [isContactComplete]);
+
   const handleNext = useCallback(() => {
+    if (!isContactComplete) {
+      setContactWarning('Full name, phone number and ID number are required before payment.');
+      setIsContactModalVisible(true);
+      return;
+    }
+
     const nextStep = searchParams.isRoundTrip ? 10 : 6; // Payment step
     onNext(nextStep);
-  }, [onNext, searchParams.isRoundTrip]);
+  }, [isContactComplete, onNext, searchParams.isRoundTrip]);
 
   const renderLegSummary = (
     title: string,
-    trip: any,
-    seats: any[],
-    pickUp: any,
-    dropOff: any,
+    trip: BusTrip | null,
+    seats: Seat[],
+    pickUp: PickUpPoint | null,
+    dropOff: DropOffPoint | null,
     onEdit: () => void
   ) => {
     if (!trip) return null;
@@ -73,9 +103,9 @@ export function CheckoutScreen({
 
         <InfoRow label="Route" value={`${trip.departureCity || ''} → ${trip.arrivalCity || ''}`} />
         <InfoRow label="Departure Time" value={trip.departureTime || ''} />
-        <InfoRow label="Seats" value={seats?.map((s: any) => s.label || s.id || '?').join(', ')} showDivider />
+        <InfoRow label="Seats" value={seats.map((seat) => seat.label || seat.id).join(', ')} showDivider />
 
-        <View style={{ marginTop: spacing.md }}>
+        <View style={styles.locationBlock}>
           <View style={styles.pickupDisplay}>
             <View style={styles.pickupIconBox}>
               <MapPinLine size={18} weight="duotone" color={theme.colors.primary} />
@@ -88,7 +118,7 @@ export function CheckoutScreen({
           <Text style={styles.pickupHint}>{pickUp?.address || ''}</Text>
         </View>
 
-        <View style={{ marginTop: spacing.lg }}>
+        <View style={styles.locationBlockLarge}>
           <View style={styles.pickupDisplay}>
             <View style={styles.pickupIconBox}>
               <MapPinLine size={18} weight="duotone" color={theme.colors.primary} />
@@ -113,6 +143,7 @@ export function CheckoutScreen({
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          contentInsetAdjustmentBehavior="automatic"
         >
           {/* Contact Info Card */}
           <SectionCard>
@@ -133,11 +164,25 @@ export function CheckoutScreen({
               showDivider
             />
             <InfoRow label="Email Address" value={contactInfo.email} showDivider />
-            <InfoRow label="ID Number" value={contactInfo.idNumber || 'Not provided'} />
+            <InfoRow label="ID Number" value={contactInfo.idNumber || 'Required'} />
+            {contactWarning ? (
+              <Text style={styles.contactWarning}>{contactWarning}</Text>
+            ) : null}
           </SectionCard>
 
+          {!searchParams.isRoundTrip && (
+            renderLegSummary(
+              'Departure Trip',
+              selectedTrip,
+              selectedSeats,
+              selectedPickUp,
+              selectedDropOff,
+              () => onGoToStep(1)
+            )
+          )}
+
           {/* Outbound Leg */}
-          {outboundState && (
+          {searchParams.isRoundTrip && outboundState && (
             renderLegSummary(
               'Departure Trip',
               outboundState.trip,
@@ -168,9 +213,9 @@ export function CheckoutScreen({
         </ScrollView>
 
         <FloatingActionBar
-          selectedSeats={selectedSeats}
+          selectedSeats={checkoutSeats}
           totalPrice={totalPrice()}
-          ctaLabel="Next"
+          ctaLabel={isContactComplete ? 'Next' : 'Add Contact Info'}
           onPress={handleNext}
         />
 
@@ -223,6 +268,19 @@ const createStyles = (theme: AppTheme) => ({
   editButtonPressed: {
     opacity: 0.8,
     transform: [{ scale: 0.94 }],
+  },
+  contactWarning: {
+    marginTop: spacing.sm,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.error,
+    lineHeight: 18,
+  },
+  locationBlock: {
+    marginTop: spacing.md,
+  },
+  locationBlockLarge: {
+    marginTop: spacing.lg,
   },
   pickupDisplay: {
     flexDirection: 'row',

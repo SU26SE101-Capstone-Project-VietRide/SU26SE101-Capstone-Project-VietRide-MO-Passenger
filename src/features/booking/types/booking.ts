@@ -65,16 +65,22 @@ export interface ContactInfo {
   phoneCountryCode: string;
   phone: string;
   email: string;
-  idNumber?: string;
+  idNumber: string;
 }
 
 // ─── Payment ──────────────────────────────────────────────
-export type PaymentMethod = 'vnpay' | 'card';
+export type PaymentMethod = 'vnpay' | 'wallet';
 
 // ─── Search Params ────────────────────────────────────────
 export interface SearchParams {
   from: string;
   to: string;
+  originLocationCode: string;
+  destinationLocationCode: string;
+  originStationId: string;
+  destinationStationId: string;
+  originStationName: string;
+  destinationStationName: string;
   date: string;
   passengers: number;
 }
@@ -99,16 +105,39 @@ export interface RecentSearch {
 export interface BookingResult {
   bookingId: string;
   bookingCode: string;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  status: 'PENDING_PAYMENT' | 'PENDING' | 'CONFIRMED' | 'CANCELLED';
   totalAmount: number;
   discountAmount: number;
   paymentRedirectUrl: string | null;
+  tickets: BookingTicketResult[];
+}
+
+export interface BookingTicketResult {
+  ticketId: string;
+  ticketCode: string;
+  seatNumber: string;
+  status: string;
+  fareAmount: number;
+  discountAmount: number;
+  paidAmount: number;
 }
 
 export interface RoundTripResult {
   bookingGroupId: string;
-  outbound: { bookingId: string; bookingCode: string; totalAmount: number; discountAmount: number };
-  return: { bookingId: string; bookingCode: string; totalAmount: number; discountAmount: number };
+  outbound: {
+    bookingId: string;
+    bookingCode: string;
+    totalAmount: number;
+    discountAmount: number;
+    tickets: BookingTicketResult[];
+  };
+  return: {
+    bookingId: string;
+    bookingCode: string;
+    totalAmount: number;
+    discountAmount: number;
+    tickets: BookingTicketResult[];
+  };
   grandTotal: number;
   paymentRedirectUrl: string | null;
 }
@@ -132,7 +161,7 @@ export interface CreateBookingPayload {
     passenger: {
       fullName: string;
       phoneNumber: string;
-      idNumber?: string;
+      idNumber: string;
     };
   }>;
   voucherCode?: string;
@@ -155,4 +184,37 @@ export interface BookingHistoryItem {
   departureDateTime: string;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
   totalAmount: number;
+}
+
+export interface AvailableVoucherItem {
+  id: string;
+  code: string;
+  name: string;
+  type: 'PERCENT_OFF' | 'FIXED_AMOUNT' | string;
+  value: number;
+  minOrderAmount: number;
+  maxDiscountAmount: number | null;
+  discountAmount: number;
+  applicableServices: string[];
+  applicablePaymentMethods: string[];
+  validUntil: string;
+}
+
+export interface GetAvailableVouchersParams {
+  service: 'BOOKING' | 'PARCEL' | string;
+  tripId?: string;
+  operatorId?: string;
+  routeId?: string;
+  paymentMethod?: 'WALLET' | 'VNPAY';
+  orderAmount?: number;
+}
+
+export interface PromotionItem {
+  voucherId: string;
+  code: string;
+  name: string;
+  type: 'PERCENT_OFF' | 'FIXED_AMOUNT' | string;
+  value: number;
+  applicableServices: string[];
+  validUntil: string;
 }

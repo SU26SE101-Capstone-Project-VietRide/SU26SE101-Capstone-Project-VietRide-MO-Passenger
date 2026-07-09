@@ -81,9 +81,10 @@ export function ForgotPasswordScreen(): React.JSX.Element {
 
     try {
       const response = await resetMutation.mutateAsync(parsed.data);
-      navigation.navigate('PasswordResetOtp', {
+      navigation.navigate('OTPVerification', {
         email: parsed.data.email,
         otpTtlMinutes: response.otpTtlMinutes,
+        purpose: 'PASSWORD_RESET',
         debugOtpCode: response.debugOtpCode,
       });
     } catch (error) {

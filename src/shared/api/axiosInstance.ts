@@ -101,15 +101,16 @@ apiClient.interceptors.request.use(
 
     if (__DEV__) {
       const reqId = Math.random().toString(36).slice(2, 10);
-      console.groupCollapsed(`[API REQ ${reqId}] ${config.method?.toUpperCase()} ${joinUrl(config.baseURL, config.url)}`);
+      console.log(`\n======================================`);
+      console.log(`[API REQ ${reqId}] ${config.method?.toUpperCase()} ${joinUrl(config.baseURL, config.url)}`);
       console.log('  Headers:', JSON.parse(JSON.stringify(config.headers)));
       if (config.data) {
-        console.log('  Body:', config.data);
+        console.log('  Body:', JSON.stringify(config.data, null, 2));
       }
       if (config.params) {
         console.log('  Params:', config.params);
       }
-      console.groupEnd();
+      console.log(`======================================\n`);
       (config as unknown as Record<string, unknown>)._reqId = reqId;
     }
 
@@ -126,14 +127,26 @@ apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     if (__DEV__) {
       const reqId = (response.config as unknown as Record<string, unknown>)?._reqId ?? '????';
-      console.groupCollapsed(`[API RES ${reqId}] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
+      console.log(`\n======================================`);
+      console.log(`[API RES ${reqId}] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
       console.log('  Status:', response.status, response.statusText);
-      console.log('  Data:', response.data);
-      console.groupEnd();
+      console.log('  Data:', JSON.stringify(response.data, null, 2));
+      console.log(`======================================\n`);
     }
     return response;
   },
   async (error: AxiosError) => {
+    if (__DEV__) {
+      const reqId = (error.config as unknown as Record<string, unknown>)?._reqId ?? '????';
+      console.log(`\n======================================`);
+      console.log(`[API ERR ${reqId}] ${error.response?.status || error.code || 'UNKNOWN'} ${error.config?.method?.toUpperCase() || ''} ${error.config?.url || ''}`);
+      console.log('  Message:', error.message);
+      if (error.response?.data) {
+        console.log('  Data:', JSON.stringify(error.response.data, null, 2));
+      }
+      console.log(`======================================\n`);
+    }
+
     const status = error.response?.status;
     const originalRequest = error.config as InternalAxiosRequestConfig | undefined;
 

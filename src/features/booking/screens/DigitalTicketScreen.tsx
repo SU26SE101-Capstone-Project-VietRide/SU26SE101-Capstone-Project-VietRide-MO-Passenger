@@ -7,7 +7,7 @@ import React, { useCallback } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { ArrowLeft, MapPin, CheckCircle, QrCode, Coins, CreditCard, Wallet, File } from 'phosphor-react-native';
+import { ArrowLeft, MapPin, CheckCircle, QrCode, Coins, Wallet, File } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -45,7 +45,31 @@ export function DigitalTicketScreen(): React.JSX.Element {
     paymentMethod,
     selectedPickUp,
     selectedDropOff,
+    outboundState,
+    returnState,
+    searchParams,
+    bookingResult,
   } = useBookingStore();
+
+  const displayTrip = searchParams.isRoundTrip
+    ? outboundState?.trip ?? selectedTrip
+    : selectedTrip;
+  const displayPickUp = searchParams.isRoundTrip
+    ? outboundState?.pickUp ?? selectedPickUp
+    : selectedPickUp;
+  const displayDropOff = searchParams.isRoundTrip
+    ? outboundState?.dropOff ?? selectedDropOff
+    : selectedDropOff;
+  const allSeats = searchParams.isRoundTrip
+    ? [...(outboundState?.seats ?? []), ...(returnState?.seats ?? [])]
+    : selectedSeats;
+  const resultTotal = bookingResult
+    ? ('bookingGroupId' in bookingResult ? bookingResult.grandTotal : bookingResult.totalAmount)
+    : totalPrice();
+  const isPendingPayment = bookingResult
+    ? Boolean(bookingResult.paymentRedirectUrl)
+      || (!('bookingGroupId' in bookingResult) && bookingResult.status === 'PENDING_PAYMENT')
+    : false;
 
   const handleGoHome = () => {
     rootNav.navigate('Main', { screen: 'Home' });
@@ -56,15 +80,15 @@ export function DigitalTicketScreen(): React.JSX.Element {
   }, [navigation]);
 
   const getPaymentIcon = () => {
-    if (paymentMethod === 'vnpay') return <Coins size={12} color={theme.colors.primary} weight="bold" />;
-    if (paymentMethod === 'card') return <CreditCard size={12} color={theme.colors.primary} weight="bold" />;
-    return <Wallet size={12} color={theme.colors.primary} weight="bold" />;
+    if (paymentMethod === 'wallet') {
+      return <Wallet size={12} color={theme.colors.primary} weight="bold" />;
+    }
+
+    return <Coins size={12} color={theme.colors.primary} weight="bold" />;
   };
 
   const getPaymentLabel = () => {
-    if (paymentMethod === 'vnpay') return 'VNPAY / Momo';
-    if (paymentMethod === 'card') return 'Credit / Debit Card';
-    return 'VietRide Wallet';
+    return paymentMethod === 'wallet' ? 'VietRide Wallet' : 'VNPAY / Momo';
   };
 
   return (
@@ -75,16 +99,26 @@ export function DigitalTicketScreen(): React.JSX.Element {
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
         <Text style={styles.navTitle}>{isHistory ? 'Ticket Detail' : 'Bus Ticket'}</Text>
-        <View style={{ width: 36 }} />
+        <View style={styles.navSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Success Header Status */}
         {!isHistory && (
           <View style={styles.successHeader}>
-            <CheckCircle size={56} color={theme.colors.success} weight="fill" />
-            <Text style={styles.successTitle}>Booking Successful!</Text>
-            <Text style={styles.successSubtitle}>Your ticket is ready. Show this QR to the driver.</Text>
+            <CheckCircle
+              size={56}
+              color={isPendingPayment ? theme.colors.primary : theme.colors.success}
+              weight="fill"
+            />
+            <Text style={styles.successTitle}>
+              {isPendingPayment ? 'Payment Pending' : 'Booking Successful!'}
+            </Text>
+            <Text style={styles.successSubtitle}>
+              {isPendingPayment
+                ? 'Complete payment to activate your ticket.'
+                : 'Your ticket is ready. Show this QR to the driver.'}
+            </Text>
           </View>
         )}
 
@@ -108,29 +142,29 @@ export function DigitalTicketScreen(): React.JSX.Element {
           <View style={styles.detailsSection}>
             <View style={styles.routeRow}>
               <View style={styles.routeItem}>
-                <Text style={styles.routeLabel}>BOARDING ({selectedPickUp?.time || ''})</Text>
-                <Text style={styles.routeName}>{selectedPickUp?.name || 'Pick-up Point'}</Text>
-                <Text style={styles.routeCity}>{selectedPickUp?.address || ''}</Text>
+                <Text style={styles.routeLabel}>BOARDING ({displayPickUp?.time || ''})</Text>
+                <Text style={styles.routeName}>{displayPickUp?.name || 'Pick-up Point'}</Text>
+                <Text style={styles.routeCity}>{displayPickUp?.address || ''}</Text>
               </View>
               <View style={styles.routeItem}>
-                <Text style={[styles.routeLabel, { textAlign: 'right' }]}>ALIGHTING ({selectedDropOff?.time || ''})</Text>
-                <Text style={[styles.routeName, { textAlign: 'right' }]}>{selectedDropOff?.name || 'Drop-off Point'}</Text>
-                <Text style={[styles.routeCity, { textAlign: 'right' }]}>{selectedDropOff?.address || ''}</Text>
+                <Text style={[styles.routeLabel, styles.alignRight]}>ALIGHTING ({displayDropOff?.time || ''})</Text>
+                <Text style={[styles.routeName, styles.alignRight]}>{displayDropOff?.name || 'Drop-off Point'}</Text>
+                <Text style={[styles.routeCity, styles.alignRight]}>{displayDropOff?.address || ''}</Text>
               </View>
             </View>
 
             <View style={styles.specsGrid}>
               <View style={styles.gridItem}>
                 <Text style={styles.specLabel}>BUS TYPE</Text>
-                <Text style={styles.specValue}>{selectedTrip?.busType || 'Standard'}</Text>
+                <Text style={styles.specValue}>{displayTrip?.busType || 'Standard'}</Text>
               </View>
               <View style={styles.gridItem}>
                 <Text style={styles.specLabel}>SEATS</Text>
-                <Text style={styles.specValue}>{selectedSeats.map(s => s.label).join(', ')}</Text>
+                <Text style={styles.specValue}>{allSeats.map((seat) => seat.label).join(', ')}</Text>
               </View>
               <View style={styles.gridItem}>
                 <Text style={styles.specLabel}>PASSENGERS</Text>
-                <Text style={styles.specValue}>{selectedSeats.length} Adults</Text>
+                <Text style={styles.specValue}>{allSeats.length} Adults</Text>
               </View>
               <View style={styles.gridItem}>
                 <Text style={styles.specLabel}>PAYMENT METHOD</Text>
@@ -142,8 +176,8 @@ export function DigitalTicketScreen(): React.JSX.Element {
             </View>
 
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Amount Paid</Text>
-              <Text style={styles.totalValue}>₫{totalPrice().toLocaleString('vi-VN')}</Text>
+              <Text style={styles.totalLabel}>{isPendingPayment ? 'Amount Due' : 'Amount Paid'}</Text>
+              <Text style={styles.totalValue}>{resultTotal.toLocaleString('vi-VN')} VND</Text>
             </View>
           </View>
         </View>
@@ -214,6 +248,9 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
     borderRadius: 18,
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+  },
+  navSpacer: {
+    width: 36,
   },
   pressed: {
     opacity: 0.82,
@@ -330,6 +367,9 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
     marginTop: 2,
+  },
+  alignRight: {
+    textAlign: 'right',
   },
   specsGrid: {
     flexDirection: 'row',

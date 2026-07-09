@@ -15,13 +15,11 @@ export type AuthStackParamList = {
     email: string;
     phone?: string;
     otpTtlMinutes?: number;
-  };
-  ForgotPassword: undefined;
-  PasswordResetOtp: {
-    email: string;
-    otpTtlMinutes?: number;
+    purpose: 'REGISTRATION' | 'PASSWORD_RESET';
+    fromProfile?: boolean;
     debugOtpCode?: string;
   };
+  ForgotPassword: undefined;
   ResetPassword: {
     email: string;
     resetToken: string;
@@ -35,7 +33,6 @@ export type BookingStackParamList = {
   PopularRoutes: undefined;
   CityPicker: { mode: 'from' | 'to' };
   DatePicker: { mode?: 'departure' | 'return' } | undefined;
-  PassengersPicker: { current: number };
   CreateTicketBooking: undefined;
   DigitalTicket: {
     bookingRef: string;
@@ -68,6 +65,14 @@ export type ProfileStackParamList = {
   TopUp: undefined;
   Withdraw: undefined;
   AddPaymentMethod: undefined;
+  OTPVerification: {
+    email: string;
+    phone?: string;
+    otpTtlMinutes?: number;
+    purpose: 'REGISTRATION' | 'PASSWORD_RESET';
+    fromProfile?: boolean;
+    debugOtpCode?: string;
+  };
 };
 
 // ─── Main Tab Navigator ──────────────────────────────────

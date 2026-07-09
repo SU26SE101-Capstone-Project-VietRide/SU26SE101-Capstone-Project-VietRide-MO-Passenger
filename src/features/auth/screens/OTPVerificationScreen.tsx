@@ -1,5 +1,8 @@
 /**
- * OTPVerificationScreen - verifies the registration email OTP.
+ * OTPVerificationScreen — unified screen for all OTP verification flows.
+ *
+ * purpose='REGISTRATION' → verifyEmail API  (used after Register + Profile verify)
+ * purpose='PASSWORD_RESET' → confirmPasswordResetOtp API  (used after Forgot Password)
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -28,8 +31,9 @@ import { Button } from '@shared/components';
 import { useApiError } from '@shared/hooks';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
-import type { AuthStackParamList } from '@app/navigation/types';
-import { verifyEmail } from '../api/authApi';
+import type { AuthStackParamList, ProfileStackParamList } from '@app/navigation/types';
+import { verifyEmail, confirmPasswordResetOtp, resendVerificationEmail } from '../api/authApi';
+import { useAuthStore } from '../store/useAuthStore';
 import { AuthStepHeader } from '../components';
 import {
   AUTH_CODE_LENGTH,
@@ -39,8 +43,9 @@ import {
   type FieldErrorMap,
 } from '../validation/authValidation';
 
-type NavProp = NativeStackNavigationProp<AuthStackParamList, 'OTPVerification'>;
-type ScreenRouteProp = RouteProp<AuthStackParamList, 'OTPVerification'>;
+// The screen can be reached from either Auth or Profile stack
+type OTPParams = AuthStackParamList['OTPVerification'] | ProfileStackParamList['OTPVerification'];
+type ScreenRouteProp = RouteProp<{ OTPVerification: OTPParams }, 'OTPVerification'>;
 type OtpFormField = 'code';
 type OtpFormErrors = FieldErrorMap<OtpFormField>;
 
@@ -56,21 +61,33 @@ const formatTimer = (seconds: number): string => {
 };
 
 export function OTPVerificationScreen(): React.JSX.Element {
-  const navigation = useNavigation<NavProp>();
+  const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList & ProfileStackParamList>>();
   const route = useRoute<ScreenRouteProp>();
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
   const isLiquid = theme.variant.startsWith('liquid');
+  const setUser = useAuthStore((state) => state.setUser);
+  const currentUser = useAuthStore((state) => state.user);
 
-  const { email, phone, otpTtlMinutes = 5 } = route.params;
+  const {
+    email,
+    phone,
+    otpTtlMinutes = 5,
+    purpose,
+    fromProfile = false,
+  } = route.params;
+
+  const isPasswordReset = purpose === 'PASSWORD_RESET';
+
   const [code, setCode] = useState<string[]>(Array(AUTH_CODE_LENGTH).fill(''));
   const [timer, setTimer] = useState(Math.max(otpTtlMinutes * 60, 1));
   const [errors, setErrors] = useState<OtpFormErrors>({});
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const inputRefs = useRef<Array<TextInput | null>>([]);
 
-  const verifyMutation = useMutation({
-    mutationFn: verifyEmail,
-  });
+  const verifyMutation = useMutation({ mutationFn: verifyEmail });
+  const confirmMutation = useMutation({ mutationFn: confirmPasswordResetOtp });
+  const resendMutation = useMutation({ mutationFn: resendVerificationEmail });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -80,9 +97,11 @@ export function OTPVerificationScreen(): React.JSX.Element {
     return () => clearInterval(interval);
   }, []);
 
+  // ─── Input handling ──────────────────────────────────────
   const handleCodeChange = (text: string, index: number) => {
     clearError();
     setErrors({});
+    setResendMessage(null);
     const digits = text.replace(/\D/g, '').slice(0, AUTH_CODE_LENGTH);
 
     if (!digits) {
@@ -127,6 +146,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
     }
   };
 
+  // ─── Submit ──────────────────────────────────────────────
   const handleVerify = useCallback(async () => {
     const fullCode = code.join('');
 
@@ -140,16 +160,35 @@ export function OTPVerificationScreen(): React.JSX.Element {
     clearError();
 
     try {
-      await verifyMutation.mutateAsync({
-        email,
-        code: parsed.data.code,
-        purpose: 'REGISTRATION',
-      });
+      if (isPasswordReset) {
+        // PASSWORD_RESET: use confirmPasswordResetOtp, then navigate to ResetPassword
+        const response = await confirmMutation.mutateAsync({
+          email,
+          code: parsed.data.code,
+        });
 
-      navigation.navigate('Login', {
-        email,
-        verified: true,
-      });
+        navigation.navigate('ResetPassword', {
+          email,
+          resetToken: response.resetToken,
+          resetTokenTtlMinutes: response.resetTokenTtlMinutes,
+        });
+      } else {
+        // REGISTRATION: use verifyEmail
+        const response = await verifyMutation.mutateAsync({
+          email,
+          code: parsed.data.code,
+          purpose: 'REGISTRATION',
+        });
+
+        if (fromProfile && currentUser) {
+          // Update user status locally and go back to profile
+          setUser({ ...currentUser, status: response.status ?? 'ACTIVE' });
+          navigation.goBack();
+        } else {
+          // Navigate to Login after registration verification
+          navigation.navigate('Login', { email, verified: true });
+        }
+      }
     } catch (error) {
       const apiError = handleError(error);
       setErrors(apiFieldErrors<OtpFormField>(
@@ -157,13 +196,43 @@ export function OTPVerificationScreen(): React.JSX.Element {
         otpFieldAliases,
       ));
     }
-  }, [clearError, code, email, handleError, navigation, verifyMutation]);
+  }, [clearError, code, email, handleError, navigation, isPasswordReset, confirmMutation, verifyMutation, fromProfile, currentUser, setUser]);
 
-  const isPending = verifyMutation.isPending;
+  // ─── Resend OTP ──────────────────────────────────────────
+  const handleResend = useCallback(async () => {
+    clearError();
+    setErrors({});
+    setResendMessage(null);
+
+    try {
+      const response = await resendMutation.mutateAsync({ email, purpose });
+      // Reset timer with new TTL from server
+      setTimer(Math.max((response.otpTtlMinutes ?? otpTtlMinutes) * 60, 1));
+      // Clear existing code
+      setCode(Array(AUTH_CODE_LENGTH).fill(''));
+      inputRefs.current[0]?.focus();
+      setResendMessage('A new code has been sent to your email.');
+    } catch (error) {
+      handleError(error);
+    }
+  }, [clearError, email, purpose, resendMutation, handleError, otpTtlMinutes]);
+
+  const isPending = verifyMutation.isPending || confirmMutation.isPending;
   const fullCode = code.join('');
   const isExpired = timer === 0;
   const codeError = errors.code;
   const visibleError = codeError ?? errorMessage;
+
+  // ─── Dynamic copy based on purpose ──────────────────────
+  const headerTitle = isPasswordReset ? 'Reset your password' : 'Verify it\'s you';
+  const headerSubtitle = isPasswordReset
+    ? `Enter the 6-digit code we sent to ${email} to reset your password.`
+    : `We sent a 6-digit code to ${email}${phone ? ` (${phone})` : ''}.`;
+  const expiredText = isPasswordReset
+    ? 'Code expired. Please request a new code.'
+    : 'Code expired. Please request a new code.';
+  const buttonTitle = isPasswordReset ? 'Verify Code' : 'Verify Code';
+  const footerQuestion = isPasswordReset ? 'Wrong email?' : 'Wrong email?';
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
@@ -193,8 +262,8 @@ export function OTPVerificationScreen(): React.JSX.Element {
             keyboardShouldPersistTaps="handled"
           >
             <AuthStepHeader
-              title="Verify it's you"
-              subtitle={`We sent a 6-digit code to ${email}${phone ? ` (${phone})` : ''}.`}
+              title={headerTitle}
+              subtitle={headerSubtitle}
             />
 
             <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
@@ -231,15 +300,41 @@ export function OTPVerificationScreen(): React.JSX.Element {
               </View>
 
               <View style={styles.resendContainer}>
-                <Text style={[styles.resendText, { color: theme.colors.textSecondary }]}>
-                  {isExpired ? 'Code expired. Please register again.' : 'Code expires in '}
-                </Text>
-                {!isExpired ? (
-                  <Text style={[styles.timerText, { color: theme.colors.textTertiary }]}>
-                    {formatTimer(timer)}
+                {isExpired ? (
+                  <Text style={[styles.resendText, { color: theme.colors.textSecondary }]}>
+                    {expiredText}
                   </Text>
-                ) : null}
+                ) : (
+                  <>
+                    <Text style={[styles.resendText, { color: theme.colors.textSecondary }]}>
+                      Code expires in{' '}
+                    </Text>
+                    <Text style={[styles.timerText, { color: theme.colors.textTertiary }]}>
+                      {formatTimer(timer)}
+                    </Text>
+                  </>
+                )}
               </View>
+
+              {/* Resend button */}
+              <Pressable
+                onPress={handleResend}
+                disabled={resendMutation.isPending}
+                style={({ pressed }) => [
+                  styles.resendButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={[styles.resendLink, { color: theme.colors.primary }]}>
+                  {resendMutation.isPending ? 'Sending...' : 'Resend Code'}
+                </Text>
+              </Pressable>
+
+              {resendMessage ? (
+                <Text style={[styles.successText, { color: theme.colors.success ?? '#22C55E' }]}>
+                  {resendMessage}
+                </Text>
+              ) : null}
 
               {visibleError ? (
                 <Text style={[styles.errorText, { color: theme.colors.error }]}>
@@ -248,7 +343,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
               ) : null}
 
               <Button
-                title="Verify Code"
+                title={buttonTitle}
                 onPress={handleVerify}
                 disabled={fullCode.length !== AUTH_CODE_LENGTH || isPending || isExpired}
                 loading={isPending}
@@ -260,7 +355,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
-              Wrong email?{' '}
+              {footerQuestion}{' '}
             </Text>
             <Pressable
               onPress={() => navigation.goBack()}
@@ -334,7 +429,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   resendText: {
     fontFamily: fontFamilies.regular,
@@ -345,6 +440,23 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
     color: colors.textTertiary,
+  },
+  resendButton: {
+    alignSelf: 'center',
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  resendLink: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.md,
+    color: colors.primary,
+  },
+  successText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: '#22C55E',
+    marginBottom: spacing.md,
+    textAlign: 'center',
   },
   errorText: {
     fontFamily: fontFamilies.medium,

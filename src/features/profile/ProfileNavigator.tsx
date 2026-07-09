@@ -12,6 +12,7 @@ import { WalletScreen } from './screens/WalletScreen';
 import { TopUpScreen } from './screens/TopUpScreen';
 import { WithdrawScreen } from './screens/WithdrawScreen';
 import { AddPaymentMethodScreen } from './screens/AddPaymentMethodScreen';
+import { OTPVerificationScreen } from '@features/auth';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
 
@@ -39,7 +40,7 @@ export function ProfileNavigator(): React.JSX.Element {
       <Stack.Screen name="TopUp" component={TopUpScreen} />
       <Stack.Screen name="Withdraw" component={WithdrawScreen} />
       <Stack.Screen name="AddPaymentMethod" component={AddPaymentMethodScreen} />
-
+      <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} options={{ animation: 'slide_from_bottom' }} />
     </Stack.Navigator>
   );
 }

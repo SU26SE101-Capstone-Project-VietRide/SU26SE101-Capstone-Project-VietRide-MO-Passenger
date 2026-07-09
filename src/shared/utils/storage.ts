@@ -1,11 +1,15 @@
 /**
- * Keychain Storage Utility — Secure token management
+ * Secure Storage Utility — Token management via expo-secure-store
  *
- * Wraps react-native-keychain for storing/retrieving JWT tokens.
+ * Wraps expo-secure-store for storing/retrieving JWT tokens.
  * All sensitive credentials go through this module — never AsyncStorage.
+ *
+ * expo-secure-store uses:
+ *   - Android: EncryptedSharedPreferences (API 23+) / Android Keystore
+ *   - iOS: Keychain Services
  */
 
-import * as Keychain from 'react-native-keychain';
+import * as SecureStore from 'expo-secure-store';
 import { TOKEN_SERVICE_KEY } from '@shared/constants';
 
 export interface SecureTokenBundle {
@@ -16,7 +20,7 @@ export interface SecureTokenBundle {
 }
 
 /**
- * Store access token (and optional refresh token) securely in the device keychain.
+ * Store access token (and optional refresh token) securely.
  */
 export async function setToken(
   accessToken: string,
@@ -29,34 +33,29 @@ export async function setToken(
       ? issuedAt + expiresInSeconds * 1000
       : undefined;
 
-    await Keychain.setGenericPassword(
-      'accessToken',
-      JSON.stringify({ accessToken, refreshToken, expiresAt, issuedAt }),
-      { service: TOKEN_SERVICE_KEY },
-    );
+    const bundle = JSON.stringify({ accessToken, refreshToken, expiresAt, issuedAt });
+    await SecureStore.setItemAsync(TOKEN_SERVICE_KEY, bundle);
     return true;
   } catch (error) {
     if (__DEV__) {
-      console.error('[Keychain] Failed to store token:', error);
+      console.error('[SecureStore] Failed to store token:', error);
     }
     return false;
   }
 }
 
 /**
- * Retrieve both tokens from the device keychain.
+ * Retrieve both tokens from secure storage.
  */
 export async function getTokenBundle(): Promise<SecureTokenBundle | null> {
   try {
-    const credentials = await Keychain.getGenericPassword({
-      service: TOKEN_SERVICE_KEY,
-    });
+    const raw = await SecureStore.getItemAsync(TOKEN_SERVICE_KEY);
 
-    if (!credentials) {
+    if (!raw) {
       return null;
     }
 
-    const parsed = JSON.parse(credentials.password) as {
+    const parsed = JSON.parse(raw) as {
       accessToken?: string;
       refreshToken?: string;
       expiresAt?: number;
@@ -75,14 +74,14 @@ export async function getTokenBundle(): Promise<SecureTokenBundle | null> {
     };
   } catch (error) {
     if (__DEV__) {
-      console.error('[Keychain] Failed to retrieve token bundle:', error);
+      console.error('[SecureStore] Failed to retrieve token bundle:', error);
     }
     return null;
   }
 }
 
 /**
- * Retrieve the stored access token from the device keychain.
+ * Retrieve the stored access token.
  * Returns null if no token is stored or if retrieval fails.
  */
 export async function getToken(): Promise<string | null> {
@@ -91,7 +90,7 @@ export async function getToken(): Promise<string | null> {
 }
 
 /**
- * Retrieve the stored refresh token from the device keychain.
+ * Retrieve the stored refresh token.
  */
 export async function getRefreshToken(): Promise<string | null> {
   const bundle = await getTokenBundle();
@@ -99,22 +98,22 @@ export async function getRefreshToken(): Promise<string | null> {
 }
 
 /**
- * Clear all stored tokens from the device keychain (logout).
+ * Clear all stored tokens (logout).
  */
 export async function clearToken(): Promise<boolean> {
   try {
-    await Keychain.resetGenericPassword({ service: TOKEN_SERVICE_KEY });
+    await SecureStore.deleteItemAsync(TOKEN_SERVICE_KEY);
     return true;
   } catch (error) {
     if (__DEV__) {
-      console.error('[Keychain] Failed to clear token:', error);
+      console.error('[SecureStore] Failed to clear token:', error);
     }
     return false;
   }
 }
 
 /**
- * Check if a token exists in the keychain without reading it.
+ * Check if a token exists without reading its full value.
  */
 export async function hasToken(): Promise<boolean> {
   const token = await getToken();

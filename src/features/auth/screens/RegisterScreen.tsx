@@ -121,6 +121,7 @@ export function RegisterScreen(): React.JSX.Element {
         email: response.email,
         phone: payload.phone,
         otpTtlMinutes: response.otpTtlMinutes,
+        purpose: 'REGISTRATION',
       });
     } catch (error) {
       const apiError = handleError(error);

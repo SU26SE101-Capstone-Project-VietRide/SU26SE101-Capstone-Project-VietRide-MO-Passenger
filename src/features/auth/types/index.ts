@@ -112,6 +112,17 @@ export interface ResetPasswordResponse {
   status: UserStatus;
 }
 
+export interface ResendVerificationEmailPayload {
+  email: string;
+  purpose: 'REGISTRATION' | 'PASSWORD_RESET' | string;
+}
+
+export interface ResendVerificationEmailResponse {
+  email: string;
+  status: string;
+  otpTtlMinutes: number;
+}
+
 export interface GoogleLoginPayload {
   idToken: string;
 }

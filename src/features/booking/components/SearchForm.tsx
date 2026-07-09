@@ -9,25 +9,26 @@ import {
   MapPin,
   ArrowsDownUp,
   CalendarBlank,
-  User,
   MagnifyingGlass,
 } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { PassengerCountInput } from './PassengerCountInput';
 
 interface SearchFormProps {
   from?: string;
   to?: string;
   date: string;
-  passengers: number | string;
+  passengers: number;
   onFromPress?: () => void;
   onToPress?: () => void;
   onDatePress?: () => void;
-  onPassengersPress?: () => void;
+  onPassengersChange: (value: number) => void;
   onSwapPress?: () => void;
   onSearchPress?: () => void;
+  searchDisabled?: boolean;
 }
 
 export const SearchForm = ({
@@ -38,9 +39,10 @@ export const SearchForm = ({
   onFromPress,
   onToPress,
   onDatePress,
-  onPassengersPress,
+  onPassengersChange,
   onSwapPress,
   onSearchPress,
+  searchDisabled = false,
 }: SearchFormProps): React.JSX.Element => {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -50,21 +52,21 @@ export const SearchForm = ({
       <Text style={styles.cardTitle}>Book a Trip</Text>
 
     {/* From */}
-      <Text style={styles.fieldLabel}>From</Text>
+      <Text style={styles.fieldLabel}>Departure location</Text>
       <Pressable style={styles.selectorField} onPress={onFromPress}>
         <MapPin size={20} color={theme.colors.primary} weight="bold" />
         <Text style={from ? styles.selectorText : styles.selectorPlaceholder}>
-          {from || 'Select origin city'}
+          {from || 'Select province or station'}
         </Text>
       </Pressable>
 
     {/* To + Swap */}
-      <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>To</Text>
+      <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>Destination location</Text>
       <View style={styles.toRow}>
         <Pressable style={[styles.selectorField, styles.selectorFieldGrow]} onPress={onToPress}>
           <MapPin size={18} color={theme.colors.primary} weight="bold" />
           <Text style={to ? styles.selectorText : styles.selectorPlaceholder} numberOfLines={1}>
-            {to || 'Select destination'}
+            {to || 'Select province or station'}
           </Text>
         </Pressable>
         <Pressable onPress={onSwapPress} style={styles.swapBtn}>
@@ -78,18 +80,20 @@ export const SearchForm = ({
           <CalendarBlank size={16} color={theme.colors.primary} weight="fill" />
           <Text style={styles.metaText} numberOfLines={1}>{date || 'Select date'}</Text>
         </Pressable>
-        <Pressable style={styles.metaField} onPress={onPassengersPress}>
-          <User size={16} color={theme.colors.primary} weight="fill" />
-          <Text style={styles.metaText} numberOfLines={1}>
-            {typeof passengers === 'number' ? `${passengers} Passenger${passengers > 1 ? 's' : ''}` : '1 Passenger'}
-          </Text>
-        </Pressable>
+        <PassengerCountInput value={passengers} onChange={onPassengersChange} />
       </View>
 
     {/* Search CTA */}
       <Pressable
         onPress={onSearchPress}
-        style={({ pressed }) => [styles.searchButton, pressed ? styles.pressed : null]}
+        disabled={searchDisabled}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: searchDisabled }}
+        style={({ pressed }) => [
+          styles.searchButton,
+          searchDisabled ? styles.searchButtonDisabled : null,
+          pressed && !searchDisabled ? styles.pressed : null,
+        ]}
       >
         <Text style={styles.searchButtonText}>Search Buses</Text>
         <MagnifyingGlass size={18} color={theme.colors.textInverse} weight="bold" />
@@ -198,6 +202,9 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
+  },
+  searchButtonDisabled: {
+    opacity: 0.45,
   },
   pressed: {
     opacity: 0.86,

@@ -1,15 +1,33 @@
 export type BusType = 'sleeper' | 'limousine' | 'standard';
 
 export interface TripSearchParams {
-  originStationId: string;
-  destinationStationId: string;
+  originStationId?: string;
+  destinationStationId?: string;
+  originLocationCode?: string;
+  destinationLocationCode?: string;
   departureDate: string;
   passengerCount: number;
   allowAlongRoutePickup?: boolean;
 }
 
+export interface StationSearchResult {
+  id: string;
+  name: string;
+  city: string;
+  province: string;
+  locationId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  addressStreet?: string | null;
+  supportsShuttle: boolean;
+}
+
 export interface BusTrip {
   id: string;
+  operatorId: string;
+  routeId: string;
+  originStationId: string;
+  destinationStationId: string;
   operatorBadge: string;
   departureStation: string;
   arrivalStation: string;
@@ -36,6 +54,9 @@ export interface TripStop {
   id: string;
   name: string;
   time: string;
+  allowPickup?: boolean;
+  allowDropoff?: boolean;
+  fareFromThisStop?: number | null;
 }
 
 export interface SeatRow {
@@ -54,7 +75,9 @@ export interface Seat {
 // Backend DTOs for mapping
 export interface TripSearchDto {
   tripId: string;
+  operatorId: string;
   operatorName: string;
+  routeId: string;
   originStation: { id: string; name: string };
   destinationStation: { id: string; name: string };
   departureDateTime: string;
@@ -66,9 +89,20 @@ export interface TripSearchDto {
 }
 
 export interface TripDetailDto extends TripSearchDto {
+  status: string;
+  vehicleId: string;
   vehicleType: string;
   seatSummary: { totalSeats: number };
-  stops: Array<{ id: string; name: string; arrivalTime: string }>;
+  stops: Array<{
+    id?: string;
+    stopId?: string;
+    name?: string;
+    arrivalTime?: string;
+    estimatedArrivalTime?: string;
+    allowPickup?: boolean;
+    allowDropoff?: boolean;
+    fareFromThisStop?: number | null;
+  }>;
 }
 
 export interface SeatDto {
@@ -91,6 +125,10 @@ export function mapBusTrip(dto: TripSearchDto): BusTrip {
 
   return {
     id: dto.tripId,
+    operatorId: dto.operatorId,
+    routeId: dto.routeId,
+    originStationId: dto.originStation.id,
+    destinationStationId: dto.destinationStation.id,
     operatorBadge: dto.operatorName,
     departureStation: dto.originStation.name,
     arrivalStation: dto.destinationStation.name,
@@ -134,12 +172,15 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     departureCity: dto.originStation.name.replace('Bến xe ', ''),
     arrivalCity: dto.destinationStation.name.replace('Bến xe ', ''),
     stops: (dto.stops || []).map(s => ({
-      id: s.id,
-      name: s.name,
+      id: s.stopId ?? s.id ?? '',
+      name: s.name ?? 'Route stop',
       time: (() => {
-        const d = new Date(s.arrivalTime);
+        const d = new Date(s.estimatedArrivalTime ?? s.arrivalTime ?? '');
         return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-      })()
+      })(),
+      allowPickup: s.allowPickup,
+      allowDropoff: s.allowDropoff,
+      fareFromThisStop: s.fareFromThisStop,
     }))
   };
 }

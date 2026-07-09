@@ -6,7 +6,6 @@ export { LoginScreen } from './screens/LoginScreen';
 export { RegisterScreen } from './screens/RegisterScreen';
 export { OTPVerificationScreen } from './screens/OTPVerificationScreen';
 export { ForgotPasswordScreen } from './screens/ForgotPasswordScreen';
-export { PasswordResetOtpScreen } from './screens/PasswordResetOtpScreen';
 export { ResetPasswordScreen } from './screens/ResetPasswordScreen';
 export { useAuthStore } from './store/useAuthStore';
 export { useAuthInitializer } from './hooks/useAuthInitializer';

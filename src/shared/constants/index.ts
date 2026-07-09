@@ -12,7 +12,7 @@ export const API_TIMEOUT = 15_000;
 /** Default pagination page size */
 export const DEFAULT_PAGE_SIZE = 20;
 
-/** Token storage key for react-native-keychain */
+/** Token storage key for expo-secure-store */
 export const TOKEN_SERVICE_KEY = 'com.vietride.passenger.auth';
 
 /** WebSocket reconnection settings */

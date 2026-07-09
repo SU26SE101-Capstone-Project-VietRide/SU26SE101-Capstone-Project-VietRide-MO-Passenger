@@ -12,6 +12,8 @@ import type {
   PasswordResetResponse,
   RegisterPayload,
   RegisterResponse,
+  ResendVerificationEmailPayload,
+  ResendVerificationEmailResponse,
   ResetPasswordPayload,
   ResetPasswordResponse,
   TokenBundleDto,
@@ -196,4 +198,19 @@ export async function googleLogin(payload: GoogleLoginPayload): Promise<AuthSess
   );
 
   return mapTokenBundle(unwrapApiResponse(response.data));
+}
+
+export async function resendVerificationEmail(
+  payload: ResendVerificationEmailPayload,
+): Promise<ResendVerificationEmailResponse> {
+  const response = await apiClient.post<ApiEnvelope<ResendVerificationEmailResponse>>(
+    '/auth/resend-verification-email',
+    {
+      email: normalizeEmail(payload.email),
+      purpose: payload.purpose,
+    },
+    AUTH_REFRESH_DISABLED,
+  );
+
+  return unwrapApiResponse(response.data);
 }

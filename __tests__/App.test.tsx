@@ -4,7 +4,11 @@
 
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
-import App from '../src/app/App';
+
+process.env.EXPO_PUBLIC_APP_ENV = 'development';
+process.env.EXPO_PUBLIC_API_BASE_URL = 'https://api.vietride.online/v1';
+process.env.EXPO_PUBLIC_WS_URL = 'wss://ws.vietride.online';
+process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = '';
 
 jest.mock('expo-font', () => ({
   useFonts: () => [true, null],
@@ -15,8 +19,24 @@ jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: null })),
 }));
 
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(async () => null),
+  setItemAsync: jest.fn(async () => undefined),
+  deleteItemAsync: jest.fn(async () => undefined),
+}));
+
 jest.mock('@react-native-community/netinfo', () => ({
   addEventListener: jest.fn(() => jest.fn()),
+}));
+
+jest.mock('@features/location/hooks/useLocations', () => ({
+  useLocations: jest.fn(() => ({
+    data: [],
+    isLoading: false,
+    isError: false,
+    isFetching: false,
+    refetch: jest.fn(),
+  })),
 }));
 
 jest.mock('react-native-config', () => ({
@@ -24,10 +44,12 @@ jest.mock('react-native-config', () => ({
   API_BASE_URL: 'https://api.vietride.online/v1',
   WS_URL: 'wss://ws.vietride.online',
   GOOGLE_MAPS_API_KEY: '',
-}));
+}), { virtual: true });
 
 test('renders correctly', async () => {
-  await ReactTestRenderer.act(() => {
+  const App = require('../src/app/App').default as typeof import('../src/app/App').default;
+
+  await ReactTestRenderer.act(async () => {
     ReactTestRenderer.create(<App />);
   });
-});
+}, 15_000);

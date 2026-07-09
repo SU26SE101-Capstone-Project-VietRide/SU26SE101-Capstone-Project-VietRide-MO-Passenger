@@ -19,6 +19,10 @@ import type {
 export const MOCK_TRIPS: BusTrip[] = [
   {
     id: 'trip-1',
+    operatorId: '11111111-1111-1111-1111-111111111111',
+    routeId: '21111111-1111-1111-1111-111111111111',
+    originStationId: '31111111-1111-1111-1111-111111111111',
+    destinationStationId: '41111111-1111-1111-1111-111111111111',
     operatorBadge: '⭐ VietRide',
     departureCity: 'Hanoi',
     arrivalCity: 'Sapa',
@@ -37,6 +41,10 @@ export const MOCK_TRIPS: BusTrip[] = [
   },
   {
     id: 'TRIP-74921',
+    operatorId: '11111111-1111-1111-1111-111111111112',
+    routeId: '21111111-1111-1111-1111-111111111112',
+    originStationId: '31111111-1111-1111-1111-111111111112',
+    destinationStationId: '41111111-1111-1111-1111-111111111112',
     operatorBadge: 'VietRide Express',
     departureCity: 'Hanoi',
     arrivalCity: 'Sapa',
@@ -55,6 +63,10 @@ export const MOCK_TRIPS: BusTrip[] = [
   },
   {
     id: 'TRIP-39582',
+    operatorId: '11111111-1111-1111-1111-111111111113',
+    routeId: '21111111-1111-1111-1111-111111111113',
+    originStationId: '31111111-1111-1111-1111-111111111113',
+    destinationStationId: '41111111-1111-1111-1111-111111111113',
     operatorBadge: 'Sapa Open Tour',
     departureCity: 'Hanoi',
     arrivalCity: 'Sapa',
@@ -147,15 +159,15 @@ export const MOCK_SEAT_MAP: SeatRow[] = [
 export const MOCK_POPULAR_ROUTES: PopularRoute[] = [
   {
     id: 'route-1',
-    from: 'Hanoi',
-    to: 'Da Lat',
+    from: 'Ha Noi',
+    to: 'Lam Dong',
     price: 'From 250k VND',
     gradientColors: ['#0A7EA4', '#38B2D8'],
   },
   {
     id: 'route-2',
-    from: 'HCMC',
-    to: 'Nha Trang',
+    from: 'Ho Chi Minh City',
+    to: 'Khanh Hoa',
     price: 'From 300k VND',
     gradientColors: ['#065A76', '#0A7EA4'],
   },
@@ -163,9 +175,9 @@ export const MOCK_POPULAR_ROUTES: PopularRoute[] = [
 
 // ─── Recent Searches ──────────────────────────────────────
 export const MOCK_RECENT_SEARCHES: RecentSearch[] = [
-  { id: 'rs-1', route: 'Hanoi to Sapa', date: 'Today, 20 Oct' },
-  { id: 'rs-2', route: 'HCMC to Da Lat', date: 'Tomorrow, 21 Oct' },
-  { id: 'rs-3', route: 'Hanoi to Hai Phong', date: '22 Oct' },
+  { id: 'rs-1', route: 'Ha Noi to Lao Cai', date: 'Today, 20 Oct' },
+  { id: 'rs-2', route: 'Ho Chi Minh City to Lam Dong', date: 'Tomorrow, 21 Oct' },
+  { id: 'rs-3', route: 'Ha Noi to Hai Phong', date: '22 Oct' },
 ];
 
 // ─── Pick-up Points ──────────────────────────────────────
@@ -233,6 +245,7 @@ export const MOCK_CONTACT: ContactInfo = {
   phoneCountryCode: '+84',
   phone: '0912 345 678',
   email: 'nhung.nguyen@example.com',
+  idNumber: '',
 };
 
 // ─── Mock Booking Result ──────────────────────────────────
@@ -243,4 +256,5 @@ export const MOCK_BOOKING_RESULT: BookingResult = {
   totalAmount: 350000,
   discountAmount: 50000,
   paymentRedirectUrl: null,
+  tickets: [],
 };

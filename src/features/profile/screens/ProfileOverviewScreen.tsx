@@ -22,6 +22,8 @@ import {
   Phone,
   DownloadSimple,
   UploadSimple,
+  CheckCircle,
+  WarningCircle,
 } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
@@ -48,6 +50,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   const displayName = user?.fullName ?? (isGuest ? 'Guest traveler' : 'VietRide Passenger');
   const displayPhone = user?.phone ?? (isGuest ? 'Sign in to save trips and wallet' : 'No phone number');
   const displayInitial = displayName.charAt(0).toUpperCase();
+  const isVerified = user?.status === 'ACTIVE';
   const bottomTabClearance =
     CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
 
@@ -201,11 +204,33 @@ export function ProfileOverviewScreen(): React.JSX.Element {
               )}
             </View>
             <View style={styles.namePhoneWrapper}>
-              <Text style={styles.fullNameText}>{displayName}</Text>
+              <View style={styles.nameVerifyRow}>
+                <Text style={styles.fullNameText}>{displayName}</Text>
+                {!isGuest && (
+                  isVerified ? (
+                    <CheckCircle size={18} color={theme.colors.success ?? '#22C55E'} weight="fill" style={styles.verifyBadge} />
+                  ) : (
+                    <WarningCircle size={18} color="#F59E0B" weight="fill" style={styles.verifyBadge} />
+                  )
+                )}
+              </View>
               <View style={styles.phoneRow}>
                 <Phone size={14} color={theme.colors.textSecondary} style={styles.phoneIcon} />
                 <Text style={styles.phoneText}>{displayPhone}</Text>
               </View>
+              {!isGuest && !isVerified && user?.email && (
+                <Pressable
+                  onPress={() => navigation.navigate('OTPVerification', {
+                    email: user.email!,
+                    purpose: 'REGISTRATION',
+                    fromProfile: true,
+                  })}
+                  style={({ pressed }) => [styles.verifyButton, pressed ? styles.pressed : null]}
+                >
+                  <WarningCircle size={14} color="#F59E0B" weight="bold" />
+                  <Text style={styles.verifyButtonText}>Verify Account</Text>
+                </Pressable>
+              )}
             </View>
           </View>
 
@@ -360,6 +385,29 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
     marginBottom: spacing.xs,
+  },
+  nameVerifyRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+  verifyBadge: {
+    marginLeft: spacing.xs,
+  },
+  verifyButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderRadius: borderRadius.sm,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start' as const,
+  },
+  verifyButtonText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: '#D97706',
+    marginLeft: 4,
   },
   phoneRow: {
     flexDirection: 'row',

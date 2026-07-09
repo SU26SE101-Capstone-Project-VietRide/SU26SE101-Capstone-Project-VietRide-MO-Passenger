@@ -20,6 +20,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BookingStackParamList } from '@app/navigation/types';
 import { MOCK_POPULAR_ROUTES } from '../data/mockData';
+import { useLocations } from '@features/location/hooks/useLocations';
+import { findLocationByName } from '../utils/searchParams';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'PopularRoutes'>;
 
@@ -28,15 +30,15 @@ const ALL_POPULAR_ROUTES = [
   ...MOCK_POPULAR_ROUTES,
   {
     id: 'route-3',
-    from: 'Hanoi',
-    to: 'Sapa',
+    from: 'Ha Noi',
+    to: 'Lao Cai',
     price: 'From 320k VND',
     gradientColors: ['#0A7EA4', '#2AC1BC'],
   },
   {
     id: 'route-4',
-    from: 'HCMC',
-    to: 'Da Lat',
+    from: 'Ho Chi Minh City',
+    to: 'Lam Dong',
     price: 'From 280k VND',
     gradientColors: ['#2AC1BC', '#38B2D8'],
   },
@@ -49,14 +51,14 @@ const ALL_POPULAR_ROUTES = [
   },
   {
     id: 'route-6',
-    from: 'HCMC',
-    to: 'Vung Tau',
+    from: 'Ho Chi Minh City',
+    to: 'Dong Nai',
     price: 'From 180k VND',
     gradientColors: ['#4E54C8', '#8F94FB'],
   },
   {
     id: 'route-7',
-    from: 'Hanoi',
+    from: 'Ha Noi',
     to: 'Hai Phong',
     price: 'From 120k VND',
     gradientColors: ['#11998E', '#38EF7D'],
@@ -64,7 +66,7 @@ const ALL_POPULAR_ROUTES = [
   {
     id: 'route-8',
     from: 'Da Nang',
-    to: 'Nha Trang',
+    to: 'Khanh Hoa',
     price: 'From 350k VND',
     gradientColors: ['#F857A6', '#FF5858'],
   },
@@ -79,6 +81,7 @@ export function PopularRoutesScreen(): React.JSX.Element {
   const [query, setQuery] = useState('');
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { data: locations = [] } = useLocations();
 
   const filteredRoutes = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -91,11 +94,21 @@ export function PopularRoutesScreen(): React.JSX.Element {
 
   const handleRoutePress = useCallback(
     (item: typeof ALL_POPULAR_ROUTES[0]) => {
-      setSearchParams({ from: item.from, to: item.to });
-      // Navigate to the next step in booking flow (DatePicker or CreateTicketBooking)
-      navigation.navigate('CreateTicketBooking');
+      const origin = findLocationByName(locations, item.from);
+      const destination = findLocationByName(locations, item.to);
+      setSearchParams({
+        from: origin?.name ?? item.from,
+        to: destination?.name ?? item.to,
+        originLocationCode: origin?.code ?? '',
+        destinationLocationCode: destination?.code ?? '',
+        originStationId: '',
+        destinationStationId: '',
+        originStationName: '',
+        destinationStationName: '',
+      });
+      navigation.navigate('CityPicker', { mode: 'from' });
     },
-    [navigation, setSearchParams]
+    [locations, navigation, setSearchParams]
   );
 
   const renderRouteCard = ({ item }: { item: typeof ALL_POPULAR_ROUTES[0] }) => {
@@ -169,7 +182,7 @@ export function PopularRoutesScreen(): React.JSX.Element {
             <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
           </Pressable>
           <Text style={styles.headerTitle}>Popular Routes</Text>
-          <View style={{ width: 40 }} />
+          <View style={styles.headerSpacer} />
         </View>
 
         {/* Search bar */}
@@ -241,6 +254,9 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
+  },
+  headerSpacer: {
+    width: 40,
   },
   searchBox: {
     flexDirection: 'row',

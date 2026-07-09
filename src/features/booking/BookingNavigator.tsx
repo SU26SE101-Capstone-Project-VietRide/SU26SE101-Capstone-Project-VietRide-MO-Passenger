@@ -1,7 +1,7 @@
 /**
  * BookingNavigator — Manages the ticket booking flow
  *
- * Stack: BusSearch -> CityPicker/DatePicker/PassengersPicker -> TripResults -> SeatSelection -> Checkout -> Payment -> DigitalTicket
+ * Stack: BusSearch -> CityPicker/DatePicker -> TripResults -> SeatSelection -> Checkout -> Payment -> DigitalTicket
  */
 
 import React from 'react';
@@ -12,7 +12,6 @@ import { BusSearchScreen } from './screens/BusSearchScreen';
 import { PopularRoutesScreen } from './screens/PopularRoutesScreen';
 import { CityPickerScreen } from './screens/CityPickerScreen';
 import { DatePicker } from './screens/DatePickerScreen';
-import { PassengersPicker } from './screens/PassengersPickerScreen';
 import { CreateTicketBookingScreen } from './screens/CreateTicketBookingScreen';
 import { DigitalTicketScreen } from './screens/DigitalTicketScreen';
 import { TrackingScreen } from './screens/TrackingScreen';
@@ -34,7 +33,6 @@ export function BookingNavigator(): React.JSX.Element {
       <Stack.Screen name="PopularRoutes" component={PopularRoutesScreen} />
       <Stack.Screen name="CityPicker" component={CityPickerScreen} />
       <Stack.Screen name="DatePicker" component={DatePicker} />
-      <Stack.Screen name="PassengersPicker" component={PassengersPicker} />
       <Stack.Screen name="CreateTicketBooking" component={CreateTicketBookingScreen} />
       <Stack.Screen
         name="DigitalTicket"
