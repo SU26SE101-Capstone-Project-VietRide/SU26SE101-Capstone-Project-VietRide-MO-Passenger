@@ -33,7 +33,6 @@ export type BookingStackParamList = {
   PopularRoutes: undefined;
   CityPicker: { mode: 'from' | 'to' };
   DatePicker: { mode?: 'departure' | 'return' } | undefined;
-  PassengersPicker: { current: number };
   CreateTicketBooking: undefined;
   DigitalTicket: {
     bookingRef: string;

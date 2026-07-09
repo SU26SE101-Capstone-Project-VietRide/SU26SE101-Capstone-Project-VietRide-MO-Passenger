@@ -17,11 +17,80 @@ import type {
   PickUpPoint,
   TripResultsStatus,
   BookingResult,
-  RoundTripResult
+  RoundTripResult,
+  CreateBookingPayload
 } from '../types';
 import { searchTrips, getSeatMap } from '../../trip/api/tripApi';
 import { createBooking as apiCreateBooking, createRoundTripBooking } from '../api/bookingApi';
-import { getMockStationId } from '../utils/stationMapper';
+import { toApiError } from '@shared/api/errors';
+import { toTripSearchDate } from '../utils/searchParams';
+
+type BookingSubmissionResult = BookingResult | RoundTripResult;
+type LocationPayload = CreateBookingPayload['pickup'];
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const toBackendPaymentMethod = (method: PaymentMethod): 'WALLET' | 'VNPAY' => {
+  return method === 'wallet' ? 'WALLET' : 'VNPAY';
+};
+
+const buildTerminalPickUp = (trip: BusTrip): PickUpPoint => ({
+  id: `station-${trip.originStationId}`,
+  stationId: trip.originStationId,
+  name: trip.departureStation,
+  address: trip.departureCity,
+  time: trip.departureTime,
+  status: 'current',
+});
+
+const buildTerminalDropOff = (trip: BusTrip): DropOffPoint => ({
+  id: `station-${trip.destinationStationId}`,
+  stationId: trip.destinationStationId,
+  name: trip.arrivalStation,
+  address: trip.arrivalCity,
+  time: trip.arrivalTime,
+  status: 'current',
+});
+
+const toLocationPayload = (
+  point: PickUpPoint | DropOffPoint | null,
+  fallbackStationId?: string,
+): LocationPayload => {
+  const stationId = point?.stationId ?? fallbackStationId;
+  if (stationId) {
+    return { stationId };
+  }
+
+  const stopId = point?.stopId ?? (point?.id && UUID_PATTERN.test(point.id) ? point.id : undefined);
+  if (stopId) {
+    return { stopId };
+  }
+
+  return {};
+};
+
+const makeSeatRequests = (seats: Seat[], contactInfo: ContactInfo) =>
+  seats.map((seat) => ({
+    seatNumber: seat.id,
+    passenger: {
+      fullName: contactInfo.fullName.trim(),
+      phoneNumber: contactInfo.phone.trim(),
+      idNumber: contactInfo.idNumber.trim(),
+    },
+  }));
+
+const assertContactInfo = (contactInfo: ContactInfo) => {
+  if (!contactInfo.fullName.trim() || !contactInfo.phone.trim() || !contactInfo.idNumber.trim()) {
+    throw new Error('Full name, phone number and ID number are required to book tickets.');
+  }
+};
+
+const assertLocationPayload = (label: string, payload: LocationPayload) => {
+  const provided = Number(Boolean(payload.stationId)) + Number(Boolean(payload.stopId));
+  if (provided !== 1) {
+    throw new Error(`${label} must resolve to exactly one station or stop.`);
+  }
+};
 
 export interface OutboundState {
   trip: BusTrip | null;
@@ -51,8 +120,6 @@ export const getTotalSteps = (isRoundTrip: boolean): number => {
   return isRoundTrip ? OUTBOUND_STEPS + RETURN_STEPS + 2 : OUTBOUND_STEPS + 2;
 };
 import {
-  MOCK_TRIPS,
-  MOCK_SEAT_MAP,
   MOCK_CONTACT,
   MOCK_DROP_OFF_POINTS,
   MOCK_PICK_UP_POINTS,
@@ -110,12 +177,16 @@ interface BookingStore {
   // ─── Payment ─────────────────────────────────────────
   paymentMethod: PaymentMethod;
   setPaymentMethod: (method: PaymentMethod) => void;
+  voucherCode: string;
+  voucherDiscountPreview: number;
+  setVoucherCode: (code: string, discountPreview?: number) => void;
+  clearVoucher: () => void;
 
   // ─── Create Booking ──────────────────────────────────
   bookingStatus: 'idle' | 'loading' | 'success' | 'error';
   bookingResult: BookingResult | RoundTripResult | null;
   bookingError: string | null;
-  createBooking: () => Promise<void>;
+  createBooking: () => Promise<BookingSubmissionResult>;
 
   // ─── Reset ───────────────────────────────────────────
   resetBooking: () => void;
@@ -126,21 +197,72 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   searchParams: {
     from: '',
     to: '',
+    originLocationCode: '',
+    destinationLocationCode: '',
+    originStationId: '',
+    destinationStationId: '',
+    originStationName: '',
+    destinationStationName: '',
     date: 'Today',
     passengers: 1,
     isRoundTrip: false,
     returnDate: '',
   },
   setSearchParams: (params) =>
-    set((state) => ({
-      searchParams: { ...state.searchParams, ...params },
-    })),
+    set((state) => {
+      const nextParams = { ...params };
+
+      if (
+        params.from !== undefined
+        && params.from !== state.searchParams.from
+        && params.originLocationCode === undefined
+      ) {
+        nextParams.originLocationCode = '';
+        nextParams.originStationId = '';
+        nextParams.originStationName = '';
+      }
+      if (
+        params.to !== undefined
+        && params.to !== state.searchParams.to
+        && params.destinationLocationCode === undefined
+      ) {
+        nextParams.destinationLocationCode = '';
+        nextParams.destinationStationId = '';
+        nextParams.destinationStationName = '';
+      }
+      if (
+        params.originLocationCode !== undefined
+        && params.originLocationCode !== state.searchParams.originLocationCode
+        && params.originStationId === undefined
+      ) {
+        nextParams.originStationId = '';
+        nextParams.originStationName = '';
+      }
+      if (
+        params.destinationLocationCode !== undefined
+        && params.destinationLocationCode !== state.searchParams.destinationLocationCode
+        && params.destinationStationId === undefined
+      ) {
+        nextParams.destinationStationId = '';
+        nextParams.destinationStationName = '';
+      }
+
+      return {
+        searchParams: { ...state.searchParams, ...nextParams },
+      };
+    }),
   swapCities: () =>
     set((state) => ({
       searchParams: {
         ...state.searchParams,
         from: state.searchParams.to,
         to: state.searchParams.from,
+        originLocationCode: state.searchParams.destinationLocationCode,
+        destinationLocationCode: state.searchParams.originLocationCode,
+        originStationId: state.searchParams.destinationStationId,
+        destinationStationId: state.searchParams.originStationId,
+        originStationName: state.searchParams.destinationStationName,
+        destinationStationName: state.searchParams.originStationName,
       },
     })),
 
@@ -184,28 +306,42 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   tripResultsStatus: 'loading',
   trips: [],
   searchTrips: async () => {
-    const { searchParams } = get();
+    const { searchParams, currentLeg } = get();
     set({ tripResultsStatus: 'loading', trips: [] });
     try {
-      const originStationId = getMockStationId(searchParams.from, '3fa85f64-5717-4562-b3fc-2c963f66afa6');
-      const destinationStationId = getMockStationId(searchParams.to, '3fa85f64-5717-4562-b3fc-2c963f66afa7');
+      const isReturnLeg = currentLeg === 'return';
+      const originLocationCode = (
+        isReturnLeg ? searchParams.destinationLocationCode : searchParams.originLocationCode
+      ).trim().toUpperCase();
+      const destinationLocationCode = (
+        isReturnLeg ? searchParams.originLocationCode : searchParams.destinationLocationCode
+      ).trim().toUpperCase();
+      const originStationId = (
+        isReturnLeg ? searchParams.destinationStationId : searchParams.originStationId
+      ).trim();
+      const destinationStationId = (
+        isReturnLeg ? searchParams.originStationId : searchParams.destinationStationId
+      ).trim();
 
-      // Parse date "Today", "Tomorrow" or format it
-      let departureDate = new Date().toLocaleDateString('en-CA');
-      if (searchParams.date === 'Tomorrow') {
-        const tmr = new Date();
-        tmr.setDate(tmr.getDate() + 1);
-        departureDate = tmr.toLocaleDateString('en-CA');
-      } else if (searchParams.date !== 'Today') {
-        // assume it's already a valid date string or parse it
-        // for now just fallback to today
+      if (!originLocationCode || !destinationLocationCode) {
+        throw new Error('Please select both departure and destination provinces.');
+      }
+      if (originLocationCode === destinationLocationCode) {
+        throw new Error('Departure and destination provinces must be different.');
       }
 
+      const requestedDate = isReturnLeg ? searchParams.returnDate : searchParams.date;
+      const departureDate = toTripSearchDate(requestedDate ?? '');
+      const passengerCount = Math.max(1, Math.trunc(searchParams.passengers));
+
       const trips = await searchTrips({
-        originStationId,
-        destinationStationId,
+        originLocationCode,
+        destinationLocationCode,
+        ...(originStationId ? { originStationId } : {}),
+        ...(destinationStationId ? { destinationStationId } : {}),
         departureDate,
-        passengerCount: searchParams.passengers,
+        passengerCount,
+        allowAlongRoutePickup: false,
       });
       set({ tripResultsStatus: trips.length === 0 ? 'empty' : 'success', trips });
     } catch (error) {
@@ -216,10 +352,22 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
   // ─── Selected Trip ───────────────────────────────────
   selectedTrip: null,
-  selectTrip: (trip) => set({
-    selectedTrip: trip,
-    selectedSeats: [],
-    highestStepReached: 1,
+  selectTrip: (trip) => set((state) => {
+    const terminalPickUp = buildTerminalPickUp(trip);
+    const terminalDropOff = buildTerminalDropOff(trip);
+
+    return {
+      selectedTrip: trip,
+      selectedSeats: [],
+      seatMap: [],
+      pickUpPoints: [terminalPickUp],
+      dropOffPoints: [terminalDropOff],
+      selectedPickUp: terminalPickUp,
+      selectedDropOff: terminalDropOff,
+      voucherCode: '',
+      voucherDiscountPreview: 0,
+      highestStepReached: Math.max(state.highestStepReached, state.currentLeg === 'return' ? 5 : 1),
+    };
   }),
 
   // ─── Seats ───────────────────────────────────────────
@@ -295,6 +443,14 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   // ─── Payment ─────────────────────────────────────────
   paymentMethod: 'vnpay',
   setPaymentMethod: (method) => set({ paymentMethod: method }),
+  voucherCode: '',
+  voucherDiscountPreview: 0,
+  setVoucherCode: (code, discountPreview = 0) =>
+    set({
+      voucherCode: code.trim().toUpperCase(),
+      voucherDiscountPreview: Math.max(0, discountPreview),
+    }),
+  clearVoucher: () => set({ voucherCode: '', voucherDiscountPreview: 0 }),
 
   // ─── Create Booking ──────────────────────────────────
   bookingStatus: 'idle',
@@ -305,82 +461,84 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     set({ bookingStatus: 'loading', bookingError: null });
 
     try {
+      assertContactInfo(state.contactInfo);
+      const paymentMethod = toBackendPaymentMethod(state.paymentMethod);
+      const voucherCode = state.voucherCode || undefined;
+
+      if (state.searchParams.isRoundTrip && (!state.outboundState || !state.returnState)) {
+        throw new Error('Please complete both outbound and return trip details.');
+      }
+
       if (state.searchParams.isRoundTrip && state.outboundState && state.returnState) {
         // Round trip
+        const outboundTrip = state.outboundState.trip;
+        const returnTrip = state.returnState.trip;
+
+        if (!outboundTrip || !returnTrip) {
+          throw new Error('Please select both outbound and return trips.');
+        }
+
+        const outboundPickup = toLocationPayload(state.outboundState.pickUp, outboundTrip.originStationId);
+        const outboundDropoff = toLocationPayload(state.outboundState.dropOff, outboundTrip.destinationStationId);
+        const returnPickup = toLocationPayload(state.returnState.pickUp, returnTrip.originStationId);
+        const returnDropoff = toLocationPayload(state.returnState.dropOff, returnTrip.destinationStationId);
+
+        assertLocationPayload('Outbound pickup', outboundPickup);
+        assertLocationPayload('Outbound drop-off', outboundDropoff);
+        assertLocationPayload('Return pickup', returnPickup);
+        assertLocationPayload('Return drop-off', returnDropoff);
+
         const payload = {
           outbound: {
-            tripId: state.outboundState.trip!.id,
-            pickup: {
-              stationId: state.outboundState.pickUp?.stationId,
-              stopId: state.outboundState.pickUp?.stopId || state.outboundState.pickUp?.id,
-            },
-            dropoff: {
-              stationId: state.outboundState.dropOff?.stationId,
-              stopId: state.outboundState.dropOff?.stopId || state.outboundState.dropOff?.id,
-            },
-            seats: state.outboundState.seats.map((s) => ({
-              seatNumber: s.id,
-              passenger: {
-                fullName: state.contactInfo.fullName,
-                phoneNumber: state.contactInfo.phone,
-                idNumber: state.contactInfo.idNumber,
-              }
-            })),
+            tripId: outboundTrip.id,
+            pickup: outboundPickup,
+            dropoff: outboundDropoff,
+            seats: makeSeatRequests(state.outboundState.seats, state.contactInfo),
           },
           return: {
-            tripId: state.returnState.trip!.id,
-            pickup: {
-              stationId: state.returnState.pickUp?.stationId,
-              stopId: state.returnState.pickUp?.stopId || state.returnState.pickUp?.id,
-            },
-            dropoff: {
-              stationId: state.returnState.dropOff?.stationId,
-              stopId: state.returnState.dropOff?.stopId || state.returnState.dropOff?.id,
-            },
-            seats: state.returnState.seats.map((s) => ({
-              seatNumber: s.id,
-              passenger: {
-                fullName: state.contactInfo.fullName,
-                phoneNumber: state.contactInfo.phone,
-                idNumber: state.contactInfo.idNumber,
-              }
-            })),
+            tripId: returnTrip.id,
+            pickup: returnPickup,
+            dropoff: returnDropoff,
+            seats: makeSeatRequests(state.returnState.seats, state.contactInfo),
           },
-          paymentMethod: state.paymentMethod === 'vnpay' ? 'VNPAY' : 'WALLET' as 'VNPAY' | 'WALLET',
+          voucherCode,
+          paymentMethod,
         };
         const result = await createRoundTripBooking(payload);
         set({ bookingStatus: 'success', bookingResult: result });
+        return result;
       } else {
         // One way
+        if (!state.selectedTrip) {
+          throw new Error('Please select a trip before booking.');
+        }
+
+        const pickup = toLocationPayload(state.selectedPickUp, state.selectedTrip.originStationId);
+        const dropoff = toLocationPayload(state.selectedDropOff, state.selectedTrip.destinationStationId);
+
+        assertLocationPayload('Pickup', pickup);
+        assertLocationPayload('Drop-off', dropoff);
+
         const payload = {
-          tripId: state.selectedTrip!.id,
-          pickup: {
-            stationId: state.selectedPickUp?.stationId,
-            stopId: state.selectedPickUp?.stopId || state.selectedPickUp?.id,
-          },
-          dropoff: {
-            stationId: state.selectedDropOff?.stationId,
-            stopId: state.selectedDropOff?.stopId || state.selectedDropOff?.id,
-          },
-          seats: state.selectedSeats.map((s) => ({
-            seatNumber: s.id,
-            passenger: {
-              fullName: state.contactInfo.fullName,
-              phoneNumber: state.contactInfo.phone,
-              idNumber: state.contactInfo.idNumber,
-            }
-          })),
-          paymentMethod: state.paymentMethod === 'vnpay' ? 'VNPAY' : 'WALLET' as 'VNPAY' | 'WALLET',
+          tripId: state.selectedTrip.id,
+          pickup,
+          dropoff,
+          seats: makeSeatRequests(state.selectedSeats, state.contactInfo),
+          voucherCode,
+          paymentMethod,
         };
         const result = await apiCreateBooking(payload);
         set({ bookingStatus: 'success', bookingResult: result });
+        return result;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = toApiError(error);
       console.error('[Booking] Create failed:', error);
       set({ 
         bookingStatus: 'error', 
-        bookingError: error.response?.data?.message || 'Có lỗi xảy ra khi đặt vé'
+        bookingError: apiError.message || 'Could not create your booking. Please try again.'
       });
+      throw apiError;
     }
   },
 
@@ -403,7 +561,20 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   // ─── Reset ───────────────────────────────────────────
   resetBooking: () =>
     set({
-      searchParams: { from: '', to: '', date: 'Today', passengers: 1, isRoundTrip: false, returnDate: '' },
+      searchParams: {
+        from: '',
+        to: '',
+        originLocationCode: '',
+        destinationLocationCode: '',
+        originStationId: '',
+        destinationStationId: '',
+        originStationName: '',
+        destinationStationName: '',
+        date: 'Today',
+        passengers: 1,
+        isRoundTrip: false,
+        returnDate: '',
+      },
       currentLeg: 'outbound',
       outboundState: null,
       returnState: null,
@@ -413,9 +584,16 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       seatMap: [],
       selectedSeats: [],
       contactInfo: MOCK_CONTACT,
+      pickUpPoints: MOCK_PICK_UP_POINTS,
+      dropOffPoints: MOCK_DROP_OFF_POINTS,
       selectedPickUp: MOCK_PICK_UP_POINTS[0],
       selectedDropOff: MOCK_DROP_OFF_POINTS[0],
       paymentMethod: 'vnpay',
+      voucherCode: '',
+      voucherDiscountPreview: 0,
+      bookingStatus: 'idle',
+      bookingResult: null,
+      bookingError: null,
       highestStepReached: 1,
     }),
 }));

@@ -15,6 +15,7 @@ import {
   Easing,
   Modal,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -38,6 +39,7 @@ import { PickUpScreen as PickUpStep } from './PickUpScreen';
 import { DropOffScreen as DropOffStep } from './DropOffScreen';
 import { CheckoutScreen as CheckoutStep } from './CheckoutScreen';
 import { PaymentScreen as PaymentStep } from './PaymentScreen';
+import type { BookingResult, RoundTripResult } from '../types';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'CreateTicketBooking'>;
 
@@ -123,6 +125,14 @@ const makeTravelDateRangeLabel = (
   returnDate?: string,
 ): string => {
   return `${outboundDate || 'Depart date'} ↔ ${returnDate || 'Return date'}`;
+};
+
+const getBookingReference = (result: BookingResult | RoundTripResult): string => {
+  if ('bookingCode' in result) {
+    return result.bookingCode;
+  }
+
+  return `${result.outbound.bookingCode}/${result.return.bookingCode}`;
 };
 
 function FilterChip({
@@ -465,15 +475,31 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
       selectedPickUp: null,
       selectedDropOff: null,
       // Do NOT reset pickUpPoints and dropOffPoints - they contain MOCK data
-      contactInfo: { fullName: '', phone: '', email: '', phoneCountryCode: '' },
+      contactInfo: { fullName: '', phone: '', email: '', phoneCountryCode: '', idNumber: '' },
       paymentMethod: 'vnpay',
+      voucherCode: '',
+      voucherDiscountPreview: 0,
+      bookingStatus: 'idle',
+      bookingResult: null,
+      bookingError: null,
       highestStepReached: 0,
       tripResultsStatus: 'loading',
       trips: [],
     });
     setTripFilters(DEFAULT_TRIP_FILTERS);
     setStep(1);
-  }, [searchParams.from, searchParams.to, searchParams.date, searchParams.isRoundTrip]);
+  }, [
+    searchParams.date,
+    searchParams.destinationLocationCode,
+    searchParams.from,
+    searchParams.isRoundTrip,
+    searchParams.originLocationCode,
+    searchParams.originStationId,
+    searchParams.passengers,
+    searchParams.returnDate,
+    searchParams.to,
+    searchParams.destinationStationId,
+  ]);
 
   const operatorOptions = useMemo(() => {
     return Array.from(new Set(trips.map((trip) => trip.operatorBadge))).filter(Boolean);
@@ -584,9 +610,20 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     setTripFilters(DEFAULT_TRIP_FILTERS);
   }, []);
 
-  const handleFinishBooking = () => {
-    navigation.navigate('DigitalTicket', { bookingRef: 'VR-' + Date.now().toString().slice(-8) });
-  };
+  const handleFinishBooking = useCallback(async () => {
+    try {
+      const result = await useBookingStore.getState().createBooking();
+      if (result.paymentRedirectUrl) {
+        Linking.openURL(result.paymentRedirectUrl).catch((error) => {
+          console.warn('[Booking] Could not open payment redirect:', error);
+        });
+      }
+
+      navigation.navigate('DigitalTicket', { bookingRef: getBookingReference(result) });
+    } catch {
+      // PaymentScreen observes bookingError from the store and keeps the user in place.
+    }
+  }, [navigation]);
 
   const renderStep = () => {
     if (isRoundTrip) {
@@ -770,14 +807,14 @@ const createStyles = (theme: AppTheme) => ({
   routeHeaderShell: {
     width: '100%',
     minWidth: 0,
-    height: 46,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
   routeSecondaryShell: {
     width: '100%',
-    height: 18,
+    height: 22,
     marginTop: spacing.xs,
     overflow: 'hidden',
   },
@@ -799,6 +836,7 @@ const createStyles = (theme: AppTheme) => ({
   routeSecondary: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
+    lineHeight: 20,
     color: theme.colors.textSecondary,
     textAlign: 'center',
     maxWidth: '100%',

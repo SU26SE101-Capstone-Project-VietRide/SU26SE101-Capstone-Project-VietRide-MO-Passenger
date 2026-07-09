@@ -17,6 +17,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 
 import { queryClient } from '@shared/api/queryClient';
 import { RootNavigator } from '@app/navigation/RootNavigator';
+import { useLocations } from '@features/location/hooks/useLocations';
 
 // Side-effect: initializes i18next
 import '@shared/i18n';
@@ -25,9 +26,15 @@ interface AppProvidersProps {
   children?: React.ReactNode;
 }
 
+function LocationCatalogBootstrap(): null {
+  useLocations();
+  return null;
+}
+
 export function AppProviders({ children }: AppProvidersProps): React.JSX.Element {
   return (
     <QueryClientProvider client={queryClient}>
+      <LocationCatalogBootstrap />
       <SafeAreaProvider>
         <ThemeProvider>
           <NavigationContainer>

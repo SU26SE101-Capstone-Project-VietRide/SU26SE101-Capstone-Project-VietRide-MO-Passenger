@@ -5,39 +5,62 @@ import type {
   CreateRoundTripPayload, 
   BookingHistoryItem,
   BookingResult,
-  RoundTripResult
+  RoundTripResult,
+  AvailableVoucherItem,
+  GetAvailableVouchersParams,
+  PromotionItem
 } from '../types';
 
 export const bookingKeys = {
   all: ['bookings'] as const,
   history: () => [...bookingKeys.all, 'history'] as const,
   detail: (id: string) => [...bookingKeys.all, id] as const,
+  availableVouchers: (params: GetAvailableVouchersParams) =>
+    [...bookingKeys.all, 'vouchers', 'available', params] as const,
+  promotions: (service: string) => [...bookingKeys.all, 'promotions', service] as const,
+};
+
+const createIdempotencyKey = (): string => {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).slice(2, 10);
+  return `mobile-${timestamp}-${random}`;
 };
 
 export async function createBooking(payload: CreateBookingPayload) {
-  // Use crypto.randomUUID() for Idempotency-Key
-  const idempotencyKey = Date.now().toString(36) + Math.random().toString(36).substring(2);
   const response = await apiClient.post<ApiEnvelope<BookingResult>>('/bookings', payload, {
     headers: {
-      'Idempotency-Key': idempotencyKey,
+      'Idempotency-Key': createIdempotencyKey(),
     },
-    skipAuthRefresh: true,
   });
   return unwrapApiResponse(response.data);
 }
 
 export async function createRoundTripBooking(payload: CreateRoundTripPayload) {
-  const idempotencyKey = Date.now().toString(36) + Math.random().toString(36).substring(2);
   const response = await apiClient.post<ApiEnvelope<RoundTripResult>>('/bookings/round-trip', payload, {
     headers: {
-      'Idempotency-Key': idempotencyKey,
+      'Idempotency-Key': createIdempotencyKey(),
     },
-    skipAuthRefresh: true,
   });
   return unwrapApiResponse(response.data);
 }
 
 export async function getBookingHistory(): Promise<BookingHistoryItem[]> {
   const response = await apiClient.get<ApiEnvelope<BookingHistoryItem[]>>('/bookings/history');
+  return unwrapApiResponse(response.data);
+}
+
+export async function getAvailableVouchers(
+  params: GetAvailableVouchersParams,
+): Promise<AvailableVoucherItem[]> {
+  const response = await apiClient.get<ApiEnvelope<AvailableVoucherItem[]>>('/vouchers/available', {
+    params,
+  });
+  return unwrapApiResponse(response.data);
+}
+
+export async function getPromotions(service = 'BOOKING'): Promise<PromotionItem[]> {
+  const response = await apiClient.get<ApiEnvelope<PromotionItem[]>>('/promotions', {
+    params: { service },
+  });
   return unwrapApiResponse(response.data);
 }

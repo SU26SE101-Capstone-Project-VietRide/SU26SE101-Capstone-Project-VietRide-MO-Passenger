@@ -1,53 +1,48 @@
-/** PaymentScreen — Ticket Payment Breakdown
- *
- * Visual style: matches Parcel flow (Bento UI, dotted route tracks)
- */
-
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { QrCode, CreditCard } from 'phosphor-react-native';
+import { QrCode, CreditCard, Wallet } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import type { PromoOffer } from '@shared/utils/promo';
-import {
-  calculatePromoDiscount,
-  findPromoByCode,
-  formatCurrency,
-  isPromoExpired,
-  normalizePromoCode,
-} from '@shared/utils/promo';
+import { normalizePromoCode } from '@shared/utils/promo';
 import { FloatingActionBar } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
+import { useAvailableBookingVouchers } from '../hooks/useAvailableBookingVouchers';
+import type { AvailableVoucherItem, PaymentMethod } from '../types';
 
 interface PaymentStepProps {
-  onNext: () => void;
+  onNext: () => void | Promise<void>;
 }
 
-const TICKET_PROMOS: PromoOffer[] = [
-  {
-    id: 'ticket-vietride-50k',
-    code: 'VIETRIDE50',
-    title: 'Save 50K on bus tickets',
-    description: 'For one-way and round-trip ticket bookings from ₫300,000.',
-    discountLabel: '50K OFF',
-    expiresAt: '2026-12-31T23:59:59+07:00',
-    minimumSpend: 300000,
-    discount: { type: 'fixed', amount: 50000 },
-  },
-  {
-    id: 'ticket-summer-10',
-    code: 'SUMMER10',
-    title: '10% off selected trips',
-    description: 'Limited campaign for sleeper and limousine routes.',
-    discountLabel: '10% OFF',
-    expiresAt: '2026-08-31T23:59:59+07:00',
-    minimumSpend: 200000,
-    discount: { type: 'percent', percent: 10, maxAmount: 80000 },
-  },
-];
+const formatMoney = (amount: number): string => `${Math.max(amount, 0).toLocaleString('vi-VN')} VND`;
+
+const toBackendPaymentMethod = (method: PaymentMethod): 'WALLET' | 'VNPAY' =>
+  method === 'wallet' ? 'WALLET' : 'VNPAY';
+
+const getVoucherLabel = (voucher: AvailableVoucherItem): string => {
+  if (voucher.type === 'PERCENT_OFF') {
+    return `${voucher.value}% OFF`;
+  }
+
+  return `${formatMoney(voucher.discountAmount || voucher.value)} OFF`;
+};
+
+const toPromoOffer = (voucher: AvailableVoucherItem): PromoOffer => ({
+  id: voucher.id,
+  code: voucher.code,
+  title: voucher.name,
+  description:
+    voucher.discountAmount > 0
+      ? `Estimated saving ${formatMoney(voucher.discountAmount)} for this booking.`
+      : 'Final discount is checked again at checkout.',
+  discountLabel: getVoucherLabel(voucher),
+  expiresAt: voucher.validUntil,
+  minimumSpend: voucher.minOrderAmount,
+  discount: { type: 'fixed', amount: voucher.discountAmount },
+});
 
 export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
   const theme = useTheme();
@@ -59,91 +54,182 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     setHighestStep,
     outboundState,
     returnState,
+    selectedTrip,
+    selectedSeats,
+    selectedPickUp,
+    selectedDropOff,
     searchParams,
+    voucherCode,
+    voucherDiscountPreview,
+    setVoucherCode,
+    clearVoucher,
+    bookingStatus,
+    bookingError,
   } = useBookingStore();
 
-  React.useEffect(() => {
+  useEffect(() => {
     const paymentStep = searchParams.isRoundTrip ? 10 : 6;
-    setHighestStep(paymentStep); // Payment is the final step
+    setHighestStep(paymentStep);
   }, [setHighestStep, searchParams.isRoundTrip]);
 
-  const [promoCode, setPromoCode] = useState('');
-  const [appliedPromo, setAppliedPromo] = useState<PromoOffer | null>(null);
+  const [promoCode, setPromoCode] = useState(voucherCode);
+  const [appliedVoucher, setAppliedVoucher] = useState<AvailableVoucherItem | null>(null);
   const [promoError, setPromoError] = useState<string | undefined>(undefined);
 
   const baseFare = totalPrice();
-  const promoDiscount = useMemo(
-    () => (appliedPromo ? calculatePromoDiscount(appliedPromo, baseFare) : 0),
-    [appliedPromo, baseFare],
-  );
-  const finalPrice = Math.max(baseFare - promoDiscount, 0);
+  const paymentMethodForApi = useMemo(() => toBackendPaymentMethod(paymentMethod), [paymentMethod]);
 
-  // Determine which leg to display (return leg for round trip, outbound for one-way)
   const displayLeg = useMemo(() => {
     if (searchParams.isRoundTrip) {
-      return returnState; // Show return leg for round trip
+      return returnState ?? outboundState;
     }
-    return outboundState; // Show outbound for one-way
-  }, [searchParams.isRoundTrip, returnState, outboundState]);
+
+    return {
+      trip: selectedTrip,
+      seats: selectedSeats,
+      pickUp: selectedPickUp,
+      dropOff: selectedDropOff,
+    };
+  }, [
+    outboundState,
+    returnState,
+    searchParams.isRoundTrip,
+    selectedDropOff,
+    selectedPickUp,
+    selectedSeats,
+    selectedTrip,
+  ]);
+
+  const allSelectedSeats = useMemo(() => {
+    if (!searchParams.isRoundTrip) {
+      return selectedSeats;
+    }
+
+    return [...(outboundState?.seats ?? []), ...(returnState?.seats ?? [])];
+  }, [outboundState?.seats, returnState?.seats, searchParams.isRoundTrip, selectedSeats]);
+
+  const voucherLegs = useMemo(() => {
+    if (searchParams.isRoundTrip) {
+      return [outboundState, returnState]
+        .filter((leg): leg is NonNullable<typeof leg> => Boolean(leg?.trip && leg.seats.length > 0))
+        .map((leg) => ({
+          tripId: leg.trip!.id,
+          orderAmount: leg.trip!.price * leg.seats.length,
+        }));
+    }
+
+    if (!selectedTrip || selectedSeats.length === 0) {
+      return [];
+    }
+
+    return [{ tripId: selectedTrip.id, orderAmount: selectedTrip.price * selectedSeats.length }];
+  }, [outboundState, returnState, searchParams.isRoundTrip, selectedSeats.length, selectedTrip]);
+
+  const {
+    data: availableVouchers = [],
+    isFetching: vouchersFetching,
+    isError: vouchersFailed,
+  } = useAvailableBookingVouchers({
+    legs: voucherLegs,
+    paymentMethod: paymentMethodForApi,
+    enabled: baseFare > 0,
+  });
+
+  const voucherPromos = useMemo(
+    () => availableVouchers.map(toPromoOffer),
+    [availableVouchers],
+  );
+
+  useEffect(() => {
+    if (!voucherCode) {
+      return;
+    }
+
+    const match = availableVouchers.find(
+      (voucher) => normalizePromoCode(voucher.code) === normalizePromoCode(voucherCode),
+    );
+
+    if (match) {
+      setAppliedVoucher(match);
+      setPromoCode(match.code);
+      if (voucherDiscountPreview !== match.discountAmount) {
+        setVoucherCode(match.code, match.discountAmount);
+      }
+      return;
+    }
+
+    if (!vouchersFetching) {
+      setAppliedVoucher(null);
+      setPromoCode('');
+      clearVoucher();
+      setPromoError('Selected voucher is not available for this booking.');
+    }
+  }, [
+    availableVouchers,
+    clearVoucher,
+    setVoucherCode,
+    voucherCode,
+    voucherDiscountPreview,
+    vouchersFetching,
+  ]);
 
   const trip = displayLeg?.trip;
-  const seats = displayLeg?.seats || [];
+  const seats = displayLeg?.seats ?? [];
   const pickUp = displayLeg?.pickUp;
   const dropOff = displayLeg?.dropOff;
+  const promoDiscount = appliedVoucher?.discountAmount ?? voucherDiscountPreview;
+  const finalPrice = Math.max(baseFare - promoDiscount, 0);
+  const isSubmitting = bookingStatus === 'loading';
+  const promoInputError = promoError
+    ?? (vouchersFailed ? 'Could not refresh vouchers. You can continue without one.' : undefined);
 
   const handlePayNow = useCallback(() => {
-    onNext();
-  }, [onNext]);
+    if (!isSubmitting) {
+      onNext();
+    }
+  }, [isSubmitting, onNext]);
 
   const handlePromoCodeChange = useCallback((text: string) => {
     const normalizedCode = text.toUpperCase();
     setPromoCode(normalizedCode);
     setPromoError(undefined);
-    setAppliedPromo((currentPromo) => {
-      if (!currentPromo) {
-        return null;
-      }
 
-      return normalizePromoCode(normalizedCode) === normalizePromoCode(currentPromo.code)
-        ? currentPromo
-        : null;
-    });
-  }, []);
+    if (
+      appliedVoucher
+      && normalizePromoCode(normalizedCode) !== normalizePromoCode(appliedVoucher.code)
+    ) {
+      setAppliedVoucher(null);
+      clearVoucher();
+    }
+  }, [appliedVoucher, clearVoucher]);
 
   const handlePromoApply = useCallback((nextCode: string, selectedPromo?: PromoOffer) => {
-    const normalizedCode = normalizePromoCode(nextCode);
-    const promo = selectedPromo || findPromoByCode(TICKET_PROMOS, normalizedCode);
-
+    const normalizedCode = normalizePromoCode(selectedPromo?.code ?? nextCode);
     setPromoCode(normalizedCode);
 
     if (!normalizedCode) {
-      setAppliedPromo(null);
+      setAppliedVoucher(null);
+      clearVoucher();
       setPromoError('Enter a promo code to apply.');
       return false;
     }
 
-    if (!promo) {
-      setAppliedPromo(null);
-      setPromoError('This promo code is not available for ticket booking.');
+    const voucher = availableVouchers.find(
+      (item) => normalizePromoCode(item.code) === normalizedCode,
+    );
+
+    if (!voucher) {
+      setAppliedVoucher(null);
+      clearVoucher();
+      setPromoError('This voucher is not available for the selected trip and payment method.');
       return false;
     }
 
-    if (isPromoExpired(promo)) {
-      setAppliedPromo(null);
-      setPromoError('This promo code has expired.');
-      return false;
-    }
-
-    if (promo.minimumSpend && baseFare < promo.minimumSpend) {
-      setAppliedPromo(null);
-      setPromoError(`Minimum ticket fare is ${formatCurrency(promo.minimumSpend)}.`);
-      return false;
-    }
-
-    setAppliedPromo(promo);
+    setAppliedVoucher(voucher);
+    setVoucherCode(voucher.code, voucher.discountAmount);
     setPromoError(undefined);
     return true;
-  }, [baseFare]);
+  }, [availableVouchers, clearVoucher, setVoucherCode]);
 
   return (
     <View style={styles.container}>
@@ -151,116 +237,113 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
         <Text style={styles.headerTitle}>Payment Details</Text>
       </View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Route bento details card */}
-          <View style={styles.bentoSummaryCard}>
-            <View style={styles.bentoAccent} />
-            <Text style={styles.bentoCardHeading}>Route Information</Text>
-            <View style={styles.summaryRoute}>
-              <View style={styles.routeTrack}>
-                <View style={styles.dotStart} />
-                <View style={styles.dottedDivider} />
-                <View style={styles.dotEnd} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        <View style={styles.bentoSummaryCard}>
+          <View style={styles.bentoAccent} />
+          <Text style={styles.bentoCardHeading}>Route Information</Text>
+          <View style={styles.summaryRoute}>
+            <View style={styles.routeTrack}>
+              <View style={styles.dotStart} />
+              <View style={styles.dottedDivider} />
+              <View style={styles.dotEnd} />
+            </View>
+            <View style={styles.routeDetailsText}>
+              <View style={styles.routeStationSection}>
+                <Text style={styles.routeLabelText}>BOARDING AT {pickUp?.time ?? ''}</Text>
+                <Text style={styles.routeStationName}>{pickUp?.name ?? 'Pick-up Point'}</Text>
+                <Text style={styles.routeStationCity}>{pickUp?.address ?? ''}</Text>
               </View>
-              <View style={styles.routeDetailsText}>
-                <View style={styles.routeStationSection}>
-                  <Text style={styles.routeLabelText}>BOARDING AT {pickUp?.time || ''}</Text>
-                  <Text style={styles.routeStationName}>{pickUp?.name || 'Pick-up Point'}</Text>
-                  <Text style={styles.routeStationCity}>{pickUp?.address || ''}</Text>
-                </View>
-                <View style={styles.routeStationSection}>
-                  <Text style={styles.routeLabelText}>ALIGHTING AT {dropOff?.time || ''}</Text>
-                  <Text style={styles.routeStationName}>{dropOff?.name || 'Drop-off Point'}</Text>
-                  <Text style={styles.routeStationCity}>{dropOff?.address || ''}</Text>
-                </View>
+              <View style={styles.routeStationSection}>
+                <Text style={styles.routeLabelText}>ALIGHTING AT {dropOff?.time ?? ''}</Text>
+                <Text style={styles.routeStationName}>{dropOff?.name ?? 'Drop-off Point'}</Text>
+                <Text style={styles.routeStationCity}>{dropOff?.address ?? ''}</Text>
               </View>
             </View>
           </View>
+        </View>
 
-          {/* Ticket Specifications */}
-          <View style={styles.bentoSummaryCard}>
-            <Text style={styles.bentoCardHeading}>Ticket Specifications</Text>
-            <View style={styles.specCardRow}>
-              <View style={styles.specIcon}>
-                <CreditCard size={22} color={theme.colors.primary} weight="duotone" />
-              </View>
-              <View style={styles.specDetails}>
-                <Text style={styles.specTitle}>
-                  {trip?.busType || 'Bus Ticket'}
-                </Text>
-                <Text style={styles.specMeta}>
-                  Seats: {seats.map((s: any) => s.label).join(', ')} • Qty: {seats.length}
-                </Text>
-              </View>
+        <View style={styles.bentoSummaryCard}>
+          <Text style={styles.bentoCardHeading}>Ticket Specifications</Text>
+          <View style={styles.specCardRow}>
+            <View style={styles.specIcon}>
+              <CreditCard size={22} color={theme.colors.primary} weight="duotone" />
+            </View>
+            <View style={styles.specDetails}>
+              <Text style={styles.specTitle}>{trip?.busType ?? 'Bus Ticket'}</Text>
+              <Text style={styles.specMeta}>
+                Seats: {seats.map((seat) => seat.label).join(', ')} - Qty: {seats.length}
+              </Text>
             </View>
           </View>
+        </View>
 
-          {/* Payment Method */}
-          <View style={styles.bentoSummaryCard}>
-            <Text style={styles.bentoCardHeading}>Payment Method</Text>
-            <PaymentOption
-              selected={paymentMethod === 'vnpay'}
-              label="VNPAY / Momo QR"
-              sub="Scan app QR to pay"
-              Icon={QrCode}
-              iconColor={theme.colors.accentDark}
-              onSelect={() => setPaymentMethod('vnpay')}
-            />
-            <PaymentOption
-              selected={paymentMethod === 'card'}
-              label="Credit / Debit Card"
-              sub="Visa, Mastercard, JCB"
-              Icon={CreditCard}
-              iconColor={theme.colors.success}
-              onSelect={() => setPaymentMethod('card')}
-            />
-          </View>
-
-          {/* Promo Code */}
-          <PromoCodeInput
-            code={promoCode}
-            onChange={handlePromoCodeChange}
-            applied={Boolean(appliedPromo)}
-            onApplyCode={handlePromoApply}
-            promos={TICKET_PROMOS}
-            selectedPromoCode={appliedPromo?.code}
-            appliedLabel={appliedPromo ? `${appliedPromo.code} Applied` : undefined}
-            errorText={promoError}
+        <View style={styles.bentoSummaryCard}>
+          <Text style={styles.bentoCardHeading}>Payment Method</Text>
+          <PaymentOption
+            selected={paymentMethod === 'vnpay'}
+            label="VNPAY / Momo QR"
+            sub="Pay by secure redirect"
+            Icon={QrCode}
+            iconColor={theme.colors.accentDark}
+            onSelect={() => setPaymentMethod('vnpay')}
           />
+          <PaymentOption
+            selected={paymentMethod === 'wallet'}
+            label="VietRide Wallet"
+            sub="Use wallet balance"
+            Icon={Wallet}
+            iconColor={theme.colors.success}
+            onSelect={() => setPaymentMethod('wallet')}
+          />
+        </View>
 
-          {/* Pricing Breakdown details card */}
-          <View style={styles.bentoSummaryCard}>
-            <Text style={styles.bentoCardHeading}>Payment Breakdown</Text>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Base Ticket Fare ({seats.length}x)</Text>
-              <Text style={styles.priceValue}>₫{baseFare.toLocaleString('vi-VN')}</Text>
-            </View>
-            {appliedPromo ? (
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>Promo Discount</Text>
-                <Text style={[styles.priceValue, { color: theme.colors.success }]}>
-                  -₫{promoDiscount.toLocaleString('vi-VN')}
-                </Text>
-              </View>
-            ) : null}
-            <View style={styles.summaryDivider} />
-            <View style={[styles.priceRow, { marginTop: spacing.md }]}>
-              <Text style={styles.totalLabel}>Total Price</Text>
-              <Text style={styles.totalValue}>₫{finalPrice.toLocaleString('vi-VN')}</Text>
-            </View>
-          </View>
-
-        </ScrollView>
-
-        <FloatingActionBar
-          selectedSeats={seats}
-          totalPrice={finalPrice}
-          ctaLabel="Pay Now"
-          onPress={handlePayNow}
+        <PromoCodeInput
+          code={promoCode}
+          onChange={handlePromoCodeChange}
+          applied={Boolean(appliedVoucher)}
+          onApplyCode={handlePromoApply}
+          promos={voucherPromos}
+          selectedPromoCode={appliedVoucher?.code}
+          appliedLabel={appliedVoucher ? `${appliedVoucher.code} Applied` : undefined}
+          errorText={promoInputError}
         />
+
+        <View style={styles.bentoSummaryCard}>
+          <Text style={styles.bentoCardHeading}>Payment Breakdown</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Base Ticket Fare ({allSelectedSeats.length}x)</Text>
+            <Text style={styles.priceValue}>{formatMoney(baseFare)}</Text>
+          </View>
+          {appliedVoucher ? (
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Voucher Discount</Text>
+              <Text style={[styles.priceValue, styles.discountValue]}>
+                -{formatMoney(promoDiscount)}
+              </Text>
+            </View>
+          ) : null}
+          <View style={styles.summaryDivider} />
+          <View style={[styles.priceRow, styles.totalRowSpacing]}>
+            <Text style={styles.totalLabel}>Total Price</Text>
+            <Text style={styles.totalValue}>{formatMoney(finalPrice)}</Text>
+          </View>
+          {bookingError ? (
+            <Text style={styles.submitErrorText}>{bookingError}</Text>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      <FloatingActionBar
+        selectedSeats={allSelectedSeats}
+        totalPrice={finalPrice}
+        ctaLabel={isSubmitting ? 'Processing...' : paymentMethod === 'vnpay' ? 'Pay with VNPAY' : 'Confirm Booking'}
+        onPress={handlePayNow}
+        disabled={isSubmitting || baseFare <= 0}
+      />
     </View>
   );
 }
@@ -281,7 +364,7 @@ const PaymentOption = ({ selected, label, sub, Icon, iconColor, onSelect }: Paym
     <Pressable
       style={({ pressed }) => [
         styles.paymentOption,
-        selected && styles.paymentOptionActive,
+        selected ? styles.paymentOptionActive : null,
         pressed ? styles.paymentOptionPressed : null,
       ]}
       onPress={onSelect}
@@ -496,10 +579,16 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
     textAlign: 'right',
   },
+  discountValue: {
+    color: theme.colors.success,
+  },
   summaryDivider: {
     height: 1,
     backgroundColor: theme.colors.divider,
     marginVertical: spacing.sm,
+  },
+  totalRowSpacing: {
+    marginTop: spacing.md,
   },
   totalLabel: {
     fontFamily: fontFamilies.semiBold,
@@ -510,5 +599,12 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.primary,
+  },
+  submitErrorText: {
+    marginTop: spacing.md,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.error,
+    lineHeight: 18,
   },
 });

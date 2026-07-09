@@ -29,12 +29,18 @@ import {
 } from 'phosphor-react-native';
 
 // Booking shared components & data
-import { RouteCard, RecentSearchCard } from '../../booking/components';
+import {
+  PassengerCountInput,
+  RouteCard,
+  RecentSearchCard,
+} from '../../booking/components';
 import { MOCK_POPULAR_ROUTES, MOCK_RECENT_SEARCHES } from '../../booking/data/mockData';
 
 // Subcomponents
 import { NewsPromos } from '../components/NewsPromos';
 import { RecentShipmentsSection } from '../components/RecentShipmentsSection';
+import { useLocations } from '@features/location/hooks/useLocations';
+import { findLocationByName } from '../../booking/utils/searchParams';
 
 export function HomeScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
@@ -42,11 +48,19 @@ export function HomeScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const { data: locations = [] } = useLocations();
 
   const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
 
   // Booking flow state/actions
   const { searchParams, swapCities, setSearchParams } = useBookingStore();
+  const canSearchTickets = Boolean(
+    searchParams.originLocationCode
+    && searchParams.destinationLocationCode
+    && searchParams.originLocationCode !== searchParams.destinationLocationCode
+    && searchParams.date
+    && (!searchParams.isRoundTrip || searchParams.returnDate),
+  );
 
   // Parcel flow state/actions
   const { fromCity, toCity, toDistrict } = useParcelStore();
@@ -63,12 +77,24 @@ export function HomeScreen(): React.JSX.Element {
 
   const handlePopularPress = useCallback(
     (item: { from: string; to: string }) => {
-      setSearchParams({ from: item.from, to: item.to });
+      const origin = findLocationByName(locations, item.from);
+      const destination = findLocationByName(locations, item.to);
+      setSearchParams({
+        from: origin?.name ?? item.from,
+        to: destination?.name ?? item.to,
+        originLocationCode: origin?.code ?? '',
+        destinationLocationCode: destination?.code ?? '',
+        originStationId: '',
+        destinationStationId: '',
+        originStationName: '',
+        destinationStationName: '',
+      });
       navigation.navigate('Booking', {
-        screen: 'CreateTicketBooking',
+        screen: 'CityPicker',
+        params: { mode: 'from' },
       });
     },
-    [navigation, setSearchParams],
+    [locations, navigation, setSearchParams],
   );
 
   const handleViewAllPopular = useCallback(() => {
@@ -82,10 +108,24 @@ export function HomeScreen(): React.JSX.Element {
       const parts = item.route.split(/\s+to\s+/i);
       const from = parts[0]?.trim() || '';
       const to = parts[1]?.trim() || '';
-      setSearchParams({ from, to });
-      navigation.navigate('Booking', { screen: 'DatePicker' });
+      const origin = findLocationByName(locations, from);
+      const destination = findLocationByName(locations, to);
+      setSearchParams({
+        from: origin?.name ?? from,
+        to: destination?.name ?? to,
+        originLocationCode: origin?.code ?? '',
+        destinationLocationCode: destination?.code ?? '',
+        originStationId: '',
+        destinationStationId: '',
+        originStationName: '',
+        destinationStationName: '',
+      });
+      navigation.navigate('Booking', {
+        screen: 'CityPicker',
+        params: { mode: 'from' },
+      });
     },
-    [navigation, setSearchParams],
+    [locations, navigation, setSearchParams],
   );
 
   const openBookingCityPicker = useCallback(
@@ -101,6 +141,13 @@ export function HomeScreen(): React.JSX.Element {
   const openBookingDatePicker = useCallback((mode: 'departure' | 'return' = 'departure') => {
     navigation.navigate('Booking', { screen: 'DatePicker', params: { mode } });
   }, [navigation]);
+
+  const handlePassengersChange = useCallback(
+    (passengers: number) => {
+      setSearchParams({ passengers });
+    },
+    [setSearchParams],
+  );
 
   // Parcel handlers
   const openParcelCityPicker = useCallback(
@@ -209,18 +256,20 @@ export function HomeScreen(): React.JSX.Element {
             {activeTab === 'ticket' ? (
               // Booking Form
               <View>
-                <Text style={styles.fieldLabel}>From</Text>
+                <Text style={styles.fieldLabel}>Departure location</Text>
                 <Pressable
                   style={styles.selectorField}
                   onPress={() => openBookingCityPicker('from')}
                 >
                   <MapPin size={20} color={theme.colors.primary} weight="bold" />
                   <Text style={searchParams.from ? styles.selectorText : styles.selectorPlaceholder}>
-                    {searchParams.from || 'Select origin city'}
+                    {searchParams.originStationName || searchParams.from || 'Select origin province'}
                   </Text>
                 </Pressable>
 
-                <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>To</Text>
+                <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>
+                  Destination location
+                </Text>
                 <View style={styles.toRow}>
                   <Pressable
                     style={[styles.selectorField, styles.selectorFieldGrow]}
@@ -231,7 +280,9 @@ export function HomeScreen(): React.JSX.Element {
                       style={searchParams.to ? styles.selectorText : styles.selectorPlaceholder}
                       numberOfLines={1}
                     >
-                      {searchParams.to || 'Select destination'}
+                      {searchParams.destinationStationName
+                        || searchParams.to
+                        || 'Select destination province'}
                     </Text>
                   </Pressable>
                   <Pressable onPress={swapCities} style={styles.swapBtn}>
@@ -250,6 +301,13 @@ export function HomeScreen(): React.JSX.Element {
                     </Text>
                   </Pressable>
 
+                  <PassengerCountInput
+                    value={searchParams.passengers}
+                    onChange={handlePassengersChange}
+                  />
+                </View>
+
+                <View style={[styles.metaRow, styles.metaRowCompact]}>
                   {searchParams.isRoundTrip ? (
                     <Pressable
                       style={styles.metaField}
@@ -261,9 +319,6 @@ export function HomeScreen(): React.JSX.Element {
                       </Text>
                     </Pressable>
                   ) : null}
-                </View>
-
-                <View style={[styles.metaRow, styles.metaRowCompact]}>
                   <View style={[styles.metaField, styles.switchField]}>
                     <Text style={styles.switchLabel}>Round-trip</Text>
                     <Pressable
@@ -285,7 +340,14 @@ export function HomeScreen(): React.JSX.Element {
 
                 <Pressable
                   onPress={handleTicketSearch}
-                  style={styles.searchButton}
+                  disabled={!canSearchTickets}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !canSearchTickets }}
+                  style={({ pressed }) => [
+                    styles.searchButton,
+                    !canSearchTickets ? styles.searchButtonDisabled : null,
+                    pressed && canSearchTickets ? styles.pressed : null,
+                  ]}
                 >
                   <Text style={styles.searchButtonText}>Search Buses</Text>
                   <MagnifyingGlass size={18} color={theme.colors.textInverse} weight="bold" />
@@ -639,6 +701,9 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
+  },
+  searchButtonDisabled: {
+    opacity: 0.45,
   },
   nextButton: {
     flex: 1,

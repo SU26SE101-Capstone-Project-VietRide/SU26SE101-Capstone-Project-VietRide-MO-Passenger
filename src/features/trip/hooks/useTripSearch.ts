@@ -5,7 +5,9 @@ import type { BusTrip, TripSearchParams } from '../types';
 export function useTripSearch(
   params: TripSearchParams
 ): UseQueryResult<BusTrip[], Error> {
-  const isEnabled = !!params.originStationId && !!params.destinationStationId && !!params.departureDate;
+  const hasStationPair = Boolean(params.originStationId && params.destinationStationId);
+  const hasLocationPair = Boolean(params.originLocationCode && params.destinationLocationCode);
+  const isEnabled = (hasStationPair || hasLocationPair) && Boolean(params.departureDate);
   
   return useQuery({
     queryKey: isEnabled ? tripKeys.search(params) : ['trips', 'search', 'none'],
