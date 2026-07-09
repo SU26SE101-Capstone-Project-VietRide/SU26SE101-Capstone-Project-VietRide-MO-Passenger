@@ -4,7 +4,7 @@
  * Visual style: matches Parcel flow (gradient bg, mint palette, card surfaces)
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -49,7 +49,6 @@ export function CityPickerScreen(): React.JSX.Element {
   const [query, setQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [debouncedStationQuery, setDebouncedStationQuery] = useState('');
-  const didInitializeSelection = useRef(false);
   const {
     data: stations = [],
     isLoading: isLoadingStations,
@@ -69,29 +68,6 @@ export function CityPickerScreen(): React.JSX.Element {
   const oppositeStationId = mode === 'from'
     ? searchParams.destinationStationId
     : searchParams.originStationId;
-
-  useEffect(() => {
-    if (didInitializeSelection.current || locations.length === 0) {
-      return;
-    }
-
-    const storedLocationCode = mode === 'from'
-      ? searchParams.originLocationCode
-      : searchParams.destinationLocationCode;
-    const storedLocation = locations.find(
-      (location) => location.code === storedLocationCode,
-    );
-
-    if (storedLocation) {
-      setSelectedLocation(storedLocation);
-    }
-    didInitializeSelection.current = true;
-  }, [
-    locations,
-    mode,
-    searchParams.destinationLocationCode,
-    searchParams.originLocationCode,
-  ]);
 
   useEffect(() => {
     if (!selectedLocation || !query.trim()) {
@@ -124,10 +100,26 @@ export function CityPickerScreen(): React.JSX.Element {
       if (location.code === oppositeLocationCode) {
         return;
       }
+
+      if (mode === 'from') {
+        setSearchParams({
+          from: location.name,
+          originLocationCode: location.code,
+          originStationId: '',
+          originStationName: '',
+        });
+      } else {
+        setSearchParams({
+          to: location.name,
+          destinationLocationCode: location.code,
+          destinationStationId: '',
+          destinationStationName: '',
+        });
+      }
       setSelectedLocation(location);
       setQuery('');
     },
-    [oppositeLocationCode],
+    [mode, oppositeLocationCode, setSearchParams],
   );
 
   const onSelectStation = useCallback(
