@@ -44,7 +44,9 @@ export interface DropOffPoint {
   address: string;
   time: string;
   status: StopStatus;
+  orderIndex?: number;
   refundAmount?: number;
+  disabledReason?: string;
 }
 
 export interface PickUpPoint {
@@ -55,6 +57,7 @@ export interface PickUpPoint {
   address: string;
   time: string;
   status: StopStatus;
+  orderIndex?: number;
   refundAmount?: number;
   disabledReason?: string;
 }

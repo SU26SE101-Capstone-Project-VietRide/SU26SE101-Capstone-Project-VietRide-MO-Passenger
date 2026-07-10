@@ -20,7 +20,8 @@ import type {
   RoundTripResult,
   CreateBookingPayload
 } from '../types';
-import { searchTrips, getSeatMap } from '../../trip/api/tripApi';
+import type { TripDetail } from '../../trip/types';
+import { searchTrips, getSeatMap, getTripDetail } from '../../trip/api/tripApi';
 import { createBooking as apiCreateBooking, createRoundTripBooking } from '../api/bookingApi';
 import { toApiError } from '@shared/api/errors';
 import { toTripSearchDate } from '../utils/searchParams';
@@ -41,6 +42,7 @@ const buildTerminalPickUp = (trip: BusTrip): PickUpPoint => ({
   address: trip.departureCity,
   time: trip.departureTime,
   status: 'current',
+  orderIndex: 0,
 });
 
 const buildTerminalDropOff = (trip: BusTrip): DropOffPoint => ({
@@ -50,7 +52,52 @@ const buildTerminalDropOff = (trip: BusTrip): DropOffPoint => ({
   address: trip.arrivalCity,
   time: trip.arrivalTime,
   status: 'current',
+  orderIndex: Number.MAX_SAFE_INTEGER,
 });
+
+const buildPickUpPoints = (trip: TripDetail): PickUpPoint[] => [
+  buildTerminalPickUp(trip),
+  ...trip.stops
+    .filter((stop) => stop.id && stop.allowPickup)
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .map((stop) => ({
+      id: `stop-${stop.id}`,
+      stopId: stop.id,
+      name: stop.name,
+      address: stop.distanceFromOriginKm != null
+        ? `${stop.distanceFromOriginKm} km from departure`
+        : 'Along-route pickup point',
+      time: stop.time,
+      status: 'available' as const,
+      orderIndex: stop.orderIndex,
+    })),
+];
+
+const buildDropOffPoints = (trip: TripDetail, selectedPickUp?: PickUpPoint | null): DropOffPoint[] => {
+  const pickupOrderIndex = selectedPickUp?.orderIndex ?? 0;
+
+  return [
+    ...trip.stops
+      .filter((stop) => stop.id && stop.allowDropoff)
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+      .map((stop) => {
+        const isBeforeOrAtPickup = stop.orderIndex <= pickupOrderIndex;
+        return {
+          id: `stop-${stop.id}`,
+          stopId: stop.id,
+          name: stop.name,
+          address: stop.distanceFromOriginKm != null
+            ? `${stop.distanceFromOriginKm} km from departure`
+            : 'Along-route drop-off point',
+          time: stop.time,
+          status: isBeforeOrAtPickup ? 'disabled' as const : 'available' as const,
+          disabledReason: isBeforeOrAtPickup ? 'Drop-off must be after pick-up.' : undefined,
+          orderIndex: stop.orderIndex,
+        };
+      }),
+    buildTerminalDropOff(trip),
+  ];
+};
 
 const toLocationPayload = (
   point: PickUpPoint | DropOffPoint | null,
@@ -153,6 +200,7 @@ interface BookingStore {
   // ─── Selected Trip ───────────────────────────────────
   selectedTrip: BusTrip | null;
   selectTrip: (trip: BusTrip) => void;
+  initTripDetail: () => Promise<void>;
 
   // ─── Seats ───────────────────────────────────────────
   seatMap: SeatRow[];
@@ -316,13 +364,6 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       const destinationLocationCode = (
         isReturnLeg ? searchParams.originLocationCode : searchParams.destinationLocationCode
       ).trim().toUpperCase();
-      const originStationId = (
-        isReturnLeg ? searchParams.destinationStationId : searchParams.originStationId
-      ).trim();
-      const destinationStationId = (
-        isReturnLeg ? searchParams.originStationId : searchParams.destinationStationId
-      ).trim();
-
       if (!originLocationCode || !destinationLocationCode) {
         throw new Error('Please select both departure and destination provinces.');
       }
@@ -337,8 +378,6 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       const trips = await searchTrips({
         originLocationCode,
         destinationLocationCode,
-        ...(originStationId ? { originStationId } : {}),
-        ...(destinationStationId ? { destinationStationId } : {}),
         departureDate,
         passengerCount,
         allowAlongRoutePickup: false,
@@ -369,6 +408,42 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       highestStepReached: Math.max(state.highestStepReached, state.currentLeg === 'return' ? 5 : 1),
     };
   }),
+  initTripDetail: async () => {
+    const { selectedTrip, selectedPickUp, selectedDropOff } = get();
+    if (!selectedTrip?.id) return;
+
+    try {
+      const detail = await getTripDetail(selectedTrip.id);
+      const enrichedTrip: TripDetail = {
+        ...detail,
+        operatorBadge: selectedTrip.operatorBadge || detail.operatorBadge,
+        busLabel: selectedTrip.busLabel || detail.busLabel,
+        busType: detail.busType || selectedTrip.busType,
+      };
+      const nextPickUpPoints = buildPickUpPoints(enrichedTrip);
+      const nextSelectedPickUp = selectedPickUp
+        ? nextPickUpPoints.find((point) => point.id === selectedPickUp.id) ?? nextPickUpPoints[0]
+        : nextPickUpPoints[0];
+      const nextDropOffPoints = buildDropOffPoints(enrichedTrip, nextSelectedPickUp);
+      const terminalDropOff = buildTerminalDropOff(enrichedTrip);
+      const matchedDropOff = selectedDropOff
+        ? nextDropOffPoints.find((point) => point.id === selectedDropOff.id)
+        : null;
+      const nextSelectedDropOff = matchedDropOff?.status !== 'disabled'
+        ? matchedDropOff
+        : nextDropOffPoints.find((point) => point.id === terminalDropOff.id) ?? terminalDropOff;
+
+      set({
+        selectedTrip: enrichedTrip,
+        pickUpPoints: nextPickUpPoints,
+        dropOffPoints: nextDropOffPoints,
+        selectedPickUp: nextSelectedPickUp,
+        selectedDropOff: nextSelectedDropOff,
+      });
+    } catch (error) {
+      console.warn('[Booking] Trip detail fetch failed:', error);
+    }
+  },
 
   // ─── Seats ───────────────────────────────────────────
   seatMap: [],
@@ -433,7 +508,27 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   // ─── Pick-up ─────────────────────────────────────────
   pickUpPoints: MOCK_PICK_UP_POINTS,
   selectedPickUp: MOCK_PICK_UP_POINTS[0],
-  selectPickUp: (point) => set({ selectedPickUp: point }),
+  selectPickUp: (point) => set((state) => {
+    const selectedTripWithStops = state.selectedTrip as TripDetail | null;
+    if (!selectedTripWithStops?.stops?.length) {
+      return { selectedPickUp: point };
+    }
+
+    const nextDropOffPoints = buildDropOffPoints(selectedTripWithStops, point);
+    const currentDropOff = state.selectedDropOff
+      ? nextDropOffPoints.find((candidate) => candidate.id === state.selectedDropOff?.id)
+      : null;
+    const terminalDropOff = buildTerminalDropOff(selectedTripWithStops);
+    const nextSelectedDropOff = currentDropOff?.status !== 'disabled'
+      ? currentDropOff
+      : nextDropOffPoints.find((candidate) => candidate.id === terminalDropOff.id) ?? terminalDropOff;
+
+    return {
+      selectedPickUp: point,
+      dropOffPoints: nextDropOffPoints,
+      selectedDropOff: nextSelectedDropOff,
+    };
+  }),
 
   // ─── Drop-off ────────────────────────────────────────
   dropOffPoints: MOCK_DROP_OFF_POINTS,

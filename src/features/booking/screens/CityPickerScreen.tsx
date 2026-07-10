@@ -1,10 +1,6 @@
-/** CityPicker — chọn thành phố (dùng cho From và To).
- * Chọn xong set vào Zustand store rồi goBack về BusSearchScreen.
- *
- * Visual style: matches Parcel flow (gradient bg, mint palette, card surfaces)
- */
+/** CityPicker - choose the FE trip-search location catalog item. */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -16,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import { ArrowLeft, Bus, MapPin, MagnifyingGlass } from 'phosphor-react-native';
+import { ArrowLeft, MapPin, MagnifyingGlass } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,14 +25,11 @@ import type { RouteProp } from '@react-navigation/native';
 import { useLocations } from '@features/location/hooks/useLocations';
 import type { Location } from '@features/location/types/location';
 import { normalizeLocationSearchText } from '../utils/searchParams';
-import { useStationSearch } from '@features/trip/hooks/useStationSearch';
-import type { StationSearchResult } from '@features/trip/types';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'CityPicker'>;
 type CityPickerRouteProp = RouteProp<BookingStackParamList, 'CityPicker'>;
 
 const locationKeyExtractor = (item: Location) => item.id;
-const stationKeyExtractor = (item: StationSearchResult) => item.id;
 
 export function CityPickerScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
@@ -47,40 +40,9 @@ export function CityPickerScreen(): React.JSX.Element {
   const { data: locations = [], isLoading, isError, isFetching, refetch } = useLocations();
   const mode = route.params.mode;
   const [query, setQuery] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  const [debouncedStationQuery, setDebouncedStationQuery] = useState('');
-  const {
-    data: stations = [],
-    isLoading: isLoadingStations,
-    isError: isStationError,
-    isFetching: isFetchingStations,
-    refetch: refetchStations,
-  } = useStationSearch(selectedLocation, debouncedStationQuery);
-  const isDebouncingStationSearch = Boolean(
-    selectedLocation
-    && query.trim()
-    && query.trim() !== debouncedStationQuery,
-  );
-  const visibleStations = isDebouncingStationSearch ? [] : stations;
   const oppositeLocationCode = mode === 'from'
     ? searchParams.destinationLocationCode
     : searchParams.originLocationCode;
-  const oppositeStationId = mode === 'from'
-    ? searchParams.destinationStationId
-    : searchParams.originStationId;
-
-  useEffect(() => {
-    if (!selectedLocation || !query.trim()) {
-      setDebouncedStationQuery('');
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      setDebouncedStationQuery(query.trim());
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [query, selectedLocation]);
 
   const filteredLocations = useMemo(() => {
     const activeLocations = locations.filter((location) => location.isActive);
@@ -116,60 +78,10 @@ export function CityPickerScreen(): React.JSX.Element {
           destinationStationName: '',
         });
       }
-      setSelectedLocation(location);
-      setQuery('');
-    },
-    [mode, oppositeLocationCode, setSearchParams],
-  );
-
-  const onSelectStation = useCallback(
-    (station: StationSearchResult) => {
-      if (!selectedLocation || station.id === oppositeStationId) {
-        return;
-      }
-
-      if (mode === 'from') {
-        setSearchParams({
-          from: selectedLocation.name,
-          originLocationCode: selectedLocation.code,
-          originStationId: station.id,
-          originStationName: station.name,
-        });
-      } else {
-        setSearchParams({
-          to: selectedLocation.name,
-          destinationLocationCode: selectedLocation.code,
-          destinationStationId: station.id,
-          destinationStationName: station.name,
-        });
-      }
       navigation.goBack();
     },
-    [mode, navigation, oppositeStationId, selectedLocation, setSearchParams],
+    [mode, navigation, oppositeLocationCode, setSearchParams],
   );
-
-  const onSelectAnyStation = useCallback(() => {
-    if (!selectedLocation) {
-      return;
-    }
-
-    if (mode === 'from') {
-      setSearchParams({
-        from: selectedLocation.name,
-        originLocationCode: selectedLocation.code,
-        originStationId: '',
-        originStationName: '',
-      });
-    } else {
-      setSearchParams({
-        to: selectedLocation.name,
-        destinationLocationCode: selectedLocation.code,
-        destinationStationId: '',
-        destinationStationName: '',
-      });
-    }
-    navigation.goBack();
-  }, [mode, navigation, selectedLocation, setSearchParams]);
 
   const renderLocation = useCallback(
     ({ item }: { item: Location }) => {
@@ -211,53 +123,6 @@ export function CityPickerScreen(): React.JSX.Element {
     [
       onSelectLocation,
       oppositeLocationCode,
-      styles,
-      theme.colors.primary,
-      theme.colors.textTertiary,
-    ],
-  );
-
-  const renderStation = useCallback(
-    ({ item }: { item: StationSearchResult }) => {
-      const isUnavailable = item.id === oppositeStationId;
-      const address = item.addressStreet
-        || [item.city, item.province].filter(Boolean).join(', ');
-
-      return (
-        <Pressable
-          style={({ pressed }) => [
-            styles.item,
-            isUnavailable ? styles.itemDisabled : null,
-            pressed && !isUnavailable ? styles.pressed : null,
-          ]}
-          onPress={() => onSelectStation(item)}
-          disabled={isUnavailable}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isUnavailable }}
-        >
-          <View style={styles.itemIcon}>
-            <Bus size={16} color={theme.colors.primary} weight="fill" />
-          </View>
-          <View style={styles.itemTextWrap}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <Text style={styles.itemRegion} numberOfLines={1}>
-              {isUnavailable ? 'Already selected' : address}
-            </Text>
-          </View>
-          <View style={styles.itemArrow}>
-            <ArrowLeft
-              size={16}
-              color={theme.colors.textTertiary}
-              weight="bold"
-              style={styles.arrowForward}
-            />
-          </View>
-        </Pressable>
-      );
-    },
-    [
-      onSelectStation,
-      oppositeStationId,
       styles,
       theme.colors.primary,
       theme.colors.textTertiary,
@@ -307,75 +172,8 @@ export function CityPickerScreen(): React.JSX.Element {
     theme.colors.textInverse,
   ]);
 
-  const stationEmptyState = useMemo(() => {
-    if (!query.trim()) {
-      return (
-        <Text style={styles.empty}>
-          Type a station name to search, or choose any station above.
-        </Text>
-      );
-    }
-
-    if (isDebouncingStationSearch || isLoadingStations) {
-      return (
-        <View style={styles.stateContainer}>
-          <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.empty}>Searching stations...</Text>
-        </View>
-      );
-    }
-
-    if (isStationError) {
-      return (
-        <View style={styles.stateContainer}>
-          <Text style={styles.empty}>Could not load stations.</Text>
-          <Pressable
-            onPress={() => refetchStations()}
-            disabled={isFetchingStations}
-            style={({ pressed }) => [
-              styles.retryButton,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            {isFetchingStations ? (
-              <ActivityIndicator size="small" color={theme.colors.textInverse} />
-            ) : (
-              <Text style={styles.retryText}>Try again</Text>
-            )}
-          </Pressable>
-        </View>
-      );
-    }
-
-    return (
-      <Text style={styles.empty}>
-        No matching stations found.
-      </Text>
-    );
-  }, [
-    isFetchingStations,
-    isDebouncingStationSearch,
-    isLoadingStations,
-    isStationError,
-    query,
-    refetchStations,
-    styles,
-    theme.colors.primary,
-    theme.colors.textInverse,
-  ]);
-
-  const handleBack = useCallback(() => {
-    if (selectedLocation) {
-      setSelectedLocation(null);
-      setQuery('');
-      return;
-    }
-    navigation.goBack();
-  }, [navigation, selectedLocation]);
-
   return (
     <View style={styles.root}>
-      {/* Gradient background */}
       <View style={styles.gradientContainer} pointerEvents="none">
         <Svg height="300" width="100%">
           <Defs>
@@ -391,10 +189,9 @@ export function CityPickerScreen(): React.JSX.Element {
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
-        {/* Header with back bubble */}
         <View style={styles.header}>
           <Pressable
-            onPress={handleBack}
+            onPress={() => navigation.goBack()}
             style={({ pressed }) => [styles.backBtn, pressed ? styles.pressed : null]}
           >
             <View style={styles.backBubble}>
@@ -402,21 +199,16 @@ export function CityPickerScreen(): React.JSX.Element {
             </View>
           </Pressable>
           <Text style={styles.headerTitle}>
-            {selectedLocation
-              ? mode === 'from' ? 'Departure Station' : 'Destination Station'
-              : mode === 'from' ? 'Departure Province' : 'Destination Province'}
+            {mode === 'from' ? 'Departure Province' : 'Destination Province'}
           </Text>
           <View style={styles.headerSpacer} />
         </View>
 
-        {/* Search box */}
         <View style={styles.searchBox}>
           <MagnifyingGlass size={16} color={theme.colors.textTertiary} weight="bold" />
           <TextInput
             style={styles.searchInput}
-            placeholder={selectedLocation
-              ? `Search stations in ${selectedLocation.name}...`
-              : 'Search province or city...'}
+            placeholder="Search province or city..."
             placeholderTextColor={theme.colors.textTertiary}
             value={query}
             onChangeText={setQuery}
@@ -425,45 +217,15 @@ export function CityPickerScreen(): React.JSX.Element {
           />
         </View>
 
-        {selectedLocation ? (
-          <>
-            <Pressable
-              onPress={onSelectAnyStation}
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.anyStationButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <View style={styles.itemIcon}>
-                <MapPin size={16} color={theme.colors.primary} weight="fill" />
-              </View>
-              <View style={styles.itemTextWrap}>
-                <Text style={styles.itemName}>Any station in {selectedLocation.name}</Text>
-                <Text style={styles.itemRegion}>Show trips from every station</Text>
-              </View>
-            </Pressable>
-            <FlatList
-              data={visibleStations}
-              keyExtractor={stationKeyExtractor}
-              contentContainerStyle={styles.list}
-              showsVerticalScrollIndicator={false}
-              renderItem={renderStation}
-              keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={stationEmptyState}
-            />
-          </>
-        ) : (
-          <FlatList
-            data={filteredLocations}
-            keyExtractor={locationKeyExtractor}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-            renderItem={renderLocation}
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={locationEmptyState}
-          />
-        )}
+        <FlatList
+          data={filteredLocations}
+          keyExtractor={locationKeyExtractor}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          renderItem={renderLocation}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={locationEmptyState}
+        />
       </SafeAreaView>
     </View>
   );
@@ -549,18 +311,6 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.divider,
-  },
-  anyStationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginHorizontal: spacing.xl,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primaryFaded,
   },
   itemDisabled: {
     opacity: 0.45,

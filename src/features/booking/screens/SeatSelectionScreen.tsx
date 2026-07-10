@@ -23,6 +23,7 @@ export function SeatSelectionScreen({ onNext }: SeatSelectionStepProps): React.J
     selectedSeats,
     toggleSeat,
     initSeatMap,
+    initTripDetail,
     totalPrice,
     currentLeg,
     searchParams,
@@ -32,8 +33,9 @@ export function SeatSelectionScreen({ onNext }: SeatSelectionStepProps): React.J
 
   useEffect(() => {
     initSeatMap();
+    initTripDetail();
     setHighestStep(currentLeg === 'outbound' ? 2 : 6);
-  }, [initSeatMap, setHighestStep, currentLeg]);
+  }, [initSeatMap, initTripDetail, setHighestStep, currentLeg]);
 
   const handleBookNow = useCallback(() => {
     // Outbound: step 2 -> step 3; Return: step 6 -> step 7

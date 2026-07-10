@@ -77,6 +77,7 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
               time={point.time}
               status={point.status}
               refundAmount={point.refundAmount}
+              disabledReason={point.disabledReason}
               isSelected={selectedDropOff?.id === point.id}
               onPress={() => selectDropOff(point)}
               icon="📍"

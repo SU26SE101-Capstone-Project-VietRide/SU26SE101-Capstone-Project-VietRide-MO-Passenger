@@ -3,6 +3,7 @@ const mockSearchTrips = jest.fn();
 jest.mock('../../trip/api/tripApi', () => ({
   searchTrips: (...args: unknown[]) => mockSearchTrips(...args),
   getSeatMap: jest.fn(),
+  getTripDetail: jest.fn(),
 }));
 
 jest.mock('../api/bookingApi', () => ({
@@ -39,21 +40,19 @@ describe('booking trip search', () => {
     });
   });
 
-  it('searches the outbound leg by station id', async () => {
+  it('searches the outbound leg by location code', async () => {
     await useBookingStore.getState().searchTrips();
 
     expect(mockSearchTrips).toHaveBeenCalledWith({
       originLocationCode: 'HN',
       destinationLocationCode: 'HCM',
-      originStationId: '31111111-1111-1111-1111-111111111111',
-      destinationStationId: '41111111-1111-1111-1111-111111111111',
       departureDate: '2026-07-10',
       passengerCount: 3,
       allowAlongRoutePickup: false,
     });
   });
 
-  it('reverses station ids and uses the return date for the return leg', async () => {
+  it('reverses location codes and uses the return date for the return leg', async () => {
     useBookingStore.setState({ currentLeg: 'return' });
 
     await useBookingStore.getState().searchTrips();
@@ -61,8 +60,6 @@ describe('booking trip search', () => {
     expect(mockSearchTrips).toHaveBeenCalledWith({
       originLocationCode: 'HCM',
       destinationLocationCode: 'HN',
-      originStationId: '41111111-1111-1111-1111-111111111111',
-      destinationStationId: '31111111-1111-1111-1111-111111111111',
       departureDate: '2026-07-14',
       passengerCount: 3,
       allowAlongRoutePickup: false,

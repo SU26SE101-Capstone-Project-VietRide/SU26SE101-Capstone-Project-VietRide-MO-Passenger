@@ -37,7 +37,6 @@ export interface BusTrip {
   seatsLeft: number;
   allowPickup: boolean;
   allowDropoff: boolean;
-  // Extrapolated fields for UI
   busType: BusType;
   busLabel: string;
   durationHours: number;
@@ -54,6 +53,8 @@ export interface TripStop {
   id: string;
   name: string;
   time: string;
+  orderIndex: number;
+  distanceFromOriginKm?: number | null;
   allowPickup?: boolean;
   allowDropoff?: boolean;
   fareFromThisStop?: number | null;
@@ -72,7 +73,6 @@ export interface Seat {
   price?: number;
 }
 
-// Backend DTOs for mapping
 export interface TripSearchDto {
   tripId: string;
   operatorId: string;
@@ -88,17 +88,32 @@ export interface TripSearchDto {
   allowAlongRouteDropoff: boolean;
 }
 
-export interface TripDetailDto extends TripSearchDto {
+export interface TripDetailDto {
+  tripId: string;
+  operatorId: string;
+  routeId: string;
   status: string;
   vehicleId: string;
-  vehicleType: string;
-  seatSummary: { totalSeats: number };
+  departureDateTime: string;
+  estimatedArrivalTime: string;
+  baseFare: number;
+  originStation: { id: string; name: string };
+  destinationStation: { id: string; name: string };
+  seatSummary: { totalSeats: number; availableSeats: number };
+  returnRouteId?: string | null;
+  fareBreakdown?: {
+    baseFare: number;
+    stops: Array<{ stopId: string; fare: number }>;
+  };
+  vehicleType?: string;
   stops: Array<{
     id?: string;
     stopId?: string;
     name?: string;
+    orderIndex?: number;
     arrivalTime?: string;
     estimatedArrivalTime?: string;
+    distanceFromOriginKm?: number | null;
     allowPickup?: boolean;
     allowDropoff?: boolean;
     fareFromThisStop?: number | null;
@@ -112,17 +127,25 @@ export interface SeatDto {
   col: number;
 }
 
+const formatTime = (dateLike: string): string => {
+  const date = new Date(dateLike);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+};
+
+const durationHoursBetween = (start: string, end: string): number => {
+  const startMs = new Date(start).getTime();
+  const endMs = new Date(end).getTime();
+  return Math.round((endMs - startMs) / (1000 * 60 * 60) * 10) / 10;
+};
+
+const stationCityLabel = (stationName: string): string =>
+  stationName.replace('Ben xe ', '').replace('Bến xe ', '');
+
 export function mapBusTrip(dto: TripSearchDto): BusTrip {
-  const departureDate = new Date(dto.departureDateTime);
-  const arrivalDate = new Date(dto.estimatedArrivalTime);
-  
-  const formatTime = (d: Date) => 
-    `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-
-  const depTimeMs = departureDate.getTime();
-  const arrTimeMs = arrivalDate.getTime();
-  const durationHours = Math.round((arrTimeMs - depTimeMs) / (1000 * 60 * 60) * 10) / 10;
-
   return {
     id: dto.tripId,
     operatorId: dto.operatorId,
@@ -132,85 +155,94 @@ export function mapBusTrip(dto: TripSearchDto): BusTrip {
     operatorBadge: dto.operatorName,
     departureStation: dto.originStation.name,
     arrivalStation: dto.destinationStation.name,
-    departureTime: formatTime(departureDate),
-    arrivalTime: formatTime(arrivalDate),
+    departureTime: formatTime(dto.departureDateTime),
+    arrivalTime: formatTime(dto.estimatedArrivalTime),
     price: dto.baseFare,
     seatsLeft: dto.availableSeats,
     allowPickup: dto.allowAlongRoutePickup,
     allowDropoff: dto.allowAlongRouteDropoff,
     busType: 'sleeper',
-    busLabel: `${dto.operatorName} Giường nằm`,
-    durationHours,
+    busLabel: `${dto.operatorName} Sleeper bus`,
+    durationHours: durationHoursBetween(dto.departureDateTime, dto.estimatedArrivalTime),
     totalSeats: 40,
-    departureCity: dto.originStation.name.replace('Bến xe ', ''),
-    arrivalCity: dto.destinationStation.name.replace('Bến xe ', ''),
+    departureCity: stationCityLabel(dto.originStation.name),
+    arrivalCity: stationCityLabel(dto.destinationStation.name),
   };
 }
 
 export function mapTripDetail(dto: TripDetailDto): TripDetail {
-  const baseTrip = mapBusTrip(dto);
-  
   const busTypeMap: Record<string, BusType> = {
-    'SLEEPER_BUS': 'sleeper',
-    'LIMOUSINE': 'limousine',
-    'STANDARD': 'standard'
+    SLEEPER_BUS: 'sleeper',
+    LIMOUSINE: 'limousine',
+    STANDARD: 'standard',
   };
-  
-  const busType = busTypeMap[dto.vehicleType] || 'sleeper';
-  const busLabel = `${dto.operatorName} ${dto.vehicleType === 'LIMOUSINE' ? 'Limousine' : dto.vehicleType === 'STANDARD' ? 'Ghế ngồi' : 'Giường nằm'}`;
-  
-  const depTime = new Date(dto.departureDateTime).getTime();
-  const arrTime = new Date(dto.estimatedArrivalTime).getTime();
-  const durationHours = Math.round((arrTime - depTime) / (1000 * 60 * 60) * 10) / 10;
-  
+  const busType = dto.vehicleType ? busTypeMap[dto.vehicleType] || 'sleeper' : 'sleeper';
+  const busLabel = dto.vehicleType === 'LIMOUSINE'
+    ? 'Limousine'
+    : dto.vehicleType === 'STANDARD'
+      ? 'Standard bus'
+      : 'Sleeper bus';
+
   return {
-    ...baseTrip,
+    id: dto.tripId,
+    operatorId: dto.operatorId,
+    routeId: dto.routeId,
+    originStationId: dto.originStation.id,
+    destinationStationId: dto.destinationStation.id,
+    operatorBadge: 'VietRide',
+    departureStation: dto.originStation.name,
+    arrivalStation: dto.destinationStation.name,
+    departureTime: formatTime(dto.departureDateTime),
+    arrivalTime: formatTime(dto.estimatedArrivalTime),
+    price: dto.baseFare,
+    seatsLeft: dto.seatSummary.availableSeats,
+    allowPickup: dto.stops.some((stop) => Boolean(stop.allowPickup)),
+    allowDropoff: dto.stops.some((stop) => Boolean(stop.allowDropoff)),
     busType,
     busLabel,
-    durationHours,
+    durationHours: durationHoursBetween(dto.departureDateTime, dto.estimatedArrivalTime),
     totalSeats: dto.seatSummary.totalSeats,
-    departureCity: dto.originStation.name.replace('Bến xe ', ''),
-    arrivalCity: dto.destinationStation.name.replace('Bến xe ', ''),
-    stops: (dto.stops || []).map(s => ({
-      id: s.stopId ?? s.id ?? '',
-      name: s.name ?? 'Route stop',
-      time: (() => {
-        const d = new Date(s.estimatedArrivalTime ?? s.arrivalTime ?? '');
-        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-      })(),
-      allowPickup: s.allowPickup,
-      allowDropoff: s.allowDropoff,
-      fareFromThisStop: s.fareFromThisStop,
-    }))
+    departureCity: stationCityLabel(dto.originStation.name),
+    arrivalCity: stationCityLabel(dto.destinationStation.name),
+    stops: (dto.stops || []).map((stop) => ({
+      id: stop.stopId ?? stop.id ?? '',
+      name: stop.name ?? `Route stop ${stop.orderIndex ?? ''}`.trim(),
+      time: formatTime(stop.estimatedArrivalTime ?? stop.arrivalTime ?? ''),
+      orderIndex: stop.orderIndex ?? 0,
+      distanceFromOriginKm: stop.distanceFromOriginKm,
+      allowPickup: stop.allowPickup,
+      allowDropoff: stop.allowDropoff,
+      fareFromThisStop: stop.fareFromThisStop,
+    })),
   };
 }
 
 export function mapSeatMap(dtos: SeatDto[]): SeatRow[] {
-  const rows = new Map<number, { left: Seat[], right: Seat[] }>();
-  
-  dtos.forEach(dto => {
+  const rows = new Map<number, { left: Seat[]; right: Seat[] }>();
+
+  dtos.forEach((dto) => {
     if (!rows.has(dto.row)) {
       rows.set(dto.row, { left: [], right: [] });
     }
     const row = rows.get(dto.row)!;
-    
+
     const seat: Seat = {
       id: dto.seatNumber,
       label: dto.seatNumber,
-      status: dto.status === 'BOOKED' ? 'sold' : 'available'
+      status: dto.status === 'BOOKED' ? 'sold' : 'available',
     };
-    
+
     if (dto.col <= 2) {
       row.left.push(seat);
     } else {
       row.right.push(seat);
     }
   });
-  
+
   return Array.from(rows.entries())
     .sort(([a], [b]) => a - b)
     .map(([rowNum, data]) => ({
-      rowLabel: String.fromCharCode(64 + rowNum), // 1 -> A, 2 -> B
+      rowLabel: String.fromCharCode(64 + rowNum),
       leftSeats: data.left.sort((a, b) => a.label.localeCompare(b.label)),
       rightSeats: data.right.sort((a, b) => a.label.localeCompare(b.label)),
     }));

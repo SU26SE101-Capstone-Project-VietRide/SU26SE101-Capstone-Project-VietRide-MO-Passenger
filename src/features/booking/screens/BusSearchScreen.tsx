@@ -166,8 +166,8 @@ export function BusSearchScreen(): React.JSX.Element {
 
           {/* Search Form */}
           <SearchForm
-            from={searchParams.originStationName || searchParams.from}
-            to={searchParams.destinationStationName || searchParams.to}
+            from={searchParams.from}
+            to={searchParams.to}
             date={searchParams.date}
             passengers={searchParams.passengers}
             onFromPress={() => openCityPicker('from')}

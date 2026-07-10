@@ -494,11 +494,9 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     searchParams.from,
     searchParams.isRoundTrip,
     searchParams.originLocationCode,
-    searchParams.originStationId,
     searchParams.passengers,
     searchParams.returnDate,
     searchParams.to,
-    searchParams.destinationStationId,
   ]);
 
   const operatorOptions = useMemo(() => {
