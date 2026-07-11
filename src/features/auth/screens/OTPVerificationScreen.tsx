@@ -1,8 +1,7 @@
 /**
- * OTPVerificationScreen — unified screen for all OTP verification flows.
+ * OTPVerificationScreen — email verification flow for registration/profile.
  *
- * purpose='REGISTRATION' → verifyEmail API  (used after Register + Profile verify)
- * purpose='PASSWORD_RESET' → confirmPasswordResetOtp API  (used after Forgot Password)
+ * purpose='REGISTRATION' -> verifyEmail API.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -32,7 +31,7 @@ import { useApiError } from '@shared/hooks';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
 import type { AuthStackParamList, ProfileStackParamList } from '@app/navigation/types';
-import { verifyEmail, confirmPasswordResetOtp, resendVerificationEmail } from '../api/authApi';
+import { verifyEmail, resendVerificationEmail } from '../api/authApi';
 import { useAuthStore } from '../store/useAuthStore';
 import { AuthStepHeader } from '../components';
 import {
@@ -77,8 +76,6 @@ export function OTPVerificationScreen(): React.JSX.Element {
     fromProfile = false,
   } = route.params;
 
-  const isPasswordReset = purpose === 'PASSWORD_RESET';
-
   const [code, setCode] = useState<string[]>(Array(AUTH_CODE_LENGTH).fill(''));
   const [timer, setTimer] = useState(Math.max(otpTtlMinutes * 60, 1));
   const [errors, setErrors] = useState<OtpFormErrors>({});
@@ -86,7 +83,6 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const inputRefs = useRef<Array<TextInput | null>>([]);
 
   const verifyMutation = useMutation({ mutationFn: verifyEmail });
-  const confirmMutation = useMutation({ mutationFn: confirmPasswordResetOtp });
   const resendMutation = useMutation({ mutationFn: resendVerificationEmail });
 
   useEffect(() => {
@@ -160,34 +156,17 @@ export function OTPVerificationScreen(): React.JSX.Element {
     clearError();
 
     try {
-      if (isPasswordReset) {
-        // PASSWORD_RESET: use confirmPasswordResetOtp, then navigate to ResetPassword
-        const response = await confirmMutation.mutateAsync({
-          email,
-          code: parsed.data.code,
-        });
+      const response = await verifyMutation.mutateAsync({
+        email,
+        code: parsed.data.code,
+        purpose: 'REGISTRATION',
+      });
 
-        navigation.navigate('ResetPassword', {
-          email,
-          resetToken: response.resetToken,
-          resetTokenTtlMinutes: response.resetTokenTtlMinutes,
-        });
+      if (fromProfile && currentUser) {
+        setUser({ ...currentUser, status: response.status ?? 'ACTIVE' });
+        navigation.goBack();
       } else {
-        // REGISTRATION: use verifyEmail
-        const response = await verifyMutation.mutateAsync({
-          email,
-          code: parsed.data.code,
-          purpose: 'REGISTRATION',
-        });
-
-        if (fromProfile && currentUser) {
-          // Update user status locally and go back to profile
-          setUser({ ...currentUser, status: response.status ?? 'ACTIVE' });
-          navigation.goBack();
-        } else {
-          // Navigate to Login after registration verification
-          navigation.navigate('Login', { email, verified: true });
-        }
+        navigation.navigate('Login', { email, verified: true });
       }
     } catch (error) {
       const apiError = handleError(error);
@@ -196,7 +175,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
         otpFieldAliases,
       ));
     }
-  }, [clearError, code, email, handleError, navigation, isPasswordReset, confirmMutation, verifyMutation, fromProfile, currentUser, setUser]);
+  }, [clearError, code, email, handleError, navigation, verifyMutation, fromProfile, currentUser, setUser]);
 
   // ─── Resend OTP ──────────────────────────────────────────
   const handleResend = useCallback(async () => {
@@ -217,22 +196,18 @@ export function OTPVerificationScreen(): React.JSX.Element {
     }
   }, [clearError, email, purpose, resendMutation, handleError, otpTtlMinutes]);
 
-  const isPending = verifyMutation.isPending || confirmMutation.isPending;
+  const isPending = verifyMutation.isPending;
   const fullCode = code.join('');
   const isExpired = timer === 0;
   const codeError = errors.code;
   const visibleError = codeError ?? errorMessage;
 
   // ─── Dynamic copy based on purpose ──────────────────────
-  const headerTitle = isPasswordReset ? 'Reset your password' : 'Verify it\'s you';
-  const headerSubtitle = isPasswordReset
-    ? `Enter the 6-digit code we sent to ${email} to reset your password.`
-    : `We sent a 6-digit code to ${email}${phone ? ` (${phone})` : ''}.`;
-  const expiredText = isPasswordReset
-    ? 'Code expired. Please request a new code.'
-    : 'Code expired. Please request a new code.';
-  const buttonTitle = isPasswordReset ? 'Verify Code' : 'Verify Code';
-  const footerQuestion = isPasswordReset ? 'Wrong email?' : 'Wrong email?';
+  const headerTitle = 'Verify it\'s you';
+  const headerSubtitle = `We sent a 6-digit code to ${email}${phone ? ` (${phone})` : ''}.`;
+  const expiredText = 'Code expired. Please request a new code.';
+  const buttonTitle = 'Verify Code';
+  const footerQuestion = 'Wrong email?';
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>

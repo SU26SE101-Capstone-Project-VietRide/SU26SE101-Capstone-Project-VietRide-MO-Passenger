@@ -1,5 +1,5 @@
 /**
- * ForgotPasswordScreen - calls the real reset-request endpoint when available.
+ * ForgotPasswordScreen - starts the email OTP reset-password flow.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -81,11 +81,9 @@ export function ForgotPasswordScreen(): React.JSX.Element {
 
     try {
       const response = await resetMutation.mutateAsync(parsed.data);
-      navigation.navigate('OTPVerification', {
-        email: parsed.data.email,
+      navigation.navigate('ResetPassword', {
+        email: response.email,
         otpTtlMinutes: response.otpTtlMinutes,
-        purpose: 'PASSWORD_RESET',
-        debugOtpCode: response.debugOtpCode,
       });
     } catch (error) {
       const apiError = handleError(error);

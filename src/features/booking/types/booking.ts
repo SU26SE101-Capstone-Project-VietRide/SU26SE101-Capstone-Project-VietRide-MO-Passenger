@@ -25,10 +25,17 @@ export interface Seat {
   id: string;
   label: string;  // e.g. "A1", "B2"
   status: SeatStatus;
+  row?: number;
+  col?: number;
+  deck?: number;
+  type?: string;
 }
 
 export interface SeatRow {
   rowLabel: string; // e.g. "A", "B"
+  rowNumber?: number;
+  deck?: number;
+  columns?: number[];
   leftSeats: Seat[];
   rightSeats: Seat[];
 }

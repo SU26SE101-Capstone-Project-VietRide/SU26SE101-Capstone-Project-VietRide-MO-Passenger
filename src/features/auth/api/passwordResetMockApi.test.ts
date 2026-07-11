@@ -1,6 +1,5 @@
 import { ApiRequestError } from '@shared/api/errors';
 import {
-  mockConfirmPasswordResetOtp,
   mockRequestPasswordReset,
   mockResetPassword,
 } from './passwordResetMockApi';
@@ -11,20 +10,12 @@ describe('passwordResetMockApi', () => {
       email: ' USER@example.COM ',
     });
 
-    expect(request.success).toBe(true);
-    expect(request.debugOtpCode).toBe('123456');
-    expect(request.mocked).toBe(true);
-
-    const confirmation = await mockConfirmPasswordResetOtp({
-      email: 'user@example.com',
-      code: '123456',
-    });
-
-    expect(confirmation.resetToken).toContain('mock-reset-user@example.com');
-    expect(confirmation.mocked).toBe(true);
+    expect(request.email).toBe('user@example.com');
+    expect(request.otpTtlMinutes).toBe(5);
 
     const reset = await mockResetPassword({
-      resetToken: confirmation.resetToken,
+      email: 'user@example.com',
+      code: '123456',
       newPassword: 'pass1234',
     });
 
@@ -36,9 +27,10 @@ describe('passwordResetMockApi', () => {
       email: 'otp-user@example.com',
     });
 
-    await expect(mockConfirmPasswordResetOtp({
+    await expect(mockResetPassword({
       email: 'otp-user@example.com',
       code: '000000',
+      newPassword: 'pass1234',
     })).rejects.toBeInstanceOf(ApiRequestError);
   });
 });

@@ -27,11 +27,13 @@ import {
 declare module 'axios' {
   export interface AxiosRequestConfig {
     skipAuthRefresh?: boolean;
+    skipAuth?: boolean;
     _retry?: boolean;
   }
 
   export interface InternalAxiosRequestConfig {
     skipAuthRefresh?: boolean;
+    skipAuth?: boolean;
     _retry?: boolean;
   }
 }
@@ -75,11 +77,12 @@ apiClient.interceptors.request.use(
       config.url = normalizeApiPath(config.url);
     }
 
-    const tokenBundle = await getTokenBundle();
+    const tokenBundle = config.skipAuth ? null : await getTokenBundle();
     let accessToken = tokenBundle?.accessToken ?? null;
 
     if (
       tokenBundle &&
+      tokenBundle.refreshAllowed !== false &&
       !config.skipAuthRefresh &&
       !isAuthRoute(config.url) &&
       isTokenExpiringSoon(tokenBundle)

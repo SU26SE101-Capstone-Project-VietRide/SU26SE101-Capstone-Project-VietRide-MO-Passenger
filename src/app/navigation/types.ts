@@ -15,15 +15,13 @@ export type AuthStackParamList = {
     email: string;
     phone?: string;
     otpTtlMinutes?: number;
-    purpose: 'REGISTRATION' | 'PASSWORD_RESET';
+    purpose: 'REGISTRATION';
     fromProfile?: boolean;
-    debugOtpCode?: string;
   };
   ForgotPassword: undefined;
   ResetPassword: {
     email: string;
-    resetToken: string;
-    resetTokenTtlMinutes?: number;
+    otpTtlMinutes?: number;
   };
 };
 
@@ -69,9 +67,8 @@ export type ProfileStackParamList = {
     email: string;
     phone?: string;
     otpTtlMinutes?: number;
-    purpose: 'REGISTRATION' | 'PASSWORD_RESET';
+    purpose: 'REGISTRATION';
     fromProfile?: boolean;
-    debugOtpCode?: string;
   };
 };
 

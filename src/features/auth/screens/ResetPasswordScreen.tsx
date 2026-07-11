@@ -1,8 +1,8 @@
 /**
- * ResetPasswordScreen - sets a new password using a short-lived reset token.
+ * ResetPasswordScreen - sets a new password using the email reset OTP.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,7 +28,9 @@ import type { AuthStackParamList } from '@app/navigation/types';
 import { resetPassword } from '../api/authApi';
 import { AuthStepHeader } from '../components';
 import {
+  AUTH_CODE_LENGTH,
   apiFieldErrors,
+  otpSchema,
   resetPasswordSchema,
   zodFieldErrors,
   type FieldErrorMap,
@@ -36,13 +38,21 @@ import {
 
 type NavProp = NativeStackNavigationProp<AuthStackParamList, 'ResetPassword'>;
 type ScreenRouteProp = RouteProp<AuthStackParamList, 'ResetPassword'>;
-type ResetPasswordFormField = 'password' | 'confirmPassword';
+type ResetPasswordFormField = 'code' | 'password' | 'confirmPassword';
 type ResetPasswordFormErrors = FieldErrorMap<ResetPasswordFormField>;
 
 const resetPasswordFieldAliases: Partial<Record<string, ResetPasswordFormField>> = {
+  code: 'code',
+  otp: 'code',
   newPassword: 'password',
   password: 'password',
   confirmPassword: 'confirmPassword',
+};
+
+const formatTimer = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const remainingSeconds = (seconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${remainingSeconds}`;
 };
 
 export function ResetPasswordScreen(): React.JSX.Element {
@@ -52,15 +62,25 @@ export function ResetPasswordScreen(): React.JSX.Element {
   const theme = useTheme();
   const isLiquid = theme.variant.startsWith('liquid');
 
-  const { email, resetToken } = route.params;
+  const { email, otpTtlMinutes = 5 } = route.params;
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<ResetPasswordFormErrors>({});
   const [completed, setCompleted] = useState(false);
+  const [timer, setTimer] = useState(Math.max(otpTtlMinutes * 60, 1));
 
   const resetMutation = useMutation({
     mutationFn: resetPassword,
   });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimer((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const clearFieldError = useCallback((field: ResetPasswordFormField) => {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -68,6 +88,22 @@ export function ResetPasswordScreen(): React.JSX.Element {
   }, [clearError]);
 
   const validateField = useCallback((field: ResetPasswordFormField) => {
+    if (field === 'code') {
+      const parsed = otpSchema.safeParse({ code });
+
+      if (parsed.success) {
+        setErrors((prev) => ({ ...prev, code: undefined }));
+        return;
+      }
+
+      const nextErrors = zodFieldErrors<ResetPasswordFormField>(
+        parsed.error,
+        resetPasswordFieldAliases,
+      );
+      setErrors((prev) => ({ ...prev, code: nextErrors.code }));
+      return;
+    }
+
     const parsed = resetPasswordSchema.safeParse({ password, confirmPassword });
 
     if (parsed.success) {
@@ -77,22 +113,34 @@ export function ResetPasswordScreen(): React.JSX.Element {
 
     const nextErrors = zodFieldErrors<ResetPasswordFormField>(parsed.error);
     setErrors((prev) => ({ ...prev, [field]: nextErrors[field] }));
-  }, [confirmPassword, password]);
+  }, [code, confirmPassword, password]);
 
   const handleReset = useCallback(async () => {
     clearError();
 
-    const parsed = resetPasswordSchema.safeParse({ password, confirmPassword });
+    const codeParsed = otpSchema.safeParse({ code });
+    const passwordParsed = resetPasswordSchema.safeParse({ password, confirmPassword });
 
-    if (!parsed.success) {
-      setErrors(zodFieldErrors<ResetPasswordFormField>(parsed.error));
+    if (!codeParsed.success || !passwordParsed.success) {
+      setErrors({
+        ...(!codeParsed.success
+          ? zodFieldErrors<ResetPasswordFormField>(
+            codeParsed.error,
+            resetPasswordFieldAliases,
+          )
+          : {}),
+        ...(!passwordParsed.success
+          ? zodFieldErrors<ResetPasswordFormField>(passwordParsed.error)
+          : {}),
+      });
       return;
     }
 
     try {
       await resetMutation.mutateAsync({
-        resetToken,
-        newPassword: parsed.data.password,
+        email,
+        code: codeParsed.data.code,
+        newPassword: passwordParsed.data.password,
       });
       setCompleted(true);
     } catch (error) {
@@ -105,10 +153,15 @@ export function ResetPasswordScreen(): React.JSX.Element {
         ),
       }));
     }
-  }, [clearError, confirmPassword, handleError, password, resetMutation, resetToken]);
+  }, [clearError, code, confirmPassword, email, handleError, password, resetMutation]);
 
+  const isExpired = timer === 0;
   const isSubmitDisabled =
-    !password || !confirmPassword || resetMutation.isPending;
+    code.length !== AUTH_CODE_LENGTH ||
+    !password ||
+    !confirmPassword ||
+    isExpired ||
+    resetMutation.isPending;
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
@@ -175,12 +228,32 @@ export function ResetPasswordScreen(): React.JSX.Element {
             >
               <AuthStepHeader
                 title="Create new password"
-                subtitle="Use a strong password you have not used before."
+                subtitle={`Enter the 6-digit code sent to ${email}, then choose a new password.`}
                 onBack={() => navigation.goBack()}
                 showMascot={false}
               />
 
               <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
+                <View style={styles.inputWrapper}>
+                  <Input
+                    label="Reset Code"
+                    placeholder="123456"
+                    keyboardType="number-pad"
+                    textContentType="oneTimeCode"
+                    autoComplete="one-time-code"
+                    maxLength={AUTH_CODE_LENGTH}
+                    value={code}
+                    required
+                    error={errors.code}
+                    hint={isExpired ? 'Code expired. Go back and request a new reset code.' : `Code expires in ${formatTimer(timer)}.`}
+                    onBlur={() => validateField('code')}
+                    onChangeText={(value) => {
+                      setCode(value.replace(/\D/g, '').slice(0, AUTH_CODE_LENGTH));
+                      clearFieldError('code');
+                    }}
+                  />
+                </View>
+
                 <View style={styles.inputWrapper}>
                   <Input
                     label="New Password"

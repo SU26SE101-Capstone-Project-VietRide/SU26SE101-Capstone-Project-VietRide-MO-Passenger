@@ -17,6 +17,7 @@ export interface SecureTokenBundle {
   refreshToken: string;
   expiresAt?: number;
   issuedAt?: number;
+  refreshAllowed?: boolean;
 }
 
 /**
@@ -26,6 +27,7 @@ export async function setToken(
   accessToken: string,
   refreshToken?: string,
   expiresInSeconds?: number,
+  refreshAllowed = true,
 ): Promise<boolean> {
   try {
     const issuedAt = Date.now();
@@ -33,7 +35,7 @@ export async function setToken(
       ? issuedAt + expiresInSeconds * 1000
       : undefined;
 
-    const bundle = JSON.stringify({ accessToken, refreshToken, expiresAt, issuedAt });
+    const bundle = JSON.stringify({ accessToken, refreshToken, expiresAt, issuedAt, refreshAllowed });
     await SecureStore.setItemAsync(TOKEN_SERVICE_KEY, bundle);
     return true;
   } catch (error) {
@@ -60,6 +62,7 @@ export async function getTokenBundle(): Promise<SecureTokenBundle | null> {
       refreshToken?: string;
       expiresAt?: number;
       issuedAt?: number;
+      refreshAllowed?: boolean;
     };
 
     if (!parsed.accessToken || !parsed.refreshToken) {
@@ -71,12 +74,34 @@ export async function getTokenBundle(): Promise<SecureTokenBundle | null> {
       refreshToken: parsed.refreshToken,
       expiresAt: typeof parsed.expiresAt === 'number' ? parsed.expiresAt : undefined,
       issuedAt: typeof parsed.issuedAt === 'number' ? parsed.issuedAt : undefined,
+      refreshAllowed: typeof parsed.refreshAllowed === 'boolean' ? parsed.refreshAllowed : undefined,
     };
   } catch (error) {
     if (__DEV__) {
       console.error('[SecureStore] Failed to retrieve token bundle:', error);
     }
     return null;
+  }
+}
+
+export async function setTokenRefreshAllowed(refreshAllowed: boolean): Promise<boolean> {
+  try {
+    const bundle = await getTokenBundle();
+
+    if (!bundle) {
+      return false;
+    }
+
+    await SecureStore.setItemAsync(
+      TOKEN_SERVICE_KEY,
+      JSON.stringify({ ...bundle, refreshAllowed }),
+    );
+    return true;
+  } catch (error) {
+    if (__DEV__) {
+      console.error('[SecureStore] Failed to update token refresh metadata:', error);
+    }
+    return false;
   }
 }
 

@@ -62,6 +62,9 @@ export interface TripStop {
 
 export interface SeatRow {
   rowLabel: string;
+  rowNumber?: number;
+  deck?: number;
+  columns?: number[];
   leftSeats: Seat[];
   rightSeats: Seat[];
 }
@@ -70,6 +73,10 @@ export interface Seat {
   id: string;
   label: string;
   status: 'available' | 'selected' | 'sold';
+  row?: number;
+  col?: number;
+  deck?: number;
+  type?: string;
   price?: number;
 }
 
@@ -123,8 +130,10 @@ export interface TripDetailDto {
 export interface SeatDto {
   seatNumber: string;
   status: 'AVAILABLE' | 'HELD' | 'BOOKED';
+  type?: string;
   row: number;
   col: number;
+  deck?: number;
 }
 
 const formatTime = (dateLike: string): string => {
@@ -218,32 +227,51 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
 }
 
 export function mapSeatMap(dtos: SeatDto[]): SeatRow[] {
-  const rows = new Map<number, { left: Seat[]; right: Seat[] }>();
+  const rows = new Map<string, { rowNumber: number; deck: number; seats: Seat[]; columns: Set<number> }>();
 
   dtos.forEach((dto) => {
-    if (!rows.has(dto.row)) {
-      rows.set(dto.row, { left: [], right: [] });
+    const deck = dto.deck ?? 1;
+    const key = `${deck}:${dto.row}`;
+
+    if (!rows.has(key)) {
+      rows.set(key, {
+        rowNumber: dto.row,
+        deck,
+        seats: [],
+        columns: new Set<number>(),
+      });
     }
-    const row = rows.get(dto.row)!;
+    const row = rows.get(key)!;
 
     const seat: Seat = {
       id: dto.seatNumber,
       label: dto.seatNumber,
-      status: dto.status === 'BOOKED' ? 'sold' : 'available',
+      status: dto.status === 'AVAILABLE' ? 'available' : 'sold',
+      row: dto.row,
+      col: dto.col,
+      deck,
+      type: dto.type,
     };
 
-    if (dto.col <= 2) {
-      row.left.push(seat);
-    } else {
-      row.right.push(seat);
-    }
+    row.seats.push(seat);
+    row.columns.add(dto.col);
   });
 
-  return Array.from(rows.entries())
-    .sort(([a], [b]) => a - b)
-    .map(([rowNum, data]) => ({
-      rowLabel: String.fromCharCode(64 + rowNum),
-      leftSeats: data.left.sort((a, b) => a.label.localeCompare(b.label)),
-      rightSeats: data.right.sort((a, b) => a.label.localeCompare(b.label)),
-    }));
+  return Array.from(rows.values())
+    .sort((a, b) => a.deck - b.deck || a.rowNumber - b.rowNumber)
+    .map((data) => {
+      const columns = Array.from(data.columns).sort((a, b) => a - b);
+      const maxCol = Math.max(...columns, 1);
+      const aisleAfterCol = maxCol >= 4 ? Math.ceil(maxCol / 2) : maxCol === 3 ? 1 : maxCol;
+      const seats = data.seats.sort((a, b) => (a.col ?? 0) - (b.col ?? 0) || a.label.localeCompare(b.label));
+
+      return {
+        rowLabel: data.rowNumber.toString().padStart(2, '0'),
+        rowNumber: data.rowNumber,
+        deck: data.deck,
+        columns,
+        leftSeats: seats.filter((seat) => (seat.col ?? 0) <= aisleAfterCol),
+        rightSeats: seats.filter((seat) => (seat.col ?? 0) > aisleAfterCol),
+      };
+    });
 }

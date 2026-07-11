@@ -122,6 +122,7 @@ const refreshStoredTokenBundleOnce = async (): Promise<TokenRefreshResult> => {
       nextBundle.accessToken,
       nextBundle.refreshToken,
       nextBundle.expiresInSeconds,
+      true,
     );
 
     if (!stored) {

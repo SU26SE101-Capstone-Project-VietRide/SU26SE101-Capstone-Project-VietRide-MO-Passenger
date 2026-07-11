@@ -10,6 +10,7 @@ import { MapPinLine, PencilSimple } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import type { BusTrip, DropOffPoint, PickUpPoint, Seat } from '../types';
@@ -42,7 +43,9 @@ export function CheckoutScreen({
     outboundState,
     returnState,
     setHighestStep,
+    setContactInfo,
   } = useBookingStore();
+  const authUser = useAuthStore((state) => state.user);
 
   const [isContactModalVisible, setIsContactModalVisible] = React.useState(false);
   const [contactWarning, setContactWarning] = React.useState<string | null>(null);
@@ -70,6 +73,37 @@ export function CheckoutScreen({
       setContactWarning(null);
     }
   }, [isContactComplete]);
+
+  React.useEffect(() => {
+    if (!authUser) {
+      return;
+    }
+
+    const fullName = (authUser.fullName || authUser.displayName || '').trim();
+    const phone = (authUser.phone || '').trim();
+    const email = (authUser.email || '').trim();
+    const nextContact: Partial<typeof contactInfo> = {};
+
+    if (!contactInfo.fullName.trim() && fullName) {
+      nextContact.fullName = fullName;
+    }
+    if (!contactInfo.phone.trim() && phone) {
+      nextContact.phone = phone;
+    }
+    if (!contactInfo.email.trim() && email) {
+      nextContact.email = email;
+    }
+
+    if (Object.keys(nextContact).length > 0) {
+      setContactInfo(nextContact);
+    }
+  }, [
+    authUser,
+    contactInfo.email,
+    contactInfo.fullName,
+    contactInfo.phone,
+    setContactInfo,
+  ]);
 
   const handleNext = useCallback(() => {
     if (!isContactComplete) {

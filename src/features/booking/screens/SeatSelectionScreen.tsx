@@ -16,19 +16,21 @@ interface SeatSelectionStepProps {
   onNext: (step: number) => void;
 }
 
-export function SeatSelectionScreen({ onNext }: SeatSelectionStepProps): React.JSX.Element {
-  const {
-    selectedTrip,
-    seatMap,
-    selectedSeats,
-    toggleSeat,
-    initSeatMap,
-    initTripDetail,
-    totalPrice,
-    currentLeg,
-    searchParams,
-    setHighestStep,
-  } = useBookingStore();
+export function SeatSelectionScreen({
+  onNext,
+}: SeatSelectionStepProps): React.JSX.Element {
+  const selectedTrip = useBookingStore(state => state.selectedTrip);
+  const seatMap = useBookingStore(state => state.seatMap);
+  const selectedSeats = useBookingStore(state => state.selectedSeats);
+  const toggleSeat = useBookingStore(state => state.toggleSeat);
+  const initSeatMap = useBookingStore(state => state.initSeatMap);
+  const initTripDetail = useBookingStore(state => state.initTripDetail);
+  const getTotalPrice = useBookingStore(state => state.totalPrice);
+  const currentLeg = useBookingStore(state => state.currentLeg);
+  const isRoundTrip = useBookingStore(
+    state => state.searchParams.isRoundTrip ?? false,
+  );
+  const setHighestStep = useBookingStore(state => state.setHighestStep);
   const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
@@ -49,45 +51,51 @@ export function SeatSelectionScreen({ onNext }: SeatSelectionStepProps): React.J
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
-          {searchParams.isRoundTrip
-            ? (currentLeg === 'outbound' ? 'Select Outbound Seat' : 'Select Return Seat')
+          {isRoundTrip
+            ? currentLeg === 'outbound'
+              ? 'Select Outbound Seat'
+              : 'Select Return Seat'
             : 'Select Seat'}
         </Text>
       </View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Route Info Card */}
-          <RouteProgressRow
-            departureCode={trip?.departureCity ?? ''}
-            departureTime={trip?.departureTime ?? ''}
-            arrivalCode={trip?.arrivalCity ?? ''}
-            arrivalTime={trip?.arrivalTime ?? ''}
-            durationHours={trip?.durationHours}
-            style={styles.routeSummary}
-          />
-
-          {/* Seat Legend */}
-          <View style={styles.legendWrap}>
-            <SeatLegend />
-          </View>
-
-          {/* Seat Grid */}
-          <View style={styles.seatWrap}>
-            <SeatGrid seatMap={seatMap} onSeatPress={toggleSeat} />
-          </View>
-
-          <View style={styles.bottomSpacer} />
-        </ScrollView>
-
-        <FloatingActionBar
-          selectedSeats={selectedSeats}
-          totalPrice={totalPrice()}
-          ctaLabel="Continue"
-          onPress={handleBookNow}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Route Info Card */}
+        <RouteProgressRow
+          departureCode={trip?.departureCity ?? ''}
+          departureTime={trip?.departureTime ?? ''}
+          arrivalCode={trip?.arrivalCity ?? ''}
+          arrivalTime={trip?.arrivalTime ?? ''}
+          durationHours={trip?.durationHours}
+          style={styles.routeSummary}
         />
+
+        {/* Seat Legend */}
+        <View style={styles.legendWrap}>
+          <SeatLegend />
+        </View>
+
+        {/* Seat Grid */}
+        <View style={styles.seatWrap}>
+          <SeatGrid
+            seatMap={seatMap}
+            selectedSeats={selectedSeats}
+            onSeatPress={toggleSeat}
+          />
+        </View>
+
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+
+      <FloatingActionBar
+        selectedSeats={selectedSeats}
+        totalPrice={getTotalPrice()}
+        ctaLabel="Continue"
+        onPress={handleBookNow}
+      />
     </View>
   );
 }
@@ -108,7 +116,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
   },
   routeSummary: {
@@ -120,6 +128,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   seatWrap: {
     marginTop: spacing.md,
+    alignItems: 'center',
   },
   bottomSpacer: {
     height: 220,

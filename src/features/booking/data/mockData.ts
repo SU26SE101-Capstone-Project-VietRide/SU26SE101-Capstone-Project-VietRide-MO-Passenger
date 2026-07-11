@@ -241,10 +241,10 @@ export const MOCK_DROP_OFF_POINTS: DropOffPoint[] = [
 
 // ─── Default Contact Info ─────────────────────────────────
 export const MOCK_CONTACT: ContactInfo = {
-  fullName: 'Nguyen Van A',
+  fullName: '',
   phoneCountryCode: '+84',
-  phone: '0912 345 678',
-  email: 'nhung.nguyen@example.com',
+  phone: '',
+  email: '',
   idNumber: '',
 };
 

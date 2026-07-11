@@ -460,42 +460,31 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   },
   toggleSeat: (seatId) =>
     set((state) => {
-      const newMap = state.seatMap.map((row) => ({
-        ...row,
-        leftSeats: row.leftSeats.map((s) => {
-          if (s.id === seatId && s.status !== 'sold') {
-            return {
-              ...s,
-              status:
-                s.status === 'selected'
-                  ? ('available' as const)
-                  : ('selected' as const),
-            };
-          }
-          return s;
-        }),
-        rightSeats: row.rightSeats.map((s) => {
-          if (s.id === seatId && s.status !== 'sold') {
-            return {
-              ...s,
-              status:
-                s.status === 'selected'
-                  ? ('available' as const)
-                  : ('selected' as const),
-            };
-          }
-          return s;
-        }),
-      }));
+      const selectedIndex = state.selectedSeats.findIndex((seat) => seat.id === seatId);
+      if (selectedIndex >= 0) {
+        return {
+          selectedSeats: state.selectedSeats.filter((seat) => seat.id !== seatId),
+        };
+      }
 
-      const selected: Seat[] = [];
-      newMap.forEach((row) => {
-        [...row.leftSeats, ...row.rightSeats].forEach((s) => {
-          if (s.status === 'selected') selected.push(s);
-        });
-      });
+      let targetSeat: Seat | undefined;
+      for (const row of state.seatMap) {
+        targetSeat =
+          row.leftSeats.find((seat) => seat.id === seatId) ??
+          row.rightSeats.find((seat) => seat.id === seatId);
+        if (targetSeat) break;
+      }
 
-      return { seatMap: newMap, selectedSeats: selected };
+      if (!targetSeat || targetSeat.status === 'sold') {
+        return state;
+      }
+
+      return {
+        selectedSeats: [
+          ...state.selectedSeats,
+          { ...targetSeat, status: 'selected' as const },
+        ],
+      };
     }),
 
   // ─── Contact Info ────────────────────────────────────

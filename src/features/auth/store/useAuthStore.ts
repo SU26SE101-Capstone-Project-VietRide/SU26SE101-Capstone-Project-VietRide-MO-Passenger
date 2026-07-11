@@ -16,7 +16,13 @@ import {
   shouldForceLogoutAfterRefreshFailure,
   type RefreshTokenBundleDto,
 } from '@shared/api/tokenRefresh';
-import { clearToken, getRefreshToken, getTokenBundle, setToken } from '@shared/utils/storage';
+import {
+  clearToken,
+  getRefreshToken,
+  getTokenBundle,
+  setToken,
+  setTokenRefreshAllowed,
+} from '@shared/utils/storage';
 import * as authApi from '../api/authApi';
 import { mapAuthUser, type AuthSession, type AuthUserDto, type User } from '../types';
 
@@ -101,6 +107,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       session.accessToken,
       session.refreshToken,
       session.expiresInSeconds,
+      session.user.status === 'ACTIVE',
     );
 
     if (!stored) {
@@ -120,6 +127,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setUser: (user) =>
     {
+      void setTokenRefreshAllowed(user.status === 'ACTIVE');
       cacheUser(user);
       set({
         user,
@@ -163,8 +171,19 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       let user: User | null = null;
+      const canRefreshStoredToken = tokenBundle.refreshAllowed !== false;
 
-      if (isTokenExpired(tokenBundle) || isTokenExpiringSoon(tokenBundle)) {
+      if (!canRefreshStoredToken && isTokenExpired(tokenBundle)) {
+        await clearToken();
+        clearAuthCache();
+        set({
+          ...unauthenticatedState,
+          authError: 'PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng xÃ¡c thá»±c email rá»“i Ä‘Äƒng nháº­p láº¡i.',
+        });
+        return;
+      }
+
+      if (canRefreshStoredToken && (isTokenExpired(tokenBundle) || isTokenExpiringSoon(tokenBundle))) {
         const refreshResult = await refreshStoredTokenBundle();
 
         if (refreshResult.success) {

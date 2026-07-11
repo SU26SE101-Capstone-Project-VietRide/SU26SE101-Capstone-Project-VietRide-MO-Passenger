@@ -71,7 +71,7 @@ export interface RegisterResponse {
 export interface VerifyEmailPayload {
   email: string;
   code: string;
-  purpose: 'REGISTRATION' | 'PASSWORD_RESET' | 'SET_INITIAL_PASSWORD' | string;
+  purpose: 'REGISTRATION' | 'SET_INITIAL_PASSWORD' | string;
 }
 
 export interface VerifyEmailResponse {
@@ -84,26 +84,13 @@ export interface PasswordResetPayload {
 }
 
 export interface PasswordResetResponse {
-  success: boolean;
-  message: string;
-  otpTtlMinutes: number;
-  debugOtpCode?: string;
-  mocked?: boolean;
-}
-
-export interface ConfirmPasswordResetOtpPayload {
   email: string;
-  code: string;
-}
-
-export interface ConfirmPasswordResetOtpResponse {
-  resetToken: string;
-  resetTokenTtlMinutes: number;
-  mocked?: boolean;
+  otpTtlMinutes: number;
 }
 
 export interface ResetPasswordPayload {
-  resetToken: string;
+  email: string;
+  code: string;
   newPassword: string;
 }
 
@@ -114,7 +101,7 @@ export interface ResetPasswordResponse {
 
 export interface ResendVerificationEmailPayload {
   email: string;
-  purpose: 'REGISTRATION' | 'PASSWORD_RESET' | string;
+  purpose: 'REGISTRATION';
 }
 
 export interface ResendVerificationEmailResponse {
