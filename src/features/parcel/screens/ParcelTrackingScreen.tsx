@@ -1,61 +1,36 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Dimensions } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Dimensions, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { ArrowLeft, Truck, CheckCircle, CaretUp, CaretDown } from 'phosphor-react-native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { ArrowLeft, CaretDown, CaretUp, CheckCircle, Truck } from 'phosphor-react-native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 import { MockMapView, MapPoint } from '@shared/components/MockMapView';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ParcelStackParamList } from '@app/navigation/types';
+import { useParcelDetail } from '../hooks/useParcelQueries';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type ParcelTrackingRouteProp = RouteProp<ParcelStackParamList, 'ParcelTracking'>;
 type ParcelTrackingNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelTracking'>;
+type MilestoneStatus = 'active' | 'completed' | 'pending';
 
-// Mock tracking milestones
-const MILESTONES = [
-  {
-    title: 'In Transit',
-    desc: 'Departure scan, vehicle heading to Sapa terminal.',
-    time: 'Jun 02, 2026 • 11:45 AM',
-    status: 'active', // active, completed, pending
-  },
-  {
-    title: 'Received at Station',
-    desc: 'Parcel processed at FUTA Mien Dong Bus Station.',
-    time: 'Jun 02, 2026 • 09:15 AM',
-    status: 'completed',
-  },
-  {
-    title: 'Booked successfully',
-    desc: 'Delivery booking confirmed online.',
-    time: 'Jun 02, 2026 • 08:00 AM',
-    status: 'completed',
-  },
-  {
-    title: 'Out for Delivery',
-    desc: 'Courier delivering to Sapa recipient.',
-    time: '--',
-    status: 'pending',
-  },
-  {
-    title: 'Delivered',
-    desc: 'Successfully received by recipient.',
-    time: '--',
-    status: 'pending',
-  },
-];
+interface Milestone {
+  title: string;
+  desc: string;
+  time: string;
+  status: MilestoneStatus;
+}
 
-// Mock Map Coordinates
 const PARCEL_TRACKING_POINTS: MapPoint[] = [
   {
     id: 'parcel-origin',
-    name: 'FUTA Mien Dong',
-    detail: 'Origin Hub - Parcel processed and scanned.',
+    name: 'Origin terminal',
+    detail: 'Parcel accepted at the origin terminal.',
     x: 40,
     y: 260,
     type: 'origin',
@@ -63,8 +38,8 @@ const PARCEL_TRACKING_POINTS: MapPoint[] = [
   },
   {
     id: 'parcel-transit',
-    name: 'Da Lat Terminal',
-    detail: 'Transit Center - Parcel sorted and loaded to truck.',
+    name: 'In transit',
+    detail: 'Parcel is moving with the assigned trip.',
     x: 150,
     y: 150,
     type: 'transit',
@@ -72,14 +47,77 @@ const PARCEL_TRACKING_POINTS: MapPoint[] = [
   },
   {
     id: 'parcel-dest',
-    name: 'Sapa Office',
-    detail: 'Destination Hub - Parcel out for local delivery.',
+    name: 'Destination terminal',
+    detail: 'Parcel will be available for terminal pickup.',
     x: 280,
     y: 40,
     type: 'destination',
     status: 'pending',
   },
 ];
+
+const formatMilestoneTime = (dateLike?: string | null): string => {
+  if (!dateLike) return '--';
+  const date = new Date(dateLike);
+  if (Number.isNaN(date.getTime())) return '--';
+
+  return date.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const statusLabel = (status?: string): string =>
+  (status || 'PENDING')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const buildMilestones = (parcel?: ReturnType<typeof useParcelDetail>['data']): Milestone[] => {
+  const status = parcel?.status ?? 'PENDING';
+  const loaded = Boolean(parcel?.loadedAt)
+    || ['LOADED', 'IN_TRANSIT', 'UNLOADED', 'DELIVERED_PENDING_CONFIRM', 'DELIVERY_CONFIRMED'].includes(status);
+  const unloaded = Boolean(parcel?.unloadedAt)
+    || ['UNLOADED', 'DELIVERED_PENDING_CONFIRM', 'DELIVERY_CONFIRMED'].includes(status);
+  const pendingConfirm = Boolean(parcel?.deliveredPendingConfirmAt)
+    || ['DELIVERED_PENDING_CONFIRM', 'DELIVERY_CONFIRMED'].includes(status);
+  const confirmed = Boolean(parcel?.confirmedAt) || status === 'DELIVERY_CONFIRMED';
+
+  return [
+    {
+      title: 'Parcel Created',
+      desc: 'Parcel booking has been created and is waiting for payment or review.',
+      time: formatMilestoneTime(parcel?.createdAt),
+      status: loaded || unloaded || pendingConfirm || confirmed ? 'completed' : 'active',
+    },
+    {
+      title: 'Loaded',
+      desc: 'Terminal staff loaded the parcel onto the assigned trip.',
+      time: formatMilestoneTime(parcel?.loadedAt),
+      status: loaded ? 'completed' : 'pending',
+    },
+    {
+      title: 'In Transit',
+      desc: 'Parcel is moving toward the destination terminal.',
+      time: loaded ? formatMilestoneTime(parcel?.loadedAt) : '--',
+      status: loaded && !unloaded ? 'active' : unloaded || pendingConfirm || confirmed ? 'completed' : 'pending',
+    },
+    {
+      title: 'Unloaded',
+      desc: 'Parcel arrived at the destination terminal.',
+      time: formatMilestoneTime(parcel?.unloadedAt ?? parcel?.deliveredPendingConfirmAt),
+      status: unloaded || pendingConfirm || confirmed ? 'completed' : 'pending',
+    },
+    {
+      title: 'Delivery Confirmed',
+      desc: 'Recipient confirmed parcel pickup.',
+      time: formatMilestoneTime(parcel?.confirmedAt),
+      status: confirmed ? 'completed' : pendingConfirm ? 'active' : 'pending',
+    },
+  ];
+};
 
 export function ParcelTrackingScreen(): React.JSX.Element {
   const route = useRoute<ParcelTrackingRouteProp>();
@@ -88,6 +126,9 @@ export function ParcelTrackingScreen(): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const { parcelId } = route.params;
   const [isMinimized, setIsMinimized] = useState(false);
+  const parcelQuery = useParcelDetail(parcelId);
+  const milestones = useMemo(() => buildMilestones(parcelQuery.data), [parcelQuery.data]);
+  const currentStatus = statusLabel(parcelQuery.data?.status);
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -95,21 +136,20 @@ export function ParcelTrackingScreen(): React.JSX.Element {
 
   return (
     <View style={styles.container}>
-      {/* Background Map View */}
       <MockMapView points={PARCEL_TRACKING_POINTS} vehicleType="truck" />
 
-      {/* Floating Header */}
       <SafeAreaView edges={['top']} style={styles.floatingHeader}>
         <Pressable style={styles.navButton} onPress={handleGoBack}>
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
         <View style={styles.floatingHeaderBadge}>
-          <Text style={styles.floatingHeaderTitle}>Order Ref: {parcelId}</Text>
+          <Text style={styles.floatingHeaderTitle}>
+            {parcelQuery.data?.parcelCode || parcelId}
+          </Text>
         </View>
         <View style={{ width: 44 }} />
       </SafeAreaView>
 
-      {/* Bottom Floating Sheet containing Timeline */}
       <View style={[styles.bottomSheetContainer, isMinimized ? styles.bottomSheetMinimized : null]}>
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -117,17 +157,20 @@ export function ParcelTrackingScreen(): React.JSX.Element {
           bounces={false}
           scrollEnabled={!isMinimized}
         >
-          {/* Status Header Badge Card */}
           <Pressable
             onPress={() => setIsMinimized(!isMinimized)}
             style={styles.statusHeaderCard}
           >
             <View style={styles.statusIconBackground}>
-              <Truck size={32} color={theme.colors.accentDark} weight="fill" />
+              {parcelQuery.isLoading ? (
+                <ActivityIndicator color={theme.colors.accentDark} />
+              ) : (
+                <Truck size={32} color={theme.colors.accentDark} weight="fill" />
+              )}
             </View>
             <View style={styles.statusMeta}>
-              <Text style={styles.statusLabelText}>CURRENT STATUS (TAP TO TOGGLE)</Text>
-              <Text style={styles.statusValueText}>In Transit</Text>
+              <Text style={styles.statusLabelText}>CURRENT STATUS</Text>
+              <Text style={styles.statusValueText}>{currentStatus}</Text>
             </View>
             {isMinimized ? (
               <CaretUp size={20} color={theme.colors.textSecondary} weight="bold" />
@@ -136,19 +179,17 @@ export function ParcelTrackingScreen(): React.JSX.Element {
             )}
           </Pressable>
 
-          {/* Timeline Log Section */}
           <View style={styles.bentoSummaryCard}>
             <Text style={styles.bentoCardHeading}>Shipment Timeline</Text>
-            
+
             <View style={styles.timelineContainer}>
-              {MILESTONES.map((item, idx) => {
-                const isLast = idx === MILESTONES.length - 1;
+              {milestones.map((item, idx) => {
+                const isLast = idx === milestones.length - 1;
                 const isCompleted = item.status === 'completed';
                 const isActive = item.status === 'active';
 
                 return (
-                  <View key={`milestone-${idx}`} style={styles.timelineRow}>
-                    {/* Left node point line */}
+                  <View key={`${item.title}-${idx}`} style={styles.timelineRow}>
                     <View style={styles.nodeColumn}>
                       <View
                         style={[
@@ -171,7 +212,6 @@ export function ParcelTrackingScreen(): React.JSX.Element {
                       ) : null}
                     </View>
 
-                    {/* Right item textual content */}
                     <View style={styles.timelineContent}>
                       <Text
                         style={[

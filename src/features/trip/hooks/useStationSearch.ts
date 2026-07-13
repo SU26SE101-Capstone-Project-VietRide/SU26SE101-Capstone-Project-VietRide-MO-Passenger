@@ -5,15 +5,13 @@ import { searchStations, stationKeys } from '../api/stationApi';
 const STATION_STALE_TIME_MS = 10 * 60 * 1000;
 const STATION_GC_TIME_MS = 30 * 60 * 1000;
 
-export function useStationSearch(location: Location | null, q: string) {
-  const normalizedQuery = q.trim();
-  const locationName = location?.name ?? '';
-  const locationType = location?.type ?? 'PROVINCE';
+export function useStationSearch(location: Location | null) {
+  const locationId = location?.id.trim() ?? '';
 
   return useQuery({
-    queryKey: stationKeys.search(normalizedQuery, locationName, locationType),
-    queryFn: () => searchStations(normalizedQuery, locationName, locationType),
-    enabled: Boolean(location && normalizedQuery),
+    queryKey: stationKeys.search(locationId),
+    queryFn: () => searchStations(locationId),
+    enabled: Boolean(locationId),
     staleTime: STATION_STALE_TIME_MS,
     gcTime: STATION_GC_TIME_MS,
     retry: 1,

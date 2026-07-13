@@ -6,19 +6,23 @@
  */
 
 import { create } from 'zustand';
-import type { ParcelBookingState, Station } from '../types/index';
+import type { ParcelBookingState, ParcelPaymentMethod, ParcelSize, Station } from '../types/index';
 
 interface ParcelStore {
   // ─── Locations ──────────────────────────────────────
   fromCity: string;
   toCity: string;
   toDistrict: string;
+  fromLocationCode: string;
+  toLocationCode: string;
   setFromCity: (city: string) => void;
   setToCity: (city: string) => void;
+  setFromLocation: (city: string, code: string) => void;
+  setToLocation: (city: string, code: string) => void;
   setToDistrict: (district: string) => void;
 
   // ─── Package Details ────────────────────────────────
-  size: 'small' | 'medium' | 'large';
+  size: ParcelSize;
   weight: number;
   category: string;
   cod: boolean;
@@ -34,8 +38,8 @@ interface ParcelStore {
   setDropoffStation: (station: Station) => void;
 
   // ─── Payment ────────────────────────────────────────
-  paymentMethod: 'vnpay' | 'wallet' | 'card';
-  setPaymentMethod: (method: 'vnpay' | 'wallet' | 'card') => void;
+  paymentMethod: ParcelPaymentMethod;
+  setPaymentMethod: (method: ParcelPaymentMethod) => void;
 
   // ─── Reset ──────────────────────────────────────────
   resetParcel: () => void;
@@ -46,8 +50,12 @@ export const useParcelStore = create<ParcelStore>((set) => ({
   fromCity: '',
   toCity: '',
   toDistrict: '',
+  fromLocationCode: '',
+  toLocationCode: '',
   setFromCity: (city) => set({ fromCity: city }),
   setToCity: (city) => set({ toCity: city }),
+  setFromLocation: (city, code) => set({ fromCity: city, fromLocationCode: code }),
+  setToLocation: (city, code) => set({ toCity: city, toLocationCode: code }),
   setToDistrict: (district) => set({ toDistrict: district }),
 
   // ─── Package Details ────────────────────────────────
@@ -76,6 +84,8 @@ export const useParcelStore = create<ParcelStore>((set) => ({
       fromCity: '',
       toCity: '',
       toDistrict: '',
+      fromLocationCode: '',
+      toLocationCode: '',
       size: 'small',
       weight: 1,
       category: '',

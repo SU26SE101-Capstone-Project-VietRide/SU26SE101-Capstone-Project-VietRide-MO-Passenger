@@ -1,84 +1,167 @@
-/** ParcelCityPicker — chọn thành phố cho Parcel flow.
- * UI giống hệt Booking CityPicker, nhưng ghi vào Parcel store.
- * Chung logic/UI, tách file để mỗi feature tự quản lý store của mình.
- */
-
-import React, { useState, useMemo } from 'react';
-import { View, Text, Pressable, TextInput, FlatList } from 'react-native';
-import { ArrowLeft, MapPin } from 'phosphor-react-native';
-import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
-import { useParcelStore } from '../store/useParcelStore';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import type { ListRenderItem } from 'react-native';
+import { ArrowLeft, MagnifyingGlass, MapPin } from 'phosphor-react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
+import { useLocations } from '@features/location/hooks/useLocations';
+import type { Location } from '@features/location/types/location';
 import type { ParcelStackParamList } from '@app/navigation/types';
+import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { normalizeLocationSearchText } from '../../booking/utils/searchParams';
+import { useParcelStore } from '../store/useParcelStore';
 
 type NavProp = NativeStackNavigationProp<ParcelStackParamList, 'CityPicker'>;
+type RouteProps = RouteProp<ParcelStackParamList, 'CityPicker'>;
 
-interface City {
-  name: string;
-  region?: string;
-}
-
-const CITIES: City[] = [
-  { name: 'Ho Chi Minh City', region: 'South' },
-  { name: 'Sapa', region: 'North' },
-  { name: 'Da Lat', region: 'Central Highlands' },
-  { name: 'Ha Noi', region: 'North' },
-  { name: 'Da Nang', region: 'Central' },
-  { name: 'Nha Trang', region: 'Central' },
-  { name: 'Hai Phong', region: 'North' },
-  { name: 'Hue', region: 'Central' },
-  { name: 'Vung Tau', region: 'South' },
-  { name: 'Can Tho', region: 'Mekong Delta' },
-  { name: 'Phu Quoc', region: 'South' },
-  { name: 'Quy Nhon', region: 'Central' },
-];
+const locationKeyExtractor = (item: Location) => item.id;
 
 export function ParcelCityPicker(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
+  const route = useRoute<RouteProps>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { fromCity, toCity, setFromCity, setToCity } = useParcelStore();
-  const route = navigation.getState().routes;
-  const lastParams = (route[route.length - 1]?.params ?? {}) as { mode?: 'from' | 'to' };
-  const mode = lastParams.mode ?? 'from';
+  const { data: locations = [], isLoading, isError, isFetching, refetch } = useLocations();
+  const { fromLocationCode, toLocationCode, setFromLocation, setToLocation } = useParcelStore();
+  const [query, setQuery] = useState('');
+  const mode = route.params.mode;
+  const oppositeLocationCode = mode === 'from' ? toLocationCode : fromLocationCode;
 
-  const prefill = mode === 'from' ? fromCity : toCity;
-  const [query, setQuery] = useState(prefill || '');
+  const filteredLocations = useMemo(() => {
+    const activeLocations = locations.filter((location) => location.isActive);
+    const normalizedQuery = normalizeLocationSearchText(query);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return CITIES;
-    return CITIES.filter((c) => c.name.toLowerCase().includes(q));
-  }, [query]);
-
-  const onSelect = (cityName: string) => {
-    if (mode === 'from') {
-      setFromCity(cityName);
-    } else {
-      setToCity(cityName);
+    if (!normalizedQuery) {
+      return activeLocations;
     }
-    navigation.goBack();
-  };
+
+    return activeLocations.filter((location) => {
+      return normalizeLocationSearchText(location.name).includes(normalizedQuery)
+        || normalizeLocationSearchText(location.code).includes(normalizedQuery);
+    });
+  }, [locations, query]);
+
+  const onSelectLocation = useCallback(
+    (location: Location) => {
+      if (location.code === oppositeLocationCode) {
+        return;
+      }
+
+      if (mode === 'from') {
+        setFromLocation(location.name, location.code);
+      } else {
+        setToLocation(location.name, location.code);
+      }
+
+      navigation.goBack();
+    },
+    [mode, navigation, oppositeLocationCode, setFromLocation, setToLocation],
+  );
+
+  const renderLocation = useCallback<ListRenderItem<Location>>(
+    ({ item }) => {
+      const isUnavailable = item.code === oppositeLocationCode;
+      const typeLabel = item.type === 'MUNICIPALITY' ? 'Municipality' : 'Province';
+
+      return (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isUnavailable }}
+          disabled={isUnavailable}
+          onPress={() => onSelectLocation(item)}
+          style={({ pressed }) => [
+            styles.item,
+            isUnavailable ? styles.itemDisabled : null,
+            pressed && !isUnavailable ? styles.pressed : null,
+          ]}
+        >
+          <View style={styles.itemIcon}>
+            <MapPin size={16} color={theme.colors.primary} weight="fill" />
+          </View>
+          <View style={styles.itemTextWrap}>
+            <Text style={styles.itemName}>{item.name}</Text>
+            <Text style={styles.itemRegion}>
+              {isUnavailable ? 'Already selected' : `${typeLabel} - ${item.code}`}
+            </Text>
+          </View>
+        </Pressable>
+      );
+    },
+    [onSelectLocation, oppositeLocationCode, styles, theme.colors.primary],
+  );
+
+  const listEmpty = useMemo(() => {
+    if (isLoading) {
+      return (
+        <View style={styles.stateContainer}>
+          <ActivityIndicator color={theme.colors.primary} />
+          <Text style={styles.empty}>Loading locations...</Text>
+        </View>
+      );
+    }
+
+    if (isError) {
+      return (
+        <View style={styles.stateContainer}>
+          <Text style={styles.empty}>Could not load locations.</Text>
+          <Pressable
+            onPress={() => refetch()}
+            disabled={isFetching}
+            style={({ pressed }) => [
+              styles.retryButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            {isFetching ? (
+              <ActivityIndicator size="small" color={theme.colors.textInverse} />
+            ) : (
+              <Text style={styles.retryText}>Try again</Text>
+            )}
+          </Pressable>
+        </View>
+      );
+    }
+
+    return <Text style={styles.empty}>No matching locations found.</Text>;
+  }, [
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+    styles,
+    theme.colors.primary,
+    theme.colors.textInverse,
+  ]);
 
   return (
     <View style={styles.safe}>
       <View style={styles.headerRow}>
-        <Pressable onPress={() => navigation.goBack()} style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
+        >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>{mode === 'from' ? 'Origin City' : 'Destination City'}</Text>
+        <Text style={styles.headerTitle}>{mode === 'from' ? 'Origin Province' : 'Destination Province'}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.searchBox}>
-        <MapPin size={16} color={theme.colors.textTertiary} />
+        <MagnifyingGlass size={16} color={theme.colors.textTertiary} weight="bold" />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search city..."
+          placeholder="Search province or city..."
           placeholderTextColor={theme.colors.textTertiary}
           value={query}
           onChangeText={setQuery}
@@ -88,22 +171,13 @@ export function ParcelCityPicker(): React.JSX.Element {
       </View>
 
       <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.name}
+        data={filteredLocations}
+        keyExtractor={locationKeyExtractor}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <Pressable
-            style={({ pressed }) => [styles.item, pressed ? styles.pressed : null]}
-            onPress={() => onSelect(item.name)}
-          >
-            <MapPin size={16} color={theme.colors.primary} />
-            <View style={styles.itemTextWrap}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              {item.region ? <Text style={styles.itemRegion}>{item.region}</Text> : null}
-            </View>
-          </Pressable>
-        )}
-        ListEmptyComponent={<Text style={styles.empty}>No cities found</Text>}
+        renderItem={renderLocation}
+        ListEmptyComponent={listEmpty}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );
@@ -124,7 +198,11 @@ const createStyles = (theme: AppTheme) => ({
     width: 38,
     height: 38,
   },
-  headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
+  headerTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.lg,
+    color: theme.colors.textPrimary,
+  },
   headerSpacer: { width: 38 },
   searchBox: {
     flexDirection: 'row',
@@ -155,9 +233,48 @@ const createStyles = (theme: AppTheme) => ({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.divider,
   },
+  itemDisabled: {
+    opacity: 0.45,
+  },
+  itemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.primaryFaded,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   itemTextWrap: { flex: 1 },
-  itemName: { fontFamily: fontFamilies.medium, fontSize: fontSizes.md, color: theme.colors.textPrimary },
-  itemRegion: { fontFamily: fontFamilies.regular, fontSize: fontSizes.xs, color: theme.colors.textTertiary, marginTop: 2 },
+  itemName: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.md,
+    color: theme.colors.textPrimary,
+  },
+  itemRegion: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+    marginTop: 2,
+  },
+  stateContainer: {
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.xxl,
+  },
+  retryButton: {
+    minWidth: 112,
+    height: 40,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textInverse,
+  },
   empty: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,

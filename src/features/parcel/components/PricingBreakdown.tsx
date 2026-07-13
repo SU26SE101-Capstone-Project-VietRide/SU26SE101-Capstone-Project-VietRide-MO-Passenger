@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { TShirt, Coins, CreditCard, Wallet } from 'phosphor-react-native';
+import { TShirt, Coins, Wallet } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import type { PromoOffer } from '@shared/utils/promo';
 import { PromoCodeInput } from './PromoCodeInput';
+import type { ParcelPaymentMethod } from '../types';
 
 export interface PricingBreakdownProps {
   receivingStation?: { name?: string; city?: string };
@@ -29,8 +30,8 @@ export interface PricingBreakdownProps {
   selectedPromoCode?: string;
   appliedPromoLabel?: string;
   promoError?: string;
-  paymentMethod: 'vnpay' | 'wallet' | 'card';
-  onPaymentMethodChange: (method: 'vnpay' | 'wallet' | 'card') => void;
+  paymentMethod: ParcelPaymentMethod;
+  onPaymentMethodChange: (method: ParcelPaymentMethod) => void;
 }
 
 export const PricingBreakdown = ({
@@ -124,14 +125,6 @@ export const PricingBreakdown = ({
           Icon={Coins}
           iconColor={theme.colors.accentDark}
           onSelect={() => onPaymentMethodChange('vnpay')}
-        />
-        <PaymentOption
-          selected={paymentMethod === 'card'}
-          label="Credit / Debit Card"
-          sub="Visa, Mastercard, JCB"
-          Icon={CreditCard}
-          iconColor={theme.colors.success}
-          onSelect={() => onPaymentMethodChange('card')}
         />
       </View>
 

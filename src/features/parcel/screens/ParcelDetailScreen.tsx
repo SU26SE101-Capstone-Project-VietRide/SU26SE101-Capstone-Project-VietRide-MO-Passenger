@@ -1,18 +1,30 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { CheckCircle, QrCode, ArrowLeft, MagnifyingGlass, Wallet } from 'phosphor-react-native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { ArrowLeft, CheckCircle, MagnifyingGlass, Package, QrCode, Wallet } from 'phosphor-react-native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { getApiErrorMessage } from '@shared/api/errors';
 import type { ParcelStackParamList, RootStackParamList } from '@app/navigation/types';
+import { useParcelDetail } from '../hooks/useParcelQueries';
+import { ErrorView } from '../components';
 
 type ParcelDetailRouteProp = RouteProp<ParcelStackParamList, 'ParcelDetail'>;
 type ParcelDetailNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelDetail'>;
 type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
+
+const formatVnd = (amount: number): string => `${Math.max(amount, 0).toLocaleString('vi-VN')} VND`;
+
+const statusLabel = (status?: string): string =>
+  (status || 'PENDING')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 
 export function ParcelDetailScreen(): React.JSX.Element {
   const route = useRoute<ParcelDetailRouteProp>();
@@ -21,6 +33,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { parcelId, fromHistory } = route.params;
+  const detailQuery = useParcelDetail(parcelId);
+  const parcel = detailQuery.data;
 
   const handleTrack = () => {
     navigation.navigate('ParcelTracking', { parcelId });
@@ -32,7 +46,6 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header */}
       <View style={styles.navbar}>
         <Pressable style={styles.navButton} onPress={fromHistory ? () => navigation.goBack() : handleGoHome}>
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
@@ -41,92 +54,122 @@ export function ParcelDetailScreen(): React.JSX.Element {
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Success Header Status */}
-        {!fromHistory ? (
-          <View style={styles.successHeader}>
-            <CheckCircle size={56} color={theme.colors.success} weight="fill" />
-            <Text style={styles.successTitle}>Booking Successful!</Text>
-            <Text style={styles.successSubtitle}>Your delivery request is confirmed.</Text>
-          </View>
-        ) : null}
-
-        {/* Ticket Box Card (simulating a premium ticket stub layout) */}
-        <View style={styles.ticketCard}>
-          {/* Ticket Header QR */}
-          <View style={styles.qrSection}>
-            <View style={styles.qrContainer}>
-              <QrCode size={128} color={theme.colors.textPrimary} weight="light" />
+      {detailQuery.isLoading ? (
+        <View style={styles.stateContainer}>
+          <ActivityIndicator color={theme.colors.primary} />
+          <Text style={styles.stateText}>Loading parcel detail...</Text>
+        </View>
+      ) : detailQuery.isError ? (
+        <View style={styles.errorWrap}>
+          <ErrorView onRetry={() => detailQuery.refetch()} />
+          <Text style={styles.errorText}>{getApiErrorMessage(detailQuery.error)}</Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {!fromHistory ? (
+            <View style={styles.successHeader}>
+              <CheckCircle size={56} color={theme.colors.success} weight="fill" />
+              <Text style={styles.successTitle}>Booking Successful</Text>
+              <Text style={styles.successSubtitle}>Your parcel request has been created.</Text>
             </View>
-            <Text style={styles.qrCaption}>Scan this QR at the terminal drop-off</Text>
-            <Text style={styles.ticketIdText}>Shipment Ref: {parcelId}</Text>
-          </View>
+          ) : null}
 
-          <View style={styles.dashedDivider}>
-            <View style={styles.sideCutoutLeft} />
-            <View style={styles.sideCutoutRight} />
-          </View>
-
-          {/* Ticket Specs */}
-          <View style={styles.detailsSection}>
-            <View style={styles.routeRow}>
-              <View style={styles.routeItem}>
-                <Text style={styles.routeLabel}>FROM</Text>
-                <Text style={styles.routeName}>FUTA Mien Dong Station</Text>
-                <Text style={styles.routeCity}>Ho Chi Minh City</Text>
+          <View style={styles.ticketCard}>
+            <View style={styles.qrSection}>
+              <View style={styles.qrContainer}>
+                <QrCode size={128} color={theme.colors.textPrimary} weight="light" />
               </View>
-              <View style={styles.routeItem}>
-                <Text style={[styles.routeLabel, { textAlign: 'right' }]}>TO</Text>
-                <Text style={[styles.routeName, { textAlign: 'right' }]}>FUTA Sapa Office</Text>
-                <Text style={[styles.routeCity, { textAlign: 'right' }]}>Sapa</Text>
+              <Text style={styles.qrCaption}>Scan this QR at the terminal drop-off</Text>
+              <Text style={styles.ticketIdText}>
+                {parcel?.parcelCode || parcelId}
+              </Text>
+              <View style={styles.statusPill}>
+                <Package size={14} color={theme.colors.primary} weight="fill" />
+                <Text style={styles.statusPillText}>{statusLabel(parcel?.status)}</Text>
               </View>
             </View>
 
-            <View style={styles.specsGrid}>
-              <View style={styles.gridItem}>
-                <Text style={styles.specLabel}>PACKAGE SIZE</Text>
-                <Text style={styles.specValue}>Medium (Box / Clothes)</Text>
-              </View>
-              <View style={styles.gridItem}>
-                <Text style={styles.specLabel}>WEIGHT</Text>
-                <Text style={styles.specValue}>2.5 kg</Text>
-              </View>
-              <View style={styles.gridItem}>
-                <Text style={styles.specLabel}>CATEGORY</Text>
-                <Text style={styles.specValue}>Documents</Text>
-              </View>
-              <View style={styles.gridItem}>
-                <Text style={styles.specLabel}>PAYMENT METHOD</Text>
-                <View style={styles.paymentMethodLabel}>
-                  <Wallet size={12} color={theme.colors.primary} weight="bold" />
-                  <Text style={styles.specValue}>VietRide Wallet</Text>
+            <View style={styles.dashedDivider}>
+              <View style={styles.sideCutoutLeft} />
+              <View style={styles.sideCutoutRight} />
+            </View>
+
+            <View style={styles.detailsSection}>
+              <View style={styles.routeRow}>
+                <View style={styles.routeItem}>
+                  <Text style={styles.routeLabel}>FROM</Text>
+                  <Text style={styles.routeName}>
+                    {parcel?.originStationName || 'Origin terminal'}
+                  </Text>
+                </View>
+                <View style={styles.routeItem}>
+                  <Text style={[styles.routeLabel, { textAlign: 'right' }]}>TO</Text>
+                  <Text style={[styles.routeName, { textAlign: 'right' }]}>
+                    {parcel?.destinationStationName || 'Destination terminal'}
+                  </Text>
                 </View>
               </View>
-            </View>
 
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Amount Paid</Text>
-              <Text style={styles.totalValue}>₫85,000</Text>
+              <View style={styles.specsGrid}>
+                <View style={styles.gridItem}>
+                  <Text style={styles.specLabel}>PACKAGE SIZE</Text>
+                  <Text style={styles.specValue}>{parcel?.sizeCategory || '-'}</Text>
+                </View>
+                <View style={styles.gridItem}>
+                  <Text style={styles.specLabel}>WEIGHT</Text>
+                  <Text style={styles.specValue}>
+                    {parcel?.actualWeightKg ?? parcel?.estimatedWeightKg ?? '-'} kg
+                  </Text>
+                </View>
+                <View style={styles.gridItem}>
+                  <Text style={styles.specLabel}>RECIPIENT</Text>
+                  <Text style={styles.specValue}>{parcel?.recipientName || '-'}</Text>
+                </View>
+                <View style={styles.gridItem}>
+                  <Text style={styles.specLabel}>PAYMENT</Text>
+                  <View style={styles.paymentMethodLabel}>
+                    <Wallet size={12} color={theme.colors.primary} weight="bold" />
+                    <Text style={styles.specValue}>Deposit</Text>
+                  </View>
+                </View>
+              </View>
+
+              {parcel?.description ? (
+                <View style={styles.noteBox}>
+                  <Text style={styles.specLabel}>DESCRIPTION</Text>
+                  <Text style={styles.noteText}>{parcel.description}</Text>
+                </View>
+              ) : null}
+
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Deposit Due</Text>
+                <Text style={styles.totalValue}>{formatVnd(parcel?.depositAmount ?? 0)}</Text>
+              </View>
+              {parcel?.discountAmount ? (
+                <View style={styles.discountRow}>
+                  <Text style={styles.discountLabel}>Voucher discount</Text>
+                  <Text style={styles.discountValue}>-{formatVnd(parcel.discountAmount)}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
-        </View>
 
-        {/* Action Buttons */}
-        <Pressable style={styles.trackButton} onPress={handleTrack}>
-          <MagnifyingGlass size={18} color={theme.colors.textInverse} weight="bold" />
-          <Text style={styles.trackButtonText}>Track Shipment Status</Text>
-        </Pressable>
+          <Pressable style={styles.trackButton} onPress={handleTrack}>
+            <MagnifyingGlass size={18} color={theme.colors.textInverse} weight="bold" />
+            <Text style={styles.trackButtonText}>Track Shipment Status</Text>
+          </Pressable>
 
-        {fromHistory ? (
-          <Pressable style={styles.homeButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.homeButtonText}>Go Back</Text>
-          </Pressable>
-        ) : (
-          <Pressable style={styles.homeButton} onPress={handleGoHome}>
-            <Text style={styles.homeButtonText}>Back to Dashboard</Text>
-          </Pressable>
-        )}
-      </ScrollView>
+          {fromHistory ? (
+            <Pressable style={styles.homeButton} onPress={() => navigation.goBack()}>
+              <Text style={styles.homeButtonText}>Go Back</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.homeButton} onPress={handleGoHome}>
+              <Text style={styles.homeButtonText}>Back to Dashboard</Text>
+            </Pressable>
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -157,6 +200,29 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
+  },
+  stateContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  stateText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
+  },
+  errorWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  errorText: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textTertiary,
+    textAlign: 'center',
+    marginTop: spacing.md,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -211,6 +277,21 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
     color: theme.colors.primary,
   },
+  statusPill: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  statusPillText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+  },
   dashedDivider: {
     height: 2,
     borderWidth: 1,
@@ -247,6 +328,7 @@ const createStyles = (theme: AppTheme) => ({
   routeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: spacing.md,
     marginBottom: spacing.xl,
   },
   routeItem: {
@@ -263,16 +345,10 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },
-  routeCity: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
   specsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   gridItem: {
     width: '50%',
@@ -294,6 +370,16 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     gap: 4,
   },
+  noteBox: {
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+  },
+  noteText: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
+  },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -309,8 +395,24 @@ const createStyles = (theme: AppTheme) => ({
   },
   totalValue: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes.lg,
     color: theme.colors.primary,
+  },
+  discountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  discountLabel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  discountValue: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.success,
   },
   trackButton: {
     ...theme.components.primaryButton,

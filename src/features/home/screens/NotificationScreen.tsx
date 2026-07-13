@@ -1,100 +1,98 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import {
-  View,
-  Text,
+  ActivityIndicator,
   Pressable,
-  FlatList,
   StatusBar,
+  Text,
+  View,
 } from 'react-native';
-import type { ListRenderItem } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { Bell, Ticket, Package, Tag, Check, Trash } from 'phosphor-react-native';
+import { Bell, Check, Package, Tag, Ticket } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
+import { getApiErrorMessage } from '@shared/api/errors';
+import type { NotificationItemDto } from '../api/notificationApi';
+import { useMarkNotificationRead, useNotifications } from '../hooks/useNotifications';
 
-type NotificationType = 'trip' | 'parcel' | 'promo';
-
-interface NotificationItem {
-  id: string;
-  type: NotificationType;
-  title: string;
-  body: string;
-  time: string;
-  isUnread: boolean;
-}
+type NotificationKind = 'trip' | 'parcel' | 'promo' | 'notification';
 
 const NOTIFICATION_BOTTOM_CONTENT_GAP = spacing.huge;
+const NOTIFICATION_QUERY_PARAMS = {
+  unreadOnly: false,
+  page: 1,
+  pageSize: 30,
+  sortBy: 'createdAt' as const,
+  sortDir: 'desc' as const,
+};
 
-export function NotificationScreen(): React.JSX.Element {
-  const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
+const notificationKind = (type: string): NotificationKind => {
+  if (type.startsWith('PARCEL_')) {
+    return 'parcel';
+  }
+  if (type.includes('VOUCHER') || type.includes('SUBSCRIPTION')) {
+    return 'promo';
+  }
+  if (type.startsWith('BOOKING_') || type.startsWith('TRIP_') || type.startsWith('STOP_')) {
+    return 'trip';
+  }
+
+  return 'notification';
+};
+
+const formatRelativeTime = (dateLike: string): string => {
+  const date = new Date(dateLike);
+  const diffMs = Date.now() - date.getTime();
+
+  if (Number.isNaN(date.getTime()) || diffMs < 0) {
+    return '';
+  }
+
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'Now';
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+};
+
+interface NotificationRowProps {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+  onPress: (id: string) => void;
+}
+
+const NotificationRow = memo(function NotificationRow({
+  id,
+  type,
+  title,
+  body,
+  createdAt,
+  readAt,
+  onPress,
+}: NotificationRowProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const handleTabBarScroll = useTabBarScrollBehavior();
+  const kind = notificationKind(type);
+  const isUnread = !readAt;
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: '1',
-      type: 'trip',
-      title: t('notification.tripDepartingTitle', 'Trip Departing Soon'),
-      body: t('notification.tripDepartingBody', 'Your bus VR-88291 to Da Lat is departing in 30 mins. Please proceed to platform A04.'),
-      time: '10m ago',
-      isUnread: true,
-    },
-    {
-      id: '2',
-      type: 'parcel',
-      title: t('notification.parcelDeliveredTitle', 'Parcel Delivered'),
-      body: t('notification.parcelDeliveredBody', 'Your package #VR-P3891 has been successfully received at Da Lat terminal.'),
-      time: '2h ago',
-      isUnread: true,
-    },
-    {
-      id: '3',
-      type: 'promo',
-      title: t('notification.promoTitle', 'Summer Escapes: 20% Off'),
-      body: t('notification.promoBody', 'Get immediate discount on VIP sleeper limousine routes this week! Use code SUMMER20.'),
-      time: '1d ago',
-      isUnread: false,
-    },
-    {
-      id: '4',
-      type: 'trip',
-      title: t('notification.ticketConfirmedTitle', 'Booking Confirmed'),
-      body: t('notification.ticketConfirmedBody', 'Seat A03 is booked for your trip from HCMC to Da Lat on June 5, 2026.'),
-      time: '3d ago',
-      isUnread: false,
-    },
-  ]);
-
-  const unreadCount = useMemo(
-    () => notifications.reduce((count, item) => count + (item.isUnread ? 1 : 0), 0),
-    [notifications],
-  );
-  const bottomTabClearance =
-    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + NOTIFICATION_BOTTOM_CONTENT_GAP;
-
-  const handleMarkAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((item) => ({ ...item, isUnread: false })));
-  }, []);
-
-  const handleClearAll = useCallback(() => {
-    setNotifications([]);
-  }, []);
-
-  const handleNotificationPress = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((item) => (item.id === id && item.isUnread ? { ...item, isUnread: false } : item)),
-    );
-  }, []);
-
-  const getIconMeta = useCallback((type: NotificationType) => {
-    switch (type) {
+  const meta = (() => {
+    switch (kind) {
       case 'trip':
         return {
           icon: <Ticket size={20} color={theme.colors.primary} weight="fill" />,
@@ -113,88 +111,178 @@ export function NotificationScreen(): React.JSX.Element {
           bg: theme.colors.warningLight,
           accent: theme.colors.warning,
         };
+      default:
+        return {
+          icon: <Bell size={20} color={theme.colors.textSecondary} weight="fill" />,
+          bg: theme.colors.surfaceAlt,
+          accent: theme.colors.primary,
+        };
     }
-  }, [theme.colors.primary, theme.colors.primaryFaded, theme.colors.success, theme.colors.successLight, theme.colors.warning, theme.colors.warningLight]);
+  })();
 
-  const renderNotificationItem = useCallback<ListRenderItem<NotificationItem>>(
-    ({ item }) => {
-      const meta = getIconMeta(item.type);
-
-      return (
-        <Pressable
-          style={({ pressed }) => [
-            styles.notificationRow,
-            item.isUnread ? styles.unreadRow : null,
-            pressed ? styles.pressedRow : null,
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.notificationRow,
+        isUnread ? styles.unreadRow : null,
+        pressed ? styles.pressedRow : null,
+      ]}
+      onPress={() => onPress(id)}
+    >
+      <View style={styles.avatarColumn}>
+        <View
+          style={[
+            styles.iconContainer,
+            {
+              backgroundColor: isUnread
+                ? meta.bg
+                : theme.effects.isLiquid
+                  ? theme.effects.glassSurfaceSoft
+                  : theme.colors.surfaceAlt,
+            },
           ]}
-          onPress={() => handleNotificationPress(item.id)}
         >
-          <View style={styles.avatarColumn}>
-            <View
-              style={[
-                styles.iconContainer,
-                {
-                  backgroundColor: item.isUnread
-                    ? meta.bg
-                    : theme.effects.isLiquid
-                      ? theme.effects.glassSurfaceSoft
-                      : theme.colors.surfaceAlt,
-                },
-              ]}
-            >
-              {meta.icon}
-            </View>
-          </View>
+          {meta.icon}
+        </View>
+      </View>
 
-          <View style={styles.messageContent}>
-            <View style={styles.messageTopLine}>
-              <Text
-                style={[
-                  styles.cardTitle,
-                  item.isUnread ? styles.cardTitleUnread : styles.cardTitleRead,
-                ]}
-                numberOfLines={1}
-              >
-                {item.title}
-              </Text>
-              <Text style={[styles.cardTime, item.isUnread ? styles.cardTimeUnread : null]}>
-                {item.time}
-              </Text>
-            </View>
+      <View style={styles.messageContent}>
+        <View style={styles.messageTopLine}>
+          <Text
+            style={[
+              styles.cardTitle,
+              isUnread ? styles.cardTitleUnread : styles.cardTitleRead,
+            ]}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <Text style={[styles.cardTime, isUnread ? styles.cardTimeUnread : null]}>
+            {formatRelativeTime(createdAt)}
+          </Text>
+        </View>
 
-            <Text
-              style={[
-                styles.cardBody,
-                item.isUnread ? styles.cardBodyUnread : styles.cardBodyRead,
-              ]}
-              numberOfLines={2}
-            >
-              {item.body}
-            </Text>
-          </View>
+        <Text
+          style={[
+            styles.cardBody,
+            isUnread ? styles.cardBodyUnread : styles.cardBodyRead,
+          ]}
+          numberOfLines={2}
+        >
+          {body}
+        </Text>
+      </View>
 
-          <View style={styles.trailingColumn}>
-            {item.isUnread ? (
-              <View style={[styles.unreadDot, { backgroundColor: meta.accent }]} />
-            ) : null}
-          </View>
-        </Pressable>
-      );
-    },
-    [getIconMeta, handleNotificationPress, styles, theme.colors.surfaceAlt, theme.effects.glassSurfaceSoft, theme.effects.isLiquid],
+      <View style={styles.trailingColumn}>
+        {isUnread ? (
+          <View style={[styles.unreadDot, { backgroundColor: meta.accent }]} />
+        ) : null}
+      </View>
+    </Pressable>
+  );
+});
+
+export function NotificationScreen(): React.JSX.Element {
+  const { t } = useTranslation();
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const handleTabBarScroll = useTabBarScrollBehavior();
+  const notificationsQuery = useNotifications(NOTIFICATION_QUERY_PARAMS);
+  const markReadMutation = useMarkNotificationRead(NOTIFICATION_QUERY_PARAMS);
+
+  const notifications = notificationsQuery.data?.items ?? [];
+  const unreadItems = useMemo(
+    () => notifications.filter((item) => !item.readAt),
+    [notifications],
+  );
+  const unreadCount = unreadItems.length;
+  const bottomTabClearance =
+    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + NOTIFICATION_BOTTOM_CONTENT_GAP;
+
+  const handleMarkAllRead = useCallback(() => {
+    markReadMutation.mutate(unreadItems.map((item) => item.id));
+  }, [markReadMutation, unreadItems]);
+
+  const handleNotificationPress = useCallback((id: string) => {
+    const item = notifications.find((notification) => notification.id === id);
+    if (!item) {
+      return;
+    }
+
+    if (!item.readAt) {
+      markReadMutation.mutate(id);
+    }
+
+    const parcelId = typeof item.data?.parcelId === 'string' ? item.data.parcelId : null;
+    if (parcelId && notificationKind(item.type) === 'parcel') {
+      navigation.navigate('Parcel', {
+        screen: 'ParcelDetail',
+        params: { parcelId, fromHistory: true },
+      });
+    }
+  }, [markReadMutation, navigation, notifications]);
+
+  const renderNotificationItem = useCallback(
+    ({ item }: { item: NotificationItemDto }) => (
+      <NotificationRow
+        id={item.id}
+        type={item.type}
+        title={item.title}
+        body={item.body}
+        createdAt={item.createdAt}
+        readAt={item.readAt}
+        onPress={handleNotificationPress}
+      />
+    ),
+    [handleNotificationPress],
   );
 
-  const renderEmptyState = useCallback(
-    () => (
+  const renderEmptyState = useCallback(() => {
+    if (notificationsQuery.isLoading) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator color={theme.colors.primary} />
+          <Text style={styles.emptyText}>Loading notifications...</Text>
+        </View>
+      );
+    }
+
+    if (notificationsQuery.isError) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Bell size={48} color={theme.colors.textTertiary} weight="thin" />
+          <Text style={styles.emptyText}>{getApiErrorMessage(notificationsQuery.error)}</Text>
+          <Pressable
+            onPress={() => notificationsQuery.refetch()}
+            style={({ pressed }) => [styles.retryButton, pressed ? styles.pressedRow : null]}
+          >
+            <Text style={styles.retryText}>Try again</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
       <View style={styles.emptyContainer}>
         <Bell size={48} color={theme.colors.textTertiary} weight="thin" />
         <Text style={styles.emptyText}>{t('notification.noNotifications', 'No notifications yet.')}</Text>
       </View>
-    ),
-    [styles.emptyContainer, styles.emptyText, t, theme.colors.textTertiary],
-  );
+    );
+  }, [
+    notificationsQuery,
+    styles.emptyContainer,
+    styles.emptyText,
+    styles.pressedRow,
+    styles.retryButton,
+    styles.retryText,
+    t,
+    theme.colors.primary,
+    theme.colors.textTertiary,
+  ]);
 
-  const keyExtractor = useCallback((item: NotificationItem) => item.id, []);
+  const keyExtractor = useCallback((item: NotificationItemDto) => item.id, []);
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
@@ -203,7 +291,6 @@ export function NotificationScreen(): React.JSX.Element {
         backgroundColor={theme.colors.background}
       />
 
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Bell size={24} color={theme.colors.textPrimary} style={styles.headerIcon} />
@@ -221,23 +308,23 @@ export function NotificationScreen(): React.JSX.Element {
           <View style={styles.headerActions}>
             <Pressable
               onPress={handleMarkAllRead}
-              disabled={unreadCount === 0}
+              disabled={unreadCount === 0 || markReadMutation.isPending}
               style={[
                 styles.actionButton,
                 unreadCount === 0 ? styles.actionButtonDisabled : null,
               ]}
             >
-              <Check size={18} color={unreadCount === 0 ? theme.colors.textDisabled : theme.colors.primary} />
-            </Pressable>
-            <Pressable onPress={handleClearAll} style={styles.actionButton}>
-              <Trash size={18} color={theme.colors.error} />
+              {markReadMutation.isPending ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <Check size={18} color={unreadCount === 0 ? theme.colors.textDisabled : theme.colors.primary} />
+              )}
             </Pressable>
           </View>
         ) : null}
       </View>
 
-      {/* List */}
-      <FlatList
+      <FlashList
         data={notifications}
         keyExtractor={keyExtractor}
         renderItem={renderNotificationItem}
@@ -248,8 +335,8 @@ export function NotificationScreen(): React.JSX.Element {
           notifications.length === 0 ? styles.emptyListContent : null,
           { paddingBottom: bottomTabClearance },
         ]}
-        contentInsetAdjustmentBehavior="automatic"
-        scrollIndicatorInsets={{ bottom: bottomTabClearance }}
+        onRefresh={notificationsQuery.refetch}
+        refreshing={notificationsQuery.isRefetching}
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}
       />
@@ -326,6 +413,22 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.md,
     color: theme.colors.textTertiary,
     marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: spacing.md,
+    minWidth: 112,
+    height: 40,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textInverse,
   },
   notificationRow: {
     flexDirection: 'row',
