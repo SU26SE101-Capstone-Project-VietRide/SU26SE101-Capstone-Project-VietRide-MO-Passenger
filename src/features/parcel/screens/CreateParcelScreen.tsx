@@ -52,6 +52,7 @@ import {
   useAvailableParcelVouchers,
   useCreateParcel,
 } from '../hooks/useParcelQueries';
+import { useCurrentCoordinates } from '../hooks/useCurrentCoordinates';
 import { useParcelStations } from '../hooks/useParcelStations';
 import type {
   AvailableParcelTrip,
@@ -217,6 +218,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const [galleryViewVisible, setGalleryViewVisible] = useState(false);
   const [selectedGalleryPhotos, setSelectedGalleryPhotos] = useState<number[]>([]);
   const [flashActive, setFlashActive] = useState(false);
+  const currentLocation = useCurrentCoordinates(step === 1 || step === 2);
 
   useEffect(() => {
     if (!recipientName && user?.fullName) {
@@ -242,8 +244,18 @@ export function CreateParcelScreen(): React.JSX.Element {
       ?? null;
   }, [locations, toCity, toLocationCode]);
 
-  const originStationsQuery = useParcelStations(originLocation);
-  const destinationStationsQuery = useParcelStations(destinationLocation);
+  const originStationsQuery = useParcelStations(
+    originLocation,
+    step === 1,
+    currentLocation.coords,
+    currentLocation.isResolving,
+  );
+  const destinationStationsQuery = useParcelStations(
+    destinationLocation,
+    step === 2,
+    currentLocation.coords,
+    currentLocation.isResolving,
+  );
   const dimensions = PACKAGE_DIMENSIONS[packageSize];
   const estimatedWeightKg = weightToKg(packageWeight, weightUnit);
   const departureDate = toLocalDateString(departureOffset);
@@ -278,7 +290,10 @@ export function CreateParcelScreen(): React.JSX.Element {
   ]);
 
   const availableTripsQuery = useAvailableParcelTrips(availableTripParams, step === 4);
-  const availableTrips = availableTripsQuery.data?.items ?? [];
+  const availableTrips = useMemo(
+    () => availableTripsQuery.data?.items ?? [],
+    [availableTripsQuery.data?.items],
+  );
   const selectedTrip = useMemo(
     () => availableTrips.find((trip) => trip.tripId === selectedTripId) ?? null,
     [availableTrips, selectedTripId],
@@ -559,7 +574,8 @@ export function CreateParcelScreen(): React.JSX.Element {
   const stationStepStations = step === 1
     ? originStationsQuery.stations
     : destinationStationsQuery.stations.filter((station) => station.id !== receivingStation?.id);
-  const missingLocation = step === 1 ? !originLocation : !destinationLocation;
+  const stationStepLocation = step === 1 ? originLocation : destinationLocation;
+  const missingLocation = !stationStepLocation;
 
   const renderStationStep = () => {
     if (missingLocation) {
@@ -592,7 +608,9 @@ export function CreateParcelScreen(): React.JSX.Element {
           <WarningCircle size={32} color={theme.colors.warning} weight="duotone" />
           <Text style={styles.stateTitle}>No parcel station found</Text>
           <Text style={styles.stateText}>
-            Try another province or city for this route.
+            {stationStepLocation
+              ? `No station found in ${stationStepLocation.name}. Try another province or city for this route.`
+              : 'Try another province or city for this route.'}
           </Text>
         </View>
       );

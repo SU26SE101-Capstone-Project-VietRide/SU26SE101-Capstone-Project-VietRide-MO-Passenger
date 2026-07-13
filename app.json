@@ -12,6 +12,12 @@
           "photosPermission": "VietRide cần quyền mở thư viện ảnh để cập nhật ảnh đại diện."
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "VietRide uses your location to show nearby parcel stations."
+        }
+      ],
       "expo-secure-store"
     ],
     "ios": {

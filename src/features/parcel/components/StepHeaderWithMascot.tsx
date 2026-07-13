@@ -14,8 +14,8 @@ export const StepHeaderWithMascot = ({ step }: StepHeaderWithMascotProps): React
   const styles = useThemedStyles(createStyles);
   const heading = (() => {
     switch (step) {
-      case 1: return 'Choose Receiving Station';
-      case 2: return 'Choose Sending Station';
+      case 1: return 'Choose Sending Station';
+      case 2: return 'Choose Receiving Station';
       case 3: return 'Tell us about your package';
       case 4: return 'Order Summary';
       default: return 'Create Parcel';
@@ -24,8 +24,8 @@ export const StepHeaderWithMascot = ({ step }: StepHeaderWithMascotProps): React
 
   const subtext = (() => {
     switch (step) {
-      case 1: return 'Where should we pick up?';
-      case 2: return 'Where will you drop off your parcel?';
+      case 1: return 'Where will you drop off your parcel?';
+      case 2: return 'Where should the recipient pick up?';
       case 3: return 'Help us find the right vehicle for you.';
       case 4: return 'Confirm details and make payment.';
       default: return '';

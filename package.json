@@ -23,6 +23,7 @@
     "expo-doctor": "^1.20.0",
     "expo-font": "~56.0.5",
     "expo-image-picker": "~56.0.19",
+    "expo-location": "~56.0.20",
     "expo-secure-store": "~56.0.4",
     "expo-system-ui": "~56.0.3",
     "i18next": "^26.3.0",

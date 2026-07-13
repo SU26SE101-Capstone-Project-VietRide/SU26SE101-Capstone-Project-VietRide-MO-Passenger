@@ -29,4 +29,29 @@ describe('searchStations', () => {
       },
     });
   });
+
+  it('returns station items when the response data is paged-like', async () => {
+    const station = {
+      id: 'station-1',
+      name: 'Ben xe Mien Tay',
+      city: 'Ho Chi Minh City',
+      province: 'Ho Chi Minh',
+      locationId: 'location-123',
+      latitude: null,
+      longitude: null,
+      addressStreet: '395 Kinh Duong Vuong',
+      supportsShuttle: false,
+    };
+    mockGet.mockResolvedValueOnce({
+      data: {
+        success: true,
+        statusCode: 200,
+        data: {
+          items: [station],
+        },
+      },
+    });
+
+    await expect(searchStations('location-123')).resolves.toEqual([station]);
+  });
 });
