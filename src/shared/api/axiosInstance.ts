@@ -16,13 +16,11 @@ import axios, {
 
 import { appConfig } from '@shared/constants/config';
 import { API_TIMEOUT } from '@shared/constants';
-import { clearToken, getTokenBundle } from '@shared/utils/storage';
 import { joinUrl, normalizeApiPath, normalizeUrlBase, isAbsoluteUrl } from '@shared/utils/url';
 import {
-  isTokenExpiringSoon,
-  refreshStoredTokenBundle,
-  shouldForceLogoutAfterRefreshFailure,
-} from './tokenRefresh';
+  refreshAccessTokenAfterUnauthorized,
+  resolveStoredAccessToken,
+} from './authSession';
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -38,13 +36,7 @@ declare module 'axios' {
   }
 }
 
-type UnauthorizedHandler = () => void;
-
-let unauthorizedHandler: UnauthorizedHandler | null = null;
-
-export const setUnauthorizedHandler = (handler: UnauthorizedHandler | null): void => {
-  unauthorizedHandler = handler;
-};
+export { setUnauthorizedHandler } from './authSession';
 
 // ─── Instance ─────────────────────────────────────────────
 
@@ -77,26 +69,11 @@ apiClient.interceptors.request.use(
       config.url = normalizeApiPath(config.url);
     }
 
-    const tokenBundle = config.skipAuth ? null : await getTokenBundle();
-    let accessToken = tokenBundle?.accessToken ?? null;
-
-    if (
-      tokenBundle &&
-      tokenBundle.refreshAllowed !== false &&
-      !config.skipAuthRefresh &&
-      !isAuthRoute(config.url) &&
-      isTokenExpiringSoon(tokenBundle)
-    ) {
-      const refreshResult = await refreshStoredTokenBundle();
-
-      if (refreshResult.success) {
-        accessToken = refreshResult.data.accessToken;
-      } else if (shouldForceLogoutAfterRefreshFailure(refreshResult)) {
-        await clearToken();
-        unauthorizedHandler?.();
-        accessToken = null;
-      }
-    }
+    const accessToken = config.skipAuth
+      ? null
+      : await resolveStoredAccessToken({
+        skipRefresh: config.skipAuthRefresh || isAuthRoute(config.url),
+      });
 
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
@@ -162,20 +139,11 @@ apiClient.interceptors.response.use(
       !isAuthRoute(originalRequest.url)
     ) {
       originalRequest._retry = true;
-      const refreshResult = await refreshStoredTokenBundle();
+      const refreshedAccessToken = await refreshAccessTokenAfterUnauthorized();
 
-      if (refreshResult.success) {
-        originalRequest.headers.Authorization = `Bearer ${refreshResult.data.accessToken}`;
+      if (refreshedAccessToken) {
+        originalRequest.headers.Authorization = `Bearer ${refreshedAccessToken}`;
         return apiClient(originalRequest);
-      }
-
-      if (shouldForceLogoutAfterRefreshFailure(refreshResult)) {
-        await clearToken();
-        unauthorizedHandler?.();
-
-        if (__DEV__) {
-          console.warn('[API] 401 — Refresh token invalid, clearing credentials.');
-        }
       }
     }
 

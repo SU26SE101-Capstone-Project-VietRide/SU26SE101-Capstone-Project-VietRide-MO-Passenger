@@ -71,5 +71,53 @@
     "language": "Language",
     "notifications": "Notifications",
     "helpSupport": "Help & Support"
+  },
+  "chatbot": {
+    "title": "VietRide Assistant",
+    "online": "Ready to help",
+    "offline": "Offline",
+    "responding": "Responding...",
+    "signInRequired": "Sign-in required",
+    "profileRequired": "Phone number required",
+    "welcome": "Hello! I am the VietRide assistant. Ask me about ticket, refund, baggage, parcel, or app policies.",
+    "welcomeGuest": "Hello! Sign in so I can answer VietRide policy questions in a conversation. You can still open ticket booking below.",
+    "welcomePhoneRequired": "Please add a phone number to your profile before using the VietRide assistant.",
+    "askPlaceholder": "Ask about policies or book a trip...",
+    "offlinePlaceholder": "Check your connection to continue",
+    "lockedPlaceholder": "Sign in to start chatting",
+    "newConversation": "Start a new conversation",
+    "sendMessage": "Send message",
+    "stopResponse": "Stop response",
+    "cancelledResponse": "Stopped displaying the response.",
+    "responseInterrupted": "This response may be incomplete.",
+    "feedbackError": "Could not send feedback. Please try again.",
+    "helpful": "Helpful?",
+    "helpfulYes": "Helpful",
+    "helpfulNo": "Not helpful",
+    "bookingSuggestion": "Continue booking",
+    "bookingAction": "Open ticket booking",
+    "completeBookingDetails": "Complete the route and date in ticket booking",
+    "passengerCount": "{{count}} passengers",
+    "signInAction": "Sign in to chat",
+    "completeProfileAction": "Add phone number",
+    "quickActions": {
+      "refund": "Cancellation & refund",
+      "booking": "Book a ticket",
+      "tracking": "Track a trip",
+      "parcel": "Send a parcel"
+    },
+    "prompts": {
+      "refund": "What is VietRide's ticket cancellation and refund policy?"
+    },
+    "errors": {
+      "phoneRequired": "Please add a phone number to your profile before using the assistant.",
+      "rateLimit": "You have used all assistant requests for this hour. Please come back later.",
+      "messageTooLong": "Your question is too long. Please shorten it.",
+      "providerUnavailable": "The AI assistant is temporarily busy. Please try again later.",
+      "conversationNotFound": "The previous conversation is no longer available. Send your question again to start a new one.",
+      "network": "The assistant connection was interrupted. Please check your network.",
+      "timeout": "The assistant took too long to respond. Please try again.",
+      "generic": "The assistant could not respond. Please try again later."
+    }
   }
 }

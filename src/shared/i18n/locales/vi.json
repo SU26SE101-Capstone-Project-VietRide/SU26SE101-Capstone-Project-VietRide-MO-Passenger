@@ -71,5 +71,53 @@
     "language": "Ngôn ngữ",
     "notifications": "Thông báo",
     "helpSupport": "Hỗ trợ"
+  },
+  "chatbot": {
+    "title": "Trợ lý VietRide",
+    "online": "Sẵn sàng hỗ trợ",
+    "offline": "Đang ngoại tuyến",
+    "responding": "Đang trả lời...",
+    "signInRequired": "Cần đăng nhập",
+    "profileRequired": "Cần bổ sung số điện thoại",
+    "welcome": "Xin chào! Tôi là trợ lý VietRide. Bạn có thể hỏi tôi về chính sách vé, hoàn tiền, hành lý, gửi hàng hoặc cách sử dụng ứng dụng.",
+    "welcomeGuest": "Xin chào! Hãy đăng nhập để tôi có thể trả lời chính sách VietRide theo hội thoại của bạn. Bạn vẫn có thể mở nhanh màn hình đặt vé bên dưới.",
+    "welcomePhoneRequired": "Bạn cần bổ sung số điện thoại trong hồ sơ trước khi dùng trợ lý VietRide.",
+    "askPlaceholder": "Hỏi về chính sách hoặc đặt vé...",
+    "offlinePlaceholder": "Kiểm tra kết nối mạng để tiếp tục",
+    "lockedPlaceholder": "Đăng nhập để bắt đầu trò chuyện",
+    "newConversation": "Bắt đầu hội thoại mới",
+    "sendMessage": "Gửi tin nhắn",
+    "stopResponse": "Dừng phản hồi",
+    "cancelledResponse": "Đã dừng hiển thị phản hồi.",
+    "responseInterrupted": "Phản hồi có thể chưa đầy đủ.",
+    "feedbackError": "Chưa thể gửi đánh giá. Vui lòng thử lại.",
+    "helpful": "Hữu ích không?",
+    "helpfulYes": "Hữu ích",
+    "helpfulNo": "Không hữu ích",
+    "bookingSuggestion": "Tiếp tục đặt vé",
+    "bookingAction": "Mở luồng đặt vé",
+    "completeBookingDetails": "Bổ sung tuyến và ngày đi trong màn hình đặt vé",
+    "passengerCount": "{{count}} khách",
+    "signInAction": "Đăng nhập để trò chuyện",
+    "completeProfileAction": "Bổ sung số điện thoại",
+    "quickActions": {
+      "refund": "Hủy vé & hoàn tiền",
+      "booking": "Đặt vé",
+      "tracking": "Theo dõi chuyến",
+      "parcel": "Gửi hàng"
+    },
+    "prompts": {
+      "refund": "Chính sách hủy vé và hoàn tiền của VietRide như thế nào?"
+    },
+    "errors": {
+      "phoneRequired": "Vui lòng bổ sung số điện thoại trong hồ sơ trước khi dùng trợ lý.",
+      "rateLimit": "Bạn đã dùng hết lượt hỏi trong giờ này. Vui lòng quay lại sau.",
+      "messageTooLong": "Câu hỏi quá dài. Vui lòng viết ngắn gọn hơn.",
+      "providerUnavailable": "Trợ lý AI đang tạm bận. Vui lòng thử lại sau.",
+      "conversationNotFound": "Hội thoại cũ không còn khả dụng. Hãy gửi lại câu hỏi để bắt đầu hội thoại mới.",
+      "network": "Kết nối với trợ lý bị gián đoạn. Vui lòng kiểm tra mạng.",
+      "timeout": "Trợ lý phản hồi quá lâu. Vui lòng thử lại.",
+      "generic": "Chưa thể nhận phản hồi từ trợ lý. Vui lòng thử lại sau."
+    }
   }
 }

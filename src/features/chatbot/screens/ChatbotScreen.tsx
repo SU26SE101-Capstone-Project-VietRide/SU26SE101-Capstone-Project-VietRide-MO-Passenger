@@ -1,160 +1,215 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
-  View,
-  Text,
-  Pressable,
-  FlatList,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
   StatusBar,
-  ActivityIndicator,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, PaperPlaneRight, Robot } from 'phosphor-react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import {
+  FlashList,
+  type FlashListRef,
+  type ListRenderItemInfo,
+} from '@shopify/flash-list';
+import {
+  ArrowLeft,
+  MapPin,
+  NotePencil,
+  Package,
+  Robot,
+  ShieldCheck,
+  Ticket,
+} from 'phosphor-react-native';
 
-import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import type { RootStackParamList } from '@app/navigation/types';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { useBookingStore } from '@features/booking/store/useBookingStore';
+import type { SearchParams } from '@features/booking/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
-import type { AppTheme } from '@shared/theme';
-import { Input } from '@shared/components';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
+import { ChatComposer, ChatMessageBubble } from '../components';
+import { useChatSession } from '../hooks/useChatSession';
+import type {
+  ChatBookingDraft,
+  ChatFeedbackRating,
+  ChatMessage,
+} from '../types/chatbot';
 
-interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'bot';
-  timestamp: Date;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chatbot'>;
+type BookingSearchDraft = Partial<SearchParams & {
+  isRoundTrip: boolean;
+  returnDate: string;
+}>;
+
+interface QuickAction {
+  id: 'policy' | 'booking' | 'tracking' | 'parcel';
+  label: string;
+  prompt?: string;
+  icon: React.ComponentType<{ size: number; color: string; weight?: 'regular' | 'fill' | 'bold' }>;
 }
+
+const keyExtractor = (item: ChatMessage): string => item.id;
+const getItemType = (item: ChatMessage): string => item.role;
+const maintainVisibleContentPosition = {
+  startRenderingFromBottom: true,
+  autoscrollToBottomThreshold: 0.15,
+  animateAutoScrollToBottom: false,
+};
 
 export function ChatbotScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
+  const listRef = useRef<FlashListRef<ChatMessage> | null>(null);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const currentLang = i18n.language || 'vi';
+  const setSearchParams = useBookingStore((state) => state.setSearchParams);
+  const resetBooking = useBookingStore((state) => state.resetBooking);
+  const resetAuthState = useAuthStore((state) => state.resetAuthState);
+  const {
+    availability,
+    feedbackError,
+    isOnline,
+    isStreaming,
+    messages,
+    pendingFeedbackId,
+    rateMessage,
+    resetConversation,
+    sendMessage,
+    stopResponse,
+  } = useChatSession();
 
-  // Refs for flatlist scroll
-  const flatListRef = useRef<FlatList>(null);
+  const quickActions = useMemo<QuickAction[]>(() => [
+    {
+      id: 'policy',
+      label: t('chatbot.quickActions.refund'),
+      prompt: t('chatbot.prompts.refund'),
+      icon: ShieldCheck,
+    },
+    {
+      id: 'booking',
+      label: t('chatbot.quickActions.booking'),
+      icon: Ticket,
+    },
+    {
+      id: 'tracking',
+      label: t('chatbot.quickActions.tracking'),
+      icon: MapPin,
+    },
+    {
+      id: 'parcel',
+      label: t('chatbot.quickActions.parcel'),
+      icon: Package,
+    },
+  ], [t]);
 
-  // Initial messages setup based on language
-  const getInitialMessages = useCallback((): Message[] => {
-    const isVi = currentLang.startsWith('vi');
-    return [
-      {
-        id: 'init-1',
-        text: isVi
-          ? 'Xin chào! Tôi là Trợ lý ảo VietRide. Tôi có thể giúp gì cho bạn hôm nay?'
-          : 'Hello! I am your VietRide AI Assistant. How can I help you today?',
-        sender: 'bot',
-        timestamp: new Date(),
-      },
-    ];
-  }, [currentLang]);
+  const statusLabel = useMemo(() => {
+    if (!isOnline) return t('chatbot.offline');
+    if (isStreaming) return t('chatbot.responding');
+    if (availability === 'guest') return t('chatbot.signInRequired');
+    if (availability === 'phoneRequired') return t('chatbot.profileRequired');
+    return t('chatbot.online');
+  }, [availability, isOnline, isStreaming, t]);
 
-  const [messages, setMessages] = useState<Message[]>(getInitialMessages);
-  const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const composerPlaceholder = useMemo(() => {
+    if (!isOnline) return t('chatbot.offlinePlaceholder');
+    if (availability !== 'ready') return t('chatbot.lockedPlaceholder');
+    return t('chatbot.askPlaceholder');
+  }, [availability, isOnline, t]);
 
-  // Sync initial messages when language changes
-  useEffect(() => {
-    setMessages(getInitialMessages());
-  }, [getInitialMessages]);
-
-  // Quick Action Chips definitions
-  const quickActionChips = currentLang.startsWith('vi')
-    ? [
-      { label: '💵 Xem giá vé xe', value: 'price' },
-      { label: '🎫 Hủy vé & Hoàn tiền', value: 'cancel' },
-      { label: '📦 Cách thức gửi hàng', value: 'parcel' },
-      { label: '📍 Theo dõi hành trình xe', value: 'track' },
-    ]
-    : [
-      { label: '💵 Check Ticket Fares', value: 'price' },
-      { label: '🎫 Cancellation & Refund', value: 'cancel' },
-      { label: '📦 How to Send Parcel', value: 'parcel' },
-      { label: '📍 Live Track My Bus', value: 'track' },
-    ];
-
-  // Auto-responses database
-  const getBotResponse = (queryType: string, customText?: string): string => {
-    const isVi = currentLang.startsWith('vi');
-
-    if (queryType === 'price') {
-      return isVi
-        ? 'Giá vé VietRide dao động từ 150.000đ (xe giường nằm tiêu chuẩn) đến 280.000đ (Limousine VIP). Bạn có thể vào tab "Đặt vé" ở menu chính để tra cứu chính xác giá vé của từng chặng nhé!'
-        : 'VietRide ticket fares start from only 150,000đ for standard sleeper buses and 280,000đ for premium VIP Limousines. You can search live pricing for any route under the "Booking" tab!';
-    }
-
-    if (queryType === 'cancel') {
-      return isVi
-        ? 'Bạn có thể hủy vé trực tiếp trên ứng dụng tối thiểu 24 tiếng trước giờ khởi hành. Hãy vào "Lịch sử" -> chọn vé điện tử của bạn -> bấm "Hủy vé". Phí xử lý hủy vé tiêu chuẩn là 10%.'
-        : 'You can easily cancel and refund tickets up to 24 hours prior to departure. Simply go to "History" -> select your digital ticket -> tap "Cancel Ticket". A standard 10% processing fee will apply.';
-    }
-
-    if (queryType === 'parcel') {
-      return isVi
-        ? 'Gửi hàng cực kỳ dễ dàng với VietRide! Hãy chọn tab "Gửi hàng" (Parcel) ở menu chính, nhập kích thước bưu kiện, thông tin người gửi/nhận, sau đó đem hàng ra văn phòng nhà xe gần nhất để gửi.'
-        : 'Sending a parcel is quick! Head over to the "Parcel" tab at the bottom menu, fill in package details, sender and receiver details, then drop the parcel off at your closest VietRide terminal.';
-    }
-
-    if (queryType === 'track') {
-      return isVi
-        ? 'Để xem vị trí xe chạy trực tiếp, bạn hãy truy cập tab "Theo dõi" (Tracking) ở menu dưới cùng, nhập mã vé của bạn (ví dụ: VR-88291) để theo dõi bản đồ GPS và ETA thời gian xe đến.'
-        : 'To track your bus live, head to the "Tracking" tab at the bottom navigation, enter your Digital Ticket reference (e.g. VR-88291), and view the live GPS movement and arrival countdown clocks.';
-    }
-
-    // Default conversational fallback responses
-    if (isVi) {
-      if (customText?.toLowerCase().includes('hello') || customText?.toLowerCase().includes('chào')) {
-        return 'Xin chào! Chúc bạn một ngày tốt lành. Tôi có thể hỗ trợ gì về thông tin chuyến đi hay gửi bưu kiện không?';
-      }
-      return 'Cảm ơn câu hỏi của bạn. Tôi đã ghi nhận yêu cầu và sẽ hỗ trợ ngay. Bạn có muốn tra cứu giá vé hay cách hủy vé qua các gợi ý bên dưới không?';
-    } else {
-      if (customText?.toLowerCase().includes('hello') || customText?.toLowerCase().includes('hi')) {
-        return 'Hello there! Hope you are having a wonderful day. How can I assist you with your trips or parcel bookings?';
-      }
-      return 'Thank you for your message. I have received your request. Would you like to check fare prices or ticket cancellation guidelines using the shortcut chips below?';
-    }
-  };
-
-  const handleSendMessage = async (text: string, isPresetCode?: string) => {
-    if (!text.trim()) return;
-
-    // 1. Add User Message
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      text,
-      sender: 'user',
-      timestamp: new Date(),
+  const handleBookingPress = useCallback((draft: ChatBookingDraft) => {
+    const params: BookingSearchDraft = {
+      isRoundTrip: false,
+      returnDate: '',
+      passengers: draft.passengers ?? 1,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInputText('');
+    if (draft.origin) {
+      params.from = draft.origin.name;
+      params.originLocationCode = draft.origin.code;
+    }
+    if (draft.destination) {
+      params.to = draft.destination.name;
+      params.destinationLocationCode = draft.destination.code;
+    }
+    if (draft.date) params.date = draft.date;
 
-    // Auto Scroll to bottom
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    resetBooking();
+    setSearchParams(params);
+    navigation.navigate('Booking', {
+      screen: draft.isReadyToSearch ? 'CreateTicketBooking' : 'SearchRoutes',
+    });
+  }, [navigation, resetBooking, setSearchParams]);
 
-    // 2. Trigger Typing Status
-    setIsTyping(true);
-    await new Promise<void>((resolve) => setTimeout(resolve, 1200));
+  const handleRate = useCallback((
+    messageId: string,
+    assistantMessageId: string,
+    rating: ChatFeedbackRating,
+  ) => {
+    rateMessage(messageId, assistantMessageId, rating).catch(() => undefined);
+  }, [rateMessage]);
 
-    // 3. Add AI bot Response
-    const botReplyText = getBotResponse(isPresetCode || '', text);
-    const botMsg: Message = {
-      id: (Date.now() + 1).toString(),
-      text: botReplyText,
-      sender: 'bot',
-      timestamp: new Date(),
-    };
+  const handleSend = useCallback((message: string) => {
+    sendMessage(message).catch(() => undefined);
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+  }, [sendMessage]);
 
-    setMessages((prev) => [...prev, botMsg]);
-    setIsTyping(false);
+  const handleAccessPress = useCallback(() => {
+    if (availability === 'guest') {
+      resetAuthState();
+      return;
+    }
 
-    // Auto Scroll to bottom
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-  };
+    navigation.navigate('Main', {
+      screen: 'Profile',
+      params: { screen: 'EditProfile' },
+    });
+  }, [availability, navigation, resetAuthState]);
+
+  const handleQuickAction = useCallback((action: QuickAction) => {
+    if (action.id === 'booking') {
+      handleBookingPress({ isReadyToSearch: false });
+    } else if (action.id === 'tracking') {
+      navigation.navigate('Booking', { screen: 'Tracking' });
+    } else if (action.id === 'parcel') {
+      navigation.navigate('Parcel', { screen: 'CreateParcel' });
+    } else if (action.prompt && availability === 'ready' && isOnline && !isStreaming) {
+      handleSend(action.prompt);
+    }
+  }, [
+    availability,
+    handleBookingPress,
+    handleSend,
+    isOnline,
+    isStreaming,
+    navigation,
+  ]);
+
+  const renderMessage = useCallback(({ item }: ListRenderItemInfo<ChatMessage>) => (
+    <ChatMessageBubble
+      message={item}
+      isFeedbackPending={Boolean(pendingFeedbackId)}
+      onBookingPress={handleBookingPress}
+      onRate={handleRate}
+    />
+  ), [handleBookingPress, handleRate, pendingFeedbackId]);
+
+  const listExtraData = useMemo(
+    () => ({ pendingFeedbackId, language: i18n.language }),
+    [i18n.language, pendingFeedbackId],
+  );
 
   return (
     <SafeAreaView style={styles.safeContainer}>
@@ -165,120 +220,117 @@ export function ChatbotScreen(): React.JSX.Element {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+        style={styles.keyboardView}
       >
-        {/* Header bar */}
         <View style={styles.header}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.cancel')}
             onPress={() => navigation.goBack()}
-            style={styles.backButton}
+            style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
           >
-            <ArrowLeft size={24} color={theme.colors.textPrimary} />
+            <ArrowLeft size={22} color={theme.colors.textPrimary} />
           </Pressable>
+
           <View style={styles.botInfo}>
             <View style={styles.botAvatar}>
               <Robot size={20} color={theme.colors.textInverse} weight="fill" />
             </View>
             <View>
-              <Text style={styles.botName}>VietRide AI Helper</Text>
-              <Text style={styles.botStatus}>{t('chatbot.online', 'Online')}</Text>
+              <Text style={styles.botName}>{t('chatbot.title')}</Text>
+              <View style={styles.statusRow}>
+                <View style={[
+                  styles.statusDot,
+                  !isOnline || availability !== 'ready' ? styles.statusDotMuted : null,
+                ]} />
+                <Text style={styles.botStatus}>{statusLabel}</Text>
+              </View>
             </View>
           </View>
-          <View style={styles.headerRightPlaceholder} />
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('chatbot.newConversation')}
+            onPress={resetConversation}
+            style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
+          >
+            <NotePencil size={21} color={theme.colors.primary} weight="bold" />
+          </Pressable>
         </View>
 
-        {/* Message bubbles list */}
-        <FlatList
-          ref={flatListRef}
+        <FlashList
+          ref={listRef}
           data={messages}
-          keyExtractor={(item) => item.id}
+          extraData={listExtraData}
+          keyExtractor={keyExtractor}
+          getItemType={getItemType}
+          renderItem={renderMessage}
+          maintainVisibleContentPosition={maintainVisibleContentPosition}
           contentContainerStyle={styles.messageListContent}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => {
-            const isUser = item.sender === 'user';
-            return (
-              <View
-                style={[
-                  styles.messageRow,
-                  isUser ? styles.userRow : styles.botRow,
-                ]}
-              >
-                {!isUser ? (
-                  <View style={styles.bubbleBotAvatar}>
-                    <Robot size={14} color={theme.colors.primary} weight="bold" />
-                  </View>
-                ) : null}
-                <View
-                  style={[
-                    styles.bubble,
-                    isUser ? styles.userBubble : styles.botBubble,
-                  ]}
-                >
-                  <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.botMessageText]}>
-                    {item.text}
-                  </Text>
-                  <Text style={[styles.timestampText, isUser ? styles.userTimestamp : styles.botTimestamp]}>
-                    {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </View>
-              </View>
-            );
-          }}
-          ListFooterComponent={
-            isTyping ? (
-              <View style={[styles.messageRow, styles.botRow]}>
-                <View style={styles.bubbleBotAvatar}>
-                  <Robot size={14} color={theme.colors.primary} weight="bold" />
-                </View>
-                <View style={[styles.bubble, styles.botBubble, styles.typingBubble]}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                </View>
-              </View>
-            ) : null
-          }
         />
 
-        {/* Suggestions Quick Action Chips */}
-        <View style={styles.chipsContainer}>
+        {feedbackError ? (
+          <Text style={styles.feedbackError}>{feedbackError}</Text>
+        ) : null}
+
+        {availability !== 'ready' ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleAccessPress}
+            style={({ pressed }) => [
+              styles.accessButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.accessButtonText}>
+              {availability === 'guest'
+                ? t('chatbot.signInAction')
+                : t('chatbot.completeProfileAction')}
+            </Text>
+          </Pressable>
+        ) : null}
+
+        <View style={styles.quickActionsContainer}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsScrollContent}
+            contentContainerStyle={styles.quickActionsContent}
           >
-            {quickActionChips.map((chip) => (
-              <Pressable
-                key={chip.value}
-                style={styles.chipButton}
-                onPress={() => handleSendMessage(chip.label, chip.value)}
-              >
-                <Text style={styles.chipLabel}>{chip.label}</Text>
-              </Pressable>
-            ))}
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              const isPolicyDisabled = action.id === 'policy'
+                && (availability !== 'ready' || !isOnline || isStreaming);
+
+              return (
+                <Pressable
+                  key={action.id}
+                  disabled={isPolicyDisabled}
+                  onPress={() => handleQuickAction(action)}
+                  style={({ pressed }) => [
+                    styles.quickAction,
+                    isPolicyDisabled ? styles.quickActionDisabled : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Icon size={16} color={theme.colors.primary} weight="bold" />
+                  <Text style={styles.quickActionLabel}>{action.label}</Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
         </View>
 
-        {/* Text Input Bar */}
-        <View style={styles.inputBar}>
-          <Input
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder={t('chatbot.askPlaceholder', 'Ask a question...')}
-            containerStyle={styles.textInputContainer}
-            onSubmitEditing={() => handleSendMessage(inputText)}
-            returnKeyType="send"
-          />
-          <Pressable
-            style={[
-              styles.sendButton,
-              !inputText.trim() ? styles.disabledSendButton : null,
-            ]}
-            onPress={() => handleSendMessage(inputText)}
-            disabled={!inputText.trim()}
-          >
-            <PaperPlaneRight size={20} color={theme.colors.textInverse} weight="fill" />
-          </Pressable>
-        </View>
+        <ChatComposer
+          disabled={availability !== 'ready' || !isOnline}
+          isStreaming={isStreaming}
+          placeholder={composerPlaceholder}
+          onSend={handleSend}
+          onStop={stopResponse}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -293,33 +345,30 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
   },
   header: {
-    height: 60,
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+    borderBottomColor: theme.effects.glassBorder,
+    backgroundColor: theme.effects.glassSurfaceStrong,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerButton: {
+    ...theme.components.headerButton,
   },
   botInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   botAvatar: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: borderRadius.full,
     backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     marginRight: spacing.sm,
   },
   botName: {
@@ -327,136 +376,84 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
   },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: 1,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.success,
+  },
+  statusDotMuted: {
+    backgroundColor: theme.colors.textTertiary,
+  },
   botStatus: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: theme.colors.success,
-    marginTop: 1,
-  },
-  headerRightPlaceholder: {
-    width: 40,
+    color: theme.colors.textSecondary,
   },
   messageListContent: {
     paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
   },
-  messageRow: {
-    flexDirection: 'row',
-    marginBottom: spacing.lg,
-    maxWidth: '85%',
+  feedbackError: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.error,
+    textAlign: 'center' as const,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xs,
   },
-  userRow: {
-    alignSelf: 'flex-end',
-    justifyContent: 'flex-end',
-  },
-  botRow: {
-    alignSelf: 'flex-start',
-    justifyContent: 'flex-start',
-  },
-  bubbleBotAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: borderRadius.full,
-    backgroundColor: theme.colors.primaryFaded,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-    alignSelf: 'flex-end',
-  },
-  bubble: {
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    ...theme.effects.cardShadow,
-  },
-  userBubble: {
-    backgroundColor: theme.colors.primary,
-    borderBottomRightRadius: 2,
-  },
-  botBubble: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
-    borderBottomLeftRadius: 2,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-  },
-  typingBubble: {
+  accessButton: {
+    alignSelf: 'center' as const,
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.primary,
   },
-  messageText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.md,
-    lineHeight: 20,
-  },
-  userMessageText: {
+  accessButtonText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
     color: theme.colors.textInverse,
   },
-  botMessageText: {
-    color: theme.colors.textPrimary,
-  },
-  timestampText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: 9,
-    marginTop: spacing.xs,
-    textAlign: 'right',
-  },
-  userTimestamp: {
-    color: theme.isDark ? 'rgba(3, 19, 18, 0.68)' : 'rgba(255, 255, 255, 0.7)',
-  },
-  botTimestamp: {
-    color: theme.colors.textTertiary,
-  },
-  chipsContainer: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.background,
-    paddingVertical: spacing.sm,
+  quickActionsContainer: {
     borderTopWidth: 1,
-    borderTopColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-  },
-  chipsScrollContent: {
-    paddingHorizontal: spacing.xl,
-  },
-  chipButton: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surface,
-    borderWidth: 1.5,
-    borderColor: theme.colors.primary,
-    borderRadius: borderRadius.full,
+    borderTopColor: theme.effects.glassBorder,
+    backgroundColor: theme.effects.glassSurfaceStrong,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginRight: spacing.sm,
-    ...theme.effects.cardShadow,
   },
-  chipLabel: {
+  quickActionsContent: {
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+  },
+  quickAction: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.effects.glassSurface,
+  },
+  quickActionDisabled: {
+    opacity: 0.4,
+  },
+  quickActionLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: theme.colors.primary,
   },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-  },
-  textInputContainer: {
-    flex: 1,
-    marginBottom: 0,
-    marginRight: spacing.md,
-  },
-  sendButton: {
-    backgroundColor: theme.colors.primary,
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...theme.effects.cardShadow,
-  },
-  disabledSendButton: {
-    backgroundColor: theme.colors.border,
-    shadowOpacity: 0,
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.97 }],
   },
 });
