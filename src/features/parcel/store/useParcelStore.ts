@@ -6,6 +6,7 @@
  */
 
 import { create } from 'zustand';
+import { registerSessionCleanup } from '@shared/session/cleanup';
 import type { ParcelBookingState, ParcelPaymentMethod, ParcelSize, Station } from '../types/index';
 
 interface ParcelStore {
@@ -97,3 +98,7 @@ export const useParcelStore = create<ParcelStore>((set) => ({
       paymentMethod: 'vnpay',
     }),
 }));
+
+registerSessionCleanup('parcel', () => {
+  useParcelStore.getState().resetParcel();
+});

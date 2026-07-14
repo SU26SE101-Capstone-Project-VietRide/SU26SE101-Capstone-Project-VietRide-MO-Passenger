@@ -35,6 +35,7 @@ const normalizeStationSearchResult = (
 
 export async function searchStations(
   locationId: string,
+  signal?: AbortSignal,
 ): Promise<StationSearchResult[]> {
   const response = await apiClient.get<ApiEnvelope<StationSearchPayload>>(
     '/stations/search',
@@ -42,6 +43,7 @@ export async function searchStations(
       params: {
         locationId: locationId.trim(),
       },
+      ...(signal ? { signal } : {}),
     },
   );
 

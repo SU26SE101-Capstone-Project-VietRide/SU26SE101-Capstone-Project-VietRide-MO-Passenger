@@ -18,6 +18,8 @@ import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { getApiErrorMessage } from '@shared/api/errors';
+import { isUuid } from '@shared/utils/pathSegment';
+import { formatShortDate } from '@shared/utils/format';
 import type { NotificationItemDto } from '../api/notificationApi';
 import { useMarkNotificationRead, useNotifications } from '../hooks/useNotifications';
 
@@ -64,7 +66,7 @@ const formatRelativeTime = (dateLike: string): string => {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
 
-  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+  return formatShortDate(date);
 };
 
 interface NotificationRowProps {
@@ -77,7 +79,7 @@ interface NotificationRowProps {
   onPress: (id: string) => void;
 }
 
-const NotificationRow = memo(function NotificationRow({
+const NotificationRow = memo(function NotificationRowView({
   id,
   type,
   title,
@@ -192,7 +194,10 @@ export function NotificationScreen(): React.JSX.Element {
   const notificationsQuery = useNotifications(NOTIFICATION_QUERY_PARAMS);
   const markReadMutation = useMarkNotificationRead(NOTIFICATION_QUERY_PARAMS);
 
-  const notifications = notificationsQuery.data?.items ?? [];
+  const notifications = useMemo(
+    () => notificationsQuery.data?.items ?? [],
+    [notificationsQuery.data?.items],
+  );
   const unreadItems = useMemo(
     () => notifications.filter((item) => !item.readAt),
     [notifications],
@@ -215,8 +220,8 @@ export function NotificationScreen(): React.JSX.Element {
       markReadMutation.mutate(id);
     }
 
-    const parcelId = typeof item.data?.parcelId === 'string' ? item.data.parcelId : null;
-    if (parcelId && notificationKind(item.type) === 'parcel') {
+    const parcelId = item.data?.parcelId;
+    if (isUuid(parcelId) && notificationKind(item.type) === 'parcel') {
       navigation.navigate('Parcel', {
         screen: 'ParcelDetail',
         params: { parcelId, fromHistory: true },

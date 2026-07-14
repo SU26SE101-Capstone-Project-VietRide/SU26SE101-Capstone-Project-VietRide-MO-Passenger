@@ -1,19 +1,20 @@
+import type {
+  BackendPaymentMethod,
+  PaymentMethod,
+} from '@shared/utils/paymentMethod';
+
 export type ParcelSize = 'small' | 'medium' | 'large';
 export type ParcelSizeCategory = 'SMALL' | 'MEDIUM' | 'LARGE' | 'EXTRA_LARGE';
-export type ParcelPaymentMethod = 'vnpay' | 'wallet';
-export type ParcelBackendPaymentMethod = 'VNPAY' | 'WALLET';
+export type ParcelPaymentMethod = PaymentMethod;
+export type ParcelBackendPaymentMethod = BackendPaymentMethod;
 
 export interface Station {
   id: string;
   name: string;
   address: string;
-  distance: string;
+  distance: string | null;
   isClosest?: boolean;
-  rating: number;
-  reviewsCount: number;
   city: string;
-  workingHours?: string;
-  acceptingParcels?: boolean;
 }
 
 export interface ParcelShipment {

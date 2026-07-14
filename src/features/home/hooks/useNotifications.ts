@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { isUuid } from '@shared/utils/pathSegment';
 import {
   listNotifications,
   markNotificationRead,
@@ -19,22 +20,19 @@ const DEFAULT_NOTIFICATION_PARAMS: Required<ListNotificationsParams> = {
 };
 
 const normalizeNotificationIds = (input: MarkNotificationReadInput): string[] =>
-  (Array.isArray(input) ? input : [input]).filter(Boolean);
+  (Array.isArray(input) ? input : [input]).filter(isUuid);
 
 export function useNotifications(params: ListNotificationsParams = {}) {
-  const user = useAuthStore((state) => state.user);
+  const userId = useAuthStore((state) => state.user?.id);
   const normalizedParams = { ...DEFAULT_NOTIFICATION_PARAMS, ...params };
 
   return useQuery({
-    queryKey: user
-      ? notificationKeys.list(normalizedParams)
-      : [...notificationKeys.all, 'list', 'none'],
-    queryFn: () => listNotifications(normalizedParams),
-    enabled: Boolean(user),
+    queryKey: notificationKeys.list(userId ?? 'none', normalizedParams),
+    queryFn: ({ signal }) => listNotifications(normalizedParams, signal),
+    enabled: Boolean(userId),
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 1,
-    networkMode: 'offlineFirst',
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });
@@ -42,8 +40,9 @@ export function useNotifications(params: ListNotificationsParams = {}) {
 
 export function useMarkNotificationRead(params: ListNotificationsParams = {}) {
   const queryClient = useQueryClient();
+  const userId = useAuthStore((state) => state.user?.id);
   const normalizedParams = { ...DEFAULT_NOTIFICATION_PARAMS, ...params };
-  const queryKey = notificationKeys.list(normalizedParams);
+  const queryKey = notificationKeys.list(userId ?? 'none', normalizedParams);
 
   return useMutation({
     mutationFn: async (input: MarkNotificationReadInput) => {

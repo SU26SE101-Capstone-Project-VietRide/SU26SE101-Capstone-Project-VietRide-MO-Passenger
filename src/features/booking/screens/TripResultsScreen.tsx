@@ -4,7 +4,9 @@
  */
 
 import React, { useEffect, useCallback, useMemo } from 'react';
-import { View, Text, FlatList } from 'react-native';
+import { View, Text } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
@@ -21,14 +23,12 @@ interface TripResultsStepProps {
 
 const defaultFilters: TripFilterState = {
   operatorBadge: 'all',
-  busType: 'all',
   timeSlot: 'all',
   priceRange: 'all',
 };
 
 const isFilterActive = (filters: TripFilterState): boolean => {
   return filters.operatorBadge !== 'all'
-    || filters.busType !== 'all'
     || filters.timeSlot !== 'all'
     || filters.priceRange !== 'all';
 };
@@ -80,11 +80,7 @@ const filterTrips = (trips: BusTrip[], filters: TripFilterState): BusTrip[] => {
   return trips.filter((trip) => {
     const matchesOperator = filters.operatorBadge === 'all'
       || trip.operatorBadge === filters.operatorBadge;
-    const matchesBusType = filters.busType === 'all'
-      || trip.busType === filters.busType;
-
     return matchesOperator
-      && matchesBusType
       && matchesTimeSlot(trip, filters.timeSlot)
       && matchesPriceRange(trip, filters.priceRange);
   });
@@ -103,7 +99,15 @@ export function TripResultsScreen({
     selectedTrip,
     currentLeg,
     searchParams,
-  } = useBookingStore();
+  } = useBookingStore(useShallow((state) => ({
+    tripResultsStatus: state.tripResultsStatus,
+    trips: state.trips,
+    searchTrips: state.searchTrips,
+    selectTrip: state.selectTrip,
+    selectedTrip: state.selectedTrip,
+    currentLeg: state.currentLeg,
+    searchParams: state.searchParams,
+  })));
   const styles = useThemedStyles(createStyles);
   const hasActiveFilters = isFilterActive(filters);
   const visibleTrips = useMemo(() => filterTrips(trips, filters), [filters, trips]);
@@ -126,6 +130,18 @@ export function TripResultsScreen({
   const handleRetry = useCallback(() => {
     searchTrips();
   }, [searchTrips]);
+
+  const keyExtractor = useCallback((item: BusTrip) => item.id, []);
+  const renderTrip = useCallback(
+    ({ item }: { item: BusTrip }) => (
+      <TripCard
+        trip={item}
+        onPress={handleTripPress}
+        isSelected={selectedTrip?.id === item.id}
+      />
+    ),
+    [handleTripPress, selectedTrip?.id],
+  );
 
   const renderContent = () => {
     if (tripResultsStatus === 'loading' && !hasLoadedTrips) {
@@ -158,18 +174,12 @@ export function TripResultsScreen({
     }
 
     return (
-      <FlatList
+      <FlashList
         data={visibleTrips}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <TripCard
-            trip={item}
-            onPress={handleTripPress}
-            isSelected={selectedTrip?.id === item.id}
-          />
-        )}
+        renderItem={renderTrip}
       />
     );
   };

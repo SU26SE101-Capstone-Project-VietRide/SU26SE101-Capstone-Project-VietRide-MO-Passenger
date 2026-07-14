@@ -16,7 +16,12 @@ import axios, {
 
 import { appConfig } from '@shared/constants/config';
 import { API_TIMEOUT } from '@shared/constants';
-import { joinUrl, normalizeApiPath, normalizeUrlBase, isAbsoluteUrl } from '@shared/utils/url';
+import {
+  isAbsoluteUrl,
+  isTrustedApiUrl,
+  normalizeApiPath,
+  normalizeUrlBase,
+} from '@shared/utils/url';
 import {
   refreshAccessTokenAfterUnauthorized,
   resolveStoredAccessToken,
@@ -27,12 +32,16 @@ declare module 'axios' {
     skipAuthRefresh?: boolean;
     skipAuth?: boolean;
     _retry?: boolean;
+    _requestId?: string;
+    _requestStartedAt?: number;
   }
 
   export interface InternalAxiosRequestConfig {
     skipAuthRefresh?: boolean;
     skipAuth?: boolean;
     _retry?: boolean;
+    _requestId?: string;
+    _requestStartedAt?: number;
   }
 }
 
@@ -49,6 +58,37 @@ export const apiClient = axios.create({
   },
 });
 
+let requestSequence = 0;
+const configuredApiBaseUrl = normalizeUrlBase(appConfig.apiBaseUrl);
+const UUID_PATH_SEGMENT_PATTERN =
+  /\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?=\/|$)/gi;
+const NUMERIC_PATH_SEGMENT_PATTERN = /\/\d+(?=\/|$)/g;
+
+const nextRequestId = (): string => {
+  requestSequence = (requestSequence + 1) % Number.MAX_SAFE_INTEGER;
+  return `${Date.now().toString(36)}-${requestSequence.toString(36)}`;
+};
+
+const safeRouteLabel = (url?: string): string => {
+  if (!url) return '/';
+
+  let path = url.split(/[?#]/, 1)[0];
+  if (isAbsoluteUrl(url)) {
+    try {
+      path = new URL(url).pathname;
+    } catch {
+      return '[invalid-url]';
+    }
+  }
+
+  return path
+    .replace(UUID_PATH_SEGMENT_PATTERN, '/:id')
+    .replace(NUMERIC_PATH_SEGMENT_PATTERN, '/:id');
+};
+
+const elapsedMs = (startedAt?: number): number =>
+  Math.max(0, Date.now() - (startedAt ?? Date.now()));
+
 const isAuthRoute = (url?: string): boolean => {
   if (!url || isAbsoluteUrl(url)) {
     return false;
@@ -61,8 +101,24 @@ const isAuthRoute = (url?: string): boolean => {
 
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    if (config.baseURL) {
-      config.baseURL = normalizeUrlBase(config.baseURL);
+    if (
+      config.baseURL
+      && normalizeUrlBase(config.baseURL) !== configuredApiBaseUrl
+    ) {
+      throw new AxiosError(
+        '[API] Refused an untrusted base URL.',
+        'ERR_UNTRUSTED_API_URL',
+        config,
+      );
+    }
+    config.baseURL = configuredApiBaseUrl;
+
+    if (config.url && !isTrustedApiUrl(config.url, configuredApiBaseUrl)) {
+      throw new AxiosError(
+        '[API] Refused an untrusted request URL.',
+        'ERR_UNTRUSTED_API_URL',
+        config,
+      );
     }
 
     if (config.url && !isAbsoluteUrl(config.url)) {
@@ -80,18 +136,11 @@ apiClient.interceptors.request.use(
     }
 
     if (__DEV__) {
-      const reqId = Math.random().toString(36).slice(2, 10);
-      console.log(`\n======================================`);
-      console.log(`[API REQ ${reqId}] ${config.method?.toUpperCase()} ${joinUrl(config.baseURL, config.url)}`);
-      console.log('  Headers:', JSON.parse(JSON.stringify(config.headers)));
-      if (config.data) {
-        console.log('  Body:', JSON.stringify(config.data, null, 2));
-      }
-      if (config.params) {
-        console.log('  Params:', config.params);
-      }
-      console.log(`======================================\n`);
-      (config as unknown as Record<string, unknown>)._reqId = reqId;
+      config._requestId = nextRequestId();
+      config._requestStartedAt = Date.now();
+      console.debug(
+        `[API ${config._requestId}] -> ${config.method?.toUpperCase() ?? 'GET'} ${safeRouteLabel(config.url)}`,
+      );
     }
 
     return config;
@@ -106,25 +155,19 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     if (__DEV__) {
-      const reqId = (response.config as unknown as Record<string, unknown>)?._reqId ?? '????';
-      console.log(`\n======================================`);
-      console.log(`[API RES ${reqId}] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
-      console.log('  Status:', response.status, response.statusText);
-      console.log('  Data:', JSON.stringify(response.data, null, 2));
-      console.log(`======================================\n`);
+      const requestId = response.config._requestId ?? 'unknown';
+      console.debug(
+        `[API ${requestId}] <- ${response.status} ${response.config.method?.toUpperCase() ?? 'GET'} ${safeRouteLabel(response.config.url)} (${elapsedMs(response.config._requestStartedAt)}ms)`,
+      );
     }
     return response;
   },
   async (error: AxiosError) => {
     if (__DEV__) {
-      const reqId = (error.config as unknown as Record<string, unknown>)?._reqId ?? '????';
-      console.log(`\n======================================`);
-      console.log(`[API ERR ${reqId}] ${error.response?.status || error.code || 'UNKNOWN'} ${error.config?.method?.toUpperCase() || ''} ${error.config?.url || ''}`);
-      console.log('  Message:', error.message);
-      if (error.response?.data) {
-        console.log('  Data:', JSON.stringify(error.response.data, null, 2));
-      }
-      console.log(`======================================\n`);
+      const requestId = error.config?._requestId ?? 'unknown';
+      console.warn(
+        `[API ${requestId}] <- ${error.response?.status ?? error.code ?? 'ERROR'} ${error.config?.method?.toUpperCase() ?? 'REQUEST'} ${safeRouteLabel(error.config?.url)} (${elapsedMs(error.config?._requestStartedAt)}ms)`,
+      );
     }
 
     const status = error.response?.status;

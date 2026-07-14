@@ -19,7 +19,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import { normalizeLocationSearchText } from '../../booking/utils/searchParams';
+import { normalizeLocationSearchText } from '@features/location/utils/locationSearch';
 import { useParcelStore } from '../store/useParcelStore';
 
 type NavProp = NativeStackNavigationProp<ParcelStackParamList, 'CityPicker'>;

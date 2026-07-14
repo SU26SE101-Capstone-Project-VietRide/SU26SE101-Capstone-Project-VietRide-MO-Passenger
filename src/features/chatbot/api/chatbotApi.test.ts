@@ -11,8 +11,11 @@ jest.mock('@shared/api/axiosInstance', () => ({
   },
 }));
 
-import { ApiRequestError } from '@shared/api/errors';
 import { streamChat, submitChatFeedback } from './chatbotApi';
+import {
+  MAX_ASSISTANT_CHARACTERS,
+  MAX_SSE_STREAM_BYTES,
+} from '../constants/chatLimits';
 
 const CONVERSATION_ID = '33333333-3333-4333-8333-333333333333';
 const USER_MESSAGE_ID = '44444444-4444-4444-8444-444444444444';
@@ -119,6 +122,63 @@ describe('chatbotApi', () => {
     )).rejects.toMatchObject({ code: 'RAG_STREAM_INTERRUPTED' });
   });
 
+  it('reports activity for comments and unknown heartbeat events', async () => {
+    const stream = makeStreamResponse([
+      ': keep-alive\n\n',
+      'event: heartbeat\ndata: {}\n\n',
+      doneFrame,
+    ]);
+    mockAuthenticatedFetch.mockResolvedValue(stream.response);
+    const onActivity = jest.fn();
+    const onToken = jest.fn();
+
+    await expect(streamChat(
+      { message: 'policy' },
+      { onActivity, onToken },
+      new AbortController().signal,
+    )).resolves.toMatchObject({ conversationId: CONVERSATION_ID });
+
+    expect(onActivity).toHaveBeenCalledTimes(3);
+    expect(onToken).not.toHaveBeenCalled();
+  });
+
+  it('rejects assistant output beyond the retained text cap and cancels the reader', async () => {
+    const oversizedToken = JSON.stringify({
+      content: 'x'.repeat(MAX_ASSISTANT_CHARACTERS + 1),
+    });
+    const stream = makeStreamResponse([
+      `event: token\ndata: ${oversizedToken}\n\n`,
+    ], true);
+    mockAuthenticatedFetch.mockResolvedValue(stream.response);
+    const onToken = jest.fn();
+
+    await expect(streamChat(
+      { message: 'policy' },
+      { onToken },
+      new AbortController().signal,
+    )).rejects.toMatchObject({ code: 'RAG_STREAM_LIMIT_EXCEEDED' });
+
+    expect(onToken).not.toHaveBeenCalled();
+    expect(stream.cancel).toHaveBeenCalledTimes(1);
+    expect(stream.releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  it('bounds raw stream bytes even when the payload contains only discarded comments', async () => {
+    const stream = makeStreamResponse([
+      `:${'x'.repeat(MAX_SSE_STREAM_BYTES)}\n`,
+    ], true);
+    mockAuthenticatedFetch.mockResolvedValue(stream.response);
+
+    await expect(streamChat(
+      { message: 'policy' },
+      { onToken: jest.fn() },
+      new AbortController().signal,
+    )).rejects.toMatchObject({ code: 'RAG_STREAM_LIMIT_EXCEEDED' });
+
+    expect(stream.cancel).toHaveBeenCalledTimes(1);
+    expect(stream.releaseLock).toHaveBeenCalledTimes(1);
+  });
+
   it('maps pre-stream HTTP error envelopes to ApiRequestError', async () => {
     mockAuthenticatedFetch.mockResolvedValue({
       ok: false,
@@ -135,7 +195,7 @@ describe('chatbotApi', () => {
       { message: 'policy' },
       { onToken: jest.fn() },
       new AbortController().signal,
-    )).rejects.toEqual(expect.objectContaining<ApiRequestError>({
+    )).rejects.toEqual(expect.objectContaining({
       code: 'RAG_RATE_LIMIT_EXCEEDED',
       statusCode: 429,
     }));
@@ -160,5 +220,12 @@ describe('chatbotApi', () => {
       `/rag/messages/${ASSISTANT_MESSAGE_ID}/feedback`,
       { rating: 1 },
     );
+  });
+
+  it('rejects an invalid feedback message ID before making a request', async () => {
+    await expect(submitChatFeedback('../message', 1)).rejects.toThrow(
+      'Invalid assistant message ID.',
+    );
+    expect(mockPost).not.toHaveBeenCalled();
   });
 });

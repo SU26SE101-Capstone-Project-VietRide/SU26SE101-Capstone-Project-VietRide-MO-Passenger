@@ -28,8 +28,10 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { Button } from '@shared/components';
 import { useApiError } from '@shared/hooks';
+import { getTokenSessionEpoch } from '@shared/utils/storage';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
+import { formatCountdown } from '@shared/utils/format';
 import type { AuthStackParamList, ProfileStackParamList } from '@app/navigation/types';
 import { verifyEmail, resendVerificationEmail } from '../api/authApi';
 import { useAuthStore } from '../store/useAuthStore';
@@ -51,12 +53,6 @@ type OtpFormErrors = FieldErrorMap<OtpFormField>;
 const otpFieldAliases: Partial<Record<string, OtpFormField>> = {
   code: 'code',
   otp: 'code',
-};
-
-const formatTimer = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const remainingSeconds = (seconds % 60).toString().padStart(2, '0');
-  return `${minutes}:${remainingSeconds}`;
 };
 
 export function OTPVerificationScreen(): React.JSX.Element {
@@ -144,6 +140,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
 
   // ─── Submit ──────────────────────────────────────────────
   const handleVerify = useCallback(async () => {
+    const sessionEpoch = getTokenSessionEpoch();
     const fullCode = code.join('');
 
     const parsed = otpSchema.safeParse({ code: fullCode });
@@ -163,8 +160,12 @@ export function OTPVerificationScreen(): React.JSX.Element {
       });
 
       if (fromProfile && currentUser) {
-        setUser({ ...currentUser, status: response.status ?? 'ACTIVE' });
-        navigation.goBack();
+        if (setUser(
+          { ...currentUser, status: response.status ?? 'ACTIVE' },
+          sessionEpoch,
+        )) {
+          navigation.goBack();
+        }
       } else {
         navigation.navigate('Login', { email, verified: true });
       }
@@ -285,7 +286,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
                       Code expires in{' '}
                     </Text>
                     <Text style={[styles.timerText, { color: theme.colors.textTertiary }]}>
-                      {formatTimer(timer)}
+                      {formatCountdown(timer)}
                     </Text>
                   </>
                 )}

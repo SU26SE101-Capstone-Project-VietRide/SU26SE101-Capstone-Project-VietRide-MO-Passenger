@@ -1,0 +1,36 @@
+import type { StationSearchResult } from '@features/trip/types';
+import { mapParcelStation } from './useParcelStations';
+
+const station: StationSearchResult = {
+  id: 'station-1',
+  name: 'Bến xe Miền Đông',
+  city: 'Thành phố Hồ Chí Minh',
+  province: 'Thành phố Hồ Chí Minh',
+  addressStreet: '501 Hoàng Hữu Nam',
+  latitude: 10.877,
+  longitude: 106.814,
+  supportsShuttle: false,
+};
+
+describe('mapParcelStation', () => {
+  it('does not invent distance, closest status, rating, hours, or parcel acceptance', () => {
+    expect(mapParcelStation(station, 0)).toEqual({
+      id: 'station-1',
+      name: 'Bến xe Miền Đông',
+      address: '501 Hoàng Hữu Nam, Thành phố Hồ Chí Minh, Thành phố Hồ Chí Minh',
+      distance: null,
+      isClosest: false,
+      city: 'Thành phố Hồ Chí Minh',
+    });
+  });
+
+  it('marks the first station closest only when a real distance can be calculated', () => {
+    const mapped = mapParcelStation(station, 0, {
+      latitude: 10.876,
+      longitude: 106.813,
+    });
+
+    expect(mapped.isClosest).toBe(true);
+    expect(mapped.distance).toMatch(/m away|km away/);
+  });
+});

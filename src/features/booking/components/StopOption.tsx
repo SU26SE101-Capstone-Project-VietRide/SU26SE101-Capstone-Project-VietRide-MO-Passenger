@@ -5,6 +5,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { formatVnd } from '@shared/utils/format';
 
 interface StopOptionProps {
   id: string;
@@ -80,7 +81,11 @@ export function StopOption({
           <View style={styles.refundRow}>
             <Coins size={14} weight="bold" color={theme.colors.success} />
             <Text style={styles.refundText}>
-              Refund: {refundAmount.toLocaleString('vi-VN')} VND
+              Refund:{' '}
+              {formatVnd(refundAmount, {
+                display: 'code',
+                clampNegative: true,
+              })}
             </Text>
           </View>
         ) : null}

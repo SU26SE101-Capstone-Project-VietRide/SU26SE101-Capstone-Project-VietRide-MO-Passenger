@@ -2,7 +2,13 @@ import axios from 'axios';
 
 import { API_TIMEOUT } from '@shared/constants';
 import { appConfig } from '@shared/constants/config';
-import { getRefreshToken, setToken, type SecureTokenBundle } from '@shared/utils/storage';
+import {
+  getRefreshToken,
+  getTokenSessionEpoch,
+  isTokenSessionEpochCurrent,
+  setToken,
+  type SecureTokenBundle,
+} from '@shared/utils/storage';
 import { normalizeUrlBase } from '@shared/utils/url';
 import { toApiError, type ApiEnvelope } from './errors';
 
@@ -21,6 +27,7 @@ type TokenRefreshFailureReason =
   | 'network'
   | 'server'
   | 'storage'
+  | 'session_invalidated'
   | 'unknown';
 
 export type TokenRefreshResult =
@@ -34,9 +41,13 @@ export type TokenRefreshResult =
       error?: Error;
     };
 
-type TokenRefreshSuccessHandler = (bundle: RefreshTokenBundleDto) => void;
+type TokenRefreshSuccessHandler = (
+  bundle: RefreshTokenBundleDto,
+  sessionEpoch: number,
+) => void;
 
 let refreshPromise: Promise<TokenRefreshResult> | null = null;
+let refreshPromiseEpoch = -1;
 let refreshSuccessHandler: TokenRefreshSuccessHandler | null = null;
 
 const refreshClient = axios.create({
@@ -82,9 +93,12 @@ export const shouldForceLogoutAfterRefreshFailure = (
   );
 };
 
-const notifyRefreshSuccess = (bundle: RefreshTokenBundleDto): void => {
+const notifyRefreshSuccess = (
+  bundle: RefreshTokenBundleDto,
+  sessionEpoch: number,
+): void => {
   try {
-    refreshSuccessHandler?.(bundle);
+    refreshSuccessHandler?.(bundle, sessionEpoch);
   } catch (error) {
     if (__DEV__) {
       console.warn('[Auth] Token refresh success handler failed:', error);
@@ -92,8 +106,13 @@ const notifyRefreshSuccess = (bundle: RefreshTokenBundleDto): void => {
   }
 };
 
-const refreshStoredTokenBundleOnce = async (): Promise<TokenRefreshResult> => {
+const refreshStoredTokenBundleOnce = async (
+  expectedSessionEpoch: number,
+): Promise<TokenRefreshResult> => {
   const refreshToken = await getRefreshToken();
+  if (!isTokenSessionEpochCurrent(expectedSessionEpoch)) {
+    return { success: false, reason: 'session_invalidated' };
+  }
 
   if (!refreshToken) {
     return { success: false, reason: 'missing_refresh_token' };
@@ -118,14 +137,23 @@ const refreshStoredTokenBundleOnce = async (): Promise<TokenRefreshResult> => {
     }
 
     const nextBundle = response.data.data;
+    if (!isTokenSessionEpochCurrent(expectedSessionEpoch)) {
+      return { success: false, reason: 'session_invalidated' };
+    }
+
     const stored = await setToken(
       nextBundle.accessToken,
       nextBundle.refreshToken,
       nextBundle.expiresInSeconds,
       true,
+      expectedSessionEpoch,
     );
 
     if (!stored) {
+      if (!isTokenSessionEpochCurrent(expectedSessionEpoch)) {
+        return { success: false, reason: 'session_invalidated' };
+      }
+
       return {
         success: false,
         reason: 'storage',
@@ -133,13 +161,21 @@ const refreshStoredTokenBundleOnce = async (): Promise<TokenRefreshResult> => {
       };
     }
 
-    notifyRefreshSuccess(nextBundle);
+    if (!isTokenSessionEpochCurrent(expectedSessionEpoch)) {
+      return { success: false, reason: 'session_invalidated' };
+    }
+
+    notifyRefreshSuccess(nextBundle, expectedSessionEpoch);
 
     return {
       success: true,
       data: nextBundle,
     };
   } catch (error) {
+    if (!isTokenSessionEpochCurrent(expectedSessionEpoch)) {
+      return { success: false, reason: 'session_invalidated' };
+    }
+
     const apiError = toApiError(error);
 
     if (__DEV__) {
@@ -163,10 +199,17 @@ const refreshStoredTokenBundleOnce = async (): Promise<TokenRefreshResult> => {
 };
 
 export const refreshStoredTokenBundle = async (): Promise<TokenRefreshResult> => {
-  if (!refreshPromise) {
-    refreshPromise = refreshStoredTokenBundleOnce().finally(() => {
-      refreshPromise = null;
+  const sessionEpoch = getTokenSessionEpoch();
+
+  if (!refreshPromise || refreshPromiseEpoch !== sessionEpoch) {
+    const pendingRefresh = refreshStoredTokenBundleOnce(sessionEpoch).finally(() => {
+      if (refreshPromise === pendingRefresh) {
+        refreshPromise = null;
+        refreshPromiseEpoch = -1;
+      }
     });
+    refreshPromise = pendingRefresh;
+    refreshPromiseEpoch = sessionEpoch;
   }
 
   return refreshPromise;

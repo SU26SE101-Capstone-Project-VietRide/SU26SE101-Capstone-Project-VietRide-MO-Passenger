@@ -1,19 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { getBookingHistory, bookingKeys } from '../api/bookingApi';
 import { useAuthStore } from '../../auth/store/useAuthStore';
-import { BookingHistoryItem } from '../types/booking';
 
 export function useBookingHistory() {
-  const { user } = useAuthStore();
+  const userId = useAuthStore((state) => state.user?.id);
 
   return useQuery({
-    queryKey: user ? bookingKeys.history() : ['bookings', 'history', 'none'],
-    queryFn: async () => {
-      if (!user) throw new Error('Not authenticated');
-      return getBookingHistory();
+    queryKey: userId ? bookingKeys.history(userId) : ['bookings', 'none', 'history'],
+    queryFn: async ({ signal }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return getBookingHistory(signal);
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
-    enabled: !!user,
+    enabled: Boolean(userId),
   });
 }

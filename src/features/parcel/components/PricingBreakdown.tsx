@@ -5,6 +5,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { formatVnd } from '@shared/utils/format';
 import type { PromoOffer } from '@shared/utils/promo';
 import { PromoCodeInput } from './PromoCodeInput';
 import type { ParcelPaymentMethod } from '../types';
@@ -101,7 +102,9 @@ export const PricingBreakdown = ({
             </Text>
             <Text style={styles.specMeta}>
               Weight: {packageWeight} {weightUnit} • COD:{' '}
-              {codEnabled ? `₫${codAmount}` : 'No'}
+              {codEnabled
+                ? formatVnd(Number(codAmount), { clampNegative: true })
+                : 'No'}
             </Text>
           </View>
         </View>
@@ -145,26 +148,32 @@ export const PricingBreakdown = ({
         <Text style={styles.bentoCardHeading}>Payment Details</Text>
         <View style={styles.priceRow}>
           <Text style={styles.priceLabel}>Base Delivery Fare</Text>
-          <Text style={styles.priceValue}>₫{baseFare.toLocaleString()}</Text>
+          <Text style={styles.priceValue}>
+            {formatVnd(baseFare, { clampNegative: true })}
+          </Text>
         </View>
         <View style={styles.priceRow}>
           <Text style={styles.priceLabel}>
             Weight Surcharge ({packageWeight} {weightUnit})
           </Text>
-          <Text style={styles.priceValue}>₫{weightSurcharge.toLocaleString()}</Text>
+          <Text style={styles.priceValue}>
+            {formatVnd(weightSurcharge, { clampNegative: true })}
+          </Text>
         </View>
         {promoApplied ? (
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Promo Discount</Text>
             <Text style={[styles.priceValue, { color: theme.colors.success }]}>
-              -₫{promoDiscount.toLocaleString()}
+              -{formatVnd(promoDiscount, { clampNegative: true })}
             </Text>
           </View>
         ) : null}
         <View style={styles.summaryDivider} />
         <View style={[styles.priceRow, { marginTop: spacing.md }]}>
           <Text style={styles.totalLabel}>Total Price</Text>
-          <Text style={styles.totalValue}>₫{totalPrice.toLocaleString()}</Text>
+          <Text style={styles.totalValue}>
+            {formatVnd(totalPrice, { clampNegative: true })}
+          </Text>
         </View>
       </View>
     </View>

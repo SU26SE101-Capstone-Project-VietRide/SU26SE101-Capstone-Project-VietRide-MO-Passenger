@@ -20,6 +20,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { getTokenSessionEpoch } from '@shared/utils/storage';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { Button, Input } from '@shared/components';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
@@ -34,8 +35,11 @@ import {
   completeProfile,
   updateProfile,
   uploadAvatar,
-  type AvatarUploadFile,
 } from '../api/profileApi';
+import {
+  validateAvatarAsset,
+  type AvatarUploadFile,
+} from '../validation/avatarUploadValidation';
 
 interface SelectedAvatar {
   uri: string;
@@ -43,15 +47,6 @@ interface SelectedAvatar {
 }
 
 const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
-
-const getAssetName = (asset: ImagePicker.ImagePickerAsset): string => {
-  if (asset.fileName?.trim()) {
-    return asset.fileName.trim();
-  }
-
-  const extension = asset.mimeType?.split('/')[1] || 'jpg';
-  return `vietride-avatar.${extension}`;
-};
 
 export function EditProfileScreen(): React.JSX.Element {
   const navigation = useNavigation();
@@ -74,6 +69,7 @@ export function EditProfileScreen(): React.JSX.Element {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const sessionEpoch = getTokenSessionEpoch();
       const parsed = editProfileSchema.safeParse({ displayName, phone });
 
       if (!parsed.success) {
@@ -100,11 +96,10 @@ export function EditProfileScreen(): React.JSX.Element {
         nextUser = await uploadAvatar(selectedAvatar.file);
       }
 
-      return nextUser;
+      return nextUser ? { user: nextUser, sessionEpoch } : null;
     },
-    onSuccess: (nextUser) => {
-      if (nextUser) {
-        setUser(nextUser);
+    onSuccess: (result) => {
+      if (result && setUser(result.user, result.sessionEpoch)) {
         navigation.goBack();
       }
     },
@@ -150,14 +145,16 @@ export function EditProfileScreen(): React.JSX.Element {
     }
 
     const asset = result.assets[0];
+    const validation = validateAvatarAsset(asset);
+
+    if (!validation.success) {
+      Alert.alert('Ảnh không hợp lệ', validation.message);
+      return;
+    }
 
     setSelectedAvatar({
-      uri: asset.uri,
-      file: {
-        uri: asset.uri,
-        name: getAssetName(asset),
-        type: asset.mimeType || 'image/jpeg',
-      },
+      uri: validation.file.uri,
+      file: validation.file,
     });
   }, []);
 

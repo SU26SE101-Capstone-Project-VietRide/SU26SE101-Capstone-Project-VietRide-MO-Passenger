@@ -15,22 +15,28 @@ import {
   Easing,
   Modal,
   ScrollView,
-  Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft, Check, FunnelSimple, X } from 'phosphor-react-native';
+import { useShallow } from 'zustand/react/shallow';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import {
+  getPaymentRedirectErrorMessage,
+  openPaymentRedirect,
+  PAYMENT_REDIRECT_ERROR_TITLE,
+} from '@shared/utils/paymentRedirect';
 
 import { useBookingStore } from '../store/useBookingStore';
 import { BookingProgressBar } from '../components/BookingProgressBar';
 import type { BookingStackParamList } from '@app/navigation/types';
-import type { BusType, TripFilterState, TripPriceRange, TripTimeSlot } from '../types';
+import type { TripFilterState, TripPriceRange, TripTimeSlot } from '../types';
 
 // Import Steps
 import { TripResultsScreen as TripResultsStep } from './TripResultsScreen';
@@ -39,7 +45,6 @@ import { PickUpScreen as PickUpStep } from './PickUpScreen';
 import { DropOffScreen as DropOffStep } from './DropOffScreen';
 import { CheckoutScreen as CheckoutStep } from './CheckoutScreen';
 import { PaymentScreen as PaymentStep } from './PaymentScreen';
-import type { BookingResult, RoundTripResult } from '../types';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'CreateTicketBooking'>;
 
@@ -66,17 +71,9 @@ type TripFilterSheetProps = {
 
 const DEFAULT_TRIP_FILTERS: TripFilterState = {
   operatorBadge: 'all',
-  busType: 'all',
   timeSlot: 'all',
   priceRange: 'all',
 };
-
-const busTypeOptions: Array<{ label: string; value: BusType | 'all'; helper?: string }> = [
-  { label: 'All buses', value: 'all' },
-  { label: 'Sleeper', value: 'sleeper' },
-  { label: 'Limousine', value: 'limousine' },
-  { label: 'Standard', value: 'standard' },
-];
 
 const timeSlotOptions: Array<{ label: string; value: TripTimeSlot; helper?: string }> = [
   { label: 'Any time', value: 'all' },
@@ -96,7 +93,6 @@ const priceRangeOptions: Array<{ label: string; value: TripPriceRange; helper?: 
 const countActiveTripFilters = (filters: TripFilterState): number => {
   return [
     filters.operatorBadge !== DEFAULT_TRIP_FILTERS.operatorBadge,
-    filters.busType !== DEFAULT_TRIP_FILTERS.busType,
     filters.timeSlot !== DEFAULT_TRIP_FILTERS.timeSlot,
     filters.priceRange !== DEFAULT_TRIP_FILTERS.priceRange,
   ].filter(Boolean).length;
@@ -125,14 +121,6 @@ const makeTravelDateRangeLabel = (
   returnDate?: string,
 ): string => {
   return `${outboundDate || 'Depart date'} ↔ ${returnDate || 'Return date'}`;
-};
-
-const getBookingReference = (result: BookingResult | RoundTripResult): string => {
-  if ('bookingCode' in result) {
-    return result.bookingCode;
-  }
-
-  return `${result.outbound.bookingCode}/${result.return.bookingCode}`;
 };
 
 function FilterChip({
@@ -205,10 +193,6 @@ function TripFilterSheet({
     setDraftFilters((current) => ({ ...current, operatorBadge }));
   }, []);
 
-  const setBusType = useCallback((busType: BusType | 'all') => {
-    setDraftFilters((current) => ({ ...current, busType }));
-  }, []);
-
   const setTimeSlot = useCallback((timeSlot: TripTimeSlot) => {
     setDraftFilters((current) => ({ ...current, timeSlot }));
   }, []);
@@ -261,19 +245,6 @@ function TripFilterSheet({
                   label={operator}
                   selected={draftFilters.operatorBadge === operator}
                   onPress={() => setOperator(operator)}
-                />
-              ))}
-            </View>
-
-            <Text style={styles.filterSectionLabel}>Bus type</Text>
-            <View style={styles.filterChipGrid}>
-              {busTypeOptions.map((option) => (
-                <FilterChip
-                  key={option.value}
-                  label={option.label}
-                  helper={option.helper}
-                  selected={draftFilters.busType === option.value}
-                  onPress={() => setBusType(option.value)}
                 />
               ))}
             </View>
@@ -455,7 +426,17 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     selectedTrip,
     outboundState,
     returnState,
-  } = useBookingStore();
+    resetFlowPreservingSearch,
+  } = useBookingStore(useShallow((state) => ({
+    highestStepReached: state.highestStepReached,
+    searchParams: state.searchParams,
+    currentLeg: state.currentLeg,
+    trips: state.trips,
+    selectedTrip: state.selectedTrip,
+    outboundState: state.outboundState,
+    returnState: state.returnState,
+    resetFlowPreservingSearch: state.resetFlowPreservingSearch,
+  })));
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const isRoundTrip = searchParams.isRoundTrip ?? false;
@@ -464,28 +445,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
 
   // Reset booking data when search params change (new booking)
   useEffect(() => {
-    const current = useBookingStore.getState();
-    useBookingStore.setState({
-      ...current,
-      currentLeg: 'outbound',
-      outboundState: null,
-      returnState: null,
-      selectedTrip: null,
-      selectedSeats: [],
-      selectedPickUp: null,
-      selectedDropOff: null,
-      // Do NOT reset pickUpPoints and dropOffPoints - they contain MOCK data
-      contactInfo: { fullName: '', phone: '', email: '', phoneCountryCode: '', idNumber: '' },
-      paymentMethod: 'vnpay',
-      voucherCode: '',
-      voucherDiscountPreview: 0,
-      bookingStatus: 'idle',
-      bookingResult: null,
-      bookingError: null,
-      highestStepReached: 0,
-      tripResultsStatus: 'loading',
-      trips: [],
-    });
+    resetFlowPreservingSearch();
     setTripFilters(DEFAULT_TRIP_FILTERS);
     setStep(1);
   }, [
@@ -497,6 +457,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     searchParams.passengers,
     searchParams.returnDate,
     searchParams.to,
+    resetFlowPreservingSearch,
   ]);
 
   const operatorOptions = useMemo(() => {
@@ -612,12 +573,17 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     try {
       const result = await useBookingStore.getState().createBooking();
       if (result.paymentRedirectUrl) {
-        Linking.openURL(result.paymentRedirectUrl).catch((error) => {
-          console.warn('[Booking] Could not open payment redirect:', error);
-        });
+        try {
+          await openPaymentRedirect(result.paymentRedirectUrl);
+        } catch (error) {
+          Alert.alert(
+            PAYMENT_REDIRECT_ERROR_TITLE,
+            getPaymentRedirectErrorMessage(error),
+          );
+        }
       }
 
-      navigation.navigate('DigitalTicket', { bookingRef: getBookingReference(result) });
+      navigation.navigate('DigitalTicket');
     } catch {
       // PaymentScreen observes bookingError from the store and keeps the user in place.
     }

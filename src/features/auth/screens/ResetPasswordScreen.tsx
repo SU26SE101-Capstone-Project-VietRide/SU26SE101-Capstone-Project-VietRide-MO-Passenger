@@ -24,6 +24,7 @@ import { Input, Button } from '@shared/components';
 import { useApiError } from '@shared/hooks';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
+import { formatCountdown } from '@shared/utils/format';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { resetPassword } from '../api/authApi';
 import { AuthStepHeader } from '../components';
@@ -47,12 +48,6 @@ const resetPasswordFieldAliases: Partial<Record<string, ResetPasswordFormField>>
   newPassword: 'password',
   password: 'password',
   confirmPassword: 'confirmPassword',
-};
-
-const formatTimer = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const remainingSeconds = (seconds % 60).toString().padStart(2, '0');
-  return `${minutes}:${remainingSeconds}`;
 };
 
 export function ResetPasswordScreen(): React.JSX.Element {
@@ -245,7 +240,7 @@ export function ResetPasswordScreen(): React.JSX.Element {
                     value={code}
                     required
                     error={errors.code}
-                    hint={isExpired ? 'Code expired. Go back and request a new reset code.' : `Code expires in ${formatTimer(timer)}.`}
+                    hint={isExpired ? 'Code expired. Go back and request a new reset code.' : `Code expires in ${formatCountdown(timer)}.`}
                     onBlur={() => validateField('code')}
                     onChangeText={(value) => {
                       setCode(value.replace(/\D/g, '').slice(0, AUTH_CODE_LENGTH));

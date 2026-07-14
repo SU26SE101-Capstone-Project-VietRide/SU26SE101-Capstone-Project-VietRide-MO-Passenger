@@ -10,6 +10,7 @@ import { View, Text, Pressable } from 'react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { formatVnd } from '@shared/utils/format';
 import type { Seat } from '../types';
 
 interface FloatingActionBarProps {
@@ -28,9 +29,6 @@ export function FloatingActionBar({
   disabled = false,
 }: FloatingActionBarProps): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
-  const formatPrice = (price: number) => {
-    return `${price.toLocaleString('vi-VN')}đ`;
-  };
 
   return (
     <View style={styles.container}>
@@ -51,7 +49,9 @@ export function FloatingActionBar({
         </View>
         <View style={styles.priceInfo}>
           <Text style={styles.priceLabel}>Total Price</Text>
-          <Text style={styles.priceValue}>{formatPrice(totalPrice)}</Text>
+          <Text style={styles.priceValue}>
+            {formatVnd(totalPrice, { clampNegative: true })}
+          </Text>
         </View>
       </View>
 

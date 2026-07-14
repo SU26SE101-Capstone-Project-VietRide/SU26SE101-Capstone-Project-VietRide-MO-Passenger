@@ -23,17 +23,47 @@ import type {
 import type { TripDetail } from '../../trip/types';
 import { searchTrips, getSeatMap, getTripDetail } from '../../trip/api/tripApi';
 import { createBooking as apiCreateBooking, createRoundTripBooking } from '../api/bookingApi';
-import { toApiError } from '@shared/api/errors';
+import { ApiRequestError, toApiError } from '@shared/api/errors';
+import { IdempotencyKeyTracker } from '@shared/api/idempotency';
+import { registerSessionCleanup } from '@shared/session/cleanup';
+import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
+import { isUuid } from '@shared/utils/pathSegment';
 import { toTripSearchDate } from '../utils/searchParams';
 
 type BookingSubmissionResult = BookingResult | RoundTripResult;
 type LocationPayload = CreateBookingPayload['pickup'];
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const bookingIdempotency = new IdempotencyKeyTracker('booking-mobile');
+let bookingGeneration = 0;
+let searchRequestSequence = 0;
+let detailRequestSequence = 0;
+let seatRequestSequence = 0;
+let activeBookingSubmission: Promise<BookingSubmissionResult> | null = null;
 
-const toBackendPaymentMethod = (method: PaymentMethod): 'WALLET' | 'VNPAY' => {
-  return method === 'wallet' ? 'WALLET' : 'VNPAY';
+class BookingSearchValidationError extends Error {}
+
+const invalidateAsyncBookingWork = (): void => {
+  bookingGeneration += 1;
+  searchRequestSequence += 1;
+  detailRequestSequence += 1;
+  seatRequestSequence += 1;
+  activeBookingSubmission = null;
+  bookingIdempotency.reset();
 };
+
+const staleBookingSessionError = (): ApiRequestError =>
+  new ApiRequestError({
+    message: 'Phiên đặt vé đã thay đổi.',
+    code: 'SESSION_INVALIDATED',
+  });
+
+const createEmptyContactInfo = (): ContactInfo => ({
+  fullName: '',
+  phoneCountryCode: '+84',
+  phone: '',
+  email: '',
+  idNumber: '',
+});
 
 const buildTerminalPickUp = (trip: BusTrip): PickUpPoint => ({
   id: `station-${trip.originStationId}`,
@@ -108,7 +138,7 @@ const toLocationPayload = (
     return { stationId };
   }
 
-  const stopId = point?.stopId ?? (point?.id && UUID_PATTERN.test(point.id) ? point.id : undefined);
+  const stopId = point?.stopId ?? (isUuid(point?.id) ? point.id : undefined);
   if (stopId) {
     return { stopId };
   }
@@ -166,12 +196,6 @@ export const PAYMENT_STEP = CHECKOUT_STEP + 1; // 10
 export const getTotalSteps = (isRoundTrip: boolean): number => {
   return isRoundTrip ? OUTBOUND_STEPS + RETURN_STEPS + 2 : OUTBOUND_STEPS + 2;
 };
-import {
-  MOCK_CONTACT,
-  MOCK_DROP_OFF_POINTS,
-  MOCK_PICK_UP_POINTS,
-} from '../data/mockData';
-
 interface BookingStore {
   // ─── Search ──────────────────────────────────────────
   searchParams: SearchParams & { isRoundTrip?: boolean; returnDate?: string };
@@ -237,6 +261,7 @@ interface BookingStore {
   createBooking: () => Promise<BookingSubmissionResult>;
 
   // ─── Reset ───────────────────────────────────────────
+  resetFlowPreservingSearch: () => void;
   resetBooking: () => void;
 }
 
@@ -354,6 +379,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   tripResultsStatus: 'loading',
   trips: [],
   searchTrips: async () => {
+    const generation = bookingGeneration;
+    const requestId = ++searchRequestSequence;
     const { searchParams, currentLeg } = get();
     set({ tripResultsStatus: 'loading', trips: [] });
     try {
@@ -365,14 +392,20 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         isReturnLeg ? searchParams.originLocationCode : searchParams.destinationLocationCode
       ).trim().toUpperCase();
       if (!originLocationCode || !destinationLocationCode) {
-        throw new Error('Please select both departure and destination provinces.');
+        throw new BookingSearchValidationError('Please select both departure and destination provinces.');
       }
       if (originLocationCode === destinationLocationCode) {
-        throw new Error('Departure and destination provinces must be different.');
+        throw new BookingSearchValidationError('Departure and destination provinces must be different.');
       }
 
       const requestedDate = isReturnLeg ? searchParams.returnDate : searchParams.date;
       const departureDate = toTripSearchDate(requestedDate ?? '');
+      if (isReturnLeg) {
+        const outboundDate = toTripSearchDate(searchParams.date);
+        if (departureDate < outboundDate) {
+          throw new BookingSearchValidationError('Return date must be on or after the departure date.');
+        }
+      }
       const passengerCount = Math.max(1, Math.trunc(searchParams.passengers));
 
       const trips = await searchTrips({
@@ -382,38 +415,58 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         passengerCount,
         allowAlongRoutePickup: false,
       });
+
+      if (generation !== bookingGeneration || requestId !== searchRequestSequence) {
+        return;
+      }
       set({ tripResultsStatus: trips.length === 0 ? 'empty' : 'success', trips });
     } catch (error) {
-      console.warn('[Booking] Search trips failed:', error);
+      if (generation !== bookingGeneration || requestId !== searchRequestSequence) {
+        return;
+      }
+      if (__DEV__ && !(error instanceof BookingSearchValidationError)) {
+        const apiError = toApiError(error);
+        console.warn(`[Booking] Trip search failed (${apiError.code}).`);
+      }
       set({ tripResultsStatus: 'error' });
     }
   },
 
   // ─── Selected Trip ───────────────────────────────────
   selectedTrip: null,
-  selectTrip: (trip) => set((state) => {
-    const terminalPickUp = buildTerminalPickUp(trip);
-    const terminalDropOff = buildTerminalDropOff(trip);
+  selectTrip: (trip) => {
+    detailRequestSequence += 1;
+    seatRequestSequence += 1;
+    set((state) => {
+      const terminalPickUp = buildTerminalPickUp(trip);
+      const terminalDropOff = buildTerminalDropOff(trip);
 
-    return {
-      selectedTrip: trip,
-      selectedSeats: [],
-      seatMap: [],
-      pickUpPoints: [terminalPickUp],
-      dropOffPoints: [terminalDropOff],
-      selectedPickUp: terminalPickUp,
-      selectedDropOff: terminalDropOff,
-      voucherCode: '',
-      voucherDiscountPreview: 0,
-      highestStepReached: Math.max(state.highestStepReached, state.currentLeg === 'return' ? 5 : 1),
-    };
-  }),
+      return {
+        selectedTrip: trip,
+        selectedSeats: [],
+        seatMap: [],
+        pickUpPoints: [terminalPickUp],
+        dropOffPoints: [terminalDropOff],
+        selectedPickUp: terminalPickUp,
+        selectedDropOff: terminalDropOff,
+        voucherCode: '',
+        voucherDiscountPreview: 0,
+        highestStepReached: Math.max(
+          state.highestStepReached,
+          state.currentLeg === 'return' ? 5 : 1,
+        ),
+      };
+    });
+  },
   initTripDetail: async () => {
     const { selectedTrip, selectedPickUp, selectedDropOff } = get();
     if (!selectedTrip?.id) return;
+    const generation = bookingGeneration;
+    const requestId = ++detailRequestSequence;
+    const tripId = selectedTrip.id;
 
     try {
-      const detail = await getTripDetail(selectedTrip.id);
+      const detail = await getTripDetail(tripId);
       const enrichedTrip: TripDetail = {
         ...detail,
         operatorBadge: selectedTrip.operatorBadge || detail.operatorBadge,
@@ -433,6 +486,14 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         ? matchedDropOff
         : nextDropOffPoints.find((point) => point.id === terminalDropOff.id) ?? terminalDropOff;
 
+      if (
+        generation !== bookingGeneration
+        || requestId !== detailRequestSequence
+        || get().selectedTrip?.id !== tripId
+      ) {
+        return;
+      }
+
       set({
         selectedTrip: enrichedTrip,
         pickUpPoints: nextPickUpPoints,
@@ -441,7 +502,13 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         selectedDropOff: nextSelectedDropOff,
       });
     } catch (error) {
-      console.warn('[Booking] Trip detail fetch failed:', error);
+      if (
+        __DEV__
+        && generation === bookingGeneration
+        && requestId === detailRequestSequence
+      ) {
+        console.warn(`[Booking] Trip detail failed (${toApiError(error).code}).`);
+      }
     }
   },
 
@@ -451,11 +518,27 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   initSeatMap: async () => {
     const { selectedTrip } = get();
     if (!selectedTrip?.id) return;
+    const generation = bookingGeneration;
+    const requestId = ++seatRequestSequence;
+    const tripId = selectedTrip.id;
     try {
-      const seatRows = await getSeatMap(selectedTrip.id);
+      const seatRows = await getSeatMap(tripId);
+      if (
+        generation !== bookingGeneration
+        || requestId !== seatRequestSequence
+        || get().selectedTrip?.id !== tripId
+      ) {
+        return;
+      }
       set({ seatMap: seatRows, selectedSeats: [] });
     } catch (error) {
-      console.warn('[Booking] Seat map fetch failed:', error);
+      if (
+        __DEV__
+        && generation === bookingGeneration
+        && requestId === seatRequestSequence
+      ) {
+        console.warn(`[Booking] Seat map failed (${toApiError(error).code}).`);
+      }
     }
   },
   toggleSeat: (seatId) =>
@@ -488,15 +571,15 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     }),
 
   // ─── Contact Info ────────────────────────────────────
-  contactInfo: MOCK_CONTACT,
+  contactInfo: createEmptyContactInfo(),
   setContactInfo: (info) =>
     set((state) => ({
       contactInfo: { ...state.contactInfo, ...info },
     })),
 
   // ─── Pick-up ─────────────────────────────────────────
-  pickUpPoints: MOCK_PICK_UP_POINTS,
-  selectedPickUp: MOCK_PICK_UP_POINTS[0],
+  pickUpPoints: [],
+  selectedPickUp: null,
   selectPickUp: (point) => set((state) => {
     const selectedTripWithStops = state.selectedTrip as TripDetail | null;
     if (!selectedTripWithStops?.stops?.length) {
@@ -520,8 +603,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   }),
 
   // ─── Drop-off ────────────────────────────────────────
-  dropOffPoints: MOCK_DROP_OFF_POINTS,
-  selectedDropOff: MOCK_DROP_OFF_POINTS[0],
+  dropOffPoints: [],
+  selectedDropOff: null,
   selectDropOff: (point) => set({ selectedDropOff: point }),
 
   // ─── Payment ─────────────────────────────────────────
@@ -540,14 +623,20 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   bookingStatus: 'idle',
   bookingResult: null,
   bookingError: null,
-  createBooking: async () => {
-    const state = get();
-    set({ bookingStatus: 'loading', bookingError: null });
+  createBooking: () => {
+    if (activeBookingSubmission) {
+      return activeBookingSubmission;
+    }
 
-    try {
-      assertContactInfo(state.contactInfo);
-      const paymentMethod = toBackendPaymentMethod(state.paymentMethod);
-      const voucherCode = state.voucherCode || undefined;
+    const generation = bookingGeneration;
+    const submission = (async (): Promise<BookingSubmissionResult> => {
+      const state = get();
+      set({ bookingStatus: 'loading', bookingError: null });
+
+      try {
+        assertContactInfo(state.contactInfo);
+        const paymentMethod = toBackendPaymentMethod(state.paymentMethod);
+        const voucherCode = state.voucherCode || undefined;
 
       if (state.searchParams.isRoundTrip && (!state.outboundState || !state.returnState)) {
         throw new Error('Please complete both outbound and return trip details.');
@@ -588,7 +677,14 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           voucherCode,
           paymentMethod,
         };
-        const result = await createRoundTripBooking(payload);
+        const idempotencyKey = bookingIdempotency.getOrCreate({
+          type: 'round-trip',
+          payload,
+        });
+        const result = await createRoundTripBooking(payload, idempotencyKey);
+        if (generation !== bookingGeneration) {
+          throw staleBookingSessionError();
+        }
         set({ bookingStatus: 'success', bookingResult: result });
         return result;
       } else {
@@ -611,19 +707,45 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           voucherCode,
           paymentMethod,
         };
-        const result = await apiCreateBooking(payload);
+        const idempotencyKey = bookingIdempotency.getOrCreate({
+          type: 'one-way',
+          payload,
+        });
+        const result = await apiCreateBooking(payload, idempotencyKey);
+        if (generation !== bookingGeneration) {
+          throw staleBookingSessionError();
+        }
         set({ bookingStatus: 'success', bookingResult: result });
         return result;
       }
-    } catch (error: unknown) {
-      const apiError = toApiError(error);
-      console.error('[Booking] Create failed:', error);
-      set({ 
-        bookingStatus: 'error', 
-        bookingError: apiError.message || 'Could not create your booking. Please try again.'
-      });
-      throw apiError;
-    }
+      } catch (error: unknown) {
+        const apiError = generation === bookingGeneration
+          ? toApiError(error)
+          : staleBookingSessionError();
+
+        if (generation === bookingGeneration) {
+          if (__DEV__) {
+            console.warn(
+              `[Booking] Submission failed (${apiError.code}, ${apiError.statusCode ?? 'no-status'}).`,
+            );
+          }
+          set({
+            bookingStatus: 'error',
+            bookingError: apiError.message || 'Could not create your booking. Please try again.',
+          });
+        }
+        throw apiError;
+      }
+    })();
+
+    activeBookingSubmission = submission;
+    const releaseSubmission = (): void => {
+      if (activeBookingSubmission === submission) {
+        activeBookingSubmission = null;
+      }
+    };
+    submission.then(releaseSubmission, releaseSubmission);
+    return submission;
   },
 
   // ─── Computed ────────────────────────────────────────
@@ -643,7 +765,33 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   },
 
   // ─── Reset ───────────────────────────────────────────
-  resetBooking: () =>
+  resetFlowPreservingSearch: () => {
+    invalidateAsyncBookingWork();
+    set({
+      currentLeg: 'outbound',
+      outboundState: null,
+      returnState: null,
+      selectedTrip: null,
+      seatMap: [],
+      selectedSeats: [],
+      selectedPickUp: null,
+      selectedDropOff: null,
+      contactInfo: createEmptyContactInfo(),
+      pickUpPoints: [],
+      dropOffPoints: [],
+      paymentMethod: 'vnpay',
+      voucherCode: '',
+      voucherDiscountPreview: 0,
+      bookingStatus: 'idle',
+      bookingResult: null,
+      bookingError: null,
+      highestStepReached: 1,
+      tripResultsStatus: 'loading',
+      trips: [],
+    });
+  },
+  resetBooking: () => {
+    invalidateAsyncBookingWork();
     set({
       searchParams: {
         from: '',
@@ -667,11 +815,11 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       selectedTrip: null,
       seatMap: [],
       selectedSeats: [],
-      contactInfo: MOCK_CONTACT,
-      pickUpPoints: MOCK_PICK_UP_POINTS,
-      dropOffPoints: MOCK_DROP_OFF_POINTS,
-      selectedPickUp: MOCK_PICK_UP_POINTS[0],
-      selectedDropOff: MOCK_DROP_OFF_POINTS[0],
+      contactInfo: createEmptyContactInfo(),
+      pickUpPoints: [],
+      dropOffPoints: [],
+      selectedPickUp: null,
+      selectedDropOff: null,
       paymentMethod: 'vnpay',
       voucherCode: '',
       voucherDiscountPreview: 0,
@@ -679,5 +827,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       bookingResult: null,
       bookingError: null,
       highestStepReached: 1,
-    }),
+    });
+  },
 }));
+
+registerSessionCleanup('booking', () => {
+  useBookingStore.getState().resetBooking();
+});

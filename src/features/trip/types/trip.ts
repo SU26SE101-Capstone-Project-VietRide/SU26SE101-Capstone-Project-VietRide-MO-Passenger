@@ -1,3 +1,5 @@
+import { formatTime } from '@shared/utils/format';
+
 export type BusType = 'sleeper' | 'limousine' | 'standard';
 
 export interface TripSearchParams {
@@ -37,10 +39,10 @@ export interface BusTrip {
   seatsLeft: number;
   allowPickup: boolean;
   allowDropoff: boolean;
-  busType: BusType;
-  busLabel: string;
+  busType: BusType | null;
+  busLabel: string | null;
   durationHours: number;
-  totalSeats: number;
+  totalSeats: number | null;
   departureCity: string;
   arrivalCity: string;
 }
@@ -112,7 +114,6 @@ export interface TripDetailDto {
     baseFare: number;
     stops: Array<{ stopId: string; fare: number }>;
   };
-  vehicleType?: string;
   stops: Array<{
     id?: string;
     stopId?: string;
@@ -135,15 +136,6 @@ export interface SeatDto {
   col: number;
   deck?: number;
 }
-
-const formatTime = (dateLike: string): string => {
-  const date = new Date(dateLike);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-};
 
 const durationHoursBetween = (start: string, end: string): number => {
   const startMs = new Date(start).getTime();
@@ -170,35 +162,26 @@ export function mapBusTrip(dto: TripSearchDto): BusTrip {
     seatsLeft: dto.availableSeats,
     allowPickup: dto.allowAlongRoutePickup,
     allowDropoff: dto.allowAlongRouteDropoff,
-    busType: 'sleeper',
-    busLabel: `${dto.operatorName} Sleeper bus`,
+    // The public search contract does not expose vehicle type or seat capacity.
+    busType: null,
+    busLabel: null,
     durationHours: durationHoursBetween(dto.departureDateTime, dto.estimatedArrivalTime),
-    totalSeats: 40,
+    totalSeats: null,
     departureCity: stationCityLabel(dto.originStation.name),
     arrivalCity: stationCityLabel(dto.destinationStation.name),
   };
 }
 
 export function mapTripDetail(dto: TripDetailDto): TripDetail {
-  const busTypeMap: Record<string, BusType> = {
-    SLEEPER_BUS: 'sleeper',
-    LIMOUSINE: 'limousine',
-    STANDARD: 'standard',
-  };
-  const busType = dto.vehicleType ? busTypeMap[dto.vehicleType] || 'sleeper' : 'sleeper';
-  const busLabel = dto.vehicleType === 'LIMOUSINE'
-    ? 'Limousine'
-    : dto.vehicleType === 'STANDARD'
-      ? 'Standard bus'
-      : 'Sleeper bus';
-
   return {
     id: dto.tripId,
     operatorId: dto.operatorId,
     routeId: dto.routeId,
     originStationId: dto.originStation.id,
     destinationStationId: dto.destinationStation.id,
-    operatorBadge: 'VietRide',
+    // Operator name and vehicle type are absent from the detail contract. The
+    // booking store enriches this object with its real search-result metadata.
+    operatorBadge: '',
     departureStation: dto.originStation.name,
     arrivalStation: dto.destinationStation.name,
     departureTime: formatTime(dto.departureDateTime),
@@ -207,8 +190,8 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     seatsLeft: dto.seatSummary.availableSeats,
     allowPickup: dto.stops.some((stop) => Boolean(stop.allowPickup)),
     allowDropoff: dto.stops.some((stop) => Boolean(stop.allowDropoff)),
-    busType,
-    busLabel,
+    busType: null,
+    busLabel: null,
     durationHours: durationHoursBetween(dto.departureDateTime, dto.estimatedArrivalTime),
     totalSeats: dto.seatSummary.totalSeats,
     departureCity: stationCityLabel(dto.originStation.name),

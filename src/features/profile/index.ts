@@ -9,4 +9,5 @@ export { SettingsScreen } from './screens/SettingsScreen';
 export { SecurityScreen } from './screens/SecurityScreen';
 export { ChangePasswordScreen } from './screens/ChangePasswordScreen';
 export { SavedPaymentsScreen } from './screens/SavedPaymentsScreen';
+export { FinancialFeatureUnavailableScreen } from './screens/FinancialFeatureUnavailableScreen';
 export { BookingHistoryScreen } from './screens/BookingHistoryScreen';

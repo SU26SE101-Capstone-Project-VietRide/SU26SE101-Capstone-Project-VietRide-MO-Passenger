@@ -7,11 +7,10 @@ export function useTripDetail(
 ): UseQueryResult<TripDetail, Error> {
   return useQuery({
     queryKey: tripId ? tripKeys.detail(tripId) : ['trips', 'detail', 'none'],
-    queryFn: () => getTripDetail(tripId!),
+    queryFn: ({ signal }) => getTripDetail(tripId!, signal),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
-    networkMode: 'offlineFirst',
     refetchOnWindowFocus: false,
     enabled: !!tripId,
   });

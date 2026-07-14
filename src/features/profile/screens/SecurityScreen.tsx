@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -11,10 +10,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
-  CaretRight,
   ClockCounterClockwise,
   DeviceMobile,
   Key,
@@ -23,15 +20,13 @@ import {
 } from 'phosphor-react-native';
 
 import type { ProfileStackParamList } from '@app/navigation/types';
-import { Button } from '@shared/components';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
-import { getApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { listLoginSessions } from '../api/profileApi';
+import { PROFILE_SECURITY_CAPABILITIES } from '../config/securityCapabilities';
 
 type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -52,23 +47,6 @@ export function SecurityScreen(): React.JSX.Element {
   const user = useAuthStore((state) => state.user);
   const bottomTabClearance =
     CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
-
-  const sessionsQuery = useQuery({
-    queryKey: ['profile', 'security', 'sessions'],
-    queryFn: listLoginSessions,
-    enabled: false,
-    retry: false,
-  });
-
-  const handleCheckSessions = async () => {
-    try {
-      await sessionsQuery.refetch();
-    } catch (error) {
-      Alert.alert('Chưa thể tải phiên đăng nhập', getApiErrorMessage(error));
-    }
-  };
-
-  const sessionError = sessionsQuery.error ? toApiError(sessionsQuery.error) : null;
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
@@ -115,7 +93,8 @@ export function SecurityScreen(): React.JSX.Element {
             <InfoRow label="Trạng thái" value={user?.status || 'Không rõ'} />
             <View style={styles.rowDivider} />
             <Pressable
-              style={styles.actionRow}
+              style={[styles.actionRow, styles.disabledAction]}
+              disabled={!PROFILE_SECURITY_CAPABILITIES.changePassword}
               onPress={() => navigation.navigate('ChangePassword')}
             >
               <View style={styles.actionLeft}>
@@ -124,10 +103,10 @@ export function SecurityScreen(): React.JSX.Element {
                 </View>
                 <View style={styles.actionCopy}>
                   <Text style={styles.actionLabel}>Đổi mật khẩu</Text>
-                  <Text style={styles.actionDesc}>Chuẩn bị sẵn API change-password</Text>
+                  <Text style={styles.actionDesc}>Chưa được backend hỗ trợ an toàn</Text>
                 </View>
               </View>
-              <CaretRight size={16} color={theme.colors.textTertiary} weight="bold" />
+              <Text style={styles.unavailableLabel}>Chưa khả dụng</Text>
             </Pressable>
           </View>
         </View>
@@ -153,44 +132,13 @@ export function SecurityScreen(): React.JSX.Element {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Thiết bị đã đăng nhập</Text>
           <View style={styles.card}>
-            {sessionsQuery.data && sessionsQuery.data.length > 0 ? (
-              sessionsQuery.data.map((session, index) => (
-                <React.Fragment key={session.id}>
-                  <View style={styles.deviceRow}>
-                    <View style={styles.deviceIcon}>
-                      <DeviceMobile size={22} color={theme.colors.primary} weight="fill" />
-                    </View>
-                    <View style={styles.deviceCopy}>
-                      <Text style={styles.deviceTitle}>{session.deviceName}</Text>
-                      <Text style={styles.deviceMeta}>
-                        {session.platform || 'Unknown platform'} • {session.lastActiveAt || 'No activity time'}
-                      </Text>
-                    </View>
-                  </View>
-                  {index < sessionsQuery.data.length - 1 ? <View style={styles.rowDivider} /> : null}
-                </React.Fragment>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <WarningCircle size={24} color={theme.colors.warning} weight="fill" />
-                <Text style={styles.emptyTitle}>Chưa có public API cho danh sách phiên</Text>
-                <Text style={styles.emptyText}>
-                  BE hiện mới có internal device-token lookup, chưa có endpoint public để mobile xem
-                  thiết bị đang đăng nhập hoặc lịch sử đăng nhập gần đây.
-                </Text>
-                {sessionError ? (
-                  <Text style={styles.errorText}>{sessionError.message}</Text>
-                ) : null}
-                <Button
-                  title="Kiểm tra backend"
-                  variant="secondary"
-                  size="sm"
-                  loading={sessionsQuery.isFetching}
-                  onPress={handleCheckSessions}
-                  style={styles.checkButton}
-                />
-              </View>
-            )}
+            <View style={styles.emptyState}>
+              <WarningCircle size={24} color={theme.colors.warning} weight="fill" />
+              <Text style={styles.emptyTitle}>Danh sách phiên chưa khả dụng</Text>
+              <Text style={styles.emptyText}>
+                Ứng dụng sẽ chỉ hiển thị thiết bị đăng nhập khi backend cung cấp API công khai với dữ liệu thật.
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -327,6 +275,9 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  disabledAction: {
+    opacity: 0.72,
+  },
   actionLeft: {
     flex: 1,
     flexDirection: 'row',
@@ -354,6 +305,12 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
     marginTop: spacing.xxs,
+  },
+  unavailableLabel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+    marginLeft: spacing.sm,
   },
   deviceRow: {
     flexDirection: 'row',
@@ -414,15 +371,5 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xs,
-  },
-  errorText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.error,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  checkButton: {
-    marginTop: spacing.md,
   },
 });

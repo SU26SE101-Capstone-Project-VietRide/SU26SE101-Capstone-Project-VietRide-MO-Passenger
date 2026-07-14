@@ -12,6 +12,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { formatVnd } from '@shared/utils/format';
 import type { BusTrip } from '../types';
 
 interface TripCardProps {
@@ -23,12 +24,7 @@ interface TripCardProps {
 export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const progress = 0.5; //Suy nghi lai cho nay
   const seatsUrgent = trip.seatsLeft <= 5;
-
-  const formatPrice = (price: number) => {
-    return `₫ ${Math.round(price / 1000)}K`;
-  };
 
   return (
     <Pressable
@@ -47,13 +43,17 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
               {trip.operatorBadge}
             </Text>
           </View>
-          <Text style={styles.busLabelText} numberOfLines={1}>
-            {trip.busLabel}
-          </Text>
+          {trip.busLabel ? (
+            <Text style={styles.busLabelText} numberOfLines={1}>
+              {trip.busLabel}
+            </Text>
+          ) : null}
         </View>
         <View style={styles.priceBlock}>
           <Text style={styles.priceLabel}>From</Text>
-          <Text style={styles.price}>{formatPrice(trip.price)}</Text>
+          <Text style={styles.price}>
+            {formatVnd(trip.price, { clampNegative: true })}
+          </Text>
         </View>
       </View>
 
@@ -67,11 +67,9 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
           </Text>
         </View>
 
-        {/* Bus icon separator */}
+        {/* Route separator; this is not a live journey-progress indicator. */}
         <View style={styles.progressContainer}>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-          </View>
+          <View style={styles.progressTrack} />
           <View style={styles.busIconContainer}>
             <Bus size={16} weight="fill" color={theme.colors.primary} />
           </View>
@@ -88,22 +86,24 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
 
       {/* Bottom row: bus type + duration + seats */}
       <View style={styles.bottomRow}>
-        <View style={styles.metaChip}>
-          {trip.busType === 'sleeper' ? (
-            <Bed size={15} weight="fill" color={theme.colors.primary} />
-          ) : trip.busType === 'limousine' ? (
-            <Van size={15} weight="fill" color={theme.colors.primary} />
-          ) : (
-            <Bus size={15} weight="fill" color={theme.colors.primary} />
-          )}
-          <Text style={styles.metaText}>
-            {trip.busType === 'sleeper'
-              ? 'Sleeper'
-              : trip.busType === 'limousine'
-                ? 'Limousine'
-                : 'Standard'}
-          </Text>
-        </View>
+        {trip.busType ? (
+          <View style={styles.metaChip}>
+            {trip.busType === 'sleeper' ? (
+              <Bed size={15} weight="fill" color={theme.colors.primary} />
+            ) : trip.busType === 'limousine' ? (
+              <Van size={15} weight="fill" color={theme.colors.primary} />
+            ) : (
+              <Bus size={15} weight="fill" color={theme.colors.primary} />
+            )}
+            <Text style={styles.metaText}>
+              {trip.busType === 'sleeper'
+                ? 'Sleeper'
+                : trip.busType === 'limousine'
+                  ? 'Limousine'
+                  : 'Standard'}
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.metaChip}>
           <Clock size={15} weight="bold" color={theme.colors.textSecondary} />
           <Text style={styles.metaText}>{trip.durationHours}h</Text>

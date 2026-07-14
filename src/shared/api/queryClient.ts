@@ -5,7 +5,27 @@
  * for stale time, garbage collection, and retry logic.
  */
 
-import { QueryClient } from '@tanstack/react-query';
+import NetInfo from '@react-native-community/netinfo';
+import { onlineManager, QueryClient } from '@tanstack/react-query';
+
+import { useAppStore } from '@shared/store';
+
+const toOnlineStatus = (state: {
+  isConnected: boolean | null;
+  isInternetReachable: boolean | null;
+}): boolean => state.isConnected === true && state.isInternetReachable !== false;
+
+// Start pessimistically so query consumers mounted during a cold offline start
+// do not fire before NetInfo produces its first snapshot.
+onlineManager.setOnline(false);
+useAppStore.getState().setOnline(false);
+onlineManager.setEventListener((setOnline) =>
+  NetInfo.addEventListener((state) => {
+    const online = toOnlineStatus(state);
+    setOnline(online);
+    useAppStore.getState().setOnline(online);
+  }),
+);
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,12 +42,13 @@ export const queryClient = new QueryClient({
       /** Do not refetch on window focus (irrelevant for mobile, saves battery) */
       refetchOnWindowFocus: false,
 
-      /** Use cached data when offline, then revalidate when back online */
-      networkMode: 'offlineFirst',
+      /** Pause network work while offline; cached query data remains readable. */
+      networkMode: 'online',
     },
     mutations: {
-      /** Retry failed mutations once */
-      retry: 1,
+      /** Mutations are not replay-safe unless a caller explicitly proves idempotency. */
+      retry: 0,
+      networkMode: 'online',
     },
   },
 });

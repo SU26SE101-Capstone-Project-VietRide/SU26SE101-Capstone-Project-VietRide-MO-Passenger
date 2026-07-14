@@ -1,5 +1,6 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 import {
   type BusTrip,
   type SeatRow,
@@ -20,7 +21,10 @@ export const tripKeys = {
   seats: (tripId: string) => [...tripKeys.all, tripId, 'seats'] as const,
 };
 
-export async function searchTrips(params: TripSearchParams): Promise<BusTrip[]> {
+export async function searchTrips(
+  params: TripSearchParams,
+  signal?: AbortSignal,
+): Promise<BusTrip[]> {
   const response = await apiClient.get<ApiEnvelope<{
     items: TripSearchDto[];
     page: number;
@@ -31,17 +35,32 @@ export async function searchTrips(params: TripSearchParams): Promise<BusTrip[]> 
     hasPreviousPage: boolean;
   }>>('/trips/search', {
     params,
+    ...(signal ? { signal } : {}),
   });
 
   return unwrapApiResponse(response.data).items.map(mapBusTrip);
 }
 
-export async function getTripDetail(tripId: string): Promise<TripDetail> {
-  const response = await apiClient.get<ApiEnvelope<TripDetailDto>>(`/trips/${tripId}`);
+export async function getTripDetail(
+  tripId: string,
+  signal?: AbortSignal,
+): Promise<TripDetail> {
+  const tripIdSegment = encodeUuidPathSegment(tripId, 'tripId');
+  const path = `/trips/${tripIdSegment}`;
+  const response = signal
+    ? await apiClient.get<ApiEnvelope<TripDetailDto>>(path, { signal })
+    : await apiClient.get<ApiEnvelope<TripDetailDto>>(path);
   return mapTripDetail(unwrapApiResponse(response.data));
 }
 
-export async function getSeatMap(tripId: string): Promise<SeatRow[]> {
-  const response = await apiClient.get<ApiEnvelope<{ tripId: string; vehicleType: string; seats: SeatDto[] }>>(`/trips/${tripId}/seat-map`);
+export async function getSeatMap(
+  tripId: string,
+  signal?: AbortSignal,
+): Promise<SeatRow[]> {
+  const tripIdSegment = encodeUuidPathSegment(tripId, 'tripId');
+  const path = `/trips/${tripIdSegment}/seat-map`;
+  const response = signal
+    ? await apiClient.get<ApiEnvelope<{ tripId: string; vehicleType: string; seats: SeatDto[] }>>(path, { signal })
+    : await apiClient.get<ApiEnvelope<{ tripId: string; vehicleType: string; seats: SeatDto[] }>>(path);
   return mapSeatMap(unwrapApiResponse(response.data).seats);
 }

@@ -81,7 +81,22 @@ const fallbackMessages: Record<string, string> = {
   VALIDATION_ERROR: 'Thông tin chưa hợp lệ. Vui lòng kiểm tra lại.',
 };
 
-const normalizeFields = (
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+export const isApiErrorEnvelope = (value: unknown): value is ApiErrorEnvelope => {
+  if (!isRecord(value) || value.success !== false || !isRecord(value.error)) {
+    return false;
+  }
+
+  return (
+    typeof value.statusCode === 'number'
+    && typeof value.error.code === 'string'
+    && typeof value.error.message === 'string'
+  );
+};
+
+export const normalizeApiFields = (
   fields?: ApiErrorPayload['fields'],
 ): ApiFieldError[] => {
   if (!fields) {
@@ -89,17 +104,41 @@ const normalizeFields = (
   }
 
   if (Array.isArray(fields)) {
-    return fields;
+    return fields.filter(
+      (fieldError): fieldError is ApiFieldError =>
+        isRecord(fieldError)
+        && typeof fieldError.field === 'string'
+        && typeof fieldError.message === 'string',
+    );
   }
 
   return Object.entries(fields).flatMap(([field, value]) => {
     if (Array.isArray(value)) {
-      return value.map((message) => ({ field, message }));
+      return value
+        .filter((message): message is string => typeof message === 'string')
+        .map((message) => ({ field, message }));
     }
 
-    return [{ field, message: value }];
+    return typeof value === 'string' ? [{ field, message: value }] : [];
   });
 };
+
+export const apiErrorFromEnvelope = (
+  envelope: ApiErrorEnvelope,
+): ApiRequestError => {
+  const fallbackMessage = fallbackMessages[envelope.error.code];
+
+  return new ApiRequestError({
+    message: envelope.error.message || fallbackMessage || 'Yêu cầu không thành công.',
+    code: envelope.error.code,
+    statusCode: envelope.statusCode,
+    fields: normalizeApiFields(envelope.error.fields),
+    traceId: envelope.meta?.traceId,
+  });
+};
+
+export const parseApiErrorResponse = (value: unknown): ApiRequestError | null =>
+  isApiErrorEnvelope(value) ? apiErrorFromEnvelope(value) : null;
 
 export const unwrapApiResponse = <T>(envelope: ApiEnvelope<T>): T => {
   if (envelope.success) {
@@ -110,7 +149,7 @@ export const unwrapApiResponse = <T>(envelope: ApiEnvelope<T>): T => {
     message: envelope.error.message,
     code: envelope.error.code,
     statusCode: envelope.statusCode,
-    fields: normalizeFields(envelope.error.fields),
+    fields: normalizeApiFields(envelope.error.fields),
     traceId: envelope.meta?.traceId,
   });
 };
@@ -124,27 +163,19 @@ export const toApiError = (error: unknown): ApiRequestError => {
     const axiosError = error as AxiosError<ApiErrorEnvelope>;
     const envelope = axiosError.response?.data;
 
-    if (envelope?.success === false) {
-      const fallbackMessage = fallbackMessages[envelope.error.code];
-
-      return new ApiRequestError({
-        message: envelope.error.message || fallbackMessage || 'Yêu cầu không thành công.',
-        code: envelope.error.code,
-        statusCode: envelope.statusCode,
-        fields: normalizeFields(envelope.error.fields),
-        traceId: envelope.meta?.traceId,
-      });
+    if (isApiErrorEnvelope(envelope)) {
+      return apiErrorFromEnvelope(envelope);
     }
 
     if (axiosError.response?.status === 404) {
       return new ApiRequestError({
-        message: 'Tính năng này chưa được backend hỗ trợ.',
+        message: 'Không tìm thấy dữ liệu được yêu cầu.',
         code: 'RESOURCE_NOT_FOUND',
         statusCode: 404,
       });
     }
 
-    if (axiosError.code === 'ECONNABORTED') {
+    if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
       return new ApiRequestError({
         message: 'Kết nối quá thời gian. Vui lòng thử lại.',
         code: 'REQUEST_TIMEOUT',
@@ -152,7 +183,7 @@ export const toApiError = (error: unknown): ApiRequestError => {
       });
     }
 
-    if (axiosError.message === 'Network Error') {
+    if (axiosError.code === 'ERR_NETWORK' || axiosError.message === 'Network Error') {
       return new ApiRequestError({
         message: 'Không thể kết nối tới máy chủ. Vui lòng kiểm tra mạng.',
         code: 'NETWORK_ERROR',
@@ -169,7 +200,7 @@ export const toApiError = (error: unknown): ApiRequestError => {
 
   if (error instanceof Error) {
     return new ApiRequestError({
-      message: error.message,
+      message: 'Đã có lỗi xảy ra. Vui lòng thử lại.',
       code: 'UNKNOWN_ERROR',
     });
   }

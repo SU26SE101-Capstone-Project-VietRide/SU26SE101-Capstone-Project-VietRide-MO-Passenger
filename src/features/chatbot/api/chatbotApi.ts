@@ -2,20 +2,27 @@ import { apiClient } from '@shared/api/axiosInstance';
 import { authenticatedFetch } from '@shared/api/authenticatedFetch';
 import {
   ApiRequestError,
+  parseApiErrorResponse,
   unwrapApiResponse,
   type ApiEnvelope,
-  type ApiErrorEnvelope,
 } from '@shared/api/errors';
+import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
+import {
+  MAX_ASSISTANT_CHARACTERS,
+  MAX_SSE_STREAM_BYTES,
+} from '../constants/chatLimits';
 import type {
   ChatFeedbackRating,
   ChatFeedbackResponse,
   CreateChatRequest,
   RagChatDoneData,
 } from '../types/chatbot';
+import { createChatStreamLimitError } from '../utils/chatStreamError';
 import { parseRagChatSseEvent, SseParser } from '../utils/sseParser';
 
 interface ChatStreamCallbacks {
   onToken: (content: string) => void;
+  onActivity?: () => void;
 }
 
 const isAbortError = (error: unknown): boolean =>
@@ -33,13 +40,9 @@ const throwHttpError = async (response: Response): Promise<never> => {
     });
   }
 
-  if (
-    typeof payload === 'object'
-    && payload !== null
-    && 'success' in payload
-    && payload.success === false
-  ) {
-    return unwrapApiResponse<never>(payload as ApiErrorEnvelope);
+  const apiError = parseApiErrorResponse(payload);
+  if (apiError) {
+    throw apiError;
   }
 
   throw new ApiRequestError({
@@ -96,11 +99,16 @@ export async function streamChat(
   let doneData: RagChatDoneData | null = null;
   let terminalError: ApiRequestError | null = null;
   let terminalReached = false;
+  let assistantCharacters = 0;
   const parser = new SseParser((wireEvent) => {
     const event = parseRagChatSseEvent(wireEvent);
     if (!event) return;
 
     if (event.event === 'token') {
+      assistantCharacters += event.data.content.length;
+      if (assistantCharacters > MAX_ASSISTANT_CHARACTERS) {
+        throw createChatStreamLimitError();
+      }
       callbacks.onToken(event.data.content);
     } else if (event.event === 'done') {
       doneData = event.data;
@@ -116,11 +124,20 @@ export async function streamChat(
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  let streamBytes = 0;
 
   try {
     while (!terminalReached) {
       const { value, done } = await reader.read();
       if (done) break;
+      if (!value || value.byteLength === 0) continue;
+
+      streamBytes += value.byteLength;
+      if (streamBytes > MAX_SSE_STREAM_BYTES) {
+        throw createChatStreamLimitError();
+      }
+
+      callbacks.onActivity?.();
       parser.feed(decoder.decode(value, { stream: true }));
     }
 
@@ -131,6 +148,8 @@ export async function streamChat(
       parser.finish();
     }
   } catch (error) {
+    await reader.cancel().catch(() => undefined);
+
     if (isAbortError(error) || error instanceof ApiRequestError) {
       throw error;
     }
@@ -163,8 +182,12 @@ export async function submitChatFeedback(
   assistantMessageId: string,
   rating: ChatFeedbackRating,
 ): Promise<ChatFeedbackResponse> {
+  const safeMessageId = encodeUuidPathSegment(
+    assistantMessageId,
+    'assistant message ID',
+  );
   const response = await apiClient.post<ApiEnvelope<ChatFeedbackResponse>>(
-    `/rag/messages/${assistantMessageId}/feedback`,
+    `/rag/messages/${safeMessageId}/feedback`,
     { rating },
   );
 

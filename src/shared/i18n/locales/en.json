@@ -70,7 +70,11 @@
     "history": "History",
     "language": "Language",
     "notifications": "Notifications",
-    "helpSupport": "Help & Support"
+    "helpSupport": "Help & Support",
+    "walletAndPayments": "Wallet & payments",
+    "financialUnavailableTitle": "Wallet & payments unavailable",
+    "financialUnavailableDescription": "Wallet balance, top-up, withdrawal, and saved payment management are not enabled in this app yet.",
+    "financialUnavailableSafety": "VietRide does not collect card numbers or CVV on this screen."
   },
   "chatbot": {
     "title": "VietRide Assistant",
@@ -103,7 +107,7 @@
     "quickActions": {
       "refund": "Cancellation & refund",
       "booking": "Book a ticket",
-      "tracking": "Track a trip",
+      "tracking": "My bookings",
       "parcel": "Send a parcel"
     },
     "prompts": {

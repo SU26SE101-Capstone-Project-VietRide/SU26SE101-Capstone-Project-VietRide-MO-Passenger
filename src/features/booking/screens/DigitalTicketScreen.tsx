@@ -3,53 +3,49 @@
  * Visual style: matches ParcelDetailScreen (Ticket Box Card layout)
  */
 
-import React, { useCallback } from 'react';
+import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { ArrowLeft, MapPin, CheckCircle, QrCode, Coins, Wallet, File } from 'phosphor-react-native';
-import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useNavigation } from '@react-navigation/native';
+import { ArrowLeft, CheckCircle, Coins, Wallet, File, Ticket } from 'phosphor-react-native';
+import { useShallow } from 'zustand/react/shallow';
+import { borderRadius as BR, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { formatVnd } from '@shared/utils/format';
 
-// Local border radius fallback
-const BR = {
-  xs: 4,
-  sm: 6,
-  md: 10,
-  lg: 16,
-  xl: 24,
-  full: 9999,
-} as const;
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { BookingStackParamList, RootStackParamList } from '@app/navigation/types';
+import type { RootStackParamList } from '@app/navigation/types';
 import { useBookingStore } from '../store/useBookingStore';
+import { getBookingReference } from '../utils/bookingReference';
 
-type NavProp = NativeStackNavigationProp<BookingStackParamList>;
 type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function DigitalTicketScreen(): React.JSX.Element {
-  const navigation = useNavigation<NavProp>();
   const rootNav = useNavigation<RootNavProp>();
-  const route = useRoute<RouteProp<BookingStackParamList, 'DigitalTicket'>>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const isHistory = route.params?.fromHistory;
-  const ticketRef = route.params?.bookingRef || `B-${Math.floor(Math.random() * 1000000)}`;
 
   const {
     selectedTrip,
-    selectedSeats,
-    totalPrice,
     paymentMethod,
     selectedPickUp,
     selectedDropOff,
     outboundState,
-    returnState,
     searchParams,
     bookingResult,
-  } = useBookingStore();
+  } = useBookingStore(useShallow((state) => ({
+    selectedTrip: state.selectedTrip,
+    paymentMethod: state.paymentMethod,
+    selectedPickUp: state.selectedPickUp,
+    selectedDropOff: state.selectedDropOff,
+    outboundState: state.outboundState,
+    searchParams: state.searchParams,
+    bookingResult: state.bookingResult,
+  })));
+
+  const ticketRef = getBookingReference(bookingResult);
 
   const displayTrip = searchParams.isRoundTrip
     ? outboundState?.trip ?? selectedTrip
@@ -60,12 +56,18 @@ export function DigitalTicketScreen(): React.JSX.Element {
   const displayDropOff = searchParams.isRoundTrip
     ? outboundState?.dropOff ?? selectedDropOff
     : selectedDropOff;
-  const allSeats = searchParams.isRoundTrip
-    ? [...(outboundState?.seats ?? []), ...(returnState?.seats ?? [])]
-    : selectedSeats;
+  const tickets = bookingResult
+    ? ('bookingGroupId' in bookingResult
+      ? [...bookingResult.outbound.tickets, ...bookingResult.return.tickets]
+      : bookingResult.tickets)
+    : [];
+  const seatNumbers = tickets
+    .map((ticket) => ticket.seatNumber.trim())
+    .filter(Boolean)
+    .join(', ');
   const resultTotal = bookingResult
     ? ('bookingGroupId' in bookingResult ? bookingResult.grandTotal : bookingResult.totalAmount)
-    : totalPrice();
+    : 0;
   const isPendingPayment = bookingResult
     ? Boolean(bookingResult.paymentRedirectUrl)
       || (!('bookingGroupId' in bookingResult) && bookingResult.status === 'PENDING_PAYMENT')
@@ -74,10 +76,6 @@ export function DigitalTicketScreen(): React.JSX.Element {
   const handleGoHome = () => {
     rootNav.navigate('Main', { screen: 'Home' });
   };
-
-  const handleTracking = useCallback(() => {
-    navigation.navigate('Tracking');
-  }, [navigation]);
 
   const getPaymentIcon = () => {
     if (paymentMethod === 'wallet') {
@@ -88,49 +86,90 @@ export function DigitalTicketScreen(): React.JSX.Element {
   };
 
   const getPaymentLabel = () => {
-    return paymentMethod === 'wallet' ? 'VietRide Wallet' : 'VNPAY / Momo';
+    return paymentMethod === 'wallet' ? 'VietRide Wallet' : 'VNPAY';
   };
+
+  if (!bookingResult || !ticketRef) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.navbar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back to dashboard"
+            style={({ pressed }) => [styles.navButton, pressed ? styles.pressed : null]}
+            onPress={handleGoHome}
+          >
+            <ArrowLeft size={22} color={theme.colors.textPrimary} />
+          </Pressable>
+          <Text style={styles.navTitle}>Booking Confirmation</Text>
+          <View style={styles.navSpacer} />
+        </View>
+
+        <View style={styles.unavailableContainer}>
+          <Ticket size={52} color={theme.colors.textTertiary} weight="thin" />
+          <Text style={styles.unavailableTitle}>Ticket details unavailable</Text>
+          <Text style={styles.unavailableMessage}>
+            This confirmation is no longer available in the current session. View your bookings
+            for the latest status.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.trackButton, pressed ? styles.pressed : null]}
+            onPress={() => rootNav.navigate('Main', {
+              screen: 'BookingHistory',
+              params: { initialTab: 'ticket' },
+            })}
+          >
+            <File size={18} color={theme.colors.textInverse} weight="bold" />
+            <Text style={styles.trackButtonText}>View My Bookings</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
       <View style={styles.navbar}>
-        <Pressable style={({ pressed }) => [styles.navButton, pressed ? styles.pressed : null]} onPress={isHistory ? () => navigation.goBack() : handleGoHome}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back to dashboard"
+          style={({ pressed }) => [styles.navButton, pressed ? styles.pressed : null]}
+          onPress={handleGoHome}
+        >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.navTitle}>{isHistory ? 'Ticket Detail' : 'Bus Ticket'}</Text>
+        <Text style={styles.navTitle}>Booking Confirmation</Text>
         <View style={styles.navSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Success Header Status */}
-        {!isHistory && (
-          <View style={styles.successHeader}>
-            <CheckCircle
-              size={56}
-              color={isPendingPayment ? theme.colors.primary : theme.colors.success}
-              weight="fill"
-            />
-            <Text style={styles.successTitle}>
-              {isPendingPayment ? 'Payment Pending' : 'Booking Successful!'}
-            </Text>
-            <Text style={styles.successSubtitle}>
-              {isPendingPayment
-                ? 'Complete payment to activate your ticket.'
-                : 'Your ticket is ready. Show this QR to the driver.'}
-            </Text>
-          </View>
-        )}
+        <View style={styles.successHeader}>
+          <CheckCircle
+            size={56}
+            color={isPendingPayment ? theme.colors.primary : theme.colors.success}
+            weight="fill"
+          />
+          <Text style={styles.successTitle}>
+            {isPendingPayment ? 'Payment Pending' : 'Booking Created'}
+          </Text>
+          <Text style={styles.successSubtitle}>
+            {isPendingPayment
+              ? 'Complete payment to activate your ticket.'
+              : 'Your booking has been recorded successfully.'}
+          </Text>
+        </View>
 
         {/* Ticket Box Card */}
         <View style={styles.ticketCard}>
-          {/* Ticket Header QR */}
-          <View style={styles.qrSection}>
-            <View style={styles.qrContainer}>
-              <QrCode size={128} color={theme.colors.textPrimary} weight="light" />
+          {/* API-issued booking reference */}
+          <View style={styles.referenceSection}>
+            <View style={styles.referenceIconContainer}>
+              <Ticket size={64} color={theme.colors.primary} weight="duotone" />
             </View>
-            <Text style={styles.qrCaption}>Scan this QR at the bus door</Text>
-            <Text style={styles.ticketIdText}>Ticket Ref: {ticketRef}</Text>
+            <Text style={styles.referenceCaption}>Booking reference</Text>
+            <Text style={styles.ticketIdText}>Booking Ref: {ticketRef}</Text>
           </View>
 
           <View style={styles.dashedDivider}>
@@ -143,12 +182,12 @@ export function DigitalTicketScreen(): React.JSX.Element {
             <View style={styles.routeRow}>
               <View style={styles.routeItem}>
                 <Text style={styles.routeLabel}>BOARDING ({displayPickUp?.time || ''})</Text>
-                <Text style={styles.routeName}>{displayPickUp?.name || 'Pick-up Point'}</Text>
+                <Text style={styles.routeName}>{displayPickUp?.name || '—'}</Text>
                 <Text style={styles.routeCity}>{displayPickUp?.address || ''}</Text>
               </View>
               <View style={styles.routeItem}>
                 <Text style={[styles.routeLabel, styles.alignRight]}>ALIGHTING ({displayDropOff?.time || ''})</Text>
-                <Text style={[styles.routeName, styles.alignRight]}>{displayDropOff?.name || 'Drop-off Point'}</Text>
+                <Text style={[styles.routeName, styles.alignRight]}>{displayDropOff?.name || '—'}</Text>
                 <Text style={[styles.routeCity, styles.alignRight]}>{displayDropOff?.address || ''}</Text>
               </View>
             </View>
@@ -156,15 +195,15 @@ export function DigitalTicketScreen(): React.JSX.Element {
             <View style={styles.specsGrid}>
               <View style={styles.gridItem}>
                 <Text style={styles.specLabel}>BUS TYPE</Text>
-                <Text style={styles.specValue}>{displayTrip?.busType || 'Standard'}</Text>
+                <Text style={styles.specValue}>{displayTrip?.busType || '—'}</Text>
               </View>
               <View style={styles.gridItem}>
                 <Text style={styles.specLabel}>SEATS</Text>
-                <Text style={styles.specValue}>{allSeats.map((seat) => seat.label).join(', ')}</Text>
+                <Text style={styles.specValue}>{seatNumbers || '—'}</Text>
               </View>
               <View style={styles.gridItem}>
-                <Text style={styles.specLabel}>PASSENGERS</Text>
-                <Text style={styles.specValue}>{allSeats.length} Adults</Text>
+                <Text style={styles.specLabel}>TICKETS</Text>
+                <Text style={styles.specValue}>{tickets.length}</Text>
               </View>
               <View style={styles.gridItem}>
                 <Text style={styles.specLabel}>PAYMENT METHOD</Text>
@@ -176,50 +215,32 @@ export function DigitalTicketScreen(): React.JSX.Element {
             </View>
 
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>{isPendingPayment ? 'Amount Due' : 'Amount Paid'}</Text>
-              <Text style={styles.totalValue}>{resultTotal.toLocaleString('vi-VN')} VND</Text>
+              <Text style={styles.totalLabel}>{isPendingPayment ? 'Amount Due' : 'Total Amount'}</Text>
+              <Text style={styles.totalValue}>
+                {formatVnd(resultTotal, { display: 'code', clampNegative: true })}
+              </Text>
             </View>
           </View>
         </View>
 
         {/* Action Buttons */}
-        {!isHistory ? (
-          <>
-            <Pressable
-              style={styles.trackButton}
-              onPress={() => rootNav.navigate('Main', { screen: 'BookingHistory', params: { initialTab: 'ticket' } })}
-            >
-              <File size={18} color={theme.colors.textInverse} weight="bold" />
-              <Text style={styles.trackButtonText}>View My Bookings</Text>
-            </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.trackButton, pressed ? styles.pressed : null]}
+          onPress={() => rootNav.navigate('Main', {
+            screen: 'BookingHistory',
+            params: { initialTab: 'ticket' },
+          })}
+        >
+          <File size={18} color={theme.colors.textInverse} weight="bold" />
+          <Text style={styles.trackButtonText}>View My Bookings</Text>
+        </Pressable>
 
-            <Pressable
-              style={[styles.trackButton, styles.trackingButton]}
-              onPress={handleTracking}
-            >
-              <MapPin size={18} color={theme.colors.primary} weight="bold" />
-              <Text style={styles.trackingButtonText}>Tracking</Text>
-            </Pressable>
-
-            <Pressable style={styles.homeButton} onPress={handleGoHome}>
-              <Text style={styles.homeButtonText}>Back to Dashboard</Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
-            <Pressable
-              style={styles.trackButton}
-              onPress={handleTracking}
-            >
-              <MapPin size={18} color={theme.colors.textInverse} weight="bold" />
-              <Text style={styles.trackButtonText}>Tracking</Text>
-            </Pressable>
-
-            <Pressable style={styles.homeButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.homeButtonText}>Go Back</Text>
-            </Pressable>
-          </>
-        )}
+        <Pressable
+          style={({ pressed }) => [styles.homeButton, pressed ? styles.pressed : null]}
+          onPress={handleGoHome}
+        >
+          <Text style={styles.homeButtonText}>Back to Dashboard</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -289,17 +310,17 @@ const createStyles = (theme: AppTheme) => ({
     overflow: 'visible',
     marginBottom: spacing.xxl,
   },
-  qrSection: {
+  referenceSection: {
     alignItems: 'center',
     padding: spacing.xl,
   },
-  qrContainer: {
+  referenceIconContainer: {
     padding: spacing.md,
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderRadius: BR.lg,
     marginBottom: spacing.md,
   },
-  qrCaption: {
+  referenceCaption: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
@@ -424,16 +445,10 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
-  trackingButton: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
-  },
   trackButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
-  },
-  trackingButtonText: {
-    color: theme.colors.primary,
   },
   homeButton: {
     alignItems: 'center',
@@ -448,5 +463,27 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
+  },
+  unavailableContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.huge,
+  },
+  unavailableTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xl,
+    color: theme.colors.textPrimary,
+    marginTop: spacing.lg,
+  },
+  unavailableMessage: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    lineHeight: 21,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.xl,
   },
 });

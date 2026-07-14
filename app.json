@@ -9,7 +9,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "VietRide cần quyền mở thư viện ảnh để cập nhật ảnh đại diện."
+          "photosPermission": "VietRide cần quyền mở thư viện ảnh để cập nhật ảnh đại diện.",
+          "microphonePermission": false
         }
       ],
       [
@@ -18,13 +19,25 @@
           "locationWhenInUsePermission": "VietRide uses your location to show nearby parcel stations."
         }
       ],
-      "expo-secure-store"
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "package": "com.vietride.passenger",
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "config": {
         "googleMaps": {
           "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_HERE"

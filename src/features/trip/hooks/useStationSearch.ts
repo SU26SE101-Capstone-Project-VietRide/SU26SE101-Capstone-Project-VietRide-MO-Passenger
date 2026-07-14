@@ -10,12 +10,11 @@ export function useStationSearch(location: Location | null) {
 
   return useQuery({
     queryKey: stationKeys.search(locationId),
-    queryFn: () => searchStations(locationId),
+    queryFn: ({ signal }) => searchStations(locationId, signal),
     enabled: Boolean(locationId),
     staleTime: STATION_STALE_TIME_MS,
     gcTime: STATION_GC_TIME_MS,
     retry: 1,
-    networkMode: 'offlineFirst',
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });

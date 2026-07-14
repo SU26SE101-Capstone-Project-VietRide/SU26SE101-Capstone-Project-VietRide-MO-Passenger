@@ -20,8 +20,6 @@ import {
   SignOut,
   CaretRight,
   Phone,
-  DownloadSimple,
-  UploadSimple,
   CheckCircle,
   WarningCircle,
 } from 'phosphor-react-native';
@@ -33,6 +31,8 @@ import type { AppTheme } from '@shared/theme';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { ProfileStackParamList } from '@app/navigation/types';
+import { FinancialFeatureNotice } from '../components/FinancialFeatureNotice';
+import { isProfileWalletEntryPointEnabled } from '../config/financialCapabilities';
 
 type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList>;
 const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
@@ -48,7 +48,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
   const displayName = user?.fullName ?? (isGuest ? 'Guest traveler' : 'VietRide Passenger');
-  const displayPhone = user?.phone ?? (isGuest ? 'Sign in to save trips and wallet' : 'No phone number');
+  const displayPhone = user?.phone ?? (isGuest ? 'Sign in to save your trips' : 'No phone number');
   const displayInitial = displayName.charAt(0).toUpperCase();
   const isVerified = user?.status === 'ACTIVE';
   const bottomTabClearance =
@@ -103,39 +103,6 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       ]
     );
   }, [isGuest, logout, t]);
-
-  const handleTopUp = useCallback(() => {
-    if (!handleRequireAccount()) {
-      return;
-    }
-
-    navigation.navigate('TopUp');
-  }, [handleRequireAccount, navigation]);
-
-  const handleDeposit = useCallback(() => {
-    if (!handleRequireAccount()) {
-      return;
-    }
-
-    // Deposit acts the same as Top Up
-    navigation.navigate('TopUp');
-  }, [handleRequireAccount, navigation]);
-
-  const handleWithdraw = useCallback(() => {
-    if (!handleRequireAccount()) {
-      return;
-    }
-
-    navigation.navigate('Withdraw');
-  }, [handleRequireAccount, navigation]);
-
-  const handleHistory = useCallback(() => {
-    if (!handleRequireAccount()) {
-      return;
-    }
-
-    navigation.navigate('Wallet'); // Keep history in Wallet screen for now
-  }, [handleRequireAccount, navigation]);
 
   const profileMenuItems = [
     {
@@ -234,50 +201,9 @@ export function ProfileOverviewScreen(): React.JSX.Element {
             </View>
           </View>
 
-          {/* Divider line */}
-          <View style={styles.cardDivider} />
-
-          <View style={styles.walletSection}>
-            <View style={styles.walletHeader}>
-              <View style={styles.walletBalanceContainer}>
-                <Text style={styles.walletTitle}>{t('profile.walletBalance', 'Wallet Balance')}</Text>
-                <View style={styles.walletAmountRow}>
-                  <Text style={styles.walletBalanceAmount}>{isGuest ? '--' : '425'}</Text>
-                  <Text style={styles.walletCurrencySymbol}>{isGuest ? '' : 'K ₫'}</Text>
-                </View>
-              </View>
-              <Pressable
-                onPress={handleTopUp}
-                style={({ pressed }) => [styles.walletTopUpButton, pressed ? styles.pressed : null]}
-              >
-                <Text style={styles.walletTopUpText}>Top Up</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.walletActions}>
-              <Pressable style={styles.walletActionBtn} onPress={handleDeposit}>
-                <View style={styles.walletIconBg}>
-                  <DownloadSimple size={20} color={theme.colors.primary} />
-                </View>
-                <Text style={styles.walletActionText}>{t('profile.deposit', 'Deposit')}</Text>
-              </Pressable>
-
-              <Pressable style={styles.walletActionBtn} onPress={handleWithdraw}>
-                <View style={styles.walletIconBg}>
-                  <UploadSimple size={20} color={theme.colors.primary} />
-                </View>
-                <Text style={styles.walletActionText}>{t('profile.withdraw', 'Withdraw')}</Text>
-              </Pressable>
-
-              <Pressable style={styles.walletActionBtn} onPress={handleHistory}>
-                <View style={styles.walletIconBg}>
-                  <ClockCounterClockwise size={20} color={theme.colors.primary} />
-                </View>
-                <Text style={styles.walletActionText}>{t('profile.history', 'History')}</Text>
-              </Pressable>
-            </View>
-          </View>
         </View>
+
+        {!isProfileWalletEntryPointEnabled() ? <FinancialFeatureNotice /> : null}
 
         <View style={styles.menuContainer}>
           {profileMenuItems.map((item, index) => {
@@ -420,87 +346,6 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: theme.colors.divider,
-    marginVertical: spacing.md,
-  },
-  walletSection: {
-    paddingTop: spacing.xs,
-    width: '100%',
-  },
-  walletHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: spacing.md,
-  },
-  walletBalanceContainer: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-  walletTitle: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textSecondary,
-    marginBottom: spacing.xxs,
-  },
-  walletAmountRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  walletBalanceAmount: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xxl,
-    color: theme.colors.textPrimary,
-  },
-  walletCurrencySymbol: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: theme.colors.textSecondary,
-    marginLeft: spacing.xxs,
-  },
-  walletTopUpButton: {
-    backgroundColor: theme.colors.primaryLight,
-    borderRadius: borderRadius.full,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  walletTopUpText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primaryDark,
-  },
-  walletActions: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.divider,
-    paddingTop: spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-  },
-  walletActionBtn: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  walletIconBg: {
-    backgroundColor: theme.colors.primaryFaded,
-    borderRadius: borderRadius.lg,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  walletActionText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textPrimary,
-    marginTop: 6,
-    textAlign: 'center',
   },
   menuContainer: {
     ...theme.components.card,

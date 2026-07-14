@@ -1,3 +1,5 @@
+import { formatVnd } from './format';
+
 export type PromoDiscount =
   | {
       type: 'fixed';
@@ -63,9 +65,9 @@ export const isPromoExpired = (
   return expiresAt.getTime() < now.getTime();
 };
 
-export const formatCurrency = (amount: number): string => {
-  return `₫${Math.max(amount, 0).toLocaleString('vi-VN')}`;
-};
+/** @deprecated Use `formatVnd` from `@shared/utils/format` at display call sites. */
+export const formatCurrency = (amount: number): string =>
+  formatVnd(amount, { clampNegative: true });
 
 export const formatPromoExpiry = (expiresAt: string): string => {
   const date = new Date(expiresAt);

@@ -1,28 +1,12 @@
 /**
  * useNetworkStatus — Monitors internet connectivity
  *
- * Syncs the network state with the Zustand appStore so that
- * components and API logic can respond to connectivity changes.
+ * The single NetInfo subscription lives beside the QueryClient. This hook is
+ * intentionally only a selector, avoiding duplicate native subscriptions.
  */
 
-import { useEffect } from 'react';
-import NetInfo from '@react-native-community/netinfo';
 import { useAppStore } from '@shared/store';
 
 export function useNetworkStatus(): boolean {
-  const isOnline = useAppStore((state) => state.isOnline);
-  const setOnline = useAppStore((state) => state.setOnline);
-
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      const connected = state.isConnected ?? false;
-      setOnline(connected);
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [setOnline]);
-
-  return isOnline;
+  return useAppStore((state) => state.isOnline);
 }

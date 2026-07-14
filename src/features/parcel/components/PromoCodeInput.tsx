@@ -21,9 +21,9 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { formatVnd } from '@shared/utils/format';
 import type { PromoOffer } from '@shared/utils/promo';
 import {
-  formatCurrency,
   formatPromoExpiry,
   normalizePromoCode,
 } from '@shared/utils/promo';
@@ -39,7 +39,7 @@ export interface PromoCodeInputProps {
   errorText?: string;
 }
 
-export const PromoCodeInput = memo(function PromoCodeInput({
+export const PromoCodeInput = memo(function PromoCodeInputComponent({
   code,
   onChange,
   applied,
@@ -223,7 +223,7 @@ export const PromoCodeInput = memo(function PromoCodeInput({
                 promos.map((promo) => {
                   const isSelected = normalizedSelectedCode === normalizePromoCode(promo.code);
                   const minimumSpendText = promo.minimumSpend
-                    ? `Min spend ${formatCurrency(promo.minimumSpend)}`
+                    ? `Min spend ${formatVnd(promo.minimumSpend, { clampNegative: true })}`
                     : 'No minimum spend';
 
                   return (

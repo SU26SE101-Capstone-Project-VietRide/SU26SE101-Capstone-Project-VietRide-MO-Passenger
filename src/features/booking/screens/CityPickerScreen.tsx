@@ -24,7 +24,7 @@ import type { AppTheme } from '@shared/theme';
 import type { RouteProp } from '@react-navigation/native';
 import { useLocations } from '@features/location/hooks/useLocations';
 import type { Location } from '@features/location/types/location';
-import { normalizeLocationSearchText } from '../utils/searchParams';
+import { normalizeLocationSearchText } from '@features/location/utils/locationSearch';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'CityPicker'>;
 type CityPickerRouteProp = RouteProp<BookingStackParamList, 'CityPicker'>;
@@ -36,7 +36,8 @@ export function CityPickerScreen(): React.JSX.Element {
   const route = useRoute<CityPickerRouteProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { searchParams, setSearchParams } = useBookingStore();
+  const searchParams = useBookingStore((state) => state.searchParams);
+  const setSearchParams = useBookingStore((state) => state.setSearchParams);
   const { data: locations = [], isLoading, isError, isFetching, refetch } = useLocations();
   const mode = route.params.mode;
   const [query, setQuery] = useState('');

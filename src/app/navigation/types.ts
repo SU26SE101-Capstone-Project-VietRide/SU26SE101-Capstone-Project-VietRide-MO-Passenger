@@ -28,15 +28,10 @@ export type AuthStackParamList = {
 // ─── Booking Stack (nested inside Main) ───────────────────
 export type BookingStackParamList = {
   SearchRoutes: undefined;
-  PopularRoutes: undefined;
   CityPicker: { mode: 'from' | 'to' };
   DatePicker: { mode?: 'departure' | 'return' } | undefined;
   CreateTicketBooking: undefined;
-  DigitalTicket: {
-    bookingRef: string;
-    fromHistory?: boolean;
-  };
-  Tracking: undefined;
+  DigitalTicket: undefined;
 };
 
 

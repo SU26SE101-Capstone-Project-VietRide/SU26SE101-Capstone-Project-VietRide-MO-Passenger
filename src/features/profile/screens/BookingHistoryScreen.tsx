@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   Pressable,
-  ScrollView,
   StatusBar,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useBookingHistory } from '../../booking/hooks/useBookingHistory';
 import type { BookingHistoryItem } from '../../booking/types/booking';
@@ -18,52 +18,160 @@ import {
   CalendarBlank,
   MapPin,
   Ticket,
-  Truck,
-  Check,
-  XCircle,
-  Package,
 } from 'phosphor-react-native';
 
-import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { getApiErrorMessage } from '@shared/api/errors';
+import { borderRadius as BR, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { formatDate, formatTime, formatVnd } from '@shared/utils/format';
 
-// Local border radius fallback
-const BR = {
-  xs: 4,
-  sm: 6,
-  md: 10,
-  lg: 16,
-  xl: 24,
-  full: 9999,
-} as const;
+interface BookingHistoryRowProps {
+  item: BookingHistoryItem;
+}
 
+const BookingHistoryRow = memo(function BookingHistoryRowComponent({
+  item,
+}: BookingHistoryRowProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const isUpcoming = item.status === 'PENDING' || item.status === 'CONFIRMED';
+  const isCompleted = item.status === 'COMPLETED';
 
+  return (
+    <View style={styles.ticketCard}>
+      <View style={styles.ticketHeader}>
+        <View style={styles.refRow}>
+          <Ticket size={18} color={theme.colors.primary} style={styles.ticketIcon} />
+          <Text style={styles.refText}>{item.bookingCode}</Text>
+        </View>
+        <View
+          style={[
+            styles.statusBadge,
+            isUpcoming ? styles.upcomingBadge : null,
+            isCompleted ? styles.completedBadge : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              isUpcoming ? styles.upcomingStatusText : null,
+              isCompleted ? styles.completedStatusText : null,
+            ]}
+          >
+            {item.status}
+          </Text>
+        </View>
+      </View>
 
-type BookingHistoryRouteProp = RouteProp<{
-  params: { initialTab?: 'ticket' | 'parcel' };
-}, 'params'>;
+      <View style={styles.routeContainer}>
+        <View style={styles.timelineDots}>
+          <View style={styles.greenDot} />
+          <View style={styles.timelineLine} />
+          <View style={styles.redDot} />
+        </View>
+        <View style={styles.routeTextContainer}>
+          <Text style={styles.stationText} numberOfLines={1}>
+            {item.originStationName}
+          </Text>
+          <Text style={styles.stationText} numberOfLines={1}>
+            {item.destinationStationName}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.detailsRow}>
+        <View style={styles.detailItem}>
+          <CalendarBlank size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
+          <Text style={styles.detailValueText}>{formatDate(item.departureDateTime)}</Text>
+        </View>
+        <View style={styles.detailItem}>
+          <Clock size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
+          <Text style={styles.detailValueText}>{formatTime(item.departureDateTime)}</Text>
+        </View>
+        <View style={[styles.detailItem, styles.routeDetailItem]}>
+          <MapPin size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
+          <Text style={[styles.detailValueText, styles.routeDetailText]} numberOfLines={1}>
+            {item.originStationName} - {item.destinationStationName}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.ticketFooter}>
+        <Text style={styles.priceLabel}>{t('booking.totalPrice', 'Total Price')}</Text>
+        <Text style={styles.priceValue}>{formatVnd(item.totalAmount)}</Text>
+      </View>
+    </View>
+  );
+});
 
 export function BookingHistoryScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
-  const route = useRoute<BookingHistoryRouteProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
 
   const [activeTicketFilter, setActiveTicketFilter] = useState<'all' | 'upcoming' | 'past'>('all');
 
-  const { data: tickets = [], isLoading, error } = useBookingHistory();
+  const historyQuery = useBookingHistory();
+  const tickets = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
 
-  const filteredTickets = tickets.filter((ticket) => {
-    if (activeTicketFilter === 'upcoming') return ticket.status === 'PENDING' || ticket.status === 'CONFIRMED';
-    if (activeTicketFilter === 'past') return ticket.status === 'COMPLETED' || ticket.status === 'CANCELLED';
+  const filteredTickets = useMemo(() => tickets.filter((ticket) => {
+    if (activeTicketFilter === 'upcoming') {
+      return ticket.status === 'PENDING' || ticket.status === 'CONFIRMED';
+    }
+    if (activeTicketFilter === 'past') {
+      return ticket.status === 'COMPLETED' || ticket.status === 'CANCELLED';
+    }
     return true;
-  });
+  }), [activeTicketFilter, tickets]);
 
+  const renderTicket = useCallback(
+    ({ item }: { item: BookingHistoryItem }) => (
+      <BookingHistoryRow item={item} />
+    ),
+    [],
+  );
 
+  const renderEmptyState = useCallback(() => {
+    if (historyQuery.isLoading) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator color={theme.colors.primary} />
+          <Text style={styles.emptyText}>{t('common.loading', 'Loading...')}</Text>
+        </View>
+      );
+    }
+
+    if (historyQuery.isError) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ticket size={48} color={theme.colors.textTertiary} weight="thin" />
+          <Text style={styles.emptyText}>{getApiErrorMessage(historyQuery.error)}</Text>
+          <Pressable
+            onPress={() => historyQuery.refetch()}
+            style={({ pressed }) => [styles.retryButton, pressed ? styles.pressedCard : null]}
+          >
+            <Text style={styles.retryText}>{t('common.retry', 'Try again')}</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyContainer}>
+        <Ticket size={48} color={theme.colors.textTertiary} weight="thin" />
+        <Text style={styles.emptyText}>
+          {t('profile.noTickets', 'No ticket history found.')}
+        </Text>
+      </View>
+    );
+  }, [historyQuery, styles, t, theme.colors.primary, theme.colors.textTertiary]);
+
+  const keyExtractor = useCallback((item: BookingHistoryItem) => item.id, []);
 
   return (
     <SafeAreaView style={styles.safeContainer}>
@@ -112,106 +220,18 @@ export function BookingHistoryScreen(): React.JSX.Element {
         ))}
       </View>
 
-      {/* Scroll List */}
-      <ScrollView
+      <FlashList
+        data={filteredTickets}
+        renderItem={renderTicket}
+        keyExtractor={keyExtractor}
+        ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        onRefresh={historyQuery.refetch}
+        refreshing={historyQuery.isRefetching}
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}
-      >
-        {isLoading ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Loading...</Text>
-            </View>
-          ) : filteredTickets.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ticket size={48} color={theme.colors.textTertiary} weight="thin" />
-              <Text style={styles.emptyText}>
-                {t('profile.noTickets', 'No ticket history found.')}
-              </Text>
-            </View>
-          ) : (
-            filteredTickets.map((ticket) => {
-              const dt = ticket.departureDateTime || '';
-              const date = dt.split('T')[0] || '';
-              const time = dt.split('T')[1]?.substring(0, 5) || '';
-              const isUpcoming = ticket.status === 'PENDING' || ticket.status === 'CONFIRMED';
-              const isCompleted = ticket.status === 'COMPLETED';
-
-              return (
-              <Pressable
-                key={ticket.id}
-                style={styles.ticketCard}
-                onPress={() => navigation.navigate('Booking', { screen: 'DigitalTicket', params: { bookingRef: ticket.bookingCode, fromHistory: true } })}
-              >
-                {/* Card Header */}
-                <View style={styles.ticketHeader}>
-                  <View style={styles.refRow}>
-                    <Ticket size={18} color={theme.colors.primary} style={styles.ticketIcon} />
-                    <Text style={styles.refText}>{ticket.bookingCode}</Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      isUpcoming ? styles.upcomingBadge : null,
-                      isCompleted ? styles.completedBadge : null,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusText,
-                        isUpcoming ? styles.upcomingStatusText : null,
-                        isCompleted ? styles.completedStatusText : null,
-                      ]}
-                    >
-                      {ticket.status}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Station Trip timeline */}
-                <View style={styles.routeContainer}>
-                  <View style={styles.timelineDots}>
-                    <View style={styles.greenDot} />
-                    <View style={styles.timelineLine} />
-                    <View style={styles.redDot} />
-                  </View>
-                  <View style={styles.routeTextContainer}>
-                    <Text style={styles.stationText} numberOfLines={1}>
-                      {ticket.originStationName}
-                    </Text>
-                    <Text style={styles.stationText} numberOfLines={1}>
-                      {ticket.destinationStationName}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Details Row */}
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailItem}>
-                    <CalendarBlank size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
-                    <Text style={styles.detailValueText}>{date}</Text>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <Clock size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
-                    <Text style={styles.detailValueText}>{time}</Text>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <MapPin size={16} color={theme.colors.textSecondary} style={styles.detailIcon} />
-                    <Text style={styles.detailValueText} numberOfLines={1}>{ticket.originStationName} - {ticket.destinationStationName}</Text>
-                  </View>
-                </View>
-
-                {/* Card Footer */}
-                <View style={styles.ticketFooter}>
-                  <Text style={styles.priceLabel}>{t('booking.totalPrice', 'Total Price')}</Text>
-                  <Text style={styles.priceValue}>{ticket.totalAmount.toLocaleString()}đ</Text>
-                </View>
-              </Pressable>
-            );
-            })
-          )}
-      </ScrollView>
+      />
     </SafeAreaView>
   );
 }
@@ -320,6 +340,22 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.md,
     color: theme.colors.textTertiary,
     marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  retryButton: {
+    minWidth: 112,
+    height: 40,
+    paddingHorizontal: spacing.lg,
+    borderRadius: BR.md,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+  },
+  retryText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textInverse,
   },
   ticketCard: {
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
@@ -329,6 +365,9 @@ const createStyles = (theme: AppTheme) => ({
     ...theme.effects.cardShadow,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+  },
+  pressedCard: {
+    opacity: 0.84,
   },
   ticketHeader: {
     flexDirection: 'row',
@@ -423,6 +462,11 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  routeDetailItem: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: spacing.sm,
+  },
   detailIcon: {
     marginRight: spacing.xs,
   },
@@ -430,6 +474,9 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     color: theme.colors.textPrimary,
+  },
+  routeDetailText: {
+    flex: 1,
   },
   ticketFooter: {
     flexDirection: 'row',

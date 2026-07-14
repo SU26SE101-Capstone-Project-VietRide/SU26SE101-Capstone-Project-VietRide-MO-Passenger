@@ -1,5 +1,5 @@
 import type { Location } from '@features/location/types/location';
-import { normalizeLocationSearchText } from '@features/booking/utils/searchParams';
+import { normalizeLocationSearchText } from '@features/location/utils/locationSearch';
 import type { ChatBookingDraft } from '../types/chatbot';
 
 const MAX_PASSENGERS = 9;
@@ -8,7 +8,6 @@ const BOOKING_TERMS = [
   'mua ve',
   'tim chuyen',
   'tim xe',
-  've xe',
   'book ticket',
   'book a ticket',
   'book trip',

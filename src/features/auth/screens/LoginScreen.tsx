@@ -46,6 +46,8 @@ export function LoginScreen(): React.JSX.Element {
   const route = useRoute<ScreenRouteProp>();
   const setSession = useAuthStore((state) => state.setSession);
   const continueAsGuest = useAuthStore((state) => state.continueAsGuest);
+  const authError = useAuthStore((state) => state.authError);
+  const clearAuthError = useAuthStore((state) => state.clearAuthError);
   const theme = useTheme();
   const isLiquid = theme.variant.startsWith('liquid');
   const { errorMessage, clearError, handleError } = useApiError();
@@ -53,6 +55,7 @@ export function LoginScreen(): React.JSX.Element {
   const [email, setEmail] = useState(route.params?.email ?? '');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<LoginFormErrors>({});
+  const [isGuestPending, setIsGuestPending] = useState(false);
 
   const loginMutation = useMutation({
     mutationFn: login,
@@ -61,7 +64,8 @@ export function LoginScreen(): React.JSX.Element {
   const clearFieldError = useCallback((field: LoginFormField) => {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
     clearError();
-  }, [clearError]);
+    clearAuthError();
+  }, [clearAuthError, clearError]);
 
   const validateField = useCallback((field: LoginFormField) => {
     const parsed = loginSchema.safeParse({ email, password });
@@ -77,6 +81,7 @@ export function LoginScreen(): React.JSX.Element {
 
   const handleLogin = useCallback(async () => {
     clearError();
+    clearAuthError();
 
     const parsed = loginSchema.safeParse({ email, password });
 
@@ -95,15 +100,23 @@ export function LoginScreen(): React.JSX.Element {
         ...apiFieldErrors<LoginFormField>(apiError.fields),
       }));
     }
-  }, [clearError, email, handleError, loginMutation, password, setSession]);
+  }, [clearAuthError, clearError, email, handleError, loginMutation, password, setSession]);
 
-  const handleContinueAsGuest = useCallback(() => {
+  const handleContinueAsGuest = useCallback(async () => {
     clearError();
-    continueAsGuest();
-  }, [clearError, continueAsGuest]);
+    clearAuthError();
+    setIsGuestPending(true);
+
+    try {
+      await continueAsGuest();
+    } catch (error) {
+      setIsGuestPending(false);
+      handleError(error);
+    }
+  }, [clearAuthError, clearError, continueAsGuest, handleError]);
 
   const isSubmitDisabled =
-    !email.trim() || !password || loginMutation.isPending;
+    !email.trim() || !password || loginMutation.isPending || isGuestPending;
 
   return (
     <View style={[styles.root, isLiquid && { backgroundColor: theme.colors.background }]}>
@@ -184,9 +197,9 @@ export function LoginScreen(): React.JSX.Element {
                   Email verified. Please log in to continue.
                 </Text>
               ) : null}
-              {errorMessage ? (
+              {errorMessage || authError ? (
                 <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                  {errorMessage}
+                  {errorMessage ?? authError}
                 </Text>
               ) : null}
 
@@ -220,7 +233,8 @@ export function LoginScreen(): React.JSX.Element {
               <Button
                 title="Continue as guest"
                 onPress={handleContinueAsGuest}
-                disabled={loginMutation.isPending}
+                disabled={loginMutation.isPending || isGuestPending}
+                loading={isGuestPending}
                 variant="outline"
                 size="md"
                 fullWidth

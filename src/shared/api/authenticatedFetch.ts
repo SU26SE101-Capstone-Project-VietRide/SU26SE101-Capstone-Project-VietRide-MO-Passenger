@@ -1,7 +1,7 @@
 import type { FetchRequestInit } from 'expo/fetch';
 
 import { appConfig } from '@shared/constants/config';
-import { joinUrl } from '@shared/utils/url';
+import { isTrustedApiUrl, joinUrl } from '@shared/utils/url';
 import {
   refreshAccessTokenAfterUnauthorized,
   resolveStoredAccessToken,
@@ -12,6 +12,10 @@ const fetchWithAccessToken = async (
   init: FetchRequestInit,
   accessToken: string | null,
 ) => {
+  if (!isTrustedApiUrl(path, appConfig.apiBaseUrl)) {
+    throw new Error('[API] Refused an untrusted streaming request URL.');
+  }
+
   // Keep the native module lazy so non-native environments can render the app shell.
   const { fetch: expoFetch } = await import('expo/fetch');
   const headers = new Headers(init.headers);

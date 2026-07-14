@@ -71,6 +71,7 @@ describe('extractBookingDraft', () => {
 
   it('does not create actions for ordinary policy questions', () => {
     expect(extractBookingDraft('Chính sách hoàn tiền là gì?', locations)).toBeUndefined();
+    expect(extractBookingDraft('Chính sách vé xe cho trẻ em?', locations)).toBeUndefined();
   });
 
   it('clamps passenger count to the existing booking flow maximum', () => {

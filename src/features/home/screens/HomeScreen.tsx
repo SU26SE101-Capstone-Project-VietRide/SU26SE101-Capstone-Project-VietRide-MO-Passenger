@@ -13,7 +13,7 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { GlassCarouselSection, ProfileHeader } from '@shared/components';
+import { ProfileHeader } from '@shared/components';
 import { useBookingStore } from '../../booking/store/useBookingStore';
 import { useParcelStore } from '../../parcel/store/useParcelStore';
 import {
@@ -25,22 +25,9 @@ import {
   MagnifyingGlass,
   PaperPlaneTilt,
   ArrowRight,
-  ClockCounterClockwise,
 } from 'phosphor-react-native';
 
-// Booking shared components & data
-import {
-  PassengerCountInput,
-  RouteCard,
-  RecentSearchCard,
-} from '../../booking/components';
-import { MOCK_POPULAR_ROUTES, MOCK_RECENT_SEARCHES } from '../../booking/data/mockData';
-
-// Subcomponents
-import { NewsPromos } from '../components/NewsPromos';
-import { RecentShipmentsSection } from '../components/RecentShipmentsSection';
-import { useLocations } from '@features/location/hooks/useLocations';
-import { findLocationByName } from '../../booking/utils/searchParams';
+import { PassengerCountInput } from '../../booking/components';
 
 export function HomeScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
@@ -48,7 +35,6 @@ export function HomeScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
-  const { data: locations = [] } = useLocations();
 
   const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
 
@@ -74,59 +60,6 @@ export function HomeScreen(): React.JSX.Element {
       screen: 'CreateTicketBooking',
     });
   }, [navigation]);
-
-  const handlePopularPress = useCallback(
-    (item: { from: string; to: string }) => {
-      const origin = findLocationByName(locations, item.from);
-      const destination = findLocationByName(locations, item.to);
-      setSearchParams({
-        from: origin?.name ?? item.from,
-        to: destination?.name ?? item.to,
-        originLocationCode: origin?.code ?? '',
-        destinationLocationCode: destination?.code ?? '',
-        originStationId: '',
-        destinationStationId: '',
-        originStationName: '',
-        destinationStationName: '',
-      });
-      navigation.navigate('Booking', {
-        screen: 'CityPicker',
-        params: { mode: 'from' },
-      });
-    },
-    [locations, navigation, setSearchParams],
-  );
-
-  const handleViewAllPopular = useCallback(() => {
-    navigation.navigate('Booking', {
-      screen: 'PopularRoutes',
-    });
-  }, [navigation]);
-
-  const handleRecentPress = useCallback(
-    (item: { route: string }) => {
-      const parts = item.route.split(/\s+to\s+/i);
-      const from = parts[0]?.trim() || '';
-      const to = parts[1]?.trim() || '';
-      const origin = findLocationByName(locations, from);
-      const destination = findLocationByName(locations, to);
-      setSearchParams({
-        from: origin?.name ?? from,
-        to: destination?.name ?? to,
-        originLocationCode: origin?.code ?? '',
-        destinationLocationCode: destination?.code ?? '',
-        originStationId: '',
-        destinationStationId: '',
-        originStationName: '',
-        destinationStationName: '',
-      });
-      navigation.navigate('Booking', {
-        screen: 'CityPicker',
-        params: { mode: 'from' },
-      });
-    },
-    [locations, navigation, setSearchParams],
-  );
 
   const openBookingCityPicker = useCallback(
     (mode: 'from' | 'to') => {
@@ -170,20 +103,6 @@ export function HomeScreen(): React.JSX.Element {
   const handleStartShipment = useCallback(() => {
     navigation.navigate('Parcel', { screen: 'CreateParcel' });
   }, [navigation]);
-
-  const handleOpenShipmentList = useCallback(() => {
-    navigation.navigate('BookingHistory', { initialTab: 'parcel' });
-  }, [navigation]);
-
-  const handleTrackShipment = useCallback(
-    (parcelId: string) => {
-      navigation.navigate('Parcel', {
-        screen: 'ParcelTracking',
-        params: { parcelId },
-      });
-    },
-    [navigation],
-  );
 
 
   return (
@@ -408,70 +327,12 @@ export function HomeScreen(): React.JSX.Element {
                     <Text style={styles.searchButtonText}>Next</Text>
                     <ArrowRight size={18} color={theme.colors.textInverse} weight="bold" />
                   </Pressable>
-
-                  <Pressable
-                    style={styles.historyBtn}
-                    onPress={handleOpenShipmentList}
-                  >
-                    <ClockCounterClockwise size={20} color={theme.colors.primary} weight="bold" />
-                  </Pressable>
                 </View>
               </View>
             )}
           </View>
         </View>
 
-        {activeTab === 'ticket' && (
-          <>
-            <GlassCarouselSection
-              title="Popular Routes"
-              actionLabel="See all"
-              onActionPress={handleViewAllPopular}
-            >
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-              >
-                {MOCK_POPULAR_ROUTES.map((item) => (
-                  <RouteCard
-                    key={item.id}
-                    from={item.from}
-                    to={item.to}
-                    price={item.price}
-                    onPress={() => handlePopularPress(item)}
-                  />
-                ))}
-              </ScrollView>
-            </GlassCarouselSection>
-
-            <GlassCarouselSection title="Recent Searches">
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-              >
-                {MOCK_RECENT_SEARCHES.map((item) => (
-                  <RecentSearchCard
-                    key={item.id}
-                    route={item.route}
-                    onPress={() => handleRecentPress(item)}
-                  />
-                ))}
-              </ScrollView>
-            </GlassCarouselSection>
-
-            {/* News & Promotions */}
-            <NewsPromos />
-          </>
-        )}
-
-        {activeTab === 'parcel' && (
-          <RecentShipmentsSection
-            onViewAll={handleOpenShipmentList}
-            onTrackShipment={handleTrackShipment}
-          />
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -721,22 +582,6 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     gap: spacing.sm,
     marginTop: spacing.xl,
-  },
-  historyBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    ...theme.components.field,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  horizontalList: {
-    gap: spacing.lg,
-    paddingLeft: spacing.md,
-    paddingRight: spacing.lg,
-  },
-  recentList: {
-    gap: spacing.sm,
   },
   pressed: {
     opacity: 0.86,

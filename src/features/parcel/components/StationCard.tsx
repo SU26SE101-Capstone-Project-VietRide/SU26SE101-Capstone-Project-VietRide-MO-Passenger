@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { MapPin, Clock, Package } from 'phosphor-react-native';
+import { MapPin } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -53,32 +53,16 @@ export function StationCard({ station, onSelect, isSelected = false }: StationCa
         </View>
       </View>
 
-      <View style={styles.distanceRow}>
-        <MapPin size={15} color={theme.colors.textTertiary} weight="regular" />
-        <Text style={styles.distanceText}>{station.distance}</Text>
-      </View>
+      {station.distance ? (
+        <View style={styles.distanceRow}>
+          <MapPin size={15} color={theme.colors.textTertiary} weight="regular" />
+          <Text style={styles.distanceText}>{station.distance}</Text>
+        </View>
+      ) : null}
 
       <Text style={styles.address} numberOfLines={2}>
         {station.address}
       </Text>
-
-      {/* Optional working hours and status badges */}
-      {(station.workingHours || station.acceptingParcels) && (
-        <View style={styles.badgesRow}>
-          {station.workingHours && (
-            <View style={styles.statusBadge}>
-              <Clock size={14} color={theme.colors.primary} weight="regular" />
-              <Text style={styles.statusBadgeText}>{station.workingHours}</Text>
-            </View>
-          )}
-          {station.acceptingParcels && (
-            <View style={styles.statusBadge}>
-              <Package size={14} color={theme.colors.primary} weight="regular" />
-              <Text style={styles.statusBadgeText}>Accepting</Text>
-            </View>
-          )}
-        </View>
-      )}
 
       <Pressable
         style={({ pressed }) => [
@@ -161,26 +145,6 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
     marginTop: spacing.sm,
     lineHeight: fontSizes.sm * 1.4,
-  },
-  badgesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.sm,
-    gap: 4,
-  },
-  statusBadgeText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textPrimary,
   },
   button: {
     backgroundColor: 'transparent',

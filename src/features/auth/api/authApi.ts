@@ -25,7 +25,6 @@ import {
   normalizeVietnamPhone,
 } from '../validation/authValidation';
 
-const AUTH_REFRESH_DISABLED = { skipAuthRefresh: true } as const;
 const PUBLIC_AUTH_REQUEST = { skipAuthRefresh: true, skipAuth: true } as const;
 
 export const authKeys = {
@@ -97,12 +96,20 @@ export async function refreshSession(_refreshToken?: string): Promise<AuthSessio
   };
 }
 
-export async function logout(refreshToken: string): Promise<void> {
-  await apiClient.post('/auth/logout', { refreshToken }, AUTH_REFRESH_DISABLED);
+export async function logout(refreshToken: string, accessToken: string): Promise<void> {
+  await apiClient.post(
+    '/auth/logout',
+    { refreshToken },
+    {
+      skipAuthRefresh: true,
+      skipAuth: true,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
 }
 
-export async function getCurrentUser(): Promise<User> {
-  const response = await apiClient.get<ApiEnvelope<AuthUserDto>>('/users/me');
+export async function getCurrentUser(signal?: AbortSignal): Promise<User> {
+  const response = await apiClient.get<ApiEnvelope<AuthUserDto>>('/users/me', { signal });
   return mapAuthUser(unwrapApiResponse(response.data));
 }
 

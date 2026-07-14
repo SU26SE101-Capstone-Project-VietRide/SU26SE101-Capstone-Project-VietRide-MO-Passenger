@@ -60,22 +60,21 @@ export const mapParcelStation = (
   index: number,
   currentCoordinates: CurrentCoordinates | null = null,
   isResolvingCurrentLocation = false,
-): Station => ({
-  id: station.id,
-  name: station.name,
-  address: stationAddress(station) || station.name,
-  distance: formatDistance(getDistanceKm(currentCoordinates, station))
-    ?? (isResolvingCurrentLocation && station.latitude != null && station.longitude != null
-      ? 'Calculating distance...'
-      : null)
-    ?? (index === 0 ? 'Suggested terminal' : station.city || station.province || 'Terminal'),
-  isClosest: index === 0,
-  rating: 4.8,
-  reviewsCount: 0,
-  city: station.city || station.province || '',
-  workingHours: 'Terminal hours',
-  acceptingParcels: true,
-});
+): Station => {
+  const distanceKm = getDistanceKm(currentCoordinates, station);
+
+  return {
+    id: station.id,
+    name: station.name,
+    address: stationAddress(station) || station.name,
+    distance: formatDistance(distanceKm)
+      ?? (isResolvingCurrentLocation && station.latitude != null && station.longitude != null
+        ? 'Calculating distance...'
+        : null),
+    isClosest: index === 0 && distanceKm != null,
+    city: station.city || station.province || '',
+  };
+};
 
 export function useParcelStations(
   location: Location | null,
@@ -92,7 +91,6 @@ export function useParcelStations(
     staleTime: STATION_STALE_TIME_MS,
     gcTime: STATION_GC_TIME_MS,
     retry: 1,
-    networkMode: 'offlineFirst',
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });

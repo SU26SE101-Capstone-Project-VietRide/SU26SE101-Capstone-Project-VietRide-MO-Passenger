@@ -7,27 +7,27 @@ import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import type { PromoOffer } from '@shared/utils/promo';
 import { normalizePromoCode } from '@shared/utils/promo';
+import { formatVnd } from '@shared/utils/format';
+import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
 import { FloatingActionBar } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
 import { useAvailableBookingVouchers } from '../hooks/useAvailableBookingVouchers';
-import type { AvailableVoucherItem, PaymentMethod } from '../types';
+import type { AvailableVoucherItem } from '../types';
 
 interface PaymentStepProps {
   onNext: () => void | Promise<void>;
 }
-
-const formatMoney = (amount: number): string => `${Math.max(amount, 0).toLocaleString('vi-VN')} VND`;
-
-const toBackendPaymentMethod = (method: PaymentMethod): 'WALLET' | 'VNPAY' =>
-  method === 'wallet' ? 'WALLET' : 'VNPAY';
 
 const getVoucherLabel = (voucher: AvailableVoucherItem): string => {
   if (voucher.type === 'PERCENT_OFF') {
     return `${voucher.value}% OFF`;
   }
 
-  return `${formatMoney(voucher.discountAmount || voucher.value)} OFF`;
+  return `${formatVnd(voucher.discountAmount || voucher.value, {
+    display: 'code',
+    clampNegative: true,
+  })} OFF`;
 };
 
 const toPromoOffer = (voucher: AvailableVoucherItem): PromoOffer => ({
@@ -36,7 +36,10 @@ const toPromoOffer = (voucher: AvailableVoucherItem): PromoOffer => ({
   title: voucher.name,
   description:
     voucher.discountAmount > 0
-      ? `Estimated saving ${formatMoney(voucher.discountAmount)} for this booking.`
+      ? `Estimated saving ${formatVnd(voucher.discountAmount, {
+        display: 'code',
+        clampNegative: true,
+      })} for this booking.`
       : 'Final discount is checked again at checkout.',
   discountLabel: getVoucherLabel(voucher),
   expiresAt: voucher.validUntil,
@@ -316,20 +319,24 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
           <Text style={styles.bentoCardHeading}>Payment Breakdown</Text>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Base Ticket Fare ({allSelectedSeats.length}x)</Text>
-            <Text style={styles.priceValue}>{formatMoney(baseFare)}</Text>
+            <Text style={styles.priceValue}>
+              {formatVnd(baseFare, { display: 'code', clampNegative: true })}
+            </Text>
           </View>
           {appliedVoucher ? (
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>Voucher Discount</Text>
               <Text style={[styles.priceValue, styles.discountValue]}>
-                -{formatMoney(promoDiscount)}
+                -{formatVnd(promoDiscount, { display: 'code', clampNegative: true })}
               </Text>
             </View>
           ) : null}
           <View style={styles.summaryDivider} />
           <View style={[styles.priceRow, styles.totalRowSpacing]}>
             <Text style={styles.totalLabel}>Total Price</Text>
-            <Text style={styles.totalValue}>{formatMoney(finalPrice)}</Text>
+            <Text style={styles.totalValue}>
+              {formatVnd(finalPrice, { display: 'code', clampNegative: true })}
+            </Text>
           </View>
           {bookingError ? (
             <Text style={styles.submitErrorText}>{bookingError}</Text>

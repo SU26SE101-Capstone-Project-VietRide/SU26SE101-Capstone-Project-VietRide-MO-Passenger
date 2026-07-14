@@ -4,23 +4,21 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, StatusBar, Image } from 'react-native';
+import { View, Text, ScrollView, StatusBar, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fontFamilies, spacing } from '@shared/theme';
-import { GlassCarouselSection, ProfileHeader } from '@shared/components';
-import { SearchForm, RouteCard, RecentSearchCard } from '../components';
+import { ProfileHeader } from '@shared/components';
+import { SearchForm } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
-import { MOCK_POPULAR_ROUTES, MOCK_RECENT_SEARCHES } from '../data/mockData';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { BookingStackParamList } from '@app/navigation/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import { useLocations } from '@features/location/hooks/useLocations';
-import { findLocationByName } from '../utils/searchParams';
+import { useShallow } from 'zustand/react/shallow';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'SearchRoutes'>;
 
@@ -29,11 +27,14 @@ const catMascotImage = require('@assets/images/image 1.png');
 export function BusSearchScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const user = useAuthStore((state) => state.user);
-  const { searchParams, swapCities, setSearchParams } = useBookingStore();
+  const { searchParams, swapCities, setSearchParams } = useBookingStore(useShallow((state) => ({
+    searchParams: state.searchParams,
+    swapCities: state.swapCities,
+    setSearchParams: state.setSearchParams,
+  })));
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
-  const { data: locations = [] } = useLocations();
   const isSearchDisabled = !searchParams.originLocationCode
     || !searchParams.destinationLocationCode
     || searchParams.originLocationCode === searchParams.destinationLocationCode
@@ -42,59 +43,6 @@ export function BusSearchScreen(): React.JSX.Element {
   const handleSearch = useCallback(() => {
     navigation.navigate('CreateTicketBooking');
   }, [navigation]);
-
-  const navigateToRoute = useCallback(
-    (from: string, to: string, date?: string) => {
-      const origin = findLocationByName(locations, from);
-      const destination = findLocationByName(locations, to);
-      setSearchParams({
-        from: origin?.name ?? from,
-        to: destination?.name ?? to,
-        originLocationCode: origin?.code ?? '',
-        destinationLocationCode: destination?.code ?? '',
-        originStationId: '',
-        destinationStationId: '',
-        originStationName: '',
-        destinationStationName: '',
-        date: date || searchParams.date,
-      });
-      navigation.navigate('CityPicker', { mode: 'from' });
-    },
-    [locations, navigation, setSearchParams, searchParams.date],
-  );
-
-  const handlePopularPress = useCallback(
-    (item: { from: string; to: string }) => {
-      navigateToRoute(item.from, item.to);
-    },
-    [navigateToRoute],
-  );
-
-  const handleViewAllPopular = useCallback(() => {
-    navigation.navigate('PopularRoutes');
-  }, [navigation]);
-
-  const handleRecentPress = useCallback(
-    (item: { route: string }) => {
-      const parts = item.route.split(/\s+to\s+/i);
-      const from = parts[0]?.trim() || '';
-      const to = parts[1]?.trim() || '';
-      const origin = findLocationByName(locations, from);
-      const destination = findLocationByName(locations, to);
-      setSearchParams({
-        from: origin?.name ?? from,
-        to: destination?.name ?? to,
-        originLocationCode: origin?.code ?? '',
-        destinationLocationCode: destination?.code ?? '',
-        originStationId: '',
-        destinationStationId: '',
-        originStationName: '',
-        destinationStationName: '',
-      });
-      navigation.navigate('CityPicker', { mode: 'from' });
-    },
-    [locations, navigation, setSearchParams],
-  );
 
   const openCityPicker = useCallback(
     (mode: 'from' | 'to') => {
@@ -112,14 +60,6 @@ export function BusSearchScreen(): React.JSX.Element {
       setSearchParams({ passengers });
     },
     [setSearchParams],
-  );
-
-  const renderRouteItem = ({ item }: { item: { id: string; from: string; to: string; price: string } }) => (
-    <RouteCard from={item.from} to={item.to} price={item.price} onPress={() => handlePopularPress(item)} />
-  );
-
-  const renderRecentItem = ({ item }: { item: { id: string; route: string } }) => (
-    <RecentSearchCard route={item.route} onPress={() => handleRecentPress(item)} />
   );
 
   return (
@@ -178,32 +118,6 @@ export function BusSearchScreen(): React.JSX.Element {
             onSearchPress={handleSearch}
             searchDisabled={isSearchDisabled}
           />
-
-          <GlassCarouselSection
-            title="Popular Routes"
-            actionLabel="See all"
-            onActionPress={handleViewAllPopular}
-          >
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={MOCK_POPULAR_ROUTES}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.horizontalList}
-              renderItem={renderRouteItem}
-            />
-          </GlassCarouselSection>
-
-          <GlassCarouselSection title="Recent Searches">
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={MOCK_RECENT_SEARCHES}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.horizontalList}
-              renderItem={renderRecentItem}
-            />
-          </GlassCarouselSection>
 
           {/* Bottom spacer */}
           <View style={styles.bottomSpacer} />
@@ -267,14 +181,6 @@ const createStyles = (theme: AppTheme) => ({
   mascotImage: {
     width: 96,
     height: 96,
-  },
-  horizontalList: {
-    gap: spacing.lg,
-    paddingLeft: spacing.md,
-    paddingRight: spacing.lg,
-  },
-  recentList: {
-    gap: spacing.sm,
   },
   bottomSpacer: {
     height: 100,

@@ -5,6 +5,7 @@
  */
 
 import type { BusType, BusTrip } from '../../trip/types/trip';
+import type { PaymentMethod as SharedPaymentMethod } from '@shared/utils/paymentMethod';
 export type { BusType, BusTrip };
 
 // ─── Trip Filters ────────────────────────────────────────
@@ -13,7 +14,6 @@ export type TripPriceRange = 'all' | 'under_350k' | '350k_450k' | 'over_450k';
 
 export interface TripFilterState {
   operatorBadge: string | 'all';
-  busType: BusType | 'all';
   timeSlot: TripTimeSlot;
   priceRange: TripPriceRange;
 }
@@ -79,7 +79,7 @@ export interface ContactInfo {
 }
 
 // ─── Payment ──────────────────────────────────────────────
-export type PaymentMethod = 'vnpay' | 'wallet';
+export type PaymentMethod = SharedPaymentMethod;
 
 // ─── Search Params ────────────────────────────────────────
 export interface SearchParams {
@@ -96,21 +96,7 @@ export interface SearchParams {
 }
 
 // ─── Popular Route ────────────────────────────────────────
-export interface PopularRoute {
-  id: string;
-  from: string;
-  to: string;
-  price: string;
-  gradientColors: [string, string];
-}
-
 // ─── Recent Search ────────────────────────────────────────
-export interface RecentSearch {
-  id: string;
-  route: string;
-  date: string;
-}
-
 // ─── Booking Result ───────────────────────────────────────
 export interface BookingResult {
   bookingId: string;

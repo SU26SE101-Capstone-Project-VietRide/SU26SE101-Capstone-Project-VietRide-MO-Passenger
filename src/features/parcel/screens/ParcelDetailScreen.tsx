@@ -10,21 +10,15 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { getApiErrorMessage } from '@shared/api/errors';
+import { formatVnd } from '@shared/utils/format';
 import type { ParcelStackParamList, RootStackParamList } from '@app/navigation/types';
 import { useParcelDetail } from '../hooks/useParcelQueries';
 import { ErrorView } from '../components';
+import { formatParcelStatusLabel } from '../utils/parcelTracking';
 
 type ParcelDetailRouteProp = RouteProp<ParcelStackParamList, 'ParcelDetail'>;
 type ParcelDetailNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelDetail'>;
 type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
-
-const formatVnd = (amount: number): string => `${Math.max(amount, 0).toLocaleString('vi-VN')} VND`;
-
-const statusLabel = (status?: string): string =>
-  (status || 'PENDING')
-    .replace(/_/g, ' ')
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
 
 export function ParcelDetailScreen(): React.JSX.Element {
   const route = useRoute<ParcelDetailRouteProp>();
@@ -51,7 +45,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
         <Text style={styles.navTitle}>{fromHistory ? 'Delivery Detail' : 'Delivery Ticket'}</Text>
-        <View style={{ width: 36 }} />
+        <View style={styles.navSpacer} />
       </View>
 
       {detailQuery.isLoading ? (
@@ -85,7 +79,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
               </Text>
               <View style={styles.statusPill}>
                 <Package size={14} color={theme.colors.primary} weight="fill" />
-                <Text style={styles.statusPillText}>{statusLabel(parcel?.status)}</Text>
+                <Text style={styles.statusPillText}>{formatParcelStatusLabel(parcel?.status)}</Text>
               </View>
             </View>
 
@@ -103,8 +97,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
                   </Text>
                 </View>
                 <View style={styles.routeItem}>
-                  <Text style={[styles.routeLabel, { textAlign: 'right' }]}>TO</Text>
-                  <Text style={[styles.routeName, { textAlign: 'right' }]}>
+                  <Text style={[styles.routeLabel, styles.textRight]}>TO</Text>
+                  <Text style={[styles.routeName, styles.textRight]}>
                     {parcel?.destinationStationName || 'Destination terminal'}
                   </Text>
                 </View>
@@ -143,12 +137,22 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Deposit Due</Text>
-                <Text style={styles.totalValue}>{formatVnd(parcel?.depositAmount ?? 0)}</Text>
+                <Text style={styles.totalValue}>
+                  {formatVnd(parcel?.depositAmount ?? 0, {
+                    display: 'code',
+                    clampNegative: true,
+                  })}
+                </Text>
               </View>
               {parcel?.discountAmount ? (
                 <View style={styles.discountRow}>
                   <Text style={styles.discountLabel}>Voucher discount</Text>
-                  <Text style={styles.discountValue}>-{formatVnd(parcel.discountAmount)}</Text>
+                  <Text style={styles.discountValue}>
+                    -{formatVnd(parcel.discountAmount, {
+                      display: 'code',
+                      clampNegative: true,
+                    })}
+                  </Text>
                 </View>
               ) : null}
             </View>
@@ -195,6 +199,9 @@ const createStyles = (theme: AppTheme) => ({
     width: 36,
     height: 36,
     borderRadius: 18,
+  },
+  navSpacer: {
+    width: 36,
   },
   navTitle: {
     fontFamily: fontFamilies.bold,
@@ -344,6 +351,9 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
+  },
+  textRight: {
+    textAlign: 'right',
   },
   specsGrid: {
     flexDirection: 'row',

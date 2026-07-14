@@ -29,9 +29,7 @@ const normalizeEnv = (value?: string): Environment => {
 
 const env = normalizeEnv(process.env.EXPO_PUBLIC_APP_ENV);
 
-const requireEnvValue = (name: string): string => {
-  const value = process.env[name];
-
+const requireEnvValue = (name: string, value: string | undefined): string => {
   if (!value || value.trim().length === 0) {
     throw new Error(`[Config] Missing environment variable: ${name}`);
   }
@@ -39,9 +37,43 @@ const requireEnvValue = (name: string): string => {
   return value;
 };
 
+const requireServiceUrl = (
+  name: string,
+  value: string | undefined,
+  allowedProtocols: readonly string[],
+): string => {
+  const normalized = normalizeUrlBase(requireEnvValue(name, value));
+
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error(`[Config] Invalid URL in environment variable: ${name}`);
+  }
+
+  if (!allowedProtocols.includes(parsed.protocol)) {
+    throw new Error(`[Config] Insecure or unsupported protocol in: ${name}`);
+  }
+
+  return normalized;
+};
+
+// Expo replaces public variables only when accessed through static dot notation.
+const apiBaseUrlValue = process.env.EXPO_PUBLIC_API_BASE_URL;
+const wsUrlValue = process.env.EXPO_PUBLIC_WS_URL;
+const secureTransportRequired = env !== 'development';
+
 export const appConfig: AppConfig = {
-  apiBaseUrl: normalizeUrlBase(requireEnvValue('EXPO_PUBLIC_API_BASE_URL')),
-  wsUrl: normalizeUrlBase(requireEnvValue('EXPO_PUBLIC_WS_URL')),
+  apiBaseUrl: requireServiceUrl(
+    'EXPO_PUBLIC_API_BASE_URL',
+    apiBaseUrlValue,
+    secureTransportRequired ? ['https:'] : ['http:', 'https:'],
+  ),
+  wsUrl: requireServiceUrl(
+    'EXPO_PUBLIC_WS_URL',
+    wsUrlValue,
+    secureTransportRequired ? ['wss:'] : ['ws:', 'wss:'],
+  ),
   googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
   env,
   isDev: env === 'development',

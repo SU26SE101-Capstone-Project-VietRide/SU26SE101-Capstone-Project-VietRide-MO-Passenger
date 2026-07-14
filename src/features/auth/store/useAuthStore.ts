@@ -9,6 +9,7 @@ import { create } from 'zustand';
 
 import { queryClient } from '@shared/api/queryClient';
 import { toApiError } from '@shared/api/errors';
+import { clearSessionBoundState } from '@shared/session/cleanup';
 import {
   isTokenExpired,
   isTokenExpiringSoon,
@@ -17,9 +18,11 @@ import {
   type RefreshTokenBundleDto,
 } from '@shared/api/tokenRefresh';
 import {
+  beginTokenSession,
   clearToken,
-  getRefreshToken,
   getTokenBundle,
+  getTokenSessionEpoch,
+  isTokenSessionEpochCurrent,
   setToken,
   setTokenRefreshAllowed,
 } from '@shared/utils/storage';
@@ -34,8 +37,8 @@ interface AuthState {
   authError: string | null;
 
   setSession: (session: AuthSession) => Promise<void>;
-  setUser: (user: User) => void;
-  continueAsGuest: () => void;
+  setUser: (user: User, expectedSessionEpoch: number) => boolean;
+  continueAsGuest: () => Promise<void>;
   setAuthLoading: (loading: boolean) => void;
   clearAuthError: () => void;
   resetAuthState: () => void;
@@ -58,14 +61,17 @@ const cacheUser = (user: User): void => {
   queryClient.setQueryData(authApi.authKeys.me, user);
 };
 
-const clearAuthCache = (): void => {
-  queryClient.removeQueries({ queryKey: authApi.authKeys.all });
+const clearSessionData = (): void => {
+  // Destroy/cancel private queries and mutations before another account can
+  // become active in this process.
+  queryClient.clear();
+  clearSessionBoundState();
 };
 
 const fetchCurrentUser = (): Promise<User> => {
   return queryClient.fetchQuery({
     queryKey: authApi.authKeys.me,
-    queryFn: authApi.getCurrentUser,
+    queryFn: ({ signal }) => authApi.getCurrentUser(signal),
     staleTime: AUTH_ME_STALE_TIME_MS,
   });
 };
@@ -95,7 +101,7 @@ const authSessionFromRefreshBundle = async (
   };
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isGuest: false,
@@ -103,17 +109,27 @@ export const useAuthStore = create<AuthState>((set) => ({
   authError: null,
 
   setSession: async (session) => {
+    const sessionEpoch = beginTokenSession();
     const stored = await setToken(
       session.accessToken,
       session.refreshToken,
       session.expiresInSeconds,
       session.user.status === 'ACTIVE',
+      sessionEpoch,
     );
 
     if (!stored) {
+      if (isTokenSessionEpochCurrent(sessionEpoch)) {
+        await clearToken();
+      }
       throw new Error('Không thể lưu phiên đăng nhập an toàn trên thiết bị.');
     }
 
+    if (!isTokenSessionEpochCurrent(sessionEpoch)) {
+      throw new Error('Phiên đăng nhập đã được thay thế bởi một phiên mới hơn.');
+    }
+
+    clearSessionData();
     cacheUser(session.user);
 
     set({
@@ -125,45 +141,73 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
   },
 
-  setUser: (user) =>
-    {
-      void setTokenRefreshAllowed(user.status === 'ACTIVE');
-      cacheUser(user);
-      set({
-        user,
-        isAuthenticated: true,
-        isGuest: false,
-        isAuthLoading: false,
-        authError: null,
-      });
-    },
+  setUser: (user, expectedSessionEpoch) => {
+    const current = get();
+    if (
+      !isTokenSessionEpochCurrent(expectedSessionEpoch)
+      || !current.isAuthenticated
+      || current.isGuest
+      || current.user?.id !== user.id
+    ) {
+      return false;
+    }
 
-  continueAsGuest: () =>
-    {
-      clearAuthCache();
-      set({
-        user: null,
-        isAuthenticated: false,
-        isGuest: true,
-        isAuthLoading: false,
-        authError: null,
-      });
-    },
+    setTokenRefreshAllowed(user.status === 'ACTIVE').catch(() => {
+      if (__DEV__) {
+        console.warn('[Auth] Failed to update credential metadata.');
+      }
+    });
+    cacheUser(user);
+    set({
+      user,
+      isAuthenticated: true,
+      isGuest: false,
+      isAuthLoading: false,
+      authError: null,
+    });
+    return true;
+  },
+
+  continueAsGuest: async () => {
+    const clearPromise = clearToken();
+    const guestSessionEpoch = getTokenSessionEpoch();
+    const cleared = await clearPromise;
+    if (!isTokenSessionEpochCurrent(guestSessionEpoch)) {
+      return;
+    }
+
+    if (!cleared) {
+      throw new Error('Không thể xóa phiên đăng nhập cũ khỏi thiết bị. Vui lòng thử lại.');
+    }
+
+    clearSessionData();
+    set({
+      user: null,
+      isAuthenticated: false,
+      isGuest: true,
+      isAuthLoading: false,
+      authError: null,
+    });
+  },
 
   setAuthLoading: (loading) => set({ isAuthLoading: loading }),
 
   clearAuthError: () => set({ authError: null }),
 
   resetAuthState: () => {
-    clearAuthCache();
+    clearSessionData();
     set(unauthenticatedState);
   },
 
   initializeAuth: async () => {
+    const initializationEpoch = getTokenSessionEpoch();
     set({ isAuthLoading: true, authError: null });
 
     try {
       const tokenBundle = await getTokenBundle();
+      if (!isTokenSessionEpochCurrent(initializationEpoch)) {
+        return;
+      }
 
       if (!tokenBundle) {
         set(unauthenticatedState);
@@ -174,8 +218,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       const canRefreshStoredToken = tokenBundle.refreshAllowed !== false;
 
       if (!canRefreshStoredToken && isTokenExpired(tokenBundle)) {
-        await clearToken();
-        clearAuthCache();
+        const clearPromise = clearToken();
+        const clearedSessionEpoch = getTokenSessionEpoch();
+        await clearPromise;
+        if (!isTokenSessionEpochCurrent(clearedSessionEpoch)) {
+          return;
+        }
+        clearSessionData();
         set({
           ...unauthenticatedState,
           authError: 'PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng xÃ¡c thá»±c email rá»“i Ä‘Äƒng nháº­p láº¡i.',
@@ -188,14 +237,22 @@ export const useAuthStore = create<AuthState>((set) => ({
 
         if (refreshResult.success) {
           const session = await authSessionFromRefreshBundle(refreshResult.data);
+          if (!isTokenSessionEpochCurrent(initializationEpoch)) {
+            return;
+          }
           user = session.user;
           cacheUser(user);
         } else if (
           isTokenExpired(tokenBundle) &&
           shouldForceLogoutAfterRefreshFailure(refreshResult)
         ) {
-          await clearToken();
-          clearAuthCache();
+          const clearPromise = clearToken();
+          const clearedSessionEpoch = getTokenSessionEpoch();
+          await clearPromise;
+          if (!isTokenSessionEpochCurrent(clearedSessionEpoch)) {
+            return;
+          }
+          clearSessionData();
           set({
             ...unauthenticatedState,
             authError: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
@@ -208,6 +265,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         user = await fetchCurrentUser();
       }
 
+      if (!isTokenSessionEpochCurrent(initializationEpoch)) {
+        return;
+      }
+
       set({
         user,
         isAuthenticated: true,
@@ -216,6 +277,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         authError: null,
       });
     } catch (error) {
+      if (!isTokenSessionEpochCurrent(initializationEpoch)) {
+        return;
+      }
+
       if (shouldKeepLocalSession(error)) {
         const cachedUser = queryClient.getQueryData<User>(authApi.authKeys.me) ?? null;
 
@@ -233,6 +298,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (refreshResult.success) {
         const session = await authSessionFromRefreshBundle(refreshResult.data);
+        if (!isTokenSessionEpochCurrent(initializationEpoch)) {
+          return;
+        }
         cacheUser(session.user);
         set({
           user: session.user,
@@ -245,8 +313,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       if (shouldForceLogoutAfterRefreshFailure(refreshResult)) {
-        await clearToken();
-        clearAuthCache();
+        const clearPromise = clearToken();
+        const clearedSessionEpoch = getTokenSessionEpoch();
+        await clearPromise;
+        if (!isTokenSessionEpochCurrent(clearedSessionEpoch)) {
+          return;
+        }
+        clearSessionData();
 
         set({
           ...unauthenticatedState,
@@ -268,12 +341,22 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   refreshSession: async () => {
+    const refreshSessionEpoch = getTokenSessionEpoch();
     const refreshResult = await refreshStoredTokenBundle();
+
+    if (!isTokenSessionEpochCurrent(refreshSessionEpoch)) {
+      return null;
+    }
 
     if (!refreshResult.success) {
       if (shouldForceLogoutAfterRefreshFailure(refreshResult)) {
-        await clearToken();
-        clearAuthCache();
+        const clearPromise = clearToken();
+        const clearedSessionEpoch = getTokenSessionEpoch();
+        await clearPromise;
+        if (!isTokenSessionEpochCurrent(clearedSessionEpoch)) {
+          return null;
+        }
+        clearSessionData();
         set(unauthenticatedState);
       }
 
@@ -282,6 +365,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       const session = await authSessionFromRefreshBundle(refreshResult.data);
+      if (!isTokenSessionEpochCurrent(refreshSessionEpoch)) {
+        return null;
+      }
       cacheUser(session.user);
 
       set({
@@ -294,6 +380,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       return session;
     } catch (error) {
+      if (!isTokenSessionEpochCurrent(refreshSessionEpoch)) {
+        return null;
+      }
+
       if (shouldKeepLocalSession(error)) {
         set({
           isAuthLoading: false,
@@ -302,8 +392,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         return null;
       }
 
-      await clearToken();
-      clearAuthCache();
+      const clearPromise = clearToken();
+      const clearedSessionEpoch = getTokenSessionEpoch();
+      await clearPromise;
+      if (!isTokenSessionEpochCurrent(clearedSessionEpoch)) {
+        return null;
+      }
+      clearSessionData();
       set({
         ...unauthenticatedState,
         authError: error instanceof Error ? error.message : 'Không thể làm mới phiên đăng nhập.',
@@ -313,20 +408,42 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    const refreshToken = await getRefreshToken();
+    const logoutSessionEpoch = getTokenSessionEpoch();
+    const tokenBundle = await getTokenBundle();
+    if (!isTokenSessionEpochCurrent(logoutSessionEpoch)) {
+      return;
+    }
+
+    let clearPromise = clearToken();
+    let clearedSessionEpoch = getTokenSessionEpoch();
+    let cleared = await clearPromise;
+    if (!cleared && isTokenSessionEpochCurrent(clearedSessionEpoch)) {
+      clearPromise = clearToken();
+      clearedSessionEpoch = getTokenSessionEpoch();
+      cleared = await clearPromise;
+    }
+
+    if (isTokenSessionEpochCurrent(clearedSessionEpoch)) {
+      clearSessionData();
+      set({
+        ...unauthenticatedState,
+        authError: cleared
+          ? null
+          : 'Không thể xóa hoàn toàn phiên đăng nhập khỏi thiết bị. Vui lòng khởi động lại ứng dụng.',
+      });
+    }
 
     try {
-      if (refreshToken) {
-        await authApi.logout(refreshToken);
+      if (tokenBundle) {
+        await authApi.logout(tokenBundle.refreshToken, tokenBundle.accessToken);
       }
     } catch (error) {
       if (__DEV__) {
-        console.warn('[Auth] Logout revoke failed, clearing local session anyway:', error);
+        const apiError = toApiError(error);
+        console.warn(
+          `[Auth] Session revoke failed (${apiError.code}, ${apiError.statusCode ?? 'no-status'}).`,
+        );
       }
-    } finally {
-      await clearToken();
-      clearAuthCache();
-      set(unauthenticatedState);
     }
   },
 }));

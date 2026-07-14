@@ -6,6 +6,7 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Pressable, Image, Animated, Easing } from 'react-native';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native';
@@ -23,13 +24,7 @@ export const CUSTOM_TAB_BAR_BASE_HEIGHT = 76;
 const TAB_BAR_COLLAPSE_DURATION_MS = 320;
 const TAB_BAR_EXPAND_DURATION_MS = 360;
 
-interface CustomTabBarProps {
-  state: any;
-  descriptors: any;
-  navigation: any;
-}
-
-export function CustomTabBar({ state, descriptors: _descriptors, navigation }: CustomTabBarProps): React.JSX.Element {
+export function CustomTabBar({ state, descriptors: _descriptors, navigation }: BottomTabBarProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const theme = useTheme();

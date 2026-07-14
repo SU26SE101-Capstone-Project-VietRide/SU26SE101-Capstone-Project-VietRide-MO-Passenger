@@ -23,6 +23,7 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
+import { formatTime } from '@shared/utils/format';
 import type {
   ChatBookingDraft,
   ChatFeedbackRating,
@@ -40,11 +41,6 @@ interface ChatMessageBubbleProps {
   ) => void;
 }
 
-const timeFormatters = {
-  vi: new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-  en: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }),
-};
-
 function ChatMessageBubbleComponent({
   message,
   isFeedbackPending,
@@ -56,7 +52,7 @@ function ChatMessageBubbleComponent({
   const styles = useThemedStyles(createStyles);
   const isUser = message.role === 'user';
   const language = i18n.language.startsWith('vi') ? 'vi' : 'en';
-  const timeLabel = timeFormatters[language].format(message.createdAt);
+  const timeLabel = formatTime(message.createdAt, language === 'vi' ? 'vi-VN' : 'en-US');
   const canRate = Boolean(
     !isUser
     && message.status === 'complete'
@@ -122,7 +118,7 @@ function ChatMessageBubbleComponent({
           </Text>
         </View>
 
-        {!isUser && message.bookingDraft && message.status !== 'streaming' ? (
+        {!isUser && message.bookingDraft && message.status === 'complete' ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('chatbot.bookingAction')}

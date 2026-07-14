@@ -10,6 +10,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { formatVnd } from '@shared/utils/format';
 
 interface PromoRowProps {
   onApply?: (code: string) => void;
@@ -17,7 +18,7 @@ interface PromoRowProps {
   style?: ViewStyle;
 }
 
-export const PromoRow = memo(function PromoRow({
+export const PromoRow = memo(function PromoRowComponent({
   onApply,
   applied = false,
   style,
@@ -39,7 +40,9 @@ export const PromoRow = memo(function PromoRow({
       </View>
       <View style={styles.textBlock}>
         <Text style={styles.title}>ENTER PROMO CODE</Text>
-        <Text style={styles.hint}>Min Spend 300,000đ required</Text>
+        <Text style={styles.hint}>
+          Min Spend {formatVnd(300_000, { clampNegative: true })} required
+        </Text>
       </View>
       {!applied ? (
         <TextInput

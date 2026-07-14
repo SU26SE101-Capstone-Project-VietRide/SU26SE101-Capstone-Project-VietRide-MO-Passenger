@@ -1,5 +1,6 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 
 export type NotificationSortBy = 'createdAt' | 'readAt' | 'type';
 export type NotificationSortDir = 'asc' | 'desc';
@@ -35,12 +36,13 @@ export interface ListNotificationsParams {
 
 export const notificationKeys = {
   all: ['notifications'] as const,
-  list: (params: ListNotificationsParams) =>
-    [...notificationKeys.all, 'list', params] as const,
+  list: (userId: string, params: ListNotificationsParams) =>
+    [...notificationKeys.all, userId, 'list', params] as const,
 };
 
 export async function listNotifications(
   params: ListNotificationsParams = {},
+  signal?: AbortSignal,
 ): Promise<PagedNotifications> {
   const response = await apiClient.get<ApiEnvelope<PagedNotifications>>('/notifications', {
     params: {
@@ -50,11 +52,13 @@ export async function listNotifications(
       sortBy: params.sortBy ?? 'createdAt',
       sortDir: params.sortDir ?? 'desc',
     },
+    ...(signal ? { signal } : {}),
   });
 
   return unwrapApiResponse(response.data);
 }
 
 export async function markNotificationRead(notificationId: string): Promise<void> {
-  await apiClient.post(`/notifications/${notificationId}/read`);
+  const notificationIdSegment = encodeUuidPathSegment(notificationId, 'notificationId');
+  await apiClient.post(`/notifications/${notificationIdSegment}/read`);
 }

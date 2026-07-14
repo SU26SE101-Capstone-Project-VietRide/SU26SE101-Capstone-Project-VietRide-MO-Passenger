@@ -7,7 +7,9 @@ export const locationKeys = {
   catalog: () => [...locationKeys.all, 'catalog'] as const,
 };
 
-export async function getLocations(): Promise<Location[]> {
-  const response = await apiClient.get<ApiEnvelope<Location[]>>('/locations');
+export async function getLocations(signal?: AbortSignal): Promise<Location[]> {
+  const response = signal
+    ? await apiClient.get<ApiEnvelope<Location[]>>('/locations', { signal })
+    : await apiClient.get<ApiEnvelope<Location[]>>('/locations');
   return unwrapApiResponse(response.data);
 }

@@ -1,12 +1,17 @@
 import { ApiRequestError } from '@shared/api/errors';
+import { isUuid } from '@shared/utils/pathSegment';
+import {
+  MAX_CITED_CHUNKS,
+  MAX_SSE_EVENT_BYTES,
+  MAX_SSE_PENDING_LINE_BYTES,
+} from '../constants/chatLimits';
 import type { RagChatSseEvent } from '../types/chatbot';
+import { createChatStreamLimitError } from './chatStreamError';
 
 interface SseWireEvent {
   event: string;
   data: string;
 }
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const protocolError = (message: string): ApiRequestError =>
   new ApiRequestError({
@@ -14,11 +19,36 @@ const protocolError = (message: string): ApiRequestError =>
     code: 'RAG_STREAM_INVALID',
   });
 
+/** UTF-8 byte length without allocating another encoded copy of the string. */
+const utf8ByteLength = (value: string): number => {
+  let bytes = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+
+    if (codeUnit <= 0x7f) {
+      bytes += 1;
+    } else if (codeUnit <= 0x7ff) {
+      bytes += 2;
+    } else if (
+      codeUnit >= 0xd800
+      && codeUnit <= 0xdbff
+      && index + 1 < value.length
+      && value.charCodeAt(index + 1) >= 0xdc00
+      && value.charCodeAt(index + 1) <= 0xdfff
+    ) {
+      bytes += 4;
+      index += 1;
+    } else {
+      bytes += 3;
+    }
+  }
+
+  return bytes;
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const isUuid = (value: unknown): value is string =>
-  typeof value === 'string' && UUID_PATTERN.test(value);
 
 export const parseRagChatSseEvent = (
   wireEvent: SseWireEvent,
@@ -53,6 +83,13 @@ export const parseRagChatSseEvent = (
   }
 
   if (
+    Array.isArray(data.citedChunkIds)
+    && data.citedChunkIds.length > MAX_CITED_CHUNKS
+  ) {
+    throw createChatStreamLimitError();
+  }
+
+  if (
     !isUuid(data.conversationId)
     || !isUuid(data.userMessageId)
     || !isUuid(data.assistantMessageId)
@@ -76,20 +113,42 @@ export const parseRagChatSseEvent = (
 /** Incremental SSE parser that is safe across arbitrary transport chunk boundaries. */
 export class SseParser {
   private pendingText = '';
+  private pendingTextBytes = 0;
   private eventName = 'message';
   private dataLines: string[] = [];
+  private eventBytes = 0;
 
   constructor(private readonly onEvent: (event: SseWireEvent) => void) {}
 
   feed(chunk: string): void {
-    this.pendingText += chunk;
+    let cursor = 0;
 
-    let lineEnd = this.pendingText.indexOf('\n');
-    while (lineEnd >= 0) {
-      const rawLine = this.pendingText.slice(0, lineEnd);
-      this.pendingText = this.pendingText.slice(lineEnd + 1);
-      this.processLine(rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine);
-      lineEnd = this.pendingText.indexOf('\n');
+    while (cursor < chunk.length) {
+      const lineEnd = chunk.indexOf('\n', cursor);
+      const segmentEnd = lineEnd >= 0 ? lineEnd : chunk.length;
+      const segment = chunk.slice(cursor, segmentEnd);
+      const segmentBytes = utf8ByteLength(segment);
+
+      if (this.pendingTextBytes + segmentBytes > MAX_SSE_PENDING_LINE_BYTES) {
+        throw createChatStreamLimitError();
+      }
+
+      this.pendingText += segment;
+      this.pendingTextBytes += segmentBytes;
+
+      if (lineEnd < 0) {
+        return;
+      }
+
+      const rawLine = this.pendingText;
+      const rawLineBytes = this.pendingTextBytes + 1;
+      this.pendingText = '';
+      this.pendingTextBytes = 0;
+      this.processLine(
+        rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine,
+        rawLineBytes,
+      );
+      cursor = lineEnd + 1;
     }
   }
 
@@ -98,17 +157,23 @@ export class SseParser {
       const line = this.pendingText.endsWith('\r')
         ? this.pendingText.slice(0, -1)
         : this.pendingText;
-      this.processLine(line);
+      this.processLine(line, this.pendingTextBytes);
       this.pendingText = '';
+      this.pendingTextBytes = 0;
     }
 
     this.dispatch();
   }
 
-  private processLine(line: string): void {
+  private processLine(line: string, rawLineBytes: number): void {
     if (line.length === 0) {
       this.dispatch();
       return;
+    }
+
+    this.eventBytes += rawLineBytes;
+    if (this.eventBytes > MAX_SSE_EVENT_BYTES) {
+      throw createChatStreamLimitError();
     }
 
     if (line.startsWith(':')) {
@@ -139,5 +204,6 @@ export class SseParser {
 
     this.eventName = 'message';
     this.dataLines = [];
+    this.eventBytes = 0;
   }
 }

@@ -7,11 +7,10 @@ export function useSeatMap(
 ): UseQueryResult<SeatRow[], Error> {
   return useQuery({
     queryKey: tripId ? tripKeys.seats(tripId) : ['trips', 'seats', 'none'],
-    queryFn: () => getSeatMap(tripId!),
+    queryFn: ({ signal }) => getSeatMap(tripId!, signal),
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
-    networkMode: 'offlineFirst',
     refetchOnWindowFocus: false,
     enabled: !!tripId,
   });

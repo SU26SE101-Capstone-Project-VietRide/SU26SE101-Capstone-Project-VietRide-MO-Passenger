@@ -11,11 +11,10 @@ export function useTripSearch(
   
   return useQuery({
     queryKey: isEnabled ? tripKeys.search(params) : ['trips', 'search', 'none'],
-    queryFn: () => searchTrips(params),
+    queryFn: ({ signal }) => searchTrips(params, signal),
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
-    networkMode: 'offlineFirst',
     refetchOnWindowFocus: false,
     enabled: isEnabled,
   });

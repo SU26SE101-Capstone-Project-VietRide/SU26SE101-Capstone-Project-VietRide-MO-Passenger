@@ -2,7 +2,7 @@
  * Visual style: matches Parcel flow (gradient bg, mint palette, card surfaces)
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, FlatList, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -16,42 +16,100 @@ import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import type { RouteProp } from '@react-navigation/native';
 import type { BookingStackParamList } from '@app/navigation/types';
+import {
+  addLocalDays,
+  compareLocalDates,
+  parseLocalDate,
+  startOfLocalDay,
+  toLocalDisplayDate,
+} from '@shared/utils/localDate';
+import { toTripSearchDate } from '../utils/searchParams';
+import { formatMonthYear } from '@shared/utils/format';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'DatePicker'>;
 type DatePickerRouteProp = RouteProp<BookingStackParamList, 'DatePicker'>;
 
-const TODAY = new Date();
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function addDays(d: Date, n: number) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
+const resolveDisplayDate = (
+  value: string | undefined,
+  now: Date,
+  fallback: Date,
+): string => {
+  if (!value) {
+    return toLocalDisplayDate(fallback);
+  }
 
-function fmt(d: Date) {
-  return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
-}
-
-const DAYS = Array.from({ length: 30 }, (_, i) => addDays(TODAY, i));
+  try {
+    const date = parseLocalDate(toTripSearchDate(value, now));
+    return date ? toLocalDisplayDate(date) : toLocalDisplayDate(fallback);
+  } catch {
+    return toLocalDisplayDate(fallback);
+  }
+};
 
 export function DatePicker(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<DatePickerRouteProp>();
-  const { searchParams, setSearchParams } = useBookingStore();
+  const searchParams = useBookingStore((state) => state.searchParams);
+  const setSearchParams = useBookingStore((state) => state.setSearchParams);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   const mode = route.params?.mode || 'departure';
-  const todayStr = fmt(TODAY);
+  const today = useMemo(() => startOfLocalDay(new Date()), []);
+  const departureDate = useMemo(() => {
+    try {
+      return parseLocalDate(toTripSearchDate(searchParams.date, today)) ?? today;
+    } catch {
+      return today;
+    }
+  }, [searchParams.date, today]);
+  const firstSelectableDate = useMemo(
+    () => mode === 'return' && compareLocalDates(departureDate, today) > 0
+      ? departureDate
+      : today,
+    [departureDate, mode, today],
+  );
+  const days = useMemo(
+    () => Array.from({ length: 30 }, (_, index) => addLocalDays(firstSelectableDate, index)),
+    [firstSelectableDate],
+  );
+  const todayStr = toLocalDisplayDate(today);
   const initialDate = mode === 'return' ? searchParams.returnDate : searchParams.date;
-  const [selected, setSelected] = useState(initialDate || todayStr);
+  const initialSelection = resolveDisplayDate(initialDate, today, firstSelectableDate);
+  const parsedInitialSelection = parseLocalDate(initialSelection);
+  const lastSelectableDate = days[days.length - 1];
+  const isInitialSelectionInRange = parsedInitialSelection
+    && compareLocalDates(parsedInitialSelection, firstSelectableDate) >= 0
+    && compareLocalDates(parsedInitialSelection, lastSelectableDate) <= 0;
+  const [selected, setSelected] = useState(
+    isInitialSelectionInRange
+      ? initialSelection
+      : toLocalDisplayDate(firstSelectableDate),
+  );
 
   const onConfirm = () => {
     if (mode === 'return') {
       setSearchParams({ returnDate: selected });
     } else {
-      setSearchParams({ date: selected });
+      const selectedDate = parseLocalDate(selected);
+      const currentReturnDate = (() => {
+        try {
+          return searchParams.returnDate
+            ? parseLocalDate(toTripSearchDate(searchParams.returnDate, today))
+            : null;
+        } catch {
+          return null;
+        }
+      })();
+      const shouldClearReturnDate = selectedDate
+        && (!currentReturnDate || compareLocalDates(currentReturnDate, selectedDate) < 0);
+
+      setSearchParams({
+        date: selected,
+        ...(shouldClearReturnDate ? { returnDate: '' } : {}),
+      });
     }
     navigation.goBack();
   };
@@ -84,20 +142,20 @@ export function DatePicker(): React.JSX.Element {
             </View>
           </Pressable>
           <Text style={styles.headerTitle}>Select {mode === 'return' ? 'Return Date' : 'Date'}</Text>
-          <View style={{ width: 40 }} />
+          <View style={styles.headerSpacer} />
         </View>
 
         {/* 30-day strip */}
         <View style={styles.stripCard}>
           <FlatList
-            data={DAYS}
+            data={days}
             horizontal
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(d) => fmt(d)}
+            keyExtractor={(date) => toLocalDisplayDate(date)}
             contentContainerStyle={styles.strip}
             renderItem={({ item }) => {
               const label = DAY_LABELS[item.getDay()];
-              const dateStr = fmt(item);
+              const dateStr = toLocalDisplayDate(item);
               const isToday = dateStr === todayStr;
               const active = dateStr === selected;
               return (
@@ -120,7 +178,7 @@ export function DatePicker(): React.JSX.Element {
 
         {/* Month label */}
         <Text style={styles.monthLabel}>
-          {TODAY.toLocaleString('default', { month: 'long', year: 'numeric' })}
+          {formatMonthYear(firstSelectableDate, 'en-US')}
         </Text>
 
         {/* Calendar grid */}
@@ -135,10 +193,10 @@ export function DatePicker(): React.JSX.Element {
           </View>
           {/* Date rows */}
           {(() => {
-            const offset = DAYS[0].getDay();
+            const offset = days[0].getDay();
             const allCells: (Date | null)[] = [
               ...Array.from({ length: offset }, () => null),
-              ...DAYS,
+              ...days,
             ];
             const rows: (Date | null)[][] = [];
             for (let i = 0; i < allCells.length; i += 7) {
@@ -148,9 +206,9 @@ export function DatePicker(): React.JSX.Element {
               <View key={`row-${ri}`} style={styles.calRow}>
                 {row.map((d, ci) => {
                   if (!d) return <View key={`empty-${ri}-${ci}`} style={styles.calCell} />;
-                  const dateStr = fmt(d);
+                  const dateStr = toLocalDisplayDate(d);
                   const active = dateStr === selected;
-                  const dimmed = d.getMonth() !== TODAY.getMonth();
+                  const dimmed = d.getMonth() !== firstSelectableDate.getMonth();
                   return (
                     <Pressable
                       key={dateStr}
@@ -228,6 +286,9 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
+  },
+  headerSpacer: {
+    width: 40,
   },
   stripCard: {
     ...theme.components.card,

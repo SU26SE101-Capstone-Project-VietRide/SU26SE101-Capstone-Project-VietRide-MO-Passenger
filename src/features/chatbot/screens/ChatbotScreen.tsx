@@ -55,7 +55,7 @@ type BookingSearchDraft = Partial<SearchParams & {
 }>;
 
 interface QuickAction {
-  id: 'policy' | 'booking' | 'tracking' | 'parcel';
+  id: 'policy' | 'booking' | 'history' | 'parcel';
   label: string;
   prompt?: string;
   icon: React.ComponentType<{ size: number; color: string; weight?: 'regular' | 'fill' | 'bold' }>;
@@ -104,7 +104,7 @@ export function ChatbotScreen(): React.JSX.Element {
       icon: Ticket,
     },
     {
-      id: 'tracking',
+      id: 'history',
       label: t('chatbot.quickActions.tracking'),
       icon: MapPin,
     },
@@ -181,8 +181,11 @@ export function ChatbotScreen(): React.JSX.Element {
   const handleQuickAction = useCallback((action: QuickAction) => {
     if (action.id === 'booking') {
       handleBookingPress({ isReadyToSearch: false });
-    } else if (action.id === 'tracking') {
-      navigation.navigate('Booking', { screen: 'Tracking' });
+    } else if (action.id === 'history') {
+      navigation.navigate('Main', {
+        screen: 'BookingHistory',
+        params: { initialTab: 'ticket' },
+      });
     } else if (action.id === 'parcel') {
       navigation.navigate('Parcel', { screen: 'CreateParcel' });
     } else if (action.prompt && availability === 'ready' && isOnline && !isStreaming) {

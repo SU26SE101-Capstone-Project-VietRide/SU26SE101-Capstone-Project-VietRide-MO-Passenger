@@ -87,4 +87,16 @@ describe('booking trip search', () => {
       allowAlongRoutePickup: false,
     });
   });
+
+  it('does not search a return leg before the outbound date', async () => {
+    useBookingStore.setState({
+      currentLeg: 'return',
+      searchParams: { ...searchParams, returnDate: '09/07/2026' },
+    });
+
+    await useBookingStore.getState().searchTrips();
+
+    expect(mockSearchTrips).not.toHaveBeenCalled();
+    expect(useBookingStore.getState().tripResultsStatus).toBe('error');
+  });
 });

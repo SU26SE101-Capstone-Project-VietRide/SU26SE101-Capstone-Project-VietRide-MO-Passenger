@@ -13,10 +13,10 @@ import type {
   ChatMessageStatus,
 } from '../types/chatbot';
 import { extractBookingDraft } from '../utils/bookingIntent';
+import { StreamTimeoutController } from '../utils/streamTimeoutController';
 
 const MAX_MESSAGES_IN_MEMORY = 100;
 const TOKEN_FLUSH_INTERVAL_MS = 50;
-const STREAM_IDLE_TIMEOUT_MS = 45_000;
 
 export type ChatAvailability = 'ready' | 'guest' | 'phoneRequired';
 
@@ -63,7 +63,7 @@ export function useChatSession() {
   const activeAssistantIdRef = useRef<string | undefined>(undefined);
   const pendingTokenTextRef = useRef('');
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const streamTimeoutRef = useRef<StreamTimeoutController | undefined>(undefined);
   const cancelledByUserRef = useRef(false);
   const timedOutRef = useRef(false);
   const bookingDraftRef = useRef<ChatBookingDraft | undefined>(undefined);
@@ -82,9 +82,9 @@ export function useChatSession() {
 
   const clearStreamTimers = useCallback(() => {
     if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     flushTimerRef.current = undefined;
-    idleTimerRef.current = undefined;
+    streamTimeoutRef.current?.stop();
+    streamTimeoutRef.current = undefined;
   }, []);
 
   const flushPendingTokens = useCallback(() => {
@@ -107,13 +107,17 @@ export function useChatSession() {
     flushTimerRef.current = setTimeout(flushPendingTokens, TOKEN_FLUSH_INTERVAL_MS);
   }, [flushPendingTokens]);
 
-  const resetIdleTimeout = useCallback((sequence: number) => {
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = setTimeout(() => {
-      if (sequence !== requestSequence.current) return;
-      timedOutRef.current = true;
-      controllerRef.current?.abort();
-    }, STREAM_IDLE_TIMEOUT_MS);
+  const startStreamTimeouts = useCallback((sequence: number) => {
+    streamTimeoutRef.current?.stop();
+    const timeoutController = new StreamTimeoutController({
+      onTimeout: () => {
+        if (sequence !== requestSequence.current) return;
+        timedOutRef.current = true;
+        controllerRef.current?.abort();
+      },
+    });
+    streamTimeoutRef.current = timeoutController;
+    timeoutController.start();
   }, []);
 
   const resolveErrorMessage = useCallback((error: unknown): string => {
@@ -206,7 +210,7 @@ export function useChatSession() {
 
     const controller = new AbortController();
     controllerRef.current = controller;
-    resetIdleTimeout(sequence);
+    startStreamTimeouts(sequence);
 
     try {
       const done = await streamChat(
@@ -215,11 +219,14 @@ export function useChatSession() {
           ...(conversationId ? { conversationId } : {}),
         },
         {
+          onActivity: () => {
+            if (sequence !== requestSequence.current || !mountedRef.current) return;
+            streamTimeoutRef.current?.markActivity();
+          },
           onToken: (content) => {
             if (sequence !== requestSequence.current || !mountedRef.current) return;
             pendingTokenTextRef.current += content;
             scheduleTokenFlush();
-            resetIdleTimeout(sequence);
           },
         },
         controller.signal,
@@ -268,9 +275,9 @@ export function useChatSession() {
     flushPendingTokens,
     isOnline,
     locations,
-    resetIdleTimeout,
     resolveErrorMessage,
     scheduleTokenFlush,
+    startStreamTimeouts,
     t,
     updateMessage,
   ]);

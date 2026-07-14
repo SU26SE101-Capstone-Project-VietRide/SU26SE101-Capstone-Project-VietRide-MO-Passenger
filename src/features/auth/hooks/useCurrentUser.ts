@@ -14,12 +14,11 @@ export function useCurrentUser(enabled = true): UseQueryResult<User, Error> {
 
   return useQuery({
     queryKey: authApi.authKeys.me,
-    queryFn: authApi.getCurrentUser,
+    queryFn: ({ signal }) => authApi.getCurrentUser(signal),
     enabled: enabled && isAuthenticated && !isGuest && !isAuthLoading,
     staleTime: CURRENT_USER_STALE_TIME_MS,
     gcTime: CURRENT_USER_GC_TIME_MS,
     retry: 1,
     refetchOnWindowFocus: false,
-    networkMode: 'offlineFirst',
   });
 }

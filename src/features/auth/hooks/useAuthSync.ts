@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import { queryClient } from '@shared/api/queryClient';
 import { setTokenRefreshSuccessHandler } from '@shared/api/tokenRefresh';
+import { getTokenSessionEpoch } from '@shared/utils/storage';
 import { authKeys } from '../api/authApi';
 import { mapAuthUser, type AuthUserDto } from '../types';
 import { useAuthStore } from '../store/useAuthStore';
@@ -13,12 +14,12 @@ export function useAuthSync(): void {
 
   useEffect(() => {
     if (currentUserQuery.data) {
-      setUser(currentUserQuery.data);
+      setUser(currentUserQuery.data, getTokenSessionEpoch());
     }
   }, [currentUserQuery.data, setUser]);
 
   useEffect(() => {
-    setTokenRefreshSuccessHandler((bundle) => {
+    setTokenRefreshSuccessHandler((bundle, sessionEpoch) => {
       if (!bundle.user) {
         return;
       }
@@ -31,7 +32,7 @@ export function useAuthSync(): void {
 
       const user = mapAuthUser(bundle.user as AuthUserDto);
       queryClient.setQueryData(authKeys.me, user);
-      setStoreUser(user);
+      setStoreUser(user, sessionEpoch);
     });
 
     return () => {

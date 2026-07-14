@@ -70,7 +70,11 @@
     "history": "Lịch sử",
     "language": "Ngôn ngữ",
     "notifications": "Thông báo",
-    "helpSupport": "Hỗ trợ"
+    "helpSupport": "Hỗ trợ",
+    "walletAndPayments": "Ví và thanh toán",
+    "financialUnavailableTitle": "Ví và thanh toán chưa khả dụng",
+    "financialUnavailableDescription": "Số dư ví, nạp tiền, rút tiền và quản lý phương thức thanh toán chưa được bật trong ứng dụng.",
+    "financialUnavailableSafety": "VietRide không thu thập số thẻ hoặc CVV tại màn hình này."
   },
   "chatbot": {
     "title": "Trợ lý VietRide",
@@ -103,7 +107,7 @@
     "quickActions": {
       "refund": "Hủy vé & hoàn tiền",
       "booking": "Đặt vé",
-      "tracking": "Theo dõi chuyến",
+      "tracking": "Vé của tôi",
       "parcel": "Gửi hàng"
     },
     "prompts": {

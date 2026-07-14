@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { AvailableVoucherItem, GetAvailableVouchersParams } from '../types';
 import { bookingKeys, getAvailableVouchers } from '../api/bookingApi';
 
@@ -50,6 +51,7 @@ export function useAvailableBookingVouchers({
   paymentMethod,
   enabled = true,
 }: UseAvailableBookingVouchersParams) {
+  const userId = useAuthStore((state) => state.user?.id);
   const normalizedLegs = useMemo(
     () =>
       legs
@@ -72,31 +74,34 @@ export function useAvailableBookingVouchers({
   );
 
   return useQuery({
-    queryKey: bookingKeys.availableVouchers({
+    queryKey: bookingKeys.availableVouchers(userId ?? 'none', {
       service: 'BOOKING',
       paymentMethod,
       orderAmount: normalizedLegs.reduce((sum, leg) => sum + leg.orderAmount, 0),
       tripId: normalizedLegs.map((leg) => leg.tripId).join('|'),
     }),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (normalizedLegs.length <= 1) {
-        return getAvailableVouchers(queryParams);
+        return getAvailableVouchers(queryParams, signal);
       }
 
       const results = await Promise.all(
         normalizedLegs.map((leg) =>
-          getAvailableVouchers({
-            service: 'BOOKING',
-            tripId: leg.tripId,
-            paymentMethod,
-            orderAmount: leg.orderAmount,
-          }),
+          getAvailableVouchers(
+            {
+              service: 'BOOKING',
+              tripId: leg.tripId,
+              paymentMethod,
+              orderAmount: leg.orderAmount,
+            },
+            signal,
+          ),
         ),
       );
 
       return mergeVoucherLists(results);
     },
-    enabled: enabled && normalizedLegs.length > 0,
+    enabled: enabled && Boolean(userId) && normalizedLegs.length > 0,
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });

@@ -3,8 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   BackHandler,
-  Image,
-  Linking,
   Pressable,
   ScrollView,
   Text,
@@ -25,23 +23,30 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Input } from '@shared/components';
-import { getApiErrorMessage } from '@shared/api/errors';
+import { getApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useLocations } from '@features/location/hooks/useLocations';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import {
+  getPaymentRedirectErrorMessage,
+  openPaymentRedirect,
+  PAYMENT_REDIRECT_ERROR_TITLE,
+} from '@shared/utils/paymentRedirect';
+import { addLocalDays, startOfLocalDay, toLocalIsoDate } from '@shared/utils/localDate';
+import { formatDateTime, formatVnd } from '@shared/utils/format';
+import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
 import type { ParcelStackParamList } from '@app/navigation/types';
 import type { PromoOffer } from '@shared/utils/promo';
 import {
   calculatePromoDiscount,
   findPromoByCode,
-  formatCurrency,
   isPromoExpired,
   normalizePromoCode,
 } from '@shared/utils/promo';
-import { findLocationByName } from '../../booking/utils/searchParams';
+import { findLocationByName } from '@features/location/utils/locationSearch';
 import { useParcelStore } from '../store/useParcelStore';
 import {
   mapParcelVoucherToPromo,
@@ -57,7 +62,6 @@ import { useParcelStations } from '../hooks/useParcelStations';
 import type {
   AvailableParcelTrip,
   CreateParcelPayload,
-  ParcelBackendPaymentMethod,
   ParcelPaymentMethod,
   ParcelSize,
   ParcelSizeCategory,
@@ -72,22 +76,10 @@ import {
   PackageSizeSelector,
   WeightSlider,
   CategoryChips,
-  PhotoUploadSection,
-  PhotoChoiceSheet,
-  CameraViewfinder,
   PricingBreakdown,
 } from '../components';
 
 type CreateParcelNavProp = NativeStackNavigationProp<ParcelStackParamList, 'CreateParcel'>;
-
-const MOCK_GALLERY_PHOTOS = [
-  'https://picsum.photos/id/10/400/300',
-  'https://picsum.photos/id/11/400/300',
-  'https://picsum.photos/id/20/400/300',
-  'https://picsum.photos/id/24/400/300',
-  'https://picsum.photos/id/26/400/300',
-  'https://picsum.photos/id/48/400/300',
-];
 
 const PACKAGE_DIMENSIONS: Record<ParcelSize, {
   sizeCategory: ParcelSizeCategory;
@@ -102,32 +94,9 @@ const PACKAGE_DIMENSIONS: Record<ParcelSize, {
 
 const DATE_OFFSETS = [0, 1, 2] as const;
 
-const toLocalDateString = (offsetDays: number): string => {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
-};
-
 const formatTripTime = (dateLike: string): string => {
-  const date = new Date(dateLike);
-  if (Number.isNaN(date.getTime())) {
-    return dateLike;
-  }
-
-  return date.toLocaleString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTime(dateLike) || dateLike;
 };
-
-const toBackendPaymentMethod = (method: ParcelPaymentMethod): ParcelBackendPaymentMethod =>
-  method === 'wallet' ? 'WALLET' : 'VNPAY';
 
 const weightToKg = (weight: number, unit: 'kg' | 'lbs'): number => {
   const kg = unit === 'kg' ? weight : weight / 2.20462;
@@ -162,13 +131,14 @@ function TripOptionCard({
       </View>
       <View style={styles.tripMeta}>
         <Text style={styles.tripOperator} numberOfLines={1}>
-          {trip.operatorName || 'VietRide Operator'}
+          {trip.operatorName?.trim() || 'Operator unavailable'}
         </Text>
         <Text style={styles.tripTime}>
           {formatTripTime(trip.departureDateTime)}
         </Text>
         <Text style={styles.tripPrice}>
-          Deposit {formatCurrency(trip.estimatedDepositVnd)} / Est. {formatCurrency(trip.estimatedPriceVnd)}
+          Deposit {formatVnd(trip.estimatedDepositVnd)} / Est.{' '}
+          {formatVnd(trip.estimatedPriceVnd)}
         </Text>
       </View>
       {selected ? <CheckCircle size={22} color={theme.colors.success} weight="fill" /> : null}
@@ -205,19 +175,14 @@ export function CreateParcelScreen(): React.JSX.Element {
   const [recipientName, setRecipientName] = useState(user?.fullName ?? '');
   const [recipientPhone, setRecipientPhone] = useState(user?.phone ?? '');
   const [recipientEmail, setRecipientEmail] = useState(user?.email ?? '');
-  const [photos, setPhotos] = useState<string[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<ParcelPaymentMethod>('wallet');
+  const departureDateBase = useMemo(() => startOfLocalDay(new Date()), []);
   const [departureOffset, setDepartureOffset] = useState<(typeof DATE_OFFSETS)[number]>(0);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<PromoOffer | null>(null);
   const [promoError, setPromoError] = useState<string | undefined>(undefined);
 
-  const [choiceSheetVisible, setChoiceSheetVisible] = useState(false);
-  const [cameraViewVisible, setCameraViewVisible] = useState(false);
-  const [galleryViewVisible, setGalleryViewVisible] = useState(false);
-  const [selectedGalleryPhotos, setSelectedGalleryPhotos] = useState<number[]>([]);
-  const [flashActive, setFlashActive] = useState(false);
   const currentLocation = useCurrentCoordinates(step === 1 || step === 2);
 
   useEffect(() => {
@@ -258,7 +223,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   );
   const dimensions = PACKAGE_DIMENSIONS[packageSize];
   const estimatedWeightKg = weightToKg(packageWeight, weightUnit);
-  const departureDate = toLocalDateString(departureOffset);
+  const departureDate = toLocalIsoDate(addLocalDays(departureDateBase, departureOffset));
   const backendPaymentMethod = toBackendPaymentMethod(paymentMethod);
 
   const availableTripParams = useMemo(() => {
@@ -435,7 +400,9 @@ export function CreateParcelScreen(): React.JSX.Element {
       widthCm: dimensions.widthCm,
       heightCm: dimensions.heightCm,
       estimatedWeightKg,
-      photoUrl: photos[0] ?? null,
+      // The current passenger API accepts a URL but exposes no authenticated
+      // upload contract. Never submit a local URI or a placeholder image URL.
+      photoUrl: null,
       recipient: {
         fullName: recipientName.trim(),
         phoneNumber: recipientPhone.trim(),
@@ -455,7 +422,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     estimatedValue,
     estimatedWeightKg,
     packageCategory,
-    photos,
     recipientEmail,
     recipientName,
     recipientPhone,
@@ -477,13 +443,21 @@ export function CreateParcelScreen(): React.JSX.Element {
       await queryClient.invalidateQueries({ queryKey: parcelKeys.all });
 
       if (result.paymentRedirectUrl) {
-        Linking.openURL(result.paymentRedirectUrl).catch((error) => {
-          console.warn('[Parcel] Could not open payment redirect:', error);
-        });
+        try {
+          await openPaymentRedirect(result.paymentRedirectUrl);
+        } catch (error) {
+          Alert.alert(
+            PAYMENT_REDIRECT_ERROR_TITLE,
+            getPaymentRedirectErrorMessage(error),
+          );
+        }
       }
 
       navigation.navigate('ParcelDetail', { parcelId: result.parcelId });
     } catch (error) {
+      if (toApiError(error).code === 'SESSION_INVALIDATED') {
+        return;
+      }
       Alert.alert('VietRide', getApiErrorMessage(error));
     }
   }, [
@@ -495,30 +469,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     step,
     validateCurrentStep,
   ]);
-
-  const handleAddPhoto = useCallback(() => setChoiceSheetVisible(true), []);
-  const handleRemovePhoto = useCallback((index: number) => {
-    setPhotos((current) => current.filter((_, i) => i !== index));
-  }, []);
-  const handleChooseGalleryPhoto = useCallback((index: number) => {
-    setSelectedGalleryPhotos((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
-    );
-  }, []);
-  const handleImportGalleryPhotos = useCallback(() => {
-    const newPhotos = selectedGalleryPhotos.map((idx) => MOCK_GALLERY_PHOTOS[idx]);
-    setPhotos((current) => [...current, ...newPhotos]);
-    setSelectedGalleryPhotos([]);
-    setGalleryViewVisible(false);
-  }, [selectedGalleryPhotos]);
-  const handleSnapPhoto = useCallback(() => {
-    setFlashActive(true);
-    setTimeout(() => {
-      setFlashActive(false);
-      setPhotos((current) => [...current, 'https://picsum.photos/id/60/400/300']);
-      setCameraViewVisible(false);
-    }, 300);
-  }, []);
 
   const handlePromoCodeChange = useCallback((text: string) => {
     const normalizedCode = text.toUpperCase();
@@ -561,7 +511,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
     if (promo.minimumSpend && baseFare < promo.minimumSpend) {
       setAppliedPromo(null);
-      setPromoError(`Minimum parcel deposit is ${formatCurrency(promo.minimumSpend)}.`);
+      setPromoError(`Minimum parcel deposit is ${formatVnd(promo.minimumSpend)}.`);
       return false;
     }
 
@@ -640,7 +590,11 @@ export function CreateParcelScreen(): React.JSX.Element {
       <View style={styles.dateRow}>
         {DATE_OFFSETS.map((offset) => {
           const active = departureOffset === offset;
-          const label = offset === 0 ? 'Today' : offset === 1 ? 'Tomorrow' : toLocalDateString(offset);
+          const label = offset === 0
+            ? 'Today'
+            : offset === 1
+              ? 'Tomorrow'
+              : toLocalIsoDate(addLocalDays(departureDateBase, offset));
           return (
             <Pressable
               key={offset}
@@ -744,11 +698,6 @@ export function CreateParcelScreen(): React.JSX.Element {
             />
           </View>
 
-          <PhotoUploadSection
-            photos={photos}
-            onAdd={handleAddPhoto}
-            onRemove={handleRemovePhoto}
-          />
         </View>
       );
     }
@@ -827,7 +776,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           {step === 4 ? (
             <View style={styles.priceSummaryBox}>
               <Text style={styles.totalPriceLabel}>Deposit Due</Text>
-              <Text style={styles.totalPriceValue}>{formatCurrency(totalPrice)}</Text>
+              <Text style={styles.totalPriceValue}>{formatVnd(totalPrice)}</Text>
             </View>
           ) : null}
           <Pressable
@@ -860,91 +809,6 @@ export function CreateParcelScreen(): React.JSX.Element {
           </Pressable>
         </View>
 
-        <PhotoChoiceSheet
-          visible={choiceSheetVisible}
-          onClose={() => setChoiceSheetVisible(false)}
-          onCamera={() => setCameraViewVisible(true)}
-          onGallery={() => setGalleryViewVisible(true)}
-        />
-
-        <CameraViewfinder
-          visible={cameraViewVisible}
-          onClose={() => setCameraViewVisible(false)}
-          flashActive={flashActive}
-          onToggleFlash={() => setFlashActive((prev) => !prev)}
-          onSnap={handleSnapPhoto}
-          lastPhotoUri={photos[photos.length - 1]}
-        />
-
-        {galleryViewVisible ? (
-          <View style={styles.galleryModalRoot}>
-            <View style={styles.galleryContainer}>
-              <View style={styles.galleryHeader}>
-                <Pressable
-                  style={styles.galleryCloseBtn}
-                  onPress={() => {
-                    setSelectedGalleryPhotos([]);
-                    setGalleryViewVisible(false);
-                  }}
-                >
-                  <ArrowLeft size={22} color={theme.colors.textPrimary} />
-                </Pressable>
-                <View style={styles.galleryTitleContainer}>
-                  <Text style={styles.galleryTitle}>All Photos</Text>
-                  <Text style={styles.gallerySubtitle}>Select package photos to import</Text>
-                </View>
-                {selectedGalleryPhotos.length > 0 ? (
-                  <Text style={styles.gallerySelectionCount}>
-                    {selectedGalleryPhotos.length} selected
-                  </Text>
-                ) : (
-                  <View style={styles.headerSpacer} />
-                )}
-              </View>
-              <ScrollView
-                contentContainerStyle={styles.galleryScroll}
-                showsVerticalScrollIndicator={false}
-              >
-                <View style={styles.galleryGrid}>
-                  {MOCK_GALLERY_PHOTOS.map((uri, index) => {
-                    const isSelected = selectedGalleryPhotos.includes(index);
-                    const selectionIndex = selectedGalleryPhotos.indexOf(index);
-                    return (
-                      <Pressable
-                        key={`gallery-item-${index}`}
-                        style={[styles.galleryGridItem, isSelected ? styles.galleryGridItemActive : null]}
-                        onPress={() => handleChooseGalleryPhoto(index)}
-                      >
-                        <Image source={{ uri }} style={styles.galleryImage} />
-                        {isSelected ? (
-                          <View style={styles.galleryCheckboxActive}>
-                            <Text style={styles.galleryCheckboxText}>{selectionIndex + 1}</Text>
-                          </View>
-                        ) : null}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-              <View style={styles.galleryBottomBar}>
-                <Pressable
-                  style={[
-                    styles.galleryImportBtn,
-                    selectedGalleryPhotos.length === 0 ? styles.galleryImportBtnDisabled : null,
-                  ]}
-                  disabled={selectedGalleryPhotos.length === 0}
-                  onPress={handleImportGalleryPhotos}
-                >
-                  <Text style={styles.galleryImportBtnText}>
-                    {selectedGalleryPhotos.length > 0
-                      ? `Import Selected (${selectedGalleryPhotos.length})`
-                      : 'Select Photos to Import'}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        ) : null}
       </SafeAreaView>
     </View>
   );
@@ -1126,107 +990,6 @@ const createStyles = (theme: AppTheme) => ({
   nextActionButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: theme.colors.textInverse,
-  },
-  galleryModalRoot: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: theme.colors.surface,
-    zIndex: 100,
-  },
-  galleryContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.surface,
-  },
-  galleryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.divider,
-    gap: spacing.md,
-  },
-  galleryCloseBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  galleryTitleContainer: { flex: 1 },
-  galleryTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
-    color: theme.colors.textPrimary,
-  },
-  gallerySubtitle: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-  },
-  gallerySelectionCount: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primary,
-  },
-  headerSpacer: { width: 80 },
-  galleryScroll: { padding: spacing.md },
-  galleryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  galleryGridItem: {
-    width: '31%',
-    aspectRatio: 1,
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  galleryGridItemActive: {
-    borderColor: theme.colors.primary,
-  },
-  galleryImage: { width: '100%', height: '100%' },
-  galleryCheckboxActive: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  galleryCheckboxText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: 10,
-    color: theme.colors.textInverse,
-  },
-  galleryBottomBar: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.divider,
-    backgroundColor: theme.colors.surface,
-  },
-  galleryImportBtn: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: borderRadius.md,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  galleryImportBtnDisabled: {
-    backgroundColor: theme.colors.divider,
-  },
-  galleryImportBtnText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
     color: theme.colors.textInverse,
   },
   pressed: {
