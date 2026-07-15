@@ -136,6 +136,12 @@ export type BookingStatus =
   | 'REFUNDED'
   | 'DISRUPTED';
 
+/** Minimal Booking-owned projection returned by GET /bookings/{bookingId}. */
+export interface BookingStatusResult {
+  bookingId: string;
+  status: BookingStatus;
+}
+
 export interface BookingTicketResult {
   ticketId: string;
   ticketCode: string;

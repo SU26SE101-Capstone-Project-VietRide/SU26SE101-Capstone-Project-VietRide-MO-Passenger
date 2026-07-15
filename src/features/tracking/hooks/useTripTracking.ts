@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 
 import { toApiError } from '@shared/api/errors';
+import { useIsAppActive } from '@shared/hooks/useIsAppActive';
 import { useNetworkStatus } from '@shared/hooks/useNetworkStatus';
 import { isUuid } from '@shared/utils/pathSegment';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
@@ -113,20 +113,6 @@ export function mergeTrackingPoints(
 
 const shouldRetryTracking = (failureCount: number, error: unknown): boolean =>
   !isFatalTrackingError(error) && failureCount < 2;
-
-function useIsAppActive(): boolean {
-  const [isActive, setIsActive] = useState(AppState.currentState === 'active');
-
-  useEffect(() => {
-    const handleStateChange = (nextState: AppStateStatus): void => {
-      setIsActive(nextState === 'active');
-    };
-    const subscription = AppState.addEventListener('change', handleStateChange);
-    return () => subscription.remove();
-  }, []);
-
-  return isActive;
-}
 
 export function useTripTracking({
   tripId,

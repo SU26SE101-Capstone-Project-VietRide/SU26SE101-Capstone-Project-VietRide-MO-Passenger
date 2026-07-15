@@ -35,6 +35,19 @@ import {
   MAX_BOOKING_SEATS,
   normalizeBookingSeatCount,
 } from '../constants/bookingLimits';
+import {
+  getTotalSteps,
+  OUTBOUND_STEPS,
+  RETURN_STEPS,
+} from '../utils/bookingSteps';
+
+export {
+  CHECKOUT_STEP,
+  getTotalSteps,
+  OUTBOUND_STEPS,
+  PAYMENT_STEP,
+  RETURN_STEPS,
+} from '../utils/bookingSteps';
 
 type BookingSubmissionResult = BookingResult | RoundTripResult;
 type LocationPayload = CreateBookingPayload['pickup'];
@@ -139,7 +152,7 @@ const toLocationPayload = (
   point: PickUpPoint | DropOffPoint | null,
   fallbackStationId?: string,
 ): LocationPayload | null => {
-  const stationId = point?.stationId ?? fallbackStationId;
+  const stationId = point?.stationId;
   if (stationId) {
     return { stationId };
   }
@@ -147,6 +160,10 @@ const toLocationPayload = (
   const stopId = point?.stopId ?? (isUuid(point?.id) ? point.id : undefined);
   if (stopId) {
     return { stopId };
+  }
+
+  if (fallbackStationId) {
+    return { stationId: fallbackStationId };
   }
 
   return null;
@@ -180,6 +197,12 @@ const assertLocationPayload: (
   }
 };
 
+const shouldRetainBookingIdempotencyKey = (error: ApiRequestError): boolean =>
+  error.isNetworkError
+  || error.code === 'REQUEST_TIMEOUT'
+  || error.statusCode === 408
+  || Boolean(error.statusCode && error.statusCode >= 500);
+
 export interface OutboundState {
   trip: BusTrip | null;
   seats: Seat[];
@@ -195,18 +218,6 @@ interface ReturnState {
 }
 
 // ─── Round Trip State ────────────────────────────────
-export const OUTBOUND_STEPS = 4;   // TripResults, SeatSelection, PickUp, DropOff
-export const RETURN_STEPS = 4;     // TripResults, SeatSelection, PickUp, DropOff (for return leg)
-export const CHECKOUT_STEP = OUTBOUND_STEPS + RETURN_STEPS + 1; // 9
-export const PAYMENT_STEP = CHECKOUT_STEP + 1; // 10
-
-// Step ranges (1-indexed)
-// One-way: steps 1-4 (outbound selection) + 5 (Checkout) + 6 (Payment) = 6 steps
-// Round trip: steps 1-4 (outbound) + 5-8 (return) + 9 (Checkout) + 10 (Payment) = 10 steps
-
-export const getTotalSteps = (isRoundTrip: boolean): number => {
-  return isRoundTrip ? OUTBOUND_STEPS + RETURN_STEPS + 2 : OUTBOUND_STEPS + 2;
-};
 interface BookingStore {
   // ─── Search ──────────────────────────────────────────
   searchParams: SearchParams & { isRoundTrip?: boolean; returnDate?: string };
@@ -269,6 +280,7 @@ interface BookingStore {
   // ─── Create Booking ──────────────────────────────────
   bookingStatus: 'idle' | 'loading' | 'success' | 'error';
   bookingResult: BookingResult | RoundTripResult | null;
+  bookingPaymentMethod: PaymentMethod | null;
   bookingError: string | null;
   createBooking: () => Promise<BookingSubmissionResult>;
 
@@ -644,6 +656,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   // ─── Create Booking ──────────────────────────────────
   bookingStatus: 'idle',
   bookingResult: null,
+  bookingPaymentMethod: null,
   bookingError: null,
   createBooking: () => {
     if (activeBookingSubmission) {
@@ -660,63 +673,84 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         const paymentMethod = toBackendPaymentMethod(state.paymentMethod);
         const voucherCode = state.voucherCode || undefined;
 
-      if (state.searchParams.isRoundTrip && (!state.outboundState || !state.returnState)) {
-        throw new Error('Please complete both outbound and return trip details.');
-      }
-
-      if (state.searchParams.isRoundTrip && state.outboundState && state.returnState) {
-        // Round trip
-        const outboundTrip = state.outboundState.trip;
-        const returnTrip = state.returnState.trip;
-
-        if (!outboundTrip || !returnTrip) {
-          throw new Error('Please select both outbound and return trips.');
+        if (state.searchParams.isRoundTrip && (!state.outboundState || !state.returnState)) {
+          throw new Error('Please complete both outbound and return trip details.');
         }
 
-        const outboundPickup = toLocationPayload(state.outboundState.pickUp, outboundTrip.originStationId);
-        const outboundDropoff = toLocationPayload(state.outboundState.dropOff, outboundTrip.destinationStationId);
-        const returnPickup = toLocationPayload(state.returnState.pickUp, returnTrip.originStationId);
-        const returnDropoff = toLocationPayload(state.returnState.dropOff, returnTrip.destinationStationId);
+        if (state.searchParams.isRoundTrip && state.outboundState && state.returnState) {
+          const outboundTrip = state.outboundState.trip;
+          const returnTrip = state.returnState.trip;
 
-        assertLocationPayload('Outbound pickup', outboundPickup);
-        assertLocationPayload('Outbound drop-off', outboundDropoff);
-        assertLocationPayload('Return pickup', returnPickup);
-        assertLocationPayload('Return drop-off', returnDropoff);
+          if (!outboundTrip || !returnTrip) {
+            throw new Error('Please select both outbound and return trips.');
+          }
 
-        const payload = {
-          outbound: {
-            tripId: outboundTrip.id,
-            pickup: outboundPickup,
-            dropoff: outboundDropoff,
-            seats: makeSeatRequests(state.outboundState.seats),
-          },
-          return: {
-            tripId: returnTrip.id,
-            pickup: returnPickup,
-            dropoff: returnDropoff,
-            seats: makeSeatRequests(state.returnState.seats),
-          },
-          voucherCode,
-          paymentMethod,
-        };
-        const idempotencyKey = bookingIdempotency.getOrCreate({
-          type: 'round-trip',
-          payload,
-        });
-        const result = await createRoundTripBooking(payload, idempotencyKey);
-        if (generation !== bookingGeneration) {
-          throw staleBookingSessionError();
+          const outboundPickup = toLocationPayload(
+            state.outboundState.pickUp,
+            outboundTrip.originStationId,
+          );
+          const outboundDropoff = toLocationPayload(
+            state.outboundState.dropOff,
+            outboundTrip.destinationStationId,
+          );
+          const returnPickup = toLocationPayload(
+            state.returnState.pickUp,
+            returnTrip.originStationId,
+          );
+          const returnDropoff = toLocationPayload(
+            state.returnState.dropOff,
+            returnTrip.destinationStationId,
+          );
+
+          assertLocationPayload('Outbound pickup', outboundPickup);
+          assertLocationPayload('Outbound drop-off', outboundDropoff);
+          assertLocationPayload('Return pickup', returnPickup);
+          assertLocationPayload('Return drop-off', returnDropoff);
+
+          const payload = {
+            outbound: {
+              tripId: outboundTrip.id,
+              pickup: outboundPickup,
+              dropoff: outboundDropoff,
+              seats: makeSeatRequests(state.outboundState.seats),
+            },
+            return: {
+              tripId: returnTrip.id,
+              pickup: returnPickup,
+              dropoff: returnDropoff,
+              seats: makeSeatRequests(state.returnState.seats),
+            },
+            voucherCode,
+            paymentMethod,
+          };
+          const idempotencyKey = bookingIdempotency.getOrCreate({
+            type: 'round-trip',
+            payload,
+          });
+          const result = await createRoundTripBooking(payload, idempotencyKey);
+          if (generation !== bookingGeneration) {
+            throw staleBookingSessionError();
+          }
+          set({
+            bookingStatus: 'success',
+            bookingResult: result,
+            bookingPaymentMethod: state.paymentMethod,
+          });
+          return result;
         }
-        set({ bookingStatus: 'success', bookingResult: result });
-        return result;
-      } else {
-        // One way
+
         if (!state.selectedTrip) {
           throw new Error('Please select a trip before booking.');
         }
 
-        const pickup = toLocationPayload(state.selectedPickUp, state.selectedTrip.originStationId);
-        const dropoff = toLocationPayload(state.selectedDropOff, state.selectedTrip.destinationStationId);
+        const pickup = toLocationPayload(
+          state.selectedPickUp,
+          state.selectedTrip.originStationId,
+        );
+        const dropoff = toLocationPayload(
+          state.selectedDropOff,
+          state.selectedTrip.destinationStationId,
+        );
 
         assertLocationPayload('Pickup', pickup);
         assertLocationPayload('Drop-off', dropoff);
@@ -737,15 +771,21 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         if (generation !== bookingGeneration) {
           throw staleBookingSessionError();
         }
-        set({ bookingStatus: 'success', bookingResult: result });
+        set({
+          bookingStatus: 'success',
+          bookingResult: result,
+          bookingPaymentMethod: state.paymentMethod,
+        });
         return result;
-      }
       } catch (error: unknown) {
         const apiError = generation === bookingGeneration
           ? toApiError(error)
           : staleBookingSessionError();
 
         if (generation === bookingGeneration) {
+          if (!shouldRetainBookingIdempotencyKey(apiError)) {
+            bookingIdempotency.reset();
+          }
           if (__DEV__ && apiError.code !== 'BOOKING_SEAT_COUNT_INVALID') {
             console.warn(
               `[Booking] Submission failed (${apiError.code}, ${apiError.statusCode ?? 'no-status'}).`,
@@ -772,18 +812,34 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
   // ─── Computed ────────────────────────────────────────
   totalPrice: () => {
-    const { selectedTrip, selectedSeats, outboundState, returnState } = get();
-    let total = 0;
-    if (selectedTrip) {
-      total += selectedTrip.price * selectedSeats.length;
+    const {
+      searchParams,
+      currentLeg,
+      selectedTrip,
+      selectedSeats,
+      outboundState,
+      returnState,
+    } = get();
+    const selectedLegAmount = selectedTrip
+      ? selectedTrip.price * selectedSeats.length
+      : 0;
+    const outboundAmount = outboundState?.trip
+      ? outboundState.trip.price * outboundState.seats.length
+      : currentLeg === 'outbound'
+        ? selectedLegAmount
+        : 0;
+
+    if (!searchParams.isRoundTrip) {
+      return outboundAmount;
     }
-    if (outboundState?.trip) {
-      total += outboundState.trip.price * outboundState.seats.length;
-    }
-    if (returnState?.trip) {
-      total += returnState.trip.price * returnState.seats.length;
-    }
-    return total;
+
+    const returnAmount = returnState?.trip
+      ? returnState.trip.price * returnState.seats.length
+      : currentLeg === 'return'
+        ? selectedLegAmount
+        : 0;
+
+    return outboundAmount + returnAmount;
   },
 
   // ─── Reset ───────────────────────────────────────────
@@ -806,6 +862,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       voucherDiscountPreview: 0,
       bookingStatus: 'idle',
       bookingResult: null,
+      bookingPaymentMethod: null,
       bookingError: null,
       highestStepReached: 1,
       tripResultsStatus: 'loading',
@@ -847,6 +904,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       voucherDiscountPreview: 0,
       bookingStatus: 'idle',
       bookingResult: null,
+      bookingPaymentMethod: null,
       bookingError: null,
       highestStepReached: 1,
     });

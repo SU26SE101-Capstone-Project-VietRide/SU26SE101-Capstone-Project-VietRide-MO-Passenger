@@ -13,6 +13,7 @@ jest.mock('../api/bookingApi', () => ({
 }));
 
 import type { BookingResult, BusTrip, RoundTripResult } from '../types';
+import { ApiRequestError } from '@shared/api/errors';
 import { useBookingStore } from './useBookingStore';
 
 const trip: BusTrip = {
@@ -36,6 +37,14 @@ const trip: BusTrip = {
   totalSeats: 40,
   departureCity: 'Origin City',
   arrivalCity: 'Destination City',
+};
+
+const returnTrip: BusTrip = {
+  ...trip,
+  id: '99999999-9999-4999-8999-999999999999',
+  originStationId: trip.destinationStationId,
+  destinationStationId: trip.originStationId,
+  price: 300_000,
 };
 
 const result: BookingResult = {
@@ -72,7 +81,10 @@ const roundTripResult: RoundTripResult = {
 };
 
 describe('booking submission serialization', () => {
+  let consoleWarn: jest.SpiedFunction<typeof console.warn>;
+
   beforeEach(() => {
+    consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     useBookingStore.getState().resetBooking();
     mockCreateBooking.mockReset();
     mockCreateRoundTripBooking.mockReset();
@@ -110,6 +122,7 @@ describe('booking submission serialization', () => {
 
   afterEach(() => {
     useBookingStore.getState().resetBooking();
+    consoleWarn.mockRestore();
   });
 
   it('keeps contact data local while serializing seats as seatNumber only', async () => {
@@ -132,6 +145,34 @@ describe('booking submission serialization', () => {
     expect(idempotencyKey).toEqual(expect.any(String));
   });
 
+  it('preserves along-route stop selections instead of replacing them with terminal stations', async () => {
+    const pickupStopId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const dropoffStopId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    useBookingStore.setState({
+      selectedPickUp: {
+        id: `stop-${pickupStopId}`,
+        stopId: pickupStopId,
+        name: 'Along-route pickup',
+        address: 'Pickup address',
+        time: '09:00',
+        status: 'available',
+      },
+      selectedDropOff: {
+        id: dropoffStopId,
+        name: 'Along-route drop-off',
+        address: 'Drop-off address',
+        time: '11:00',
+        status: 'available',
+      },
+    });
+
+    await useBookingStore.getState().createBooking();
+
+    const [payload] = mockCreateBooking.mock.calls[0];
+    expect(payload.pickup).toEqual({ stopId: pickupStopId });
+    expect(payload.dropoff).toEqual({ stopId: dropoffStopId });
+  });
+
   it('keeps a pending promotion while the user selects a trip', () => {
     useBookingStore.getState().setVoucherCode('RIDE20');
 
@@ -144,12 +185,6 @@ describe('booking submission serialization', () => {
     const pickup = useBookingStore.getState().selectedPickUp;
     const dropoff = useBookingStore.getState().selectedDropOff;
     const selectedSeats = useBookingStore.getState().selectedSeats;
-    const returnTrip: BusTrip = {
-      ...trip,
-      id: '99999999-9999-4999-8999-999999999999',
-      originStationId: trip.destinationStationId,
-      destinationStationId: trip.originStationId,
-    };
 
     useBookingStore.setState((state) => ({
       searchParams: { ...state.searchParams, isRoundTrip: true },
@@ -179,6 +214,120 @@ describe('booking submission serialization', () => {
       /passenger|fullName|phone|email|idNumber|idempotencyKey/i,
     );
     expect(idempotencyKey).toEqual(expect.any(String));
+  });
+
+  it('uses the outbound snapshot once for a completed one-way selection', () => {
+    const state = useBookingStore.getState();
+    useBookingStore.setState((current) => ({
+      searchParams: { ...current.searchParams, isRoundTrip: false },
+      outboundState: {
+        trip,
+        seats: state.selectedSeats,
+        pickUp: state.selectedPickUp,
+        dropOff: state.selectedDropOff,
+      },
+    }));
+
+    expect(useBookingStore.getState().totalPrice()).toBe(250_000);
+  });
+
+  it('uses each leg snapshot once for a completed round trip', () => {
+    const outboundState = useBookingStore.getState();
+    const returnSeats = [
+      { id: 'B01', label: 'B01', status: 'selected' as const },
+      { id: 'B02', label: 'B02', status: 'selected' as const },
+    ];
+
+    useBookingStore.setState((current) => ({
+      searchParams: { ...current.searchParams, isRoundTrip: true },
+      currentLeg: 'return',
+      outboundState: {
+        trip,
+        seats: outboundState.selectedSeats,
+        pickUp: outboundState.selectedPickUp,
+        dropOff: outboundState.selectedDropOff,
+      },
+      returnState: {
+        trip: returnTrip,
+        seats: returnSeats,
+        pickUp: outboundState.selectedDropOff,
+        dropOff: outboundState.selectedPickUp,
+      },
+      selectedTrip: returnTrip,
+      selectedSeats: returnSeats,
+    }));
+
+    expect(useBookingStore.getState().totalPrice()).toBe(850_000);
+  });
+
+  it('coalesces a rapid double tap into one booking request', async () => {
+    let resolveRequest: ((value: BookingResult) => void) | undefined;
+    mockCreateBooking.mockImplementationOnce(
+      () => new Promise<BookingResult>((resolve) => {
+        resolveRequest = resolve;
+      }),
+    );
+
+    const first = useBookingStore.getState().createBooking();
+    const second = useBookingStore.getState().createBooking();
+
+    expect(second).toBe(first);
+    expect(mockCreateBooking).toHaveBeenCalledTimes(1);
+    resolveRequest?.(result);
+    await expect(first).resolves.toBe(result);
+  });
+
+  it('reuses the idempotency key after an ambiguous timeout', async () => {
+    mockCreateBooking
+      .mockRejectedValueOnce(new ApiRequestError({
+        message: 'Request timed out.',
+        code: 'REQUEST_TIMEOUT',
+        isNetworkError: true,
+      }))
+      .mockResolvedValueOnce(result);
+
+    await expect(useBookingStore.getState().createBooking()).rejects.toThrow(
+      'Request timed out.',
+    );
+    await expect(useBookingStore.getState().createBooking()).resolves.toBe(result);
+
+    expect(mockCreateBooking).toHaveBeenCalledTimes(2);
+    expect(mockCreateBooking.mock.calls[0][1]).toBe(mockCreateBooking.mock.calls[1][1]);
+  });
+
+  it('rotates the idempotency key after a definitive backend rejection', async () => {
+    mockCreateBooking
+      .mockRejectedValueOnce(new ApiRequestError({
+        message: 'The selected seat is no longer available.',
+        code: 'BOOKING_SEAT_UNAVAILABLE',
+        statusCode: 409,
+      }))
+      .mockResolvedValueOnce(result);
+
+    await expect(useBookingStore.getState().createBooking()).rejects.toThrow(
+      'The selected seat is no longer available.',
+    );
+    await expect(useBookingStore.getState().createBooking()).resolves.toBe(result);
+
+    expect(mockCreateBooking).toHaveBeenCalledTimes(2);
+    expect(mockCreateBooking.mock.calls[0][1]).not.toBe(mockCreateBooking.mock.calls[1][1]);
+  });
+
+  it('retains the idempotency key after an ambiguous HTTP 408', async () => {
+    mockCreateBooking
+      .mockRejectedValueOnce(new ApiRequestError({
+        message: 'The upstream request timed out.',
+        code: 'API_ERROR',
+        statusCode: 408,
+      }))
+      .mockResolvedValueOnce(result);
+
+    await expect(useBookingStore.getState().createBooking()).rejects.toThrow(
+      'The upstream request timed out.',
+    );
+    await expect(useBookingStore.getState().createBooking()).resolves.toBe(result);
+
+    expect(mockCreateBooking.mock.calls[0][1]).toBe(mockCreateBooking.mock.calls[1][1]);
   });
 
   it.each([0, 6])(

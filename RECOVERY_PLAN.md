@@ -3,7 +3,7 @@
 > Last updated: 2026-07-15  
 > Mobile baseline: `413b9bf`  
 > UI/product recovery reference: `28cc5b7`  
-> Backend source of truth: `e2b85a1` (`v1.27.0`)  
+> Backend source of truth: `5be88a5` (`v1.30.0`)
 > Rule: backend source code and DTOs win over documentation and older mobile mocks.
 
 ## Status model
@@ -22,7 +22,7 @@
 
 | Scope | Result | Evidence / boundary |
 | --- | --- | --- |
-| `UNIT_STATIC` | `PASS` | 2026-07-15 - `npx.cmd tsc --noEmit` -> PASS; `npx.cmd jest --runInBand` -> PASS (55 suites, 256 tests); `npx.cmd eslint . --max-warnings=0` -> PASS; `git diff --check` -> PASS; `npx.cmd expo config --type public` -> PASS. |
+| `UNIT_STATIC` | `PASS` | 2026-07-15 - `npx.cmd tsc --noEmit` -> PASS; `npx.cmd jest --runInBand` -> PASS (60 suites, 304 tests); `npx.cmd eslint . --max-warnings=0` -> PASS; `git diff --check` -> PASS; `npx.cmd expo config --type public` -> PASS. |
 | `NATIVE_ANDROID_BUILD` | `PASS` | 2026-07-15 - `.\gradlew.bat app:assembleDebug -PreactNativeArchitectures=x86_64 -x lint -x test --configure-on-demand --build-cache` -> `BUILD SUCCESSFUL` (317 tasks). Merged debug manifest contains camera/coarse/fine location and excludes record-audio/read-storage/write-storage. |
 | `DEVICE_ANDROID` | `PARTIAL_PASS` | API 36 emulator: Login -> Guest Home -> Chatbot auth guard -> booking shortcut -> History Ticket/Parcel; background/foreground returned without fatal JS/native log. A 720x1280, font-scale 1.3, keyboard smoke exposed an auth-footer overflow; the shared footer was fixed and rechecked with all form actions reachable. Authenticated Wallet/Top-up/Tracking/RAG/Digital Ticket flows were not run. |
 | `LIVE_BE` | `NOT_RUN` | No authenticated safe test account or non-mutating payment/booking sandbox was available. No real booking, top-up, tracking session or RAG stream was fabricated. |
@@ -34,9 +34,9 @@
 
 | ID | Priority | Capability | Source of truth | Status | Dependencies | Acceptance criteria | Evidence | Last updated |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| R0 | P0 | Recovery governance | Git `413b9bf`, `28cc5b7`, BE `e2b85a1` | `VERIFIED` | None | One canonical tracker; disposition for every removed capability; no silent deletion | `git diff --name-status --diff-filter=D` -> no tracked deletion; restoration matrix includes product-only, replaced and BE-blocked scope | 2026-07-15 |
+| R0 | P0 | Recovery governance | Git `413b9bf`, `28cc5b7`, BE `5be88a5` | `VERIFIED` | None | One canonical tracker; disposition for every removed capability; no silent deletion | `git diff --name-status --diff-filter=D` -> no tracked deletion; restoration matrix includes product-only, replaced and BE-blocked scope | 2026-07-15 |
 | M1.1 | P0 | Typed navigation | Registered navigators and discriminated params | `VERIFIED` | M6, M5 | Every declared route has a registered screen and every caller supplies valid params | `navigationRegistry.contract.test.ts`; TypeScript; full Jest; Android Home/Chatbot/History navigation smoke | 2026-07-15 |
-| M1.2 | P0 | Booking network DTO | BE Booking controller/request/result DTOs | `IN_PROGRESS` | Existing booking store | `{seatNumber}` wire seats only; contact local; header idempotency; exact result status/payment ID; live checkout confirmation | Contract/store tests, TypeScript and lint pass; `LIVE_BE` booking flow not run | 2026-07-15 |
+| M1.2 | P0 | Booking network DTO and payment lifecycle | BE `5be88a5` Booking controller/request/result/status DTOs | `IN_PROGRESS` | Existing booking store, authenticated VNPay sandbox | Exact one-way/round-trip bodies; `{seatNumber}` wire seats only; contact local; header idempotency; WALLET confirmation; VNPay foreground reconciliation for every booking leg; live checkout confirmation | `bookingApi.test.ts`, `useBookingStore.create.test.ts`, `bookingCompletion.test.ts`, `bookingPayment.test.ts`, `useBookingPaymentReconciliation.test.tsx`; full TypeScript/Jest/ESLint pass; `LIVE_BE` booking flow not run; optional shuttle draft remains dormant | 2026-07-15 |
 | M1.3 | P0 | Demo-mode boundary | Expo build env and missing-BE capabilities | `VERIFIED` | Env typing | Dev defaults only under `__DEV__`; staging requires explicit opt-in; production always false | `demoMode.test.ts`; production Hermes bundle built with `DEMO_MODE=true` still rendered fail-closed guest/history boundary on Android | 2026-07-15 |
 | M2.1 | P1 | Popular routes | Live location catalog | `VERIFIED` | Location catalog | No guessed IDs, fare or duration; unresolved shortcuts hidden | Resolver tests; Android Home rendered location-only route cards without fake price/duration; full static gates pass | 2026-07-15 |
 | M2.2 | P1 | Recent searches | AsyncStorage local adapter | `IN_PROGRESS` | Expo-compatible AsyncStorage | User/guest namespace, schema migration, corrupt-data reset, dedupe/max 8, device persistence | Adapter/hook tests and Home empty state pass; end-to-end search persistence not run against a live catalog | 2026-07-15 |
@@ -65,7 +65,9 @@
 
 | Capability | Method/path | Request | Response notes | Mobile rule |
 | --- | --- | --- | --- | --- |
-| Create booking | `POST /bookings` | Supported pickup/dropoff/shuttle/payment/voucher fields; `seats: [{seatNumber}]` | Top-level `status`, `paymentId` | Passenger contact stays local; `Idempotency-Key` is an HTTP header |
+| Create booking | `POST /bookings` | Pickup/dropoff, optional shuttle, voucher, payment method; `seats: [{seatNumber}]` | WALLET -> `CONFIRMED`; VNPay -> `PENDING_PAYMENT`, `paymentId`, `paymentRedirectUrl` | Passenger contact stays local; `Idempotency-Key` is an HTTP header; optional shuttle DTO is typed but has no Mobile draft/UI yet |
+| Create round trip | `POST /bookings/round-trip` | Independent outbound/return legs with pickup/dropoff/optional shuttle/seats; group voucher/payment | WALLET confirms both legs; VNPay returns one `BOOKING_GROUP` redirect | One single-flight submit; poll both leg booking IDs before activating either ticket |
+| Reconcile booking payment | `GET /bookings/{bookingId}` | UUID booking ID | `{bookingId,status}` only | Poll only while focused, foreground and online; only exact `CONFIRMED` is active; `EXPIRED` is payment expiry; later lifecycle states stay inactive and status-neutral |
 | Wallet | `GET /wallet` | None | `{userId,balance,currency}` | Cache key includes authenticated user ID |
 | Wallet ledger | `GET /wallet/transactions` | `page`, `pageSize` | `CREDIT/DEBIT`, balances, references, note | Map network DTO to a separate UI model; use infinite pagination |
 | Top-up | `POST /wallet/top-up` | `{amount,method:'VNPAY'}` | `{topUpRequestId,status,paymentRedirectUrl}` | Validate redirect; do not report success before payment result |
@@ -116,7 +118,7 @@
 ## Final acceptance gate
 
 - [x] `npx.cmd tsc --noEmit`
-- [x] `npx.cmd jest --runInBand` - 55 suites, 256 tests
+- [x] `npx.cmd jest --runInBand` - 60 suites, 304 tests
 - [x] `npx.cmd eslint . --max-warnings=0`
 - [x] `npx.cmd expo config --type public`
 - [x] `git diff --check`
@@ -127,6 +129,15 @@
 - [ ] Android production release/frame gate - `BLOCKED_ENV` (real Maps key and Windows CMake path limit)
 
 ## Progress log
+
+### 2026-07-15 - Booking flow synchronized with BE v1.30.0
+
+- Re-audited local BE HEAD `5be88a5` (`v1.30.0`). The public create DTOs are unchanged from `e2b85a1`; v1.30 adds internal payment context/invoice settlement and later booking lifecycle completion.
+- Preserved the exact one-way/round-trip payloads, station/stop identity and local-only passenger contact; added user-scoped `GET /bookings/{bookingId}` reconciliation for VNPay.
+- WALLET confirmation now goes directly to the ticket; VNPay stays pending until every one-way/round-trip booking ID is exactly `CONFIRMED`. `EXPIRED`, `COMPLETED`, `CANCELLED`, `NO_SHOW`, `PARTIAL_NO_SHOW`, `REFUNDED` and `DISRUPTED` cannot render as an active ticket.
+- Added bounded foreground/focus/online polling, transient retry, abort on focus loss, fatal 403/404 fail-closed behavior, user/booking cache isolation and a shared AppState hook reused by Booking and Tracking.
+- Added single-flight create/navigation/redirect handling, deterministic idempotency retry policy (retain on network/timeout/408/5xx, rotate after definitive rejection), checkout-step fixes and immutable submitted payment-method display.
+- Passed `npx.cmd tsc --noEmit`, full Jest (60 suites/304 tests), zero-warning ESLint and `git diff --check`; no tracked file was deleted. `LIVE_BE` checkout remains `NOT_RUN` and M1.2 remains `IN_PROGRESS`.
 
 ### 2026-07-15 - Corrective recovery implementation and verification
 

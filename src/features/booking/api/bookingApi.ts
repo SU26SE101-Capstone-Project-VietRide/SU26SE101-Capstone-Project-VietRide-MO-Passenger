@@ -4,11 +4,13 @@ import type {
   CreateBookingPayload, 
   CreateRoundTripPayload, 
   BookingResult,
+  BookingStatusResult,
   RoundTripResult,
   AvailableVoucherItem,
   GetAvailableVouchersParams,
   PromotionItem
 } from '../types';
+import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 
 const withIdempotencyKey = (idempotencyKey: string) => {
   const normalizedKey = idempotencyKey.trim();
@@ -25,10 +27,25 @@ const withIdempotencyKey = (idempotencyKey: string) => {
 
 export const bookingKeys = {
   all: ['bookings'] as const,
+  user: (userId: string) => [...bookingKeys.all, userId] as const,
+  paymentStatus: (userId: string, bookingIds: readonly string[]) =>
+    [...bookingKeys.user(userId), 'payment-status', ...bookingIds] as const,
   availableVouchers: (userId: string, params: GetAvailableVouchersParams) =>
     [...bookingKeys.all, userId, 'vouchers', 'available', params] as const,
   promotions: (service: string) => [...bookingKeys.all, 'promotions', service] as const,
 };
+
+export async function getBookingStatus(
+  bookingId: string,
+  signal?: AbortSignal,
+): Promise<BookingStatusResult> {
+  const safeBookingId = encodeUuidPathSegment(bookingId, 'booking ID');
+  const response = await apiClient.get<ApiEnvelope<BookingStatusResult>>(
+    `/bookings/${safeBookingId}`,
+    signal ? { signal } : undefined,
+  );
+  return unwrapApiResponse(response.data);
+}
 
 export async function createBooking(
   payload: CreateBookingPayload,

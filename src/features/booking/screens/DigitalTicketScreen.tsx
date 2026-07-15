@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useRef } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   useNavigation,
   useRoute,
@@ -32,8 +32,15 @@ import {
   type AppTheme,
 } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
+import {
+  getPaymentRedirectErrorMessage,
+  openPaymentRedirect,
+  PAYMENT_REDIRECT_ERROR_TITLE,
+} from '@shared/utils/paymentRedirect';
 import { useBookingHistoryTicket } from '../hooks/useBookingHistory';
+import { useBookingPaymentReconciliation } from '../hooks/useBookingPaymentReconciliation';
 import { useBookingStore } from '../store/useBookingStore';
+import type { BookingResult, RoundTripResult } from '../types';
 import {
   buildCheckoutTicketViewModel,
   buildHistoryTicketViewModel,
@@ -54,6 +61,15 @@ interface TicketViewProps {
   onViewBookings: () => void;
   onHome: () => void;
   onTrack: (leg: TicketLegViewModel) => void;
+  pendingPaymentActions?: PendingPaymentActions;
+}
+
+interface PendingPaymentActions {
+  isChecking: boolean;
+  isOnline: boolean;
+  errorMessage?: string;
+  onCheck: () => void;
+  onOpenPayment?: () => void;
 }
 
 function TicketView({
@@ -63,6 +79,7 @@ function TicketView({
   onViewBookings,
   onHome,
   onTrack,
+  pendingPaymentActions,
 }: TicketViewProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -98,14 +115,68 @@ function TicketView({
         ) : null}
 
         <View style={styles.successHeader}>
-          <CheckCircle
-            size={56}
-            color={model.isPendingPayment ? theme.colors.primary : theme.colors.success}
-            weight="fill"
-          />
+          {model.isPendingPayment && pendingPaymentActions?.isChecking ? (
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+          ) : (
+            <CheckCircle
+              size={56}
+              color={model.isPendingPayment ? theme.colors.primary : theme.colors.success}
+              weight="fill"
+            />
+          )}
           <Text style={styles.successTitle}>{model.statusTitle}</Text>
           <Text style={styles.successSubtitle}>{model.statusMessage}</Text>
         </View>
+
+        {model.isPendingPayment && pendingPaymentActions ? (
+          <View style={styles.pendingPaymentCard}>
+            <Text style={styles.pendingPaymentTitle}>VNPay confirmation required</Text>
+            <Text style={styles.pendingPaymentMessage}>
+              VietRide activates the ticket only after the payment callback reaches the backend.
+            </Text>
+            {pendingPaymentActions.errorMessage ? (
+              <Text style={styles.pendingPaymentError}>{pendingPaymentActions.errorMessage}</Text>
+            ) : null}
+            {pendingPaymentActions.onOpenPayment ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open VNPay payment page"
+                style={({ pressed }) => [
+                  styles.primaryAction,
+                  pressed ? styles.pressed : null,
+                ]}
+                onPress={pendingPaymentActions.onOpenPayment}
+              >
+                <Coins size={18} color={theme.colors.textInverse} weight="bold" />
+                <Text style={styles.primaryActionText}>Open VNPAY</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Check payment status"
+              accessibilityState={{
+                busy: pendingPaymentActions.isChecking,
+                disabled: pendingPaymentActions.isChecking || !pendingPaymentActions.isOnline,
+              }}
+              disabled={pendingPaymentActions.isChecking || !pendingPaymentActions.isOnline}
+              style={({ pressed }) => [
+                styles.secondaryAction,
+                pendingPaymentActions.isChecking || !pendingPaymentActions.isOnline
+                  ? styles.actionDisabled
+                  : null,
+                pressed ? styles.pressed : null,
+              ]}
+              onPress={pendingPaymentActions.onCheck}
+            >
+              {pendingPaymentActions.isChecking ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : null}
+              <Text style={styles.secondaryActionText}>
+                {pendingPaymentActions.isChecking ? 'Checking payment...' : 'Check payment status'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {model.legs.map((leg) => {
           const canTrack = Boolean(leg.tripId) && leg.trackingEnabled;
@@ -281,9 +352,11 @@ function UnavailableTicket({
 
 function CheckoutTicketContent(): React.JSX.Element {
   const navigation = useNavigation<DigitalTicketNavigation>();
+  const paymentRedirectRef = useRef<Promise<void> | null>(null);
   const {
     selectedTrip,
     paymentMethod,
+    bookingPaymentMethod,
     selectedPickUp,
     selectedDropOff,
     outboundState,
@@ -292,25 +365,40 @@ function CheckoutTicketContent(): React.JSX.Element {
   } = useBookingStore(useShallow((state) => ({
     selectedTrip: state.selectedTrip,
     paymentMethod: state.paymentMethod,
+    bookingPaymentMethod: state.bookingPaymentMethod,
     selectedPickUp: state.selectedPickUp,
     selectedDropOff: state.selectedDropOff,
     outboundState: state.outboundState,
     returnState: state.returnState,
     bookingResult: state.bookingResult,
   })));
+  const paymentReconciliation = useBookingPaymentReconciliation(bookingResult);
+  const checkPaymentStatus = paymentReconciliation.checkNow;
+
+  const effectiveBookingResult = useMemo<BookingResult | RoundTripResult | null>(() => {
+    if (
+      paymentReconciliation.phase !== 'confirmed'
+      || bookingResult?.status !== 'PENDING_PAYMENT'
+    ) {
+      return bookingResult;
+    }
+
+    return { ...bookingResult, status: 'CONFIRMED' };
+  }, [bookingResult, paymentReconciliation.phase]);
 
   const model = useMemo(
     () => buildCheckoutTicketViewModel({
-      bookingResult,
-      paymentMethod,
-      selectedTrip,
-      selectedPickUp,
-      selectedDropOff,
+      bookingResult: effectiveBookingResult,
+      paymentMethod: bookingPaymentMethod ?? paymentMethod,
+      selectedTrip: outboundState?.trip ?? selectedTrip,
+      selectedPickUp: outboundState?.pickUp ?? selectedPickUp,
+      selectedDropOff: outboundState?.dropOff ?? selectedDropOff,
       outboundState,
       returnState,
     }),
     [
-      bookingResult,
+      effectiveBookingResult,
+      bookingPaymentMethod,
       outboundState,
       paymentMethod,
       returnState,
@@ -341,6 +429,80 @@ function CheckoutTicketContent(): React.JSX.Element {
     });
   }, [navigation]);
 
+  const handleCheckPayment = useCallback(() => {
+    checkPaymentStatus().catch(() => undefined);
+  }, [checkPaymentStatus]);
+
+  const handleOpenPayment = useCallback(() => {
+    const redirectUrl = bookingResult?.paymentRedirectUrl;
+    if (!redirectUrl || paymentRedirectRef.current) return;
+
+    const request = openPaymentRedirect(redirectUrl)
+      .catch((error) => {
+        Alert.alert(
+          PAYMENT_REDIRECT_ERROR_TITLE,
+          getPaymentRedirectErrorMessage(error),
+        );
+      })
+      .finally(() => {
+        if (paymentRedirectRef.current === request) paymentRedirectRef.current = null;
+      });
+    paymentRedirectRef.current = request;
+  }, [bookingResult?.paymentRedirectUrl]);
+
+  const pendingPaymentActions = useMemo<PendingPaymentActions | undefined>(() => {
+    if (!model?.isPendingPayment) return undefined;
+
+    return {
+      isChecking: paymentReconciliation.isChecking,
+      isOnline: paymentReconciliation.isOnline,
+      errorMessage: paymentReconciliation.errorMessage,
+      onCheck: handleCheckPayment,
+      onOpenPayment: bookingResult?.paymentRedirectUrl ? handleOpenPayment : undefined,
+    };
+  }, [
+    bookingResult?.paymentRedirectUrl,
+    handleCheckPayment,
+    handleOpenPayment,
+    model?.isPendingPayment,
+    paymentReconciliation.errorMessage,
+    paymentReconciliation.isChecking,
+    paymentReconciliation.isOnline,
+  ]);
+
+  if (paymentReconciliation.phase === 'expired') {
+    return (
+      <UnavailableTicket
+        title="Payment not completed"
+        message="The payment window expired before the backend confirmed this booking. No ticket was activated."
+        onBack={handleHome}
+      />
+    );
+  }
+
+  if (paymentReconciliation.phase === 'inactive') {
+    const status = paymentReconciliation.terminalStatus
+      ?.replaceAll('_', ' ')
+      .toLowerCase();
+    return (
+      <UnavailableTicket
+        title="Booking status changed"
+        message={`This booking is now ${status ?? 'inactive'} and is no longer an active checkout ticket.`}
+        onBack={handleHome}
+      />
+    );
+  }
+
+  if (paymentReconciliation.phase === 'unavailable') {
+    return (
+      <UnavailableTicket
+        title="Booking status unavailable"
+        message={paymentReconciliation.errorMessage ?? 'VietRide could not safely verify this booking.'}
+        onBack={handleHome}
+      />
+    );
+  }
+
   if (!model) {
     return (
       <UnavailableTicket
@@ -359,6 +521,7 @@ function CheckoutTicketContent(): React.JSX.Element {
       onViewBookings={handleViewBookings}
       onHome={handleHome}
       onTrack={handleTrack}
+      pendingPaymentActions={pendingPaymentActions}
     />
   );
 }
@@ -492,6 +655,30 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
     textAlign: 'center' as const,
+  },
+  pendingPaymentCard: {
+    ...theme.components.card,
+    gap: spacing.sm,
+    padding: spacing.lg,
+    borderRadius: BR.lg,
+    borderCurve: 'continuous' as const,
+  },
+  pendingPaymentTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: theme.colors.textPrimary,
+  },
+  pendingPaymentMessage: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    lineHeight: 21,
+    color: theme.colors.textSecondary,
+  },
+  pendingPaymentError: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
+    color: theme.colors.error,
   },
   legBlock: {
     gap: spacing.sm,
@@ -664,6 +851,9 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.primary,
+  },
+  actionDisabled: {
+    opacity: 0.5,
   },
   homeButton: {
     minHeight: 48,

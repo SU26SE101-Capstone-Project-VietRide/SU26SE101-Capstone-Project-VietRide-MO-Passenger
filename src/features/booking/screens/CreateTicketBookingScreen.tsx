@@ -18,7 +18,12 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft, Check, FunnelSimple, X } from 'phosphor-react-native';
@@ -41,6 +46,8 @@ import {
   createBookingEntryKey,
   initializeBookingEntry,
 } from '../utils/bookingDiscovery';
+import { BookingCompletionCoordinator } from '../utils/bookingCompletion';
+import { getRoundTripLegForStep } from '../utils/bookingSteps';
 
 // Import Steps
 import { TripResultsScreen as TripResultsStep } from './TripResultsScreen';
@@ -443,8 +450,13 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
   const [tripFilters, setTripFilters] = useState<TripFilterState>(DEFAULT_TRIP_FILTERS);
   const [filterVisible, setFilterVisible] = useState(false);
   const [initializedEntryKey, setInitializedEntryKey] = useState<string | null>(null);
+  const bookingCompletionRef = useRef<BookingCompletionCoordinator | null>(null);
+  if (!bookingCompletionRef.current) {
+    bookingCompletionRef.current = new BookingCompletionCoordinator();
+  }
   const {
     highestStepReached,
+    bookingStatus,
     searchParams,
     currentLeg,
     trips,
@@ -455,6 +467,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     setVoucherCode,
   } = useBookingStore(useShallow((state) => ({
     highestStepReached: state.highestStepReached,
+    bookingStatus: state.bookingStatus,
     searchParams: state.searchParams,
     currentLeg: state.currentLeg,
     trips: state.trips,
@@ -467,6 +480,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const isRoundTrip = searchParams.isRoundTrip ?? false;
+  const isSubmitting = bookingStatus === 'loading';
   const isTripSelectionStep = isRoundTrip ? step === 1 || step === 5 : step === 1;
   const hasActiveFilters = countActiveTripFilters(tripFilters) > 0;
   const bookingEntryKey = useMemo(
@@ -514,11 +528,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
 
     const isCheckoutOrPaymentStep = step >= 9;
 
-    const stepLeg = step >= 5 && step <= 8
-      ? 'return'
-      : step >= 9
-        ? currentLeg
-        : 'outbound';
+    const stepLeg = getRoundTripLegForStep(step) ?? currentLeg;
     const activeTrip = stepLeg === 'return'
       ? selectedTrip ?? returnState?.trip
       : selectedTrip ?? outboundState?.trip;
@@ -554,35 +564,44 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     step,
   ]);
 
+  const navigateToFlowStep = useCallback((targetStep: number) => {
+    if (isRoundTrip) {
+      const targetLeg = getRoundTripLegForStep(targetStep);
+      if (targetLeg) {
+        useBookingStore.setState({ currentLeg: targetLeg });
+      }
+    }
+
+    setStep(targetStep);
+  }, [isRoundTrip]);
+
+  const isBookingInteractionLocked = useCallback(
+    () => isSubmitting || bookingCompletionRef.current?.isRunning === true,
+    [isSubmitting],
+  );
+
   const handleBack = useCallback(() => {
+    if (isBookingInteractionLocked()) return true;
+
     if (step > 1) {
-      setStep(step - 1);
+      navigateToFlowStep(step - 1);
       return true; // Prevent default behavior
     } else {
       navigation.goBack();
       return true;
     }
-  }, [step, navigation]);
+  }, [isBookingInteractionLocked, navigateToFlowStep, navigation, step]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', handleBack);
     return () => subscription.remove();
-  }, [handleBack]);
+  }, [handleBack]));
 
-  const handleStepPress = (targetStep: number) => {
-    if (targetStep <= highestStepReached) {
-      // Set currentLeg based on target step for round trips
-      if (searchParams.isRoundTrip) {
-        if (targetStep >= 1 && targetStep <= 4) {
-          useBookingStore.setState({ currentLeg: 'outbound' });
-        } else if (targetStep >= 5 && targetStep <= 8) {
-          useBookingStore.setState({ currentLeg: 'return' });
-        }
-        // Steps 9-10 (checkout/payment) can show either leg, keep current
-      }
-      setStep(targetStep);
+  const handleStepPress = useCallback((targetStep: number) => {
+    if (!isBookingInteractionLocked() && targetStep <= highestStepReached) {
+      navigateToFlowStep(targetStep);
     }
-  };
+  }, [highestStepReached, isBookingInteractionLocked, navigateToFlowStep]);
 
   const handleOpenFilters = useCallback(() => {
     setFilterVisible(true);
@@ -600,24 +619,18 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     setTripFilters(DEFAULT_TRIP_FILTERS);
   }, []);
 
-  const handleFinishBooking = useCallback(async () => {
-    try {
-      const result = await useBookingStore.getState().createBooking();
-      if (result.paymentRedirectUrl) {
-        try {
-          await openPaymentRedirect(result.paymentRedirectUrl);
-        } catch (error) {
-          Alert.alert(
-            PAYMENT_REDIRECT_ERROR_TITLE,
-            getPaymentRedirectErrorMessage(error),
-          );
-        }
-      }
-
-      navigation.navigate('DigitalTicket', { source: 'checkout' });
-    } catch {
-      // PaymentScreen observes bookingError from the store and keeps the user in place.
-    }
+  const handleFinishBooking = useCallback((): Promise<void> => {
+    return bookingCompletionRef.current!.run({
+      createBooking: () => useBookingStore.getState().createBooking(),
+      showTicket: () => navigation.replace('DigitalTicket', { source: 'checkout' }),
+      openPayment: openPaymentRedirect,
+      onPaymentOpenError: (error) => {
+        Alert.alert(
+          PAYMENT_REDIRECT_ERROR_TITLE,
+          getPaymentRedirectErrorMessage(error),
+        );
+      },
+    }).catch(() => undefined);
   }, [navigation]);
 
   const renderStep = () => {

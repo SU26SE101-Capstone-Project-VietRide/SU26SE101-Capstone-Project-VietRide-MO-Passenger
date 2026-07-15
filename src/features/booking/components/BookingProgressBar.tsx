@@ -1,12 +1,16 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Check } from 'phosphor-react-native';
+import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
-import { OUTBOUND_STEPS, RETURN_STEPS, CHECKOUT_STEP, PAYMENT_STEP } from '../store/useBookingStore';
+import {
+  getBookingStepConfiguration,
+  OUTBOUND_STEPS,
+} from '../utils/bookingSteps';
 
 interface BookingProgressBarProps {
   step: number;
@@ -47,17 +51,15 @@ export const BookingProgressBar = ({
   totalSteps: propTotalSteps,
   onStepPress
 }: BookingProgressBarProps): React.JSX.Element => {
-  const { searchParams, highestStepReached } = useBookingStore();
+  const { isRoundTrip, highestStepReached } = useBookingStore(useShallow((state) => ({
+    isRoundTrip: state.searchParams.isRoundTrip ?? false,
+    highestStepReached: state.highestStepReached,
+  })));
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const isRoundTrip = searchParams.isRoundTrip ?? false;
-
-  // Calculate total steps based on trip type
-  const totalSteps = propTotalSteps ?? (isRoundTrip ? OUTBOUND_STEPS + RETURN_STEPS + 2 : OUTBOUND_STEPS + 2);
-
-  // Determine checkout and payment step numbers based on trip type
-  const checkoutStep = isRoundTrip ? CHECKOUT_STEP : OUTBOUND_STEPS + 2; // 9 or 5
-  const paymentStep = isRoundTrip ? PAYMENT_STEP : OUTBOUND_STEPS + 3; // 10 or 6
+  const stepConfiguration = getBookingStepConfiguration(isRoundTrip);
+  const totalSteps = propTotalSteps ?? stepConfiguration.totalSteps;
+  const { checkoutStep, paymentStep } = stepConfiguration;
 
   const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
   const stepLabel = getStepLabel(step, isRoundTrip);

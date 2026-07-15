@@ -32,7 +32,11 @@ export function BookingNavigator(): React.JSX.Element {
       <Stack.Screen name="PopularRoutes" component={PopularRoutesScreen} />
       <Stack.Screen name="CityPicker" component={CityPickerScreen} />
       <Stack.Screen name="DatePicker" component={DatePicker} />
-      <Stack.Screen name="CreateTicketBooking" component={CreateTicketBookingScreen} />
+      <Stack.Screen
+        name="CreateTicketBooking"
+        component={CreateTicketBookingScreen}
+        options={{ gestureEnabled: false }}
+      />
       <Stack.Screen
         name="DigitalTicket"
         component={DigitalTicketScreen}

@@ -6,7 +6,12 @@ import type {
   CreateRoundTripPayload,
   RoundTripResult,
 } from '../types';
-import { createBooking, createRoundTripBooking } from './bookingApi';
+import {
+  bookingKeys,
+  createBooking,
+  createRoundTripBooking,
+  getBookingStatus,
+} from './bookingApi';
 
 jest.mock('@shared/api/axiosInstance', () => ({
   apiClient: {
@@ -16,6 +21,7 @@ jest.mock('@shared/api/axiosInstance', () => ({
 }));
 
 const postMock = jest.mocked(apiClient.post);
+const getMock = jest.mocked(apiClient.get);
 
 const oneWayPayload: CreateBookingPayload = {
   tripId: '11111111-1111-4111-8111-111111111111',
@@ -80,6 +86,7 @@ const successEnvelope = <T>(data: T): ApiSuccessEnvelope<T> => ({
 describe('bookingApi create contracts', () => {
   beforeEach(() => {
     postMock.mockReset();
+    getMock.mockReset();
   });
 
   it('sends one-way seat numbers without passenger PII and keeps idempotency in the header', async () => {
@@ -119,5 +126,36 @@ describe('bookingApi create contracts', () => {
       'Idempotency key is required.',
     );
     expect(postMock).not.toHaveBeenCalled();
+  });
+
+  it('reads the minimal post-payment status using a user-scoped cache key', async () => {
+    const statusResult = {
+      bookingId: oneWayResult.bookingId,
+      status: 'CONFIRMED' as const,
+    };
+    const signal = new AbortController().signal;
+    getMock.mockResolvedValueOnce({
+      data: { ...successEnvelope(statusResult), statusCode: 200 },
+    });
+
+    await expect(getBookingStatus(oneWayResult.bookingId, signal)).resolves.toBe(statusResult);
+
+    expect(getMock).toHaveBeenCalledWith(
+      `/bookings/${oneWayResult.bookingId}`,
+      { signal },
+    );
+    expect(bookingKeys.paymentStatus('user-a', [oneWayResult.bookingId])).toEqual([
+      'bookings',
+      'user-a',
+      'payment-status',
+      oneWayResult.bookingId,
+    ]);
+    expect(bookingKeys.paymentStatus('user-b', [oneWayResult.bookingId]))
+      .not.toEqual(bookingKeys.paymentStatus('user-a', [oneWayResult.bookingId]));
+  });
+
+  it('rejects an invalid booking status path before networking', async () => {
+    await expect(getBookingStatus('../another-booking')).rejects.toThrow('Invalid booking ID.');
+    expect(getMock).not.toHaveBeenCalled();
   });
 });
