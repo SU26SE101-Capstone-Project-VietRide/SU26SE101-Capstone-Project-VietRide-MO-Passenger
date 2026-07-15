@@ -25,3 +25,5 @@ export { PromoRow } from './PromoRow';
 export { ImageUploadSlot } from './ImageUploadSlot';
 export { SearchForm } from './SearchForm';
 export { PassengerCountInput } from './PassengerCountInput';
+export { PopularRoutesSection } from './PopularRoutesSection';
+export { RecentSearchesSection } from './RecentSearchesSection';

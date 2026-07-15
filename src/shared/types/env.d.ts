@@ -10,6 +10,7 @@ declare namespace NodeJS {
     EXPO_PUBLIC_API_BASE_URL?: string;
     EXPO_PUBLIC_WS_URL?: string;
     EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?: string;
-    EXPO_PUBLIC_APP_ENV?: string;
+    EXPO_PUBLIC_APP_ENV?: 'development' | 'staging' | 'production';
+    EXPO_PUBLIC_DEMO_MODE?: 'true' | 'false';
   }
 }

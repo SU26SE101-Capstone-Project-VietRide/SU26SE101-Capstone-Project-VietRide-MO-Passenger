@@ -9,6 +9,7 @@ import {
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { Bell, Check, Package, Tag, Ticket } from 'phosphor-react-native';
 
@@ -20,10 +21,12 @@ import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { getApiErrorMessage } from '@shared/api/errors';
 import { isUuid } from '@shared/utils/pathSegment';
 import { formatShortDate } from '@shared/utils/format';
+import type { RootStackParamList } from '@app/navigation/types';
 import type { NotificationItemDto } from '../api/notificationApi';
 import { useMarkNotificationRead, useNotifications } from '../hooks/useNotifications';
 
 type NotificationKind = 'trip' | 'parcel' | 'promo' | 'notification';
+type NotificationNavigation = NativeStackNavigationProp<RootStackParamList>;
 
 const NOTIFICATION_BOTTOM_CONTENT_GAP = spacing.huge;
 const NOTIFICATION_QUERY_PARAMS = {
@@ -186,7 +189,7 @@ const NotificationRow = memo(function NotificationRowView({
 
 export function NotificationScreen(): React.JSX.Element {
   const { t } = useTranslation();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NotificationNavigation>();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);

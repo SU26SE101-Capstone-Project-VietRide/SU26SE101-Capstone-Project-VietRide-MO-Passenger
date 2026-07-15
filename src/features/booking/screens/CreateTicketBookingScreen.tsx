@@ -18,7 +18,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft, Check, FunnelSimple, X } from 'phosphor-react-native';
@@ -37,6 +37,10 @@ import { useBookingStore } from '../store/useBookingStore';
 import { BookingProgressBar } from '../components/BookingProgressBar';
 import type { BookingStackParamList } from '@app/navigation/types';
 import type { TripFilterState, TripPriceRange, TripTimeSlot } from '../types';
+import {
+  createBookingEntryKey,
+  initializeBookingEntry,
+} from '../utils/bookingDiscovery';
 
 // Import Steps
 import { TripResultsScreen as TripResultsStep } from './TripResultsScreen';
@@ -47,6 +51,7 @@ import { CheckoutScreen as CheckoutStep } from './CheckoutScreen';
 import { PaymentScreen as PaymentStep } from './PaymentScreen';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'CreateTicketBooking'>;
+type CreateBookingRouteProp = RouteProp<BookingStackParamList, 'CreateTicketBooking'>;
 
 type RouteHeaderSnapshot = {
   primary: string;
@@ -262,6 +267,24 @@ function TripFilterSheet({
               ))}
             </View>
 
+            <View style={styles.filterSectionHeadingRow}>
+              <Text style={styles.filterSectionLabel}>Vehicle type</Text>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonText}>Coming soon</Text>
+              </View>
+            </View>
+            <View
+              accessible
+              accessibilityLabel="Vehicle type filter, coming soon"
+              accessibilityState={{ disabled: true }}
+              style={styles.disabledFilterShell}
+            >
+              <Text style={styles.disabledFilterTitle}>More ways to choose your ride</Text>
+              <Text style={styles.disabledFilterCopy}>
+                Vehicle type options will appear here when they are available for your route.
+              </Text>
+            </View>
+
             <Text style={styles.filterSectionLabel}>Fare</Text>
             <View style={styles.filterChipGrid}>
               {priceRangeOptions.map((option) => (
@@ -415,9 +438,11 @@ function AnimatedRouteHeader({
 
 export function CreateTicketBookingScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
+  const route = useRoute<CreateBookingRouteProp>();
   const [step, setStep] = useState(1);
   const [tripFilters, setTripFilters] = useState<TripFilterState>(DEFAULT_TRIP_FILTERS);
   const [filterVisible, setFilterVisible] = useState(false);
+  const [initializedEntryKey, setInitializedEntryKey] = useState<string | null>(null);
   const {
     highestStepReached,
     searchParams,
@@ -427,6 +452,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     outboundState,
     returnState,
     resetFlowPreservingSearch,
+    setVoucherCode,
   } = useBookingStore(useShallow((state) => ({
     highestStepReached: state.highestStepReached,
     searchParams: state.searchParams,
@@ -436,28 +462,33 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     outboundState: state.outboundState,
     returnState: state.returnState,
     resetFlowPreservingSearch: state.resetFlowPreservingSearch,
+    setVoucherCode: state.setVoucherCode,
   })));
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const isRoundTrip = searchParams.isRoundTrip ?? false;
   const isTripSelectionStep = isRoundTrip ? step === 1 || step === 5 : step === 1;
   const hasActiveFilters = countActiveTripFilters(tripFilters) > 0;
+  const bookingEntryKey = useMemo(
+    () => createBookingEntryKey(searchParams, route.params?.intent),
+    [route.params?.intent, searchParams],
+  );
+  const isBookingEntryInitialized = initializedEntryKey === bookingEntryKey;
 
   // Reset booking data when search params change (new booking)
   useEffect(() => {
-    resetFlowPreservingSearch();
+    initializeBookingEntry(route.params?.intent, {
+      resetFlowPreservingSearch,
+      setVoucherCode,
+    });
     setTripFilters(DEFAULT_TRIP_FILTERS);
     setStep(1);
+    setInitializedEntryKey(bookingEntryKey);
   }, [
-    searchParams.date,
-    searchParams.destinationLocationCode,
-    searchParams.from,
-    searchParams.isRoundTrip,
-    searchParams.originLocationCode,
-    searchParams.passengers,
-    searchParams.returnDate,
-    searchParams.to,
+    bookingEntryKey,
     resetFlowPreservingSearch,
+    route.params?.intent,
+    setVoucherCode,
   ]);
 
   const operatorOptions = useMemo(() => {
@@ -583,7 +614,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
         }
       }
 
-      navigation.navigate('DigitalTicket');
+      navigation.navigate('DigitalTicket', { source: 'checkout' });
     } catch {
       // PaymentScreen observes bookingError from the store and keeps the user in place.
     }
@@ -596,6 +627,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
         case 1: case 5: return (
           <TripResultsStep
             onNext={setStep}
+            autoSearchEnabled={isBookingEntryInitialized}
             filters={tripFilters}
             onClearFilters={handleResetTripFilters}
           />
@@ -613,6 +645,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
         case 1: return (
           <TripResultsStep
             onNext={setStep}
+            autoSearchEnabled={isBookingEntryInitialized}
             filters={tripFilters}
             onClearFilters={handleResetTripFilters}
           />
@@ -874,6 +907,46 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
     marginBottom: spacing.sm,
     marginTop: spacing.md,
+  },
+  filterSectionHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  comingSoonBadge: {
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  comingSoonText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+  },
+  disabledFilterShell: {
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: theme.colors.divider,
+    backgroundColor: theme.colors.surfaceAlt,
+    opacity: 0.8,
+  },
+  disabledFilterTitle: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
+  },
+  disabledFilterCopy: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
+    color: theme.colors.textTertiary,
   },
   filterChipGrid: {
     flexDirection: 'row',

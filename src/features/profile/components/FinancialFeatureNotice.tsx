@@ -8,7 +8,17 @@ import { useThemedStyles } from '@shared/hooks';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
 
-export function FinancialFeatureNotice(): React.JSX.Element {
+export interface FinancialFeatureNoticeProps {
+  title?: string;
+  description?: string;
+  safetyNote?: string;
+}
+
+export function FinancialFeatureNotice({
+  title,
+  description,
+  safetyNote,
+}: FinancialFeatureNoticeProps): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -20,16 +30,16 @@ export function FinancialFeatureNotice(): React.JSX.Element {
       </View>
       <View style={styles.copy}>
         <Text style={styles.title}>
-          {t('profile.financialUnavailableTitle', 'Wallet & payments unavailable')}
+          {title ?? t('profile.financialUnavailableTitle', 'Some payment tools are unavailable')}
         </Text>
         <Text style={styles.description}>
-          {t(
+          {description ?? t(
             'profile.financialUnavailableDescription',
-            'Wallet balance, top-up, withdrawal, and saved payment management are not enabled in this app yet.',
+            'Unsupported payment tools stay visible as coming-soon placeholders until the backend contract is ready.',
           )}
         </Text>
         <Text style={styles.safetyNote}>
-          {t(
+          {safetyNote ?? t(
             'profile.financialUnavailableSafety',
             'VietRide does not collect card numbers or CVV on this screen.',
           )}
@@ -80,4 +90,3 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.sm,
   },
 });
-

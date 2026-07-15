@@ -1,14 +1,14 @@
 import type { TextStyle, ViewStyle } from 'react-native';
 import type { AppTheme } from './types';
 
-export const getCardStyle = (theme: AppTheme, baseStyle: any = {}): ViewStyle => {
+export const getCardStyle = (theme: AppTheme, baseStyle: ViewStyle = {}): ViewStyle => {
   return {
     ...baseStyle,
     ...theme.components.card,
   };
 };
 
-export const getSurfaceStyle = (theme: AppTheme, baseStyle: any = {}): ViewStyle => {
+export const getSurfaceStyle = (theme: AppTheme, baseStyle: ViewStyle = {}): ViewStyle => {
   return {
     ...baseStyle,
     ...theme.components.surface,

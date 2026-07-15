@@ -19,7 +19,7 @@ const CATEGORIES: { key: string; label: string; Icon: React.ElementType }[] = [
   { key: 'Others', label: 'Others', Icon: DotsThreeCircle },
 ];
 
-export const CategoryChips = memo(function CategoryChips({
+export const CategoryChips = memo(function CategoryChipsComponent({
   value,
   onChange,
 }: CategoryChipsProps): React.JSX.Element {

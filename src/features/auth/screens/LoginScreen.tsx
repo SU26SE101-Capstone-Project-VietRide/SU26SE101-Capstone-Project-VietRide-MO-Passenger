@@ -28,7 +28,7 @@ import { useApiError } from '@shared/hooks';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { login } from '../api/authApi';
 import { useAuthStore } from '../store/useAuthStore';
-import { AuthStepHeader } from '../components';
+import { AuthFooter, AuthStepHeader } from '../components';
 import {
   apiFieldErrors,
   loginSchema,
@@ -159,7 +159,7 @@ export function LoginScreen(): React.JSX.Element {
               <View style={styles.inputWrapper}>
                 <Input
                   label="Email"
-                  placeholder="user@example.com"
+                  placeholder="Email address"
                   keyboardType="email-address"
                   textContentType="emailAddress"
                   autoComplete="email"
@@ -243,17 +243,11 @@ export function LoginScreen(): React.JSX.Element {
 
           </ScrollView>
 
-          <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
-              Don't have an account?{' '}
-            </Text>
-            <Pressable
-              onPress={() => navigation.navigate('Register')}
-              style={({ pressed }) => (pressed ? styles.pressed : null)}
-            >
-              <Text style={[styles.footerLink, { color: theme.colors.primary }]}>Sign up</Text>
-            </Pressable>
-          </View>
+          <AuthFooter
+            prompt="Don't have an account?"
+            actionLabel="Sign up"
+            onAction={() => navigation.navigate('Register')}
+          />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -341,22 +335,6 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     marginHorizontal: spacing.sm,
     textTransform: 'uppercase',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingVertical: spacing.xxl,
-    paddingHorizontal: spacing.xl,
-  },
-  footerText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-  },
-  footerLink: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: colors.primary,
   },
   pressed: {
     opacity: 0.75,

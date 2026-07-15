@@ -1,16 +1,17 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   Pressable,
-  Image,
   ScrollView,
   Alert,
   StatusBar,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, type CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useTranslation } from 'react-i18next';
 import {
   User,
@@ -22,6 +23,7 @@ import {
   Phone,
   CheckCircle,
   WarningCircle,
+  Wallet,
 } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
@@ -30,11 +32,21 @@ import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import type { ProfileStackParamList } from '@app/navigation/types';
+import type {
+  MainTabParamList,
+  ProfileStackParamList,
+  RootStackParamList,
+} from '@app/navigation/types';
 import { FinancialFeatureNotice } from '../components/FinancialFeatureNotice';
 import { isProfileWalletEntryPointEnabled } from '../config/financialCapabilities';
 
-type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList>;
+type ProfileNavProp = CompositeNavigationProp<
+  NativeStackNavigationProp<ProfileStackParamList>,
+  CompositeNavigationProp<
+    BottomTabNavigationProp<MainTabParamList>,
+    NativeStackNavigationProp<RootStackParamList>
+  >
+>;
 const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
 
 export function ProfileOverviewScreen(): React.JSX.Element {
@@ -104,7 +116,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
     );
   }, [isGuest, logout, t]);
 
-  const profileMenuItems = [
+  const profileMenuItems = useMemo(() => [
     {
       id: 'edit-profile',
       title: t('profile.editProfile', 'Edit Profile'),
@@ -115,11 +127,17 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         }
       },
     },
+    ...(isProfileWalletEntryPointEnabled() && !isGuest ? [{
+      id: 'wallet',
+      title: 'Wallet',
+      icon: Wallet,
+      onPress: () => navigation.navigate('Wallet'),
+    }] : []),
     {
       id: 'booking-history',
       title: t('profile.history', 'History'),
       icon: ClockCounterClockwise,
-      onPress: () => navigation.navigate('BookingHistory' as any, { initialTab: 'ticket' }),
+      onPress: () => navigation.navigate('BookingHistory', { initialTab: 'ticket' }),
     },
     {
       id: 'settings',
@@ -133,10 +151,10 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       icon: Question,
       onPress: () => {
         // Chatbot helper navigation (registered at root level)
-        navigation.navigate('Chatbot' as any);
+        navigation.navigate('Chatbot');
       },
     },
-  ];
+  ], [handleRequireAccount, isGuest, navigation, t]);
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
@@ -161,7 +179,12 @@ export function ProfileOverviewScreen(): React.JSX.Element {
           <View style={styles.profileInfoSection}>
             <View style={styles.avatarWrapper}>
               {user?.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+                <Image
+                  source={{ uri: user.avatarUrl }}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                  transition={120}
+                />
               ) : (
                 <View style={styles.initialsAvatar}>
                   <Text style={styles.initialsText}>
@@ -173,22 +196,22 @@ export function ProfileOverviewScreen(): React.JSX.Element {
             <View style={styles.namePhoneWrapper}>
               <View style={styles.nameVerifyRow}>
                 <Text style={styles.fullNameText}>{displayName}</Text>
-                {!isGuest && (
+                {!isGuest ? (
                   isVerified ? (
                     <CheckCircle size={18} color={theme.colors.success ?? '#22C55E'} weight="fill" style={styles.verifyBadge} />
                   ) : (
                     <WarningCircle size={18} color="#F59E0B" weight="fill" style={styles.verifyBadge} />
                   )
-                )}
+                ) : null}
               </View>
               <View style={styles.phoneRow}>
                 <Phone size={14} color={theme.colors.textSecondary} style={styles.phoneIcon} />
                 <Text style={styles.phoneText}>{displayPhone}</Text>
               </View>
-              {!isGuest && !isVerified && user?.email && (
+              {!isGuest && !isVerified && user?.email ? (
                 <Pressable
                   onPress={() => navigation.navigate('OTPVerification', {
-                    email: user.email!,
+                    email: user.email ?? '',
                     purpose: 'REGISTRATION',
                     fromProfile: true,
                   })}
@@ -197,7 +220,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
                   <WarningCircle size={14} color="#F59E0B" weight="bold" />
                   <Text style={styles.verifyButtonText}>Verify Account</Text>
                 </Pressable>
-              )}
+              ) : null}
             </View>
           </View>
 

@@ -22,7 +22,7 @@ import {
 } from 'phosphor-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { Input } from '@shared/components';
+import { Input, PhotoPicker } from '@shared/components';
 import { getApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useLocations } from '@features/location/hooks/useLocations';
@@ -78,6 +78,7 @@ import {
   CategoryChips,
   PricingBreakdown,
 } from '../components';
+import { buildCreateParcelPayload } from '../utils/createParcelPayload';
 
 type CreateParcelNavProp = NativeStackNavigationProp<ParcelStackParamList, 'CreateParcel'>;
 
@@ -158,6 +159,8 @@ export function CreateParcelScreen(): React.JSX.Element {
     toCity,
     fromLocationCode,
     toLocationCode,
+    photos,
+    setPackage,
     setReceivingStation: storeReceivingStation,
     setDropoffStation: storeDropoffStation,
   } = useParcelStore();
@@ -352,6 +355,10 @@ export function CreateParcelScreen(): React.JSX.Element {
     storeDropoffStation(station);
   }, [storeDropoffStation]);
 
+  const handlePhotosChange = useCallback((nextPhotos: string[]) => {
+    setPackage({ photos: nextPhotos });
+  }, [setPackage]);
+
   const validateCurrentStep = useCallback(() => {
     if (step === 1 && !receivingStation) {
       Alert.alert('VietRide', 'Please select an origin station.');
@@ -389,7 +396,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       estimatedValue ? `Estimated value: ${estimatedValue} VND` : null,
     ].filter(Boolean);
 
-    return {
+    return buildCreateParcelPayload({
       tripId: selectedTrip.tripId,
       dropoffStopId: null,
       bookingId: null,
@@ -400,9 +407,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       widthCm: dimensions.widthCm,
       heightCm: dimensions.heightCm,
       estimatedWeightKg,
-      // The current passenger API accepts a URL but exposes no authenticated
-      // upload contract. Never submit a local URI or a placeholder image URL.
-      photoUrl: null,
+      localPhotoUris: photos,
       recipient: {
         fullName: recipientName.trim(),
         phoneNumber: recipientPhone.trim(),
@@ -411,7 +416,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       deliveryMethod: 'TERMINAL_PICKUP',
       paymentMethod: backendPaymentMethod,
       voucherCode: appliedPromo?.code ?? null,
-    };
+    });
   }, [
     appliedPromo?.code,
     backendPaymentMethod,
@@ -422,6 +427,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     estimatedValue,
     estimatedWeightKg,
     packageCategory,
+    photos,
     recipientEmail,
     recipientName,
     recipientPhone,
@@ -453,6 +459,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         }
       }
 
+      setPackage({ photos: [] });
       navigation.navigate('ParcelDetail', { parcelId: result.parcelId });
     } catch (error) {
       if (toApiError(error).code === 'SESSION_INVALIDATED') {
@@ -466,6 +473,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     createParcelMutation,
     navigation,
     queryClient,
+    setPackage,
     step,
     validateCurrentStep,
   ]);
@@ -663,6 +671,13 @@ export function CreateParcelScreen(): React.JSX.Element {
             onUnitChange={setWeightUnit}
           />
           <CategoryChips value={packageCategory} onChange={setPackageCategory} />
+
+          <PhotoPicker
+            value={photos}
+            onChange={handlePhotosChange}
+            photoLabel="parcel photo"
+            title="Parcel photos (optional)"
+          />
 
           <Input
             label="Estimated Value (Optional)"

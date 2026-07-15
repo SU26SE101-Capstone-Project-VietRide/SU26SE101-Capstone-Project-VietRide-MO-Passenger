@@ -92,7 +92,7 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: B
         <View style={styles.tabBarShadowTight} pointerEvents="none" />
         <View style={styles.tabBarSurface} pointerEvents="none" />
         <View style={styles.tabBarSheen} pointerEvents="none" />
-        {state.routes.map((route: any, index: number) => {
+        {state.routes.map((route, index) => {
           const isFocused = state.index === index;
 
           const onPress = () => {
@@ -346,4 +346,4 @@ const createStyles = (theme: AppTheme) => ({
     width: '100%',
     height: '100%',
   },
-});
+} as const);

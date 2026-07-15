@@ -7,6 +7,7 @@ const oneWayResult = {
   status: 'CONFIRMED',
   totalAmount: 250_000,
   discountAmount: 0,
+  paymentId: null,
   paymentRedirectUrl: null,
   tickets: [],
 } satisfies BookingResult;
@@ -28,6 +29,8 @@ const roundTripResult = {
     tickets: [],
   },
   grandTotal: 500_000,
+  paymentId: null,
+  status: 'CONFIRMED',
   paymentRedirectUrl: null,
 } satisfies RoundTripResult;
 

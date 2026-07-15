@@ -133,7 +133,7 @@ export function ForgotPasswordScreen(): React.JSX.Element {
               <View style={styles.inputWrapper}>
                 <Input
                   label="Email"
-                  placeholder="user@example.com"
+                  placeholder="Email address"
                   keyboardType="email-address"
                   textContentType="emailAddress"
                   autoComplete="email"

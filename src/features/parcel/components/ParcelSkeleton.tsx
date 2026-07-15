@@ -65,7 +65,7 @@ export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonPr
 
   const renderSummarySkeleton = () => (
     <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
-      <View style={[styles.titleStub, { width: '50%', marginBottom: spacing.lg }]} />
+      <View style={[styles.titleStub, styles.summaryTitleStub]} />
       <View style={styles.routeItemStub}>
         <View style={styles.circleStub} />
         <View style={styles.routeTextStub} />
@@ -127,6 +127,10 @@ const createStyles = (theme: AppTheme) => ({
     height: 18,
     backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.xs,
+  },
+  summaryTitleStub: {
+    width: '50%',
+    marginBottom: spacing.lg,
   },
   ratingStub: {
     width: '25%',

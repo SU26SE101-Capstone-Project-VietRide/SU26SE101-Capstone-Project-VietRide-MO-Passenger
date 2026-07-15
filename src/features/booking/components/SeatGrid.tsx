@@ -38,8 +38,6 @@ interface DeckGroup {
   availableCount: number;
 }
 
-type SeatGridStyles = Record<string, any>;
-
 const MAX_CARD_WIDTH = 480;
 const CARD_PADDING = spacing.md;
 const ROW_AXIS_WIDTH = 40;
@@ -48,6 +46,12 @@ const SEAT_GAP = spacing.sm;
 const MIN_SEAT_SIZE = 34;
 const MAX_SEAT_SIZE = 58;
 const AXIS_HEIGHT = 28;
+
+function useSeatGridStyles() {
+  return useThemedStyles(createStyles);
+}
+
+type SeatGridStyles = ReturnType<typeof useSeatGridStyles>;
 
 const getDeckLetter = (deck: number): string => {
   if (deck > 0 && deck <= 26) {
@@ -410,7 +414,7 @@ export function SeatGrid({
   onSeatPress,
 }: SeatGridProps): React.JSX.Element {
   const theme = useTheme();
-  const styles = useThemedStyles(createStyles);
+  const styles = useSeatGridStyles();
   const { width } = useWindowDimensions();
   const groups = useMemo(() => buildDeckGroups(seatMap), [seatMap]);
   const [requestedDeck, setRequestedDeck] = useState<number | null>(null);
@@ -856,4 +860,4 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
     color: theme.colors.textTertiary,
   },
-});
+} as const);

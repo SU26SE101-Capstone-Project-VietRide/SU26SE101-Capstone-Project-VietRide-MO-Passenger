@@ -5,9 +5,7 @@ import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-
-const MIN_PASSENGERS = 1;
-const MAX_PASSENGERS = 9;
+import { normalizeBookingSeatCount } from '../constants/bookingLimits';
 
 interface PassengerCountInputProps {
   value: number;
@@ -16,10 +14,7 @@ interface PassengerCountInputProps {
 
 const normalizePassengerCount = (value: string): number => {
   const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) {
-    return MIN_PASSENGERS;
-  }
-  return Math.min(MAX_PASSENGERS, Math.max(MIN_PASSENGERS, parsed));
+  return normalizeBookingSeatCount(parsed);
 };
 
 export function PassengerCountInput({

@@ -71,12 +71,26 @@ def releaseStoreFile = System.getenv('VIETRIDE_ANDROID_KEYSTORE_PATH')
 def releaseStorePassword = System.getenv('VIETRIDE_ANDROID_KEYSTORE_PASSWORD')
 def releaseKeyAlias = System.getenv('VIETRIDE_ANDROID_KEY_ALIAS')
 def releaseKeyPassword = System.getenv('VIETRIDE_ANDROID_KEY_PASSWORD')
+def googleMapsApiKey = System.getenv('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY')
+    ?: findProperty('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY')
+    ?: ''
+def isReleaseTask = gradle.startParameter.taskNames.any { taskName ->
+    taskName.toLowerCase().contains('release')
+}
+def hasGoogleMapsApiKey = !googleMapsApiKey.trim().isEmpty()
+    && !googleMapsApiKey.toUpperCase().contains('YOUR_KEY')
 def hasReleaseSigningCredentials = [
     releaseStoreFile,
     releaseStorePassword,
     releaseKeyAlias,
     releaseKeyPassword,
 ].every { value -> value != null && !value.trim().isEmpty() }
+
+if (isReleaseTask && !hasGoogleMapsApiKey) {
+    throw new GradleException(
+        'EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is required for Android release tracking builds.'
+    )
+}
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -104,6 +118,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "0.0.1"
+        manifestPlaceholders = [GOOGLE_MAPS_API_KEY: googleMapsApiKey]
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }

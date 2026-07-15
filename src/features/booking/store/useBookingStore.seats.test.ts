@@ -10,6 +10,7 @@ jest.mock('../api/bookingApi', () => ({
 }));
 
 import type { SeatRow } from '../types';
+import { MAX_BOOKING_SEATS } from '../constants/bookingLimits';
 import { useBookingStore } from './useBookingStore';
 
 const seatMap: SeatRow[] = [
@@ -55,5 +56,35 @@ describe('booking seat selection', () => {
     useBookingStore.getState().toggleSeat('missing-seat');
 
     expect(useBookingStore.getState()).toBe(initialState);
+  });
+
+  it('does not select more seats than the backend booking limit', () => {
+    const availableSeats = Array.from({ length: MAX_BOOKING_SEATS + 1 }, (_, index) => ({
+      id: `B${index + 1}`,
+      label: `B${index + 1}`,
+      status: 'available' as const,
+      row: 2,
+      col: index + 1,
+      deck: 1,
+    }));
+
+    useBookingStore.setState({
+      seatMap: [{
+        rowLabel: '02',
+        rowNumber: 2,
+        deck: 1,
+        columns: availableSeats.map((seat) => seat.col),
+        leftSeats: availableSeats,
+        rightSeats: [],
+      }],
+      selectedSeats: [],
+    });
+
+    availableSeats.forEach((seat) => useBookingStore.getState().toggleSeat(seat.id));
+
+    expect(useBookingStore.getState().selectedSeats).toHaveLength(MAX_BOOKING_SEATS);
+    expect(useBookingStore.getState().selectedSeats).not.toContainEqual(
+      expect.objectContaining({ id: `B${MAX_BOOKING_SEATS + 1}` }),
+    );
   });
 });

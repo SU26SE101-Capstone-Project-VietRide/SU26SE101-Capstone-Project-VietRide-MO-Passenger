@@ -1,6 +1,13 @@
 import { formatTime } from '@shared/utils/format';
 
 export type BusType = 'sleeper' | 'limousine' | 'standard';
+export type TripLifecycleStatus =
+  | 'SCHEDULED'
+  | 'BOARDING'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'DISRUPTED';
 
 export interface TripSearchParams {
   originStationId?: string;
@@ -45,9 +52,11 @@ export interface BusTrip {
   totalSeats: number | null;
   departureCity: string;
   arrivalCity: string;
+  status?: TripLifecycleStatus;
 }
 
 export interface TripDetail extends BusTrip {
+  status: TripLifecycleStatus;
   stops: TripStop[];
 }
 
@@ -101,7 +110,7 @@ export interface TripDetailDto {
   tripId: string;
   operatorId: string;
   routeId: string;
-  status: string;
+  status: TripLifecycleStatus;
   vehicleId: string;
   departureDateTime: string;
   estimatedArrivalTime: string;
@@ -177,6 +186,7 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     id: dto.tripId,
     operatorId: dto.operatorId,
     routeId: dto.routeId,
+    status: dto.status,
     originStationId: dto.originStation.id,
     destinationStationId: dto.destinationStation.id,
     // Operator name and vehicle type are absent from the detail contract. The

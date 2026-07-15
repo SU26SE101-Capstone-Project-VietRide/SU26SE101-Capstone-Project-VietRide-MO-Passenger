@@ -108,6 +108,35 @@ describe('auth store account boundaries', () => {
     });
   });
 
+  it('clears all private query and feature state when logging out', async () => {
+    const account = user('account-a', 'Account A');
+    mockGetTokenBundle.mockResolvedValue({
+      accessToken: 'access-account-a',
+      refreshToken: 'refresh-account-a',
+    });
+    useAuthStore.setState({
+      user: account,
+      isAuthenticated: true,
+      isGuest: false,
+      isAuthLoading: false,
+      authError: null,
+    });
+
+    await useAuthStore.getState().logout();
+
+    expect(mockQueryClear).toHaveBeenCalledTimes(1);
+    expect(mockClearSessionBoundState).toHaveBeenCalledTimes(1);
+    expect(mockLogout).toHaveBeenCalledWith(
+      'refresh-account-a',
+      'access-account-a',
+    );
+    expect(useAuthStore.getState()).toMatchObject({
+      user: null,
+      isAuthenticated: false,
+      isGuest: false,
+    });
+  });
+
   it('rejects a delayed profile response from the previous account', async () => {
     const accountA = user('account-a', 'Account A');
     const accountB = user('account-b', 'Account B');

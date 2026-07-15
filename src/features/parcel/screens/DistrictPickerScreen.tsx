@@ -64,7 +64,7 @@ export function DistrictPicker(): React.JSX.Element {
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Select District - {city}</Text>
-        <View style={{ width: 22 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.searchBox}>
@@ -116,6 +116,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingBottom: spacing.md,
   },
   headerTitle: { fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary },
+  headerSpacer: { width: 22 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',

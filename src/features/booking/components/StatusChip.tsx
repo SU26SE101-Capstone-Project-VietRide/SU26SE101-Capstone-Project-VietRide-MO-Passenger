@@ -36,7 +36,7 @@ const getVariantStyle = (theme: AppTheme, variant: ChipVariant): { bg: string; t
   return styles[variant];
 };
 
-export const StatusChip = memo(function StatusChip({
+export const StatusChip = memo(function StatusChipComponent({
   label,
   variant = 'info',
   style,

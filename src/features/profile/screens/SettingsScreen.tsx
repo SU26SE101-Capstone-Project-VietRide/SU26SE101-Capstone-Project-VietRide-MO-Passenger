@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
@@ -26,10 +27,16 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAppStore } from '@shared/store/useAppStore';
+import type { ProfileStackParamList } from '@app/navigation/types';
+
+type SettingsNavigationProp = NativeStackNavigationProp<
+  ProfileStackParamList,
+  'Settings'
+>;
 
 export function SettingsScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<SettingsNavigationProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
@@ -410,4 +417,4 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
     lineHeight: 15,
   },
-});
+} as const);

@@ -1,6 +1,13 @@
 import type { StationSearchResult } from '@features/trip/types';
 import { mapParcelStation } from './useParcelStations';
 
+jest.mock('@features/trip/api/stationApi', () => ({
+  searchStations: jest.fn(async () => []),
+  stationKeys: {
+    search: (locationId: string) => ['stations', 'search', locationId],
+  },
+}));
+
 const station: StationSearchResult = {
   id: 'station-1',
   name: 'Bến xe Miền Đông',

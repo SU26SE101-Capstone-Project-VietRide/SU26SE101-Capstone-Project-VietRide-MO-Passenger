@@ -18,7 +18,8 @@ import type {
   TripResultsStatus,
   BookingResult,
   RoundTripResult,
-  CreateBookingPayload
+  CreateBookingPayload,
+  BookingSearchPrefill,
 } from '../types';
 import type { TripDetail } from '../../trip/types';
 import { searchTrips, getSeatMap, getTripDetail } from '../../trip/api/tripApi';
@@ -29,6 +30,11 @@ import { registerSessionCleanup } from '@shared/session/cleanup';
 import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
 import { isUuid } from '@shared/utils/pathSegment';
 import { toTripSearchDate } from '../utils/searchParams';
+import {
+  isValidBookingSeatCount,
+  MAX_BOOKING_SEATS,
+  normalizeBookingSeatCount,
+} from '../constants/bookingLimits';
 
 type BookingSubmissionResult = BookingResult | RoundTripResult;
 type LocationPayload = CreateBookingPayload['pickup'];
@@ -132,7 +138,7 @@ const buildDropOffPoints = (trip: TripDetail, selectedPickUp?: PickUpPoint | nul
 const toLocationPayload = (
   point: PickUpPoint | DropOffPoint | null,
   fallbackStationId?: string,
-): LocationPayload => {
+): LocationPayload | null => {
   const stationId = point?.stationId ?? fallbackStationId;
   if (stationId) {
     return { stationId };
@@ -143,18 +149,21 @@ const toLocationPayload = (
     return { stopId };
   }
 
-  return {};
+  return null;
 };
 
-const makeSeatRequests = (seats: Seat[], contactInfo: ContactInfo) =>
-  seats.map((seat) => ({
+const makeSeatRequests = (seats: Seat[]) => {
+  if (!isValidBookingSeatCount(seats.length)) {
+    throw new ApiRequestError({
+      message: 'Please select between 1 and 5 seats before booking.',
+      code: 'BOOKING_SEAT_COUNT_INVALID',
+    });
+  }
+
+  return seats.map((seat) => ({
     seatNumber: seat.id,
-    passenger: {
-      fullName: contactInfo.fullName.trim(),
-      phoneNumber: contactInfo.phone.trim(),
-      idNumber: contactInfo.idNumber.trim(),
-    },
   }));
+};
 
 const assertContactInfo = (contactInfo: ContactInfo) => {
   if (!contactInfo.fullName.trim() || !contactInfo.phone.trim() || !contactInfo.idNumber.trim()) {
@@ -162,9 +171,11 @@ const assertContactInfo = (contactInfo: ContactInfo) => {
   }
 };
 
-const assertLocationPayload = (label: string, payload: LocationPayload) => {
-  const provided = Number(Boolean(payload.stationId)) + Number(Boolean(payload.stopId));
-  if (provided !== 1) {
+const assertLocationPayload: (
+  label: string,
+  payload: LocationPayload | null,
+) => asserts payload is LocationPayload = (label, payload) => {
+  if (!payload) {
     throw new Error(`${label} must resolve to exactly one station or stop.`);
   }
 };
@@ -200,6 +211,7 @@ interface BookingStore {
   // ─── Search ──────────────────────────────────────────
   searchParams: SearchParams & { isRoundTrip?: boolean; returnDate?: string };
   setSearchParams: (params: Partial<SearchParams & { isRoundTrip?: boolean; returnDate?: string }>) => void;
+  applySearchPrefill: (params: BookingSearchPrefill) => void;
   swapCities: () => void;
 
   // ─── Round Trip State ────────────────────────────────
@@ -285,6 +297,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     set((state) => {
       const nextParams = { ...params };
 
+      if (params.passengers !== undefined) {
+        nextParams.passengers = normalizeBookingSeatCount(params.passengers);
+      }
+
       if (
         params.from !== undefined
         && params.from !== state.searchParams.from
@@ -324,6 +340,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         searchParams: { ...state.searchParams, ...nextParams },
       };
     }),
+  applySearchPrefill: (params) => {
+    get().resetBooking();
+    get().setSearchParams(params);
+  },
   swapCities: () =>
     set((state) => ({
       searchParams: {
@@ -406,7 +426,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           throw new BookingSearchValidationError('Return date must be on or after the departure date.');
         }
       }
-      const passengerCount = Math.max(1, Math.trunc(searchParams.passengers));
+      const passengerCount = normalizeBookingSeatCount(searchParams.passengers);
 
       const trips = await searchTrips({
         originLocationCode,
@@ -449,8 +469,6 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         dropOffPoints: [terminalDropOff],
         selectedPickUp: terminalPickUp,
         selectedDropOff: terminalDropOff,
-        voucherCode: '',
-        voucherDiscountPreview: 0,
         highestStepReached: Math.max(
           state.highestStepReached,
           state.currentLeg === 'return' ? 5 : 1,
@@ -562,6 +580,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         return state;
       }
 
+      if (state.selectedSeats.length >= MAX_BOOKING_SEATS) {
+        return state;
+      }
+
       return {
         selectedSeats: [
           ...state.selectedSeats,
@@ -666,13 +688,13 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
             tripId: outboundTrip.id,
             pickup: outboundPickup,
             dropoff: outboundDropoff,
-            seats: makeSeatRequests(state.outboundState.seats, state.contactInfo),
+            seats: makeSeatRequests(state.outboundState.seats),
           },
           return: {
             tripId: returnTrip.id,
             pickup: returnPickup,
             dropoff: returnDropoff,
-            seats: makeSeatRequests(state.returnState.seats, state.contactInfo),
+            seats: makeSeatRequests(state.returnState.seats),
           },
           voucherCode,
           paymentMethod,
@@ -703,7 +725,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           tripId: state.selectedTrip.id,
           pickup,
           dropoff,
-          seats: makeSeatRequests(state.selectedSeats, state.contactInfo),
+          seats: makeSeatRequests(state.selectedSeats),
           voucherCode,
           paymentMethod,
         };
@@ -724,7 +746,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           : staleBookingSessionError();
 
         if (generation === bookingGeneration) {
-          if (__DEV__) {
+          if (__DEV__ && apiError.code !== 'BOOKING_SEAT_COUNT_INVALID') {
             console.warn(
               `[Booking] Submission failed (${apiError.code}, ${apiError.statusCode ?? 'no-status'}).`,
             );

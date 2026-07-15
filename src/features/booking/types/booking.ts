@@ -95,18 +95,46 @@ export interface SearchParams {
   passengers: number;
 }
 
+export type BookingSearchPrefill = Partial<SearchParams & {
+  isRoundTrip: boolean;
+  returnDate: string;
+}>;
+
+export type BookingEntryIntent =
+  | { type: 'search' }
+  | {
+    type: 'promotion';
+    pendingVoucher: {
+      voucherId: string;
+      code: string;
+    };
+  };
+
 // ─── Popular Route ────────────────────────────────────────
 // ─── Recent Search ────────────────────────────────────────
 // ─── Booking Result ───────────────────────────────────────
 export interface BookingResult {
   bookingId: string;
   bookingCode: string;
-  status: 'PENDING_PAYMENT' | 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  status: BookingCreationStatus;
   totalAmount: number;
   discountAmount: number;
+  paymentId: string | null;
   paymentRedirectUrl: string | null;
   tickets: BookingTicketResult[];
 }
+
+export type BookingCreationStatus = 'PENDING_PAYMENT' | 'CONFIRMED';
+
+export type BookingStatus =
+  | BookingCreationStatus
+  | 'COMPLETED'
+  | 'EXPIRED'
+  | 'CANCELLED'
+  | 'NO_SHOW'
+  | 'PARTIAL_NO_SHOW'
+  | 'REFUNDED'
+  | 'DISRUPTED';
 
 export interface BookingTicketResult {
   ticketId: string;
@@ -135,6 +163,8 @@ export interface RoundTripResult {
     tickets: BookingTicketResult[];
   };
   grandTotal: number;
+  paymentId: string | null;
+  status: BookingCreationStatus;
   paymentRedirectUrl: string | null;
 }
 
@@ -142,24 +172,26 @@ export interface RoundTripResult {
 export type TripResultsStatus = 'loading' | 'success' | 'empty' | 'error';
 
 // ─── API Payloads ─────────────────────────────────────────
+export type BookingLocationPayload =
+  | { stationId: string; stopId?: never }
+  | { stationId?: never; stopId: string };
+
+export interface ShuttlePickupPayload {
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface SeatBookingPayload {
+  seatNumber: string;
+}
+
 export interface CreateBookingPayload {
   tripId: string;
-  pickup: {
-    stationId?: string;
-    stopId?: string;
-  };
-  dropoff: {
-    stationId?: string;
-    stopId?: string;
-  };
-  seats: Array<{
-    seatNumber: string;
-    passenger: {
-      fullName: string;
-      phoneNumber: string;
-      idNumber: string;
-    };
-  }>;
+  pickup: BookingLocationPayload;
+  dropoff?: BookingLocationPayload;
+  shuttlePickup?: ShuttlePickupPayload;
+  seats: SeatBookingPayload[];
   voucherCode?: string;
   paymentMethod: 'WALLET' | 'VNPAY';
 }
@@ -178,7 +210,7 @@ export interface BookingHistoryItem {
   originStationName: string;
   destinationStationName: string;
   departureDateTime: string;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  status: BookingStatus;
   totalAmount: number;
 }
 

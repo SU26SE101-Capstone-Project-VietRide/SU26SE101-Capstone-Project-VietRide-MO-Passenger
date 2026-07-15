@@ -6,6 +6,8 @@
  */
 
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { BookingEntryIntent } from '@features/booking/types';
+import type { TripLifecycleStatus } from '@features/trip/types';
 
 // ─── Auth Stack ───────────────────────────────────────────
 export type AuthStackParamList = {
@@ -27,22 +29,26 @@ export type AuthStackParamList = {
 
 // ─── Booking Stack (nested inside Main) ───────────────────
 export type BookingStackParamList = {
-  SearchRoutes: undefined;
+  SearchRoutes: { intent?: BookingEntryIntent } | undefined;
+  PopularRoutes: { intent?: BookingEntryIntent } | undefined;
   CityPicker: { mode: 'from' | 'to' };
   DatePicker: { mode?: 'departure' | 'return' } | undefined;
-  CreateTicketBooking: undefined;
-  DigitalTicket: undefined;
+  CreateTicketBooking: { intent: BookingEntryIntent } | undefined;
+  /**
+   * source='checkout' → show data from booking store (just completed)
+   * source='history'  → resolve the guarded history provider by bookingId
+   */
+  DigitalTicket:
+    | { source: 'checkout' }
+    | { source: 'history'; bookingId: string };
 };
-
-
 
 // ─── Parcel Stack ─────────────────────────────────────────
 export type ParcelStackParamList = {
-
   CityPicker: { mode: 'from' | 'to' };
   DistrictPicker: { city?: string };
   CreateParcel: undefined;
-  ParcelDetail: { parcelId: string; fromHistory?: boolean; };
+  ParcelDetail: { parcelId: string; fromHistory?: boolean };
   ParcelTracking: { parcelId: string };
 };
 
@@ -57,6 +63,7 @@ export type ProfileStackParamList = {
   Wallet: undefined;
   TopUp: undefined;
   Withdraw: undefined;
+  SavedPayments: undefined;
   AddPaymentMethod: undefined;
   OTPVerification: {
     email: string;
@@ -83,6 +90,18 @@ export type RootStackParamList = {
   Booking: NavigatorScreenParams<BookingStackParamList>;
   Parcel: NavigatorScreenParams<ParcelStackParamList>;
   Chatbot: undefined;
+  /**
+   * Tracking screen — accessible from DigitalTicket CTA or Chatbot intent
+   * tripId  : ID of the active trip to track
+   * bookingId: optional — display context (booking code header)
+   * stopId  : optional — pre-center map on a specific stop
+   */
+  Tracking: {
+    tripId: string;
+    bookingId?: string;
+    stopId?: string;
+    tripStatus?: TripLifecycleStatus;
+  };
 };
 
 // ─── Declaration merging for useNavigation type safety ────

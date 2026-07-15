@@ -3,15 +3,16 @@
  * Visual style: matches Parcel home (gradient bg, mascot, mint palette, card surfaces)
  */
 
-import React, { useCallback } from 'react';
-import { View, Text, ScrollView, StatusBar, Image } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { Alert, View, Text, ScrollView, StatusBar } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fontFamilies, spacing } from '@shared/theme';
 import { ProfileHeader } from '@shared/components';
-import { SearchForm } from '../components';
+import { PopularRoutesSection, RecentSearchesSection, SearchForm } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { BookingStackParamList } from '@app/navigation/types';
@@ -19,30 +20,95 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useShallow } from 'zustand/react/shallow';
+import { useBookingDiscovery } from '../hooks/useBookingDiscovery';
+import {
+  DEFAULT_BOOKING_ENTRY_INTENT,
+  initializeBookingEntry,
+} from '../utils/bookingDiscovery';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'SearchRoutes'>;
+type SearchRouteProp = RouteProp<BookingStackParamList, 'SearchRoutes'>;
 
 const catMascotImage = require('@assets/images/image 1.png');
 
 export function BusSearchScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
+  const route = useRoute<SearchRouteProp>();
   const user = useAuthStore((state) => state.user);
-  const { searchParams, swapCities, setSearchParams } = useBookingStore(useShallow((state) => ({
+  const {
+    searchParams,
+    swapCities,
+    setSearchParams,
+    resetFlowPreservingSearch,
+    setVoucherCode,
+  } = useBookingStore(useShallow((state) => ({
     searchParams: state.searchParams,
     swapCities: state.swapCities,
     setSearchParams: state.setSearchParams,
+    resetFlowPreservingSearch: state.resetFlowPreservingSearch,
+    setVoucherCode: state.setVoucherCode,
   })));
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const {
+    popularRoutes,
+    popularRoutesLoading,
+    popularRoutesError,
+    recentSearches,
+    recentSearchError,
+    recentSearchesLoading,
+    applyPopularRoute,
+    applyRecentSearch,
+    saveCurrentSearch,
+    clearRecentSearches,
+  } = useBookingDiscovery();
   const isSearchDisabled = !searchParams.originLocationCode
     || !searchParams.destinationLocationCode
     || searchParams.originLocationCode === searchParams.destinationLocationCode
     || !searchParams.date;
+  const entryIntent = route.params?.intent ?? DEFAULT_BOOKING_ENTRY_INTENT;
+
+  useEffect(() => {
+    initializeBookingEntry(entryIntent, {
+      resetFlowPreservingSearch,
+      setVoucherCode,
+    });
+  }, [entryIntent, resetFlowPreservingSearch, setVoucherCode]);
 
   const handleSearch = useCallback(() => {
-    navigation.navigate('CreateTicketBooking');
-  }, [navigation]);
+    saveCurrentSearch().catch(() => undefined);
+    navigation.navigate('CreateTicketBooking', { intent: entryIntent });
+  }, [entryIntent, navigation, saveCurrentSearch]);
+
+  const handlePopularRoutePress = useCallback((originCode: string, destinationCode: string) => {
+    if (applyPopularRoute(originCode, destinationCode) !== 'applied') return;
+    saveCurrentSearch().catch(() => undefined);
+    navigation.navigate('CreateTicketBooking', { intent: entryIntent });
+  }, [applyPopularRoute, entryIntent, navigation, saveCurrentSearch]);
+
+  const handleRecentSearchPress = useCallback((searchId: string) => {
+    const result = applyRecentSearch(searchId);
+    if (result === 'applied') {
+      navigation.navigate('CreateTicketBooking', { intent: entryIntent });
+      return;
+    }
+
+    if (result === 'past_date' || result === 'invalid_date') {
+      Alert.alert(
+        'Choose a new departure date',
+        'That saved travel date is no longer available. Select a new date to continue.',
+      );
+    }
+  }, [applyRecentSearch, entryIntent, navigation]);
+
+  const handleViewAllPopularRoutes = useCallback(() => {
+    navigation.navigate('PopularRoutes', { intent: entryIntent });
+  }, [entryIntent, navigation]);
+
+  const handleClearRecentSearches = useCallback(() => {
+    clearRecentSearches().catch(() => undefined);
+  }, [clearRecentSearches]);
 
   const openCityPicker = useCallback(
     (mode: 'from' | 'to') => {
@@ -54,6 +120,9 @@ export function BusSearchScreen(): React.JSX.Element {
   const openDatePicker = useCallback(() => {
     navigation.navigate('DatePicker');
   }, [navigation]);
+
+  const openOriginPicker = useCallback(() => openCityPicker('from'), [openCityPicker]);
+  const openDestinationPicker = useCallback(() => openCityPicker('to'), [openCityPicker]);
 
   const handlePassengersChange = useCallback(
     (passengers: number) => {
@@ -100,7 +169,7 @@ export function BusSearchScreen(): React.JSX.Element {
               <Text style={styles.welcomeSubtitle}>Where are we going today?</Text>
             </View>
             <View style={styles.mascotContainer}>
-              <Image source={catMascotImage} style={styles.mascotImage} resizeMode="contain" />
+              <Image source={catMascotImage} style={styles.mascotImage} contentFit="contain" />
             </View>
           </View>
 
@@ -110,13 +179,29 @@ export function BusSearchScreen(): React.JSX.Element {
             to={searchParams.to}
             date={searchParams.date}
             passengers={searchParams.passengers}
-            onFromPress={() => openCityPicker('from')}
-            onToPress={() => openCityPicker('to')}
+            onFromPress={openOriginPicker}
+            onToPress={openDestinationPicker}
             onDatePress={openDatePicker}
             onPassengersChange={handlePassengersChange}
             onSwapPress={swapCities}
             onSearchPress={handleSearch}
             searchDisabled={isSearchDisabled}
+          />
+
+          <PopularRoutesSection
+            routes={popularRoutes}
+            isLoading={popularRoutesLoading}
+            hasError={popularRoutesError}
+            onRoutePress={handlePopularRoutePress}
+            onViewAll={handleViewAllPopularRoutes}
+          />
+
+          <RecentSearchesSection
+            searches={recentSearches}
+            error={recentSearchError}
+            isLoading={recentSearchesLoading}
+            onSearchPress={handleRecentSearchPress}
+            onClear={handleClearRecentSearches}
           />
 
           {/* Bottom spacer */}

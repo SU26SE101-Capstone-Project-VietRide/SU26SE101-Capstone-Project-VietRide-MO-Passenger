@@ -11,7 +11,6 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -26,7 +25,7 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { register } from '../api/authApi';
-import { AuthStepHeader } from '../components';
+import { AuthFooter, AuthStepHeader } from '../components';
 import {
   apiFieldErrors,
   registerSchema,
@@ -211,7 +210,7 @@ export function RegisterScreen(): React.JSX.Element {
               <View style={styles.inputWrapper}>
                 <Input
                   label="Email"
-                  placeholder="user@example.com"
+                  placeholder="Email address"
                   keyboardType="email-address"
                   textContentType="emailAddress"
                   autoComplete="email"
@@ -304,17 +303,11 @@ export function RegisterScreen(): React.JSX.Element {
 
           </ScrollView>
 
-          <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
-              Already have an account?{' '}
-            </Text>
-            <Pressable
-              onPress={() => navigation.navigate('Login')}
-              style={({ pressed }) => (pressed ? styles.pressed : null)}
-            >
-              <Text style={[styles.footerLink, { color: theme.colors.primary }]}>Log in</Text>
-            </Pressable>
-          </View>
+          <AuthFooter
+            prompt="Already have an account?"
+            actionLabel="Log in"
+            onAction={() => navigation.navigate('Login')}
+          />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -382,24 +375,5 @@ const styles = StyleSheet.create({
   termsLink: {
     color: colors.primary,
     fontFamily: fontFamilies.medium,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingVertical: spacing.xxl,
-    paddingHorizontal: spacing.xl,
-  },
-  footerText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-  },
-  footerLink: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: colors.primary,
-  },
-  pressed: {
-    opacity: 0.75,
   },
 });

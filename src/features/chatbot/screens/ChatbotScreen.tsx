@@ -30,7 +30,7 @@ import {
 import type { RootStackParamList } from '@app/navigation/types';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useBookingStore } from '@features/booking/store/useBookingStore';
-import type { SearchParams } from '@features/booking/types';
+import type { BookingSearchPrefill } from '@features/booking/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -49,11 +49,6 @@ import type {
 } from '../types/chatbot';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chatbot'>;
-type BookingSearchDraft = Partial<SearchParams & {
-  isRoundTrip: boolean;
-  returnDate: string;
-}>;
-
 interface QuickAction {
   id: 'policy' | 'booking' | 'history' | 'parcel';
   label: string;
@@ -75,8 +70,7 @@ export function ChatbotScreen(): React.JSX.Element {
   const listRef = useRef<FlashListRef<ChatMessage> | null>(null);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const setSearchParams = useBookingStore((state) => state.setSearchParams);
-  const resetBooking = useBookingStore((state) => state.resetBooking);
+  const applySearchPrefill = useBookingStore((state) => state.applySearchPrefill);
   const resetAuthState = useAuthStore((state) => state.resetAuthState);
   const {
     availability,
@@ -130,7 +124,7 @@ export function ChatbotScreen(): React.JSX.Element {
   }, [availability, isOnline, t]);
 
   const handleBookingPress = useCallback((draft: ChatBookingDraft) => {
-    const params: BookingSearchDraft = {
+    const params: BookingSearchPrefill = {
       isRoundTrip: false,
       returnDate: '',
       passengers: draft.passengers ?? 1,
@@ -146,12 +140,11 @@ export function ChatbotScreen(): React.JSX.Element {
     }
     if (draft.date) params.date = draft.date;
 
-    resetBooking();
-    setSearchParams(params);
+    applySearchPrefill(params);
     navigation.navigate('Booking', {
       screen: draft.isReadyToSearch ? 'CreateTicketBooking' : 'SearchRoutes',
     });
-  }, [navigation, resetBooking, setSearchParams]);
+  }, [applySearchPrefill, navigation]);
 
   const handleRate = useCallback((
     messageId: string,

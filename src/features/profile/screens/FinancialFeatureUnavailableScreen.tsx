@@ -1,7 +1,8 @@
 import React, { useCallback } from 'react';
 import { Pressable, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -10,13 +11,26 @@ import { useThemedStyles } from '@shared/hooks';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
 import { FinancialFeatureNotice } from '../components/FinancialFeatureNotice';
+import type { ProfileStackParamList } from '@app/navigation/types';
+import {
+  getFinancialUnavailableNotice,
+  type FinancialUnavailableRoute,
+} from '../config/financialCapabilities';
+
+type FinancialUnavailableNavigation = NativeStackNavigationProp<ProfileStackParamList>;
+type FinancialUnavailableRouteProp = RouteProp<
+  ProfileStackParamList,
+  FinancialUnavailableRoute
+>;
 
 export function FinancialFeatureUnavailableScreen(): React.JSX.Element {
-  const navigation = useNavigation();
+  const navigation = useNavigation<FinancialUnavailableNavigation>();
+  const route = useRoute<FinancialUnavailableRouteProp>();
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
+  const notice = getFinancialUnavailableNotice(route.name);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -35,13 +49,17 @@ export function FinancialFeatureUnavailableScreen(): React.JSX.Element {
           <ArrowLeft size={22} color={theme.colors.textPrimary} weight="bold" />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {t('profile.walletAndPayments', 'Wallet & payments')}
+          {notice.title}
         </Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.content}>
-        <FinancialFeatureNotice />
+        <FinancialFeatureNotice
+          title={notice.title}
+          description={notice.description}
+          safetyNote={notice.safetyNote}
+        />
       </View>
     </SafeAreaView>
   );

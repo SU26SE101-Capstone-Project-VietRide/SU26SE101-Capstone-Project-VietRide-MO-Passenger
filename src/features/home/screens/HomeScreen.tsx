@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
+  Alert,
   View,
   Text,
   ScrollView,
@@ -7,14 +8,22 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import {
+  useNavigation,
+  type CompositeNavigationProp,
+} from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { useWalletBalance } from '@features/profile/hooks/useWallet';
+import type { MainTabParamList, RootStackParamList } from '@app/navigation/types';
 import { ProfileHeader } from '@shared/components';
 import { useBookingStore } from '../../booking/store/useBookingStore';
+import { useBookingDiscovery } from '../../booking/hooks/useBookingDiscovery';
 import { useParcelStore } from '../../parcel/store/useParcelStore';
 import {
   Ticket,
@@ -27,10 +36,22 @@ import {
   ArrowRight,
 } from 'phosphor-react-native';
 
-import { PassengerCountInput } from '../../booking/components';
+import {
+  PassengerCountInput,
+  PopularRoutesSection,
+  RecentSearchesSection,
+} from '../../booking/components';
+import { PromotionsSection } from '../components/PromotionsSection';
+import { RecentParcelsSection } from '../components/RecentParcelsSection';
+import { WalletSummaryCard } from '../components/WalletSummaryCard';
+
+type HomeNavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, 'Home'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
 
 export function HomeScreen(): React.JSX.Element {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<HomeNavigationProp>();
   const user = useAuthStore((state) => state.user);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -39,7 +60,22 @@ export function HomeScreen(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
 
   // Booking flow state/actions
-  const { searchParams, swapCities, setSearchParams } = useBookingStore();
+  const searchParams = useBookingStore((state) => state.searchParams);
+  const swapCities = useBookingStore((state) => state.swapCities);
+  const setSearchParams = useBookingStore((state) => state.setSearchParams);
+  const {
+    popularRoutes,
+    popularRoutesLoading,
+    popularRoutesError,
+    recentSearches,
+    recentSearchError,
+    recentSearchesLoading,
+    applyPopularRoute,
+    applyRecentSearch,
+    saveCurrentSearch,
+    clearRecentSearches,
+  } = useBookingDiscovery();
+  const walletBalanceQuery = useWalletBalance();
   const canSearchTickets = Boolean(
     searchParams.originLocationCode
     && searchParams.destinationLocationCode
@@ -49,16 +85,90 @@ export function HomeScreen(): React.JSX.Element {
   );
 
   // Parcel flow state/actions
-  const { fromCity, toCity, toDistrict } = useParcelStore();
+  const fromCity = useParcelStore((state) => state.fromCity);
+  const toCity = useParcelStore((state) => state.toCity);
+  const toDistrict = useParcelStore((state) => state.toDistrict);
 
   const handleNotificationPress = useCallback(() => {
     navigation.navigate('Notification');
   }, [navigation]);
 
   const handleTicketSearch = useCallback(() => {
+    saveCurrentSearch().catch(() => undefined);
     navigation.navigate('Booking', {
       screen: 'CreateTicketBooking',
+      params: { intent: { type: 'search' } },
     });
+  }, [navigation, saveCurrentSearch]);
+
+  const handlePopularRoutePress = useCallback((
+    originCode: string,
+    destinationCode: string,
+  ) => {
+    if (applyPopularRoute(originCode, destinationCode) !== 'applied') return;
+    saveCurrentSearch().catch(() => undefined);
+    navigation.navigate('Booking', {
+      screen: 'CreateTicketBooking',
+      params: { intent: { type: 'search' } },
+    });
+  }, [applyPopularRoute, navigation, saveCurrentSearch]);
+
+  const handleViewAllPopularRoutes = useCallback(() => {
+    navigation.navigate('Booking', { screen: 'PopularRoutes' });
+  }, [navigation]);
+
+  const handleRecentSearchPress = useCallback((searchId: string) => {
+    const result = applyRecentSearch(searchId);
+    if (result === 'applied') {
+      navigation.navigate('Booking', {
+        screen: 'CreateTicketBooking',
+        params: { intent: { type: 'search' } },
+      });
+      return;
+    }
+
+    if (result === 'past_date' || result === 'invalid_date') {
+      Alert.alert(
+        'Choose a new departure date',
+        'That saved travel date is no longer available. Select a new date to continue.',
+      );
+    }
+  }, [applyRecentSearch, navigation]);
+
+  const handleClearRecentSearches = useCallback(() => {
+    clearRecentSearches().catch(() => undefined);
+  }, [clearRecentSearches]);
+
+  const handleWalletPress = useCallback(() => {
+    navigation.navigate('Main', {
+      screen: 'Profile',
+      params: { screen: 'Wallet' },
+    });
+  }, [navigation]);
+
+  const handlePromotionPress = useCallback((voucherId: string, code: string) => {
+    if (!voucherId || !code) return;
+    navigation.navigate('Booking', {
+      screen: 'SearchRoutes',
+      params: {
+        intent: {
+          type: 'promotion',
+          pendingVoucher: { voucherId, code },
+        },
+      },
+    });
+  }, [navigation]);
+
+  const handleRecentParcelPress = useCallback((parcelId: string, tripId: string) => {
+    if (!parcelId || !tripId) return;
+    navigation.navigate('Parcel', {
+      screen: 'ParcelDetail',
+      params: { parcelId, fromHistory: true },
+    });
+  }, [navigation]);
+
+  const handleViewAllParcels = useCallback(() => {
+    navigation.navigate('BookingHistory', { initialTab: 'parcel' });
   }, [navigation]);
 
   const openBookingCityPicker = useCallback(
@@ -124,6 +234,7 @@ export function HomeScreen(): React.JSX.Element {
 
       {/* Main Content Area */}
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         onScroll={handleTabBarScroll}
@@ -332,6 +443,40 @@ export function HomeScreen(): React.JSX.Element {
             )}
           </View>
         </View>
+
+        {user ? (
+          <WalletSummaryCard
+            balance={walletBalanceQuery.data?.balance}
+            isLoading={walletBalanceQuery.isLoading}
+            hasError={walletBalanceQuery.isError}
+            onPress={handleWalletPress}
+          />
+        ) : null}
+
+        {activeTab === 'ticket' ? (
+          <>
+            <PopularRoutesSection
+              routes={popularRoutes}
+              isLoading={popularRoutesLoading}
+              hasError={popularRoutesError}
+              onRoutePress={handlePopularRoutePress}
+              onViewAll={handleViewAllPopularRoutes}
+            />
+            <RecentSearchesSection
+              searches={recentSearches}
+              error={recentSearchError}
+              isLoading={recentSearchesLoading}
+              onSearchPress={handleRecentSearchPress}
+              onClear={handleClearRecentSearches}
+            />
+            <PromotionsSection onPromotionPress={handlePromotionPress} />
+          </>
+        ) : (
+          <RecentParcelsSection
+            onParcelPress={handleRecentParcelPress}
+            onViewAll={handleViewAllParcels}
+          />
+        )}
 
       </ScrollView>
     </SafeAreaView>

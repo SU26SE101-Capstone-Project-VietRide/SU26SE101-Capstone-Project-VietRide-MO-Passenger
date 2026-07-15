@@ -13,7 +13,6 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
-import * as ImagePicker from 'expo-image-picker';
 import { Camera, ArrowLeft, CheckCircle } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
@@ -25,6 +24,7 @@ import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { Button, Input } from '@shared/components';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { getApiErrorMessage, toApiError } from '@shared/api/errors';
+import { pickLocalImages } from '@shared/services/localImagePicker';
 import {
   apiProfileFieldErrors,
   editProfileFieldErrors,
@@ -123,39 +123,45 @@ export function EditProfileScreen(): React.JSX.Element {
   );
 
   const handlePickAvatar = useCallback(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const result = await pickLocalImages({
+        source: 'library',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.82,
+        selectionLimit: 1,
+      });
 
-    if (!permission.granted) {
+      if (result.status === 'permission-denied') {
+        Alert.alert(
+          'Cần quyền truy cập ảnh',
+          'VietRide cần quyền mở thư viện ảnh để bạn chọn ảnh đại diện.',
+        );
+        return;
+      }
+
+      if (result.status !== 'selected') {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const validation = validateAvatarAsset(asset);
+
+      if (!validation.success) {
+        Alert.alert('Ảnh không hợp lệ', validation.message);
+        return;
+      }
+
+      setSelectedAvatar({
+        uri: validation.file.uri,
+        file: validation.file,
+      });
+    } catch {
       Alert.alert(
-        'Cần quyền truy cập ảnh',
-        'VietRide cần quyền mở thư viện ảnh để bạn chọn ảnh đại diện.',
+        'Không thể mở thư viện ảnh',
+        'Vui lòng thử lại sau.',
       );
-      return;
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.82,
-    });
-
-    if (result.canceled || result.assets.length === 0) {
-      return;
-    }
-
-    const asset = result.assets[0];
-    const validation = validateAvatarAsset(asset);
-
-    if (!validation.success) {
-      Alert.alert('Ảnh không hợp lệ', validation.message);
-      return;
-    }
-
-    setSelectedAvatar({
-      uri: validation.file.uri,
-      file: validation.file,
-    });
   }, []);
 
   return (

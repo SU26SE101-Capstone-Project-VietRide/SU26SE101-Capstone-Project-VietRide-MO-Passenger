@@ -8,8 +8,9 @@
  * Props: items, renderItem, onSelect, title, searchPlaceholder, initialQuery
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, Pressable, TextInput, FlatList } from 'react-native';
+import type { ListRenderItemInfo } from 'react-native';
 import { ArrowLeft, MagnifyingGlass } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -22,6 +23,7 @@ interface ItemPickerProps<T> {
   keyExtractor: (item: T) => string;
   renderItem: (item: T) => React.ReactNode;
   onSelect: (item: T) => void;
+  onBack: () => void;
   searchPlaceholder?: string;
   initialQuery?: string;
   searchBy?: (item: T, q: string) => boolean;
@@ -33,6 +35,7 @@ export function ItemPicker<T>({
   keyExtractor,
   renderItem,
   onSelect,
+  onBack,
   searchPlaceholder = 'Search...',
   initialQuery = '',
   searchBy,
@@ -47,10 +50,17 @@ export function ItemPicker<T>({
     return items.filter((item) => searchBy(item, q));
   }, [items, query, searchBy]);
 
+  const renderListItem = useCallback(
+    ({ item }: ListRenderItemInfo<T>) => (
+      <PickerRow item={item} renderContent={renderItem} onSelect={onSelect} />
+    ),
+    [onSelect, renderItem],
+  );
+
   return (
     <View style={styles.safe}>
       <View style={styles.headerRow}>
-        <Pressable onPress={() => (onSelect as any)('__BACK__')} style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}>
+        <Pressable onPress={onBack} style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}>
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>{title}</Text>
@@ -73,18 +83,31 @@ export function ItemPicker<T>({
         data={filtered}
         keyExtractor={keyExtractor}
         contentContainerStyle={styles.list}
-        renderItem={() => null}
+        renderItem={renderListItem}
         ListEmptyComponent={
           <Text style={styles.empty}>Nothing found</Text>
         }
       />
-      {filtered.map((item) => (
-        <React.Fragment key={keyExtractor(item)}>
-          {renderItem(item)}
-        </React.Fragment>
-      ))}
     </View>
   );
+}
+
+interface PickerRowProps<T> {
+  item: T;
+  renderContent: (item: T) => React.ReactNode;
+  onSelect: (item: T) => void;
+}
+
+function PickerRow<T>({
+  item,
+  renderContent,
+  onSelect,
+}: PickerRowProps<T>): React.JSX.Element {
+  const handlePress = useCallback(() => {
+    onSelect(item);
+  }, [item, onSelect]);
+
+  return <Pressable onPress={handlePress}>{renderContent(item)}</Pressable>;
 }
 
 const createStyles = (theme: AppTheme) => ({

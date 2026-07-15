@@ -35,7 +35,7 @@ import { formatCountdown } from '@shared/utils/format';
 import type { AuthStackParamList, ProfileStackParamList } from '@app/navigation/types';
 import { verifyEmail, resendVerificationEmail } from '../api/authApi';
 import { useAuthStore } from '../store/useAuthStore';
-import { AuthStepHeader } from '../components';
+import { AuthFooter, AuthStepHeader } from '../components';
 import {
   AUTH_CODE_LENGTH,
   apiFieldErrors,
@@ -329,17 +329,11 @@ export function OTPVerificationScreen(): React.JSX.Element {
             </View>
           </ScrollView>
 
-          <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
-              {footerQuestion}{' '}
-            </Text>
-            <Pressable
-              onPress={() => navigation.goBack()}
-              style={({ pressed }) => (pressed ? styles.pressed : null)}
-            >
-              <Text style={[styles.footerLink, { color: theme.colors.primary }]}>Go back</Text>
-            </Pressable>
-          </View>
+          <AuthFooter
+            prompt={footerQuestion}
+            actionLabel="Go back"
+            onAction={() => navigation.goBack()}
+          />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -440,22 +434,6 @@ const styles = StyleSheet.create({
     color: colors.error,
     marginBottom: spacing.md,
     textAlign: 'center',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingVertical: spacing.xxl,
-    paddingHorizontal: spacing.xl,
-  },
-  footerText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-  },
-  footerLink: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: colors.primary,
   },
   pressed: {
     opacity: 0.75,

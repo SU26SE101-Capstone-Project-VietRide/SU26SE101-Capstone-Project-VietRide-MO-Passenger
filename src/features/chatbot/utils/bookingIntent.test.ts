@@ -78,7 +78,7 @@ describe('extractBookingDraft', () => {
     expect(extractBookingDraft(
       'Đặt 20 vé từ HCM đến Đà Lạt hôm nay',
       locations,
-    )?.passengers).toBe(9);
+    )?.passengers).toBe(5);
   });
 
   it('does not navigate directly for invalid or explicitly past dates', () => {

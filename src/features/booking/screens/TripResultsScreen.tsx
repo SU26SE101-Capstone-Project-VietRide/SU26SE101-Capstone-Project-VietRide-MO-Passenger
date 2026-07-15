@@ -17,6 +17,7 @@ import type { BusTrip, TripFilterState, TripPriceRange, TripTimeSlot } from '../
 
 interface TripResultsStepProps {
   onNext: (step: number) => void;
+  autoSearchEnabled: boolean;
   filters?: TripFilterState;
   onClearFilters?: () => void;
 }
@@ -88,6 +89,7 @@ const filterTrips = (trips: BusTrip[], filters: TripFilterState): BusTrip[] => {
 
 export function TripResultsScreen({
   onNext,
+  autoSearchEnabled,
   filters = defaultFilters,
   onClearFilters,
 }: TripResultsStepProps): React.JSX.Element {
@@ -114,8 +116,8 @@ export function TripResultsScreen({
   const hasLoadedTrips = trips.length > 0;
 
   useEffect(() => {
-    searchTrips();
-  }, [searchTrips]);
+    if (autoSearchEnabled) searchTrips();
+  }, [autoSearchEnabled, currentLeg, searchTrips]);
 
   const handleTripPress = useCallback(
     (trip: BusTrip) => {

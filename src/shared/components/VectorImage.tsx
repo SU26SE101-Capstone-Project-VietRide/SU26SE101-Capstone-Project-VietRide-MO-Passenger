@@ -6,14 +6,17 @@
  */
 
 import React from 'react';
-import { Image, ImageStyle, StyleProp } from 'react-native';
+import { Image } from 'react-native';
+import type { ImageStyle, StyleProp, ViewStyle } from 'react-native';
 import { SvgUri } from 'react-native-svg';
 import { useTheme } from '@shared/contexts/ThemeContext';
 
+type VectorDimension = number | `${number}%`;
+
 interface VectorImageProps {
   source: string;
-  width?: number | string;
-  height?: number | string;
+  width?: VectorDimension;
+  height?: VectorDimension;
   style?: StyleProp<ImageStyle>;
   color?: string;
 }
@@ -34,7 +37,7 @@ export function VectorImage({
         uri={source}
         width={width}
         height={height}
-        style={style as any}
+        style={style as StyleProp<ViewStyle>}
         color={iconColor}
       />
     );
@@ -43,7 +46,7 @@ export function VectorImage({
   return (
     <Image
       source={{ uri: source }}
-      style={[{ width: width as any, height: height as any }, style]}
+      style={[{ width, height }, style]}
       resizeMode="contain"
     />
   );

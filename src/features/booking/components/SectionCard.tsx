@@ -16,7 +16,7 @@ interface SectionCardProps {
   testID?: string;
 }
 
-export const SectionCard = memo(function SectionCard({
+export const SectionCard = memo(function SectionCardComponent({
   children,
   style,
   testID,

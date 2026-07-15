@@ -11,6 +11,9 @@ import { SecurityFeatureUnavailableScreen } from './screens/SecurityFeatureUnava
 import { PROFILE_SECURITY_CAPABILITIES } from './config/securityCapabilities';
 import { ThemeScreen } from './screens/ThemeScreen';
 import { FinancialFeatureUnavailableScreen } from './screens/FinancialFeatureUnavailableScreen';
+import { WalletScreen } from './screens/WalletScreen';
+import { TopUpScreen } from './screens/TopUpScreen';
+import { PROFILE_FINANCIAL_CAPABILITIES } from './config/financialCapabilities';
 import { OTPVerificationScreen } from '@features/auth';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -19,6 +22,12 @@ const Stack = createNativeStackNavigator<ProfileStackParamList>();
 const ChangePasswordRoute = PROFILE_SECURITY_CAPABILITIES.changePassword
   ? ChangePasswordScreen
   : SecurityFeatureUnavailableScreen;
+const WalletRoute = PROFILE_FINANCIAL_CAPABILITIES.walletOverview
+  ? WalletScreen
+  : FinancialFeatureUnavailableScreen;
+const TopUpRoute = PROFILE_FINANCIAL_CAPABILITIES.topUp
+  ? TopUpScreen
+  : FinancialFeatureUnavailableScreen;
 
 export function ProfileNavigator(): React.JSX.Element {
   const theme = useTheme();
@@ -38,9 +47,10 @@ export function ProfileNavigator(): React.JSX.Element {
       <Stack.Screen name="SecuritySettings" component={SecurityScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordRoute} />
       <Stack.Screen name="ThemeSettings" component={ThemeScreen} />
-      <Stack.Screen name="Wallet" component={FinancialFeatureUnavailableScreen} />
-      <Stack.Screen name="TopUp" component={FinancialFeatureUnavailableScreen} />
+      <Stack.Screen name="Wallet" component={WalletRoute} />
+      <Stack.Screen name="TopUp" component={TopUpRoute} />
       <Stack.Screen name="Withdraw" component={FinancialFeatureUnavailableScreen} />
+      <Stack.Screen name="SavedPayments" component={FinancialFeatureUnavailableScreen} />
       <Stack.Screen name="AddPaymentMethod" component={FinancialFeatureUnavailableScreen} />
       <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} options={{ animation: 'slide_from_bottom' }} />
     </Stack.Navigator>

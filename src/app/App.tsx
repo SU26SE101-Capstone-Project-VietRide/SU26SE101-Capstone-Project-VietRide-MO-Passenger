@@ -2,7 +2,7 @@ import React from 'react';
 import { useFonts } from 'expo-font';
 import { AppProviders } from '@app/providers';
 import { useNetworkStatus } from '@shared/hooks';
-import { LoadingOverlay } from '@shared/components';
+import { LoadingOverlay } from '@shared/components/LoadingOverlay';
 import { useAppStore } from '@shared/store';
 
 function AppContent(): React.JSX.Element {

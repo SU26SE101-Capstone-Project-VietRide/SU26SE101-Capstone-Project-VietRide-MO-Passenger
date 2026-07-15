@@ -17,7 +17,7 @@ interface TripSummaryRowProps {
   style?: ViewStyle;
 }
 
-export const TripSummaryRow = memo(function TripSummaryRow({
+export const TripSummaryRow = memo(function TripSummaryRowComponent({
   label,
   value,
   isTotal = false,

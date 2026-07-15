@@ -1,12 +1,15 @@
 import React, { useCallback } from 'react';
 import { View, Text, Pressable, Image } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 import { ArrowLeft, Bell } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { AppTheme } from '@shared/theme';
+import type { RootStackParamList } from '@app/navigation/types';
 
 export interface ProfileHeaderProps {
   showBackButton?: boolean;
@@ -15,7 +18,7 @@ export interface ProfileHeaderProps {
   onNotificationPress?: () => void;
   userName?: string;
   greeting?: string;
-  avatarSource?: any;
+  avatarSource?: ImageSourcePropType;
 }
 
 export function ProfileHeader({
@@ -27,7 +30,7 @@ export function ProfileHeader({
   greeting = 'Xin chào,',
   avatarSource = require('../../assets/images/Avatar.png'),
 }: ProfileHeaderProps): React.JSX.Element {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const authUser = useAuthStore((state) => state.user);
@@ -57,7 +60,7 @@ export function ProfileHeader({
     if (onNotificationPress) {
       onNotificationPress();
     } else {
-      navigation.navigate('Notification');
+      navigation.navigate('Main', { screen: 'Notification' });
     }
   };
 
@@ -184,4 +187,4 @@ const createStyles = (theme: AppTheme) => ({
     opacity: 0.8,
     transform: [{ scale: 0.96 }],
   },
-});
+} as const);

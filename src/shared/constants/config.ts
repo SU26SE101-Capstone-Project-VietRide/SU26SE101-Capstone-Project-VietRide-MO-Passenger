@@ -7,7 +7,7 @@
 
 import { normalizeUrlBase } from '@shared/utils/url';
 
-type Environment = 'development' | 'staging' | 'production';
+export type Environment = 'development' | 'staging' | 'production';
 
 interface AppConfig {
   readonly apiBaseUrl: string;
@@ -19,15 +19,26 @@ interface AppConfig {
   readonly isProd: boolean;
 }
 
-const normalizeEnv = (value?: string): Environment => {
+const normalizeEnv = (
+  value: string | undefined,
+  isDevelopmentBuild: boolean,
+): Environment => {
   if (value === 'staging' || value === 'production') {
     return value;
   }
 
-  return 'development';
+  if (value === 'development') {
+    return value;
+  }
+
+  // A missing value is convenient in a development bundle, while malformed
+  // values and release builds fail closed to production semantics.
+  return value == null || value.trim() === ''
+    ? (isDevelopmentBuild ? 'development' : 'production')
+    : 'production';
 };
 
-const env = normalizeEnv(process.env.EXPO_PUBLIC_APP_ENV);
+const env = normalizeEnv(process.env.EXPO_PUBLIC_APP_ENV, __DEV__);
 
 const requireEnvValue = (name: string, value: string | undefined): string => {
   if (!value || value.trim().length === 0) {
@@ -62,6 +73,18 @@ const requireServiceUrl = (
 const apiBaseUrlValue = process.env.EXPO_PUBLIC_API_BASE_URL;
 const wsUrlValue = process.env.EXPO_PUBLIC_WS_URL;
 const secureTransportRequired = env !== 'development';
+const googleMapsApiKeyValue = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? '';
+
+const resolveGoogleMapsApiKey = (): string => {
+  const isPlaceholder = googleMapsApiKeyValue.toUpperCase().includes('YOUR_KEY');
+  if (env === 'production' && (!googleMapsApiKeyValue || isPlaceholder)) {
+    throw new Error(
+      '[Config] EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is required in production.',
+    );
+  }
+
+  return isPlaceholder ? '' : googleMapsApiKeyValue;
+};
 
 export const appConfig: AppConfig = {
   apiBaseUrl: requireServiceUrl(
@@ -74,7 +97,7 @@ export const appConfig: AppConfig = {
     wsUrlValue,
     secureTransportRequired ? ['wss:'] : ['ws:', 'wss:'],
   ),
-  googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
+  googleMapsApiKey: resolveGoogleMapsApiKey(),
   env,
   isDev: env === 'development',
   isStaging: env === 'staging',

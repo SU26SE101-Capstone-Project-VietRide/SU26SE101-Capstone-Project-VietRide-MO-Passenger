@@ -12,7 +12,7 @@ export interface WeightSliderProps {
   onUnitChange: (unit: 'kg' | 'lbs') => void;
 }
 
-export const WeightSlider = memo(function WeightSlider({
+export const WeightSlider = memo(function WeightSliderComponent({
   value,
   unit,
   onValueChange,

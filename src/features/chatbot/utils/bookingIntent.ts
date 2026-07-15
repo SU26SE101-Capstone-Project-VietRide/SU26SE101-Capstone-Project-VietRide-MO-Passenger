@@ -1,8 +1,7 @@
 import type { Location } from '@features/location/types/location';
 import { normalizeLocationSearchText } from '@features/location/utils/locationSearch';
 import type { ChatBookingDraft } from '../types/chatbot';
-
-const MAX_PASSENGERS = 9;
+import { normalizeBookingSeatCount } from '@features/booking/constants/bookingLimits';
 const BOOKING_TERMS = [
   'dat ve',
   'mua ve',
@@ -136,7 +135,7 @@ const extractPassengers = (message: string): number | undefined => {
   );
   if (!match) return undefined;
 
-  return Math.min(MAX_PASSENGERS, Math.max(1, Number.parseInt(match[1], 10)));
+  return normalizeBookingSeatCount(Number.parseInt(match[1], 10));
 };
 
 /**

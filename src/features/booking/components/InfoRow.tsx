@@ -17,7 +17,7 @@ interface InfoRowProps {
   style?: ViewStyle;
 }
 
-export const InfoRow = memo(function InfoRow({
+export const InfoRow = memo(function InfoRowComponent({
   label,
   value,
   showDivider = false,

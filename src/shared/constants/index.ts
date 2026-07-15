@@ -3,6 +3,7 @@
  */
 
 export { appConfig } from './config';
+export { isDemoMode, resolveDemoMode } from './demoMode';
 export { ASSETS } from './assets';
 export { TOKEN_SERVICE_KEY } from './auth';
 

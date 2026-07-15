@@ -6,28 +6,35 @@
  */
 
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {
+  createBottomTabNavigator,
+  type BottomTabBarProps,
+} from '@react-navigation/bottom-tabs';
 
 import type { MainTabParamList } from './types';
 import { HomeScreen, NotificationScreen } from '@features/home';
-import { View } from 'react-native';
+import { ChatbotScreen } from '@features/chatbot';
 import { ProfileNavigator, BookingHistoryScreen } from '@features/profile';
 import { CustomTabBar } from '@shared/components';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+const renderTabBar = (props: BottomTabBarProps): React.JSX.Element => (
+  <CustomTabBar {...props} />
+);
+
 // ─── Navigator ────────────────────────────────────────────
 export function MainTabNavigator(): React.JSX.Element {
   return (
     <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
+      tabBar={renderTabBar}
       screenOptions={{
         headerShown: false,
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Notification" component={NotificationScreen} />
-      <Tab.Screen name="ChatbotTab" component={View} />
+      <Tab.Screen name="ChatbotTab" component={ChatbotScreen} />
       <Tab.Screen name="BookingHistory" component={BookingHistoryScreen} />
       <Tab.Screen name="Profile" component={ProfileNavigator} />
     </Tab.Navigator>

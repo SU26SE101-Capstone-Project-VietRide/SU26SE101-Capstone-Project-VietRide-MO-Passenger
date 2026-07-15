@@ -38,7 +38,7 @@ interface ImageUploadSlotProps {
   accessibilityHint?: string;
 }
 
-export const ImageUploadSlot = memo(function ImageUploadSlot({
+export const ImageUploadSlot = memo(function ImageUploadSlotComponent({
   onPress,
   label = 'Add parcel photos',
   helperText = 'Support JPG, PNG up to 5MB',

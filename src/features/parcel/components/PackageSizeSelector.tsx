@@ -19,7 +19,7 @@ const SIZE_OPTIONS: { key: PackageSize; label: string; sub: string; Icon: React.
   { key: 'large', label: 'Large', sub: '55x55 cm', Icon: DotsThreeCircle },
 ];
 
-export const PackageSizeSelector = memo(function PackageSizeSelector({
+export const PackageSizeSelector = memo(function PackageSizeSelectorComponent({
   packageSize,
   onSelect,
 }: PackageSizeSelectorProps): React.JSX.Element {

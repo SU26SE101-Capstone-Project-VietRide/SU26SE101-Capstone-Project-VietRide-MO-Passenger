@@ -132,14 +132,36 @@ export function formatDateTime(
     formatter = new Intl.DateTimeFormat(locale, {
       day: '2-digit',
       month: '2-digit',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      ...(locale.startsWith('vi') ? { hour12: false } : {}),
+      hourCycle: 'h23',
     });
     dateTimeFormatters.set(locale, formatter);
   }
 
-  return formatter.format(date);
+  let day: string | undefined;
+  let month: string | undefined;
+  let year: string | undefined;
+  let hour: string | undefined;
+  let minute: string | undefined;
+
+  for (const part of formatter.formatToParts(date)) {
+    switch (part.type) {
+      case 'day': day = part.value; break;
+      case 'month': month = part.value; break;
+      case 'year': year = part.value; break;
+      case 'hour': hour = part.value; break;
+      case 'minute': minute = part.value; break;
+      default: break;
+    }
+  }
+
+  if (!day || !month || !year || !hour || !minute) {
+    return '';
+  }
+
+  return `${day}/${month}/${year} ${hour}:${minute}`;
 }
 
 /**

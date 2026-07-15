@@ -25,12 +25,18 @@ describe('shared formatters', () => {
   });
 
   it('reuses deterministic Vietnamese date and time semantics', () => {
-    const timestamp = '2026-07-13T08:30:00+07:00';
-    expect(formatDate(timestamp)).toBe('13/07/2026');
-    expect(formatTime(timestamp)).toMatch(/08:30|01:30/);
-    expect(formatShortDate(timestamp)).toMatch(/1[23][\/-]07/);
-    expect(formatMonthYear(timestamp, 'en-US')).toMatch(/July 2026/);
-    expect(formatDateTime(timestamp)).toMatch(/13[\/-]07[\/-]2026.*(?:08:30|01:30)/);
+    const localDate = new Date(2026, 6, 13, 8, 30);
+    expect(formatDate(localDate)).toBe('13/07/2026');
+    expect(formatTime(localDate)).toBe('08:30');
+    expect(formatShortDate(localDate)).toMatch(/^13[/-]07$/);
+    expect(formatMonthYear(localDate, 'en-US')).toMatch(/July 2026/);
+    expect(formatDateTime(localDate)).toBe('13/07/2026 08:30');
+  });
+
+  it('keeps date-time fields in DD/MM/YYYY HH:mm order across locales', () => {
+    const localDate = new Date(2026, 6, 13, 8, 30);
+
+    expect(formatDateTime(localDate, 'en-US')).toBe('13/07/2026 08:30');
   });
 
   it('normalizes countdown values', () => {

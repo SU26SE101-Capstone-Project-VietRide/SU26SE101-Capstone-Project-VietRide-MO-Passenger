@@ -21,7 +21,7 @@ interface RadioOptionProps {
   style?: ViewStyle;
 }
 
-export const RadioOption = memo(function RadioOption({
+export const RadioOption = memo(function RadioOptionComponent({
   label,
   sublabel,
   selected = false,

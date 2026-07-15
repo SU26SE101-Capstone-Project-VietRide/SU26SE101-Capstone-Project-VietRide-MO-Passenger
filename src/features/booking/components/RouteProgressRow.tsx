@@ -25,7 +25,7 @@ interface RouteProgressRowProps {
   style?: ViewStyle;
 }
 
-export const RouteProgressRow = memo(function RouteProgressRow({
+export const RouteProgressRow = memo(function RouteProgressRowComponent({
   departureCode,
   departureTime,
   departureName,

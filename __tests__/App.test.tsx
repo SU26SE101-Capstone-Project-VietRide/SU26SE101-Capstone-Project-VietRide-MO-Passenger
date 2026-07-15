@@ -57,6 +57,13 @@ jest.mock('@features/location/hooks/useLocations', () => ({
   })),
 }));
 
+// The app-shell smoke test verifies provider composition. Navigator contracts
+// and screens have focused suites; loading the full route graph here made this
+// single assertion spend most of its time transforming unrelated screens.
+jest.mock('@app/navigation/RootNavigator', () => ({
+  RootNavigator: () => null,
+}));
+
 jest.mock('react-native-config', () => ({
   ENV: 'development',
   API_BASE_URL: 'https://api.vietride.online/v1',
@@ -66,8 +73,15 @@ jest.mock('react-native-config', () => ({
 
 test('renders correctly', async () => {
   const App = require('../src/app/App').default as typeof import('../src/app/App').default;
+  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
   await ReactTestRenderer.act(async () => {
-    ReactTestRenderer.create(<App />);
+    renderer = ReactTestRenderer.create(<App />);
   });
-}, 15_000);
+
+  expect(renderer?.toJSON()).toBeDefined();
+
+  await ReactTestRenderer.act(async () => {
+    renderer?.unmount();
+  });
+});

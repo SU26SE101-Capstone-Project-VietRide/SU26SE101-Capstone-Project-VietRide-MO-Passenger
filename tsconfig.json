@@ -11,7 +11,7 @@
       "@shared/*": ["src/shared/*"],
       "@assets/*": ["src/assets/*"]
     },
-    "types": ["jest"]
+    "types": ["jest", "node"]
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["**/node_modules", "**/Pods"]
