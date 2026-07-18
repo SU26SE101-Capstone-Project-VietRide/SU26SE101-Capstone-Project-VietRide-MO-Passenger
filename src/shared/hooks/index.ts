@@ -10,5 +10,10 @@ export { useNetworkStatus } from './useNetworkStatus';
 export { useThemedStyles } from './useThemedStyles';
 export { useApiError } from './useApiError';
 export { useTabBarScrollBehavior } from './useTabBarScrollBehavior';
-export { usePaymentDeepLink } from './usePaymentDeepLink';
-export type { VnPayReturnParams } from './usePaymentDeepLink';
+export {
+  PAYMENT_RETURN_APP_LINK,
+  PAYMENT_RETURN_DEEP_LINK,
+  parsePaymentReturnUrl,
+  usePaymentDeepLink,
+} from './usePaymentDeepLink';
+export type { PaymentReturnEvent } from './usePaymentDeepLink';

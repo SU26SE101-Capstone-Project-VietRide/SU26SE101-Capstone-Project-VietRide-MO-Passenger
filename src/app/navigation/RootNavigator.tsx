@@ -23,7 +23,7 @@ import {
   useTokenRefreshScheduler,
 } from '@features/auth';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { LoadingOverlay } from '@shared/components';
+import { AppLaunchScreen } from '@shared/components';
 import { PaymentDeepLinkHandler } from '@app/components/PaymentDeepLinkHandler';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -40,7 +40,7 @@ export function RootNavigator(): React.JSX.Element {
   const canEnterApp = isAuthenticated || isGuest;
 
   if (isAuthLoading) {
-    return <LoadingOverlay visible message="Đang kiểm tra phiên đăng nhập..." />;
+    return <AppLaunchScreen message="Đang khôi phục phiên đăng nhập..." />;
   }
 
   return (

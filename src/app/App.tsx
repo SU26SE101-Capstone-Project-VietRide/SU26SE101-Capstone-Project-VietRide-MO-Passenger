@@ -3,6 +3,7 @@ import { useFonts } from 'expo-font';
 import { AppProviders } from '@app/providers';
 import { useNetworkStatus } from '@shared/hooks';
 import { LoadingOverlay } from '@shared/components/LoadingOverlay';
+import { AppLaunchScreen } from '@shared/components/AppLaunchScreen';
 import { useAppStore } from '@shared/store';
 
 function AppContent(): React.JSX.Element {
@@ -27,9 +28,9 @@ export default function App(): React.JSX.Element | null {
     'BeVietnamPro-Bold': require('../assets/fonts/BeVietnamPro-Bold.ttf'),
   });
 
-  // Render a full-screen loading screen while fonts are loading
+  // Keep the native splash and the first React frame visually continuous.
   if (!fontsLoaded && !fontError) {
-    return <LoadingOverlay visible={true} />;
+    return <AppLaunchScreen message="Đang chuẩn bị trải nghiệm của bạn..." />;
   }
 
   return (

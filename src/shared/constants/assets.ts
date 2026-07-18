@@ -1,7 +1,10 @@
+/** Centralized local brand assets. Keep static requires here so Metro can bundle them. */
+export const APP_LOGO = require('../../assets/images/app_logo_placeholder.png');
+
 /**
  * Remote Assets configuration
  *
- * Centralized store for remote image and vector assets fetched from figma.
+ * Legacy store for remote image and vector assets fetched from Figma.
  */
 
 export const ASSETS = {

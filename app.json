@@ -1,11 +1,16 @@
 {
   "expo": {
-    "name": "VietRidePassenger",
+    "name": "VietRide",
     "slug": "viet-ride-passenger",
     "version": "0.0.1",
     "scheme": "vietride",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./src/assets/images/app_logo_placeholder.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EFF7F8"
+    },
     "plugins": [
       [
         "expo-image-picker",
@@ -34,6 +39,11 @@
     },
     "android": {
       "package": "com.vietride.passenger",
+      "icon": "./src/assets/images/app_icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/images/app_icon_adaptive_foreground.png",
+        "backgroundColor": "#EFF7F8"
+      },
       "allowBackup": false,
       "intentFilters": [
         {
@@ -43,7 +53,19 @@
             {
               "scheme": "vietride",
               "host": "payments",
-              "pathPrefix": "/return"
+              "path": "/return"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "app.vietride.online",
+              "path": "/payments/return"
             }
           ],
           "category": ["DEFAULT", "BROWSABLE"]

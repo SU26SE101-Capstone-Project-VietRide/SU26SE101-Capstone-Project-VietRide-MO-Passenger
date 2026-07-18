@@ -71,17 +71,20 @@ jest.mock('react-native-config', () => ({
   GOOGLE_MAPS_API_KEY: '',
 }), { virtual: true });
 
-test('renders correctly', async () => {
-  const App = require('../src/app/App').default as typeof import('../src/app/App').default;
+// Resolve the module during suite setup so Metro/Jest transform time is not
+// charged to this tiny render assertion on slower Windows runners.
+const App = require('../src/app/App').default as typeof import('../src/app/App').default;
+
+test('renders correctly', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
-  await ReactTestRenderer.act(async () => {
+  ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(<App />);
   });
 
   expect(renderer?.toJSON()).toBeDefined();
 
-  await ReactTestRenderer.act(async () => {
+  ReactTestRenderer.act(() => {
     renderer?.unmount();
   });
 });

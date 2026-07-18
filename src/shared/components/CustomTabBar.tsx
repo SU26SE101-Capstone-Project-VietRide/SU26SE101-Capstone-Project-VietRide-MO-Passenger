@@ -16,9 +16,7 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import { useTabBarStore } from '@shared/store/useTabBarStore';
 import type { AppTheme } from '@shared/theme';
-
-// Import local image for AI button
-const appLogoPlaceholder = require('../../assets/images/app_logo_placeholder.png');
+import { APP_LOGO } from '@shared/constants/assets';
 
 export const CUSTOM_TAB_BAR_BASE_HEIGHT = 76;
 const TAB_BAR_COLLAPSE_DURATION_MS = 320;
@@ -126,7 +124,7 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: B
                   ]}
                 >
                   <Image
-                    source={appLogoPlaceholder}
+                    source={APP_LOGO}
                     style={styles.fabImage}
                     resizeMode="cover"
                   />

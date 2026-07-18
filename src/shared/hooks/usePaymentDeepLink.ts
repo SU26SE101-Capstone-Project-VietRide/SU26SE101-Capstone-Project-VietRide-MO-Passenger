@@ -1,113 +1,129 @@
-/**
- * usePaymentDeepLink — Handles VNPay payment return deep links
- *
- * Listens for `vietride://payments/return?vnp_ResponseCode=...&vnp_TxnRef=...`
- * and fires a callback so the app can reconcile payment status.
- *
- * Flow:
- * 1. User pays via VNPay in external browser
- * 2. VNPay redirects to `vietride://payments/return?...`
- * 3. Android intent-filter catches it → app resumes
- * 4. This hook parses the URL and notifies subscribers
- */
-
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Linking } from 'react-native';
 
-export interface VnPayReturnParams {
-  /** '00' = success, anything else = failure/cancel */
-  vnp_ResponseCode: string | null;
-  vnp_TxnRef: string | null;
-  vnp_Amount: string | null;
-  vnp_OrderInfo: string | null;
-  vnp_TransactionNo: string | null;
-  /** The full raw URL */
-  rawUrl: string;
+export const PAYMENT_RETURN_DEEP_LINK = 'vietride://payments/return';
+export const PAYMENT_RETURN_APP_LINK = 'https://app.vietride.online/payments/return';
+
+const MAX_PAYMENT_RETURN_URL_LENGTH = 4_096;
+const MAX_QUERY_PARAMETER_COUNT = 32;
+const MAX_QUERY_KEY_LENGTH = 96;
+const MAX_QUERY_VALUE_LENGTH = 1_024;
+const DUPLICATE_DELIVERY_WINDOW_MS = 1_500;
+
+export interface PaymentReturnEvent {
+  source: 'custom-scheme' | 'app-link';
 }
 
-const PAYMENT_RETURN_PATH = 'payments/return';
+const hasUnambiguousQuery = (url: URL): boolean => {
+  const seenKeys = new Set<string>();
+  let parameterCount = 0;
 
-function parsePaymentReturnUrl(url: string): VnPayReturnParams | null {
+  for (const [rawKey, value] of url.searchParams.entries()) {
+    parameterCount += 1;
+    const key = rawKey.toLowerCase();
+
+    if (
+      parameterCount > MAX_QUERY_PARAMETER_COUNT
+      || key.length === 0
+      || key.length > MAX_QUERY_KEY_LENGTH
+      || value.length > MAX_QUERY_VALUE_LENGTH
+      || seenKeys.has(key)
+    ) {
+      return false;
+    }
+
+    seenKeys.add(key);
+  }
+
+  return true;
+};
+
+/**
+ * Accepts only VietRide's exact payment-return endpoints. Query values are
+ * deliberately not exposed: browser-return data is untrusted and can only
+ * wake the app so authenticated APIs can reconcile the actual payment state.
+ */
+export function parsePaymentReturnUrl(url: string): PaymentReturnEvent | null {
+  if (url.length === 0 || url.length > MAX_PAYMENT_RETURN_URL_LENGTH) {
+    return null;
+  }
+
   try {
-    // Normalize: vietride://payments/return?... → parse query params
-    const questionMark = url.indexOf('?');
-    if (questionMark === -1) {
+    const parsedUrl = new URL(url);
+    if (
+      parsedUrl.username
+      || parsedUrl.password
+      || parsedUrl.port
+      || parsedUrl.hash
+      || !hasUnambiguousQuery(parsedUrl)
+    ) {
       return null;
     }
 
-    // Verify this is a payment return URL
-    const pathPart = url.substring(0, questionMark).toLowerCase();
-    if (!pathPart.includes(PAYMENT_RETURN_PATH)) {
-      return null;
+    if (
+      parsedUrl.protocol === 'vietride:'
+      && parsedUrl.hostname === 'payments'
+      && parsedUrl.pathname === '/return'
+    ) {
+      return { source: 'custom-scheme' };
     }
 
-    const queryString = url.substring(questionMark + 1);
-    const params = new URLSearchParams(queryString);
-
-    return {
-      vnp_ResponseCode: params.get('vnp_ResponseCode'),
-      vnp_TxnRef: params.get('vnp_TxnRef'),
-      vnp_Amount: params.get('vnp_Amount'),
-      vnp_OrderInfo: params.get('vnp_OrderInfo'),
-      vnp_TransactionNo: params.get('vnp_TransactionNo'),
-      rawUrl: url,
-    };
+    if (
+      parsedUrl.protocol === 'https:'
+      && parsedUrl.hostname === 'app.vietride.online'
+      && parsedUrl.pathname === '/payments/return'
+    ) {
+      return { source: 'app-link' };
+    }
   } catch {
     return null;
   }
+
+  return null;
 }
 
-type PaymentReturnHandler = (params: VnPayReturnParams) => void;
+type PaymentReturnHandler = (event: PaymentReturnEvent) => void;
 
-/**
- * Hook that listens for VNPay payment return deep links.
- *
- * @param onPaymentReturn Called when the app receives a payment return deep link.
- *   The `vnp_ResponseCode === '00'` indicates success.
- *
- * @example
- * ```tsx
- * usePaymentDeepLink((params) => {
- *   if (params.vnp_ResponseCode === '00') {
- *     // Payment succeeded — reconcile with backend
- *     refetchBookingStatus();
- *   } else {
- *     // Payment failed or cancelled
- *     showPaymentFailedAlert();
- *   }
- * });
- * ```
- */
+/** Handles cold and warm payment returns without trusting gateway query data. */
 export function usePaymentDeepLink(onPaymentReturn: PaymentReturnHandler): void {
   const handlerRef = useRef(onPaymentReturn);
+  const lastDeliveryAtRef = useRef<number | null>(null);
   handlerRef.current = onPaymentReturn;
 
   const handleUrl = useCallback(({ url }: { url: string }) => {
-    const params = parsePaymentReturnUrl(url);
-    if (params) {
-      handlerRef.current(params);
+    const event = parsePaymentReturnUrl(url);
+    if (!event) return;
+
+    const now = Date.now();
+    const lastDeliveryAt = lastDeliveryAtRef.current;
+    if (
+      lastDeliveryAt !== null
+      && now - lastDeliveryAt < DUPLICATE_DELIVERY_WINDOW_MS
+    ) {
+      return;
     }
+
+    lastDeliveryAtRef.current = now;
+    handlerRef.current(event);
   }, []);
 
   useEffect(() => {
-    // 1. Handle deep link that opened/resumed the app (cold start)
+    let isMounted = true;
+    const subscription = Linking.addEventListener('url', handleUrl);
+
     Linking.getInitialURL()
       .then((url) => {
-        if (url) {
+        if (isMounted && url) {
           handleUrl({ url });
         }
       })
       .catch(() => {
-        // Silently ignore — getInitialURL can fail in dev
+        // A failed initial URL lookup must never block app startup.
       });
 
-    // 2. Handle deep links while the app is already running (warm resume)
-    const subscription = Linking.addEventListener('url', handleUrl);
-
     return () => {
+      isMounted = false;
       subscription.remove();
     };
   }, [handleUrl]);
 }
-
-export { parsePaymentReturnUrl };

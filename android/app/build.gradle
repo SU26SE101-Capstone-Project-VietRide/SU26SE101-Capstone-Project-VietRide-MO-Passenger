@@ -77,8 +77,16 @@ def googleMapsApiKey = System.getenv('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY')
 def isReleaseTask = gradle.startParameter.taskNames.any { taskName ->
     taskName.toLowerCase().contains('release')
 }
-def hasGoogleMapsApiKey = !googleMapsApiKey.trim().isEmpty()
-    && !googleMapsApiKey.toUpperCase().contains('YOUR_KEY')
+def normalizedGoogleMapsApiKey = googleMapsApiKey.trim()
+def upperGoogleMapsApiKey = normalizedGoogleMapsApiKey.toUpperCase()
+def hasPlaceholderGoogleMapsApiKey = upperGoogleMapsApiKey.startsWith('TEST_')
+    || upperGoogleMapsApiKey.contains('YOUR_KEY')
+    || upperGoogleMapsApiKey.contains('PLACEHOLDER')
+def hasProductionGoogleMapsApiKey = !normalizedGoogleMapsApiKey.isEmpty()
+    && !hasPlaceholderGoogleMapsApiKey
+def allowInternalPlaceholderMapsKey = (
+    findProperty('vietride.allowInternalPlaceholderMapsKey') ?: false
+).toBoolean()
 def hasReleaseSigningCredentials = [
     releaseStoreFile,
     releaseStorePassword,
@@ -86,10 +94,18 @@ def hasReleaseSigningCredentials = [
     releaseKeyPassword,
 ].every { value -> value != null && !value.trim().isEmpty() }
 
-if (isReleaseTask && !hasGoogleMapsApiKey) {
+if (isReleaseTask
+    && !hasProductionGoogleMapsApiKey
+    && !(allowInternalPlaceholderMapsKey && !normalizedGoogleMapsApiKey.isEmpty())) {
     throw new GradleException(
-        'EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is required for Android release tracking builds.'
+        'A non-placeholder EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is required for Android release builds. '
+            + 'Internal integration APKs must opt in explicitly with '
+            + '-Pvietride.allowInternalPlaceholderMapsKey=true.'
     )
+}
+
+if (isReleaseTask && allowInternalPlaceholderMapsKey && hasPlaceholderGoogleMapsApiKey) {
+    logger.warn('Building an INTERNAL APK with a placeholder Google Maps key; maps are intentionally unavailable.')
 }
 
 /**
