@@ -465,6 +465,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     returnState,
     resetFlowPreservingSearch,
     setVoucherCode,
+    restoreLegForEdit,
   } = useBookingStore(useShallow((state) => ({
     highestStepReached: state.highestStepReached,
     bookingStatus: state.bookingStatus,
@@ -476,6 +477,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     returnState: state.returnState,
     resetFlowPreservingSearch: state.resetFlowPreservingSearch,
     setVoucherCode: state.setVoucherCode,
+    restoreLegForEdit: state.restoreLegForEdit,
   })));
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -568,12 +570,12 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     if (isRoundTrip) {
       const targetLeg = getRoundTripLegForStep(targetStep);
       if (targetLeg) {
-        useBookingStore.setState({ currentLeg: targetLeg });
+        restoreLegForEdit(targetLeg);
       }
     }
 
     setStep(targetStep);
-  }, [isRoundTrip]);
+  }, [isRoundTrip, restoreLegForEdit]);
 
   const isBookingInteractionLocked = useCallback(
     () => isSubmitting || bookingCompletionRef.current?.isRunning === true,

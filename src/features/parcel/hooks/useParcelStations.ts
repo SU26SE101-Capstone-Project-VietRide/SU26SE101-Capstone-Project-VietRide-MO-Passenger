@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import type { Location } from '@features/location/types/location';
 import { searchStations, stationKeys } from '@features/trip/api/stationApi';
 import type { StationSearchResult } from '@features/trip/types';
+import type { CurrentCoordinates } from '@shared/hooks/useCurrentCoordinates';
 import type { Station } from '../types';
-import type { CurrentCoordinates } from './useCurrentCoordinates';
 
 const STATION_STALE_TIME_MS = 10 * 60 * 1000;
 const STATION_GC_TIME_MS = 30 * 60 * 1000;

@@ -11,6 +11,7 @@ import type { AppTheme } from '@shared/theme';
 import { FloatingActionBar, RouteProgressRow, SeatLegend } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { SeatGrid } from '../components/SeatGrid';
+import { useStationDetail } from '@features/trip/hooks';
 
 interface SeatSelectionStepProps {
   onNext: (step: number) => void;
@@ -32,6 +33,8 @@ export function SeatSelectionScreen({
   );
   const setHighestStep = useBookingStore(state => state.setHighestStep);
   const styles = useThemedStyles(createStyles);
+  // Warm the capability cache while seat/detail requests run in parallel.
+  useStationDetail(selectedTrip?.originStationId, Boolean(selectedTrip?.originStationId));
 
   useEffect(() => {
     initSeatMap();
@@ -60,6 +63,7 @@ export function SeatSelectionScreen({
       </View>
 
       <ScrollView
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -86,8 +90,6 @@ export function SeatSelectionScreen({
             onSeatPress={toggleSeat}
           />
         </View>
-
-        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       <FloatingActionBar
@@ -118,6 +120,10 @@ const createStyles = (theme: AppTheme) => ({
   scrollContent: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+  scroll: {
+    flex: 1,
   },
   routeSummary: {
     marginBottom: spacing.md,
@@ -129,8 +135,5 @@ const createStyles = (theme: AppTheme) => ({
   seatWrap: {
     marginTop: spacing.md,
     alignItems: 'center',
-  },
-  bottomSpacer: {
-    height: 220,
   },
 });

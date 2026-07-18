@@ -188,6 +188,14 @@ export interface ShuttlePickupPayload {
   longitude: number;
 }
 
+/**
+ * Memory-only Shuttle draft. `stationId` binds sensitive coordinates to the
+ * exact origin station and is deliberately stripped from the network payload.
+ */
+export interface ShuttlePickupDraft extends ShuttlePickupPayload {
+  stationId: string;
+}
+
 export interface SeatBookingPayload {
   seatNumber: string;
 }

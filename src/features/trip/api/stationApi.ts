@@ -1,6 +1,11 @@
 import { apiClient } from '@shared/api/axiosInstance';
-import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
-import type { StationSearchResult } from '../types';
+import {
+  ApiRequestError,
+  unwrapApiResponse,
+  type ApiEnvelope,
+} from '@shared/api/errors';
+import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
+import type { StationDetail, StationSearchResult } from '../types';
 
 type StationSearchPayload =
   | StationSearchResult[]
@@ -13,6 +18,8 @@ export const stationKeys = {
   all: ['stations'] as const,
   search: (locationId: string) =>
     [...stationKeys.all, 'search', locationId] as const,
+  detail: (stationId: string) =>
+    [...stationKeys.all, 'detail', stationId] as const,
 };
 
 const normalizeStationSearchResult = (
@@ -48,4 +55,28 @@ export async function searchStations(
   );
 
   return normalizeStationSearchResult(unwrapApiResponse(response.data));
+}
+
+export async function getStation(
+  stationId: string,
+  signal?: AbortSignal,
+): Promise<StationDetail> {
+  const stationIdSegment = encodeUuidPathSegment(stationId, 'stationId');
+  const path = `/stations/${stationIdSegment}`;
+  const response = signal
+    ? await apiClient.get<ApiEnvelope<StationDetail>>(path, { signal })
+    : await apiClient.get<ApiEnvelope<StationDetail>>(path);
+  const station = unwrapApiResponse(response.data);
+
+  if (
+    typeof station.id !== 'string'
+    || station.id.toLowerCase() !== stationId.toLowerCase()
+  ) {
+    throw new ApiRequestError({
+      message: 'Station data does not match the requested station.',
+      code: 'INVALID_API_RESPONSE',
+    });
+  }
+
+  return station;
 }

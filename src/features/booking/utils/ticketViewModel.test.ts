@@ -88,6 +88,12 @@ const buildRoundTrip = (result: RoundTripResult) => buildCheckoutTicketViewModel
     trip: outboundTrip,
     pickUp: makePoint('Ha Noi', '08:00'),
     dropOff: makePoint('Da Nang', '12:00'),
+    shuttlePickup: {
+      stationId: outboundTrip.originStationId,
+      address: '12 Tran Duy Hung, Ha Noi',
+      latitude: 21.01,
+      longitude: 105.8,
+    },
   },
   returnState: {
     trip: returnTrip,
@@ -114,6 +120,7 @@ describe('checkout ticket view model', () => {
           bookingId: pendingRoundTrip.outbound.bookingId,
           tripId: outboundTrip.id,
           trackingEnabled: false,
+          shuttlePickupAddress: '12 Tran Duy Hung, Ha Noi',
         },
         {
           label: 'Return',
@@ -128,6 +135,13 @@ describe('checkout ticket view model', () => {
         },
       ],
     });
+  });
+
+  it('does not invent Shuttle data for a leg without a local checkout request', () => {
+    const model = buildRoundTrip(pendingRoundTrip);
+
+    expect(model?.legs[0].shuttlePickupAddress).toBe('12 Tran Duy Hung, Ha Noi');
+    expect(model?.legs[1]).not.toHaveProperty('shuttlePickupAddress');
   });
 
   it('uses canonical status, not redirect URL presence, for pending and tracking state', () => {

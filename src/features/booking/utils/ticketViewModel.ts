@@ -7,6 +7,7 @@ import type {
   PaymentMethod,
   PickUpPoint,
   RoundTripResult,
+  ShuttlePickupDraft,
 } from '../types';
 import type { BookingHistoryTicketDetail } from '../data/bookingHistoryFixture';
 import { getBookingReference } from './bookingReference';
@@ -29,6 +30,7 @@ export interface TicketLegViewModel {
   stopId?: string;
   tripStatus?: TripLifecycleStatus;
   trackingEnabled: boolean;
+  shuttlePickupAddress?: string;
 }
 
 export interface TicketViewModel {
@@ -46,6 +48,7 @@ interface BookingLegDraft {
   trip: BusTrip | null;
   pickUp: PickUpPoint | null;
   dropOff: DropOffPoint | null;
+  shuttlePickup?: ShuttlePickupDraft | null;
 }
 
 interface CheckoutTicketViewModelInput {
@@ -54,6 +57,7 @@ interface CheckoutTicketViewModelInput {
   selectedTrip: BusTrip | null;
   selectedPickUp: PickUpPoint | null;
   selectedDropOff: DropOffPoint | null;
+  selectedShuttlePickup?: ShuttlePickupDraft | null;
   outboundState: BookingLegDraft | null;
   returnState: BookingLegDraft | null;
 }
@@ -77,6 +81,7 @@ const buildLeg = ({
   trip,
   pickUp,
   dropOff,
+  shuttlePickup,
 }: BuildLegInput): TicketLegViewModel => ({
   label,
   reference,
@@ -98,6 +103,9 @@ const buildLeg = ({
   stopId: dropOff?.stopId,
   tripStatus: trip?.status,
   trackingEnabled: trackingEnabled && Boolean(trip?.id),
+  ...(shuttlePickup?.address
+    ? { shuttlePickupAddress: shuttlePickup.address }
+    : {}),
 });
 
 export const buildCheckoutTicketViewModel = ({
@@ -106,6 +114,7 @@ export const buildCheckoutTicketViewModel = ({
   selectedTrip,
   selectedPickUp,
   selectedDropOff,
+  selectedShuttlePickup,
   outboundState,
   returnState,
 }: CheckoutTicketViewModelInput): TicketViewModel | null => {
@@ -140,6 +149,7 @@ export const buildCheckoutTicketViewModel = ({
           trip: outboundState?.trip ?? null,
           pickUp: outboundState?.pickUp ?? null,
           dropOff: outboundState?.dropOff ?? null,
+          shuttlePickup: outboundState?.shuttlePickup ?? null,
         }),
         buildLeg({
           label: 'Return',
@@ -151,6 +161,7 @@ export const buildCheckoutTicketViewModel = ({
           trip: returnState?.trip ?? null,
           pickUp: returnState?.pickUp ?? null,
           dropOff: returnState?.dropOff ?? null,
+          shuttlePickup: returnState?.shuttlePickup ?? null,
         }),
       ],
     };
@@ -169,6 +180,7 @@ export const buildCheckoutTicketViewModel = ({
       trip: selectedTrip,
       pickUp: selectedPickUp,
       dropOff: selectedDropOff,
+      shuttlePickup: selectedShuttlePickup ?? null,
     })],
   };
 };

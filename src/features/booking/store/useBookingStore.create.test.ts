@@ -27,6 +27,8 @@ const trip: BusTrip = {
   arrivalStation: 'Destination',
   departureTime: '08:00',
   arrivalTime: '12:00',
+  departureDateTime: '2099-01-01T08:00:00+07:00',
+  estimatedArrivalDateTime: '2099-01-01T12:00:00+07:00',
   price: 250_000,
   seatsLeft: 10,
   allowPickup: false,
@@ -37,6 +39,7 @@ const trip: BusTrip = {
   totalSeats: 40,
   departureCity: 'Origin City',
   arrivalCity: 'Destination City',
+  status: 'SCHEDULED',
 };
 
 const returnTrip: BusTrip = {
@@ -145,6 +148,87 @@ describe('booking submission serialization', () => {
     expect(idempotencyKey).toEqual(expect.any(String));
   });
 
+  it('serializes one Shuttle request at booking-leg level without leaking local metadata', async () => {
+    useBookingStore.setState({
+      selectedShuttlePickup: {
+        stationId: trip.originStationId,
+        address: '  12 Nguyen Hue, District 1  ',
+        latitude: 10.7769,
+        longitude: 106.7009,
+      },
+    });
+
+    await useBookingStore.getState().createBooking();
+
+    const [payload] = mockCreateBooking.mock.calls[0];
+    expect(payload.shuttlePickup).toEqual({
+      address: '12 Nguyen Hue, District 1',
+      latitude: 10.7769,
+      longitude: 106.7009,
+    });
+    expect(payload.shuttlePickup).not.toHaveProperty('stationId');
+    expect(payload.seats[0]).toEqual({ seatNumber: 'A01' });
+  });
+
+  it('clears a Shuttle draft when boarding changes to an along-route stop', () => {
+    useBookingStore.setState({
+      selectedShuttlePickup: {
+        stationId: trip.originStationId,
+        address: '12 Nguyen Hue',
+        latitude: 10.7769,
+        longitude: 106.7009,
+      },
+    });
+
+    useBookingStore.getState().selectPickUp({
+      id: 'stop-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      stopId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      name: 'Along-route pickup',
+      address: 'Pickup address',
+      time: '09:00',
+      status: 'available',
+    });
+
+    expect(useBookingStore.getState().selectedShuttlePickup).toBeNull();
+  });
+
+  it('clears precise Shuttle location when the booking session resets', () => {
+    useBookingStore.setState({
+      selectedShuttlePickup: {
+        stationId: trip.originStationId,
+        address: '12 Nguyen Hue',
+        latitude: 10.7769,
+        longitude: 106.7009,
+      },
+    });
+
+    useBookingStore.getState().resetBooking();
+
+    expect(useBookingStore.getState().selectedShuttlePickup).toBeNull();
+  });
+
+  it('fails safely and removes stale Shuttle requests after the BE cutoff response', async () => {
+    useBookingStore.setState({
+      selectedShuttlePickup: {
+        stationId: trip.originStationId,
+        address: '12 Nguyen Hue',
+        latitude: 10.7769,
+        longitude: 106.7009,
+      },
+    });
+    mockCreateBooking.mockRejectedValueOnce(new ApiRequestError({
+      message: 'Shuttle request cutoff has passed.',
+      code: 'SHUTTLE_REQUEST_CUTOFF_PASSED',
+      statusCode: 409,
+    }));
+
+    await expect(useBookingStore.getState().createBooking()).rejects.toMatchObject({
+      code: 'SHUTTLE_REQUEST_CUTOFF_PASSED',
+    });
+
+    expect(useBookingStore.getState().selectedShuttlePickup).toBeNull();
+  });
+
   it('preserves along-route stop selections instead of replacing them with terminal stations', async () => {
     const pickupStopId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     const dropoffStopId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -214,6 +298,62 @@ describe('booking submission serialization', () => {
       /passenger|fullName|phone|email|idNumber|idempotencyKey/i,
     );
     expect(idempotencyKey).toEqual(expect.any(String));
+  });
+
+  it('keeps outbound and return Shuttle requests isolated per leg', async () => {
+    const pickup = useBookingStore.getState().selectedPickUp;
+    const dropoff = useBookingStore.getState().selectedDropOff;
+    const selectedSeats = useBookingStore.getState().selectedSeats;
+
+    useBookingStore.setState((state) => ({
+      searchParams: { ...state.searchParams, isRoundTrip: true },
+      outboundState: {
+        trip,
+        seats: selectedSeats,
+        pickUp: pickup,
+        dropOff: dropoff,
+        shuttlePickup: {
+          stationId: trip.originStationId,
+          address: 'Outbound address',
+          latitude: 10.7,
+          longitude: 106.7,
+        },
+      },
+      returnState: {
+        trip: returnTrip,
+        seats: [{ id: 'B02', label: 'B02', status: 'selected' as const }],
+        pickUp: {
+          ...dropoff!,
+          stationId: returnTrip.originStationId,
+          stopId: undefined,
+        },
+        dropOff: {
+          ...pickup!,
+          stationId: returnTrip.destinationStationId,
+          stopId: undefined,
+        },
+        shuttlePickup: {
+          stationId: returnTrip.originStationId,
+          address: 'Return address',
+          latitude: 16.05,
+          longitude: 108.2,
+        },
+      },
+    }));
+
+    await useBookingStore.getState().createBooking();
+
+    const [payload] = mockCreateRoundTripBooking.mock.calls[0];
+    expect(payload.outbound.shuttlePickup).toEqual({
+      address: 'Outbound address',
+      latitude: 10.7,
+      longitude: 106.7,
+    });
+    expect(payload.return.shuttlePickup).toEqual({
+      address: 'Return address',
+      latitude: 16.05,
+      longitude: 108.2,
+    });
   });
 
   it('uses the outbound snapshot once for a completed one-way selection', () => {

@@ -6,14 +6,21 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { MapPinLine, PencilSimple } from 'phosphor-react-native';
+import { MapPinLine, PencilSimple, Van } from 'phosphor-react-native';
+import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
-import type { BusTrip, DropOffPoint, PickUpPoint, Seat } from '../types';
+import type {
+  BusTrip,
+  DropOffPoint,
+  PickUpPoint,
+  Seat,
+  ShuttlePickupDraft,
+} from '../types';
 import {
   FloatingActionBar,
   SectionCard,
@@ -38,13 +45,29 @@ export function CheckoutScreen({
     selectedTrip,
     selectedPickUp,
     selectedDropOff,
+    selectedShuttlePickup,
     totalPrice,
     searchParams,
     outboundState,
     returnState,
     setHighestStep,
     setContactInfo,
-  } = useBookingStore();
+    restoreLegForEdit,
+  } = useBookingStore(useShallow((state) => ({
+    contactInfo: state.contactInfo,
+    selectedSeats: state.selectedSeats,
+    selectedTrip: state.selectedTrip,
+    selectedPickUp: state.selectedPickUp,
+    selectedDropOff: state.selectedDropOff,
+    selectedShuttlePickup: state.selectedShuttlePickup,
+    totalPrice: state.totalPrice,
+    searchParams: state.searchParams,
+    outboundState: state.outboundState,
+    returnState: state.returnState,
+    setHighestStep: state.setHighestStep,
+    setContactInfo: state.setContactInfo,
+    restoreLegForEdit: state.restoreLegForEdit,
+  })));
   const authUser = useAuthStore((state) => state.user);
 
   const [isContactModalVisible, setIsContactModalVisible] = React.useState(false);
@@ -122,6 +145,7 @@ export function CheckoutScreen({
     seats: Seat[],
     pickUp: PickUpPoint | null,
     dropOff: DropOffPoint | null,
+    shuttlePickup: ShuttlePickupDraft | null | undefined,
     onEdit: () => void
   ) => {
     if (!trip) return null;
@@ -138,6 +162,19 @@ export function CheckoutScreen({
         <InfoRow label="Route" value={`${trip.departureCity || ''} → ${trip.arrivalCity || ''}`} />
         <InfoRow label="Departure Time" value={trip.departureTime || ''} />
         <InfoRow label="Seats" value={seats.map((seat) => seat.label || seat.id).join(', ')} showDivider />
+
+        {shuttlePickup ? (
+          <View style={styles.shuttleBlock}>
+            <View style={styles.pickupIconBox}>
+              <Van size={18} weight="duotone" color={theme.colors.primary} />
+            </View>
+            <View style={styles.pickupTextWrap}>
+              <Text style={styles.pickupLabel}>SHUTTLE PICKUP REQUEST</Text>
+              <Text style={styles.pickupValue}>{shuttlePickup.address}</Text>
+              <Text style={styles.shuttleHint}>Awaiting operator arrangement after payment</Text>
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.locationBlock}>
           <View style={styles.pickupDisplay}>
@@ -175,6 +212,7 @@ export function CheckoutScreen({
       </View>
 
         <ScrollView
+          style={styles.scroll}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           contentInsetAdjustmentBehavior="automatic"
@@ -211,6 +249,7 @@ export function CheckoutScreen({
               selectedSeats,
               selectedPickUp,
               selectedDropOff,
+              selectedShuttlePickup,
               () => onGoToStep(1)
             )
           )}
@@ -223,8 +262,9 @@ export function CheckoutScreen({
               outboundState.seats,
               outboundState.pickUp,
               outboundState.dropOff,
+              outboundState.shuttlePickup,
               () => {
-                useBookingStore.setState({ currentLeg: 'outbound', outboundState: null, highestStepReached: 1 });
+                restoreLegForEdit('outbound');
                 onGoToStep(1);
               }
             )
@@ -238,8 +278,9 @@ export function CheckoutScreen({
               returnState.seats,
               returnState.pickUp,
               returnState.dropOff,
+              returnState.shuttlePickup,
               () => {
-                useBookingStore.setState({ currentLeg: 'return', returnState: null });
+                restoreLegForEdit('return');
                 onGoToStep(5);
               }
             )
@@ -278,7 +319,10 @@ const createStyles = (theme: AppTheme) => ({
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
-    paddingBottom: 220,
+    paddingBottom: spacing.lg,
+  },
+  scroll: {
+    flex: 1,
   },
   cardTitle: {
     fontFamily: fontFamilies.semiBold,
@@ -312,6 +356,22 @@ const createStyles = (theme: AppTheme) => ({
   },
   locationBlock: {
     marginTop: spacing.md,
+  },
+  shuttleBlock: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  shuttleHint: {
+    marginTop: spacing.xxs,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
   },
   locationBlockLarge: {
     marginTop: spacing.lg,

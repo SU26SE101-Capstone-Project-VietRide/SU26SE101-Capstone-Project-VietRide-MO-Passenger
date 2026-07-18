@@ -1,9 +1,9 @@
 # VietRide Passenger Recovery Tracker
 
-> Last updated: 2026-07-15  
-> Mobile baseline: `413b9bf`  
-> UI/product recovery reference: `28cc5b7`  
-> Backend source of truth: `5be88a5` (`v1.30.0`)
+> Last updated: 2026-07-17
+> Mobile baseline: `3106095`
+> UI/product recovery reference: `28cc5b7`
+> Backend source of truth: fetched `origin/main@0a1bd9f` (`v1.33.0`)
 > Rule: backend source code and DTOs win over documentation and older mobile mocks.
 
 ## Status model
@@ -22,10 +22,10 @@
 
 | Scope | Result | Evidence / boundary |
 | --- | --- | --- |
-| `UNIT_STATIC` | `PASS` | 2026-07-15 - `npx.cmd tsc --noEmit` -> PASS; `npx.cmd jest --runInBand` -> PASS (60 suites, 304 tests); `npx.cmd eslint . --max-warnings=0` -> PASS; `git diff --check` -> PASS; `npx.cmd expo config --type public` -> PASS. |
+| `UNIT_STATIC` | `PASS` | 2026-07-17 - `npx.cmd tsc --noEmit` -> PASS; `npm.cmd test -- --runInBand` -> PASS (66 suites, 347 tests); `npx.cmd eslint . --max-warnings=0` -> PASS; `git diff --check` -> PASS; `npx.cmd expo config --type public` -> PASS. |
 | `NATIVE_ANDROID_BUILD` | `PASS` | 2026-07-15 - `.\gradlew.bat app:assembleDebug -PreactNativeArchitectures=x86_64 -x lint -x test --configure-on-demand --build-cache` -> `BUILD SUCCESSFUL` (317 tasks). Merged debug manifest contains camera/coarse/fine location and excludes record-audio/read-storage/write-storage. |
-| `DEVICE_ANDROID` | `PARTIAL_PASS` | API 36 emulator: Login -> Guest Home -> Chatbot auth guard -> booking shortcut -> History Ticket/Parcel; background/foreground returned without fatal JS/native log. A 720x1280, font-scale 1.3, keyboard smoke exposed an auth-footer overflow; the shared footer was fixed and rechecked with all form actions reachable. Authenticated Wallet/Top-up/Tracking/RAG/Digital Ticket flows were not run. |
-| `LIVE_BE` | `NOT_RUN` | No authenticated safe test account or non-mutating payment/booking sandbox was available. No real booking, top-up, tracking session or RAG stream was fabricated. |
+| `DEVICE_ANDROID` | `PARTIAL_PASS` | API 36 emulator: existing Login/Home/Chatbot/History responsive smoke remains valid. On 2026-07-17 `npm run start:stable` bound Metro to `0.0.0.0:8081`, built Android `index.js` (4,587 modules), launched Expo Go and reached authenticated Home without fatal JS/native logs. The complete Shuttle selection/submit flow, Wallet return, Tracking, RAG and Digital Ticket were not run end-to-end. |
+| `LIVE_BE` | `PARTIAL_PASS` | Authenticated Android startup received 200 responses from `/locations`, `/users/me`, `/promotions` and `/wallet`. No safe booking/payment mutation sandbox was available, so no real Shuttle booking, top-up, tracking session or RAG stream was fabricated. |
 | `DEVICE_IOS` | `BLOCKED_ENV` | Windows host; no EAS token, project ID, `eas.json`, or local iOS simulator was available. |
 | `EXPO_DOCTOR` | `BLOCKED_ENV` | 2026-07-15 - `npx.cmd expo-doctor` -> 18/20; the two external Expo/React Native Directory checks failed with network `EACCES`, while local checks passed. |
 | `ANDROID_RELEASE_PERF` | `BLOCKED_ENV` | A real Maps key is absent and release CMake/Ninja canonicalizes the long Windows workspace path, then fails the 260-character object-path limit. The debug `gfxinfo` sample is intentionally not accepted as release-performance evidence. Temporary bundle, drive mapping and junction artifacts were removed. |
@@ -34,10 +34,12 @@
 
 | ID | Priority | Capability | Source of truth | Status | Dependencies | Acceptance criteria | Evidence | Last updated |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| R0 | P0 | Recovery governance | Git `413b9bf`, `28cc5b7`, BE `5be88a5` | `VERIFIED` | None | One canonical tracker; disposition for every removed capability; no silent deletion | `git diff --name-status --diff-filter=D` -> no tracked deletion; restoration matrix includes product-only, replaced and BE-blocked scope | 2026-07-15 |
+| R0 | P0 | Recovery governance | Git `3106095`, `28cc5b7`, fetched BE `0a1bd9f` | `VERIFIED` | None | One canonical tracker; disposition for every removed capability; no silent deletion | 2026-07-17 `git diff --name-status --diff-filter=D` -> no tracked deletion; restoration matrix includes product-only, replaced and BE-blocked scope | 2026-07-17 |
 | M1.1 | P0 | Typed navigation | Registered navigators and discriminated params | `VERIFIED` | M6, M5 | Every declared route has a registered screen and every caller supplies valid params | `navigationRegistry.contract.test.ts`; TypeScript; full Jest; Android Home/Chatbot/History navigation smoke | 2026-07-15 |
-| M1.2 | P0 | Booking network DTO and payment lifecycle | BE `5be88a5` Booking controller/request/result/status DTOs | `IN_PROGRESS` | Existing booking store, authenticated VNPay sandbox | Exact one-way/round-trip bodies; `{seatNumber}` wire seats only; contact local; header idempotency; WALLET confirmation; VNPay foreground reconciliation for every booking leg; live checkout confirmation | `bookingApi.test.ts`, `useBookingStore.create.test.ts`, `bookingCompletion.test.ts`, `bookingPayment.test.ts`, `useBookingPaymentReconciliation.test.tsx`; full TypeScript/Jest/ESLint pass; `LIVE_BE` booking flow not run; optional shuttle draft remains dormant | 2026-07-15 |
+| M1.2 | P0 | Booking network DTO and payment lifecycle | BE `origin/main@0a1bd9f` Booking controller/request/result/status DTOs | `IN_PROGRESS` | Existing booking store, authenticated VNPay sandbox | Exact one-way/round-trip bodies; `{seatNumber}` wire seats only; contact local; header idempotency; WALLET confirmation; VNPay foreground reconciliation for every booking leg; live checkout confirmation | `bookingApi.test.ts`, `useBookingStore.create.test.ts`, `bookingCompletion.test.ts`, `bookingPayment.test.ts`, `useBookingPaymentReconciliation.test.tsx`; 2026-07-17 full static gates pass; live create/payment flow not run | 2026-07-17 |
 | M1.3 | P0 | Demo-mode boundary | Expo build env and missing-BE capabilities | `VERIFIED` | Env typing | Dev defaults only under `__DEV__`; staging requires explicit opt-in; production always false | `demoMode.test.ts`; production Hermes bundle built with `DEMO_MODE=true` still rendered fail-closed guest/history boundary on Android | 2026-07-15 |
+| M1.4 | P0 | Per-leg Shuttle booking request | BE `origin/main@0a1bd9f` create handlers, Shuttle DTOs, Station and Trip detail DTOs | `IN_PROGRESS` | M1.2, station/trip detail, foreground location, safe live booking sandbox | Exact active origin Station only; fetched trip must be `SCHEDULED` with valid departure; strict T-30 cutoff; outbound/return drafts isolated; coordinates memory-only; local `stationId` never enters wire DTO; pending-assignment wording; live one-way/round-trip confirmation | `shuttle.test.ts`, `useBookingStore.create.test.ts`, `stationApi.test.ts`, `useStationDetail.test.tsx`, `deviceLocation.test.ts`, Shuttle component tests; 35 focused tests and full 66-suite gate pass; Android bundle/Home smoke pass; live Shuttle submit not run | 2026-07-17 |
+| M1.5 | P1 | Shuttle intent/assignment visibility | BE `origin/main@0a1bd9f` booking status plus notification/tracking contracts | `BLOCKED_BE` | Passenger booking-linked Shuttle read contract | Never infer Shuttle status from create/status responses; surface assignment only from authenticated server data; no History fabrication | Create result does not echo Shuttle; `GET /bookings/{id}` returns booking status only; notifications exist only after `SHUTTLE_ASSIGNED`/`SHUTTLE_UNFULFILLED`, so pending intent cannot be reconstructed | 2026-07-17 |
 | M2.1 | P1 | Popular routes | Live location catalog | `VERIFIED` | Location catalog | No guessed IDs, fare or duration; unresolved shortcuts hidden | Resolver tests; Android Home rendered location-only route cards without fake price/duration; full static gates pass | 2026-07-15 |
 | M2.2 | P1 | Recent searches | AsyncStorage local adapter | `IN_PROGRESS` | Expo-compatible AsyncStorage | User/guest namespace, schema migration, corrupt-data reset, dedupe/max 8, device persistence | Adapter/hook tests and Home empty state pass; end-to-end search persistence not run against a live catalog | 2026-07-15 |
 | M2.3 | P1 | Home wallet card | Payment Wallet API | `IN_PROGRESS` | M3.1 | Real loading/error/balance states and typed Wallet navigation | Static implementation/gates pass; authenticated device flow not run | 2026-07-15 |
@@ -59,15 +61,17 @@
 | M10 | P1 | React Native performance and accessibility | `react-native-skills` | `FAILED_VERIFY` | All UI slices, release environment | Virtualized long lists, stable renders, responsive small screen/large font, release frame smoke | Static optimization tests and Android responsive regression pass; release frame gate is `BLOCKED_ENV`, so performance is not certified | 2026-07-15 |
 | M11.1 | P0 | Deterministic date/time | Shared formatter contract | `VERIFIED` | None | Stable `DD/MM/YYYY HH:mm`; cached formatter | `format.test.ts`; TypeScript; full Jest and ESLint pass | 2026-07-15 |
 | M11.2 | P0 | SecureStore Jest isolation | Production SecureStore adapter | `VERIFIED` | Jest mapper | Reset stored values, calls and mock implementations without production changes | `secureStoreMock.test.ts`; auth logout/cache isolation test; full Jest pass | 2026-07-15 |
-| M12 | P0 | Full quality gate | Entire repository | `FAILED_VERIFY` | All modules | Static gates, Expo Doctor, authenticated Android flows, iOS, production release/performance | TypeScript/Jest/ESLint/diff/Expo config/debug build pass; Expo external checks, iOS, live BE and release perf remain unverified | 2026-07-15 |
+| M12 | P0 | Full quality gate | Entire repository | `FAILED_VERIFY` | All modules | Static gates, Expo Doctor, authenticated Android flows, iOS, production release/performance | 2026-07-17 TypeScript, 66 Jest suites/347 tests, zero-warning ESLint, diff check, Expo config and Metro Android bundle pass; current native rebuild, live booking, iOS and release perf remain unverified | 2026-07-17 |
 
 ## Contract matrix
 
 | Capability | Method/path | Request | Response notes | Mobile rule |
 | --- | --- | --- | --- | --- |
-| Create booking | `POST /bookings` | Pickup/dropoff, optional shuttle, voucher, payment method; `seats: [{seatNumber}]` | WALLET -> `CONFIRMED`; VNPay -> `PENDING_PAYMENT`, `paymentId`, `paymentRedirectUrl` | Passenger contact stays local; `Idempotency-Key` is an HTTP header; optional shuttle DTO is typed but has no Mobile draft/UI yet |
-| Create round trip | `POST /bookings/round-trip` | Independent outbound/return legs with pickup/dropoff/optional shuttle/seats; group voucher/payment | WALLET confirms both legs; VNPay returns one `BOOKING_GROUP` redirect | One single-flight submit; poll both leg booking IDs before activating either ticket |
+| Create booking | `POST /bookings` | Pickup/dropoff, optional `shuttlePickup:{address,latitude,longitude}`, voucher, payment method; `seats: [{seatNumber}]` | WALLET -> `CONFIRMED`; VNPay -> `PENDING_PAYMENT`, `paymentId`, `paymentRedirectUrl`; Shuttle is not echoed | Passenger contact stays local; `Idempotency-Key` is an HTTP header; Shuttle UI/draft is implemented only for the exact origin Station after live Station/Trip eligibility checks |
+| Create round trip | `POST /bookings/round-trip` | Independent outbound/return legs with pickup/dropoff/optional Shuttle/seats; group voucher/payment | WALLET confirms both legs; VNPay returns one `BOOKING_GROUP` redirect; Shuttle is not echoed | One shared leg payload builder and single-flight submit; Shuttle drafts remain independent per leg; poll both booking IDs before activating either ticket |
+| Station Shuttle capability | `GET /stations/{stationId}` | Exact Station UUID | Active `StationDto` includes coordinates, `supportsShuttle`, `isActive` | Cache by Station ID; require exact response ID and fail closed on 404/mismatch; after v1.33 station merge, refetch trip/station data instead of weakening identity checks |
 | Reconcile booking payment | `GET /bookings/{bookingId}` | UUID booking ID | `{bookingId,status}` only | Poll only while focused, foreground and online; only exact `CONFIRMED` is active; `EXPIRED` is payment expiry; later lifecycle states stay inactive and status-neutral |
+| Shuttle assignment/status | No booking-linked passenger read endpoint | N/A | Create/status responses contain no Shuttle state; authenticated notifications start only at assigned/unfulfilled | Checkout/Ticket may show only that the request was sent and awaits arrangement; History must not invent pending/assigned state |
 | Wallet | `GET /wallet` | None | `{userId,balance,currency}` | Cache key includes authenticated user ID |
 | Wallet ledger | `GET /wallet/transactions` | `page`, `pageSize` | `CREDIT/DEBIT`, balances, references, note | Map network DTO to a separate UI model; use infinite pagination |
 | Top-up | `POST /wallet/top-up` | `{amount,method:'VNPAY'}` | `{topUpRequestId,status,paymentRedirectUrl}` | Validate redirect; do not report success before payment result |
@@ -101,6 +105,8 @@
 | Bus-type filter | `BLOCKED_BE` | Dormant until passenger trip metadata supports it |
 | RAG policy chatbot | `RESTORE` | Hardened BE SSE/feedback integration |
 | Chat booking/tracking shortcuts | `RESTORE` | Deterministic prefill and explicit user-controlled navigation |
+| Per-ticket Shuttle request | `RESTORE` | Theme-consistent optional origin-Station flow backed by current Booking/Station/Trip contracts; precise coordinates stay memory-only |
+| Shuttle intent/history/assignment | `BLOCKED_BE` | Create/status responses do not expose Shuttle state; post-assignment notification/tracking cannot reconstruct pending intent by booking |
 
 ## Implementation rules
 
@@ -118,17 +124,28 @@
 ## Final acceptance gate
 
 - [x] `npx.cmd tsc --noEmit`
-- [x] `npx.cmd jest --runInBand` - 60 suites, 304 tests
+- [x] `npm.cmd test -- --runInBand` - 66 suites, 347 tests
 - [x] `npx.cmd eslint . --max-warnings=0`
 - [x] `npx.cmd expo config --type public`
 - [x] `git diff --check`
 - [x] Android debug x86_64 native build and unauthenticated/guest smoke
+- [x] Windows stable Metro startup, Android bundle and authenticated Home/API startup smoke
+- [ ] Live one-way and round-trip Shuttle booking submit/confirmation
 - [ ] Expo Doctor external checks - `BLOCKED_ENV` (network `EACCES`)
 - [ ] Authenticated Android: 100+ ledger, top-up return, ticket detail, tracking and live RAG
 - [ ] iOS: safe areas, large text, keyboard, photo permission and map fallback - `BLOCKED_ENV`
 - [ ] Android production release/frame gate - `BLOCKED_ENV` (real Maps key and Windows CMake path limit)
 
 ## Progress log
+
+### 2026-07-17 - Shuttle booking and Windows Metro recovery against BE v1.33.0
+
+- Re-audited the latest fetched BE ref `origin/main@0a1bd9f` (`v1.33.0`) without changing the BE worktree. One-way and round-trip Shuttle DTOs remain independent optional leg fields; exact origin Station eligibility, `SCHEDULED` status and strict T-30 cutoff remain authoritative.
+- Added the theme-consistent Shuttle option to the existing pickup step, a responsive keyboard-safe address/location sheet, independent outbound/return memory-only drafts, one shared leg payload builder and pending-assignment summaries in Checkout, Payment and Digital Ticket.
+- Reused the existing API/auth/query infrastructure and shared location implementation. Station detail is prefetched, precise coordinates are never persisted/logged, local Station binding is stripped from payloads, and incomplete Trip Detail now fails closed.
+- Diagnosed the Windows 99% stall as Expo SDK 56 opening roughly one fallback `fs.watch` handle for each of 12,613 directories before binding Metro. Added `npm run start:stable`, which uses the supported CI/no-watch path and LAN binding without deleting caches or dependencies.
+- `npm run start:stable` bound `0.0.0.0:8081`; Android bundled 4,587 modules and Expo Go reached authenticated Home with successful live GET responses. Fast Refresh is intentionally unavailable in this fallback mode.
+- Passed TypeScript, full Jest (66 suites/347 tests), zero-warning ESLint, Expo config and `git diff --check`; no tracked file was deleted. Live Shuttle mutation, iOS, current native rebuild and release performance remain unverified, so M1.4/M12 are not marked `VERIFIED`.
 
 ### 2026-07-15 - Booking flow synchronized with BE v1.30.0
 

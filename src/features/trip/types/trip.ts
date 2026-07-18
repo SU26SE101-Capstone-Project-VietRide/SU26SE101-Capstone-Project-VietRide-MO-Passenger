@@ -31,6 +31,27 @@ export interface StationSearchResult {
   supportsShuttle: boolean;
 }
 
+/** Public `GET /stations/{id}` contract used for station capabilities. */
+export interface StationDetail {
+  id: string;
+  name: string;
+  slug: string;
+  addressStreet: string | null;
+  locationId: string | null;
+  city: string;
+  province: string;
+  latitude: number | null;
+  longitude: number | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  operatingHours: string | null;
+  facilities: string | null;
+  supportsShuttle: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BusTrip {
   id: string;
   operatorId: string;
@@ -42,6 +63,9 @@ export interface BusTrip {
   arrivalStation: string;
   departureTime: string;
   arrivalTime: string;
+  /** ISO timestamps from BE. Keep these for deadline-sensitive booking rules. */
+  departureDateTime?: string;
+  estimatedArrivalDateTime?: string;
   price: number;
   seatsLeft: number;
   allowPickup: boolean;
@@ -167,6 +191,8 @@ export function mapBusTrip(dto: TripSearchDto): BusTrip {
     arrivalStation: dto.destinationStation.name,
     departureTime: formatTime(dto.departureDateTime),
     arrivalTime: formatTime(dto.estimatedArrivalTime),
+    departureDateTime: dto.departureDateTime,
+    estimatedArrivalDateTime: dto.estimatedArrivalTime,
     price: dto.baseFare,
     seatsLeft: dto.availableSeats,
     allowPickup: dto.allowAlongRoutePickup,
@@ -196,6 +222,8 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     arrivalStation: dto.destinationStation.name,
     departureTime: formatTime(dto.departureDateTime),
     arrivalTime: formatTime(dto.estimatedArrivalTime),
+    departureDateTime: dto.departureDateTime,
+    estimatedArrivalDateTime: dto.estimatedArrivalTime,
     price: dto.baseFare,
     seatsLeft: dto.seatSummary.availableSeats,
     allowPickup: dto.stops.some((stop) => Boolean(stop.allowPickup)),

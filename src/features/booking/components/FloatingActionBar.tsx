@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
@@ -29,9 +30,15 @@ export function FloatingActionBar({
   disabled = false,
 }: FloatingActionBarProps): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { paddingBottom: Math.max(insets.bottom, spacing.lg) },
+      ]}
+    >
       {/* Summary row */}
       <View style={styles.summaryRow}>
         <View style={styles.seatsInfo}>
@@ -74,16 +81,11 @@ export function FloatingActionBar({
 
 const createStyles = (theme: AppTheme) => ({
   container: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     ...theme.components.actionBar,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxl,
   },
   summaryRow: {
     flexDirection: 'row',

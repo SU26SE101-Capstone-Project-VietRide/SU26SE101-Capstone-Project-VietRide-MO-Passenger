@@ -18,6 +18,17 @@ npm start
 yarn start
 ```
 
+On Windows, if Metro stays at 99% before opening port `8081`, use the
+watcher-free startup mode:
+
+```sh
+npm run start:stable
+```
+
+This mode avoids the Windows fallback watcher and binds Metro for LAN/Android
+access. It intentionally disables Fast Refresh, so restart Metro after source
+changes. Keep `npm start` for the normal watched development mode.
+
 ## Step 2: Build and run your app
 
 With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:

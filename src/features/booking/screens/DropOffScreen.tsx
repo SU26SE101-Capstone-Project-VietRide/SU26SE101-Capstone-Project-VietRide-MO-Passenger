@@ -5,6 +5,7 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, ScrollView } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
@@ -16,19 +17,43 @@ interface DropOffStepProps {
 }
 
 export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
-  const { dropOffPoints, selectedDropOff, selectDropOff, selectedSeats, totalPrice, currentLeg, searchParams, saveOutboundLeg, saveReturnLeg, setHighestStep, selectedTrip, selectedPickUp } = useBookingStore();
+  const {
+    dropOffPoints,
+    selectedDropOff,
+    selectDropOff,
+    selectedSeats,
+    totalPrice,
+    currentLeg,
+    isRoundTrip,
+    saveOutboundLeg,
+    saveReturnLeg,
+    saveOneWayLeg,
+    setHighestStep,
+  } = useBookingStore(useShallow((state) => ({
+    dropOffPoints: state.dropOffPoints,
+    selectedDropOff: state.selectedDropOff,
+    selectDropOff: state.selectDropOff,
+    selectedSeats: state.selectedSeats,
+    totalPrice: state.totalPrice,
+    currentLeg: state.currentLeg,
+    isRoundTrip: state.searchParams.isRoundTrip ?? false,
+    saveOutboundLeg: state.saveOutboundLeg,
+    saveReturnLeg: state.saveReturnLeg,
+    saveOneWayLeg: state.saveOneWayLeg,
+    setHighestStep: state.setHighestStep,
+  })));
   const styles = useThemedStyles(createStyles);
 
   React.useEffect(() => {
-    if (searchParams.isRoundTrip) {
+    if (isRoundTrip) {
       setHighestStep(currentLeg === 'outbound' ? 4 : 8);
     } else {
       setHighestStep(4); // One-way always outbound
     }
-  }, [setHighestStep, currentLeg, searchParams.isRoundTrip]);
+  }, [setHighestStep, currentLeg, isRoundTrip]);
 
   const handleNext = useCallback(() => {
-    if (searchParams.isRoundTrip) {
+    if (isRoundTrip) {
       if (currentLeg === 'outbound') {
         saveOutboundLeg();
         onNext(5); // Navigate to return TripResults (step 5)
@@ -38,26 +63,16 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
         onNext(9); // Navigate to Checkout (step 9)
       }
     } else {
-      // One-way: save outbound state and stay on outbound leg
-      useBookingStore.setState({
-        outboundState: {
-          trip: selectedTrip,
-          seats: selectedSeats,
-          pickUp: selectedPickUp,
-          dropOff: selectedDropOff,
-        },
-        currentLeg: 'outbound',
-        highestStepReached: 5,
-      });
+      saveOneWayLeg();
       onNext(5); // Go to Checkout (step 5)
     }
-  }, [searchParams, currentLeg, saveOutboundLeg, saveReturnLeg, onNext, selectedTrip, selectedSeats, selectedPickUp, selectedDropOff]);
+  }, [currentLeg, isRoundTrip, onNext, saveOneWayLeg, saveOutboundLeg, saveReturnLeg]);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
-          {searchParams.isRoundTrip
+          {isRoundTrip
             ? (currentLeg === 'outbound' ? 'Select Outbound Drop-off' : 'Select Return Drop-off')
             : 'Select Drop-off Point'}
         </Text>
@@ -65,6 +80,7 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
 
         {/* Content */}
         <ScrollView
+          style={styles.scroll}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
@@ -113,6 +129,9 @@ const createStyles = (theme: AppTheme) => ({
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.sm,
-    paddingBottom: 200,
+    paddingBottom: spacing.lg,
+  },
+  scroll: {
+    flex: 1,
   },
 });

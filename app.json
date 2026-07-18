@@ -3,6 +3,7 @@
     "name": "VietRidePassenger",
     "slug": "viet-ride-passenger",
     "version": "0.0.1",
+    "scheme": "vietride",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "plugins": [
@@ -17,7 +18,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "VietRide uses your location to show nearby parcel stations."
+          "locationWhenInUsePermission": "VietRide dùng vị trí của bạn để hiển thị trạm gửi hàng gần đây và, khi bạn chọn, đặt điểm đón Trung chuyển tùy chọn."
         }
       ],
       [
@@ -34,6 +35,20 @@
     "android": {
       "package": "com.vietride.passenger",
       "allowBackup": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "vietride",
+              "host": "payments",
+              "pathPrefix": "/return"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        }
+      ],
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",

@@ -17,6 +17,7 @@ import {
   MapPin,
   Ticket,
   Wallet,
+  Van,
   WarningCircle,
 } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
@@ -199,6 +200,16 @@ function TicketView({
                 </View>
 
                 <View style={styles.detailsSection}>
+                  {leg.shuttlePickupAddress ? (
+                    <View style={styles.shuttleRequestCard}>
+                      <Van size={20} color={theme.colors.primary} weight="duotone" />
+                      <View style={styles.shuttleRequestCopy}>
+                        <Text style={styles.shuttleRequestTitle}>Shuttle request sent</Text>
+                        <Text style={styles.shuttleRequestAddress}>{leg.shuttlePickupAddress}</Text>
+                        <Text style={styles.shuttleRequestHint}>Awaiting operator arrangement</Text>
+                      </View>
+                    </View>
+                  ) : null}
                   <View style={styles.routeRow}>
                     <View style={styles.routeItem}>
                       <Text style={styles.routeLabel}>BOARDING ({leg.boardingTime})</Text>
@@ -359,6 +370,7 @@ function CheckoutTicketContent(): React.JSX.Element {
     bookingPaymentMethod,
     selectedPickUp,
     selectedDropOff,
+    selectedShuttlePickup,
     outboundState,
     returnState,
     bookingResult,
@@ -368,6 +380,7 @@ function CheckoutTicketContent(): React.JSX.Element {
     bookingPaymentMethod: state.bookingPaymentMethod,
     selectedPickUp: state.selectedPickUp,
     selectedDropOff: state.selectedDropOff,
+    selectedShuttlePickup: state.selectedShuttlePickup,
     outboundState: state.outboundState,
     returnState: state.returnState,
     bookingResult: state.bookingResult,
@@ -393,6 +406,7 @@ function CheckoutTicketContent(): React.JSX.Element {
       selectedTrip: outboundState?.trip ?? selectedTrip,
       selectedPickUp: outboundState?.pickUp ?? selectedPickUp,
       selectedDropOff: outboundState?.dropOff ?? selectedDropOff,
+      selectedShuttlePickup: outboundState?.shuttlePickup ?? selectedShuttlePickup,
       outboundState,
       returnState,
     }),
@@ -403,6 +417,7 @@ function CheckoutTicketContent(): React.JSX.Element {
       paymentMethod,
       returnState,
       selectedDropOff,
+      selectedShuttlePickup,
       selectedPickUp,
       selectedTrip,
     ],
@@ -742,6 +757,38 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.background,
   },
   detailsSection: { padding: spacing.xl },
+  shuttleRequestCard: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: spacing.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderRadius: BR.lg,
+    borderCurve: 'continuous' as const,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  shuttleRequestCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  shuttleRequestTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
+  },
+  shuttleRequestAddress: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
+    color: theme.colors.textPrimary,
+  },
+  shuttleRequestHint: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
   routeRow: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,

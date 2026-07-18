@@ -24,6 +24,7 @@ import {
 } from '@features/auth';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { LoadingOverlay } from '@shared/components';
+import { PaymentDeepLinkHandler } from '@app/components/PaymentDeepLinkHandler';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -43,24 +44,27 @@ export function RootNavigator(): React.JSX.Element {
   }
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: theme.colors.background },
-        animation: 'fade',
-      }}
-    >
-      {canEnterApp ? (
-        <>
-          <Stack.Screen name="Main" component={MainTabNavigator} />
-          <Stack.Screen name="Booking" component={BookingNavigator} />
-          <Stack.Screen name="Parcel" component={ParcelNavigator} />
-          <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="Tracking" component={TrackingScreen} options={{ animation: 'slide_from_right' }} />
-        </>
-      ) : (
-        <Stack.Screen name="Auth" component={AuthNavigator} />
-      )}
-    </Stack.Navigator>
+    <>
+      <PaymentDeepLinkHandler />
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.colors.background },
+          animation: 'fade',
+        }}
+      >
+        {canEnterApp ? (
+          <>
+            <Stack.Screen name="Main" component={MainTabNavigator} />
+            <Stack.Screen name="Booking" component={BookingNavigator} />
+            <Stack.Screen name="Parcel" component={ParcelNavigator} />
+            <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="Tracking" component={TrackingScreen} options={{ animation: 'slide_from_right' }} />
+          </>
+        ) : (
+          <Stack.Screen name="Auth" component={AuthNavigator} />
+        )}
+      </Stack.Navigator>
+    </>
   );
 }

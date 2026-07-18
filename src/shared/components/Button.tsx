@@ -32,6 +32,8 @@ interface ButtonProps {
   fullWidth?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  accessibilityLabel?: string;
+  testID?: string;
 }
 
 export function Button({
@@ -44,6 +46,8 @@ export function Button({
   fullWidth = false,
   style,
   textStyle,
+  accessibilityLabel,
+  testID,
 }: ButtonProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -52,6 +56,10 @@ export function Button({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      testID={testID}
       onPress={onPress}
       disabled={isDisabled}
       style={({ pressed }) => [

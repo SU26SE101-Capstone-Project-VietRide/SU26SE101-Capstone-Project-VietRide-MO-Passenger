@@ -28,7 +28,7 @@ import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useLocations } from '@features/location/hooks/useLocations';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useCurrentCoordinates, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import {
   getPaymentRedirectErrorMessage,
@@ -57,7 +57,6 @@ import {
   useAvailableParcelVouchers,
   useCreateParcel,
 } from '../hooks/useParcelQueries';
-import { useCurrentCoordinates } from '../hooks/useCurrentCoordinates';
 import { useParcelStations } from '../hooks/useParcelStations';
 import type {
   AvailableParcelTrip,

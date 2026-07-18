@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { QrCode, CreditCard, Wallet } from 'phosphor-react-native';
+import { QrCode, CreditCard, Wallet, Van } from 'phosphor-react-native';
+import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -61,6 +62,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     selectedSeats,
     selectedPickUp,
     selectedDropOff,
+    selectedShuttlePickup,
     searchParams,
     voucherCode,
     voucherDiscountPreview,
@@ -68,7 +70,26 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     clearVoucher,
     bookingStatus,
     bookingError,
-  } = useBookingStore();
+  } = useBookingStore(useShallow((state) => ({
+    totalPrice: state.totalPrice,
+    paymentMethod: state.paymentMethod,
+    setPaymentMethod: state.setPaymentMethod,
+    setHighestStep: state.setHighestStep,
+    outboundState: state.outboundState,
+    returnState: state.returnState,
+    selectedTrip: state.selectedTrip,
+    selectedSeats: state.selectedSeats,
+    selectedPickUp: state.selectedPickUp,
+    selectedDropOff: state.selectedDropOff,
+    selectedShuttlePickup: state.selectedShuttlePickup,
+    searchParams: state.searchParams,
+    voucherCode: state.voucherCode,
+    voucherDiscountPreview: state.voucherDiscountPreview,
+    setVoucherCode: state.setVoucherCode,
+    clearVoucher: state.clearVoucher,
+    bookingStatus: state.bookingStatus,
+    bookingError: state.bookingError,
+  })));
 
   useEffect(() => {
     const paymentStep = searchParams.isRoundTrip ? 10 : 6;
@@ -92,6 +113,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
       seats: selectedSeats,
       pickUp: selectedPickUp,
       dropOff: selectedDropOff,
+      shuttlePickup: selectedShuttlePickup,
     };
   }, [
     outboundState,
@@ -100,6 +122,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     selectedDropOff,
     selectedPickUp,
     selectedSeats,
+    selectedShuttlePickup,
     selectedTrip,
   ]);
 
@@ -180,6 +203,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
   const seats = displayLeg?.seats ?? [];
   const pickUp = displayLeg?.pickUp;
   const dropOff = displayLeg?.dropOff;
+  const shuttlePickup = displayLeg?.shuttlePickup;
   const promoDiscount = appliedVoucher?.discountAmount ?? voucherDiscountPreview;
   const finalPrice = Math.max(baseFare - promoDiscount, 0);
   const isSubmitting = bookingStatus === 'loading';
@@ -241,6 +265,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
       </View>
 
       <ScrollView
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         contentInsetAdjustmentBehavior="automatic"
@@ -248,6 +273,18 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
         <View style={styles.bentoSummaryCard}>
           <View style={styles.bentoAccent} />
           <Text style={styles.bentoCardHeading}>Route Information</Text>
+          {shuttlePickup ? (
+            <View style={styles.shuttleSummary}>
+              <View style={styles.specIcon}>
+                <Van size={21} color={theme.colors.primary} weight="duotone" />
+              </View>
+              <View style={styles.specDetails}>
+                <Text style={styles.routeLabelText}>SHUTTLE PICKUP REQUEST</Text>
+                <Text style={styles.routeStationName}>{shuttlePickup.address}</Text>
+                <Text style={styles.routeStationCity}>Awaiting operator arrangement</Text>
+              </View>
+            </View>
+          ) : null}
           <View style={styles.summaryRoute}>
             <View style={styles.routeTrack}>
               <View style={styles.dotStart} />
@@ -406,7 +443,10 @@ const createStyles = (theme: AppTheme) => ({
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
-    paddingBottom: 220,
+    paddingBottom: spacing.lg,
+  },
+  scroll: {
+    flex: 1,
   },
   bentoSummaryCard: {
     ...theme.components.card,
@@ -432,6 +472,15 @@ const createStyles = (theme: AppTheme) => ({
   summaryRoute: {
     flexDirection: 'row',
     alignItems: 'stretch',
+  },
+  shuttleSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.colors.primaryFaded,
   },
   routeTrack: {
     width: 18,

@@ -20,6 +20,8 @@ export { StopOption } from './StopOption';
 export { BookingProgressBar } from './BookingProgressBar';
 export * from './ContactInfoModal';
 export { RadioOption } from './RadioOption';
+export { ShuttleServiceCard, type ShuttleServiceStatus } from './ShuttleServiceCard';
+export { ShuttlePickupSheet } from './ShuttlePickupSheet';
 export { TripSummaryRow } from './TripSummaryRow';
 export { PromoRow } from './PromoRow';
 export { ImageUploadSlot } from './ImageUploadSlot';
