@@ -1,4 +1,5 @@
 import { apiClient } from '@shared/api/axiosInstance';
+import { normalizeIdempotencyKey } from '@shared/api/idempotency';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import type { 
   CreateBookingPayload, 
@@ -13,14 +14,9 @@ import type {
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 
 const withIdempotencyKey = (idempotencyKey: string) => {
-  const normalizedKey = idempotencyKey.trim();
-  if (!normalizedKey) {
-    throw new Error('Idempotency key is required.');
-  }
-
   return {
     headers: {
-      'Idempotency-Key': normalizedKey,
+      'Idempotency-Key': normalizeIdempotencyKey(idempotencyKey),
     },
   } as const;
 };

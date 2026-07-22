@@ -42,6 +42,52 @@ describe('API error normalization', () => {
     });
   });
 
+  it('normalizes Cloudflare 502 origin failures as retryable gateway errors', () => {
+    const error = toApiError({
+      isAxiosError: true,
+      message: 'Request failed with status code 502',
+      response: {
+        status: 502,
+        data: {
+          cloudflare_error: true,
+          error_name: 'origin_bad_gateway',
+          status: 502,
+          retry_after: 60,
+        },
+      },
+    });
+
+    expect(error).toMatchObject({
+      code: 'GATEWAY_ORIGIN_UNAVAILABLE',
+      statusCode: 502,
+      retryAfterSeconds: 60,
+    });
+  });
+
+  it('keeps backend validation envelopes ahead of gateway fallbacks', () => {
+    const error = toApiError({
+      isAxiosError: true,
+      message: 'Request failed with status code 422',
+      response: {
+        status: 422,
+        data: {
+          success: false,
+          statusCode: 422,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'A valid UUID v4 Idempotency-Key header is required.',
+          },
+        },
+      },
+    });
+
+    expect(error).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      statusCode: 422,
+      message: 'A valid UUID v4 Idempotency-Key header is required.',
+    });
+  });
+
   it('does not expose arbitrary internal Error messages to the UI', () => {
     const error = toApiError(new Error('ENOENT C:\\private\\credential.txt'));
 

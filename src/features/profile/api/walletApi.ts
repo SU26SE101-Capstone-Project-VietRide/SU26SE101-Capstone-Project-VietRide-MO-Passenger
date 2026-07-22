@@ -1,4 +1,5 @@
 import { apiClient } from '@shared/api/axiosInstance';
+import { normalizeIdempotencyKey } from '@shared/api/idempotency';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 
 export const MINIMUM_TOP_UP_AMOUNT = 10_000;
@@ -183,7 +184,7 @@ export async function initiateTopUp(
     '/wallet/top-up',
     normalizedPayload,
     {
-      headers: { 'Idempotency-Key': idempotencyKey },
+      headers: { 'Idempotency-Key': normalizeIdempotencyKey(idempotencyKey) },
       ...(signal ? { signal } : {}),
     },
   );

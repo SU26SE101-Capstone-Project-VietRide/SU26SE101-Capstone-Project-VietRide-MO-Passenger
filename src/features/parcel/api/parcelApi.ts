@@ -1,4 +1,5 @@
 import { apiClient } from '@shared/api/axiosInstance';
+import { normalizeIdempotencyKey } from '@shared/api/idempotency';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import type { PromoOffer } from '@shared/utils/promo';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
@@ -57,7 +58,7 @@ export async function createParcel(
 ): Promise<CreateParcelResult> {
   const response = await apiClient.post<ApiEnvelope<CreateParcelResult>>('/parcels', payload, {
     headers: {
-      'Idempotency-Key': idempotencyKey,
+      'Idempotency-Key': normalizeIdempotencyKey(idempotencyKey),
     },
   });
 

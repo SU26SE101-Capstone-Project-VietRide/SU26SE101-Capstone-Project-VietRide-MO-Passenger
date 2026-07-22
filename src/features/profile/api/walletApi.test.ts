@@ -33,6 +33,7 @@ const transaction: WalletTransactionDto = {
   note: 'Top-up succeeded',
   createdAt: '2026-07-14T05:00:00Z',
 };
+const TOP_UP_IDEMPOTENCY_KEY = 'aaaaaaaa-1111-4aaa-8aaa-aaaaaaaa1111';
 
 describe('wallet API contract', () => {
   const getMock = jest.mocked(apiClient.get);
@@ -100,12 +101,12 @@ describe('wallet API contract', () => {
     postMock.mockResolvedValueOnce({ data: envelope });
 
     await expect(
-      initiateTopUp(createTopUpPayload(100_000), 'wallet-top-up-key'),
+      initiateTopUp(createTopUpPayload(100_000), TOP_UP_IDEMPOTENCY_KEY),
     ).resolves.toBe(result);
     expect(postMock).toHaveBeenCalledWith(
       '/wallet/top-up',
       { amount: 100_000, method: 'VNPAY' },
-      { headers: { 'Idempotency-Key': 'wallet-top-up-key' } },
+      { headers: { 'Idempotency-Key': TOP_UP_IDEMPOTENCY_KEY } },
     );
   });
 

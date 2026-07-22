@@ -39,6 +39,7 @@ export class ApiRequestError extends Error {
   readonly fields: ApiFieldError[];
   readonly traceId?: string;
   readonly isNetworkError: boolean;
+  readonly retryAfterSeconds?: number;
 
   constructor({
     message,
@@ -47,6 +48,7 @@ export class ApiRequestError extends Error {
     fields = [],
     traceId,
     isNetworkError = false,
+    retryAfterSeconds,
   }: {
     message: string;
     code: string;
@@ -54,6 +56,7 @@ export class ApiRequestError extends Error {
     fields?: ApiFieldError[];
     traceId?: string;
     isNetworkError?: boolean;
+    retryAfterSeconds?: number;
   }) {
     super(message);
     this.name = 'ApiRequestError';
@@ -62,6 +65,7 @@ export class ApiRequestError extends Error {
     this.fields = fields;
     this.traceId = traceId;
     this.isNetworkError = isNetworkError;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -140,6 +144,22 @@ export const apiErrorFromEnvelope = (
 export const parseApiErrorResponse = (value: unknown): ApiRequestError | null =>
   isApiErrorEnvelope(value) ? apiErrorFromEnvelope(value) : null;
 
+const isCloudflareGatewayError = (
+  value: unknown,
+): value is {
+  cloudflare_error: true;
+  status?: number;
+  retry_after?: number;
+  error_name?: string;
+} =>
+  isRecord(value)
+  && value.cloudflare_error === true
+  && (
+    value.error_name === 'origin_bad_gateway'
+    || value.error_category === 'origin'
+    || value.status === 502
+  );
+
 export const unwrapApiResponse = <T>(envelope: ApiEnvelope<T>): T => {
   if (envelope.success) {
     return envelope.data;
@@ -160,11 +180,22 @@ export const toApiError = (error: unknown): ApiRequestError => {
   }
 
   if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<ApiErrorEnvelope>;
+    const axiosError = error as AxiosError<unknown>;
     const envelope = axiosError.response?.data;
 
     if (isApiErrorEnvelope(envelope)) {
       return apiErrorFromEnvelope(envelope);
+    }
+
+    if (isCloudflareGatewayError(envelope)) {
+      return new ApiRequestError({
+        message: 'Máy chủ thanh toán/đặt vé đang bận. Vui lòng chờ khoảng 1 phút rồi thử lại.',
+        code: 'GATEWAY_ORIGIN_UNAVAILABLE',
+        statusCode: axiosError.response?.status ?? envelope.status,
+        retryAfterSeconds: typeof envelope.retry_after === 'number'
+          ? envelope.retry_after
+          : undefined,
+      });
     }
 
     if (axiosError.response?.status === 404) {

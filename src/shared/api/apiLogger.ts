@@ -363,6 +363,13 @@ export const logError = (error: AxiosError): void => {
     `💬 Message: ${safeErrorMessage(error.message)}`,
   ];
 
+  if (hasHeader(config?.headers, 'Authorization')) {
+    parts.push(`🔑 Auth: ${REDACTED}`);
+  }
+  if (hasHeader(config?.headers, 'Idempotency-Key')) {
+    parts.push(`🔄 Idempotency-Key: ${REDACTED}`);
+  }
+
   if (error.response?.data) {
     const body = formatBody(error.response.data);
     if (body) parts.push(`📥 Error Response Body:\n${body}`);
