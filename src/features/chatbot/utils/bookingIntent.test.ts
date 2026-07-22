@@ -49,6 +49,7 @@ describe('extractBookingDraft', () => {
     const draft = extractBookingDraft(
       'Book 3 tickets from HCM to DAD on 2026-07-20',
       locations,
+      new Date(2026, 6, 13),
     );
 
     expect(draft).toMatchObject({

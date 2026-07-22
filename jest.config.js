@@ -1,5 +1,5 @@
 module.exports = {
-  preset: '@react-native/jest-preset',
+  preset: 'jest-expo',
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native|@react-navigation|@expo|expo|expo-.*|expo-modules-core|react-native-.*|@react-native-community)/)',
   ],

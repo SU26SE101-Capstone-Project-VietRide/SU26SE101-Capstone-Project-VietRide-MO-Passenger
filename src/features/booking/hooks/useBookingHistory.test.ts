@@ -4,6 +4,9 @@ jest.mock('../../auth/store/useAuthStore', () => ({
 jest.mock('@shared/constants/demoMode', () => ({
   isDemoMode: false,
 }));
+jest.mock('@features/profile/hooks/usePassengerHistory', () => ({
+  usePassengerHistory: jest.fn(),
+}));
 
 import { isUuid } from '@shared/utils/pathSegment';
 import { BOOKING_HISTORY_FIXTURE } from '../data/bookingHistoryFixture';

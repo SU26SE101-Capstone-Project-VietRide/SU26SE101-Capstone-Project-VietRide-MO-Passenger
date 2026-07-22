@@ -49,6 +49,17 @@ jest.mock('@shared/hooks', () => ({
   useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) => factory(mockTheme),
 }));
 
+jest.mock('phosphor-react-native', () => {
+  const MockIcon = () => null;
+  return {
+    ArrowLeft: MockIcon,
+    CheckCircle: MockIcon,
+    Package: MockIcon,
+    Truck: MockIcon,
+    WarningCircle: MockIcon,
+  };
+});
+
 jest.mock('@features/tracking', () => ({
   LiveTripTrackingPanel: (props: unknown) => mockLiveTripTrackingPanel(props),
 }));

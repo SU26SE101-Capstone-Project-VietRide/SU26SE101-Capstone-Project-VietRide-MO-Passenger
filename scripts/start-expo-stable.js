@@ -9,6 +9,9 @@ const forwardedArguments = process.argv.slice(2);
 const hasHostOption = forwardedArguments.some((argument) =>
   ['--lan', '--localhost', '--tunnel'].includes(argument),
 );
+const hasRuntimeOption = forwardedArguments.some((argument) =>
+  ['--go', '--dev-client'].includes(argument),
+);
 
 const result = spawnSync(
   process.execPath,
@@ -16,6 +19,7 @@ const result = spawnSync(
     expoCliPath,
     'start',
     ...(hasHostOption ? [] : ['--lan']),
+    ...(hasRuntimeOption ? [] : ['--go']),
     ...forwardedArguments,
   ],
   {

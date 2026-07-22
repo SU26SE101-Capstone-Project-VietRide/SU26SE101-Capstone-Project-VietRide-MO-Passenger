@@ -11,7 +11,7 @@ def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 react {
     entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", projectRoot, "android", "absolute"].execute(null, rootDir).text.trim())
     reactNativeDir = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
-    hermesCommand = new File(["node", "--print", "require.resolve('hermes-compiler/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/hermesc/%OS-BIN%/hermesc"
+    hermesCommand = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"
     codegenDir = new File(["node", "--print", "require.resolve('@react-native/codegen/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
 
     enableBundleCompression = (findProperty('android.enableBundleCompression') ?: false).toBoolean()
@@ -66,47 +66,7 @@ react {
 /**
  * Set this to true in release builds to optimize the app using [R8](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization).
  */
-def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBuilds') ?: true).toBoolean()
-def releaseStoreFile = System.getenv('VIETRIDE_ANDROID_KEYSTORE_PATH')
-def releaseStorePassword = System.getenv('VIETRIDE_ANDROID_KEYSTORE_PASSWORD')
-def releaseKeyAlias = System.getenv('VIETRIDE_ANDROID_KEY_ALIAS')
-def releaseKeyPassword = System.getenv('VIETRIDE_ANDROID_KEY_PASSWORD')
-def googleMapsApiKey = System.getenv('GOOGLE_MAPS_ANDROID_API_KEY')
-    ?: findProperty('GOOGLE_MAPS_ANDROID_API_KEY')
-    ?: ''
-def isReleaseTask = gradle.startParameter.taskNames.any { taskName ->
-    taskName.toLowerCase().contains('release')
-}
-def normalizedGoogleMapsApiKey = googleMapsApiKey.trim()
-def upperGoogleMapsApiKey = normalizedGoogleMapsApiKey.toUpperCase()
-def hasPlaceholderGoogleMapsApiKey = upperGoogleMapsApiKey.startsWith('TEST_')
-    || upperGoogleMapsApiKey.contains('YOUR_KEY')
-    || upperGoogleMapsApiKey.contains('PLACEHOLDER')
-def hasProductionGoogleMapsApiKey = !normalizedGoogleMapsApiKey.isEmpty()
-    && !hasPlaceholderGoogleMapsApiKey
-def allowInternalPlaceholderMapsKey = (
-    findProperty('vietride.allowInternalPlaceholderMapsKey') ?: false
-).toBoolean()
-def hasReleaseSigningCredentials = [
-    releaseStoreFile,
-    releaseStorePassword,
-    releaseKeyAlias,
-    releaseKeyPassword,
-].every { value -> value != null && !value.trim().isEmpty() }
-
-if (isReleaseTask
-    && !hasProductionGoogleMapsApiKey
-    && !(allowInternalPlaceholderMapsKey && !normalizedGoogleMapsApiKey.isEmpty())) {
-    throw new GradleException(
-        'A non-placeholder GOOGLE_MAPS_ANDROID_API_KEY is required for Android release builds. '
-            + 'Internal integration APKs must opt in explicitly with '
-            + '-Pvietride.allowInternalPlaceholderMapsKey=true.'
-    )
-}
-
-if (isReleaseTask && allowInternalPlaceholderMapsKey && hasPlaceholderGoogleMapsApiKey) {
-    logger.warn('Building an INTERNAL APK with a placeholder Google Maps key; maps are intentionally unavailable.')
-}
+def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBuilds') ?: false).toBoolean()
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -134,7 +94,6 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "0.0.1"
-        manifestPlaceholders = [GOOGLE_MAPS_ANDROID_API_KEY: googleMapsApiKey]
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -145,26 +104,16 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-        if (hasReleaseSigningCredentials) {
-            release {
-                storeFile file(releaseStoreFile)
-                storePassword releaseStorePassword
-                keyAlias releaseKeyAlias
-                keyPassword releaseKeyPassword
-            }
-        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Never fall back to the repository's debug key. Without injected
-            // release credentials Gradle emits an unsigned artifact.
-            if (hasReleaseSigningCredentials) {
-                signingConfig signingConfigs.release
-            }
-            def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'true'
+            // Caution! In production, you need to generate your own keystore file.
+            // see https://reactnative.dev/docs/signed-apk-android.
+            signingConfig signingConfigs.debug
+            def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
