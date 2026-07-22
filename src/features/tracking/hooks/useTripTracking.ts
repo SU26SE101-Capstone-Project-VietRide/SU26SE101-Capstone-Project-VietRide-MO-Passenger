@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { toApiError } from '@shared/api/errors';
+import {
+  ApiRequestError,
+  toApiError,
+} from '@shared/api/errors';
+import {
+  refreshAccessTokenAfterUnauthorized,
+  resolveStoredAccessToken,
+} from '@shared/api/authSession';
 import { useIsAppActive } from '@shared/hooks/useIsAppActive';
 import { useNetworkStatus } from '@shared/hooks/useNetworkStatus';
 import { isUuid } from '@shared/utils/pathSegment';
@@ -13,8 +20,18 @@ import {
   getTrackingLatest,
   getTrackingTrail,
   trackingKeys,
+  type TrackingEta,
+  type TrackingEtaResponse,
+  type TrackingLatestResponse,
   type TrackingPoint,
 } from '../api/trackingApi';
+import {
+  createTripTrackingConnection,
+  type TrackingDelayUpdate,
+  type TrackingJoinFailure,
+  type TrackingRealtimeStatus,
+  type TripTrackingConnection,
+} from '../api/trackingRealtime';
 
 export const TRACKING_LATEST_POLL_MS = 5_000;
 export const TRACKING_ETA_POLL_MS = 60_000;
@@ -23,15 +40,37 @@ export const MAX_TRACKING_TRAIL_POINTS = 300;
 
 export type TrackingTripStatus = TripLifecycleStatus;
 
-interface UseTripTrackingOptions {
+export interface UseTripTrackingOptions {
   tripId: string;
   stopId?: string;
   tripStatus?: TrackingTripStatus;
+  /** Lets non-trip sources (for example a delivered parcel) stop live work. */
+  sourceTerminal?: boolean;
 }
 
-interface LiveTrailState {
-  tripId: string;
+interface ScopedLiveTrailState {
+  scopeKey: string;
   points: TrackingPoint[];
+}
+
+interface ScopedFatalState {
+  scopeKey: string;
+  error: ApiRequestError;
+}
+
+interface ScopedRealtimeState {
+  scopeKey: string;
+  status: TrackingRealtimeStatus;
+}
+
+interface ScopedEtaState {
+  scopeKey: string;
+  eta: TrackingEta;
+}
+
+interface ScopedDelayState {
+  scopeKey: string;
+  delay: TrackingDelayUpdate;
 }
 
 const TERMINAL_TRIP_STATUSES = new Set<TrackingTripStatus>([
@@ -47,6 +86,13 @@ export function isTerminalTrackingStatus(status?: TrackingTripStatus): boolean {
 export function isFatalTrackingError(error: unknown): boolean {
   const statusCode = error ? toApiError(error).statusCode : undefined;
   return statusCode === 403 || statusCode === 404;
+}
+
+export function getFatalTrackingError(
+  errors: readonly unknown[],
+): ApiRequestError | null {
+  const error = errors.find(isFatalTrackingError);
+  return error ? toApiError(error) : null;
 }
 
 interface TrackingExecutionPolicyInput {
@@ -94,6 +140,16 @@ export const getTrackingRefetchInterval = (
 const pointKey = (point: TrackingPoint): string =>
   `${point.recordedAt}:${point.latitude}:${point.longitude}`;
 
+const areTrackingPointsEqual = (
+  left: TrackingPoint,
+  right: TrackingPoint,
+): boolean => left.tripId === right.tripId
+  && left.latitude === right.latitude
+  && left.longitude === right.longitude
+  && left.speedKmh === right.speedKmh
+  && left.headingDeg === right.headingDeg
+  && left.recordedAt === right.recordedAt;
+
 export function mergeTrackingPoints(
   persistedPoints: readonly TrackingPoint[],
   livePoints: readonly TrackingPoint[],
@@ -111,27 +167,108 @@ export function mergeTrackingPoints(
     .slice(-limit);
 }
 
+export function getNewestTrackingPoint(
+  points: ReadonlyArray<TrackingPoint | null | undefined>,
+): TrackingPoint | null {
+  let newest: TrackingPoint | null = null;
+  let newestTimestamp = Number.NEGATIVE_INFINITY;
+
+  points.forEach((point) => {
+    if (!point) return;
+    const timestamp = Date.parse(point.recordedAt);
+    if (Number.isFinite(timestamp) && timestamp >= newestTimestamp) {
+      newest = point;
+      newestTimestamp = timestamp;
+    }
+  });
+
+  return newest;
+}
+
+const appendScopedTrackingPoint = (
+  current: ScopedLiveTrailState,
+  scopeKey: string,
+  point: TrackingPoint,
+): ScopedLiveTrailState => {
+  const currentPoints = current.scopeKey === scopeKey ? current.points : [];
+  const nextPoints = mergeTrackingPoints(
+    currentPoints,
+    [point],
+    MAX_TRACKING_TRAIL_POINTS,
+  );
+  const hasChanged = nextPoints.length !== currentPoints.length
+    || nextPoints.some((nextPoint, index) => (
+      !areTrackingPointsEqual(nextPoint, currentPoints[index])
+    ));
+
+  return current.scopeKey === scopeKey && !hasChanged
+    ? current
+    : { scopeKey, points: nextPoints };
+};
+
+const getNewestEta = (
+  restEta: TrackingEta | null | undefined,
+  liveEta: TrackingEta | null | undefined,
+): TrackingEta | null => {
+  if (!restEta) return liveEta ?? null;
+  if (!liveEta) return restEta;
+  return Date.parse(liveEta.updatedAt) >= Date.parse(restEta.updatedAt)
+    ? liveEta
+    : restEta;
+};
+
 const shouldRetryTracking = (failureCount: number, error: unknown): boolean =>
   !isFatalTrackingError(error) && failureCount < 2;
+
+const createSocketFatalError = (
+  failure: Extract<TrackingJoinFailure, 'ACCESS_DENIED' | 'TRIP_NOT_FOUND'>,
+): ApiRequestError => new ApiRequestError({
+  message: failure === 'ACCESS_DENIED'
+    ? 'You do not have permission to track this trip.'
+    : 'This trip could not be found.',
+  code: failure,
+  statusCode: failure === 'ACCESS_DENIED' ? 403 : 404,
+});
 
 export function useTripTracking({
   tripId,
   stopId,
   tripStatus,
+  sourceTerminal = false,
 }: UseTripTrackingOptions) {
+  const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.user?.id);
   const isFocused = useIsFocused();
   const isOnline = useNetworkStatus();
   const isAppActive = useIsAppActive();
-  const [liveTrail, setLiveTrail] = useState<LiveTrailState>({
-    tripId,
+  const [liveTrail, setLiveTrail] = useState<ScopedLiveTrailState>({
+    scopeKey: '',
     points: [],
   });
+  const [fatalState, setFatalState] = useState<ScopedFatalState | null>(null);
+  const [inactiveScopeKey, setInactiveScopeKey] = useState<string | null>(null);
+  const [realtimeState, setRealtimeState] = useState<ScopedRealtimeState>({
+    scopeKey: '',
+    status: 'idle',
+  });
+  const [liveEtaState, setLiveEtaState] = useState<ScopedEtaState | null>(null);
+  const [delayState, setDelayState] = useState<ScopedDelayState | null>(null);
 
   const hasValidTripId = isUuid(tripId);
   const hasValidStopId = stopId === undefined || isUuid(stopId);
-  const isTerminal = isTerminalTrackingStatus(tripStatus);
-  const { queryEnabled, pollingEnabled } = getTrackingExecutionPolicy({
+  const queryUserId = userId ?? 'guest';
+  const queryTripId = hasValidTripId ? tripId : 'invalid';
+  const queryStopId = stopId && hasValidStopId ? stopId : 'none';
+  const scopeKey = `${queryUserId}:${queryTripId}`;
+  const etaScopeKey = `${scopeKey}:${queryStopId}`;
+  const activeFatalError = fatalState?.scopeKey === scopeKey
+    ? fatalState.error
+    : null;
+  const isInactive = inactiveScopeKey === scopeKey;
+  const isTerminal = sourceTerminal
+    || isInactive
+    || isTerminalTrackingStatus(tripStatus);
+  const executionPolicy = getTrackingExecutionPolicy({
     hasAuthenticatedUser: Boolean(userId),
     hasValidTripId,
     isFocused,
@@ -139,12 +276,35 @@ export function useTripTracking({
     isAppActive,
     isTerminal,
   });
-  const queryUserId = userId ?? 'guest';
-  const queryTripId = hasValidTripId ? tripId : 'invalid';
-  const queryStopId = stopId && hasValidStopId ? stopId : 'none';
+  const queryEnabled = executionPolicy.queryEnabled && !activeFatalError;
+  const pollingEnabled = executionPolicy.pollingEnabled && !activeFatalError;
+  const activeRealtimeStatus = realtimeState.scopeKey === scopeKey
+    ? realtimeState.status
+    : 'idle';
+  const realtimeStatus: TrackingRealtimeStatus = activeFatalError?.statusCode === 403
+    ? 'forbidden'
+    : activeFatalError?.statusCode === 404
+      ? 'not_found'
+      : isInactive
+        ? 'inactive'
+        : activeRealtimeStatus;
+  const isRealtimeConnected = realtimeStatus === 'connected';
+
+  const latestKey = useMemo(
+    () => trackingKeys.latest(queryUserId, queryTripId),
+    [queryTripId, queryUserId],
+  );
+  const trailKey = useMemo(
+    () => trackingKeys.trail(queryUserId, queryTripId),
+    [queryTripId, queryUserId],
+  );
+  const etaKey = useMemo(
+    () => trackingKeys.eta(queryUserId, queryTripId, queryStopId),
+    [queryStopId, queryTripId, queryUserId],
+  );
 
   const latestQuery = useQuery({
-    queryKey: trackingKeys.latest(queryUserId, queryTripId),
+    queryKey: latestKey,
     queryFn: ({ signal }) => getTrackingLatest(tripId, signal),
     enabled: queryEnabled,
     staleTime: TRACKING_LATEST_POLL_MS - 1_000,
@@ -152,14 +312,14 @@ export function useTripTracking({
     retry: shouldRetryTracking,
     refetchOnReconnect: false,
     refetchInterval: (query) => getTrackingRefetchInterval(
-      pollingEnabled,
+      pollingEnabled && !isRealtimeConnected,
       query.state.error,
       TRACKING_LATEST_POLL_MS,
     ),
   });
 
   const trailQuery = useQuery({
-    queryKey: trackingKeys.trail(queryUserId, queryTripId),
+    queryKey: trailKey,
     queryFn: ({ signal }) => getTrackingTrail(tripId, {}, signal),
     enabled: queryEnabled,
     staleTime: TRACKING_TRAIL_REFRESH_MS,
@@ -174,7 +334,7 @@ export function useTripTracking({
   });
 
   const etaQuery = useQuery({
-    queryKey: trackingKeys.eta(queryUserId, queryTripId, queryStopId),
+    queryKey: etaKey,
     queryFn: ({ signal }) => {
       if (!stopId) throw new Error('Missing stopId.');
       return getTrackingEta(tripId, stopId, signal);
@@ -191,41 +351,173 @@ export function useTripTracking({
     ),
   });
 
-  const latest = latestQuery.data?.latest ?? null;
+  useEffect(() => {
+    const fatalError = getFatalTrackingError([
+      latestQuery.error,
+      trailQuery.error,
+      etaQuery.error,
+    ]);
+    if (!fatalError) return;
+
+    setFatalState((current) => current?.scopeKey === scopeKey
+      ? current
+      : { scopeKey, error: fatalError });
+  }, [etaQuery.error, latestQuery.error, scopeKey, trailQuery.error]);
+
+  const rawLatest = latestQuery.data?.latest ?? null;
 
   useEffect(() => {
-    if (!latest) return;
+    if (!rawLatest) return;
+    setLiveTrail((current) => appendScopedTrackingPoint(
+      current,
+      scopeKey,
+      rawLatest,
+    ));
+  }, [rawLatest, scopeKey]);
 
-    setLiveTrail((current) => {
-      const currentPoints = current.tripId === tripId ? current.points : [];
-      const nextPoints = mergeTrackingPoints(
-        currentPoints,
-        [latest],
-        MAX_TRACKING_TRAIL_POINTS,
-      );
-
-      if (
-        current.tripId === tripId
-        && nextPoints.length === currentPoints.length
-        && pointKey(nextPoints[nextPoints.length - 1]) === pointKey(currentPoints[currentPoints.length - 1])
-      ) {
-        return current;
+  useEffect(() => {
+    if (!pollingEnabled || !userId) {
+      if (!isInactive && !activeFatalError) {
+        setRealtimeState((current) => current.scopeKey === scopeKey
+          ? { scopeKey, status: 'idle' }
+          : current);
       }
+      return;
+    }
 
-      return { tripId, points: nextPoints };
-    });
-  }, [latest, tripId]);
+    let disposed = false;
+    let connection: TripTrackingConnection | null = null;
+    let didRetryUnauthorized = false;
 
-  const trailPoints = useMemo(
-    () => {
-      const currentLivePoints = liveTrail.tripId === tripId ? liveTrail.points : [];
-      return mergeTrackingPoints(
-        trailQuery.data?.items ?? [],
-        currentLivePoints,
-      );
-    },
-    [liveTrail, trailQuery.data?.items, tripId],
+    const setScopedStatus = (status: TrackingRealtimeStatus): void => {
+      if (disposed) return;
+      if (status === 'connected') didRetryUnauthorized = false;
+      setRealtimeState({ scopeKey, status });
+    };
+
+    const appendLivePoint = (point: TrackingPoint): void => {
+      if (disposed) return;
+      setLiveTrail((current) => appendScopedTrackingPoint(
+        current,
+        scopeKey,
+        point,
+      ));
+      queryClient.setQueryData<TrackingLatestResponse>(latestKey, (current) => ({
+        latest: getNewestTrackingPoint([current?.latest, point]),
+      }));
+    };
+
+    const startConnection = (accessToken: string): void => {
+      if (disposed) return;
+      connection?.disconnect();
+      connection = createTripTrackingConnection({
+        tripId,
+        ...(stopId && hasValidStopId ? { stopId } : {}),
+        accessToken,
+        onStatusChange: setScopedStatus,
+        onGpsUpdate: appendLivePoint,
+        onEtaUpdate: (eta) => {
+          if (disposed || !stopId || !hasValidStopId) return;
+          setLiveEtaState({ scopeKey: etaScopeKey, eta });
+          setDelayState((current) => {
+            if (eta.delayed && eta.delayMinutes !== undefined) {
+              return {
+                scopeKey,
+                delay: {
+                  tripId: eta.tripId,
+                  stopId: eta.stopId,
+                  status: 'DELAYED',
+                  delayMinutes: eta.delayMinutes,
+                  updatedAt: eta.updatedAt,
+                },
+              };
+            }
+
+            return current?.scopeKey === scopeKey ? null : current;
+          });
+          if (eta.stopId === stopId) {
+            queryClient.setQueryData<TrackingEtaResponse>(etaKey, (current) => ({
+              eta: getNewestEta(current?.eta, eta),
+            }));
+          }
+        },
+        onDelayUpdate: (delay) => {
+          if (!disposed) setDelayState({ scopeKey, delay });
+        },
+        onJoinRejected: (failure) => {
+          if (failure === 'ACCESS_DENIED' || failure === 'TRIP_NOT_FOUND') {
+            setFatalState({ scopeKey, error: createSocketFatalError(failure) });
+          } else if (failure === 'TRACKING_TRIP_NOT_ACTIVE') {
+            setInactiveScopeKey(scopeKey);
+          }
+        },
+        onUnauthorized: () => {
+          connection?.disconnect();
+          if (disposed || didRetryUnauthorized) {
+            setScopedStatus('fallback');
+            return;
+          }
+
+          didRetryUnauthorized = true;
+          refreshAccessTokenAfterUnauthorized()
+            .then((refreshedToken) => {
+              if (disposed) return;
+              if (refreshedToken) startConnection(refreshedToken);
+              else setScopedStatus('idle');
+            })
+            .catch(() => setScopedStatus('fallback'));
+        },
+      });
+    };
+
+    setScopedStatus('connecting');
+    resolveStoredAccessToken()
+      .then((accessToken) => {
+        if (disposed) return;
+        if (accessToken) startConnection(accessToken);
+        else setScopedStatus('idle');
+      })
+      .catch(() => setScopedStatus('fallback'));
+
+    return () => {
+      disposed = true;
+      connection?.disconnect();
+    };
+  }, [
+    activeFatalError,
+    etaKey,
+    etaScopeKey,
+    hasValidStopId,
+    isInactive,
+    latestKey,
+    pollingEnabled,
+    queryClient,
+    scopeKey,
+    stopId,
+    tripId,
+    userId,
+  ]);
+
+  const trailPoints = useMemo(() => {
+    const currentLivePoints = liveTrail.scopeKey === scopeKey
+      ? liveTrail.points
+      : [];
+    return mergeTrackingPoints(
+      trailQuery.data?.items ?? [],
+      [...currentLivePoints, ...(rawLatest ? [rawLatest] : [])],
+    );
+  }, [liveTrail, rawLatest, scopeKey, trailQuery.data?.items]);
+
+  const latest = useMemo(
+    () => getNewestTrackingPoint([
+      rawLatest,
+      trailPoints[trailPoints.length - 1],
+    ]),
+    [rawLatest, trailPoints],
   );
+  const liveEta = liveEtaState?.scopeKey === etaScopeKey ? liveEtaState.eta : null;
+  const eta = getNewestEta(etaQuery.data?.eta, liveEta);
+  const delay = delayState?.scopeKey === scopeKey ? delayState.delay : null;
 
   const refetchLatest = latestQuery.refetch;
   const refetchTrail = trailQuery.refetch;
@@ -237,19 +529,28 @@ export function useTripTracking({
       refetchLatest(),
       refetchTrail(),
     ];
-    if (stopId && hasValidStopId) {
-      requests.push(refetchEta());
-    }
+    if (stopId && hasValidStopId) requests.push(refetchEta());
     await Promise.all(requests);
   }, [hasValidStopId, queryEnabled, refetchEta, refetchLatest, refetchTrail, stopId]);
+
+  const queryFatalError = getFatalTrackingError([
+    latestQuery.error,
+    trailQuery.error,
+    etaQuery.error,
+  ]);
+  const fatalError = activeFatalError ?? queryFatalError;
 
   return {
     latest,
     trailPoints,
-    eta: etaQuery.data?.eta ?? null,
+    eta,
+    delay,
     latestQuery,
     trailQuery,
     etaQuery,
+    fatalError,
+    realtimeStatus,
+    isRealtimeConnected,
     hasAuthenticatedUser: Boolean(userId),
     hasValidTripId,
     hasValidStopId,
@@ -262,3 +563,5 @@ export function useTripTracking({
     refetchAll,
   };
 }
+
+export type UseTripTrackingResult = ReturnType<typeof useTripTracking>;

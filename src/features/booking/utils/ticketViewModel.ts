@@ -1,4 +1,6 @@
 import type { TripLifecycleStatus } from '@features/trip/types';
+import type { PassengerTicketHistoryItem } from '@features/profile/types';
+import { formatStatusLabel, formatTime } from '@shared/utils/format';
 import type {
   BookingResult,
   BookingTicketResult,
@@ -15,13 +17,14 @@ import { getBookingReference } from './bookingReference';
 export interface TicketLegViewModel {
   label: 'Outbound' | 'Return' | 'Trip';
   reference: string;
+  ticketReferences?: string;
   boardingName: string;
-  boardingAddress: string;
-  boardingTime: string;
+  boardingAddress?: string;
+  boardingTime?: string;
   alightingName: string;
-  alightingAddress: string;
-  alightingTime: string;
-  busType: string;
+  alightingAddress?: string;
+  alightingTime?: string;
+  busType?: string;
   seatNumbers: string;
   ticketCount: number;
   totalAmount: number;
@@ -39,7 +42,7 @@ export interface TicketViewModel {
   statusMessage: string;
   isPendingPayment: boolean;
   isDemo: boolean;
-  paymentMethod: 'WALLET' | 'VNPAY';
+  paymentMethod?: 'WALLET' | 'VNPAY';
   totalAmount: number;
   legs: TicketLegViewModel[];
 }
@@ -85,6 +88,10 @@ const buildLeg = ({
 }: BuildLegInput): TicketLegViewModel => ({
   label,
   reference,
+  ticketReferences: tickets
+    .map((ticket) => ticket.ticketCode.trim())
+    .filter(Boolean)
+    .join(', ') || undefined,
   boardingName: pickUp?.name || '—',
   boardingAddress: pickUp?.address || '',
   boardingTime: pickUp?.time || '—',
@@ -192,7 +199,7 @@ export const buildHistoryTicketViewModel = (
   title: 'Ticket Detail',
   statusTitle: detail.status === 'CONFIRMED'
     ? 'Ticket confirmed'
-    : detail.status.replaceAll('_', ' '),
+    : formatStatusLabel(detail.status),
   statusMessage: detail.status === 'CONFIRMED'
     ? 'Show this ticket reference when boarding.'
     : 'This is the latest available ticket status.',
@@ -203,6 +210,7 @@ export const buildHistoryTicketViewModel = (
   legs: [{
     label: 'Trip',
     reference: detail.ticketCode,
+    ticketReferences: detail.ticketCode,
     boardingName: detail.pickup.name,
     boardingAddress: detail.pickup.address,
     boardingTime: detail.pickup.time,
@@ -217,5 +225,56 @@ export const buildHistoryTicketViewModel = (
     bookingId: detail.id,
     stopId: detail.dropoff.stopId,
     trackingEnabled: source === 'remote' && detail.status === 'CONFIRMED',
+  }],
+});
+
+const REMOTE_TRACKABLE_BOOKING_STATUSES = new Set<PassengerTicketHistoryItem['status']>([
+  'CONFIRMED',
+  'COMPLETED',
+  'PARTIAL_NO_SHOW',
+  'DISRUPTED',
+]);
+
+/**
+ * Builds only from fields returned by GET /passenger/history. Values that the
+ * facade does not own (payment method, bus type, stop address/id) stay absent
+ * so the ticket UI can omit them instead of fabricating details.
+ */
+export const buildPassengerHistoryTicketViewModel = (
+  item: PassengerTicketHistoryItem,
+): TicketViewModel => ({
+  title: 'Ticket Detail',
+  statusTitle: item.status === 'CONFIRMED'
+    ? 'Ticket confirmed'
+    : formatStatusLabel(item.status),
+  statusMessage: item.status === 'CONFIRMED'
+    ? 'Show the booking or ticket reference when boarding.'
+    : 'This is the latest status recorded in your booking history.',
+  isPendingPayment: item.status === 'PENDING_PAYMENT',
+  isDemo: false,
+  totalAmount: item.totalAmount,
+  legs: [{
+    label: item.ticket.tripDirection === 'OUTBOUND'
+      ? 'Outbound'
+      : item.ticket.tripDirection === 'RETURN'
+        ? 'Return'
+        : 'Trip',
+    reference: item.code,
+    ticketReferences: item.ticket.tickets
+      .map((ticket) => ticket.ticketCode)
+      .join(', ') || undefined,
+    boardingName: item.originName ?? 'Origin unavailable',
+    boardingTime: item.departureDateTime
+      ? formatTime(item.departureDateTime)
+      : undefined,
+    alightingName: item.destinationName ?? 'Destination unavailable',
+    seatNumbers: item.ticket.tickets
+      .map((ticket) => ticket.seatNumber)
+      .join(', ') || '—',
+    ticketCount: item.ticket.tickets.length,
+    totalAmount: item.totalAmount,
+    tripId: item.tripId,
+    bookingId: item.id,
+    trackingEnabled: REMOTE_TRACKABLE_BOOKING_STATUSES.has(item.status),
   }],
 });

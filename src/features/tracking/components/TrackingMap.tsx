@@ -4,13 +4,20 @@ import { MapPin } from 'phosphor-react-native';
 
 import { appConfig } from '@shared/constants/config';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useThemedStyles } from '@shared/hooks/useThemedStyles';
 import { borderRadius, fontFamilies, fontSizes, spacing, type AppTheme } from '@shared/theme';
 import type { TrackingPoint } from '../api/trackingApi';
+import {
+  prepareTrackingMapData,
+  type TrackingMapStop,
+} from './trackingMapModel';
+
+export type { TrackingMapStop } from './trackingMapModel';
 
 interface TrackingMapProps {
   latest: TrackingPoint | null;
   points: readonly TrackingPoint[];
+  stops?: readonly TrackingMapStop[];
 }
 
 const LazyNativeTrackingMap = React.lazy(async () => {
@@ -18,11 +25,16 @@ const LazyNativeTrackingMap = React.lazy(async () => {
   return { default: module.NativeTrackingMap };
 });
 
-const isPlaceholderMapKey = (key: string): boolean =>
-  key.length === 0 || key.toUpperCase().includes('YOUR_KEY');
+const EMPTY_STOPS: readonly TrackingMapStop[] = [];
 
 export function isNativeTrackingMapConfigured(): boolean {
-  return Platform.OS === 'ios' || !isPlaceholderMapKey(appConfig.googleMapsApiKey.trim());
+  if (Platform.OS === 'android') {
+    return appConfig.nativeGoogleMapsEnabled.android;
+  }
+  if (Platform.OS === 'ios') {
+    return appConfig.nativeGoogleMapsEnabled.ios;
+  }
+  return false;
 }
 
 function MapPlaceholder({
@@ -46,7 +58,13 @@ function MapPlaceholder({
 export const TrackingMap = React.memo(function TrackingMapComponent({
   latest,
   points,
+  stops = EMPTY_STOPS,
 }: TrackingMapProps): React.JSX.Element {
+  const mapData = React.useMemo(
+    () => prepareTrackingMapData(latest, points, stops),
+    [latest, points, stops],
+  );
+
   if (!isNativeTrackingMapConfigured()) {
     return (
       <MapPlaceholder
@@ -56,7 +74,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     );
   }
 
-  if (!latest && points.length === 0) {
+  if (!mapData.latest) {
     return (
       <MapPlaceholder
         title="Waiting for location"
@@ -74,7 +92,11 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
         />
       )}
     >
-      <LazyNativeTrackingMap latest={latest} points={points} />
+      <LazyNativeTrackingMap
+        latest={mapData.latest}
+        points={mapData.points}
+        stops={mapData.stops}
+      />
     </Suspense>
   );
 });

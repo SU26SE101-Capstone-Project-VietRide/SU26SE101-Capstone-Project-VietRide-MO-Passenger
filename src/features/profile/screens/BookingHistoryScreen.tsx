@@ -1,15 +1,19 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import {
   useNavigation,
   useRoute,
@@ -24,16 +28,19 @@ import {
   ArrowLeft,
   CalendarBlank,
   Clock,
-  Flask,
   NavigationArrow,
   Package,
   Ticket,
+  User,
+  WarningCircle,
 } from 'phosphor-react-native';
 
 import type {
   MainTabParamList,
   RootStackParamList,
 } from '@app/navigation/types';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { formatParcelStatusLabel } from '@features/parcel/utils/parcelTracking';
 import { getApiErrorMessage } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
@@ -44,97 +51,156 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import { formatDate, formatDateTime, formatTime, formatVnd } from '@shared/utils/format';
-import { useAuthStore } from '../../auth/store/useAuthStore';
-import { useBookingHistory } from '../../booking/hooks/useBookingHistory';
-import type { BookingHistoryItem } from '../../booking/types/booking';
-import { useReceivedParcels } from '../../parcel/hooks/useParcelQueries';
-import type { ReceivedParcel } from '../../parcel/types';
+import {
+  formatDate,
+  formatDateTime,
+  formatStatusLabel,
+  formatTime,
+  formatVnd,
+} from '@shared/utils/format';
+import { PASSENGER_HISTORY_DEFAULT_PAGE_SIZE } from '../api/passengerHistoryApi';
+import { usePassengerHistory } from '../hooks/usePassengerHistory';
+import type {
+  PassengerParcelHistoryItem,
+  PassengerTicketHistoryItem,
+  PassengerTicketStatus,
+} from '../types';
 
 type HistoryTab = 'ticket' | 'parcel';
-type TicketFilter = 'all' | 'upcoming' | 'past';
+type TicketFilter = 'ALL' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
 type BookingHistoryRoute = RouteProp<MainTabParamList, 'BookingHistory'>;
 type BookingHistoryNavigation = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'BookingHistory'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-const ACTIVE_STATUSES = new Set<BookingHistoryItem['status']>([
-  'PENDING_PAYMENT',
+const TRACKABLE_TICKET_STATUSES = new Set<PassengerTicketStatus>([
   'CONFIRMED',
+  'COMPLETED',
+  'PARTIAL_NO_SHOW',
+  'DISRUPTED',
 ]);
-const EMPTY_RECEIVED_PARCELS: ReceivedParcel[] = [];
 
-interface BookingHistoryRowProps {
-  id: string;
-  bookingCode: string;
-  tripId: string;
-  originStationName: string;
-  destinationStationName: string;
-  departureDateTime: string;
-  status: BookingHistoryItem['status'];
-  totalAmount: number;
-  trackingEnabled: boolean;
-  onOpen: (bookingId: string) => void;
+const ticketKeyExtractor = (item: PassengerTicketHistoryItem): string => item.id;
+const parcelKeyExtractor = (item: PassengerParcelHistoryItem): string => item.id;
+
+const getRouteLabel = (
+  originName: string | null,
+  destinationName: string | null,
+): string => {
+  if (originName && destinationName) return `${originName} → ${destinationName}`;
+  return originName ?? destinationName ?? 'Journey details unavailable';
+};
+
+interface TicketFilterChipProps {
+  label: string;
+  selected: boolean;
+  value: TicketFilter;
+  onSelect: (value: TicketFilter) => void;
+}
+
+const TicketFilterChip = memo(function TicketFilterChipComponent({
+  label,
+  selected,
+  value,
+  onSelect,
+}: TicketFilterChipProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+  const handlePress = useCallback(() => onSelect(value), [onSelect, value]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={handlePress}
+      style={[styles.filterTab, selected ? styles.activeFilterTab : null]}
+    >
+      <Text style={[styles.filterLabel, selected ? styles.activeFilterLabel : null]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+});
+
+interface TicketHistoryRowProps {
+  item: PassengerTicketHistoryItem;
+  onOpen: (item: PassengerTicketHistoryItem) => void;
   onTrack: (tripId: string, bookingId: string) => void;
 }
 
-const BookingHistoryRow = memo(function BookingHistoryRowComponent({
-  id,
-  bookingCode,
-  tripId,
-  originStationName,
-  destinationStationName,
-  departureDateTime,
-  status,
-  totalAmount,
-  trackingEnabled,
+const TicketHistoryRow = memo(function TicketHistoryRowComponent({
+  item,
   onOpen,
   onTrack,
-}: BookingHistoryRowProps): React.JSX.Element {
+}: TicketHistoryRowProps): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const isUpcoming = status === 'PENDING_PAYMENT' || status === 'CONFIRMED';
-  const isCompleted = status === 'COMPLETED';
-  const canTrack = Boolean(tripId) && trackingEnabled;
-  const handleOpen = useCallback(() => onOpen(id), [id, onOpen]);
+  const isActive = item.status === 'PENDING_PAYMENT' || item.status === 'CONFIRMED';
+  const isCompleted = item.status === 'COMPLETED';
+  const canTrack = TRACKABLE_TICKET_STATUSES.has(item.status);
+  const seatNumbers = useMemo(
+    () => item.ticket.tickets.map((ticket) => ticket.seatNumber).join(', ') || '—',
+    [item.ticket.tickets],
+  );
+  const handleOpen = useCallback(() => onOpen(item), [item, onOpen]);
   const handleTrack = useCallback(
-    () => onTrack(tripId, id),
-    [id, onTrack, tripId],
+    () => onTrack(item.tripId, item.id),
+    [item.id, item.tripId, onTrack],
+  );
+  const bodyStyle = useCallback(
+    ({ pressed }: { pressed: boolean }) => [
+      styles.ticketBody,
+      pressed ? styles.pressedCard : null,
+    ],
+    [styles],
+  );
+  const trackStyle = useCallback(
+    ({ pressed }: { pressed: boolean }) => [
+      styles.trackButton,
+      pressed ? styles.pressedCard : null,
+    ],
+    [styles],
   );
 
   return (
     <View style={styles.ticketCard}>
       <Pressable
-        style={({ pressed }) => [styles.ticketBody, pressed ? styles.pressedCard : null]}
+        style={bodyStyle}
         onPress={handleOpen}
         accessibilityRole="button"
-        accessibilityLabel={`Booking ${bookingCode}`}
+        accessibilityLabel={`Booking ${item.code}`}
       >
         <View style={styles.ticketHeader}>
           <View style={styles.refRow}>
             <Ticket size={18} color={theme.colors.primary} />
-            <Text style={styles.refText}>{bookingCode}</Text>
+            <Text style={styles.refText} numberOfLines={1}>{item.code}</Text>
           </View>
           <View
             style={[
               styles.statusBadge,
-              isUpcoming ? styles.upcomingBadge : null,
+              isActive ? styles.activeStatusBadge : null,
               isCompleted ? styles.completedBadge : null,
             ]}
           >
             <Text
               style={[
                 styles.statusText,
-                isUpcoming ? styles.upcomingStatusText : null,
+                isActive ? styles.activeStatusText : null,
                 isCompleted ? styles.completedStatusText : null,
               ]}
+              numberOfLines={1}
             >
-              {status}
+              {formatStatusLabel(item.status)}
             </Text>
           </View>
         </View>
+
+        {item.ticket.routeName ? (
+          <Text style={styles.routeNameLabel} numberOfLines={1}>
+            {item.ticket.routeName}
+          </Text>
+        ) : null}
 
         <View style={styles.routeContainer}>
           <View style={styles.timelineDots}>
@@ -143,34 +209,54 @@ const BookingHistoryRow = memo(function BookingHistoryRowComponent({
             <View style={styles.redDot} />
           </View>
           <View style={styles.routeTextContainer}>
-            <Text style={styles.stationText} numberOfLines={1}>{originStationName}</Text>
-            <Text style={styles.stationText} numberOfLines={1}>{destinationStationName}</Text>
+            <Text style={styles.stationText} numberOfLines={1}>
+              {item.originName ?? 'Origin unavailable'}
+            </Text>
+            <Text style={styles.stationText} numberOfLines={1}>
+              {item.destinationName ?? 'Destination unavailable'}
+            </Text>
           </View>
         </View>
 
         <View style={styles.detailsRow}>
-          <View style={styles.detailItem}>
-            <CalendarBlank size={16} color={theme.colors.textSecondary} />
-            <Text style={styles.detailValueText}>{formatDate(departureDateTime)}</Text>
-          </View>
-          <View style={styles.detailItem}>
-            <Clock size={16} color={theme.colors.textSecondary} />
-            <Text style={styles.detailValueText}>{formatTime(departureDateTime)}</Text>
-          </View>
+          {item.departureDateTime ? (
+            <>
+              <View style={styles.detailItem}>
+                <CalendarBlank size={16} color={theme.colors.textSecondary} />
+                <Text style={styles.detailValueText}>
+                  {formatDate(item.departureDateTime)}
+                </Text>
+              </View>
+              <View style={styles.detailItem}>
+                <Clock size={16} color={theme.colors.textSecondary} />
+                <Text style={styles.detailValueText}>
+                  {formatTime(item.departureDateTime)}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.detailValueText}>Departure schedule unavailable</Text>
+          )}
+          <Text style={styles.seatSummary} numberOfLines={1}>Seats {seatNumbers}</Text>
         </View>
       </Pressable>
 
       <View style={styles.ticketFooter}>
         <View style={styles.footerLeft}>
           <Text style={styles.priceLabel}>{t('booking.totalPrice', 'Total Price')}</Text>
-          <Text style={styles.priceValue}>{formatVnd(totalAmount)}</Text>
+          <Text style={styles.priceValue}>
+            {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
+          </Text>
         </View>
+        <Text style={styles.ticketCountLabel}>
+          {item.ticket.tickets.length} {item.ticket.tickets.length === 1 ? 'ticket' : 'tickets'}
+        </Text>
         {canTrack ? (
           <Pressable
-            style={({ pressed }) => [styles.trackButton, pressed ? styles.pressedCard : null]}
+            style={trackStyle}
             onPress={handleTrack}
             accessibilityRole="button"
-            accessibilityLabel={`Track booking ${bookingCode}`}
+            accessibilityLabel={`Track booking ${item.code}`}
           >
             <NavigationArrow size={14} color={theme.colors.textInverse} weight="fill" />
             <Text style={styles.trackButtonText}>{t('booking.track', 'Track')}</Text>
@@ -182,35 +268,30 @@ const BookingHistoryRow = memo(function BookingHistoryRowComponent({
 });
 
 interface ParcelHistoryRowProps {
-  parcelId: string;
-  parcelCode: string;
-  status: string;
-  originName: string;
-  destinationName: string;
-  eta: string | null;
-  sizeCategory: string;
+  item: PassengerParcelHistoryItem;
   onOpen: (parcelId: string) => void;
 }
 
 const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
-  parcelId,
-  parcelCode,
-  status,
-  originName,
-  destinationName,
-  eta,
-  sizeCategory,
+  item,
   onOpen,
 }: ParcelHistoryRowProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const handleOpen = useCallback(() => onOpen(parcelId), [onOpen, parcelId]);
+  const handleOpen = useCallback(() => onOpen(item.id), [item.id, onOpen]);
+  const cardStyle = useCallback(
+    ({ pressed }: { pressed: boolean }) => [
+      styles.parcelCard,
+      pressed ? styles.pressedCard : null,
+    ],
+    [styles],
+  );
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Parcel ${parcelCode}`}
-      style={({ pressed }) => [styles.parcelCard, pressed ? styles.pressedCard : null]}
+      accessibilityLabel={`Parcel ${item.code}`}
+      style={cardStyle}
       onPress={handleOpen}
     >
       <View style={styles.parcelIconContainer}>
@@ -218,104 +299,136 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
       </View>
       <View style={styles.parcelInfo}>
         <View style={styles.parcelHeader}>
-          <Text style={styles.parcelCode}>{parcelCode}</Text>
+          <Text style={styles.parcelCode} numberOfLines={1}>{item.code}</Text>
           <View style={styles.parcelBadge}>
-            <Text style={styles.parcelBadgeText}>{status.replaceAll('_', ' ')}</Text>
+            <Text style={styles.parcelBadgeText} numberOfLines={1}>
+              {formatParcelStatusLabel(item.status)}
+            </Text>
           </View>
         </View>
         <Text style={styles.parcelRoute} numberOfLines={1}>
-          {originName} → {destinationName}
+          {getRouteLabel(item.originName, item.destinationName)}
         </Text>
-        <Text style={styles.parcelMeta} numberOfLines={1}>
-          {sizeCategory}{eta ? ` · ETA ${formatDateTime(eta)}` : ' · ETA unavailable'}
-        </Text>
+        <View style={styles.parcelMetaRow}>
+          <User size={14} color={theme.colors.textTertiary} />
+          <Text style={styles.parcelMeta} numberOfLines={1}>
+            {item.parcel.recipientName} · {item.parcel.sizeCategory}
+          </Text>
+        </View>
+        <View style={styles.parcelAmountRow}>
+          <Text style={styles.parcelDate} numberOfLines={1}>
+            {item.estimatedArrivalTime
+              ? `ETA ${formatDateTime(item.estimatedArrivalTime)}`
+              : `Created ${formatDate(item.createdAt)}`}
+          </Text>
+          <Text style={styles.parcelAmount}>
+            {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
+          </Text>
+        </View>
       </View>
     </Pressable>
   );
 });
 
-interface ParcelHistoryListProps {
-  onOpen: (parcelId: string) => void;
-  onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+interface HistoryEmptyStateProps {
+  kind: HistoryTab;
+  isAuthenticated: boolean;
+  isPending: boolean;
+  error: unknown;
+  onRetry: () => void;
 }
 
-function ParcelHistoryList({ onOpen, onScroll }: ParcelHistoryListProps): React.JSX.Element {
-  const { t } = useTranslation();
-  const userId = useAuthStore((state) => state.user?.id);
+const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
+  kind,
+  isAuthenticated,
+  isPending,
+  error,
+  onRetry,
+}: HistoryEmptyStateProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const parcelQuery = useReceivedParcels(1, 50);
-  const parcels = parcelQuery.data?.items ?? EMPTY_RECEIVED_PARCELS;
-  const refetch = parcelQuery.refetch;
+  const Icon = kind === 'ticket' ? Ticket : Package;
 
-  const renderParcel = useCallback(({ item }: { item: ReceivedParcel }) => (
-    <ParcelHistoryRow
-      parcelId={item.parcelId}
-      parcelCode={item.parcelCode}
-      status={item.status}
-      originName={item.originStation?.name ?? 'Origin station'}
-      destinationName={item.destinationStation?.name ?? 'Destination station'}
-      eta={item.eta}
-      sizeCategory={item.sizeCategory}
-      onOpen={onOpen}
-    />
-  ), [onOpen]);
-
-  const emptyContent = useMemo(() => {
-    if (!userId) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Package size={48} color={theme.colors.textTertiary} weight="thin" />
-          <Text style={styles.emptyTitle}>Sign in required</Text>
-          <Text style={styles.emptyText}>
-            Sign in to view parcels associated with your passenger account.
-          </Text>
-        </View>
-      );
-    }
-    if (parcelQuery.isPending) {
-      return (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.emptyText}>{t('common.loading', 'Loading...')}</Text>
-        </View>
-      );
-    }
-    if (parcelQuery.isError) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Package size={48} color={theme.colors.textTertiary} weight="thin" />
-          <Text style={styles.emptyText}>{getApiErrorMessage(parcelQuery.error)}</Text>
-        </View>
-      );
-    }
+  if (!isAuthenticated) {
     return (
-      <View style={styles.emptyContainer}>
-        <Package size={48} color={theme.colors.textTertiary} weight="thin" />
-        <Text style={styles.emptyText}>No received parcels found.</Text>
+      <View style={styles.emptyContainer} accessibilityRole="summary">
+        <Icon size={48} color={theme.colors.textTertiary} weight="thin" />
+        <Text style={styles.emptyTitle}>Sign in required</Text>
+        <Text style={styles.emptyText}>
+          Sign in to view your {kind === 'ticket' ? 'ticket bookings' : 'sent parcels'}.
+        </Text>
       </View>
     );
-  }, [parcelQuery.error, parcelQuery.isError, parcelQuery.isPending, styles, t, theme.colors.primary, theme.colors.textTertiary, userId]);
+  }
 
-  const handleRefresh = useCallback(() => {
-    refetch().catch(() => undefined);
-  }, [refetch]);
+  if (isPending) {
+    return (
+      <View style={styles.emptyContainer} accessibilityRole="summary">
+        <ActivityIndicator color={theme.colors.primary} />
+        <Text style={styles.emptyText}>Loading history...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.emptyContainer} accessibilityRole="summary">
+        <WarningCircle size={48} color={theme.colors.error} weight="duotone" />
+        <Text style={styles.emptyTitle}>History unavailable</Text>
+        <Text style={styles.emptyText}>{getApiErrorMessage(error)}</Text>
+        <Pressable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
+          <Text style={styles.retryButtonText}>Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
-    <FlashList
-      data={parcels}
-      renderItem={renderParcel}
-      keyExtractor={parcelKeyExtractor}
-      ListEmptyComponent={emptyContent}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.scrollContent}
-      onRefresh={handleRefresh}
-      refreshing={parcelQuery.isRefetching}
-      onScroll={onScroll}
-      scrollEventThrottle={16}
-    />
+    <View style={styles.emptyContainer} accessibilityRole="summary">
+      <Icon size={48} color={theme.colors.textTertiary} weight="thin" />
+      <Text style={styles.emptyTitle}>
+        No {kind === 'ticket' ? 'ticket bookings' : 'sent parcels'} yet
+      </Text>
+      <Text style={styles.emptyText}>
+        Completed and active {kind === 'ticket' ? 'bookings' : 'parcel requests'} will appear here.
+      </Text>
+    </View>
   );
-}
+});
+
+const PaginationFooter = memo(function PaginationFooterComponent({
+  loading,
+}: {
+  loading: boolean;
+}): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View style={styles.paginationFooter}>
+      {loading ? <ActivityIndicator color={theme.colors.primary} /> : null}
+    </View>
+  );
+});
+
+const HistoryStaleBanner = memo(function HistoryStaleBannerComponent({
+  onRetry,
+}: {
+  onRetry: () => void;
+}): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View style={styles.staleBanner} accessibilityRole="alert">
+      <WarningCircle size={18} color={theme.colors.warning} weight="fill" />
+      <Text style={styles.staleBannerText}>
+        Refresh failed. Showing the most recent saved results.
+      </Text>
+      <Pressable accessibilityRole="button" onPress={onRetry} hitSlop={8}>
+        <Text style={styles.staleRetryText}>Retry</Text>
+      </Pressable>
+    </View>
+  );
+});
 
 export function BookingHistoryScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -324,49 +437,83 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
-  const [activeTab, setActiveTab] = useState<HistoryTab>(route.params?.initialTab ?? 'ticket');
-  const [ticketFilter, setTicketFilter] = useState<TicketFilter>('all');
-  const historyQuery = useBookingHistory();
-  const refetchHistory = historyQuery.refetch;
+  const userId = useAuthStore((state) => state.user?.id);
+  const [activeTab, setActiveTab] = useState<HistoryTab>(
+    route.params?.initialTab ?? 'ticket',
+  );
+  const [ticketFilter, setTicketFilter] = useState<TicketFilter>('ALL');
+  const selectedTicketStatus = ticketFilter === 'ALL' ? undefined : ticketFilter;
+  const ticketQuery = usePassengerHistory(
+    {
+      type: 'TICKET',
+      ...(selectedTicketStatus ? { status: selectedTicketStatus } : {}),
+      pageSize: PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
+    },
+    activeTab === 'ticket',
+  );
+  const parcelQuery = usePassengerHistory(
+    {
+      type: 'PARCEL',
+      pageSize: PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
+    },
+    activeTab === 'parcel',
+  );
+  const {
+    data: ticketData,
+    error: ticketError,
+    fetchNextPage: fetchNextTicketPage,
+    hasNextPage: hasNextTicketPage,
+    isError: isTicketError,
+    isFetchingNextPage: isFetchingNextTicketPage,
+    isPending: isTicketPending,
+    isRefetchError: isTicketRefetchError,
+    isRefetching: isTicketRefetching,
+    refetch: refetchTickets,
+  } = ticketQuery;
+  const {
+    data: parcelData,
+    error: parcelError,
+    fetchNextPage: fetchNextParcelPage,
+    hasNextPage: hasNextParcelPage,
+    isError: isParcelError,
+    isFetchingNextPage: isFetchingNextParcelPage,
+    isPending: isParcelPending,
+    isRefetchError: isParcelRefetchError,
+    isRefetching: isParcelRefetching,
+    refetch: refetchParcels,
+  } = parcelQuery;
 
   useEffect(() => {
     if (route.params?.initialTab) setActiveTab(route.params.initialTab);
-  }, [route.params]);
+  }, [route.params?.initialTab]);
 
-  const historyResult = historyQuery.data;
-  const tickets = useMemo(
-    () => historyResult && historyResult.source !== 'unavailable'
-      ? historyResult.items
-      : [],
-    [historyResult],
+  const ticketItems = useMemo(
+    () => ticketData?.pages.flatMap((page) => page.items)
+      .filter((item): item is PassengerTicketHistoryItem => item.type === 'TICKET') ?? [],
+    [ticketData?.pages],
   );
-  const isDemo = historyResult?.source === 'demo';
-
-  const filteredTickets = useMemo(() => tickets.filter((ticket) => {
-    if (ticketFilter === 'upcoming') return ACTIVE_STATUSES.has(ticket.status);
-    if (ticketFilter === 'past') {
-      return ticket.status === 'COMPLETED' || ticket.status === 'CANCELLED';
-    }
-    return true;
-  }), [ticketFilter, tickets]);
+  const parcelItems = useMemo(
+    () => parcelData?.pages.flatMap((page) => page.items)
+      .filter((item): item is PassengerParcelHistoryItem => item.type === 'PARCEL') ?? [],
+    [parcelData?.pages],
+  );
 
   const showTickets = useCallback(() => setActiveTab('ticket'), []);
   const showParcels = useCallback(() => setActiveTab('parcel'), []);
-  const showAll = useCallback(() => setTicketFilter('all'), []);
-  const showUpcoming = useCallback(() => setTicketFilter('upcoming'), []);
-  const showPast = useCallback(() => setTicketFilter('past'), []);
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
 
-  const handleTicketOpen = useCallback((bookingId: string) => {
+  const handleTicketOpen = useCallback((item: PassengerTicketHistoryItem) => {
     navigation.navigate('Booking', {
       screen: 'DigitalTicket',
-      params: { source: 'history', bookingId },
+      params: {
+        source: 'history',
+        bookingId: item.id,
+        historyItem: item,
+      },
     });
   }, [navigation]);
 
-  const handleTrack = useCallback((
-    tripId: string,
-    bookingId: string,
-  ) => {
+  const handleTrack = useCallback((tripId: string, bookingId: string) => {
     navigation.navigate('Tracking', { tripId, bookingId });
   }, [navigation]);
 
@@ -377,93 +524,113 @@ export function BookingHistoryScreen(): React.JSX.Element {
     });
   }, [navigation]);
 
-  const renderTicket = useCallback(({ item }: { item: BookingHistoryItem }) => (
-    <BookingHistoryRow
-      id={item.id}
-      bookingCode={item.bookingCode}
-      tripId={item.tripId}
-      originStationName={item.originStationName}
-      destinationStationName={item.destinationStationName}
-      departureDateTime={item.departureDateTime}
-      status={item.status}
-      totalAmount={item.totalAmount}
-      trackingEnabled={!isDemo && item.status === 'CONFIRMED'}
-      onOpen={handleTicketOpen}
-      onTrack={handleTrack}
+  const renderTicket = useCallback(
+    ({ item }: ListRenderItemInfo<PassengerTicketHistoryItem>) => (
+      <TicketHistoryRow item={item} onOpen={handleTicketOpen} onTrack={handleTrack} />
+    ),
+    [handleTicketOpen, handleTrack],
+  );
+  const renderParcel = useCallback(
+    ({ item }: ListRenderItemInfo<PassengerParcelHistoryItem>) => (
+      <ParcelHistoryRow item={item} onOpen={handleParcelOpen} />
+    ),
+    [handleParcelOpen],
+  );
+
+  const refreshTickets = useCallback(() => {
+    refetchTickets().catch(() => undefined);
+  }, [refetchTickets]);
+  const refreshParcels = useCallback(() => {
+    refetchParcels().catch(() => undefined);
+  }, [refetchParcels]);
+  const loadMoreTickets = useCallback(() => {
+    if (hasNextTicketPage && !isFetchingNextTicketPage) {
+      fetchNextTicketPage().catch(() => undefined);
+    }
+  }, [fetchNextTicketPage, hasNextTicketPage, isFetchingNextTicketPage]);
+  const loadMoreParcels = useCallback(() => {
+    if (hasNextParcelPage && !isFetchingNextParcelPage) {
+      fetchNextParcelPage().catch(() => undefined);
+    }
+  }, [fetchNextParcelPage, hasNextParcelPage, isFetchingNextParcelPage]);
+
+  const ticketEmpty = useMemo(() => (
+    <HistoryEmptyState
+      kind="ticket"
+      isAuthenticated={Boolean(userId)}
+      isPending={isTicketPending}
+      error={isTicketError ? ticketError : null}
+      onRetry={refreshTickets}
     />
-  ), [handleTicketOpen, handleTrack, isDemo]);
-
-  const ticketEmpty = useMemo(() => {
-    if (historyQuery.isPending) {
-      return (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.emptyText}>{t('common.loading', 'Loading...')}</Text>
-        </View>
-      );
-    }
-    if (historyQuery.isError) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ticket size={48} color={theme.colors.textTertiary} weight="thin" />
-          <Text style={styles.emptyText}>{getApiErrorMessage(historyQuery.error)}</Text>
-        </View>
-      );
-    }
-    if (historyResult?.source === 'unavailable') {
-      const needsAuth = historyResult.reason === 'authentication_required';
-      return (
-        <View style={styles.emptyContainer}>
-          <Ticket size={48} color={theme.colors.textTertiary} weight="thin" />
-          <Text style={styles.emptyTitle}>
-            {needsAuth ? 'Sign in required' : t('profile.historyComingSoon', 'Coming soon')}
-          </Text>
-          <Text style={styles.emptyText}>
-            {needsAuth
-              ? 'Sign in to view bookings associated with your passenger account.'
-              : t(
-                  'profile.historyNotSupported',
-                  'Booking history is not yet available from the server.',
-                )}
-          </Text>
-        </View>
-      );
-    }
-    return (
-      <View style={styles.emptyContainer}>
-        <Ticket size={48} color={theme.colors.textTertiary} weight="thin" />
-        <Text style={styles.emptyText}>{t('profile.noTickets', 'No ticket history found.')}</Text>
-      </View>
-    );
-  }, [historyQuery.error, historyQuery.isError, historyQuery.isPending, historyResult, styles, t, theme.colors.primary, theme.colors.textTertiary]);
-
-  const handleTicketRefresh = useCallback(() => {
-    refetchHistory().catch(() => undefined);
-  }, [refetchHistory]);
+  ), [isTicketError, isTicketPending, refreshTickets, ticketError, userId]);
+  const parcelEmpty = useMemo(() => (
+    <HistoryEmptyState
+      kind="parcel"
+      isAuthenticated={Boolean(userId)}
+      isPending={isParcelPending}
+      error={isParcelError ? parcelError : null}
+      onRetry={refreshParcels}
+    />
+  ), [isParcelError, isParcelPending, parcelError, refreshParcels, userId]);
+  const ticketFooter = useMemo(
+    () => <PaginationFooter loading={isFetchingNextTicketPage} />,
+    [isFetchingNextTicketPage],
+  );
+  const parcelFooter = useMemo(
+    () => <PaginationFooter loading={isFetchingNextParcelPage} />,
+    [isFetchingNextParcelPage],
+  );
+  const ticketHeader = useMemo(
+    () => isTicketRefetchError && ticketItems.length > 0
+      ? <HistoryStaleBanner onRetry={refreshTickets} />
+      : null,
+    [isTicketRefetchError, refreshTickets, ticketItems.length],
+  );
+  const parcelHeader = useMemo(
+    () => isParcelRefetchError && parcelItems.length > 0
+      ? <HistoryStaleBanner onRetry={refreshParcels} />
+      : null,
+    [isParcelRefetchError, parcelItems.length, refreshParcels],
+  );
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
+    <SafeAreaView style={styles.safeContainer} edges={['top', 'bottom']}>
       <StatusBar
         barStyle={theme.isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.colors.background}
       />
       <View style={styles.topBar}>
-        <Pressable accessibilityRole="button" onPress={navigation.goBack} style={styles.backButton}>
+        <Pressable
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+          onPress={handleGoBack}
+          style={styles.backButton}
+        >
           <ArrowLeft size={24} color={theme.colors.textPrimary} />
         </Pressable>
         <Text style={styles.topBarTitle}>{t('profile.history', 'History')}</Text>
         <View style={styles.topBarRightPlaceholder} />
       </View>
 
-      <View style={styles.mainTabs}>
+      <View style={styles.mainTabs} accessibilityRole="tablist">
         <Pressable
           style={[styles.mainTab, activeTab === 'ticket' ? styles.activeMainTab : null]}
           onPress={showTickets}
           accessibilityRole="tab"
           accessibilityState={{ selected: activeTab === 'ticket' }}
         >
-          <Ticket size={18} color={activeTab === 'ticket' ? theme.colors.textInverse : theme.colors.textSecondary} />
-          <Text style={[styles.mainTabText, activeTab === 'ticket' ? styles.activeMainTabText : null]}>
+          <Ticket
+            size={18}
+            color={activeTab === 'ticket'
+              ? theme.colors.textInverse
+              : theme.colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.mainTabText,
+              activeTab === 'ticket' ? styles.activeMainTabText : null,
+            ]}
+          >
             Tickets
           </Text>
         </Pressable>
@@ -473,55 +640,89 @@ export function BookingHistoryScreen(): React.JSX.Element {
           accessibilityRole="tab"
           accessibilityState={{ selected: activeTab === 'parcel' }}
         >
-          <Package size={18} color={activeTab === 'parcel' ? theme.colors.textInverse : theme.colors.textSecondary} />
-          <Text style={[styles.mainTabText, activeTab === 'parcel' ? styles.activeMainTabText : null]}>
+          <Package
+            size={18}
+            color={activeTab === 'parcel'
+              ? theme.colors.textInverse
+              : theme.colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.mainTabText,
+              activeTab === 'parcel' ? styles.activeMainTabText : null,
+            ]}
+          >
             Parcels
           </Text>
         </Pressable>
       </View>
 
-      {isDemo && activeTab === 'ticket' ? (
-        <View style={styles.demoBanner}>
-          <Flask size={14} color={theme.colors.warning} />
-          <Text style={styles.demoBannerText}>Demo data — booking history API coming soon</Text>
-        </View>
-      ) : null}
-
       {activeTab === 'ticket' ? (
         <>
           <View style={styles.filterContainer}>
-            <Pressable style={[styles.filterTab, ticketFilter === 'all' ? styles.activeFilterTab : null]} onPress={showAll}>
-              <Text style={[styles.filterLabel, ticketFilter === 'all' ? styles.activeFilterLabel : null]}>All</Text>
-            </Pressable>
-            <Pressable style={[styles.filterTab, ticketFilter === 'upcoming' ? styles.activeFilterTab : null]} onPress={showUpcoming}>
-              <Text style={[styles.filterLabel, ticketFilter === 'upcoming' ? styles.activeFilterLabel : null]}>Upcoming</Text>
-            </Pressable>
-            <Pressable style={[styles.filterTab, ticketFilter === 'past' ? styles.activeFilterTab : null]} onPress={showPast}>
-              <Text style={[styles.filterLabel, ticketFilter === 'past' ? styles.activeFilterLabel : null]}>Past</Text>
-            </Pressable>
+            <TicketFilterChip
+              label="All"
+              value="ALL"
+              selected={ticketFilter === 'ALL'}
+              onSelect={setTicketFilter}
+            />
+            <TicketFilterChip
+              label="Confirmed"
+              value="CONFIRMED"
+              selected={ticketFilter === 'CONFIRMED'}
+              onSelect={setTicketFilter}
+            />
+            <TicketFilterChip
+              label="Completed"
+              value="COMPLETED"
+              selected={ticketFilter === 'COMPLETED'}
+              onSelect={setTicketFilter}
+            />
+            <TicketFilterChip
+              label="Cancelled"
+              value="CANCELLED"
+              selected={ticketFilter === 'CANCELLED'}
+              onSelect={setTicketFilter}
+            />
           </View>
           <FlashList
-            data={filteredTickets}
+            data={ticketItems}
             renderItem={renderTicket}
             keyExtractor={ticketKeyExtractor}
             ListEmptyComponent={ticketEmpty}
-            showsVerticalScrollIndicator={false}
+            ListFooterComponent={ticketFooter}
+            ListHeaderComponent={ticketHeader}
             contentContainerStyle={styles.scrollContent}
-            onRefresh={handleTicketRefresh}
-            refreshing={historyQuery.isRefetching}
+            showsVerticalScrollIndicator={false}
+            onEndReached={loadMoreTickets}
+            onEndReachedThreshold={0.35}
+            onRefresh={refreshTickets}
+            refreshing={isTicketRefetching && !isFetchingNextTicketPage}
             onScroll={handleTabBarScroll}
             scrollEventThrottle={16}
           />
         </>
       ) : (
-        <ParcelHistoryList onOpen={handleParcelOpen} onScroll={handleTabBarScroll} />
+        <FlashList
+          data={parcelItems}
+          renderItem={renderParcel}
+          keyExtractor={parcelKeyExtractor}
+          ListEmptyComponent={parcelEmpty}
+          ListFooterComponent={parcelFooter}
+          ListHeaderComponent={parcelHeader}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          onEndReached={loadMoreParcels}
+          onEndReachedThreshold={0.35}
+          onRefresh={refreshParcels}
+          refreshing={isParcelRefetching && !isFetchingNextParcelPage}
+          onScroll={handleTabBarScroll}
+          scrollEventThrottle={16}
+        />
       )}
     </SafeAreaView>
   );
 }
-
-const ticketKeyExtractor = (item: BookingHistoryItem): string => item.id;
-const parcelKeyExtractor = (item: ReceivedParcel): string => item.parcelId;
 
 const createStyles = (theme: AppTheme) => ({
   safeContainer: {
@@ -539,12 +740,10 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.surface,
   },
   backButton: {
+    ...theme.components.headerButton,
     width: 40,
     height: 40,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
     borderRadius: BR.full,
-    borderCurve: 'continuous' as const,
   },
   topBarTitle: {
     fontFamily: fontFamilies.semiBold,
@@ -578,23 +777,10 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   activeMainTabText: { color: theme.colors.textInverse },
-  demoBanner: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.xs,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    backgroundColor: theme.colors.warningLight,
-  },
-  demoBannerText: {
-    flex: 1,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.warning,
-  },
   filterContainer: {
     flexDirection: 'row' as const,
-    paddingHorizontal: spacing.xl,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.divider,
@@ -602,24 +788,27 @@ const createStyles = (theme: AppTheme) => ({
   },
   filterTab: {
     flex: 1,
-    paddingVertical: spacing.sm,
+    minHeight: 38,
     alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: spacing.xs,
     borderRadius: BR.full,
     borderCurve: 'continuous' as const,
   },
   activeFilterTab: { backgroundColor: theme.colors.primaryFaded },
   filterLabel: {
     fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
   },
   activeFilterLabel: { color: theme.colors.primary },
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-    paddingBottom: 130,
+    paddingBottom: 96,
   },
   emptyContainer: {
+    minHeight: 320,
     paddingVertical: 64,
     paddingHorizontal: spacing.xl,
     alignItems: 'center' as const,
@@ -636,13 +825,53 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.sm,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
+    lineHeight: fontSizes.sm * 1.45,
     color: theme.colors.textTertiary,
     textAlign: 'center' as const,
+  },
+  retryButton: {
+    minHeight: 44,
+    marginTop: spacing.lg,
+    justifyContent: 'center' as const,
+    paddingHorizontal: spacing.xl,
+    borderRadius: BR.full,
+    backgroundColor: theme.colors.primary,
+  },
+  retryButtonText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textInverse,
+  },
+  paginationFooter: {
+    minHeight: 56,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  staleBanner: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: BR.md,
+    borderCurve: 'continuous' as const,
+    backgroundColor: theme.colors.warningLight,
+  },
+  staleBannerText: {
+    flex: 1,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.warning,
+  },
+  staleRetryText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.warning,
   },
   ticketCard: {
     marginBottom: spacing.xl,
     overflow: 'hidden' as const,
-    borderRadius: BR.lg,
+    borderRadius: BR.xl,
     borderCurve: 'continuous' as const,
     borderWidth: 1,
     borderColor: theme.colors.divider,
@@ -655,34 +884,45 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
-    marginBottom: spacing.md,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   refRow: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: spacing.sm,
   },
   refText: {
+    flex: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
   },
   statusBadge: {
+    maxWidth: '48%' as const,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    borderRadius: BR.sm,
+    borderRadius: BR.full,
     borderCurve: 'continuous' as const,
     backgroundColor: theme.colors.surfaceAlt,
   },
-  upcomingBadge: { backgroundColor: theme.colors.infoLight },
+  activeStatusBadge: { backgroundColor: theme.colors.infoLight },
   completedBadge: { backgroundColor: theme.colors.successLight },
   statusText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
+    fontFamily: fontFamilies.bold,
+    fontSize: 9,
     color: theme.colors.textSecondary,
   },
-  upcomingStatusText: { color: theme.colors.info },
+  activeStatusText: { color: theme.colors.info },
   completedStatusText: { color: theme.colors.success },
+  routeNameLabel: {
+    marginBottom: spacing.sm,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+  },
   routeContainer: {
     flexDirection: 'row' as const,
     marginBottom: spacing.md,
@@ -713,7 +953,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   routeTextContainer: {
     flex: 1,
-    height: 52,
+    minWidth: 0,
+    minHeight: 52,
     justifyContent: 'space-between' as const,
     marginLeft: spacing.sm,
   },
@@ -723,8 +964,11 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
   },
   detailsRow: {
+    minHeight: 44,
     flexDirection: 'row' as const,
-    gap: spacing.lg,
+    flexWrap: 'wrap' as const,
+    alignItems: 'center' as const,
+    gap: spacing.md,
     padding: spacing.md,
     borderRadius: BR.md,
     borderCurve: 'continuous' as const,
@@ -740,11 +984,16 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.textPrimary,
   },
+  seatSummary: {
+    flexShrink: 1,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+  },
   ticketFooter: {
     minHeight: 70,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -763,6 +1012,11 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.md,
     color: theme.colors.primary,
   },
+  ticketCountLabel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
   trackButton: {
     minHeight: 40,
     flexDirection: 'row' as const,
@@ -779,13 +1033,13 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textInverse,
   },
   parcelCard: {
-    minHeight: 96,
+    minHeight: 128,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: spacing.md,
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: BR.lg,
+    borderRadius: BR.xl,
     borderCurve: 'continuous' as const,
     borderWidth: 1,
     borderColor: theme.colors.divider,
@@ -828,15 +1082,39 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.primary,
   },
   parcelRoute: {
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
   },
+  parcelMetaRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
   parcelMeta: {
-    marginTop: 3,
+    flex: 1,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
+  },
+  parcelAmountRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  parcelDate: {
+    flex: 1,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+  },
+  parcelAmount: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
   },
 });

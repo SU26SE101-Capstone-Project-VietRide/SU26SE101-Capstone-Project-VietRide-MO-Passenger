@@ -1,5 +1,5 @@
 import type { ParcelDetail } from '../types';
-import { formatDate, formatTime } from '@shared/utils/format';
+import { formatDate, formatStatusLabel, formatTime } from '@shared/utils/format';
 
 export type ParcelMilestoneStatus = 'active' | 'completed' | 'pending';
 
@@ -25,18 +25,53 @@ const UNLOADED_OR_LATER_STATUSES = new Set([
   'DELIVERY_CONFIRMED',
 ]);
 
+const TRACKABLE_PARCEL_STATUSES = new Set([
+  'PENDING',
+  'LOADED',
+  'IN_TRANSIT',
+  'UNLOADED',
+  'DELIVERED_PENDING_CONFIRM',
+  'DELIVERY_CONFIRMED',
+  'DELIVERY_REJECTED',
+  'PENDING_OPERATOR_ACTION',
+  'PENDING_TRANSFER_CONFIRM',
+  'TRANSFER_ESCALATED',
+]);
+
+const TERMINAL_LOCATION_STATUSES = new Set([
+  'DELIVERY_CONFIRMED',
+  'RETURNED',
+  'CANCELLED',
+  'REJECTED',
+  'EXPIRED',
+]);
+
 const normalizeStatus = (status?: string | null): string =>
   status?.trim().toUpperCase() || 'PENDING';
 
 export const formatParcelStatusLabel = (status?: string | null): string =>
-  normalizeStatus(status)
-    .replace(/_/g, ' ')
-    .toLowerCase()
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+  formatStatusLabel(status, 'Pending');
 
 export const isParcelRejected = (
   parcel: Pick<ParcelDetail, 'status' | 'rejectedAt'>,
-): boolean => normalizeStatus(parcel.status) === 'REJECTED' || Boolean(parcel.rejectedAt);
+): boolean => ['DELIVERY_REJECTED', 'REJECTED'].includes(normalizeStatus(parcel.status))
+  || Boolean(parcel.rejectedAt);
+
+/** Mirrors the public Tracking authorization allow-list in Parcel BE. */
+export const isParcelTrackingEligible = (status?: string | null): boolean => {
+  const normalizedStatus = status?.trim().toUpperCase();
+  return normalizedStatus ? TRACKABLE_PARCEL_STATUSES.has(normalizedStatus) : false;
+};
+
+/**
+ * Stops location work only after the parcel can no longer require vehicle
+ * movement. DELIVERY_REJECTED deliberately remains live because BE may move
+ * it into the return flow after the recipient's undo window.
+ */
+export const isParcelLocationTrackingTerminal = (status?: string | null): boolean => {
+  const normalizedStatus = status?.trim().toUpperCase();
+  return normalizedStatus ? TERMINAL_LOCATION_STATUSES.has(normalizedStatus) : false;
+};
 
 export const formatParcelEventTime = (dateLike?: string | null): string | null => {
   if (!dateLike) {

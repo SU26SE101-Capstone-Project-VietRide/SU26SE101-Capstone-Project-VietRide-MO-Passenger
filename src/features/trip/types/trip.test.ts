@@ -49,4 +49,50 @@ describe('trip DTO mappers', () => {
     expect(trip.busLabel).toBeNull();
     expect(trip.totalSeats).toBe(36);
   });
+
+  it('maps only valid public route-stop coordinates for native map markers', () => {
+    const detailDto: TripDetailDto = {
+      tripId: searchDto.tripId,
+      operatorId: searchDto.operatorId,
+      routeId: searchDto.routeId,
+      vehicleId: '64263b62-7408-4ef3-92fc-44813aac57c4',
+      status: 'IN_PROGRESS',
+      departureDateTime: searchDto.departureDateTime,
+      estimatedArrivalTime: searchDto.estimatedArrivalTime,
+      baseFare: searchDto.baseFare,
+      originStation: searchDto.originStation,
+      destinationStation: searchDto.destinationStation,
+      seatSummary: { totalSeats: 36, availableSeats: 12 },
+      stops: [
+        {
+          stopId: '6bc61db2-998f-4749-a053-3c1937b9c98d',
+          name: 'Binh Duong',
+          address: 'National Highway 13',
+          latitude: 10.9804,
+          longitude: 106.6519,
+          isActive: true,
+          orderIndex: 1,
+          effectiveFare: 120_000,
+        },
+        {
+          stopId: 'bc3d1944-19f3-4981-99f4-a9c6fb7efda7',
+          name: 'Invalid location',
+          latitude: 181,
+          longitude: 106.7,
+          orderIndex: 2,
+        },
+      ],
+    };
+
+    const trip = mapTripDetail(detailDto);
+
+    expect(trip.stops[0]).toMatchObject({
+      address: 'National Highway 13',
+      latitude: 10.9804,
+      longitude: 106.6519,
+      isActive: true,
+      effectiveFare: 120_000,
+    });
+    expect(trip.stops[1]).toMatchObject({ latitude: null, longitude: null });
+  });
 });

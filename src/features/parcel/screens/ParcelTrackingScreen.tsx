@@ -24,13 +24,16 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import type { ParcelStackParamList } from '@app/navigation/types';
+import { LiveTripTrackingPanel } from '@features/tracking';
 import { ErrorView } from '../components';
 import { useParcelDetail } from '../hooks/useParcelQueries';
 import {
   buildParcelMilestones,
   formatParcelEventTime,
   formatParcelStatusLabel,
+  isParcelLocationTrackingTerminal,
   isParcelRejected,
+  isParcelTrackingEligible,
 } from '../utils/parcelTracking';
 
 type ParcelTrackingRouteProp = RouteProp<ParcelStackParamList, 'ParcelTracking'>;
@@ -62,6 +65,8 @@ export function ParcelTrackingScreen(): React.JSX.Element {
   const handleRefresh = useCallback(() => refetch(), [refetch]);
 
   const isRejected = parcel ? isParcelRejected(parcel) : false;
+  const isTrackingEligible = isParcelTrackingEligible(parcel?.status);
+  const isTrackingTerminal = isParcelLocationTrackingTerminal(parcel?.status);
   const rejectedTime = formatParcelEventTime(parcel?.rejectedAt);
   const eta = formatParcelEventTime(parcel?.eta);
 
@@ -123,6 +128,31 @@ export function ParcelTrackingScreen(): React.JSX.Element {
                 {formatParcelStatusLabel(parcel.status)}
               </Text>
               {eta ? <Text style={styles.etaText}>Estimated arrival: {eta}</Text> : null}
+            </View>
+          </View>
+
+          <View style={styles.trackingSection}>
+            <Text style={styles.cardHeading}>Live vehicle location</Text>
+            <Text style={styles.cardDescription}>
+              GPS updates are shared securely and visible only to the parcel owner.
+            </Text>
+            <View style={styles.trackingContent}>
+              {isTrackingEligible ? (
+                <LiveTripTrackingPanel
+                  tripId={parcel.tripId}
+                  stopId={parcel.dropoffStopId ?? undefined}
+                  sourceTerminal={isTrackingTerminal}
+                  terminalMessage="Parcel transport is complete. Automatic location updates are stopped."
+                />
+              ) : (
+                <View style={styles.trackingUnavailable} accessibilityRole="summary">
+                  <Truck size={28} color={theme.colors.textTertiary} weight="duotone" />
+                  <Text style={styles.trackingUnavailableTitle}>Live map not active yet</Text>
+                  <Text style={styles.trackingUnavailableText}>
+                    Tracking starts after your parcel is accepted for transport.
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -339,6 +369,44 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.md,
     backgroundColor: theme.colors.errorLight,
     borderRadius: borderRadius.lg,
+  },
+  trackingSection: {
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorderStrong
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
+  },
+  trackingContent: {
+    marginTop: spacing.lg,
+  },
+  trackingUnavailable: {
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  trackingUnavailableTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: theme.colors.textPrimary,
+    textAlign: 'center',
+  },
+  trackingUnavailableText: {
+    maxWidth: 340,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    lineHeight: fontSizes.sm * 1.45,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
   },
   noticeContent: {
     flex: 1,

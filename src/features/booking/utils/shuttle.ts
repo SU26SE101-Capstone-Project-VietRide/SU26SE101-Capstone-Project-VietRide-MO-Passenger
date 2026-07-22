@@ -1,4 +1,9 @@
 import { ApiRequestError } from '@shared/api/errors';
+import {
+  isValidGeoCoordinate,
+  isValidLatitude,
+  isValidLongitude,
+} from '@shared/utils/geo';
 import type {
   BusTrip,
   PickUpPoint,
@@ -29,12 +34,6 @@ export type ShuttleEligibility =
       | 'STATION_COORDINATES';
   };
 
-const isCoordinateInRange = (
-  value: number,
-  minimum: number,
-  maximum: number,
-): boolean => Number.isFinite(value) && value >= minimum && value <= maximum;
-
 export const validateShuttlePickup = (
   pickup: Pick<ShuttlePickupPayload, 'address' | 'latitude' | 'longitude'>,
 ): ShuttlePickupValidationResult => {
@@ -51,11 +50,11 @@ export const validateShuttlePickup = (
     };
   }
 
-  if (!isCoordinateInRange(pickup.latitude, -90, 90)) {
+  if (!isValidLatitude(pickup.latitude)) {
     return { value: null, error: 'Pickup latitude is invalid.' };
   }
 
-  if (!isCoordinateInRange(pickup.longitude, -180, 180)) {
+  if (!isValidLongitude(pickup.longitude)) {
     return { value: null, error: 'Pickup longitude is invalid.' };
   }
 
@@ -123,8 +122,10 @@ export const getShuttleEligibility = (
     return { eligible: false, reason: 'STATION_UNSUPPORTED' };
   }
   if (
-    !isCoordinateInRange(station.latitude ?? Number.NaN, -90, 90)
-    || !isCoordinateInRange(station.longitude ?? Number.NaN, -180, 180)
+    !isValidGeoCoordinate({
+      latitude: station.latitude ?? Number.NaN,
+      longitude: station.longitude ?? Number.NaN,
+    })
   ) {
     return { eligible: false, reason: 'STATION_COORDINATES' };
   }

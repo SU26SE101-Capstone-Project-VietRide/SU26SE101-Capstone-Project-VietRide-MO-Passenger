@@ -7,6 +7,7 @@
 
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { BookingEntryIntent } from '@features/booking/types';
+import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import type { TripLifecycleStatus } from '@features/trip/types';
 
 // ─── Auth Stack ───────────────────────────────────────────
@@ -36,11 +37,17 @@ export type BookingStackParamList = {
   CreateTicketBooking: { intent: BookingEntryIntent } | undefined;
   /**
    * source='checkout' → show data from booking store (just completed)
-   * source='history'  → resolve the guarded history provider by bookingId
+   * source='history'  → render the serializable facade snapshot selected in History.
+   * The snapshot is optional only for backward-compatible/demo callers because
+   * BE does not expose an individual passenger history-detail endpoint.
    */
   DigitalTicket:
     | { source: 'checkout' }
-    | { source: 'history'; bookingId: string };
+    | {
+      source: 'history';
+      bookingId: string;
+      historyItem?: PassengerTicketHistoryItem;
+    };
 };
 
 // ─── Parcel Stack ─────────────────────────────────────────
@@ -94,7 +101,7 @@ export type RootStackParamList = {
    * Tracking screen — accessible from DigitalTicket CTA or Chatbot intent
    * tripId  : ID of the active trip to track
    * bookingId: optional — display context (booking code header)
-   * stopId  : optional — pre-center map on a specific stop
+   * stopId  : optional — destination route-stop UUID used for live ETA
    */
   Tracking: {
     tripId: string;

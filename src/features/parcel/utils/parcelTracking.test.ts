@@ -3,6 +3,9 @@ import {
   buildParcelMilestones,
   formatParcelEventTime,
   formatParcelStatusLabel,
+  isParcelLocationTrackingTerminal,
+  isParcelRejected,
+  isParcelTrackingEligible,
 } from './parcelTracking';
 
 const createParcel = (overrides: Partial<ParcelDetail> = {}): ParcelDetail => ({
@@ -73,6 +76,22 @@ describe('parcel tracking presentation', () => {
 
     expect(milestones[0].status).toBe('completed');
     expect(milestones.slice(1).every((item) => item.status === 'pending')).toBe(true);
+  });
+
+  it('recognizes the current delivery rejection status returned by BE', () => {
+    const parcel = createParcel({ status: 'DELIVERY_REJECTED' });
+
+    expect(isParcelRejected(parcel)).toBe(true);
+    expect(isParcelTrackingEligible(parcel.status)).toBe(true);
+    expect(isParcelLocationTrackingTerminal(parcel.status)).toBe(false);
+    expect(isParcelLocationTrackingTerminal('DELIVERY_CONFIRMED')).toBe(true);
+  });
+
+  it('fails closed before calling Tracking for unsupported parcel states', () => {
+    expect(isParcelTrackingEligible()).toBe(false);
+    expect(isParcelTrackingEligible('PENDING_PAYMENT')).toBe(false);
+    expect(isParcelTrackingEligible('PENDING_OPERATOR_REVIEW')).toBe(false);
+    expect(isParcelTrackingEligible('IN_TRANSIT')).toBe(true);
   });
 
   it('omits missing or invalid event times', () => {

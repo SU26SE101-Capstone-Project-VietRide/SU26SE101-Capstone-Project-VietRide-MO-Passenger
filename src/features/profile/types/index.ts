@@ -13,3 +13,20 @@ export interface LoyaltyPoints {
   tier: 'Bronze' | 'Silver' | 'Gold' | 'Platinum';
   nextTierPoints: number;
 }
+
+export type {
+  PassengerHistoryItem,
+  PassengerHistoryPage,
+  PassengerHistoryQuery,
+  PassengerHistoryQueryInput,
+  PassengerHistoryTicketSummary,
+  PassengerHistoryType,
+  PassengerParcelHistoryDetails,
+  PassengerParcelHistoryItem,
+  PassengerParcelSizeCategory,
+  PassengerParcelStatus,
+  PassengerTicketHistoryDetails,
+  PassengerTicketHistoryItem,
+  PassengerTicketLifecycleStatus,
+  PassengerTicketStatus,
+} from './passengerHistory';

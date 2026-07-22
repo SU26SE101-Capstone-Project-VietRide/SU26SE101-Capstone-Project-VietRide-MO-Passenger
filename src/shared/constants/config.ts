@@ -12,7 +12,10 @@ export type Environment = 'development' | 'staging' | 'production';
 interface AppConfig {
   readonly apiBaseUrl: string;
   readonly wsUrl: string;
-  readonly googleMapsApiKey: string;
+  readonly nativeGoogleMapsEnabled: Readonly<{
+    android: boolean;
+    ios: boolean;
+  }>;
   readonly env: Environment;
   readonly isDev: boolean;
   readonly isStaging: boolean;
@@ -73,18 +76,8 @@ const requireServiceUrl = (
 const apiBaseUrlValue = process.env.EXPO_PUBLIC_API_BASE_URL;
 const wsUrlValue = process.env.EXPO_PUBLIC_WS_URL;
 const secureTransportRequired = env !== 'development';
-const googleMapsApiKeyValue = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? '';
 
-const resolveGoogleMapsApiKey = (): string => {
-  const isPlaceholder = googleMapsApiKeyValue.toUpperCase().includes('YOUR_KEY');
-  if (env === 'production' && (!googleMapsApiKeyValue || isPlaceholder)) {
-    throw new Error(
-      '[Config] EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is required in production.',
-    );
-  }
-
-  return isPlaceholder ? '' : googleMapsApiKeyValue;
-};
+const isExplicitlyEnabled = (value: string | undefined): boolean => value === 'true';
 
 export const appConfig: AppConfig = {
   apiBaseUrl: requireServiceUrl(
@@ -97,7 +90,12 @@ export const appConfig: AppConfig = {
     wsUrlValue,
     secureTransportRequired ? ['wss:'] : ['ws:', 'wss:'],
   ),
-  googleMapsApiKey: resolveGoogleMapsApiKey(),
+  nativeGoogleMapsEnabled: {
+    android: isExplicitlyEnabled(
+      process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED,
+    ),
+    ios: isExplicitlyEnabled(process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED),
+  },
   env,
   isDev: env === 'development',
   isStaging: env === 'staging',

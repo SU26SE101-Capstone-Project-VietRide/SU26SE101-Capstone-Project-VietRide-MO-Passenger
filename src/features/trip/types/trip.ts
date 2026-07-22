@@ -1,4 +1,5 @@
 import { formatTime } from '@shared/utils/format';
+import { isValidGeoCoordinate } from '@shared/utils/geo';
 
 export type BusType = 'sleeper' | 'limousine' | 'standard';
 export type TripLifecycleStatus =
@@ -8,6 +9,7 @@ export type TripLifecycleStatus =
   | 'COMPLETED'
   | 'CANCELLED'
   | 'DISRUPTED';
+export type TripStopLifecycleStatus = 'PENDING' | 'ARRIVED' | 'SKIPPED';
 
 export interface TripSearchParams {
   originStationId?: string;
@@ -81,18 +83,26 @@ export interface BusTrip {
 
 export interface TripDetail extends BusTrip {
   status: TripLifecycleStatus;
+  destinationArrivedAt: string | null;
   stops: TripStop[];
 }
 
 export interface TripStop {
   id: string;
   name: string;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   time: string;
   orderIndex: number;
+  isActive?: boolean;
+  status?: TripStopLifecycleStatus;
+  actualArrivalTime?: string | null;
   distanceFromOriginKm?: number | null;
   allowPickup?: boolean;
   allowDropoff?: boolean;
   fareFromThisStop?: number | null;
+  effectiveFare?: number | null;
 }
 
 export interface SeatRow {
@@ -138,6 +148,7 @@ export interface TripDetailDto {
   vehicleId: string;
   departureDateTime: string;
   estimatedArrivalTime: string;
+  destinationArrivedAt?: string | null;
   baseFare: number;
   originStation: { id: string; name: string };
   destinationStation: { id: string; name: string };
@@ -151,6 +162,12 @@ export interface TripDetailDto {
     id?: string;
     stopId?: string;
     name?: string;
+    address?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    isActive?: boolean;
+    status?: TripStopLifecycleStatus;
+    actualArrivalTime?: string | null;
     orderIndex?: number;
     arrivalTime?: string;
     estimatedArrivalTime?: string;
@@ -158,6 +175,7 @@ export interface TripDetailDto {
     allowPickup?: boolean;
     allowDropoff?: boolean;
     fareFromThisStop?: number | null;
+    effectiveFare?: number | null;
   }>;
 }
 
@@ -213,6 +231,7 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     operatorId: dto.operatorId,
     routeId: dto.routeId,
     status: dto.status,
+    destinationArrivedAt: dto.destinationArrivedAt ?? null,
     originStationId: dto.originStation.id,
     destinationStationId: dto.destinationStation.id,
     // Operator name and vehicle type are absent from the detail contract. The
@@ -234,16 +253,34 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     totalSeats: dto.seatSummary.totalSeats,
     departureCity: stationCityLabel(dto.originStation.name),
     arrivalCity: stationCityLabel(dto.destinationStation.name),
-    stops: (dto.stops || []).map((stop) => ({
-      id: stop.stopId ?? stop.id ?? '',
-      name: stop.name ?? `Route stop ${stop.orderIndex ?? ''}`.trim(),
-      time: formatTime(stop.estimatedArrivalTime ?? stop.arrivalTime ?? ''),
-      orderIndex: stop.orderIndex ?? 0,
-      distanceFromOriginKm: stop.distanceFromOriginKm,
-      allowPickup: stop.allowPickup,
-      allowDropoff: stop.allowDropoff,
-      fareFromThisStop: stop.fareFromThisStop,
-    })),
+    stops: (dto.stops || []).map((stop) => {
+      const latitude = stop.latitude;
+      const longitude = stop.longitude;
+      const hasValidCoordinates = typeof latitude === 'number'
+        && typeof longitude === 'number'
+        && isValidGeoCoordinate({
+          latitude,
+          longitude,
+        });
+
+      return {
+        id: stop.stopId ?? stop.id ?? '',
+        name: stop.name ?? `Route stop ${stop.orderIndex ?? ''}`.trim(),
+        address: stop.address ?? null,
+        latitude: hasValidCoordinates ? latitude : null,
+        longitude: hasValidCoordinates ? longitude : null,
+        time: formatTime(stop.estimatedArrivalTime ?? stop.arrivalTime ?? ''),
+        orderIndex: stop.orderIndex ?? 0,
+        isActive: stop.isActive,
+        status: stop.status,
+        actualArrivalTime: stop.actualArrivalTime ?? null,
+        distanceFromOriginKm: stop.distanceFromOriginKm,
+        allowPickup: stop.allowPickup,
+        allowDropoff: stop.allowDropoff,
+        fareFromThisStop: stop.fareFromThisStop,
+        effectiveFare: stop.effectiveFare,
+      };
+    }),
   };
 }
 

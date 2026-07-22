@@ -190,6 +190,20 @@ export function formatTime(
   return formatter.format(date);
 }
 
+/** Converts an API enum-like value such as `PENDING_PAYMENT` into a UI label. */
+export function formatStatusLabel(
+  status: string | null | undefined,
+  fallback = 'Unknown',
+): string {
+  const normalized = status?.trim();
+  if (!normalized) return fallback;
+
+  return normalized
+    .replace(/_/g, ' ')
+    .toLocaleLowerCase('en-US')
+    .replace(/\b\w/g, (character) => character.toLocaleUpperCase('en-US'));
+}
+
 /** Format a non-negative duration as `mm:ss` for OTP/session countdowns. */
 export function formatCountdown(seconds: number): string {
   const normalizedSeconds = Number.isFinite(seconds)

@@ -1,15 +1,15 @@
 /**
- * Passenger booking history provider boundary.
+ * Legacy demo-ticket provider boundary.
  *
- * The current backend baseline has no passenger history/detail endpoint. Demo
- * builds may use the explicitly labelled fixture provider; every other build
- * fails closed with a typed unavailable result. Keeping the source as a
- * discriminant prevents a real empty history from being confused with a
- * missing backend capability when the remote provider is introduced.
+ * Live list data now belongs to the unified passenger-history facade hook.
+ * These guarded fixture helpers remain only for explicit demo callers and for
+ * backward-compatible Digital Ticket routes that do not carry a live history
+ * snapshot. BE still has no individual passenger ticket-detail endpoint.
  */
 import { useQuery } from '@tanstack/react-query';
 
 import { useAuthStore } from '../../auth/store/useAuthStore';
+import { usePassengerHistory } from '@features/profile/hooks/usePassengerHistory';
 import { isDemoMode } from '@shared/constants/demoMode';
 import { isUuid } from '@shared/utils/pathSegment';
 import {
@@ -78,19 +78,10 @@ export function resolveBookingHistoryTicketSnapshot(
 }
 
 export function useBookingHistory() {
-  const userId = useAuthStore((state) => state.user?.id);
-  const provider = isDemoMode ? 'demo' : 'unavailable';
-
-  return useQuery<BookingHistoryResult>({
-    queryKey: ['bookings', userId ?? 'guest', 'history', provider],
-    queryFn: () => resolveBookingHistorySnapshot({ userId, demoMode: isDemoMode }),
-    staleTime: Infinity,
-    gcTime: 5 * 60 * 1000,
-    retry: false,
-  });
+  return usePassengerHistory({ type: 'TICKET' });
 }
 
-export function useBookingHistoryTicket(bookingId: string) {
+export function useBookingHistoryTicket(bookingId: string, enabled = true) {
   const userId = useAuthStore((state) => state.user?.id);
   const provider = isDemoMode ? 'demo' : 'unavailable';
 
@@ -103,5 +94,6 @@ export function useBookingHistoryTicket(bookingId: string) {
     staleTime: Infinity,
     gcTime: 5 * 60 * 1000,
     retry: false,
+    enabled,
   });
 }

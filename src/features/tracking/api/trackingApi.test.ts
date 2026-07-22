@@ -4,6 +4,7 @@ import {
   getTrackingEta,
   getTrackingLatest,
   getTrackingTrail,
+  parseTrackingPoint,
   type TrackingEtaResponse,
   type TrackingLatestResponse,
   type TrackingTrailResponse,
@@ -33,8 +34,41 @@ describe('trackingApi', () => {
     const payload: TrackingLatestResponse = { latest: null };
     getMock.mockResolvedValueOnce({ data: successEnvelope(payload) });
 
-    await expect(getTrackingLatest(TRIP_ID)).resolves.toBe(payload);
+    await expect(getTrackingLatest(TRIP_ID)).resolves.toEqual(payload);
     expect(getMock).toHaveBeenCalledWith(`/tracking/trips/${TRIP_ID}/latest`);
+  });
+
+  it('rejects malformed or cross-trip latest data at the network boundary', async () => {
+    getMock.mockResolvedValueOnce({
+      data: successEnvelope({
+        latest: {
+          tripId: '33333333-3333-4333-8333-333333333333',
+          latitude: 10.762622,
+          longitude: 106.660172,
+          recordedAt: '2026-07-20T08:00:00.000Z',
+        },
+      }),
+    });
+
+    await expect(getTrackingLatest(TRIP_ID)).rejects.toThrow(
+      'does not match the requested trip',
+    );
+  });
+
+  it('filters unsafe coordinates before they reach the map', () => {
+    expect(parseTrackingPoint({
+      tripId: TRIP_ID,
+      latitude: 91,
+      longitude: 106.660172,
+      recordedAt: '2026-07-20T08:00:00.000Z',
+    })).toBeNull();
+    expect(parseTrackingPoint({
+      tripId: TRIP_ID,
+      latitude: 10.762622,
+      longitude: 106.660172,
+      headingDeg: 361,
+      recordedAt: '2026-07-20T08:00:00.000Z',
+    })).toBeNull();
   });
 
   it('loads the newest trail page with the BE pagination contract', async () => {
@@ -49,7 +83,7 @@ describe('trackingApi', () => {
     };
     getMock.mockResolvedValueOnce({ data: successEnvelope(payload) });
 
-    await expect(getTrackingTrail(TRIP_ID)).resolves.toBe(payload);
+    await expect(getTrackingTrail(TRIP_ID)).resolves.toEqual(payload);
     expect(getMock).toHaveBeenCalledWith(
       `/tracking/trips/${TRIP_ID}/trail`,
       {
@@ -67,7 +101,7 @@ describe('trackingApi', () => {
     const payload: TrackingEtaResponse = { eta: null };
     getMock.mockResolvedValueOnce({ data: successEnvelope(payload) });
 
-    await expect(getTrackingEta(TRIP_ID, STOP_ID)).resolves.toBe(payload);
+    await expect(getTrackingEta(TRIP_ID, STOP_ID)).resolves.toEqual(payload);
     expect(getMock).toHaveBeenCalledWith(
       `/tracking/trips/${TRIP_ID}/eta`,
       { params: { stopId: STOP_ID } },

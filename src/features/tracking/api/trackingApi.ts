@@ -1,46 +1,66 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import { isValidGeoCoordinate } from '@shared/utils/geo';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
+import { z } from 'zod';
 
-export interface TrackingPoint {
-  tripId: string;
-  latitude: number;
-  longitude: number;
-  speedKmh?: number;
-  headingDeg?: number;
-  recordedAt: string;
-}
+export const trackingDateTimeSchema = z.string().datetime();
 
-export interface TrackingTrailPoint extends TrackingPoint {
-  id: string;
-}
+const trackingPointShape = {
+  tripId: z.string().uuid(),
+  latitude: z.number(),
+  longitude: z.number(),
+  speedKmh: z.number().finite().nonnegative().optional(),
+  headingDeg: z.number().finite().min(0).max(360).optional(),
+  recordedAt: trackingDateTimeSchema,
+} as const;
 
-export interface TrackingLatestResponse {
-  latest: TrackingPoint | null;
-}
+const trackingPointSchema = z.object(trackingPointShape)
+  .refine(isValidGeoCoordinate, 'Invalid GPS coordinate.');
 
-export interface TrackingTrailResponse {
-  items: TrackingTrailPoint[];
-  page: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-}
+const trackingTrailPointSchema = z.object({
+  ...trackingPointShape,
+  id: z.string().uuid(),
+}).refine(isValidGeoCoordinate, 'Invalid GPS coordinate.');
 
-export interface TrackingEta {
-  tripId: string;
-  stopId: string;
-  etaMinutes: number;
-  estimatedArrivalTime: string;
-  distanceMeters: number;
-  updatedAt: string;
-}
+export const trackingEtaSchema = z.object({
+  tripId: z.string().uuid(),
+  stopId: z.string().uuid(),
+  etaMinutes: z.number().int().positive(),
+  estimatedArrivalTime: trackingDateTimeSchema,
+  distanceMeters: z.number().int().nonnegative(),
+  updatedAt: trackingDateTimeSchema,
+});
 
-export interface TrackingEtaResponse {
-  eta: TrackingEta | null;
-}
+const trackingLatestResponseSchema = z.object({
+  latest: trackingPointSchema.nullable(),
+});
+
+const trackingTrailResponseSchema = z.object({
+  items: z.array(trackingTrailPointSchema),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().min(1).max(100),
+  totalItems: z.number().int().nonnegative(),
+  totalPages: z.number().int().nonnegative(),
+  hasNextPage: z.boolean(),
+  hasPreviousPage: z.boolean(),
+});
+
+const trackingEtaResponseSchema = z.object({
+  eta: trackingEtaSchema.nullable(),
+});
+
+export type TrackingPoint = z.infer<typeof trackingPointSchema>;
+
+export type TrackingTrailPoint = z.infer<typeof trackingTrailPointSchema>;
+
+export type TrackingLatestResponse = z.infer<typeof trackingLatestResponseSchema>;
+
+export type TrackingTrailResponse = z.infer<typeof trackingTrailResponseSchema>;
+
+export type TrackingEta = z.infer<typeof trackingEtaSchema>;
+
+export type TrackingEtaResponse = z.infer<typeof trackingEtaResponseSchema>;
 
 export interface TrackingTrailParams {
   from?: string;
@@ -50,6 +70,51 @@ export interface TrackingTrailParams {
   sortBy?: 'recordedAt';
   sortDir?: 'asc' | 'desc';
 }
+
+const assertExpectedTrip = (
+  expectedTripId: string,
+  actualTripIds: readonly string[],
+): void => {
+  if (actualTripIds.some((tripId) => tripId !== expectedTripId)) {
+    throw new Error('Tracking response does not match the requested trip.');
+  }
+};
+
+export const parseTrackingPoint = (value: unknown): TrackingPoint | null => {
+  const result = trackingPointSchema.safeParse(value);
+  return result.success ? result.data : null;
+};
+
+export const parseTrackingLatestResponse = (
+  value: unknown,
+  expectedTripId: string,
+): TrackingLatestResponse => {
+  const parsed = trackingLatestResponseSchema.parse(value);
+  assertExpectedTrip(expectedTripId, parsed.latest ? [parsed.latest.tripId] : []);
+  return parsed;
+};
+
+export const parseTrackingTrailResponse = (
+  value: unknown,
+  expectedTripId: string,
+): TrackingTrailResponse => {
+  const parsed = trackingTrailResponseSchema.parse(value);
+  assertExpectedTrip(expectedTripId, parsed.items.map((point) => point.tripId));
+  return parsed;
+};
+
+export const parseTrackingEtaResponse = (
+  value: unknown,
+  expectedTripId: string,
+  expectedStopId: string,
+): TrackingEtaResponse => {
+  const parsed = trackingEtaResponseSchema.parse(value);
+  assertExpectedTrip(expectedTripId, parsed.eta ? [parsed.eta.tripId] : []);
+  if (parsed.eta && parsed.eta.stopId !== expectedStopId) {
+    throw new Error('Tracking ETA response does not match the requested stop.');
+  }
+  return parsed;
+};
 
 export const trackingKeys = {
   all: ['tracking'] as const,
@@ -76,7 +141,7 @@ export async function getTrackingLatest(
   const response = signal
     ? await apiClient.get<ApiEnvelope<TrackingLatestResponse>>(path, { signal })
     : await apiClient.get<ApiEnvelope<TrackingLatestResponse>>(path);
-  return unwrapApiResponse(response.data);
+  return parseTrackingLatestResponse(unwrapApiResponse(response.data), tripId);
 }
 
 export async function getTrackingTrail(
@@ -97,7 +162,7 @@ export async function getTrackingTrail(
       ...(signal ? { signal } : {}),
     },
   );
-  return unwrapApiResponse(response.data);
+  return parseTrackingTrailResponse(unwrapApiResponse(response.data), tripId);
 }
 
 export async function getTrackingEta(
@@ -113,5 +178,9 @@ export async function getTrackingEta(
       ...(signal ? { signal } : {}),
     },
   );
-  return unwrapApiResponse(response.data);
+  return parseTrackingEtaResponse(
+    unwrapApiResponse(response.data),
+    tripId,
+    stopId,
+  );
 }

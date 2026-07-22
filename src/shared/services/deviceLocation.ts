@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 
 import type { GeoCoordinate } from '@shared/types/common';
+import { isValidGeoCoordinate } from '@shared/utils/geo';
 
 const DEFAULT_LAST_KNOWN_MAX_AGE_MS = 5 * 60 * 1000;
 const MAX_GEOCODE_ADDRESS_LENGTH = 500;
@@ -67,15 +68,6 @@ export interface GeocodedAddress {
   formattedAddress: string | null;
 }
 
-const isValidCoordinates = (coordinates: GeoCoordinate): boolean => {
-  return Number.isFinite(coordinates.latitude)
-    && coordinates.latitude >= -90
-    && coordinates.latitude <= 90
-    && Number.isFinite(coordinates.longitude)
-    && coordinates.longitude >= -180
-    && coordinates.longitude <= 180;
-};
-
 const toCoordinates = (
   value: Pick<Location.LocationGeocodedLocation, 'latitude' | 'longitude'>,
 ): GeoCoordinate => {
@@ -84,7 +76,7 @@ const toCoordinates = (
     longitude: value.longitude,
   };
 
-  if (!isValidCoordinates(coordinates)) {
+  if (!isValidGeoCoordinate(coordinates)) {
     throw new DeviceLocationError('invalid-coordinates');
   }
 
@@ -181,7 +173,7 @@ export const geocodeAddress = async (address: string): Promise<GeoCoordinate> =>
 export const reverseGeocodeCoordinates = async (
   coordinates: GeoCoordinate,
 ): Promise<GeocodedAddress> => {
-  if (!isValidCoordinates(coordinates)) {
+  if (!isValidGeoCoordinate(coordinates)) {
     throw new DeviceLocationError('invalid-coordinates');
   }
 

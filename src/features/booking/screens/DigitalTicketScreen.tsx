@@ -23,6 +23,7 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 
 import type { BookingStackParamList, RootStackParamList } from '@app/navigation/types';
+import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -45,6 +46,7 @@ import type { BookingResult, RoundTripResult } from '../types';
 import {
   buildCheckoutTicketViewModel,
   buildHistoryTicketViewModel,
+  buildPassengerHistoryTicketViewModel,
   type TicketLegViewModel,
   type TicketViewModel,
 } from '../utils/ticketViewModel';
@@ -84,9 +86,11 @@ function TicketView({
 }: TicketViewProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const paymentIcon = model.paymentMethod === 'WALLET'
-    ? <Wallet size={12} color={theme.colors.primary} weight="bold" />
-    : <Coins size={12} color={theme.colors.primary} weight="bold" />;
+  const paymentIcon = model.paymentMethod
+    ? model.paymentMethod === 'WALLET'
+      ? <Wallet size={12} color={theme.colors.primary} weight="bold" />
+      : <Coins size={12} color={theme.colors.primary} weight="bold" />
+    : null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -189,9 +193,16 @@ function TicketView({
                     <Ticket size={64} color={theme.colors.primary} weight="duotone" />
                   </View>
                   <Text style={styles.referenceCaption}>
-                    {model.legs.length > 1 ? `${leg.label} ticket reference` : 'Ticket reference'}
+                    {model.legs.length > 1
+                      ? `${leg.label} booking reference`
+                      : 'Booking reference'}
                   </Text>
                   <Text style={styles.ticketIdText}>{leg.reference}</Text>
+                  {leg.ticketReferences ? (
+                    <Text style={styles.ticketReferencesText}>
+                      {leg.ticketCount === 1 ? 'Ticket' : 'Tickets'}: {leg.ticketReferences}
+                    </Text>
+                  ) : null}
                 </View>
 
                 <View style={styles.dashedDivider}>
@@ -212,24 +223,34 @@ function TicketView({
                   ) : null}
                   <View style={styles.routeRow}>
                     <View style={styles.routeItem}>
-                      <Text style={styles.routeLabel}>BOARDING ({leg.boardingTime})</Text>
+                      <Text style={styles.routeLabel}>
+                        {leg.boardingTime ? `BOARDING (${leg.boardingTime})` : 'BOARDING'}
+                      </Text>
                       <Text style={styles.routeName}>{leg.boardingName}</Text>
-                      <Text style={styles.routeCity}>{leg.boardingAddress}</Text>
+                      {leg.boardingAddress ? (
+                        <Text style={styles.routeCity}>{leg.boardingAddress}</Text>
+                      ) : null}
                     </View>
                     <View style={styles.routeItem}>
                       <Text style={[styles.routeLabel, styles.alignRight]}>
-                        ALIGHTING ({leg.alightingTime})
+                        {leg.alightingTime ? `ALIGHTING (${leg.alightingTime})` : 'ALIGHTING'}
                       </Text>
                       <Text style={[styles.routeName, styles.alignRight]}>{leg.alightingName}</Text>
-                      <Text style={[styles.routeCity, styles.alignRight]}>{leg.alightingAddress}</Text>
+                      {leg.alightingAddress ? (
+                        <Text style={[styles.routeCity, styles.alignRight]}>
+                          {leg.alightingAddress}
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
 
                   <View style={styles.specsGrid}>
-                    <View style={styles.gridItem}>
-                      <Text style={styles.specLabel}>BUS TYPE</Text>
-                      <Text style={styles.specValue}>{leg.busType}</Text>
-                    </View>
+                    {leg.busType ? (
+                      <View style={styles.gridItem}>
+                        <Text style={styles.specLabel}>BUS TYPE</Text>
+                        <Text style={styles.specValue}>{leg.busType}</Text>
+                      </View>
+                    ) : null}
                     <View style={styles.gridItem}>
                       <Text style={styles.specLabel}>SEATS</Text>
                       <Text style={styles.specValue}>{leg.seatNumbers}</Text>
@@ -238,15 +259,17 @@ function TicketView({
                       <Text style={styles.specLabel}>TICKETS</Text>
                       <Text style={styles.specValue}>{leg.ticketCount}</Text>
                     </View>
-                    <View style={styles.gridItem}>
-                      <Text style={styles.specLabel}>PAYMENT METHOD</Text>
-                      <View style={styles.paymentMethodLabel}>
-                        {paymentIcon}
-                        <Text style={styles.specValue}>
-                          {model.paymentMethod === 'WALLET' ? 'VietRide Wallet' : 'VNPAY'}
-                        </Text>
+                    {model.paymentMethod ? (
+                      <View style={styles.gridItem}>
+                        <Text style={styles.specLabel}>PAYMENT METHOD</Text>
+                        <View style={styles.paymentMethodLabel}>
+                          {paymentIcon}
+                          <Text style={styles.specValue}>
+                            {model.paymentMethod === 'WALLET' ? 'VietRide Wallet' : 'VNPAY'}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
+                    ) : null}
                   </View>
 
                   <View style={styles.totalRow}>
@@ -541,15 +564,24 @@ function CheckoutTicketContent(): React.JSX.Element {
   );
 }
 
-function HistoryTicketContent({ bookingId }: { bookingId: string }): React.JSX.Element {
+function HistoryTicketContent({
+  bookingId,
+  historyItem,
+}: {
+  bookingId: string;
+  historyItem?: PassengerTicketHistoryItem;
+}): React.JSX.Element {
   const navigation = useNavigation<DigitalTicketNavigation>();
-  const ticketQuery = useBookingHistoryTicket(bookingId);
+  const ticketQuery = useBookingHistoryTicket(bookingId, !historyItem);
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
   const result = ticketQuery.data;
   const model = useMemo<TicketViewModel | null>(() => {
+    if (historyItem?.id === bookingId) {
+      return buildPassengerHistoryTicketViewModel(historyItem);
+    }
     if (!result || result.source === 'unavailable') return null;
     return buildHistoryTicketViewModel(result.source, result.detail);
-  }, [result]);
+  }, [bookingId, historyItem, result]);
 
   const handleTrack = useCallback((leg: TicketLegViewModel) => {
     if (!leg.tripId || !leg.trackingEnabled) return;
@@ -561,7 +593,7 @@ function HistoryTicketContent({ bookingId }: { bookingId: string }): React.JSX.E
     });
   }, [navigation]);
 
-  if (ticketQuery.isPending) {
+  if (!historyItem && ticketQuery.isPending) {
     return (
       <UnavailableTicket
         title="Loading ticket"
@@ -575,7 +607,7 @@ function HistoryTicketContent({ bookingId }: { bookingId: string }): React.JSX.E
   if (ticketQuery.isError || !model) {
     const reason = result?.source === 'unavailable' ? result.reason : undefined;
     const message = reason === 'backend_not_supported'
-      ? 'Passenger ticket history is not available from the backend yet.'
+      ? 'Open History again to refresh this booking snapshot.'
       : reason === 'authentication_required'
         ? 'Sign in with the passenger account that owns this booking.'
         : 'The selected ticket detail is unavailable.';
@@ -597,7 +629,12 @@ function HistoryTicketContent({ bookingId }: { bookingId: string }): React.JSX.E
 export function DigitalTicketScreen(): React.JSX.Element {
   const route = useRoute<DigitalTicketRoute>();
   return route.params.source === 'history'
-    ? <HistoryTicketContent bookingId={route.params.bookingId} />
+    ? (
+      <HistoryTicketContent
+        bookingId={route.params.bookingId}
+        historyItem={route.params.historyItem}
+      />
+    )
     : <CheckoutTicketContent />;
 }
 
@@ -782,6 +819,14 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     lineHeight: 18,
     color: theme.colors.textPrimary,
+  },
+  ticketReferencesText: {
+    marginTop: spacing.sm,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    lineHeight: fontSizes.xs * 1.4,
+    color: theme.colors.textSecondary,
+    textAlign: 'center' as const,
   },
   shuttleRequestHint: {
     marginTop: spacing.xs,
