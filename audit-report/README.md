@@ -1,180 +1,249 @@
-# VietRide Mobile-Backend API Audit - Complete Report
+Add District Search Support for Parcel Booking Flow
+Problem
+The Passenger app needs to let users search stations by District (Quận/Huyện) when booking a parcel. Currently:
 
-Tổng báo cáo audit chi tiết về việc khớp nối giữa **VietRide Passenger Mobile App** và **VietRide Backend APIs**.
+Feature Status
+Search trips by originStationId + destinationStationId ✅ Supported
+Search stations by name (q), city, province, locationId ✅ Supported
+Search stations by District ❌ Not supported
+The
+Location
+entity only allows PROVINCE / MUNICIPALITY types (enforced by a DB check constraint), and the
+Station
+entity has no district column.
 
----
+Recommended Approach: Add District column to
+Station
+This is the minimal, non-breaking approach. It adds a nullable district string column to
+Station
+and exposes it as a new search filter — same pattern as the existing city/province filters. No changes to the
+Location
+catalog are needed.
 
-## 📋 Table of Contents
+IMPORTANT
 
-1. [Executive Summary](./01-Executive-Summary.md) - Tổng quan, thống kê, priority issues
-2. [Backend API Catalog](./02-Backend-API-Catalog.md) - Danh sách tất cả APIs đã triển khai
-3. [Mobile Screens](./03-Mobile-Screens.md) - Tất cả screens và APIs cần dùng
-4. [Gap Analysis](./04-Gap-Analysis.md) - Phân tích thiếu hụt chi tiết
-5. [Implementation Plan](./05-Implementation-Plan.md) - Kế hoạch triển khai theo ưu tiên
-6. [File References](./06-File-References.md) - Tham chiếu source code
+This approach adds a new optional query parameter district to the existing GET v1/stations/search endpoint. It is fully backward-compatible — existing clients that don't send district will behave exactly as before.
 
----
+Proposed Changes
+Domain Layer
+[MODIFY]
+Station.cs
+Add District property (nullable string), update
+Create()
+and
+UpdateProfile()
+to accept and set it.
 
-## 📊 Quick Stats
+diff
+public string City { get; private set; } = string.Empty;
++public string? District { get; private set; }
+public string Province { get; private set; } = string.Empty;
+diff
+public static Station Create(
+string name,
+string slug,
+string city,
+string province,
 
-| Metric | Count |
-|--------|-------|
-| Mobile screens | 41 |
-| APIs cần thiết | ~60+ |
-| APIs đã có | ~26 |
-| APIs thiếu | ~34+ |
-| Tỷ lệ phủ sóng | ~58% |
+- string? district = null,
+  ...
+  Infrastructure Layer
+  [MODIFY]
+  StationConfiguration.cs
+  Map new district column (varchar(100), nullable) and add a filtered index.
 
-### Module Coverage
+diff
+builder.Property(x => x.Province)
+.HasColumnName("province")
+.HasMaxLength(100)
+.IsRequired();
++builder.Property(x => x.District)
 
-| Module | Screens | Coverage | Status |
-|--------|---------|----------|--------|
-| Auth | 4 | 100% | ✅ Complete |
-| Booking | 14 | ~67% | ⚠️ Partial |
-| Parcel | 5 | 0% | ❌ Missing |
-| Profile | 10 | ~25% | ❌ Minimal |
-| Home | 2 | 0% | ❌ Missing |
-| Chatbot | 1 | ~50% | ⚠️ Internal only |
-| Tracking | 1 | 100% | ✅ Complete |
+- .HasColumnName("district")
+- .HasMaxLength(100)
+- .IsRequired(false);
+  diff
+  builder.HasIndex(x => new { x.City, x.Province })
+  .HasDatabaseName("idx_stations_city_province")
+  .HasFilter("is_active = TRUE");
+  +builder.HasIndex(x => x.District)
+- .HasDatabaseName("idx_stations_district")
+- .HasFilter("district IS NOT NULL AND is_active = TRUE");
+  [NEW] EF Migration
+  Run dotnet ef migrations add AddStationDistrict to generate the migration that:
 
----
+Adds nullable district varchar(100) column to stations table
+Creates idx_stations_district filtered index
+[MODIFY]
+StationRepository.cs
+Add district parameter to
+SearchActiveByNameAsync
+and
+BuildSearchActiveByNameQuery
+.
 
-## 🚨 Critical Missing Endpoints (Blockers)
+diff
+public async Task<IReadOnlyList<Station>> SearchActiveByNameAsync(
+string? q,
+string? city,
 
-1. ❌ **Parcel Service** - Entire service not implemented (~9 endpoints)
-2. ❌ **Cities list** (`GET /v1/cities`) - Master data
-3. ❌ **Pickup/Dropoff points** (`GET /v1/trips/{tripId}/pickup-points`, `dropoff-points`)
-4. ❌ **Booking retrieval** (`GET /v1/bookings/{bookingRef}`)
-5. ❌ **Ticket/QR** (`GET /v1/bookings/{bookingRef}/ticket`)
-6. ❌ **Profile update** (`PUT /v1/users/me`)
-7. ❌ **Avatar upload** (`POST /v1/users/me/avatar`)
-8. ❌ **Dashboard** (`GET /v1/home/dashboard`)
-9. ❌ **News** (`GET /v1/news`)
-10. ❌ **Booking history** (stub returns empty)
+- string? district,
+  string? province,
+  Guid? locationId,
+  CancellationToken cancellationToken)
 
----
+* => await BuildSearchActiveByNameQuery(q, city, province, locationId).ToListAsync(cancellationToken);
 
-## 💡 Top Recommendations
+- => await BuildSearchActiveByNameQuery(q, city, district, province, locationId).ToListAsync(cancellationToken);
+  Inside
+  BuildSearchActiveByNameQuery
+  , add district filter block (same pattern as city/province):
 
-### Phase 1 (Week 1-2): Core Booking
-1. Implement cities + popular routes APIs (Trip service)
-2. Implement pickup/dropoff points APIs (Trip service)
-3. Implement booking retrieval + ticket APIs (Booking service)
-4. Complete booking history pagination
-5. Connect mobile screens to existing APIs
+diff
++if (!string.IsNullOrWhiteSpace(district))
++{
 
-**Deliverable:** Complete booking flow from search to ticket
+- var districtFilter = district.Trim();
+- search = search.Where(station => station.District == districtFilter);
+  +}
+  Application Layer
+  [MODIFY]
+  IStationRepository.cs
+  Add district parameter to
+  SearchActiveByNameAsync
+  interface method.
 
-### Phase 2 (Week 3): Profile & Wallet
-1. Implement profile update + avatar upload (Identity)
-2. Implement payment methods CRUD (Payment)
-3. Implement withdrawal (Payment)
-4. Implement settings endpoints (Identity)
-5. Implement dashboard + news
-6. Connect mobile profile screens
+[MODIFY]
+SearchStationsQuery.cs
+diff
+public sealed record SearchStationsQuery(
+string? Q,
+string? City,
 
-**Deliverable:** Complete profile management + wallet
+- string? District,
+  string? Province,
+  Guid? LocationId) : IRequest<IReadOnlyList<StationSearchResult>>;
+  [MODIFY]
+  SearchStationsQueryValidator.cs
+  Add District to
+  HasSearchCriteria
+  check:
 
-### Phase 3 (Week 4): Parcel
-1. Create new Parcel service (full CRUD)
-2. Implement all parcel endpoints
-3. Connect mobile parcel screens
+diff
+private static bool HasSearchCriteria(SearchStationsQuery query)
+=> !string.IsNullOrWhiteSpace(query.Q)
+|| !string.IsNullOrWhiteSpace(query.City)
 
-**Deliverable:** Parcel booking fully functional
+-        || !string.IsNullOrWhiteSpace(query.District)
+           || !string.IsNullOrWhiteSpace(query.Province)
+           || query.LocationId.HasValue;
+  [MODIFY]
+  SearchStationsQueryHandler.cs
+  Pass request.District to
+  SearchActiveByNameAsync
+  .
 
-### Phase 4 (Week 5): Polish
-1. Forgot password reset flow
-2. Notifications read-all
-3. Payment status polling
-4. Promo/voucher integration
-5. WebSocket real-time tracking
-6. Mobile integration testing
+[MODIFY]
+StationSearchResult.cs
+Include District in the response DTO:
 
-**Deliverable:** MVP ready for production
+diff
+public sealed record StationSearchResult(
+Guid Id,
+string Name,
+Guid? LocationId,
+string City,
 
----
+- string? District,
+  string Province,
+  ...
+  [MODIFY]
+  StationMapper.cs
+  Map station.District into both
+  ToDto
+  and
+  ToSearchResult
+  .
 
-## 📁 Report Files Structure
+API Layer
+[MODIFY]
+StationsController.cs
+Add [FromQuery] string? district parameter:
 
-```
-audit-report/
-├── 01-Executive-Summary.md     # Tổng quan thống kê
-├── 02-Backend-API-Catalog.md   # Tất cả APIs backend
-├── 03-Mobile-Screens.md        # Screens mobile + APIs cần
-├── 04-Gap-Analysis.md          # Phân tích thiếu hụt chi tiết
-├── 05-Implementation-Plan.md   # Kế hoạch triển khai
-├── 06-File-References.md       # Tham chiếu source code
-└── README.md                   # File này
-```
+diff
+public async Task<ActionResult<IReadOnlyList<StationSearchResult>>> SearchAsync(
+[FromQuery(Name = "q")] string? q,
+[FromQuery] string? city,
 
----
+- [FromQuery] string? district,
+  [FromQuery] string? province,
+  [FromQuery] Guid? locationId,
+  CancellationToken cancellationToken)
+  {
 
-## 🎯 Summary by Use Case
+* return Ok(await mediator.Send(new SearchStationsQuery(q, city, province, locationId), cancellationToken));
 
-### User có thể đăng ký/đăng nhập?
-✅ **CÓ** - Auth APIs complete
+- return Ok(await mediator.Send(new SearchStationsQuery(q, city, district, province, locationId), cancellationToken));
+  }
+  Admin Endpoints (Optional — for data entry)
+  [MODIFY]
+  AdminStationsController.cs
+  Add district to Create/Update station request models so admins can populate the field when managing stations.
 
-### User có thể đặt vé xe?
-⚠️ **80%** - Search, seats, booking, payment work. Thiếu pickup/dropoff points, ticket display.
+Summary of Changes
+GET /v1/stations/search?district=Quận 1
+📱 Passenger App
+StationsController
+SearchStationsQuery(+district)
+SearchStationsQueryHandler
+StationRepositoryBuildSearchActiveByNameQuery(+district filter)
+PostgreSQLstations.district column
+StationSearchResult(+district)
+Layer Files Changed
+Domain
+Station.cs
+Infrastructure
+StationConfiguration.cs
+,
+StationRepository.cs
+, new EF migration
+Application
+IStationRepository.cs
+,
+SearchStationsQuery.cs
+,
+SearchStationsQueryValidator.cs
+,
+SearchStationsQueryHandler.cs
+,
+StationSearchResult.cs
+,
+StationMapper.cs
+API
+StationsController.cs
+,
+AdminStationsController.cs
+Verification Plan
+Existing Tests
+The project has an integration test at
+StationRepositorySearchTests.cs
+that tests accent-insensitive station search via
+SearchActiveByNameAsync
+. After changes, this test should still pass (backward compatibility).
 
-### User có thể xem vé đã đặt?
-❌ **KHÔNG** - Booking retrieval endpoint missing
+Proposed New Tests
+Add a new test method in
+StationRepositorySearchTests.cs
+:
 
-### User có thể theo dõi xe?
-✅ **CÓ** - Tracking endpoints exist (REST). Thiếu WebSocket real-time.
+SearchActiveByNameAsync_FiltersByDistrict_ReturnsOnlyMatchingStations — Seeds two stations with different districts, queries with district="Quận 1", asserts only the correct station is returned.
+Manual Verification
+Since the BE is a microservice backend, the simplest manual verification is:
 
-### User có thể gửi hàng?
-❌ **KHÔNG** - Parcel service chưa triển khai
+After applying the migration and seeding a station with district = "Quận 1", call:
+GET /v1/stations/search?district=Quận 1
+Verify the response includes only stations in "Quận 1" and the district field appears in the response body.
+Verify calling without district parameter returns all stations (backward compat).
+TIP
 
-### User có thể chỉnh sửa profile?
-⚠️ **30%** - Chỉ xem được, không sửa được profile/avatar
-
-### User có thể nạp tiền/rút tiền?
-⚠️ **60%** - Nạp tiền (top-up) có, rút tiền chưa có, payment methods chưa có
-
-### User có thể xem thông báo?
-⚠️ **50%** - List notifications có, read-all chưa có
-
----
-
-## 🔧 Backend Health
-
-| Service | Status | Notes |
-|---------|--------|-------|
-| Gateway | ✅ Complete | Full routing, auth |
-| Identity | ✅ Complete | All auth/user endpoints |
-| Trip | ✅ Complete | All trip/route/station endpoints |
-| Booking | ✅ Complete | Bookings, vouchers |
-| Payment | ✅ Complete | Wallet, top-up |
-| Parcel | ❌ Stub | Only Ping |
-| Notification | ✅ Complete | Notifications, emails |
-| RAG | ✅ Complete | Chat, feedback |
-| Tracking | ✅ Complete | Latest, ETA, trail |
-
----
-
-## 📖 How to Use This Report
-
-1. **Start with** [01-Executive-Summary.md](./01-Executive-Summary.md) để xem tổng quan
-2. **Xem backend đã có gì** trong [02-Backend-API-Catalog.md](./02-Backend-API-Catalog.md)
-3. **Hiểu mobile cần gì** trong [03-Mobile-Screens.md](./03-Mobile-Screens.md)
-4. **Xem thiếu hụt cụ thể** trong [04-Gap-Analysis.md](./04-Gap-Analysis.md)
-5. **Theo kế hoạch triển khai** trong [05-Implementation-Plan.md](./05-Implementation-Plan.md)
-6. **Tra file source code** trong [06-File-References.md](./06-File-References.md)
-
----
-
-## 🏷️ Metadata
-
-- **Audit Date:** June 22, 2026
-- **Mobile Framework:** React Native + Expo
-- **Backend:** .NET 8 + NestJS microservices
-- **Gateway:** NestJS with JWT auth
-- **Total Files Analyzed:** 150+
-- **Endpoints Documented:** 100+
-- **Gaps Identified:** 34+
-
----
-
-**Prepared for:** VietRide Team
-**Purpose:** Backend API gap analysis for mobile MVP
+Ông nên yêu cầu team BE cập nhật seed data để populate field district cho các station hiện có. Nếu không seed thì field này sẽ là null cho tất cả station cũ, và search bằng district sẽ không trả ra kết quả nào.

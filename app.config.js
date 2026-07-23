@@ -87,28 +87,57 @@ const { androidApiKey, iosApiKey } = resolveGoogleMapsNativeConfig();
 const buildPlatform = process.env.EAS_BUILD_PLATFORM;
 const isProduction = process.env.EXPO_PUBLIC_APP_ENV === 'production'
   || process.env.EAS_BUILD_PROFILE === 'production';
+const isGoogleMapsProductionEligible = process.env.GOOGLE_MAPS_PRODUCTION_ELIGIBLE === 'true';
+const googleMapsEnabledForBuild = !isProduction || isGoogleMapsProductionEligible;
 
-if (isProduction && buildPlatform === 'android' && !androidApiKey) {
+if (
+  isProduction
+  && !isGoogleMapsProductionEligible
+  && (androidApiKey || iosApiKey)
+) {
   throw new Error(
-    '[Maps] GOOGLE_MAPS_ANDROID_API_KEY is required for production Android builds.',
+    '[Maps] Production Maps keys require GOOGLE_MAPS_PRODUCTION_ELIGIBLE=true after legal and regional review.',
   );
 }
 
-if (isProduction && buildPlatform === 'ios' && !iosApiKey) {
+if (
+  isProduction
+  && isGoogleMapsProductionEligible
+  && buildPlatform === 'android'
+  && !androidApiKey
+) {
   throw new Error(
-    '[Maps] GOOGLE_MAPS_IOS_API_KEY is required for production iOS builds.',
+    '[Maps] GOOGLE_MAPS_ANDROID_API_KEY is required for an eligible production Android build.',
+  );
+}
+
+if (
+  isProduction
+  && isGoogleMapsProductionEligible
+  && buildPlatform === 'ios'
+  && !iosApiKey
+) {
+  throw new Error(
+    '[Maps] GOOGLE_MAPS_IOS_API_KEY is required for an eligible production iOS build.',
   );
 }
 
 // These flags contain no credential. Expo inlines them so the UI can fail
 // closed instead of mounting a native map with a missing/placeholder key.
-process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED = String(Boolean(androidApiKey));
-process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED = String(Boolean(iosApiKey));
+process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED = String(
+  googleMapsEnabledForBuild && Boolean(androidApiKey),
+);
+process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED = String(
+  googleMapsEnabledForBuild && Boolean(iosApiKey),
+);
 
 module.exports = {
   ...baseConfig,
   plugins: [
     ...baseConfig.plugins,
-    './config-plugins/withVietRideGoogleMaps',
+    [
+      './config-plugins/withVietRideGoogleMaps',
+      { enabled: googleMapsEnabledForBuild },
+    ],
   ],
 };

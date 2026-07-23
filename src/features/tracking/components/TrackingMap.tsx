@@ -69,7 +69,9 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     return (
       <MapPlaceholder
         title="Map unavailable"
-        message="Live coordinates remain available below. Configure the native Google Maps key to enable the map on this build."
+        message={appConfig.isProd
+          ? 'Live map is not available in this build. Verified trip coordinates remain visible below.'
+          : 'Live coordinates remain available below. Configure an eligible native map build to enable the map.'}
       />
     );
   }

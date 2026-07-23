@@ -12,6 +12,7 @@ import MapView, {
   Polyline,
   PROVIDER_GOOGLE,
   type LatLng,
+  type MapViewProps,
 } from 'react-native-maps';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -33,9 +34,14 @@ interface NativeTrackingMapProps {
   stops: readonly TrackingMapStop[];
 }
 
-const MAP_PADDING = { top: 16, right: 16, bottom: 52, left: 16 } as const;
+const MAP_PADDING = { top: 24, right: 24, bottom: 68, left: 24 } as const;
+const INITIAL_VIEWPORT_PADDING = { top: 48, right: 40, bottom: 88, left: 40 } as const;
 const VEHICLE_MARKER_ANCHOR = { x: 0.5, y: 0.5 } as const;
 const STOP_MARKER_ANCHOR = { x: 0.5, y: 1 } as const;
+const FOLLOW_CAMERA_DURATION_MS = 350;
+const DEFAULT_FOLLOW_ZOOM = 15;
+const MIN_ZOOM_LEVEL = 5;
+const MAX_ZOOM_LEVEL = 19;
 
 const hasMoved = (left: LatLng | null, right: LatLng): boolean => !left
   || Math.abs(left.latitude - right.latitude) > 0.000001
@@ -52,22 +58,34 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
   stops,
 }: NativeTrackingMapProps): React.JSX.Element {
   const mapRef = useRef<MapView | null>(null);
+  const isMapReadyRef = useRef(false);
+  const hasFittedInitialViewportRef = useRef(false);
   const lastFollowedCoordinateRef = useRef<LatLng | null>(null);
   const [isFollowingVehicle, setIsFollowingVehicle] = useState(true);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const coordinates = useMemo(() => points.map(toCoordinate), [points]);
   const latestCoordinate = useMemo(() => toCoordinate(latest), [latest]);
+  const initialRegion = useMemo(() => ({
+    ...latestCoordinate,
+    latitudeDelta: 0.02,
+    longitudeDelta: 0.02,
+  }), [latestCoordinate]);
   const heading = latest.headingDeg ?? 0;
 
   const stopCoordinates = useMemo(
     () => stops.map((stop) => ({ stop, coordinate: toCoordinate(stop) })),
     [stops],
   );
+  const viewportCoordinates = useMemo(
+    () => [...coordinates, ...stopCoordinates.map(({ coordinate }) => coordinate)],
+    [coordinates, stopCoordinates],
+  );
 
   useEffect(() => {
     if (
       !isFollowingVehicle
+      || !isMapReadyRef.current
       || !mapRef.current
       || !hasMoved(lastFollowedCoordinateRef.current, latestCoordinate)
     ) {
@@ -77,20 +95,39 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
     lastFollowedCoordinateRef.current = latestCoordinate;
     mapRef.current.animateCamera(
       { center: latestCoordinate },
-      { duration: 350 },
+      { duration: FOLLOW_CAMERA_DURATION_MS },
     );
   }, [isFollowingVehicle, latestCoordinate]);
 
-  const handlePanDrag = useCallback(() => {
+  const stopFollowingVehicle = useCallback(() => {
     setIsFollowingVehicle(false);
   }, []);
+
+  const handleRegionChangeComplete = useCallback<
+    NonNullable<MapViewProps['onRegionChangeComplete']>
+  >((_region, details) => {
+    if (details.isGesture) stopFollowingVehicle();
+  }, [stopFollowingVehicle]);
+
+  const handleMapReady = useCallback(() => {
+    isMapReadyRef.current = true;
+    lastFollowedCoordinateRef.current = latestCoordinate;
+
+    if (hasFittedInitialViewportRef.current || viewportCoordinates.length < 2) return;
+
+    hasFittedInitialViewportRef.current = true;
+    mapRef.current?.fitToCoordinates(viewportCoordinates, {
+      edgePadding: INITIAL_VIEWPORT_PADDING,
+      animated: false,
+    });
+  }, [latestCoordinate, viewportCoordinates]);
 
   const handleRecenter = useCallback(() => {
     lastFollowedCoordinateRef.current = latestCoordinate;
     setIsFollowingVehicle(true);
     mapRef.current?.animateCamera(
-      { center: latestCoordinate, zoom: 15 },
-      { duration: 350 },
+      { center: latestCoordinate, zoom: DEFAULT_FOLLOW_ZOOM },
+      { duration: FOLLOW_CAMERA_DURATION_MS },
     );
   }, [latestCoordinate]);
 
@@ -100,18 +137,36 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
-        initialRegion={{
-          ...latestCoordinate,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        }}
+        initialRegion={initialRegion}
+        googleRenderer="LATEST"
+        mapType="standard"
         mapPadding={MAP_PADDING}
+        paddingAdjustmentBehavior="never"
         userInterfaceStyle={theme.isDark ? 'dark' : 'light'}
+        minZoomLevel={MIN_ZOOM_LEVEL}
+        maxZoomLevel={MAX_ZOOM_LEVEL}
+        loadingEnabled
+        loadingBackgroundColor={theme.colors.surfaceAlt}
+        loadingIndicatorColor={theme.colors.primary}
+        moveOnMarkerPress={false}
+        pitchEnabled={false}
+        rotateEnabled={false}
+        scrollDuringRotateOrZoomEnabled={false}
+        showsBuildings={false}
+        showsCompass={false}
+        showsIndoorLevelPicker={false}
+        showsIndoors={false}
         showsMyLocationButton={false}
+        showsPointsOfInterest={false}
+        showsTraffic={false}
         showsUserLocation={false}
         toolbarEnabled={false}
-        onPanDrag={handlePanDrag}
+        poiClickEnabled={false}
+        onMapReady={handleMapReady}
+        onPanDrag={stopFollowingVehicle}
+        onRegionChangeComplete={handleRegionChangeComplete}
         accessibilityLabel="Live trip map"
+        accessibilityHint="Drag or pinch to explore the trip. Use Follow bus to resume live tracking."
       >
         {stopCoordinates.map(({ stop, coordinate }) => (
           <Marker
@@ -128,11 +183,24 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
           </Marker>
         ))}
         {coordinates.length > 1 ? (
-          <Polyline
-            coordinates={coordinates}
-            strokeColor={theme.colors.primary}
-            strokeWidth={4}
-          />
+          <>
+            <Polyline
+              coordinates={coordinates}
+              strokeColor="rgba(255, 255, 255, 0.92)"
+              strokeWidth={8}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={1}
+            />
+            <Polyline
+              coordinates={coordinates}
+              strokeColor={theme.colors.primary}
+              strokeWidth={4}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={2}
+            />
+          </>
         ) : null}
         <Marker
           coordinate={latestCoordinate}
@@ -191,7 +259,7 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.full,
     borderWidth: 3,
     borderColor: '#FFFFFF',
-    backgroundColor: '#007D78',
+    backgroundColor: theme.colors.primary,
     ...theme.effects.floatingShadow,
   },
   stopMarker: {
@@ -202,7 +270,7 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.full,
     borderWidth: 2,
     borderColor: '#FFFFFF',
-    backgroundColor: '#435A57',
+    backgroundColor: theme.colors.textSecondary,
   },
   recenterButton: {
     position: 'absolute' as const,

@@ -20,4 +20,11 @@ describe('resolveGoogleMapsNativeConfig', () => {
       iosApiKey: 'ios-native-key',
     });
   });
+
+  it('removes native keys when the build is not eligible to use Google Maps', () => {
+    expect(resolveGoogleMapsNativeConfig({
+      GOOGLE_MAPS_ANDROID_API_KEY: 'android-native-key',
+      GOOGLE_MAPS_IOS_API_KEY: 'ios-native-key',
+    }, false)).toEqual({ androidApiKey: null, iosApiKey: null });
+  });
 });

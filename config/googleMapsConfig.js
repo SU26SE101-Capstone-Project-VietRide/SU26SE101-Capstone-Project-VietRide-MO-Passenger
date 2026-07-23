@@ -9,10 +9,15 @@ const normalizeNativeKey = (value) => {
   return normalized && !isPlaceholder ? normalized : null;
 };
 
-const resolveGoogleMapsNativeConfig = (environment = process.env) => ({
-  androidApiKey: normalizeNativeKey(environment.GOOGLE_MAPS_ANDROID_API_KEY),
-  iosApiKey: normalizeNativeKey(environment.GOOGLE_MAPS_IOS_API_KEY),
-});
+const resolveGoogleMapsNativeConfig = (
+  environment = process.env,
+  enabled = true,
+) => enabled
+  ? {
+      androidApiKey: normalizeNativeKey(environment.GOOGLE_MAPS_ANDROID_API_KEY),
+      iosApiKey: normalizeNativeKey(environment.GOOGLE_MAPS_IOS_API_KEY),
+    }
+  : { androidApiKey: null, iosApiKey: null };
 
 module.exports = {
   resolveGoogleMapsNativeConfig,

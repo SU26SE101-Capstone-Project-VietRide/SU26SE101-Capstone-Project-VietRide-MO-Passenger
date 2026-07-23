@@ -2,6 +2,7 @@ const React = require('react');
 const ReactTestRenderer = require('react-test-renderer');
 
 const mockAnimateCamera = jest.fn();
+const mockFitToCoordinates = jest.fn();
 
 jest.mock('phosphor-react-native', () => ({
   Bus: () => null,
@@ -16,6 +17,7 @@ jest.mock('react-native-maps', () => {
   const MapView = ReactModule.forwardRef((props, ref) => {
     ReactModule.useImperativeHandle(ref, () => ({
       animateCamera: mockAnimateCamera,
+      fitToCoordinates: mockFitToCoordinates,
     }));
     return ReactModule.createElement(
       NativeView,
@@ -53,6 +55,43 @@ const makePoint = (recordedAt, overrides = {}) => ({
 describe('NativeTrackingMap follow mode', () => {
   beforeEach(() => {
     mockAnimateCamera.mockClear();
+    mockFitToCoordinates.mockClear();
+  });
+
+  it('fits the initial trip viewport only after the native map is ready', () => {
+    const firstPoint = makePoint('2026-07-20T01:00:00.000Z');
+    const secondPoint = makePoint('2026-07-20T01:00:05.000Z', {
+      latitude: 10.78,
+      longitude: 106.71,
+    });
+    let renderer;
+
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(React.createElement(NativeTrackingMap, {
+        latest: secondPoint,
+        points: [firstPoint, secondPoint],
+        stops: [],
+      }));
+    });
+
+    const map = renderer.root.findByProps({ testID: 'tracking-native-map' });
+    expect(mockFitToCoordinates).not.toHaveBeenCalled();
+
+    ReactTestRenderer.act(() => map.props.onMapReady());
+
+    expect(mockFitToCoordinates).toHaveBeenCalledTimes(1);
+    expect(mockFitToCoordinates).toHaveBeenCalledWith(
+      [
+        { latitude: 10.7769, longitude: 106.7009 },
+        { latitude: 10.78, longitude: 106.71 },
+      ],
+      {
+        edgePadding: { top: 48, right: 40, bottom: 88, left: 40 },
+        animated: false,
+      },
+    );
+
+    ReactTestRenderer.act(() => renderer.unmount());
   });
 
   it('stops moving the camera after a pan and recenters only on request', () => {
@@ -73,7 +112,10 @@ describe('NativeTrackingMap follow mode', () => {
     mockAnimateCamera.mockClear();
 
     const map = renderer.root.findByProps({ testID: 'tracking-native-map' });
-    ReactTestRenderer.act(() => map.props.onPanDrag());
+    ReactTestRenderer.act(() => map.props.onRegionChangeComplete(
+      map.props.initialRegion,
+      { isGesture: true },
+    ));
 
     ReactTestRenderer.act(() => {
       renderer.update(React.createElement(NativeTrackingMap, {
