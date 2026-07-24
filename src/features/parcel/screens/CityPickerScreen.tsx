@@ -19,6 +19,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { normalizeLocationSearchText } from '@features/location/utils/locationSearch';
 import { useParcelStore } from '../store/useParcelStore';
 
@@ -32,6 +33,7 @@ export function ParcelCityPicker(): React.JSX.Element {
   const route = useRoute<RouteProps>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
   const { data: locations = [], isLoading, isError, isFetching, refetch } = useLocations();
   const { fromLocationCode, toLocationCode, setFromLocation, setToLocation } = useParcelStore();
   const [query, setQuery] = useState('');
@@ -145,7 +147,7 @@ export function ParcelCityPicker(): React.JSX.Element {
   ]);
 
   return (
-    <View style={styles.safe}>
+    <View style={[styles.safe, { paddingTop: insets.top }]}>
       <View style={styles.headerRow}>
         <Pressable
           onPress={() => navigation.goBack()}

@@ -10,6 +10,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useParcelStore } from '../store/useParcelStore';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -36,6 +37,7 @@ export function DistrictPicker(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
   const { toCity, toDistrict, setToDistrict } = useParcelStore();
   const route = navigation.getState().routes;
   const lastParams = (route[route.length - 1]?.params ?? {}) as { city?: string };
@@ -58,7 +60,7 @@ export function DistrictPicker(): React.JSX.Element {
   };
 
   return (
-    <View style={styles.safe}>
+    <View style={[styles.safe, { paddingTop: insets.top }]}>
       <View style={styles.headerRow}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
