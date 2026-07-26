@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import { authKeys } from '@features/auth/api/authApi';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
