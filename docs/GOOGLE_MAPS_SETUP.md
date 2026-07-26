@@ -70,7 +70,22 @@ and [API security best practices](https://developers.google.com/maps/api-securit
 
 ## Build secrets and native integration
 
-Inject keys only as native build environment variables:
+Never put an Android Maps key in `AndroidManifest.xml`, `app.config.js`, or any
+tracked file. The manifest contains only the Gradle placeholder
+`${GOOGLE_MAPS_ANDROID_API_KEY}`.
+
+For a local Android build, put the rotated key in the ignored
+`android/local.properties` file:
+
+```text
+GOOGLE_MAPS_ANDROID_API_KEY=...
+```
+
+CI may instead provide the same value as a protected environment variable or a
+Gradle `-PGOOGLE_MAPS_ANDROID_API_KEY=...` property. Expo prebuild still needs a
+key-enabled build environment to retain the native Maps integration; do not
+commit that environment file. Keep the remaining build flags in that protected
+environment:
 
 ```text
 GOOGLE_MAPS_ANDROID_API_KEY=...

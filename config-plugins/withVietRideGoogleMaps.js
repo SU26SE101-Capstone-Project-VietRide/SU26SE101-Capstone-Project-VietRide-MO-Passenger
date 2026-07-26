@@ -20,6 +20,7 @@ const {
 const PLUGIN_NAME = 'with-vietride-google-maps';
 const PLUGIN_VERSION = '1.0.0';
 const ANDROID_API_KEY_META_DATA = 'com.google.android.geo.API_KEY';
+const ANDROID_API_KEY_PLACEHOLDER = '${GOOGLE_MAPS_ANDROID_API_KEY}';
 const IOS_PODFILE_TAG = 'vietride-react-native-google-maps';
 const IOS_IMPORT_TAG = 'vietride-google-maps-import';
 const IOS_INIT_TAG = 'vietride-google-maps-init';
@@ -49,7 +50,7 @@ const withGoogleMapsAndroid = (config, apiKey) => withAndroidManifest(
       AndroidConfig.Manifest.addMetaDataItemToMainApplication(
         mainApplication,
         ANDROID_API_KEY_META_DATA,
-        apiKey,
+        ANDROID_API_KEY_PLACEHOLDER,
       );
     } else {
       AndroidConfig.Manifest.removeMetaDataItemFromMainApplication(
