@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Pressable,
-  Image,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -19,9 +18,8 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import { getTokenSessionEpoch } from '@shared/utils/storage';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { Button, Input } from '@shared/components';
+import { Button, Input, UserAvatar } from '@shared/components';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { getApiErrorMessage, toApiError } from '@shared/api/errors';
 import { pickLocalImages } from '@shared/services/localImagePicker';
@@ -33,17 +31,16 @@ import {
 } from '../validation/profileValidation';
 import {
   completeProfile,
-  updateProfile,
-  uploadAvatar,
 } from '../api/profileApi';
 import {
   validateAvatarAsset,
-  type AvatarUploadFile,
+  type AvatarPickerAsset,
 } from '../validation/avatarUploadValidation';
+import { useUpdateAvatar } from '../hooks/useUpdateAvatar';
 
 interface SelectedAvatar {
   uri: string;
-  file: AvatarUploadFile;
+  asset: AvatarPickerAsset;
 }
 
 const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
@@ -55,8 +52,9 @@ export function EditProfileScreen(): React.JSX.Element {
   const handleTabBarScroll = useTabBarScrollBehavior();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
-  const setUser = useAuthStore((state) => state.setUser);
-  const [displayName, setDisplayName] = useState(user?.displayName || user?.fullName || '');
+  const refreshSession = useAuthStore((state) => state.refreshSession);
+  const { uploadAvatar, isUploading } = useUpdateAvatar();
+  const displayName = user?.displayName || user?.fullName || '';
   const [phone, setPhone] = useState(user?.phone || '');
   const [selectedAvatar, setSelectedAvatar] = useState<SelectedAvatar | null>(null);
   const [errors, setErrors] = useState<Partial<Record<EditProfileField, string>>>({});
@@ -64,12 +62,10 @@ export function EditProfileScreen(): React.JSX.Element {
   const bottomTabClearance =
     CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
   const avatarUri = selectedAvatar?.uri || user?.avatarUrl;
-  const avatarInitial = (displayName.trim() || user?.email || 'V').charAt(0).toUpperCase();
   const canCompletePhone = !user?.phone;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const sessionEpoch = getTokenSessionEpoch();
       const parsed = editProfileSchema.safeParse({ displayName, phone });
 
       if (!parsed.success) {
@@ -79,29 +75,22 @@ export function EditProfileScreen(): React.JSX.Element {
 
       setErrors({});
 
-      let nextUser = user;
-      const nextDisplayName = parsed.data.displayName;
-      const displayNameChanged = Boolean(user && nextDisplayName !== user.displayName);
       const phoneChanged = Boolean(canCompletePhone && parsed.data.phone);
 
-      if (displayNameChanged) {
-        nextUser = await updateProfile({ displayName: nextDisplayName });
-      }
-
       if (phoneChanged) {
-        nextUser = await completeProfile({ phone: parsed.data.phone });
+        await completeProfile({ phone: parsed.data.phone });
+        const refreshedSession = await refreshSession();
+        if (!refreshedSession) {
+          throw new Error('Không thể làm mới phiên đăng nhập sau khi bổ sung số điện thoại.');
+        }
       }
 
       if (selectedAvatar) {
-        nextUser = await uploadAvatar(selectedAvatar.file);
+        await uploadAvatar(selectedAvatar.asset);
       }
-
-      return nextUser ? { user: nextUser, sessionEpoch } : null;
     },
-    onSuccess: (result) => {
-      if (result && setUser(result.user, result.sessionEpoch)) {
-        navigation.goBack();
-      }
+    onSuccess: () => {
+      navigation.goBack();
     },
     onError: (error) => {
       const apiError = toApiError(error);
@@ -116,10 +105,9 @@ export function EditProfileScreen(): React.JSX.Element {
 
   const hasUnsavedChanges = useMemo(
     () =>
-      displayName.trim() !== (user?.displayName || user?.fullName || '') ||
-      phone.trim() !== (user?.phone || '') ||
+      (canCompletePhone && phone.trim() !== '') ||
       Boolean(selectedAvatar),
-    [displayName, phone, selectedAvatar, user?.displayName, user?.fullName, user?.phone],
+    [canCompletePhone, phone, selectedAvatar],
   );
 
   const handlePickAvatar = useCallback(async () => {
@@ -153,8 +141,8 @@ export function EditProfileScreen(): React.JSX.Element {
       }
 
       setSelectedAvatar({
-        uri: validation.file.uri,
-        file: validation.file,
+        uri: asset.uri,
+        asset,
       });
     } catch {
       Alert.alert(
@@ -199,13 +187,7 @@ export function EditProfileScreen(): React.JSX.Element {
               style={styles.avatarContainer}
               onPress={handlePickAvatar}
             >
-              {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.initialsAvatar}>
-                  <Text style={styles.initialsText}>{avatarInitial}</Text>
-                </View>
-              )}
+              <UserAvatar url={avatarUri} name={displayName || user?.email} size={104} />
               <View style={styles.cameraIconBadge}>
                 <Camera size={16} color={theme.colors.textInverse} weight="fill" />
               </View>
@@ -223,16 +205,9 @@ export function EditProfileScreen(): React.JSX.Element {
             <Input
               label="Họ và tên"
               value={displayName}
-              onChangeText={(text) => {
-                setDisplayName(text);
-                if (errors.displayName) {
-                  setErrors((prev) => ({ ...prev, displayName: undefined }));
-                }
-              }}
-              placeholder="Nhập họ và tên"
-              error={errors.displayName}
+              editable={false}
+              hint="Backend hiện chưa hỗ trợ cập nhật họ và tên trên ứng dụng."
               autoCapitalize="words"
-              required
             />
 
             <View style={styles.readOnlyContainer}>
@@ -269,7 +244,7 @@ export function EditProfileScreen(): React.JSX.Element {
           <Button
             title="Lưu thay đổi"
             onPress={() => saveMutation.mutate()}
-            loading={saveMutation.isPending}
+            loading={saveMutation.isPending || isUploading}
             disabled={!hasUnsavedChanges}
             fullWidth
             style={styles.saveButton}

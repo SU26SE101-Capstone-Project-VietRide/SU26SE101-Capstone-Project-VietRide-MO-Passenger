@@ -1,31 +1,22 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
-import type { User, AuthUserDto } from '@features/auth/types';
+import type { AuthUserDto, User } from '@features/auth/types';
 import { mapAuthUser } from '@features/auth/types';
-import {
-  normalizeDisplayName,
-  normalizeVietnamPhone,
-} from '@features/auth/validation/authValidation';
-import {
-  AvatarValidationError,
-  validateAvatarAsset,
-  type AvatarUploadFile,
-} from '../validation/avatarUploadValidation';
-
-export type { AvatarUploadFile } from '../validation/avatarUploadValidation';
-
-export interface UpdateProfilePayload {
-  displayName?: string;
-}
+import { normalizeVietnamPhone } from '@features/auth/validation/authValidation';
 
 export interface CompleteProfilePayload {
   phone: string;
 }
 
-interface CompleteProfileResponse {
+export interface CompleteProfileResponse {
   userId: string;
   phone: string;
   message: string;
+}
+
+export interface UpdateAvatarResponse {
+  userId: string;
+  avatarUrl: string | null;
 }
 
 export interface ChangePasswordPayload {
@@ -63,7 +54,6 @@ export interface LoginSession {
 const PROFILE_ENDPOINTS = {
   me: '/users/me',
   completeProfile: '/users/me/complete-profile',
-  updateProfile: '/users/me',
   uploadAvatar: '/users/me/avatar',
   changePassword: '/auth/change-password',
   sessions: '/auth/sessions',
@@ -88,67 +78,34 @@ export async function getProfile(): Promise<User> {
   return userFromEnvelope(response.data);
 }
 
-export async function completeProfile(payload: CompleteProfilePayload): Promise<User> {
-  await apiClient.post<ApiEnvelope<CompleteProfileResponse>>(
+/** The BE permits this once; callers must refresh the JWT afterwards. */
+export async function completeProfile(
+  payload: CompleteProfilePayload,
+): Promise<CompleteProfileResponse> {
+  const response = await apiClient.post<ApiEnvelope<CompleteProfileResponse>>(
     PROFILE_ENDPOINTS.completeProfile,
-    {
-      phone: normalizeVietnamPhone(payload.phone),
-    },
+    { phone: normalizeVietnamPhone(payload.phone) },
   );
 
-  const updatedUser = await getProfile();
-  return updatedUser;
+  return unwrapApiResponse(response.data);
 }
 
-export async function updateProfile(payload: UpdateProfilePayload): Promise<User> {
-  const response = await apiClient.patch<ApiEnvelope<AuthUserDto>>(
-    PROFILE_ENDPOINTS.updateProfile,
-    {
-      displayName: payload.displayName
-        ? normalizeDisplayName(payload.displayName)
-        : undefined,
-    },
-  );
-
-  return userFromEnvelope(response.data);
-}
-
-export async function uploadAvatar(file: AvatarUploadFile): Promise<User> {
-  // Keep validation at the API boundary too so future callers cannot bypass
-  // the picker-level checks. The server remains responsible for byte sniffing.
-  const validation = validateAvatarAsset({
-    uri: file.uri,
-    fileName: file.name,
-    mimeType: file.type,
-    fileSize: file.size,
-    width: file.width,
-    height: file.height,
-    type: 'image',
-  });
-
-  if (!validation.success) {
-    throw new AvatarValidationError(validation.code, validation.message);
+export async function updateAvatarUrl(
+  avatarUrl: string,
+  idempotencyKey: string,
+): Promise<UpdateAvatarResponse> {
+  const normalizedAvatarUrl = avatarUrl.trim();
+  if (!normalizedAvatarUrl) {
+    throw new Error('Avatar URL is required.');
   }
 
-  const safeFile = validation.file;
-  const formData = new FormData();
-
-  formData.append(
-    'avatar',
-    {
-      uri: safeFile.uri,
-      name: safeFile.name,
-      type: safeFile.type,
-    } as unknown as Blob,
-  );
-
-  // Let Axios/native networking provide the multipart boundary.
-  const response = await apiClient.post<ApiEnvelope<AuthUserDto>>(
+  const response = await apiClient.patch<ApiEnvelope<UpdateAvatarResponse>>(
     PROFILE_ENDPOINTS.uploadAvatar,
-    formData,
+    { avatarUrl: normalizedAvatarUrl },
+    { headers: { 'Idempotency-Key': idempotencyKey } },
   );
 
-  return userFromEnvelope(response.data);
+  return unwrapApiResponse(response.data);
 }
 
 export async function changePassword(

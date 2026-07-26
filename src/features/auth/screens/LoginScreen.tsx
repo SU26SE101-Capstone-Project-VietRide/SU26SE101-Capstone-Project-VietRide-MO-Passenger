@@ -19,6 +19,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation } from '@tanstack/react-query';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { GoogleLogo } from 'phosphor-react-native';
 
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
 import { Input, Button } from '@shared/components';
@@ -28,6 +29,7 @@ import { useApiError } from '@shared/hooks';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { login } from '../api/authApi';
 import { useAuthStore } from '../store/useAuthStore';
+import { useGoogleLogin } from '../hooks/useGoogleLogin';
 import { AuthFooter, AuthStepHeader } from '../components';
 import {
   apiFieldErrors,
@@ -51,6 +53,11 @@ export function LoginScreen(): React.JSX.Element {
   const theme = useTheme();
   const isLiquid = theme.variant.startsWith('liquid');
   const { errorMessage, clearError, handleError } = useApiError();
+  const {
+    signInWithGoogle,
+    isPending: isGoogleLoginPending,
+    errorMessage: googleLoginError,
+  } = useGoogleLogin();
 
   const [email, setEmail] = useState(route.params?.email ?? '');
   const [password, setPassword] = useState('');
@@ -115,8 +122,14 @@ export function LoginScreen(): React.JSX.Element {
     }
   }, [clearAuthError, clearError, continueAsGuest, handleError]);
 
+  const handleGoogleLogin = useCallback(async () => {
+    clearError();
+    clearAuthError();
+    await signInWithGoogle().catch(() => undefined);
+  }, [clearAuthError, clearError, signInWithGoogle]);
+
   const isSubmitDisabled =
-    !email.trim() || !password || loginMutation.isPending || isGuestPending;
+    !email.trim() || !password || loginMutation.isPending || isGuestPending || isGoogleLoginPending;
 
   return (
     <View style={[styles.root, isLiquid && { backgroundColor: theme.colors.background }]}>
@@ -197,9 +210,9 @@ export function LoginScreen(): React.JSX.Element {
                   Email verified. Please log in to continue.
                 </Text>
               ) : null}
-              {errorMessage || authError ? (
+              {errorMessage || authError || googleLoginError ? (
                 <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                  {errorMessage ?? authError}
+                  {errorMessage ?? authError ?? googleLoginError}
                 </Text>
               ) : null}
 
@@ -224,6 +237,25 @@ export function LoginScreen(): React.JSX.Element {
                 fullWidth
               />
 
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Continue with Google"
+                accessibilityState={{ disabled: loginMutation.isPending || isGuestPending || isGoogleLoginPending, busy: isGoogleLoginPending }}
+                disabled={loginMutation.isPending || isGuestPending || isGoogleLoginPending}
+                onPress={handleGoogleLogin}
+                style={({ pressed }) => [
+                  styles.googleButton,
+                  { borderColor: theme.colors.divider, backgroundColor: theme.colors.surface },
+                  pressed && !(loginMutation.isPending || isGuestPending || isGoogleLoginPending) ? styles.pressed : null,
+                  isGoogleLoginPending ? styles.disabledGoogleButton : null,
+                ]}
+              >
+                <GoogleLogo size={20} color={theme.colors.textPrimary} weight="bold" />
+                <Text style={[styles.googleButtonText, { color: theme.colors.textPrimary }]}>
+                  {isGoogleLoginPending ? 'Connecting to Google…' : 'Continue with Google'}
+                </Text>
+              </Pressable>
+
               <View style={styles.guestDivider}>
                 <View style={[styles.dividerLine, { backgroundColor: theme.colors.divider }]} />
                 <Text style={[styles.guestDividerText, { color: theme.colors.textTertiary }]}>or</Text>
@@ -233,7 +265,7 @@ export function LoginScreen(): React.JSX.Element {
               <Button
                 title="Continue as guest"
                 onPress={handleContinueAsGuest}
-                disabled={loginMutation.isPending || isGuestPending}
+                disabled={loginMutation.isPending || isGuestPending || isGoogleLoginPending}
                 loading={isGuestPending}
                 variant="outline"
                 size="md"
@@ -318,6 +350,24 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: colors.primary,
+  },
+  googleButton: {
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    minHeight: 48,
+    paddingHorizontal: spacing.xl,
+  },
+  googleButtonText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.md,
+    marginLeft: spacing.sm,
+  },
+  disabledGoogleButton: {
+    opacity: 0.55,
   },
   guestDivider: {
     flexDirection: 'row',

@@ -21,6 +21,7 @@ import {
   useAuthStore,
   useAuthSync,
   useTokenRefreshScheduler,
+  CompleteProfileScreen,
 } from '@features/auth';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { AppLaunchScreen } from '@shared/components';
@@ -36,10 +37,12 @@ export function RootNavigator(): React.JSX.Element {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isGuest = useAuthStore((state) => state.isGuest);
   const isAuthLoading = useAuthStore((state) => state.isAuthLoading);
+  const user = useAuthStore((state) => state.user);
   const theme = useTheme();
-  const canEnterApp = isAuthenticated || isGuest;
+  const needsPhoneCompletion = isAuthenticated && Boolean(user && !user.phone);
+  const canEnterApp = isGuest || (isAuthenticated && Boolean(user?.phone));
 
-  if (isAuthLoading) {
+  if (isAuthLoading || (isAuthenticated && !user)) {
     return <AppLaunchScreen message="Đang khôi phục phiên đăng nhập..." />;
   }
 
@@ -53,7 +56,9 @@ export function RootNavigator(): React.JSX.Element {
           animation: 'fade',
         }}
       >
-        {canEnterApp ? (
+        {needsPhoneCompletion ? (
+          <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+        ) : canEnterApp ? (
           <>
             <Stack.Screen name="Main" component={MainTabNavigator} />
             <Stack.Screen name="Booking" component={BookingNavigator} />

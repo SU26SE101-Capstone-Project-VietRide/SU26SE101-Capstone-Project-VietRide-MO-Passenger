@@ -112,7 +112,7 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // signingConfig signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
@@ -153,6 +153,9 @@ android {
 }
 
 dependencies {
+    // @generated begin vietride-google-maps-sdk - expo prebuild (DO NOT MODIFY) sync-83117852007c40caee8791e3122872cfef28cdc5
+    implementation "com.google.android.gms:play-services-maps:19.2.0"
+    // @generated end vietride-google-maps-sdk
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 

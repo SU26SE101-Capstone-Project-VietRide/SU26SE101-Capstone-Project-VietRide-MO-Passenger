@@ -3,6 +3,10 @@ package com.vietride.passenger
 import android.app.Application
 import android.content.res.Configuration
 
+// @generated begin vietride-google-maps-import - expo prebuild (DO NOT MODIFY) sync-fbc955df229321b98547425563fb89de10cafeb1
+import com.google.android.gms.maps.MapsApiSettings
+import com.google.android.gms.maps.MapsInitializer
+// @generated end vietride-google-maps-import
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
@@ -40,6 +44,10 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    // @generated begin vietride-google-maps-init - expo prebuild (DO NOT MODIFY) sync-3ff0f0bbcc1e307d0fc9272170c13439c5c8c13b
+    MapsApiSettings.addInternalUsageAttributionId(applicationContext, "gmp_git_agentskills_v1")
+    MapsInitializer.initialize(applicationContext, MapsInitializer.Renderer.LATEST, null)
+    // @generated end vietride-google-maps-init
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {

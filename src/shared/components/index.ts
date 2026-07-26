@@ -10,6 +10,7 @@ export { VectorImage } from './VectorImage';
 export { CustomTabBar } from './CustomTabBar';
 export { GlassCarouselSection } from './GlassCarouselSection';
 export { ProfileHeader } from './ProfileHeader';
+export { UserAvatar, type UserAvatarProps } from './UserAvatar';
 export {
   DEFAULT_MAX_LOCAL_PHOTO_PREVIEWS,
   HARD_MAX_LOCAL_PHOTO_PREVIEWS,

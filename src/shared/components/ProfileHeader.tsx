@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, Image } from 'react-native';
-import type { ImageSourcePropType } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import { ArrowLeft, Bell } from 'phosphor-react-native';
@@ -8,6 +7,7 @@ import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { UserAvatar } from '@shared/components/UserAvatar';
 import type { AppTheme } from '@shared/theme';
 import type { RootStackParamList } from '@app/navigation/types';
 
@@ -18,7 +18,6 @@ export interface ProfileHeaderProps {
   onNotificationPress?: () => void;
   userName?: string;
   greeting?: string;
-  avatarSource?: ImageSourcePropType;
 }
 
 export function ProfileHeader({
@@ -28,7 +27,6 @@ export function ProfileHeader({
   onNotificationPress,
   userName,
   greeting = 'Xin chào,',
-  avatarSource = require('../../assets/images/Avatar.png'),
 }: ProfileHeaderProps): React.JSX.Element {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const theme = useTheme();
@@ -78,7 +76,7 @@ export function ProfileHeader({
             <ArrowLeft size={22} color={theme.colors.textPrimary} />
           </Pressable>
         ) : null}
-        <Image source={avatarSource} style={styles.headerAvatar} />
+        <UserAvatar url={authUser?.avatarUrl} name={resolvedUserName} size={44} />
         {shouldShowGreeting ? (
           <View style={styles.profileTextContainer}>
             <Text style={styles.greetingText}>{greeting}</Text>
@@ -139,13 +137,6 @@ const createStyles = (theme: AppTheme) => ({
     width: 36,
     height: 36,
     marginRight: 4,
-  },
-  headerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: theme.colors.primary,
   },
   profileTextContainer: {
     justifyContent: 'center',

@@ -93,6 +93,7 @@ export type MainTabParamList = {
 // ─── Root Navigator ──────────────────────────────────────
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
+  CompleteProfile: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
   Booking: NavigatorScreenParams<BookingStackParamList>;
   Parcel: NavigatorScreenParams<ParcelStackParamList>;

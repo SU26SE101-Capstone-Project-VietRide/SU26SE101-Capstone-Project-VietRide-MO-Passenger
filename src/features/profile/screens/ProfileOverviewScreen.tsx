@@ -7,7 +7,6 @@ import {
   Alert,
   StatusBar,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, type CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -31,6 +30,7 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
+import { UserAvatar } from '@shared/components';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type {
   MainTabParamList,
@@ -61,7 +61,6 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   const handleTabBarScroll = useTabBarScrollBehavior();
   const displayName = user?.fullName ?? (isGuest ? 'Guest traveler' : 'VietRide Passenger');
   const displayPhone = user?.phone ?? (isGuest ? 'Sign in to save your trips' : 'No phone number');
-  const displayInitial = displayName.charAt(0).toUpperCase();
   const isVerified = user?.status === 'ACTIVE';
   const bottomTabClearance =
     CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
@@ -178,20 +177,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         <View style={styles.profileCard}>
           <View style={styles.profileInfoSection}>
             <View style={styles.avatarWrapper}>
-              {user?.avatarUrl ? (
-                <Image
-                  source={{ uri: user.avatarUrl }}
-                  style={styles.avatarImage}
-                  contentFit="cover"
-                  transition={120}
-                />
-              ) : (
-                <View style={styles.initialsAvatar}>
-                  <Text style={styles.initialsText}>
-                    {displayInitial}
-                  </Text>
-                </View>
-              )}
+              <UserAvatar url={user?.avatarUrl} name={displayName} size={64} />
             </View>
             <View style={styles.namePhoneWrapper}>
               <View style={styles.nameVerifyRow}>
@@ -308,22 +294,6 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  initialsAvatar: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: theme.colors.primaryFaded,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  initialsText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xxl,
-    color: theme.colors.primary,
   },
   namePhoneWrapper: {
     marginLeft: spacing.lg,
