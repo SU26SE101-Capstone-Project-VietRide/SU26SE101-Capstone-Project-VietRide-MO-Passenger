@@ -43,6 +43,9 @@ export interface ParcelBookingState {
   dropoffStation?: Station;
   size: ParcelSize;
   weight: number;
+  lengthCm: number;
+  widthCm: number;
+  heightCm: number;
   category: string;
   cod: boolean;
   estimatedValue?: string;
@@ -77,10 +80,22 @@ export interface AvailableParcelTripsParams {
 export interface AvailableParcelTrip {
   tripId: string;
   routeId: string;
+  status: string;
+  operatorId: string;
   operatorName: string;
+  originStation: {
+    id: string;
+    name: string;
+  };
+  destinationStation: {
+    id: string;
+    name: string;
+  };
   departureDateTime: string;
+  estimatedArrivalTime: string;
   estimatedPriceVnd: number;
   estimatedDepositVnd: number;
+  depositPercent: number;
 }
 
 export interface ParcelAvailableVoucher {
@@ -149,6 +164,7 @@ export interface ParcelDetail {
   tripId: string;
   dropoffStopId: string | null;
   description: string | null;
+  photoUrl?: string | null;
   sizeCategory: ParcelSizeCategory | string;
   estimatedWeightKg: number;
   actualWeightKg: number | null;

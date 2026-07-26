@@ -1,14 +1,15 @@
 import type { CreateParcelPayload } from '../types';
 
-export interface CreateParcelDraft extends Omit<CreateParcelPayload, 'photoUrl'> {
+export interface CreateParcelDraft
+  extends Omit<CreateParcelPayload, 'photoUrl'> {
   /** Local preview URIs are deliberately accepted only so this boundary can discard them. */
   localPhotoUris: readonly string[];
 }
 
 /**
- * Converts the local parcel draft into the exact backend payload. The current
- * backend has no authenticated upload contract, so device URIs never cross the
- * network boundary and photoUrl remains explicitly null.
+ * Converts the local parcel draft into the exact backend payload. This mobile
+ * build has no configured remote-photo uploader yet, so device URIs never
+ * cross the network boundary and photoUrl remains explicitly null.
  */
 export const buildCreateParcelPayload = (
   draft: CreateParcelDraft,

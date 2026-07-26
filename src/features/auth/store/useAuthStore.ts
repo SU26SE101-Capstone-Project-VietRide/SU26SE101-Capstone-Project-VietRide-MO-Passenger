@@ -130,10 +130,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     clearSessionData();
-    cacheUser(session.user);
+    let hydratedUser = session.user;
+
+    try {
+      const currentUser = await fetchCurrentUser();
+
+      if (!isTokenSessionEpochCurrent(sessionEpoch)) {
+        throw new Error('Phiên đăng nhập đã được thay thế bởi một phiên mới hơn.');
+      }
+
+      if (!currentUser || currentUser.id !== session.user.id) {
+        throw new Error('Hồ sơ đăng nhập không khớp với tài khoản hiện tại.');
+      }
+
+      // POST /auth/login intentionally returns a compact user summary. Fetch
+      // /users/me before entering the app so fields omitted from that summary
+      // (notably avatarUrl) cannot be cached as an authoritative profile.
+      hydratedUser = currentUser;
+    } catch (error) {
+      if (!isTokenSessionEpochCurrent(sessionEpoch)) {
+        throw new Error('Phiên đăng nhập đã được thay thế bởi một phiên mới hơn.');
+      }
+
+      if (__DEV__) {
+        console.warn('[Auth] Could not hydrate the current user after login:', error);
+      }
+    }
+
+    cacheUser(hydratedUser);
 
     set({
-      user: session.user,
+      user: hydratedUser,
       isAuthenticated: true,
       isGuest: false,
       isAuthLoading: false,

@@ -1,100 +1,144 @@
-import React from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { ArrowLeft, FunnelSimple, X, Check } from 'phosphor-react-native';
-import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import React, { memo } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { ArrowLeft, Check, FunnelSimple } from 'phosphor-react-native';
+
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
-import type { AppTheme } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, type AppTheme } from '@shared/theme';
 
 export interface StepProgressBarProps {
   step: number;
   highestStepReached?: number;
   onStepPress?: (step: number) => void;
   onCancel: () => void;
+  title: string;
+  subtitle?: string;
   onFilter?: () => void;
 }
 
 const STEP_LABELS = ['Origin', 'Dest', 'Item', 'Pay'];
 
-export const StepProgressBar = ({ step, highestStepReached = 1, onStepPress, onCancel, onFilter = () => {} }: StepProgressBarProps): React.JSX.Element => {
-  const handleFilter = onFilter;
+function StepProgressBarComponent({
+  step,
+  highestStepReached = 1,
+  onStepPress,
+  onCancel,
+  title,
+  subtitle,
+  onFilter,
+}: StepProgressBarProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
     <View style={styles.navbar}>
-      {/* Row 1: Header Controls */}
       <View style={styles.navHeaderRow}>
-        <Pressable style={({ pressed }) => [styles.navButtonLeft, pressed ? styles.pressed : null]} onPress={onCancel}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.navButtonLeft,
+            pressed ? styles.pressed : null,
+          ]}
+          onPress={onCancel}
+        >
           <ArrowLeft size={18} color={theme.colors.primary} />
         </Pressable>
 
         <View style={styles.navHeaderTitleContainer}>
-          {(step === 1 || step === 2) ? (
-            <>
-              <Text style={styles.navSubtitleTeal}>3 Stations</Text>
-              <Text style={styles.navTitleLarge}>Ho Chi Minh ➔ Sapa</Text>
-            </>
-          ) : (
-            <View style={styles.navTitleCenter} />
-          )}
+          {subtitle ? (
+            <Text style={styles.navSubtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+          <Text style={styles.navTitle} numberOfLines={1}>
+            {title}
+          </Text>
         </View>
 
-        {(step === 1 || step === 2) ? (
-          <Pressable style={({ pressed }) => [styles.navButtonRight, pressed ? styles.pressed : null]} onPress={handleFilter}>
-            <FunnelSimple size={19} weight="bold" color={theme.colors.textInverse} />
+        {onFilter ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Filter stations"
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.navButtonRight,
+              pressed ? styles.pressed : null,
+            ]}
+            onPress={onFilter}
+          >
+            <FunnelSimple
+              size={19}
+              weight="bold"
+              color={theme.colors.textInverse}
+            />
           </Pressable>
         ) : (
-          <Pressable style={({ pressed }) => [styles.navButtonCancel, pressed ? styles.pressed : null]} onPress={onCancel}>
-            <X size={18} color={theme.colors.primary} />
-          </Pressable>
+          <View style={styles.navButtonPlaceholder} />
         )}
       </View>
 
-      {/* Row 2: Compact Steps Tracker */}
-      <View style={styles.progressContainerInsideNavbar}>
-        <View style={styles.progressBarBgInsideNavbar}>
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBarBackground}>
           <View
             style={[
-              styles.progressBarActiveInsideNavbar,
+              styles.progressBarActive,
               { width: `${((step - 1) / 3) * 100}%` },
             ]}
           />
         </View>
-        <View style={styles.stepsRowInsideNavbar}>
-          {[1, 2, 3, 4].map((s) => {
-            const isActive = s === step;
-            const isCompleted = s < step;
+        <View style={styles.stepsRow}>
+          {STEP_LABELS.map((label, index) => {
+            const stepNumber = index + 1;
+            const isActive = stepNumber === step;
+            const isCompleted = stepNumber < step;
+            const isDisabled = !onStepPress || stepNumber > highestStepReached;
+
             return (
               <Pressable
-                key={`step-${s}`} 
-                style={styles.stepBubbleContainerInsideNavbar}
-                disabled={!onStepPress || s > highestStepReached}
-                onPress={() => onStepPress && onStepPress(s)}
+                accessibilityRole="button"
+                accessibilityLabel={`${label}, step ${stepNumber} of 4`}
+                accessibilityState={{
+                  selected: isActive,
+                  disabled: isDisabled,
+                }}
+                key={label}
+                style={styles.stepContainer}
+                disabled={isDisabled}
+                onPress={() => onStepPress?.(stepNumber)}
               >
                 <View
                   style={[
-                    styles.stepBubbleInsideNavbar,
-                    isActive && styles.stepBubbleActiveInsideNavbar,
-                    isCompleted && styles.stepBubbleCompletedInsideNavbar,
+                    styles.stepBubble,
+                    isActive ? styles.stepBubbleActive : null,
+                    isCompleted ? styles.stepBubbleCompleted : null,
                   ]}
                 >
                   {isCompleted ? (
-                    <Check size={12} color={theme.colors.textInverse} weight="bold" />
+                    <Check
+                      size={12}
+                      color={theme.colors.textInverse}
+                      weight="bold"
+                    />
                   ) : (
                     <Text
                       style={[
-                        styles.stepTextInsideNavbar,
-                        isActive && styles.stepTextActiveInsideNavbar,
-                        isCompleted && styles.stepTextCompletedInsideNavbar,
+                        styles.stepNumber,
+                        isActive ? styles.stepNumberActive : null,
                       ]}
                     >
-                      {s}
+                      {stepNumber}
                     </Text>
                   )}
                 </View>
-                <Text style={[styles.stepSubtext, isActive && styles.stepSubtextActive]}>
-                  {STEP_LABELS[s - 1]}
+                <Text
+                  style={[
+                    styles.stepLabel,
+                    isActive ? styles.stepLabelActive : null,
+                  ]}
+                >
+                  {label}
                 </Text>
               </Pressable>
             );
@@ -103,7 +147,9 @@ export const StepProgressBar = ({ step, highestStepReached = 1, onStepPress, onC
       </View>
     </View>
   );
-};
+}
+
+export const StepProgressBar = memo(StepProgressBarComponent);
 
 const createStyles = (theme: AppTheme) => ({
   navbar: {
@@ -135,13 +181,9 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 18,
     backgroundColor: theme.colors.primary,
   },
-  navButtonCancel: {
+  navButtonPlaceholder: {
     width: 36,
     height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-    backgroundColor: theme.colors.primaryFaded,
   },
   pressed: {
     opacity: 0.82,
@@ -150,55 +192,61 @@ const createStyles = (theme: AppTheme) => ({
   navHeaderTitleContainer: {
     alignItems: 'center',
     flex: 1,
+    paddingHorizontal: spacing.sm,
   },
-  navTitleCenter: {
-    height: 20,
-  },
-  navTitleLarge: {
+  navTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.primaryDark,
+    maxWidth: '100%',
   },
-  navSubtitleTeal: {
+  navSubtitle: {
     fontFamily: fontFamilies.medium,
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     color: theme.colors.primary,
     marginBottom: 2,
+    maxWidth: '100%',
   },
-  progressContainerInsideNavbar: {
+  progressContainer: {
     marginTop: spacing.xs,
   },
-  progressBarBgInsideNavbar: {
+  progressBarBackground: {
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
     overflow: 'hidden',
     marginBottom: spacing.sm,
   },
-  progressBarActiveInsideNavbar: {
+  progressBarActive: {
     height: '100%',
     borderRadius: 1.5,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSheen : theme.colors.primary,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSheen
+      : theme.colors.primary,
   },
-  stepsRowInsideNavbar: {
+  stepsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginTop: -10, // overlap with progress bar line
+    marginTop: -10,
   },
-  stepBubbleContainerInsideNavbar: {
+  stepContainer: {
     alignItems: 'center',
-    width: 44, // give fixed width to center text
+    width: 44,
   },
-  stepBubbleInsideNavbar: {
+  stepBubble: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepBubbleActiveInsideNavbar: {
+  stepBubbleActive: {
     backgroundColor: theme.colors.primary,
     shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 2 },
@@ -206,28 +254,25 @@ const createStyles = (theme: AppTheme) => ({
     shadowRadius: 6,
     elevation: 5,
   },
-  stepBubbleCompletedInsideNavbar: {
+  stepBubbleCompleted: {
     backgroundColor: theme.colors.primary,
   },
-  stepTextInsideNavbar: {
+  stepNumber: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
     color: theme.colors.primary,
   },
-  stepTextActiveInsideNavbar: {
+  stepNumberActive: {
     color: theme.colors.textInverse,
   },
-  stepTextCompletedInsideNavbar: {
-    color: theme.colors.textInverse,
-  },
-  stepSubtext: {
+  stepLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: 10,
     color: theme.colors.primary,
     marginTop: 4,
     opacity: 0.7,
   },
-  stepSubtextActive: {
+  stepLabelActive: {
     fontFamily: fontFamilies.bold,
     opacity: 1,
   },

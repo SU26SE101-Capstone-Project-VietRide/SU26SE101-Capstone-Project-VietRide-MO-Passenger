@@ -20,7 +20,10 @@ import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
-import type { MainTabParamList, RootStackParamList } from '@app/navigation/types';
+import type {
+  MainTabParamList,
+  RootStackParamList,
+} from '@app/navigation/types';
 import { ProfileHeader } from '@shared/components';
 import { useBookingStore } from '../../booking/store/useBookingStore';
 import { useBookingDiscovery } from '../../booking/hooks/useBookingDiscovery';
@@ -52,7 +55,7 @@ type HomeNavigationProp = CompositeNavigationProp<
 
 export function HomeScreen(): React.JSX.Element {
   const navigation = useNavigation<HomeNavigationProp>();
-  const user = useAuthStore((state) => state.user);
+  const user = useAuthStore(state => state.user);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
@@ -60,9 +63,9 @@ export function HomeScreen(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
 
   // Booking flow state/actions
-  const searchParams = useBookingStore((state) => state.searchParams);
-  const swapCities = useBookingStore((state) => state.swapCities);
-  const setSearchParams = useBookingStore((state) => state.setSearchParams);
+  const searchParams = useBookingStore(state => state.searchParams);
+  const swapCities = useBookingStore(state => state.swapCities);
+  const setSearchParams = useBookingStore(state => state.setSearchParams);
   const {
     popularRoutes,
     popularRoutesLoading,
@@ -77,17 +80,22 @@ export function HomeScreen(): React.JSX.Element {
   } = useBookingDiscovery();
   const walletBalanceQuery = useWalletBalance();
   const canSearchTickets = Boolean(
-    searchParams.originLocationCode
-    && searchParams.destinationLocationCode
-    && searchParams.originLocationCode !== searchParams.destinationLocationCode
-    && searchParams.date
-    && (!searchParams.isRoundTrip || searchParams.returnDate),
+    searchParams.originLocationCode &&
+      searchParams.destinationLocationCode &&
+      searchParams.originLocationCode !==
+        searchParams.destinationLocationCode &&
+      searchParams.date &&
+      (!searchParams.isRoundTrip || searchParams.returnDate),
   );
 
   // Parcel flow state/actions
-  const fromCity = useParcelStore((state) => state.fromCity);
-  const toCity = useParcelStore((state) => state.toCity);
-  const toDistrict = useParcelStore((state) => state.toDistrict);
+  const fromCity = useParcelStore(state => state.fromCity);
+  const toCity = useParcelStore(state => state.toCity);
+  const fromLocationCode = useParcelStore(state => state.fromLocationCode);
+  const toLocationCode = useParcelStore(state => state.toLocationCode);
+  const canStartParcel = Boolean(
+    fromLocationCode && toLocationCode && fromLocationCode !== toLocationCode,
+  );
 
   const handleNotificationPress = useCallback(() => {
     navigation.navigate('Notification');
@@ -101,39 +109,42 @@ export function HomeScreen(): React.JSX.Element {
     });
   }, [navigation, saveCurrentSearch]);
 
-  const handlePopularRoutePress = useCallback((
-    originCode: string,
-    destinationCode: string,
-  ) => {
-    if (applyPopularRoute(originCode, destinationCode) !== 'applied') return;
-    saveCurrentSearch().catch(() => undefined);
-    navigation.navigate('Booking', {
-      screen: 'CreateTicketBooking',
-      params: { intent: { type: 'search' } },
-    });
-  }, [applyPopularRoute, navigation, saveCurrentSearch]);
+  const handlePopularRoutePress = useCallback(
+    (originCode: string, destinationCode: string) => {
+      if (applyPopularRoute(originCode, destinationCode) !== 'applied') return;
+      saveCurrentSearch().catch(() => undefined);
+      navigation.navigate('Booking', {
+        screen: 'CreateTicketBooking',
+        params: { intent: { type: 'search' } },
+      });
+    },
+    [applyPopularRoute, navigation, saveCurrentSearch],
+  );
 
   const handleViewAllPopularRoutes = useCallback(() => {
     navigation.navigate('Booking', { screen: 'PopularRoutes' });
   }, [navigation]);
 
-  const handleRecentSearchPress = useCallback((searchId: string) => {
-    const result = applyRecentSearch(searchId);
-    if (result === 'applied') {
-      navigation.navigate('Booking', {
-        screen: 'CreateTicketBooking',
-        params: { intent: { type: 'search' } },
-      });
-      return;
-    }
+  const handleRecentSearchPress = useCallback(
+    (searchId: string) => {
+      const result = applyRecentSearch(searchId);
+      if (result === 'applied') {
+        navigation.navigate('Booking', {
+          screen: 'CreateTicketBooking',
+          params: { intent: { type: 'search' } },
+        });
+        return;
+      }
 
-    if (result === 'past_date' || result === 'invalid_date') {
-      Alert.alert(
-        'Choose a new departure date',
-        'That saved travel date is no longer available. Select a new date to continue.',
-      );
-    }
-  }, [applyRecentSearch, navigation]);
+      if (result === 'past_date' || result === 'invalid_date') {
+        Alert.alert(
+          'Choose a new departure date',
+          'That saved travel date is no longer available. Select a new date to continue.',
+        );
+      }
+    },
+    [applyRecentSearch, navigation],
+  );
 
   const handleClearRecentSearches = useCallback(() => {
     clearRecentSearches().catch(() => undefined);
@@ -146,26 +157,32 @@ export function HomeScreen(): React.JSX.Element {
     });
   }, [navigation]);
 
-  const handlePromotionPress = useCallback((voucherId: string, code: string) => {
-    if (!voucherId || !code) return;
-    navigation.navigate('Booking', {
-      screen: 'SearchRoutes',
-      params: {
-        intent: {
-          type: 'promotion',
-          pendingVoucher: { voucherId, code },
+  const handlePromotionPress = useCallback(
+    (voucherId: string, code: string) => {
+      if (!voucherId || !code) return;
+      navigation.navigate('Booking', {
+        screen: 'SearchRoutes',
+        params: {
+          intent: {
+            type: 'promotion',
+            pendingVoucher: { voucherId, code },
+          },
         },
-      },
-    });
-  }, [navigation]);
+      });
+    },
+    [navigation],
+  );
 
-  const handleRecentParcelPress = useCallback((parcelId: string, tripId: string) => {
-    if (!parcelId || !tripId) return;
-    navigation.navigate('Parcel', {
-      screen: 'ParcelDetail',
-      params: { parcelId, fromHistory: true },
-    });
-  }, [navigation]);
+  const handleRecentParcelPress = useCallback(
+    (parcelId: string, tripId: string) => {
+      if (!parcelId || !tripId) return;
+      navigation.navigate('Parcel', {
+        screen: 'ParcelDetail',
+        params: { parcelId, fromHistory: true },
+      });
+    },
+    [navigation],
+  );
 
   const handleViewAllParcels = useCallback(() => {
     navigation.navigate('BookingHistory', { initialTab: 'parcel' });
@@ -181,9 +198,15 @@ export function HomeScreen(): React.JSX.Element {
     [navigation],
   );
 
-  const openBookingDatePicker = useCallback((mode: 'departure' | 'return' = 'departure') => {
-    navigation.navigate('Booking', { screen: 'DatePicker', params: { mode } });
-  }, [navigation]);
+  const openBookingDatePicker = useCallback(
+    (mode: 'departure' | 'return' = 'departure') => {
+      navigation.navigate('Booking', {
+        screen: 'DatePicker',
+        params: { mode },
+      });
+    },
+    [navigation],
+  );
 
   const handlePassengersChange = useCallback(
     (passengers: number) => {
@@ -203,21 +226,17 @@ export function HomeScreen(): React.JSX.Element {
     [navigation],
   );
 
-  const openParcelDistrictPicker = useCallback(() => {
-    navigation.navigate('Parcel', {
-      screen: 'DistrictPicker',
-      params: { city: toCity },
-    });
-  }, [navigation, toCity]);
-
   const handleStartShipment = useCallback(() => {
     navigation.navigate('Parcel', { screen: 'CreateParcel' });
   }, [navigation]);
 
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       <View style={styles.backgroundLayer} pointerEvents="none">
         <View style={styles.ambientGlow} />
@@ -254,10 +273,19 @@ export function HomeScreen(): React.JSX.Element {
             >
               <Ticket
                 size={18}
-                color={activeTab === 'ticket' ? theme.colors.textInverse : theme.colors.textSecondary}
+                color={
+                  activeTab === 'ticket'
+                    ? theme.colors.textInverse
+                    : theme.colors.textSecondary
+                }
                 weight={activeTab === 'ticket' ? 'fill' : 'regular'}
               />
-              <Text style={[styles.tabText, activeTab === 'ticket' ? styles.activeTabText : null]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === 'ticket' ? styles.activeTabText : null,
+                ]}
+              >
                 Buy Ticket
               </Text>
             </Pressable>
@@ -272,10 +300,19 @@ export function HomeScreen(): React.JSX.Element {
             >
               <Package
                 size={18}
-                color={activeTab === 'parcel' ? theme.colors.textInverse : theme.colors.textSecondary}
+                color={
+                  activeTab === 'parcel'
+                    ? theme.colors.textInverse
+                    : theme.colors.textSecondary
+                }
                 weight={activeTab === 'parcel' ? 'fill' : 'regular'}
               />
-              <Text style={[styles.tabText, activeTab === 'parcel' ? styles.activeTabText : null]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === 'parcel' ? styles.activeTabText : null,
+                ]}
+              >
                 Send Parcel
               </Text>
             </Pressable>
@@ -291,13 +328,27 @@ export function HomeScreen(): React.JSX.Element {
                   style={styles.selectorField}
                   onPress={() => openBookingCityPicker('from')}
                 >
-                  <MapPin size={20} color={theme.colors.primary} weight="bold" />
-                  <Text style={searchParams.from ? styles.selectorText : styles.selectorPlaceholder}>
-                    {searchParams.originStationName || searchParams.from || 'Select origin province'}
+                  <MapPin
+                    size={20}
+                    color={theme.colors.primary}
+                    weight="bold"
+                  />
+                  <Text
+                    style={
+                      searchParams.from
+                        ? styles.selectorText
+                        : styles.selectorPlaceholder
+                    }
+                  >
+                    {searchParams.originStationName ||
+                      searchParams.from ||
+                      'Select origin province'}
                   </Text>
                 </Pressable>
 
-                <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>
+                <Text
+                  style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}
+                >
                   Destination location
                 </Text>
                 <View style={styles.toRow}>
@@ -305,18 +356,30 @@ export function HomeScreen(): React.JSX.Element {
                     style={[styles.selectorField, styles.selectorFieldGrow]}
                     onPress={() => openBookingCityPicker('to')}
                   >
-                    <MapPin size={18} color={theme.colors.primary} weight="bold" />
+                    <MapPin
+                      size={18}
+                      color={theme.colors.primary}
+                      weight="bold"
+                    />
                     <Text
-                      style={searchParams.to ? styles.selectorText : styles.selectorPlaceholder}
+                      style={
+                        searchParams.to
+                          ? styles.selectorText
+                          : styles.selectorPlaceholder
+                      }
                       numberOfLines={1}
                     >
-                      {searchParams.destinationStationName
-                        || searchParams.to
-                        || 'Select destination province'}
+                      {searchParams.destinationStationName ||
+                        searchParams.to ||
+                        'Select destination province'}
                     </Text>
                   </Pressable>
                   <Pressable onPress={swapCities} style={styles.swapBtn}>
-                    <ArrowsDownUp size={18} color={theme.colors.primary} weight="bold" />
+                    <ArrowsDownUp
+                      size={18}
+                      color={theme.colors.primary}
+                      weight="bold"
+                    />
                   </Pressable>
                 </View>
 
@@ -325,7 +388,11 @@ export function HomeScreen(): React.JSX.Element {
                     style={styles.metaField}
                     onPress={() => openBookingDatePicker('departure')}
                   >
-                    <CalendarBlank size={16} color={theme.colors.primary} weight="fill" />
+                    <CalendarBlank
+                      size={16}
+                      color={theme.colors.primary}
+                      weight="fill"
+                    />
                     <Text style={styles.metaText} numberOfLines={1}>
                       {searchParams.date || 'Select date'}
                     </Text>
@@ -343,7 +410,11 @@ export function HomeScreen(): React.JSX.Element {
                       style={styles.metaField}
                       onPress={() => openBookingDatePicker('return')}
                     >
-                      <CalendarBlank size={16} color={theme.colors.primary} weight="fill" />
+                      <CalendarBlank
+                        size={16}
+                        color={theme.colors.primary}
+                        weight="fill"
+                      />
                       <Text style={styles.metaText} numberOfLines={1}>
                         {searchParams.returnDate || 'Return date'}
                       </Text>
@@ -352,16 +423,24 @@ export function HomeScreen(): React.JSX.Element {
                   <View style={[styles.metaField, styles.switchField]}>
                     <Text style={styles.switchLabel}>Round-trip</Text>
                     <Pressable
-                      onPress={() => setSearchParams({ isRoundTrip: !searchParams.isRoundTrip })}
+                      onPress={() =>
+                        setSearchParams({
+                          isRoundTrip: !searchParams.isRoundTrip,
+                        })
+                      }
                       style={[
                         styles.switchTrack,
-                        searchParams.isRoundTrip ? styles.switchTrackActive : null,
+                        searchParams.isRoundTrip
+                          ? styles.switchTrackActive
+                          : null,
                       ]}
                     >
                       <View
                         style={[
                           styles.switchThumb,
-                          searchParams.isRoundTrip ? styles.switchThumbActive : styles.switchThumbInactive,
+                          searchParams.isRoundTrip
+                            ? styles.switchThumbActive
+                            : styles.switchThumbInactive,
                         ]}
                       />
                     </Pressable>
@@ -380,7 +459,11 @@ export function HomeScreen(): React.JSX.Element {
                   ]}
                 >
                   <Text style={styles.searchButtonText}>Search Buses</Text>
-                  <MagnifyingGlass size={18} color={theme.colors.textInverse} weight="bold" />
+                  <MagnifyingGlass
+                    size={18}
+                    color={theme.colors.textInverse}
+                    weight="bold"
+                  />
                 </Pressable>
               </View>
             ) : (
@@ -391,52 +474,68 @@ export function HomeScreen(): React.JSX.Element {
                   style={styles.selectorField}
                   onPress={() => openParcelCityPicker('from')}
                 >
-                  <MapPin size={20} color={theme.colors.primary} weight="bold" />
-                  <Text style={fromCity ? styles.selectorText : styles.selectorPlaceholder}>
-                    {fromCity || 'Select Origin City/District'}
+                  <MapPin
+                    size={20}
+                    color={theme.colors.primary}
+                    weight="bold"
+                  />
+                  <Text
+                    style={
+                      fromCity
+                        ? styles.selectorText
+                        : styles.selectorPlaceholder
+                    }
+                  >
+                    {fromCity || 'Select origin province'}
                   </Text>
                 </Pressable>
 
-                <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>To</Text>
-                <View style={styles.toRow}>
-                  <Pressable
-                    style={[styles.selectorField, styles.selectorFieldGrow]}
-                    onPress={() => openParcelCityPicker('to')}
+                <Text
+                  style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}
+                >
+                  To
+                </Text>
+                <Pressable
+                  style={styles.selectorField}
+                  onPress={() => openParcelCityPicker('to')}
+                >
+                  <PaperPlaneTilt
+                    size={18}
+                    color={theme.colors.primary}
+                    weight="bold"
+                  />
+                  <Text
+                    style={
+                      toCity ? styles.selectorText : styles.selectorPlaceholder
+                    }
+                    numberOfLines={1}
                   >
-                    <PaperPlaneTilt size={18} color={theme.colors.primary} weight="bold" />
-                    <Text
-                      style={toCity ? styles.selectorText : styles.selectorPlaceholder}
-                      numberOfLines={1}
-                    >
-                      {toCity || 'Select City'}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={[styles.selectorField, styles.selectorFieldWide]}
-                    onPress={openParcelDistrictPicker}
-                  >
-                    <PaperPlaneTilt size={18} color={theme.colors.primary} weight="bold" />
-                    <Text
-                      style={
-                        toDistrict && toDistrict !== 'Select District'
-                          ? styles.selectorText
-                          : styles.selectorPlaceholder
-                      }
-                      numberOfLines={1}
-                    >
-                      {toDistrict || 'Select District'}
-                    </Text>
-                  </Pressable>
-                </View>
+                    {toCity || 'Select destination province'}
+                  </Text>
+                </Pressable>
+                <Text style={styles.parcelRouteHint}>
+                  You will choose the exact origin and destination terminals
+                  next.
+                </Text>
 
                 <View style={styles.parcelActionsRow}>
                   <Pressable
-                    style={styles.nextButton}
+                    disabled={!canStartParcel}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: !canStartParcel }}
+                    style={({ pressed }) => [
+                      styles.nextButton,
+                      !canStartParcel ? styles.searchButtonDisabled : null,
+                      pressed && canStartParcel ? styles.pressed : null,
+                    ]}
                     onPress={handleStartShipment}
                   >
                     <Text style={styles.searchButtonText}>Next</Text>
-                    <ArrowRight size={18} color={theme.colors.textInverse} weight="bold" />
+                    <ArrowRight
+                      size={18}
+                      color={theme.colors.textInverse}
+                      weight="bold"
+                    />
                   </Pressable>
                 </View>
               </View>
@@ -477,7 +576,6 @@ export function HomeScreen(): React.JSX.Element {
             onViewAll={handleViewAllParcels}
           />
         )}
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -509,7 +607,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   secondaryGlow: {
     position: 'absolute',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassTint : 'transparent',
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassTint
+      : 'transparent',
     width: 318,
     height: 318,
     borderRadius: 9999,
@@ -539,17 +639,25 @@ const createStyles = (theme: AppTheme) => ({
   },
   formContainer: {
     ...theme.components.elevatedCard,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorderStrong
+      : theme.colors.divider,
     borderRadius: 28,
     padding: spacing.xl,
     marginVertical: spacing.md,
   },
   tabHeader: {
     flexDirection: 'row',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.fieldBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.fieldBorder
+      : theme.colors.divider,
     borderRadius: 16,
     padding: 4,
     marginBottom: spacing.lg,
@@ -601,9 +709,6 @@ const createStyles = (theme: AppTheme) => ({
   selectorFieldGrow: {
     flex: 1,
   },
-  selectorFieldWide: {
-    flex: 1.2,
-  },
   selectorText: {
     flex: 1,
     fontFamily: fontFamilies.medium,
@@ -614,6 +719,14 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
+    color: theme.colors.textTertiary,
+  },
+  parcelRouteHint: {
+    marginTop: spacing.sm,
+    paddingHorizontal: 2,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: 17,
     color: theme.colors.textTertiary,
   },
   toRow: {
@@ -627,7 +740,9 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surfaceElevated,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurface
+      : theme.colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
     ...theme.effects.cardShadow,
@@ -720,7 +835,6 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 16,
     height: 48,
     gap: spacing.xs,
-
   },
   parcelActionsRow: {
     flexDirection: 'row',

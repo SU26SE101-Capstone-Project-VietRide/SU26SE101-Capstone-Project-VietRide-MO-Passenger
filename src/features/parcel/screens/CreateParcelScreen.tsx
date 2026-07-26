@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +14,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,6 +34,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Input, PhotoPicker } from '@shared/components';
 import { getApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import {
+  isValidEmail,
+  isValidVietnamPhone,
+  normalizeVietnamPhone,
+} from '@features/auth/validation/authValidation';
+import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
+import { walletKeys } from '@features/profile/api/walletApi';
+import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import { useLocations } from '@features/location/hooks/useLocations';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -35,23 +52,27 @@ import {
   openPaymentRedirect,
   PAYMENT_REDIRECT_ERROR_TITLE,
 } from '@shared/utils/paymentRedirect';
-import { addLocalDays, startOfLocalDay, toLocalIsoDate } from '@shared/utils/localDate';
-import { formatDateTime, formatVnd } from '@shared/utils/format';
+import {
+  addLocalDays,
+  startOfLocalDay,
+  toLocalIsoDate,
+} from '@shared/utils/localDate';
+import {
+  formatDateTime,
+  formatShortDate,
+  formatVnd,
+} from '@shared/utils/format';
 import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
 import type { ParcelStackParamList } from '@app/navigation/types';
 import type { PromoOffer } from '@shared/utils/promo';
 import {
-  calculatePromoDiscount,
   findPromoByCode,
   isPromoExpired,
   normalizePromoCode,
 } from '@shared/utils/promo';
 import { findLocationByName } from '@features/location/utils/locationSearch';
 import { useParcelStore } from '../store/useParcelStore';
-import {
-  mapParcelVoucherToPromo,
-  parcelKeys,
-} from '../api/parcelApi';
+import { mapParcelVoucherToPromo, parcelKeys } from '../api/parcelApi';
 import {
   useAvailableParcelTrips,
   useAvailableParcelVouchers,
@@ -61,9 +82,7 @@ import { useParcelStations } from '../hooks/useParcelStations';
 import type {
   AvailableParcelTrip,
   CreateParcelPayload,
-  ParcelPaymentMethod,
   ParcelSize,
-  ParcelSizeCategory,
   Station,
 } from '../types';
 import {
@@ -73,37 +92,33 @@ import {
   StepProgressBar,
   StepHeaderWithMascot,
   PackageSizeSelector,
+  ParcelDimensionsInput,
   WeightSlider,
   CategoryChips,
   PricingBreakdown,
 } from '../components';
+import {
+  formatParcelDimensions,
+  getParcelSizeCategory,
+  getSmallestParcelSizeForDimensions,
+  isParcelSizeAtLeast,
+  type ParcelDimensions,
+} from '../config/parcelPackage';
 import { buildCreateParcelPayload } from '../utils/createParcelPayload';
 
-type CreateParcelNavProp = NativeStackNavigationProp<ParcelStackParamList, 'CreateParcel'>;
+type CreateParcelNavProp = NativeStackNavigationProp<
+  ParcelStackParamList,
+  'CreateParcel'
+>;
 
-const PACKAGE_DIMENSIONS: Record<ParcelSize, {
-  sizeCategory: ParcelSizeCategory;
-  lengthCm: number;
-  widthCm: number;
-  heightCm: number;
-}> = {
-  small: { sizeCategory: 'SMALL', lengthCm: 25, widthCm: 20, heightCm: 10 },
-  medium: { sizeCategory: 'MEDIUM', lengthCm: 45, widthCm: 35, heightCm: 25 },
-  large: { sizeCategory: 'LARGE', lengthCm: 60, widthCm: 45, heightCm: 35 },
-};
-
-const DATE_OFFSETS = [0, 1, 2] as const;
+const DATE_OFFSETS = Array.from({ length: 30 }, (_, index) => index);
+const MAX_DEPARTURE_OFFSET = DATE_OFFSETS.length - 1;
 
 const formatTripTime = (dateLike: string): string => {
   return formatDateTime(dateLike) || dateLike;
 };
 
-const weightToKg = (weight: number, unit: 'kg' | 'lbs'): number => {
-  const kg = unit === 'kg' ? weight : weight / 2.20462;
-  return Math.max(0.1, Number(kg.toFixed(1)));
-};
-
-function TripOptionCard({
+const TripOptionCard = React.memo(function TripOptionCard({
   trip,
   selected,
   onPress,
@@ -126,25 +141,35 @@ function TripOptionCard({
         pressed ? styles.pressed : null,
       ]}
     >
-      <View style={styles.tripIcon}>
-        <Truck size={20} color={selected ? theme.colors.textInverse : theme.colors.primary} weight="fill" />
+      <View style={[styles.tripIcon, selected ? styles.tripIconActive : null]}>
+        <Truck
+          size={20}
+          color={selected ? theme.colors.textInverse : theme.colors.primary}
+          weight="fill"
+        />
       </View>
       <View style={styles.tripMeta}>
         <Text style={styles.tripOperator} numberOfLines={1}>
           {trip.operatorName?.trim() || 'Operator unavailable'}
         </Text>
+        <Text style={styles.tripRoute} numberOfLines={2}>
+          {trip.originStation.name} → {trip.destinationStation.name}
+        </Text>
         <Text style={styles.tripTime}>
-          {formatTripTime(trip.departureDateTime)}
+          {formatTripTime(trip.departureDateTime)} →{' '}
+          {formatTripTime(trip.estimatedArrivalTime)}
         </Text>
         <Text style={styles.tripPrice}>
           Deposit {formatVnd(trip.estimatedDepositVnd)} / Est.{' '}
           {formatVnd(trip.estimatedPriceVnd)}
         </Text>
       </View>
-      {selected ? <CheckCircle size={22} color={theme.colors.success} weight="fill" /> : null}
+      {selected ? (
+        <CheckCircle size={22} color={theme.colors.success} weight="fill" />
+      ) : null}
     </Pressable>
   );
-}
+});
 
 export function CreateParcelScreen(): React.JSX.Element {
   const navigation = useNavigation<CreateParcelNavProp>();
@@ -152,38 +177,47 @@ export function CreateParcelScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const queryClient = useQueryClient();
-  const user = useAuthStore((state) => state.user);
-  const {
-    fromCity,
-    toCity,
-    fromLocationCode,
-    toLocationCode,
-    photos,
-    setPackage,
-    setReceivingStation: storeReceivingStation,
-    setDropoffStation: storeDropoffStation,
-  } = useParcelStore();
+  const user = useAuthStore(state => state.user);
+  const fromCity = useParcelStore(state => state.fromCity);
+  const toCity = useParcelStore(state => state.toCity);
+  const fromLocationCode = useParcelStore(state => state.fromLocationCode);
+  const toLocationCode = useParcelStore(state => state.toLocationCode);
+  const receivingStation = useParcelStore(state => state.receivingStation);
+  const dropoffStation = useParcelStore(state => state.dropoffStation);
+  const packageSize = useParcelStore(state => state.size);
+  const packageWeight = useParcelStore(state => state.weight);
+  const packageLengthCm = useParcelStore(state => state.lengthCm);
+  const packageWidthCm = useParcelStore(state => state.widthCm);
+  const packageHeightCm = useParcelStore(state => state.heightCm);
+  const packageCategory = useParcelStore(state => state.category);
+  const estimatedValue = useParcelStore(state => state.estimatedValue);
+  const photos = useParcelStore(state => state.photos);
+  const paymentMethod = useParcelStore(state => state.paymentMethod);
+  const setPackage = useParcelStore(state => state.setPackage);
+  const setPaymentMethod = useParcelStore(state => state.setPaymentMethod);
+  const setReceivingStation = useParcelStore(
+    state => state.setReceivingStation,
+  );
+  const setDropoffStation = useParcelStore(state => state.setDropoffStation);
   const { data: locations = [] } = useLocations();
 
   const [step, setStep] = useState(1);
   const [highestStepReached, setHighestStepReached] = useState(1);
-  const [receivingStation, setReceivingStation] = useState<Station | undefined>(undefined);
-  const [dropoffStation, setDropoffStation] = useState<Station | undefined>(undefined);
-  const [packageSize, setPackageSize] = useState<ParcelSize>('medium');
-  const [packageWeight, setPackageWeight] = useState(2.5);
-  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
-  const [packageCategory, setPackageCategory] = useState('Documents');
-  const [estimatedValue, setEstimatedValue] = useState('');
   const [recipientName, setRecipientName] = useState(user?.fullName ?? '');
   const [recipientPhone, setRecipientPhone] = useState(user?.phone ?? '');
   const [recipientEmail, setRecipientEmail] = useState(user?.email ?? '');
-  const [paymentMethod, setPaymentMethod] = useState<ParcelPaymentMethod>('wallet');
   const departureDateBase = useMemo(() => startOfLocalDay(new Date()), []);
-  const [departureOffset, setDepartureOffset] = useState<(typeof DATE_OFFSETS)[number]>(0);
+  const [departureOffset, setDepartureOffset] = useState(0);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [tripPageIndex, setTripPageIndex] = useState(0);
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<PromoOffer | null>(null);
   const [promoError, setPromoError] = useState<string | undefined>(undefined);
+  const [dimensionsDraftValid, setDimensionsDraftValid] = useState(true);
+  const [weightDraftValid, setWeightDraftValid] = useState(true);
+  const previousTripSearchRef = useRef<string | null>(null);
+  const selectedTripIdRef = useRef<string | null>(null);
+  const walletBalanceQuery = useWalletBalance(step === 4);
 
   const currentLocation = useCurrentCoordinates(step === 1 || step === 2);
 
@@ -197,18 +231,29 @@ export function CreateParcelScreen(): React.JSX.Element {
     if (!recipientEmail && user?.email) {
       setRecipientEmail(user.email);
     }
-  }, [recipientEmail, recipientName, recipientPhone, user?.email, user?.fullName, user?.phone]);
+  }, [
+    recipientEmail,
+    recipientName,
+    recipientPhone,
+    user?.email,
+    user?.fullName,
+    user?.phone,
+  ]);
 
   const originLocation = useMemo(() => {
-    return locations.find((location) => location.code === fromLocationCode)
-      ?? findLocationByName(locations, fromCity)
-      ?? null;
+    return (
+      locations.find(location => location.code === fromLocationCode) ??
+      findLocationByName(locations, fromCity) ??
+      null
+    );
   }, [fromCity, fromLocationCode, locations]);
 
   const destinationLocation = useMemo(() => {
-    return locations.find((location) => location.code === toLocationCode)
-      ?? findLocationByName(locations, toCity)
-      ?? null;
+    return (
+      locations.find(location => location.code === toLocationCode) ??
+      findLocationByName(locations, toCity) ??
+      null
+    );
   }, [locations, toCity, toLocationCode]);
 
   const originStationsQuery = useParcelStations(
@@ -223,13 +268,42 @@ export function CreateParcelScreen(): React.JSX.Element {
     currentLocation.coords,
     currentLocation.isResolving,
   );
-  const dimensions = PACKAGE_DIMENSIONS[packageSize];
-  const estimatedWeightKg = weightToKg(packageWeight, weightUnit);
-  const departureDate = toLocalIsoDate(addLocalDays(departureDateBase, departureOffset));
+  const dimensions = useMemo(
+    () => ({
+      lengthCm: packageLengthCm,
+      widthCm: packageWidthCm,
+      heightCm: packageHeightCm,
+    }),
+    [packageHeightCm, packageLengthCm, packageWidthCm],
+  );
+  const smallestPackageSize = useMemo(
+    () => getSmallestParcelSizeForDimensions(dimensions),
+    [dimensions],
+  );
+  const dimensionsFitSelectedTier =
+    smallestPackageSize !== null &&
+    isParcelSizeAtLeast(packageSize, smallestPackageSize);
+  const packageMeasurementsValid =
+    dimensionsDraftValid &&
+    weightDraftValid &&
+    dimensionsFitSelectedTier &&
+    packageWeight > 0;
+  const dimensionsErrorMessage = !dimensionsDraftValid
+    ? 'Enter a value greater than 0 for every dimension.'
+    : smallestPackageSize === null
+    ? 'This parcel is larger than the supported 60 × 45 × 35 cm tier.'
+    : !dimensionsFitSelectedTier
+    ? 'Choose a larger size tier for these dimensions.'
+    : undefined;
+  const sizeCategory = getParcelSizeCategory(packageSize);
+  const estimatedWeightKg = packageWeight;
+  const departureDate = toLocalIsoDate(
+    addLocalDays(departureDateBase, departureOffset),
+  );
   const backendPaymentMethod = toBackendPaymentMethod(paymentMethod);
 
   const availableTripParams = useMemo(() => {
-    if (!receivingStation || !dropoffStation) {
+    if (!receivingStation || !dropoffStation || !packageMeasurementsValid) {
       return null;
     }
 
@@ -241,41 +315,120 @@ export function CreateParcelScreen(): React.JSX.Element {
       widthCm: dimensions.widthCm,
       heightCm: dimensions.heightCm,
       estimatedWeightKg,
-      sizeCategory: dimensions.sizeCategory,
-      page: 1,
-      pageSize: 10,
+      sizeCategory,
+      pageSize: 20,
     };
   }, [
     departureDate,
     dimensions.heightCm,
     dimensions.lengthCm,
-    dimensions.sizeCategory,
     dimensions.widthCm,
     dropoffStation,
     estimatedWeightKg,
+    packageMeasurementsValid,
     receivingStation,
+    sizeCategory,
   ]);
 
-  const availableTripsQuery = useAvailableParcelTrips(availableTripParams, step === 4);
-  const availableTrips = useMemo(
-    () => availableTripsQuery.data?.items ?? [],
-    [availableTripsQuery.data?.items],
+  const availableTripsQuery = useAvailableParcelTrips(
+    availableTripParams,
+    step === 4,
   );
+  const refetchAvailableTrips = availableTripsQuery.refetch;
+  const fetchNextTripsPage = availableTripsQuery.fetchNextPage;
+  const hasNextTripsPage = availableTripsQuery.hasNextPage;
+  const isFetchingNextTripsPage = availableTripsQuery.isFetchingNextPage;
+  const tripPages = availableTripsQuery.data?.pages;
+  const availableTrips = useMemo(() => {
+    const tripById = new Map<string, AvailableParcelTrip>();
+    tripPages?.forEach(page => {
+      page.items.forEach(trip => tripById.set(trip.tripId, trip));
+    });
+    return Array.from(tripById.values());
+  }, [tripPages]);
+  const visibleTrips = useMemo(() => {
+    const tripById = new Map<string, AvailableParcelTrip>();
+    tripPages?.[tripPageIndex]?.items.forEach(trip => {
+      tripById.set(trip.tripId, trip);
+    });
+    return Array.from(tripById.values());
+  }, [tripPageIndex, tripPages]);
+  const loadedTripPageCount = tripPages?.length ?? 0;
+  const canGoToPreviousTripPage = tripPageIndex > 0;
+  const canGoToNextTripPage =
+    tripPageIndex + 1 < loadedTripPageCount || Boolean(hasNextTripsPage);
+  const emptyTripPrimaryDisabled =
+    isFetchingNextTripsPage ||
+    (!hasNextTripsPage && departureOffset >= MAX_DEPARTURE_OFFSET);
   const selectedTrip = useMemo(
-    () => availableTrips.find((trip) => trip.tripId === selectedTripId) ?? null,
+    () => availableTrips.find(trip => trip.tripId === selectedTripId) ?? null,
     [availableTrips, selectedTripId],
   );
 
-  useEffect(() => {
-    if (availableTrips.length === 0) {
-      setSelectedTripId(null);
-      return;
-    }
+  const tripSearchFingerprint = useMemo(
+    () =>
+      [
+        receivingStation?.id ?? '',
+        dropoffStation?.id ?? '',
+        departureDate,
+        sizeCategory,
+        dimensions.lengthCm,
+        dimensions.widthCm,
+        dimensions.heightCm,
+        estimatedWeightKg,
+      ].join('|'),
+    [
+      departureDate,
+      dimensions.heightCm,
+      dimensions.lengthCm,
+      dimensions.widthCm,
+      dropoffStation?.id,
+      estimatedWeightKg,
+      receivingStation?.id,
+      sizeCategory,
+    ],
+  );
 
-    if (!selectedTripId || !availableTrips.some((trip) => trip.tripId === selectedTripId)) {
-      setSelectedTripId(availableTrips[0].tripId);
+  useEffect(() => {
+    selectedTripIdRef.current = selectedTripId;
+  }, [selectedTripId]);
+
+  useEffect(() => {
+    const previousFingerprint = previousTripSearchRef.current;
+    previousTripSearchRef.current = tripSearchFingerprint;
+    if (previousFingerprint && previousFingerprint !== tripSearchFingerprint) {
+      setSelectedTripId(null);
+      setTripPageIndex(0);
+      setPromoCode('');
+      setAppliedPromo(null);
+      setPromoError(undefined);
     }
-  }, [availableTrips, selectedTripId]);
+  }, [tripSearchFingerprint]);
+
+  useEffect(() => {
+    if (loadedTripPageCount > 0 && tripPageIndex >= loadedTripPageCount) {
+      setTripPageIndex(loadedTripPageCount - 1);
+    }
+  }, [loadedTripPageCount, tripPageIndex]);
+
+  useEffect(() => {
+    if (
+      availableTripsQuery.isSuccess &&
+      !availableTripsQuery.isFetching &&
+      selectedTripId &&
+      !selectedTrip
+    ) {
+      setSelectedTripId(null);
+      setPromoCode('');
+      setAppliedPromo(null);
+      setPromoError(undefined);
+    }
+  }, [
+    availableTripsQuery.isFetching,
+    availableTripsQuery.isSuccess,
+    selectedTrip,
+    selectedTripId,
+  ]);
 
   const voucherParams = useMemo(() => {
     if (!selectedTrip) {
@@ -284,11 +437,11 @@ export function CreateParcelScreen(): React.JSX.Element {
 
     return {
       tripId: selectedTrip.tripId,
-      sizeCategory: dimensions.sizeCategory,
+      sizeCategory,
       paymentMethod: backendPaymentMethod,
       orderAmount: selectedTrip.estimatedDepositVnd,
     };
-  }, [backendPaymentMethod, dimensions.sizeCategory, selectedTrip]);
+  }, [backendPaymentMethod, selectedTrip, sizeCategory]);
 
   const vouchersQuery = useAvailableParcelVouchers(voucherParams, step === 4);
   const availablePromos = useMemo(
@@ -297,24 +450,52 @@ export function CreateParcelScreen(): React.JSX.Element {
   );
 
   const selectedVoucher = useMemo(() => {
-    const code = appliedPromo?.code ? normalizePromoCode(appliedPromo.code) : '';
+    const code = appliedPromo?.code
+      ? normalizePromoCode(appliedPromo.code)
+      : '';
     if (!code) {
       return null;
     }
 
-    return (vouchersQuery.data ?? []).find(
-      (voucher) => normalizePromoCode(voucher.code) === code,
-    ) ?? null;
+    return (
+      (vouchersQuery.data ?? []).find(
+        voucher => normalizePromoCode(voucher.code) === code,
+      ) ?? null
+    );
   }, [appliedPromo?.code, vouchersQuery.data]);
 
-  const baseFare = selectedTrip?.estimatedDepositVnd ?? 0;
-  const weightSurcharge = 0;
-  const promoDiscount = selectedVoucher
-    ? selectedVoucher.discountAmount
-    : appliedPromo
-      ? calculatePromoDiscount(appliedPromo, baseFare)
-      : 0;
-  const totalPrice = Math.max(baseFare - promoDiscount, 0);
+  useEffect(() => {
+    if (vouchersQuery.isSuccess && appliedPromo && !selectedVoucher) {
+      setAppliedPromo(null);
+      setPromoError(
+        'This voucher is no longer valid for the selected trip or payment method.',
+      );
+    }
+  }, [appliedPromo, selectedVoucher, vouchersQuery.isSuccess]);
+
+  const estimatedPrice = selectedTrip?.estimatedPriceVnd ?? 0;
+  const depositBeforeDiscount = selectedTrip?.estimatedDepositVnd ?? 0;
+  const promoDiscount = selectedVoucher?.discountAmount ?? 0;
+  const depositDue = Math.max(depositBeforeDiscount - promoDiscount, 0);
+
+  useEffect(() => {
+    if (
+      paymentMethod === 'wallet' &&
+      !walletBalanceQuery.isLoading &&
+      (walletBalanceQuery.isError ||
+        walletBalanceQuery.data?.balance === undefined ||
+        walletBalanceQuery.data.balance < depositDue)
+    ) {
+      setPaymentMethod('vnpay');
+    }
+  }, [
+    depositDue,
+    paymentMethod,
+    setPaymentMethod,
+    walletBalanceQuery.data?.balance,
+    walletBalanceQuery.isError,
+    walletBalanceQuery.isLoading,
+  ]);
 
   const createParcelMutation = useCreateParcel();
 
@@ -329,61 +510,197 @@ export function CreateParcelScreen(): React.JSX.Element {
   }, [navigation, step]);
 
   useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', handleBackStep);
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackStep,
+    );
     return () => subscription.remove();
   }, [handleBackStep]);
 
   const advanceStep = useCallback(() => {
-    setStep((currentStep) => {
+    setStep(currentStep => {
       const nextStep = Math.min(currentStep + 1, 4);
-      setHighestStepReached((highest) => Math.max(highest, nextStep));
+      setHighestStepReached(highest => Math.max(highest, nextStep));
       return nextStep;
     });
   }, []);
 
-  const handleSelectReceivingStation = useCallback((station: Station) => {
-    setReceivingStation(station);
-    storeReceivingStation(station);
-    if (dropoffStation?.id === station.id) {
-      setDropoffStation(undefined);
+  const handleSelectReceivingStation = useCallback(
+    (station: Station) => {
+      setReceivingStation(station);
+      if (dropoffStation?.id === station.id) {
+        setDropoffStation(undefined);
+      }
+    },
+    [dropoffStation?.id, setDropoffStation, setReceivingStation],
+  );
+
+  const handleSelectDropoffStation = useCallback(
+    (station: Station) => {
+      setDropoffStation(station);
+    },
+    [setDropoffStation],
+  );
+
+  const handlePhotosChange = useCallback(
+    (nextPhotos: string[]) => {
+      setPackage({ photos: nextPhotos });
+    },
+    [setPackage],
+  );
+
+  const handlePackageSizeChange = useCallback(
+    (size: ParcelSize) => {
+      setDimensionsDraftValid(true);
+      setPackage({ size });
+    },
+    [setPackage],
+  );
+
+  const handleDimensionsChange = useCallback(
+    (nextDimensions: ParcelDimensions) => {
+      const fittingSize = getSmallestParcelSizeForDimensions(nextDimensions);
+      const shouldPromoteSize =
+        fittingSize !== null &&
+        fittingSize !== packageSize &&
+        isParcelSizeAtLeast(fittingSize, packageSize);
+
+      setPackage(
+        shouldPromoteSize
+          ? { size: fittingSize, ...nextDimensions }
+          : nextDimensions,
+      );
+    },
+    [packageSize, setPackage],
+  );
+
+  const handleWeightChange = useCallback(
+    (weight: number) => {
+      setPackage({ weight });
+    },
+    [setPackage],
+  );
+
+  const handleCategoryChange = useCallback(
+    (category: string) => {
+      setPackage({ category });
+    },
+    [setPackage],
+  );
+
+  const handleEstimatedValueChange = useCallback(
+    (value: string) => {
+      setPackage({ estimatedValue: value.replace(/\D/g, '').slice(0, 15) });
+    },
+    [setPackage],
+  );
+
+  const handleSelectTrip = useCallback((tripId: string) => {
+    if (tripId === selectedTripIdRef.current) {
+      return;
     }
-  }, [dropoffStation?.id, storeReceivingStation]);
 
-  const handleSelectDropoffStation = useCallback((station: Station) => {
-    setDropoffStation(station);
-    storeDropoffStation(station);
-  }, [storeDropoffStation]);
+    selectedTripIdRef.current = tripId;
+    setPromoCode('');
+    setAppliedPromo(null);
+    setPromoError(undefined);
+    setSelectedTripId(tripId);
+  }, []);
 
-  const handlePhotosChange = useCallback((nextPhotos: string[]) => {
-    setPackage({ photos: nextPhotos });
-  }, [setPackage]);
+  const handlePreviousTripsPage = useCallback(() => {
+    setTripPageIndex(currentPage => Math.max(currentPage - 1, 0));
+  }, []);
+
+  const handleNextTripsPage = useCallback(() => {
+    const nextPageIndex = tripPageIndex + 1;
+    if (nextPageIndex < loadedTripPageCount) {
+      setTripPageIndex(nextPageIndex);
+      return;
+    }
+
+    if (hasNextTripsPage && !isFetchingNextTripsPage) {
+      fetchNextTripsPage()
+        .then(result => {
+          if (result.data?.pages[nextPageIndex]) {
+            setTripPageIndex(nextPageIndex);
+          }
+        })
+        .catch(() => undefined);
+    }
+  }, [
+    fetchNextTripsPage,
+    hasNextTripsPage,
+    isFetchingNextTripsPage,
+    loadedTripPageCount,
+    tripPageIndex,
+  ]);
+
+  const handleChangeTerminals = useCallback(() => {
+    setStep(1);
+  }, []);
+
+  const handleTryNextDate = useCallback(() => {
+    setDepartureOffset(currentOffset =>
+      Math.min(currentOffset + 1, MAX_DEPARTURE_OFFSET),
+    );
+  }, []);
 
   const validateCurrentStep = useCallback(() => {
-    if (step === 1 && !receivingStation) {
+    const validateWholeDraft = step === 4;
+
+    if ((step === 1 || validateWholeDraft) && !receivingStation) {
       Alert.alert('VietRide', 'Please select an origin station.');
       return false;
     }
-    if (step === 2 && !dropoffStation) {
+    if ((step === 2 || validateWholeDraft) && !dropoffStation) {
       Alert.alert('VietRide', 'Please select a destination station.');
       return false;
     }
-    if (step === 3) {
+    if (step === 3 || validateWholeDraft) {
       if (!recipientName.trim() || !recipientPhone.trim()) {
-        Alert.alert('VietRide', 'Recipient name and phone number are required.');
+        Alert.alert(
+          'VietRide',
+          'Recipient name and phone number are required.',
+        );
         return false;
       }
-      if (estimatedWeightKg <= 0) {
-        Alert.alert('VietRide', 'Package weight must be greater than 0.');
+      if (!isValidVietnamPhone(recipientPhone)) {
+        Alert.alert('VietRide', 'Enter a valid Vietnam phone number.');
+        return false;
+      }
+      if (recipientEmail.trim() && !isValidEmail(recipientEmail)) {
+        Alert.alert('VietRide', 'Enter a valid recipient email address.');
+        return false;
+      }
+      if (!packageMeasurementsValid) {
+        Alert.alert(
+          'VietRide',
+          dimensionsErrorMessage ??
+            'Enter a valid package weight and dimensions.',
+        );
         return false;
       }
     }
     if (step === 4 && !selectedTrip) {
-      Alert.alert('VietRide', 'Please select an available trip for this parcel.');
+      Alert.alert(
+        'VietRide',
+        'Please select an available trip for this parcel.',
+      );
       return false;
     }
 
     return true;
-  }, [dropoffStation, estimatedWeightKg, receivingStation, recipientName, recipientPhone, selectedTrip, step]);
+  }, [
+    dimensionsErrorMessage,
+    dropoffStation,
+    packageMeasurementsValid,
+    receivingStation,
+    recipientEmail,
+    recipientName,
+    recipientPhone,
+    selectedTrip,
+    step,
+  ]);
 
   const buildCreatePayload = useCallback((): CreateParcelPayload => {
     if (!selectedTrip) {
@@ -391,7 +708,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     }
 
     const descriptionParts = [
-      `Category: ${packageCategory}`,
       estimatedValue ? `Estimated value: ${estimatedValue} VND` : null,
     ].filter(Boolean);
 
@@ -400,8 +716,9 @@ export function CreateParcelScreen(): React.JSX.Element {
       dropoffStopId: null,
       bookingId: null,
       itemName: packageCategory || null,
-      description: descriptionParts.length > 0 ? descriptionParts.join('; ') : null,
-      sizeCategory: dimensions.sizeCategory,
+      description:
+        descriptionParts.length > 0 ? descriptionParts.join('; ') : null,
+      sizeCategory,
       lengthCm: dimensions.lengthCm,
       widthCm: dimensions.widthCm,
       heightCm: dimensions.heightCm,
@@ -409,19 +726,17 @@ export function CreateParcelScreen(): React.JSX.Element {
       localPhotoUris: photos,
       recipient: {
         fullName: recipientName.trim(),
-        phoneNumber: recipientPhone.trim(),
+        phoneNumber: normalizeVietnamPhone(recipientPhone),
         email: recipientEmail.trim() || null,
       },
       deliveryMethod: 'TERMINAL_PICKUP',
       paymentMethod: backendPaymentMethod,
-      voucherCode: appliedPromo?.code ?? null,
+      voucherCode: selectedVoucher?.code ?? null,
     });
   }, [
-    appliedPromo?.code,
     backendPaymentMethod,
     dimensions.heightCm,
     dimensions.lengthCm,
-    dimensions.sizeCategory,
     dimensions.widthCm,
     estimatedValue,
     estimatedWeightKg,
@@ -431,6 +746,8 @@ export function CreateParcelScreen(): React.JSX.Element {
     recipientName,
     recipientPhone,
     selectedTrip,
+    selectedVoucher?.code,
+    sizeCategory,
   ]);
 
   const handleSubmit = useCallback(async () => {
@@ -444,8 +761,30 @@ export function CreateParcelScreen(): React.JSX.Element {
     }
 
     try {
-      const result = await createParcelMutation.mutateAsync(buildCreatePayload());
-      await queryClient.invalidateQueries({ queryKey: parcelKeys.all });
+      const result = await createParcelMutation.mutateAsync(
+        buildCreatePayload(),
+      );
+      if (user?.id) {
+        const invalidations = [
+          queryClient.invalidateQueries({ queryKey: parcelKeys.user(user.id) }),
+          queryClient.invalidateQueries({
+            queryKey: parcelKeys.availableTripsRoot(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: passengerHistoryKeys.user(user.id),
+          }),
+        ];
+
+        if (paymentMethod === 'wallet') {
+          invalidations.push(
+            queryClient.invalidateQueries({
+              queryKey: walletKeys.user(user.id),
+            }),
+          );
+        }
+
+        await Promise.all(invalidations);
+      }
 
       if (result.paymentRedirectUrl) {
         try {
@@ -459,9 +798,25 @@ export function CreateParcelScreen(): React.JSX.Element {
       }
 
       setPackage({ photos: [] });
-      navigation.navigate('ParcelDetail', { parcelId: result.parcelId });
+      navigation.navigate('ParcelDetail', {
+        parcelId: result.parcelId,
+        paymentRedirectUrl: result.paymentRedirectUrl ?? undefined,
+      });
     } catch (error) {
-      if (toApiError(error).code === 'SESSION_INVALIDATED') {
+      const apiError = toApiError(error);
+      if (apiError.code === 'SESSION_INVALIDATED') {
+        return;
+      }
+      if (apiError.statusCode === 409) {
+        setSelectedTripId(null);
+        setPromoCode('');
+        setAppliedPromo(null);
+        setPromoError(undefined);
+        await refetchAvailableTrips().catch(() => undefined);
+        Alert.alert(
+          'Trip availability changed',
+          'The selected trip or parcel estimate changed while you were confirming. Please choose an available trip again.',
+        );
         return;
       }
       Alert.alert('VietRide', getApiErrorMessage(error));
@@ -471,9 +826,12 @@ export function CreateParcelScreen(): React.JSX.Element {
     buildCreatePayload,
     createParcelMutation,
     navigation,
+    paymentMethod,
     queryClient,
+    refetchAvailableTrips,
     setPackage,
     step,
+    user?.id,
     validateCurrentStep,
   ]);
 
@@ -481,56 +839,67 @@ export function CreateParcelScreen(): React.JSX.Element {
     const normalizedCode = text.toUpperCase();
     setPromoCode(normalizedCode);
     setPromoError(undefined);
-    setAppliedPromo((currentPromo) => {
+    setAppliedPromo(currentPromo => {
       if (!currentPromo) {
         return null;
       }
 
-      return normalizePromoCode(normalizedCode) === normalizePromoCode(currentPromo.code)
+      return normalizePromoCode(normalizedCode) ===
+        normalizePromoCode(currentPromo.code)
         ? currentPromo
         : null;
     });
   }, []);
 
-  const handlePromoApply = useCallback((nextCode: string, selectedPromo?: PromoOffer) => {
-    const normalizedCode = normalizePromoCode(nextCode);
-    const promo = selectedPromo || findPromoByCode(availablePromos, normalizedCode);
+  const handlePromoApply = useCallback(
+    (nextCode: string, selectedPromo?: PromoOffer) => {
+      const normalizedCode = normalizePromoCode(nextCode);
+      const promo =
+        selectedPromo || findPromoByCode(availablePromos, normalizedCode);
 
-    setPromoCode(normalizedCode);
+      setPromoCode(normalizedCode);
 
-    if (!normalizedCode) {
-      setAppliedPromo(null);
-      setPromoError('Enter a promo code to apply.');
-      return false;
-    }
+      if (!normalizedCode) {
+        setAppliedPromo(null);
+        setPromoError('Enter a promo code to apply.');
+        return false;
+      }
 
-    if (!promo) {
-      setAppliedPromo(null);
-      setPromoError('This promo code is not available for this parcel.');
-      return false;
-    }
+      if (!promo) {
+        setAppliedPromo(null);
+        setPromoError('This promo code is not available for this parcel.');
+        return false;
+      }
 
-    if (isPromoExpired(promo)) {
-      setAppliedPromo(null);
-      setPromoError('This promo code has expired.');
-      return false;
-    }
+      if (isPromoExpired(promo)) {
+        setAppliedPromo(null);
+        setPromoError('This promo code has expired.');
+        return false;
+      }
 
-    if (promo.minimumSpend && baseFare < promo.minimumSpend) {
-      setAppliedPromo(null);
-      setPromoError(`Minimum parcel deposit is ${formatVnd(promo.minimumSpend)}.`);
-      return false;
-    }
+      if (promo.minimumSpend && depositBeforeDiscount < promo.minimumSpend) {
+        setAppliedPromo(null);
+        setPromoError(
+          `Minimum parcel deposit is ${formatVnd(promo.minimumSpend)}.`,
+        );
+        return false;
+      }
 
-    setAppliedPromo(promo);
-    setPromoError(undefined);
-    return true;
-  }, [availablePromos, baseFare]);
+      setAppliedPromo(promo);
+      setPromoError(undefined);
+      return true;
+    },
+    [availablePromos, depositBeforeDiscount],
+  );
 
-  const stationStepQuery = step === 1 ? originStationsQuery : destinationStationsQuery;
-  const stationStepStations = step === 1
-    ? originStationsQuery.stations
-    : destinationStationsQuery.stations.filter((station) => station.id !== receivingStation?.id);
+  const stationStepQuery =
+    step === 1 ? originStationsQuery : destinationStationsQuery;
+  const stationStepStations =
+    step === 1
+      ? originStationsQuery.stations
+      : destinationStationsQuery.stations.filter(
+          station => station.id !== receivingStation?.id,
+        );
   const stationStepLocation = step === 1 ? originLocation : destinationLocation;
   const missingLocation = !stationStepLocation;
 
@@ -538,10 +907,15 @@ export function CreateParcelScreen(): React.JSX.Element {
     if (missingLocation) {
       return (
         <View style={styles.stateBox}>
-          <WarningCircle size={32} color={theme.colors.warning} weight="duotone" />
+          <WarningCircle
+            size={32}
+            color={theme.colors.warning}
+            weight="duotone"
+          />
           <Text style={styles.stateTitle}>Choose route first</Text>
           <Text style={styles.stateText}>
-            Go back to Home and select origin and destination before creating a parcel.
+            Go back to Home and select origin and destination before creating a
+            parcel.
           </Text>
         </View>
       );
@@ -562,7 +936,11 @@ export function CreateParcelScreen(): React.JSX.Element {
     if (stationStepStations.length === 0) {
       return (
         <View style={styles.stateBox}>
-          <WarningCircle size={32} color={theme.colors.warning} weight="duotone" />
+          <WarningCircle
+            size={32}
+            color={theme.colors.warning}
+            weight="duotone"
+          />
           <Text style={styles.stateTitle}>No parcel station found</Text>
           <Text style={styles.stateText}>
             {stationStepLocation
@@ -575,7 +953,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
     return (
       <View style={styles.stepContent}>
-        {stationStepStations.map((station) => (
+        {stationStepStations.map(station => (
           <StationCard
             key={station.id}
             station={station}
@@ -584,7 +962,11 @@ export function CreateParcelScreen(): React.JSX.Element {
                 ? receivingStation?.id === station.id
                 : dropoffStation?.id === station.id
             }
-            onSelect={step === 1 ? handleSelectReceivingStation : handleSelectDropoffStation}
+            onSelect={
+              step === 1
+                ? handleSelectReceivingStation
+                : handleSelectDropoffStation
+            }
           />
         ))}
       </View>
@@ -594,14 +976,20 @@ export function CreateParcelScreen(): React.JSX.Element {
   const renderTripPicker = () => (
     <View style={styles.bentoSummaryCard}>
       <Text style={styles.bentoCardHeading}>Departure Date</Text>
-      <View style={styles.dateRow}>
-        {DATE_OFFSETS.map((offset) => {
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.dateRow}
+      >
+        {DATE_OFFSETS.map(offset => {
           const active = departureOffset === offset;
-          const label = offset === 0
-            ? 'Today'
-            : offset === 1
+          const date = addLocalDays(departureDateBase, offset);
+          const label =
+            offset === 0
+              ? 'Today'
+              : offset === 1
               ? 'Tomorrow'
-              : toLocalIsoDate(addLocalDays(departureDateBase, offset));
+              : formatShortDate(date);
           return (
             <Pressable
               key={offset}
@@ -617,13 +1005,18 @@ export function CreateParcelScreen(): React.JSX.Element {
                 color={active ? theme.colors.textInverse : theme.colors.primary}
                 weight="bold"
               />
-              <Text style={[styles.dateChipText, active ? styles.dateChipTextActive : null]}>
+              <Text
+                style={[
+                  styles.dateChipText,
+                  active ? styles.dateChipTextActive : null,
+                ]}
+              >
                 {label}
               </Text>
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       <View style={styles.tripHeaderRow}>
         <Text style={styles.bentoCardHeading}>Available Trips</Text>
@@ -636,21 +1029,112 @@ export function CreateParcelScreen(): React.JSX.Element {
         <ParcelSkeleton type="summary" count={2} />
       ) : availableTripsQuery.isError ? (
         <ErrorView onRetry={() => availableTripsQuery.refetch()} />
-      ) : availableTrips.length === 0 ? (
+      ) : visibleTrips.length === 0 ? (
         <View style={styles.stateBoxCompact}>
           <Clock size={24} color={theme.colors.textTertiary} weight="duotone" />
-          <Text style={styles.stateText}>No trip can carry this parcel on the selected date.</Text>
+          <Text style={styles.stateTitle}>No parcel-enabled trip found</Text>
+          <Text style={styles.stateText}>
+            {receivingStation?.name ?? 'Selected origin'} →{' '}
+            {dropoffStation?.name ?? 'selected destination'} on{' '}
+            {formatShortDate(addLocalDays(departureDateBase, departureOffset))}.
+          </Text>
+          <Text style={styles.stateText}>
+            Parcel service requires a scheduled trip with cargo capacity and a
+            parcel fare for this exact terminal pair. Try another date or choose
+            different terminals.
+          </Text>
+          <View style={styles.emptyTripActions}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleChangeTerminals}
+              style={({ pressed }) => [
+                styles.emptyTripSecondaryButton,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.emptyTripSecondaryText}>
+                Change terminals
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: emptyTripPrimaryDisabled }}
+              disabled={emptyTripPrimaryDisabled}
+              onPress={
+                hasNextTripsPage ? handleNextTripsPage : handleTryNextDate
+              }
+              style={({ pressed }) => [
+                styles.emptyTripPrimaryButton,
+                emptyTripPrimaryDisabled
+                  ? styles.emptyTripButtonDisabled
+                  : null,
+                pressed && !emptyTripPrimaryDisabled ? styles.pressed : null,
+              ]}
+            >
+              {isFetchingNextTripsPage ? (
+                <ActivityIndicator
+                  size="small"
+                  color={theme.colors.textInverse}
+                />
+              ) : (
+                <Text style={styles.emptyTripPrimaryText}>
+                  {hasNextTripsPage ? 'Check more trips' : 'Try next day'}
+                </Text>
+              )}
+            </Pressable>
+          </View>
         </View>
       ) : (
-        availableTrips.map((trip) => (
+        visibleTrips.map(trip => (
           <TripOptionCard
             key={trip.tripId}
             trip={trip}
             selected={selectedTripId === trip.tripId}
-            onPress={setSelectedTripId}
+            onPress={handleSelectTrip}
           />
         ))
       )}
+      {loadedTripPageCount > 1 || hasNextTripsPage ? (
+        <View style={styles.tripPaginationRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canGoToPreviousTripPage }}
+            disabled={!canGoToPreviousTripPage}
+            onPress={handlePreviousTripsPage}
+            style={({ pressed }) => [
+              styles.tripPageButton,
+              !canGoToPreviousTripPage ? styles.tripPageButtonDisabled : null,
+              pressed && canGoToPreviousTripPage ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.tripPageButtonText}>Previous</Text>
+          </Pressable>
+          <Text style={styles.tripPageIndicator}>Page {tripPageIndex + 1}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: !canGoToNextTripPage || isFetchingNextTripsPage,
+            }}
+            disabled={!canGoToNextTripPage || isFetchingNextTripsPage}
+            onPress={handleNextTripsPage}
+            style={({ pressed }) => [
+              styles.tripPageButton,
+              !canGoToNextTripPage || isFetchingNextTripsPage
+                ? styles.tripPageButtonDisabled
+                : null,
+              pressed && canGoToNextTripPage && !isFetchingNextTripsPage
+                ? styles.pressed
+                : null,
+            ]}
+          >
+            {isFetchingNextTripsPage ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <Text style={styles.tripPageButtonText}>Next</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -662,28 +1146,43 @@ export function CreateParcelScreen(): React.JSX.Element {
     if (step === 3) {
       return (
         <View style={styles.stepContent}>
-          <PackageSizeSelector packageSize={packageSize} onSelect={setPackageSize} />
-          <WeightSlider
-            value={packageWeight}
-            unit={weightUnit}
-            onValueChange={setPackageWeight}
-            onUnitChange={setWeightUnit}
+          <PackageSizeSelector
+            packageSize={packageSize}
+            onSelect={handlePackageSizeChange}
           />
-          <CategoryChips value={packageCategory} onChange={setPackageCategory} />
+          <ParcelDimensionsInput
+            key={packageSize}
+            value={dimensions}
+            onChange={handleDimensionsChange}
+            onValidityChange={setDimensionsDraftValid}
+            errorMessage={dimensionsErrorMessage}
+          />
+          <WeightSlider
+            valueKg={packageWeight}
+            onValueChange={handleWeightChange}
+            onValidityChange={setWeightDraftValid}
+          />
+          <CategoryChips
+            value={packageCategory}
+            onChange={handleCategoryChange}
+          />
 
           <PhotoPicker
             value={photos}
             onChange={handlePhotosChange}
+            maxPhotos={1}
             photoLabel="parcel photo"
-            title="Parcel photos (optional)"
+            title="Parcel photo (optional)"
+            helperText="Preview only in this build. The local photo is never added to the create request."
           />
 
           <Input
             label="Estimated Value (Optional)"
             placeholder="Enter package value (VND)"
             keyboardType="numeric"
+            maxLength={15}
             value={estimatedValue}
-            onChangeText={setEstimatedValue}
+            onChangeText={handleEstimatedValueChange}
             hint="Used only as parcel description metadata."
           />
 
@@ -692,6 +1191,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             <Input
               label="Full Name"
               placeholder="Recipient full name"
+              maxLength={255}
               value={recipientName}
               onChangeText={setRecipientName}
             />
@@ -699,6 +1199,7 @@ export function CreateParcelScreen(): React.JSX.Element {
               label="Phone Number"
               placeholder="Recipient phone number"
               keyboardType="phone-pad"
+              maxLength={20}
               value={recipientPhone}
               onChangeText={setRecipientPhone}
             />
@@ -706,12 +1207,12 @@ export function CreateParcelScreen(): React.JSX.Element {
               label="Email (Optional)"
               placeholder="recipient@example.com"
               keyboardType="email-address"
+              maxLength={255}
               value={recipientEmail}
               onChangeText={setRecipientEmail}
               autoCapitalize="none"
             />
           </View>
-
         </View>
       );
     }
@@ -724,31 +1225,61 @@ export function CreateParcelScreen(): React.JSX.Element {
           dropoffStation={dropoffStation}
           packageSize={packageSize}
           packageCategory={packageCategory}
-          packageWeight={estimatedWeightKg}
-          weightUnit="kg"
-          codEnabled={false}
-          codAmount=""
-          baseFare={baseFare}
-          weightSurcharge={weightSurcharge}
+          packageWeightKg={estimatedWeightKg}
+          dimensionsLabel={formatParcelDimensions(dimensions)}
+          estimatedPrice={estimatedPrice}
+          depositBeforeDiscount={depositBeforeDiscount}
           promoDiscount={promoDiscount}
-          totalPrice={totalPrice}
+          depositDue={depositDue}
           promoCode={promoCode}
-          promoApplied={Boolean(appliedPromo)}
+          promoApplied={Boolean(selectedVoucher)}
           onPromoCodeChange={handlePromoCodeChange}
           onPromoApplyCode={handlePromoApply}
           availablePromos={availablePromos}
           selectedPromoCode={appliedPromo?.code}
-          appliedPromoLabel={appliedPromo ? `${appliedPromo.code} Applied` : undefined}
+          appliedPromoLabel={
+            selectedVoucher ? `${selectedVoucher.code} Applied` : undefined
+          }
           promoError={promoError}
           paymentMethod={paymentMethod}
           onPaymentMethodChange={setPaymentMethod}
+          walletBalance={walletBalanceQuery.data?.balance}
+          walletIsLoading={walletBalanceQuery.isLoading}
+          walletHasError={walletBalanceQuery.isError}
         />
       </View>
     );
   };
 
   const isSubmitting = createParcelMutation.isPending;
-  const actionDisabled = isSubmitting || (step === 4 && availableTripsQuery.isLoading);
+  const actionDisabled =
+    isSubmitting ||
+    ((step === 3 || step === 4) && !packageMeasurementsValid) ||
+    (step === 4 && (availableTripsQuery.isLoading || !selectedTrip));
+  const routeTitle = selectedTrip
+    ? `${selectedTrip.originStation.name} → ${selectedTrip.destinationStation.name}`
+    : `${fromCity || 'Origin'} → ${toCity || 'Destination'}`;
+  const stationCount = stationStepStations.length;
+  const headerSubtitle =
+    step === 1 || step === 2
+      ? !stationStepLocation
+        ? 'Choose a valid route to continue'
+        : stationStepQuery.isError
+        ? 'Could not load terminals'
+        : stationStepQuery.isLoading
+        ? 'Finding terminals…'
+        : `${stationCount} ${
+            stationCount === 1 ? 'terminal' : 'terminals'
+          } available`
+      : step === 3
+      ? `${formatParcelDimensions(dimensions)} · ${estimatedWeightKg} kg`
+      : selectedTrip
+      ? `${selectedTrip.operatorName} · ${formatTripTime(
+          selectedTrip.departureDateTime,
+        )}`
+      : `${availableTrips.length} ${
+          availableTrips.length === 1 ? 'trip' : 'trips'
+        } available`;
 
   return (
     <View style={styles.root}>
@@ -756,9 +1287,21 @@ export function CreateParcelScreen(): React.JSX.Element {
         <Svg height="460" width="100%">
           <Defs>
             <LinearGradient id="headerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor={theme.colors.primaryLight} stopOpacity={0.36} />
-              <Stop offset="55%" stopColor={theme.colors.primaryLight} stopOpacity={0.12} />
-              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
+              <Stop
+                offset="0%"
+                stopColor={theme.colors.primaryLight}
+                stopOpacity={0.36}
+              />
+              <Stop
+                offset="55%"
+                stopColor={theme.colors.primaryLight}
+                stopOpacity={0.12}
+              />
+              <Stop
+                offset="100%"
+                stopColor={theme.colors.background}
+                stopOpacity={0}
+              />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#headerGrad)" />
@@ -771,6 +1314,8 @@ export function CreateParcelScreen(): React.JSX.Element {
           highestStepReached={highestStepReached}
           onStepPress={setStep}
           onCancel={handleBackStep}
+          title={routeTitle}
+          subtitle={headerSubtitle}
         />
         <StepHeaderWithMascot step={step} />
 
@@ -786,11 +1331,18 @@ export function CreateParcelScreen(): React.JSX.Element {
           {renderStep()}
         </ScrollView>
 
-        <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+        <View
+          style={[
+            styles.actionBar,
+            { paddingBottom: Math.max(insets.bottom, spacing.md) },
+          ]}
+        >
           {step === 4 ? (
             <View style={styles.priceSummaryBox}>
               <Text style={styles.totalPriceLabel}>Deposit Due</Text>
-              <Text style={styles.totalPriceValue}>{formatVnd(totalPrice)}</Text>
+              <Text style={styles.totalPriceValue}>
+                {formatVnd(depositDue)}
+              </Text>
             </View>
           ) : null}
           <Pressable
@@ -822,7 +1374,6 @@ export function CreateParcelScreen(): React.JSX.Element {
             )}
           </Pressable>
         </View>
-
       </SafeAreaView>
     </View>
   );
@@ -830,7 +1381,14 @@ export function CreateParcelScreen(): React.JSX.Element {
 
 const createStyles = (theme: AppTheme) => ({
   root: { flex: 1, backgroundColor: theme.colors.background },
-  gradientContainer: { position: 'absolute', top: 0, left: 0, right: 0, height: 460, zIndex: 0 },
+  gradientContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 460,
+    zIndex: 0,
+  },
   container: { flex: 1, backgroundColor: 'transparent' },
   scrollContainer: { flex: 1 },
   scrollContent: { paddingHorizontal: spacing.xl, paddingTop: 0 },
@@ -858,8 +1416,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   dateRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
+    paddingRight: spacing.sm,
     marginBottom: spacing.lg,
   },
   dateChip: {
@@ -869,9 +1427,13 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
   },
   dateChipActive: {
     backgroundColor: theme.colors.primary,
@@ -897,9 +1459,13 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
   },
   tripCardActive: {
     borderColor: theme.colors.primary,
@@ -913,6 +1479,9 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  tripIconActive: {
+    backgroundColor: theme.colors.primary,
+  },
   tripMeta: {
     flex: 1,
     minWidth: 0,
@@ -921,6 +1490,12 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
+  },
+  tripRoute: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textPrimary,
+    marginTop: 2,
   },
   tripTime: {
     fontFamily: fontFamilies.medium,
@@ -933,6 +1508,39 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.primary,
     marginTop: 4,
+  },
+  tripPaginationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  tripPageButton: {
+    minWidth: 88,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  tripPageButtonDisabled: {
+    opacity: 0.45,
+  },
+  tripPageButtonText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
+  },
+  tripPageIndicator: {
+    flex: 1,
+    textAlign: 'center',
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
   },
   stateBox: {
     ...theme.components.card,
@@ -947,7 +1555,9 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.lg,
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
   },
   stateTitle: {
     fontFamily: fontFamilies.bold,
@@ -960,6 +1570,46 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  emptyTripActions: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  emptyTripSecondaryButton: {
+    flex: 1,
+    minHeight: 48,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTripPrimaryButton: {
+    flex: 1,
+    minHeight: 48,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTripButtonDisabled: {
+    opacity: 0.45,
+  },
+  emptyTripSecondaryText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
+    textAlign: 'center',
+  },
+  emptyTripPrimaryText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textInverse,
+    textAlign: 'center',
   },
   actionBar: {
     ...theme.components.actionBar,

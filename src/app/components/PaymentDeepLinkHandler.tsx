@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { bookingKeys } from '@features/booking/api/bookingApi';
+import { parcelKeys } from '@features/parcel/api/parcelApi';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { usePaymentDeepLink, type PaymentReturnEvent } from '@shared/hooks';
 
@@ -13,7 +14,7 @@ import { usePaymentDeepLink, type PaymentReturnEvent } from '@shared/hooks';
  */
 export function PaymentDeepLinkHandler(): null {
   const queryClient = useQueryClient();
-  const userId = useAuthStore((state) => state.user?.id);
+  const userId = useAuthStore(state => state.user?.id);
 
   const handlePaymentReturn = useCallback(
     (_event: PaymentReturnEvent) => {
@@ -22,6 +23,13 @@ export function PaymentDeepLinkHandler(): null {
       queryClient
         .invalidateQueries({
           queryKey: bookingKeys.user(userId),
+          refetchType: 'none',
+        })
+        .catch(() => undefined);
+
+      queryClient
+        .invalidateQueries({
+          queryKey: parcelKeys.user(userId),
           refetchType: 'none',
         })
         .catch(() => undefined);

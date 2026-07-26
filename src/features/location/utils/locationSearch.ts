@@ -5,7 +5,7 @@ export const normalizeLocationSearchText = (value: string): string =>
   value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[đĐ]/g, (character) => (character === 'đ' ? 'd' : 'D'))
+    .replace(/[đĐ]/g, character => (character === 'đ' ? 'd' : 'D'))
     .trim()
     .toLowerCase();
 
@@ -18,8 +18,9 @@ export const findLocationByName = (
     return undefined;
   }
 
-  return locations.find((location) =>
-    normalizeLocationSearchText(location.name) === target
-    || normalizeLocationSearchText(location.code) === target,
+  return locations.find(
+    location =>
+      normalizeLocationSearchText(location.name) === target ||
+      normalizeLocationSearchText(location.code) === target,
   );
 };

@@ -1,23 +1,31 @@
 import React, { memo } from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { FileText, TShirt, DotsThreeCircle, Check } from 'phosphor-react-native';
+import {
+  FileText,
+  TShirt,
+  DotsThreeCircle,
+  Check,
+} from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-
-export type PackageSize = 'small' | 'medium' | 'large';
+import {
+  formatParcelDimensions,
+  PARCEL_PACKAGE_SIZE_OPTIONS,
+} from '../config/parcelPackage';
+import type { ParcelSize } from '../types';
 
 export interface PackageSizeSelectorProps {
-  packageSize: PackageSize;
-  onSelect: (size: PackageSize) => void;
+  packageSize: ParcelSize;
+  onSelect: (size: ParcelSize) => void;
 }
 
-const SIZE_OPTIONS: { key: PackageSize; label: string; sub: string; Icon: React.ElementType }[] = [
-  { key: 'small', label: 'Small', sub: '25x25 cm', Icon: FileText },
-  { key: 'medium', label: 'Medium', sub: '45x45 cm', Icon: TShirt },
-  { key: 'large', label: 'Large', sub: '55x55 cm', Icon: DotsThreeCircle },
-];
+const SIZE_ICONS: Record<ParcelSize, React.ElementType> = {
+  small: FileText,
+  medium: TShirt,
+  large: DotsThreeCircle,
+};
 
 export const PackageSizeSelector = memo(function PackageSizeSelectorComponent({
   packageSize,
@@ -30,26 +38,50 @@ export const PackageSizeSelector = memo(function PackageSizeSelectorComponent({
     <>
       <Text style={styles.formLabel}>Package Size</Text>
       <View style={styles.sizeCardRow}>
-        {SIZE_OPTIONS.map(({ key, label, sub, Icon }) => {
-          const active = packageSize === key;
+        {PARCEL_PACKAGE_SIZE_OPTIONS.map(({ size, label, dimensions }) => {
+          const active = packageSize === size;
+          const Icon = SIZE_ICONS[size];
           return (
             <Pressable
-              key={key}
+              key={size}
               style={({ pressed }) => [
                 styles.sizeCard,
                 active && styles.sizeCardActive,
                 pressed ? styles.pressed : null,
               ]}
-              onPress={() => onSelect(key)}
+              onPress={() => onSelect(size)}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
+              accessibilityLabel={`${label}, ${formatParcelDimensions(
+                dimensions,
+              )}`}
             >
               {active && (
                 <View style={styles.checkedCircle}>
-                  <Check size={10} color={theme.colors.textInverse} weight="bold" />
+                  <Check
+                    size={10}
+                    color={theme.colors.textInverse}
+                    weight="bold"
+                  />
                 </View>
               )}
-              <Icon size={28} color={active ? theme.colors.primary : theme.colors.textSecondary} />
-              <Text style={[styles.sizeTitle, active && styles.sizeTitleActive]}>{label}</Text>
-              <Text style={[styles.sizeSub, active && styles.sizeSubActive]}>{sub}</Text>
+              <Icon
+                size={28}
+                color={
+                  active ? theme.colors.primary : theme.colors.textSecondary
+                }
+              />
+              <Text
+                style={[styles.sizeTitle, active && styles.sizeTitleActive]}
+              >
+                {label}
+              </Text>
+              <Text
+                numberOfLines={2}
+                style={[styles.sizeSub, active && styles.sizeSubActive]}
+              >
+                {formatParcelDimensions(dimensions)}
+              </Text>
             </Pressable>
           );
         })}
@@ -76,10 +108,15 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     paddingVertical: spacing.lg,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
     borderWidth: 1.5,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
     position: 'relative',
+    minWidth: 0,
   },
   sizeCardActive: {
     borderColor: theme.colors.primary,
@@ -114,6 +151,7 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: 10,
     color: theme.colors.textTertiary,
     marginTop: 2,
+    textAlign: 'center',
   },
   sizeSubActive: {
     color: theme.colors.primary,

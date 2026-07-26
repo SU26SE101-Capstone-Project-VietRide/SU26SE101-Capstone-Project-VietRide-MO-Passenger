@@ -4,6 +4,7 @@ import type { Location } from '@features/location/types/location';
 import { searchStations, stationKeys } from '@features/trip/api/stationApi';
 import type { StationSearchResult } from '@features/trip/types';
 import type { CurrentCoordinates } from '@shared/hooks/useCurrentCoordinates';
+import { getGeoDistanceKm } from '@shared/utils/geo';
 import type { Station } from '../types';
 
 const STATION_STALE_TIME_MS = 10 * 60 * 1000;
@@ -15,32 +16,18 @@ const stationAddress = (station: StationSearchResult): string => {
     .join(', ');
 };
 
-const toRadians = (degrees: number): number => degrees * (Math.PI / 180);
-
-const getDistanceKm = (
+const getStationDistanceKm = (
   from: CurrentCoordinates | null,
   station: StationSearchResult,
 ): number | null => {
-  if (
-    !from
-    || station.latitude == null
-    || station.longitude == null
-  ) {
+  if (!from || station.latitude == null || station.longitude == null) {
     return null;
   }
 
-  const earthRadiusKm = 6371;
-  const latDelta = toRadians(station.latitude - from.latitude);
-  const lonDelta = toRadians(station.longitude - from.longitude);
-  const fromLat = toRadians(from.latitude);
-  const stationLat = toRadians(station.latitude);
-
-  const haversine =
-    Math.sin(latDelta / 2) ** 2
-    + Math.cos(fromLat) * Math.cos(stationLat) * Math.sin(lonDelta / 2) ** 2;
-  const angularDistance = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-
-  return earthRadiusKm * angularDistance;
+  return getGeoDistanceKm(from, {
+    latitude: station.latitude,
+    longitude: station.longitude,
+  });
 };
 
 const formatDistance = (distanceKm: number | null): string | null => {
@@ -60,15 +47,22 @@ export const mapParcelStation = (
   index: number,
   currentCoordinates: CurrentCoordinates | null = null,
   isResolvingCurrentLocation = false,
+  precomputedDistanceKm?: number | null,
 ): Station => {
-  const distanceKm = getDistanceKm(currentCoordinates, station);
+  const distanceKm =
+    precomputedDistanceKm === undefined
+      ? getStationDistanceKm(currentCoordinates, station)
+      : precomputedDistanceKm;
 
   return {
     id: station.id,
     name: station.name,
     address: stationAddress(station) || station.name,
-    distance: formatDistance(distanceKm)
-      ?? (isResolvingCurrentLocation && station.latitude != null && station.longitude != null
+    distance:
+      formatDistance(distanceKm) ??
+      (isResolvingCurrentLocation &&
+      station.latitude != null &&
+      station.longitude != null
         ? 'Calculating distance...'
         : null),
     isClosest: index === 0 && distanceKm != null,
@@ -86,7 +80,7 @@ export function useParcelStations(
 
   const query = useQuery({
     queryKey: stationKeys.search(locationId),
-    queryFn: () => searchStations(locationId),
+    queryFn: ({ signal }) => searchStations(locationId, signal),
     enabled: enabled && Boolean(locationId),
     staleTime: STATION_STALE_TIME_MS,
     gcTime: STATION_GC_TIME_MS,
@@ -97,13 +91,18 @@ export function useParcelStations(
 
   const stations = useMemo(() => {
     const data = Array.isArray(query.data) ? query.data : [];
-    return [...data]
+    return data
+      .map((station, sourceIndex) => ({
+        station,
+        sourceIndex,
+        distanceKm: getStationDistanceKm(currentCoordinates, station),
+      }))
       .sort((left, right) => {
-        const leftDistance = getDistanceKm(currentCoordinates, left);
-        const rightDistance = getDistanceKm(currentCoordinates, right);
+        const leftDistance = left.distanceKm;
+        const rightDistance = right.distanceKm;
 
         if (leftDistance == null && rightDistance == null) {
-          return 0;
+          return left.sourceIndex - right.sourceIndex;
         }
 
         if (leftDistance == null) {
@@ -114,14 +113,19 @@ export function useParcelStations(
           return -1;
         }
 
-        return leftDistance - rightDistance;
+        return (
+          leftDistance - rightDistance || left.sourceIndex - right.sourceIndex
+        );
       })
-      .map((station, index) => mapParcelStation(
-        station,
-        index,
-        currentCoordinates,
-        isResolvingCurrentLocation,
-      ));
+      .map(({ station, distanceKm }, index) =>
+        mapParcelStation(
+          station,
+          index,
+          currentCoordinates,
+          isResolvingCurrentLocation,
+          distanceKm,
+        ),
+      );
   }, [currentCoordinates, isResolvingCurrentLocation, query.data]);
 
   return {

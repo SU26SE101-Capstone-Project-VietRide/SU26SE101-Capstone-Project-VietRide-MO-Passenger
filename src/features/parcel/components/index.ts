@@ -4,6 +4,7 @@ export { ErrorView } from './ErrorView';
 export { ParcelSkeleton } from './ParcelSkeleton';
 export { CategoryChips } from './CategoryChips';
 export { PackageSizeSelector } from './PackageSizeSelector';
+export { ParcelDimensionsInput } from './ParcelDimensionsInput';
 export { PricingBreakdown } from './PricingBreakdown';
 export { PromoCodeInput } from './PromoCodeInput';
 export { StepHeaderWithMascot } from './StepHeaderWithMascot';

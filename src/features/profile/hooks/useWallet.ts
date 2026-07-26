@@ -46,12 +46,12 @@ export const isAmbiguousTopUpError = (error: unknown): boolean => {
   const statusCode = apiError.statusCode;
 
   return (
-    apiError.isNetworkError
-    || apiError.code === 'SESSION_INVALIDATED'
-    || statusCode === undefined
-    || statusCode === 408
-    || statusCode === 429
-    || statusCode >= 500
+    apiError.isNetworkError ||
+    apiError.code === 'SESSION_INVALIDATED' ||
+    statusCode === undefined ||
+    statusCode === 408 ||
+    statusCode === 429 ||
+    statusCode >= 500
   );
 };
 
@@ -75,17 +75,17 @@ export class TopUpSubmissionCoordinator {
     }
 
     if (
-      this.unresolvedInput
-      && (
-        this.unresolvedInput.userId !== userId
-        || this.unresolvedInput.amount !== amount
-      )
+      this.unresolvedInput &&
+      (this.unresolvedInput.userId !== userId ||
+        this.unresolvedInput.amount !== amount)
     ) {
-      return Promise.reject(new ApiRequestError({
-        message:
-          'A previous top-up is still being reconciled. Retry the same amount or return from VNPay before starting another request.',
-        code: 'TOP_UP_RECONCILIATION_REQUIRED',
-      }));
+      return Promise.reject(
+        new ApiRequestError({
+          message:
+            'A previous top-up is still being reconciled. Retry the same amount or return from VNPay before starting another request.',
+          code: 'TOP_UP_RECONCILIATION_REQUIRED',
+        }),
+      );
     }
 
     const payload = createTopUpPayload(amount);
@@ -97,8 +97,8 @@ export class TopUpSubmissionCoordinator {
       const activeUserId = useAuthStore.getState().user?.id;
 
       if (
-        !isTokenSessionEpochCurrent(sessionEpoch)
-        || activeUserId !== userId
+        !isTokenSessionEpochCurrent(sessionEpoch) ||
+        activeUserId !== userId
       ) {
         throw new ApiRequestError({
           message: 'Phiên đăng nhập đã thay đổi.',
@@ -175,8 +175,7 @@ export class PaymentReturnGate {
 
 export const getNextWalletTransactionsPage = (
   lastPage: WalletTransactionsPage,
-): number | undefined =>
-  lastPage.hasNextPage ? lastPage.page + 1 : undefined;
+): number | undefined => (lastPage.hasNextPage ? lastPage.page + 1 : undefined);
 
 /** Invalidates only the authenticated user's wallet subtree. */
 export async function refreshWalletForUser(
@@ -186,13 +185,13 @@ export async function refreshWalletForUser(
   await queryClient.invalidateQueries({ queryKey: walletKeys.user(userId) });
 }
 
-export function useWalletBalance() {
-  const userId = useAuthStore((state) => state.user?.id);
+export function useWalletBalance(enabled = true) {
+  const userId = useAuthStore(state => state.user?.id);
 
   return useQuery({
     queryKey: walletKeys.balance(userId ?? 'none'),
     queryFn: ({ signal }) => getWalletBalance(signal),
-    enabled: Boolean(userId),
+    enabled: Boolean(userId) && enabled,
     staleTime: WALLET_BALANCE_STALE_TIME_MS,
     gcTime: WALLET_GC_TIME_MS,
     retry: 1,
@@ -201,10 +200,8 @@ export function useWalletBalance() {
   });
 }
 
-export function useWalletTransactions(
-  pageSize = WALLET_TRANSACTION_PAGE_SIZE,
-) {
-  const userId = useAuthStore((state) => state.user?.id);
+export function useWalletTransactions(pageSize = WALLET_TRANSACTION_PAGE_SIZE) {
+  const userId = useAuthStore(state => state.user?.id);
 
   return useInfiniteQuery({
     queryKey: walletKeys.transactions(userId ?? 'none', pageSize),
@@ -222,7 +219,7 @@ export function useWalletTransactions(
 }
 
 export function useCreateWalletTopUp() {
-  const userId = useAuthStore((state) => state.user?.id);
+  const userId = useAuthStore(state => state.user?.id);
   const coordinatorRef = useRef<TopUpSubmissionCoordinator | null>(null);
 
   if (!coordinatorRef.current) {
@@ -263,7 +260,7 @@ export function useCreateWalletTopUp() {
 
 export function useRefreshWallet(): () => Promise<void> {
   const queryClient = useQueryClient();
-  const userId = useAuthStore((state) => state.user?.id);
+  const userId = useAuthStore(state => state.user?.id);
 
   return useCallback(async () => {
     if (!userId) {
@@ -277,7 +274,7 @@ export function useRefreshWallet(): () => Promise<void> {
 export function useWalletRefreshOnPaymentReturn(
   onPaymentReturn?: (didRefresh: boolean) => void,
 ) {
-  const userId = useAuthStore((state) => state.user?.id);
+  const userId = useAuthStore(state => state.user?.id);
   const queryClient = useQueryClient();
   const callbackRef = useRef(onPaymentReturn);
   const gateRef = useRef<PaymentReturnGate | null>(null);

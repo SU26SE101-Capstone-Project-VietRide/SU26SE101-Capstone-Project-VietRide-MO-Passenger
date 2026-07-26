@@ -1,28 +1,32 @@
-import React from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { TShirt, Coins, Wallet } from 'phosphor-react-native';
-import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import React, { memo, useCallback } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { CreditCard, Package, Wallet } from 'phosphor-react-native';
+
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
-import type { AppTheme } from '@shared/theme';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
 import type { PromoOffer } from '@shared/utils/promo';
+import type { ParcelPaymentMethod, ParcelSize } from '../types';
 import { PromoCodeInput } from './PromoCodeInput';
-import type { ParcelPaymentMethod } from '../types';
 
 export interface PricingBreakdownProps {
   receivingStation?: { name?: string; city?: string };
   dropoffStation?: { name?: string; city?: string };
-  packageSize: 'small' | 'medium' | 'large';
+  packageSize: ParcelSize;
   packageCategory: string;
-  packageWeight: number;
-  weightUnit: 'kg' | 'lbs';
-  codEnabled: boolean;
-  codAmount: string;
-  baseFare: number;
-  weightSurcharge: number;
+  packageWeightKg: number;
+  dimensionsLabel: string;
+  estimatedPrice: number;
+  depositBeforeDiscount: number;
   promoDiscount: number;
-  totalPrice: number;
+  depositDue: number;
   promoCode: string;
   promoApplied: boolean;
   onPromoCodeChange: (text: string) => void;
@@ -33,21 +37,22 @@ export interface PricingBreakdownProps {
   promoError?: string;
   paymentMethod: ParcelPaymentMethod;
   onPaymentMethodChange: (method: ParcelPaymentMethod) => void;
+  walletBalance?: number;
+  walletIsLoading: boolean;
+  walletHasError: boolean;
 }
 
-export const PricingBreakdown = ({
+function PricingBreakdownComponent({
   receivingStation,
   dropoffStation,
   packageSize,
   packageCategory,
-  packageWeight,
-  weightUnit,
-  codEnabled,
-  codAmount,
-  baseFare,
-  weightSurcharge,
+  packageWeightKg,
+  dimensionsLabel,
+  estimatedPrice,
+  depositBeforeDiscount,
   promoDiscount,
-  totalPrice,
+  depositDue,
   promoCode,
   promoApplied,
   onPromoCodeChange,
@@ -58,16 +63,41 @@ export const PricingBreakdown = ({
   promoError,
   paymentMethod,
   onPaymentMethodChange,
-}: PricingBreakdownProps): React.JSX.Element => {
+  walletBalance,
+  walletIsLoading,
+  walletHasError,
+}: PricingBreakdownProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const walletHasKnownBalance = typeof walletBalance === 'number';
+  const walletHasEnoughBalance =
+    walletHasKnownBalance && walletBalance >= depositDue;
+  const walletDisabled =
+    walletIsLoading || walletHasError || !walletHasEnoughBalance;
+
+  const selectWallet = useCallback(() => {
+    if (!walletDisabled) {
+      onPaymentMethodChange('wallet');
+    }
+  }, [onPaymentMethodChange, walletDisabled]);
+
+  const selectVnPay = useCallback(() => {
+    onPaymentMethodChange('vnpay');
+  }, [onPaymentMethodChange]);
+
+  const walletSubtitle = walletIsLoading
+    ? 'Checking balance…'
+    : walletHasError || !walletHasKnownBalance
+    ? 'Balance unavailable'
+    : walletHasEnoughBalance
+    ? `Balance: ${formatVnd(walletBalance)}`
+    : `Insufficient balance: ${formatVnd(walletBalance)}`;
 
   return (
     <View style={styles.summaryContent}>
-      {/* Route bento details card */}
-      <View style={styles.bentoSummaryCard}>
-        <View style={styles.bentoAccent} />
-        <Text style={styles.bentoCardHeading}>Route Information</Text>
+      <View style={styles.card}>
+        <View style={styles.cardAccent} />
+        <Text style={styles.cardHeading}>Route Information</Text>
         <View style={styles.summaryRoute}>
           <View style={styles.routeTrack}>
             <View style={styles.dotStart} />
@@ -77,61 +107,68 @@ export const PricingBreakdown = ({
           <View style={styles.routeDetailsText}>
             <View style={styles.routeStationSection}>
               <Text style={styles.routeLabelText}>FROM</Text>
-              <Text style={styles.routeStationName}>{receivingStation?.name}</Text>
-              <Text style={styles.routeStationCity}>{receivingStation?.city}</Text>
+              <Text style={styles.routeStationName}>
+                {receivingStation?.name || 'Origin terminal'}
+              </Text>
+              {receivingStation?.city ? (
+                <Text style={styles.routeStationCity}>
+                  {receivingStation.city}
+                </Text>
+              ) : null}
             </View>
             <View style={styles.routeStationSection}>
               <Text style={styles.routeLabelText}>TO</Text>
-              <Text style={styles.routeStationName}>{dropoffStation?.name}</Text>
-              <Text style={styles.routeStationCity}>{dropoffStation?.city}</Text>
+              <Text style={styles.routeStationName}>
+                {dropoffStation?.name || 'Destination terminal'}
+              </Text>
+              {dropoffStation?.city ? (
+                <Text style={styles.routeStationCity}>
+                  {dropoffStation.city}
+                </Text>
+              ) : null}
             </View>
           </View>
         </View>
       </View>
 
-      {/* Package summary bento card */}
-      <View style={styles.bentoSummaryCard}>
-        <Text style={styles.bentoCardHeading}>Package Specifications</Text>
-          <View style={styles.specCardRow}>
+      <View style={styles.card}>
+        <Text style={styles.cardHeading}>Package Specifications</Text>
+        <View style={styles.specCardRow}>
           <View style={styles.specIcon}>
-            <TShirt size={22} color={theme.colors.primary} weight="duotone" />
+            <Package size={22} color={theme.colors.primary} weight="duotone" />
           </View>
           <View style={styles.specDetails}>
             <Text style={styles.specTitle}>
-              {packageSize.toUpperCase()} Package ({packageCategory})
+              {packageSize.toUpperCase()} · {packageCategory}
             </Text>
             <Text style={styles.specMeta}>
-              Weight: {packageWeight} {weightUnit} • COD:{' '}
-              {codEnabled
-                ? formatVnd(Number(codAmount), { clampNegative: true })
-                : 'No'}
+              {dimensionsLabel} · {packageWeightKg} kg
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Payment Methods selector */}
-      <View style={styles.bentoSummaryCard}>
-        <Text style={styles.bentoCardHeading}>Payment Method</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardHeading}>Payment Method</Text>
         <PaymentOption
           selected={paymentMethod === 'wallet'}
+          disabled={walletDisabled}
           label="VietRide Wallet"
-          sub="Balance: 250,000₫"
+          subtitle={walletSubtitle}
           Icon={Wallet}
           iconColor={theme.colors.primary}
-          onSelect={() => onPaymentMethodChange('wallet')}
+          onSelect={selectWallet}
         />
         <PaymentOption
           selected={paymentMethod === 'vnpay'}
-          label="VNPAY / Momo QR"
-          sub="Scan app QR to pay"
-          Icon={Coins}
+          label="VNPay"
+          subtitle="Continue securely in the VNPay payment page"
+          Icon={CreditCard}
           iconColor={theme.colors.accentDark}
-          onSelect={() => onPaymentMethodChange('vnpay')}
+          onSelect={selectVnPay}
         />
       </View>
 
-      {/* Promo Code */}
       <PromoCodeInput
         code={promoCode}
         onChange={onPromoCodeChange}
@@ -143,87 +180,113 @@ export const PricingBreakdown = ({
         errorText={promoError}
       />
 
-      {/* Pricing Breakdown details card */}
-      <View style={styles.bentoSummaryCard}>
-        <Text style={styles.bentoCardHeading}>Payment Details</Text>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Base Delivery Fare</Text>
-          <Text style={styles.priceValue}>
-            {formatVnd(baseFare, { clampNegative: true })}
-          </Text>
-        </View>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>
-            Weight Surcharge ({packageWeight} {weightUnit})
-          </Text>
-          <Text style={styles.priceValue}>
-            {formatVnd(weightSurcharge, { clampNegative: true })}
-          </Text>
-        </View>
-        {promoApplied ? (
+      <View style={styles.card}>
+        <Text style={styles.cardHeading}>Payment Details</Text>
+        <PriceRow label="Estimated shipment price" value={estimatedPrice} />
+        <PriceRow
+          label="Deposit before discount"
+          value={depositBeforeDiscount}
+        />
+        {promoApplied && promoDiscount > 0 ? (
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Promo Discount</Text>
-            <Text style={[styles.priceValue, { color: theme.colors.success }]}>
-              -{formatVnd(promoDiscount, { clampNegative: true })}
+            <Text style={styles.priceLabel}>Verified voucher discount</Text>
+            <Text style={[styles.priceValue, styles.discountValue]}>
+              -{formatVnd(promoDiscount)}
             </Text>
           </View>
         ) : null}
         <View style={styles.summaryDivider} />
-        <View style={[styles.priceRow, { marginTop: spacing.md }]}>
-          <Text style={styles.totalLabel}>Total Price</Text>
-          <Text style={styles.totalValue}>
-            {formatVnd(totalPrice, { clampNegative: true })}
-          </Text>
+        <View style={[styles.priceRow, styles.totalRow]}>
+          <Text style={styles.totalLabel}>Deposit due now</Text>
+          <Text style={styles.totalValue}>{formatVnd(depositDue)}</Text>
         </View>
+        <Text style={styles.priceHint}>
+          Final parcel pricing is confirmed by VietRide&apos;s server for the
+          selected trip.
+        </Text>
       </View>
     </View>
   );
-};
+}
+
+export const PricingBreakdown = memo(PricingBreakdownComponent);
 
 interface PaymentOptionProps {
   selected: boolean;
+  disabled?: boolean;
   label: string;
-  sub: string;
+  subtitle: string;
   Icon: React.ElementType;
   iconColor: string;
   onSelect: () => void;
 }
 
-const PaymentOption = ({ selected, label, sub, Icon, iconColor, onSelect }: PaymentOptionProps) => {
+const PaymentOption = memo(function PaymentOption({
+  selected,
+  disabled = false,
+  label,
+  subtitle,
+  Icon,
+  iconColor,
+  onSelect,
+}: PaymentOptionProps): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
 
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.paymentOption,
-        selected && styles.paymentOptionActive,
-        pressed ? styles.paymentOptionPressed : null,
+        selected ? styles.paymentOptionActive : null,
+        disabled ? styles.paymentOptionDisabled : null,
+        pressed && !disabled ? styles.paymentOptionPressed : null,
       ]}
       onPress={onSelect}
     >
-      <View style={styles.paymentRadio}>{selected ? <View style={styles.paymentRadioDot} /> : null}</View>
+      <View style={styles.paymentRadio}>
+        {selected ? <View style={styles.paymentRadioDot} /> : null}
+      </View>
       <View style={styles.paymentIconBackground}>
         <Icon size={20} color={iconColor} weight="bold" />
       </View>
       <View style={styles.paymentOptionText}>
         <Text style={styles.paymentTitle}>{label}</Text>
-        <Text style={styles.paymentSubtitle}>{sub}</Text>
+        <Text style={styles.paymentSubtitle}>{subtitle}</Text>
       </View>
     </Pressable>
   );
-};
+});
+
+const PriceRow = memo(function PriceRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.priceRow}>
+      <Text style={styles.priceLabel}>{label}</Text>
+      <Text style={styles.priceValue}>{formatVnd(value)}</Text>
+    </View>
+  );
+});
 
 const createStyles = (theme: AppTheme) => ({
   summaryContent: {
     gap: 0,
   },
-  bentoSummaryCard: {
+  card: {
     ...theme.components.card,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
-  bentoAccent: {
+  cardAccent: {
     position: 'absolute',
     top: 14,
     left: 0,
@@ -232,7 +295,7 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 2,
     backgroundColor: theme.colors.primary,
   },
-  bentoCardHeading: {
+  cardHeading: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
@@ -300,7 +363,9 @@ const createStyles = (theme: AppTheme) => ({
     width: 42,
     height: 42,
     borderRadius: borderRadius.md,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -319,18 +384,26 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: 2,
   },
   paymentOption: {
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
     borderRadius: borderRadius.lg,
     borderWidth: 1.2,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
   paymentOptionActive: {
     borderColor: theme.colors.primary,
     backgroundColor: theme.colors.primaryFaded,
+  },
+  paymentOptionDisabled: {
+    opacity: 0.55,
   },
   paymentOptionPressed: {
     opacity: 0.86,
@@ -341,8 +414,12 @@ const createStyles = (theme: AppTheme) => ({
     height: 18,
     borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorderStrong
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurface
+      : theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
@@ -357,7 +434,9 @@ const createStyles = (theme: AppTheme) => ({
     width: 36,
     height: 36,
     borderRadius: borderRadius.md,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurface
+      : theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
@@ -395,10 +474,16 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
     textAlign: 'right',
   },
+  discountValue: {
+    color: theme.colors.success,
+  },
   summaryDivider: {
     height: 1,
     backgroundColor: theme.colors.divider,
     marginVertical: spacing.sm,
+  },
+  totalRow: {
+    marginTop: spacing.md,
   },
   totalLabel: {
     fontFamily: fontFamilies.bold,
@@ -409,5 +494,12 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.primary,
+  },
+  priceHint: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: 17,
+    color: theme.colors.textTertiary,
   },
 });

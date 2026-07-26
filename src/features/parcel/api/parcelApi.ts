@@ -18,24 +18,39 @@ import type {
 
 export const parcelKeys = {
   all: ['parcels'] as const,
-  availableTrips: (params: AvailableParcelTripsParams) =>
-    [...parcelKeys.all, 'available-trips', params] as const,
+  user: (userId: string) => [...parcelKeys.all, userId] as const,
+  availableTripsRoot: () => [...parcelKeys.all, 'available-trips'] as const,
+  availableTrips: (params: AvailableParcelTripsParams) => {
+    return [
+      ...parcelKeys.availableTripsRoot(),
+      {
+        originStationId: params.originStationId,
+        destinationStationId: params.destinationStationId,
+        departureDate: params.departureDate,
+        lengthCm: params.lengthCm,
+        widthCm: params.widthCm,
+        heightCm: params.heightCm,
+        estimatedWeightKg: params.estimatedWeightKg,
+        sizeCategory: params.sizeCategory,
+        pageSize: params.pageSize ?? 20,
+      },
+    ] as const;
+  },
   vouchers: (userId: string, params: GetParcelVouchersParams) =>
-    [...parcelKeys.all, userId, 'vouchers', 'available', params] as const,
+    [...parcelKeys.user(userId), 'vouchers', 'available', params] as const,
   detail: (userId: string, parcelId: string) =>
-    [...parcelKeys.all, userId, parcelId, 'detail'] as const,
+    [...parcelKeys.user(userId), parcelId, 'detail'] as const,
   received: (userId: string, page: number, pageSize: number) =>
-    [...parcelKeys.all, userId, 'received', page, pageSize] as const,
+    [...parcelKeys.user(userId), 'received', page, pageSize] as const,
 };
 
 export async function getAvailableParcelTrips(
   params: AvailableParcelTripsParams,
   signal?: AbortSignal,
 ): Promise<PagedParcelResponse<AvailableParcelTrip>> {
-  const response = await apiClient.get<ApiEnvelope<PagedParcelResponse<AvailableParcelTrip>>>(
-    '/parcels/available-trips',
-    { params, ...(signal ? { signal } : {}) },
-  );
+  const response = await apiClient.get<
+    ApiEnvelope<PagedParcelResponse<AvailableParcelTrip>>
+  >('/parcels/available-trips', { params, ...(signal ? { signal } : {}) });
 
   return unwrapApiResponse(response.data);
 }
@@ -56,11 +71,15 @@ export async function createParcel(
   payload: CreateParcelPayload,
   idempotencyKey: string,
 ): Promise<CreateParcelResult> {
-  const response = await apiClient.post<ApiEnvelope<CreateParcelResult>>('/parcels', payload, {
-    headers: {
-      'Idempotency-Key': normalizeIdempotencyKey(idempotencyKey),
+  const response = await apiClient.post<ApiEnvelope<CreateParcelResult>>(
+    '/parcels',
+    payload,
+    {
+      headers: {
+        'Idempotency-Key': normalizeIdempotencyKey(idempotencyKey),
+      },
     },
-  });
+  );
 
   return unwrapApiResponse(response.data);
 }
@@ -82,15 +101,19 @@ export async function getReceivedParcels(
   pageSize = 20,
   signal?: AbortSignal,
 ): Promise<PagedParcelResponse<ReceivedParcel>> {
-  const response = await apiClient.get<ApiEnvelope<PagedParcelResponse<ReceivedParcel>>>(
-    '/parcels/received',
-    { params: { page, pageSize }, ...(signal ? { signal } : {}) },
-  );
+  const response = await apiClient.get<
+    ApiEnvelope<PagedParcelResponse<ReceivedParcel>>
+  >('/parcels/received', {
+    params: { page, pageSize },
+    ...(signal ? { signal } : {}),
+  });
 
   return unwrapApiResponse(response.data);
 }
 
-export function mapParcelVoucherToPromo(voucher: ParcelAvailableVoucher): PromoOffer {
+export function mapParcelVoucherToPromo(
+  voucher: ParcelAvailableVoucher,
+): PromoOffer {
   const normalizedType = voucher.type.toUpperCase();
   const isPercent = normalizedType.includes('PERCENT');
   const discountLabel = isPercent
@@ -104,9 +127,12 @@ export function mapParcelVoucherToPromo(voucher: ParcelAvailableVoucher): PromoO
     id: voucher.id,
     code: voucher.code,
     title: voucher.name,
-    description: voucher.discountAmount > 0
-      ? `Save ${formatVnd(voucher.discountAmount, { display: 'code' })} on parcel deposit.`
-      : 'Available for this parcel route.',
+    description:
+      voucher.discountAmount > 0
+        ? `Save ${formatVnd(voucher.discountAmount, {
+            display: 'code',
+          })} on parcel deposit.`
+        : 'Available for this parcel route.',
     discountLabel,
     expiresAt: voucher.validUntil,
     minimumSpend: voucher.minOrderAmount,

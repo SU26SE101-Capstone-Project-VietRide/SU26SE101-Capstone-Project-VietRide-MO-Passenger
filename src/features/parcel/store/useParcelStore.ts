@@ -7,7 +7,19 @@
 
 import { create } from 'zustand';
 import { registerSessionCleanup } from '@shared/session/cleanup';
-import type { ParcelBookingState, ParcelPaymentMethod, ParcelSize, Station } from '../types/index';
+import {
+  DEFAULT_PARCEL_SIZE,
+  DEFAULT_PARCEL_WEIGHT_KG,
+  getParcelDimensions,
+} from '../config/parcelPackage';
+import type {
+  ParcelBookingState,
+  ParcelPaymentMethod,
+  ParcelSize,
+  Station,
+} from '../types/index';
+
+const DEFAULT_DIMENSIONS = getParcelDimensions(DEFAULT_PARCEL_SIZE);
 
 interface ParcelStore {
   // ─── Locations ──────────────────────────────────────
@@ -25,18 +37,35 @@ interface ParcelStore {
   // ─── Package Details ────────────────────────────────
   size: ParcelSize;
   weight: number;
+  lengthCm: number;
+  widthCm: number;
+  heightCm: number;
   category: string;
   cod: boolean;
   estimatedValue: string;
   photos: string[];
-  setPackage: (partial: Partial<Pick<ParcelBookingState,
-    | 'size' | 'weight' | 'category' | 'cod' | 'estimatedValue' | 'photos'>>) => void;
+  setPackage: (
+    partial: Partial<
+      Pick<
+        ParcelBookingState,
+        | 'size'
+        | 'weight'
+        | 'lengthCm'
+        | 'widthCm'
+        | 'heightCm'
+        | 'category'
+        | 'cod'
+        | 'estimatedValue'
+        | 'photos'
+      >
+    >,
+  ) => void;
 
   // ─── Stations ───────────────────────────────────────
   receivingStation?: Station;
   dropoffStation?: Station;
-  setReceivingStation: (station: Station) => void;
-  setDropoffStation: (station: Station) => void;
+  setReceivingStation: (station?: Station) => void;
+  setDropoffStation: (station?: Station) => void;
 
   // ─── Payment ────────────────────────────────────────
   paymentMethod: ParcelPaymentMethod;
@@ -46,38 +75,66 @@ interface ParcelStore {
   resetParcel: () => void;
 }
 
-export const useParcelStore = create<ParcelStore>((set) => ({
+export const useParcelStore = create<ParcelStore>(set => ({
   // ─── Locations ──────────────────────────────────────
   fromCity: '',
   toCity: '',
   toDistrict: '',
   fromLocationCode: '',
   toLocationCode: '',
-  setFromCity: (city) => set({ fromCity: city }),
-  setToCity: (city) => set({ toCity: city }),
-  setFromLocation: (city, code) => set({ fromCity: city, fromLocationCode: code }),
-  setToLocation: (city, code) => set({ toCity: city, toLocationCode: code }),
-  setToDistrict: (district) => set({ toDistrict: district }),
+  setFromCity: city =>
+    set({
+      fromCity: city,
+      fromLocationCode: '',
+      receivingStation: undefined,
+    }),
+  setToCity: city =>
+    set({
+      toCity: city,
+      toDistrict: '',
+      toLocationCode: '',
+      dropoffStation: undefined,
+    }),
+  setFromLocation: (city, code) =>
+    set(state => ({
+      fromCity: city,
+      fromLocationCode: code,
+      receivingStation:
+        state.fromLocationCode === code ? state.receivingStation : undefined,
+    })),
+  setToLocation: (city, code) =>
+    set(state => ({
+      toCity: city,
+      toDistrict: state.toLocationCode === code ? state.toDistrict : '',
+      toLocationCode: code,
+      dropoffStation:
+        state.toLocationCode === code ? state.dropoffStation : undefined,
+    })),
+  setToDistrict: district => set({ toDistrict: district }),
 
   // ─── Package Details ────────────────────────────────
-  size: 'small',
-  weight: 1,
-  category: '',
+  size: DEFAULT_PARCEL_SIZE,
+  weight: DEFAULT_PARCEL_WEIGHT_KG,
+  ...DEFAULT_DIMENSIONS,
+  category: 'Documents',
   cod: false,
   estimatedValue: '',
   photos: [],
-  setPackage: (partial) =>
-    set((state) => ({ ...state, ...partial })),
+  setPackage: partial =>
+    set({
+      ...(partial.size ? getParcelDimensions(partial.size) : {}),
+      ...partial,
+    }),
 
   // ─── Stations ───────────────────────────────────────
   receivingStation: undefined,
   dropoffStation: undefined,
-  setReceivingStation: (station) => set({ receivingStation: station }),
-  setDropoffStation: (station) => set({ dropoffStation: station }),
+  setReceivingStation: station => set({ receivingStation: station }),
+  setDropoffStation: station => set({ dropoffStation: station }),
 
   // ─── Payment ────────────────────────────────────────
   paymentMethod: 'vnpay',
-  setPaymentMethod: (method) => set({ paymentMethod: method }),
+  setPaymentMethod: method => set({ paymentMethod: method }),
 
   // ─── Reset ──────────────────────────────────────────
   resetParcel: () =>
@@ -87,9 +144,10 @@ export const useParcelStore = create<ParcelStore>((set) => ({
       toDistrict: '',
       fromLocationCode: '',
       toLocationCode: '',
-      size: 'small',
-      weight: 1,
-      category: '',
+      size: DEFAULT_PARCEL_SIZE,
+      weight: DEFAULT_PARCEL_WEIGHT_KG,
+      ...DEFAULT_DIMENSIONS,
+      category: 'Documents',
       cod: false,
       estimatedValue: '',
       photos: [],

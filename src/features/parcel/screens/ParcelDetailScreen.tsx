@@ -1,8 +1,25 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { ArrowLeft, CheckCircle, MagnifyingGlass, Package, QrCode, Wallet } from 'phosphor-react-native';
+import {
+  ArrowLeft,
+  CheckCircle,
+  Clock,
+  CreditCard,
+  MagnifyingGlass,
+  Package,
+  QrCode,
+  WarningCircle,
+  Wallet,
+} from 'phosphor-react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
@@ -11,13 +28,28 @@ import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { getApiErrorMessage } from '@shared/api/errors';
 import { formatVnd } from '@shared/utils/format';
-import type { ParcelStackParamList, RootStackParamList } from '@app/navigation/types';
+import {
+  getPaymentRedirectErrorMessage,
+  openPaymentRedirect,
+  PAYMENT_REDIRECT_ERROR_TITLE,
+} from '@shared/utils/paymentRedirect';
+import type {
+  ParcelStackParamList,
+  RootStackParamList,
+} from '@app/navigation/types';
 import { useParcelDetail } from '../hooks/useParcelQueries';
 import { ErrorView } from '../components';
-import { formatParcelStatusLabel } from '../utils/parcelTracking';
+import { getParcelCheckoutState } from '../utils/parcelPayment';
+import {
+  formatParcelStatusLabel,
+  isParcelTrackingEligible,
+} from '../utils/parcelTracking';
 
 type ParcelDetailRouteProp = RouteProp<ParcelStackParamList, 'ParcelDetail'>;
-type ParcelDetailNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelDetail'>;
+type ParcelDetailNavProp = NativeStackNavigationProp<
+  ParcelStackParamList,
+  'ParcelDetail'
+>;
 type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function ParcelDetailScreen(): React.JSX.Element {
@@ -26,9 +58,22 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const rootNav = useNavigation<RootNavProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { parcelId, fromHistory } = route.params;
-  const detailQuery = useParcelDetail(parcelId);
+  const { parcelId, fromHistory, paymentRedirectUrl } = route.params;
+  const detailQuery = useParcelDetail(parcelId, !fromHistory);
   const parcel = detailQuery.data;
+  const checkoutState = getParcelCheckoutState(parcel?.status);
+  const paymentPending = checkoutState === 'awaiting_payment';
+  const checkoutFailed = checkoutState === 'failed';
+  const awaitingReview = checkoutState === 'awaiting_review';
+  const needsAttention = checkoutState === 'attention';
+  const deliveryCodeActive = checkoutState === 'active';
+  const trackingAvailable = isParcelTrackingEligible(parcel?.status);
+
+  React.useEffect(() => {
+    if (paymentRedirectUrl && parcel?.status && !paymentPending) {
+      navigation.setParams({ paymentRedirectUrl: undefined });
+    }
+  }, [navigation, parcel?.status, paymentPending, paymentRedirectUrl]);
 
   const handleTrack = () => {
     navigation.navigate('ParcelTracking', { parcelId });
@@ -38,13 +83,33 @@ export function ParcelDetailScreen(): React.JSX.Element {
     rootNav.navigate('Main', { screen: 'Home' });
   };
 
+  const handleContinuePayment = async () => {
+    if (!paymentRedirectUrl) {
+      return;
+    }
+
+    try {
+      await openPaymentRedirect(paymentRedirectUrl);
+    } catch (error) {
+      Alert.alert(
+        PAYMENT_REDIRECT_ERROR_TITLE,
+        getPaymentRedirectErrorMessage(error),
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.navbar}>
-        <Pressable style={styles.navButton} onPress={fromHistory ? () => navigation.goBack() : handleGoHome}>
+        <Pressable
+          style={styles.navButton}
+          onPress={fromHistory ? () => navigation.goBack() : handleGoHome}
+        >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.navTitle}>{fromHistory ? 'Delivery Detail' : 'Delivery Ticket'}</Text>
+        <Text style={styles.navTitle}>
+          {fromHistory ? 'Delivery Detail' : 'Delivery Ticket'}
+        </Text>
         <View style={styles.navSpacer} />
       </View>
 
@@ -56,30 +121,97 @@ export function ParcelDetailScreen(): React.JSX.Element {
       ) : detailQuery.isError ? (
         <View style={styles.errorWrap}>
           <ErrorView onRetry={() => detailQuery.refetch()} />
-          <Text style={styles.errorText}>{getApiErrorMessage(detailQuery.error)}</Text>
+          <Text style={styles.errorText}>
+            {getApiErrorMessage(detailQuery.error)}
+          </Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           {!fromHistory ? (
             <View style={styles.successHeader}>
-              <CheckCircle size={56} color={theme.colors.success} weight="fill" />
-              <Text style={styles.successTitle}>Booking Successful</Text>
-              <Text style={styles.successSubtitle}>Your parcel request has been created.</Text>
+              {checkoutFailed || needsAttention ? (
+                <WarningCircle
+                  size={56}
+                  color={
+                    checkoutFailed
+                      ? theme.colors.error
+                      : theme.colors.warning
+                  }
+                  weight="duotone"
+                />
+              ) : paymentPending || awaitingReview ? (
+                <Clock
+                  size={56}
+                  color={theme.colors.warning}
+                  weight="duotone"
+                />
+              ) : (
+                <CheckCircle
+                  size={56}
+                  color={theme.colors.success}
+                  weight="fill"
+                />
+              )}
+              <Text style={styles.successTitle}>
+                {checkoutFailed
+                  ? 'Parcel request unavailable'
+                  : paymentPending
+                  ? 'Confirming payment'
+                  : awaitingReview
+                  ? 'Awaiting operator review'
+                  : needsAttention
+                  ? 'Parcel requires attention'
+                  : 'Parcel request created'}
+              </Text>
+              <Text style={styles.successSubtitle}>
+                {checkoutFailed
+                  ? 'This request can no longer continue. Check its status or create a new parcel request.'
+                  : paymentPending
+                  ? 'Complete payment, then return to VietRide. The server will verify the result.'
+                  : awaitingReview
+                  ? 'The operator must approve this parcel before payment and delivery.'
+                  : needsAttention
+                  ? 'Review the latest parcel status before continuing. The delivery code is temporarily unavailable.'
+                  : 'Your parcel request is ready for the next delivery step.'}
+              </Text>
             </View>
           ) : null}
 
           <View style={styles.ticketCard}>
             <View style={styles.qrSection}>
               <View style={styles.qrContainer}>
-                <QrCode size={128} color={theme.colors.textPrimary} weight="light" />
+                <QrCode
+                  size={128}
+                  color={
+                    deliveryCodeActive
+                      ? theme.colors.textPrimary
+                      : theme.colors.textTertiary
+                  }
+                  weight="light"
+                />
               </View>
-              <Text style={styles.qrCaption}>Scan this QR at the terminal drop-off</Text>
+              <Text style={styles.qrCaption}>
+                {checkoutFailed
+                  ? 'The delivery code is unavailable for this request.'
+                  : paymentPending
+                  ? 'This delivery code activates after payment is verified.'
+                  : awaitingReview
+                  ? 'This delivery code activates after operator approval.'
+                  : needsAttention
+                  ? 'The delivery code is unavailable for the current parcel status.'
+                  : 'Show this parcel code at the terminal drop-off.'}
+              </Text>
               <Text style={styles.ticketIdText}>
                 {parcel?.parcelCode || parcelId}
               </Text>
               <View style={styles.statusPill}>
                 <Package size={14} color={theme.colors.primary} weight="fill" />
-                <Text style={styles.statusPillText}>{formatParcelStatusLabel(parcel?.status)}</Text>
+                <Text style={styles.statusPillText}>
+                  {formatParcelStatusLabel(parcel?.status)}
+                </Text>
               </View>
             </View>
 
@@ -107,22 +239,31 @@ export function ParcelDetailScreen(): React.JSX.Element {
               <View style={styles.specsGrid}>
                 <View style={styles.gridItem}>
                   <Text style={styles.specLabel}>PACKAGE SIZE</Text>
-                  <Text style={styles.specValue}>{parcel?.sizeCategory || '-'}</Text>
+                  <Text style={styles.specValue}>
+                    {parcel?.sizeCategory || '-'}
+                  </Text>
                 </View>
                 <View style={styles.gridItem}>
                   <Text style={styles.specLabel}>WEIGHT</Text>
                   <Text style={styles.specValue}>
-                    {parcel?.actualWeightKg ?? parcel?.estimatedWeightKg ?? '-'} kg
+                    {parcel?.actualWeightKg ?? parcel?.estimatedWeightKg ?? '-'}{' '}
+                    kg
                   </Text>
                 </View>
                 <View style={styles.gridItem}>
                   <Text style={styles.specLabel}>RECIPIENT</Text>
-                  <Text style={styles.specValue}>{parcel?.recipientName || '-'}</Text>
+                  <Text style={styles.specValue}>
+                    {parcel?.recipientName || '-'}
+                  </Text>
                 </View>
                 <View style={styles.gridItem}>
                   <Text style={styles.specLabel}>PAYMENT</Text>
                   <View style={styles.paymentMethodLabel}>
-                    <Wallet size={12} color={theme.colors.primary} weight="bold" />
+                    <Wallet
+                      size={12}
+                      color={theme.colors.primary}
+                      weight="bold"
+                    />
                     <Text style={styles.specValue}>Deposit</Text>
                   </View>
                 </View>
@@ -148,7 +289,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 <View style={styles.discountRow}>
                   <Text style={styles.discountLabel}>Voucher discount</Text>
                   <Text style={styles.discountValue}>
-                    -{formatVnd(parcel.discountAmount, {
+                    -
+                    {formatVnd(parcel.discountAmount, {
                       display: 'code',
                       clampNegative: true,
                     })}
@@ -158,13 +300,52 @@ export function ParcelDetailScreen(): React.JSX.Element {
             </View>
           </View>
 
-          <Pressable style={styles.trackButton} onPress={handleTrack}>
-            <MagnifyingGlass size={18} color={theme.colors.textInverse} weight="bold" />
-            <Text style={styles.trackButtonText}>Track Shipment Status</Text>
+          {paymentPending && paymentRedirectUrl ? (
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.trackButton,
+                pressed ? styles.pressed : null,
+              ]}
+              onPress={handleContinuePayment}
+            >
+              <CreditCard
+                size={18}
+                color={theme.colors.textInverse}
+                weight="bold"
+              />
+              <Text style={styles.trackButtonText}>Continue payment</Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !trackingAvailable }}
+            disabled={!trackingAvailable}
+            style={({ pressed }) => [
+              styles.trackButton,
+              !trackingAvailable ? styles.trackButtonDisabled : null,
+              pressed && trackingAvailable ? styles.pressed : null,
+            ]}
+            onPress={handleTrack}
+          >
+            <MagnifyingGlass
+              size={18}
+              color={theme.colors.textInverse}
+              weight="bold"
+            />
+            <Text style={styles.trackButtonText}>
+              {trackingAvailable
+                ? 'Track Shipment Status'
+                : 'Tracking unavailable'}
+            </Text>
           </Pressable>
 
           {fromHistory ? (
-            <Pressable style={styles.homeButton} onPress={() => navigation.goBack()}>
+            <Pressable
+              style={styles.homeButton}
+              onPress={() => navigation.goBack()}
+            >
               <Text style={styles.homeButtonText}>Go Back</Text>
             </Pressable>
           ) : (
@@ -190,9 +371,13 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
   },
   navButton: {
     ...theme.components.headerButton,
@@ -253,11 +438,15 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   ticketCard: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
     borderRadius: borderRadius.xl,
     ...theme.effects.floatingShadow,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorderStrong
+      : theme.colors.divider,
     overflow: 'visible',
     marginBottom: spacing.xxl,
   },
@@ -267,11 +456,15 @@ const createStyles = (theme: AppTheme) => ({
   },
   qrContainer: {
     padding: spacing.md,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
   },
   qrCaption: {
     fontFamily: fontFamilies.medium,
@@ -302,7 +495,9 @@ const createStyles = (theme: AppTheme) => ({
   dashedDivider: {
     height: 2,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
     borderStyle: 'dashed',
     position: 'relative',
     marginVertical: spacing.sm,
@@ -316,7 +511,9 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 9,
     backgroundColor: theme.colors.background,
     borderRightWidth: 1,
-    borderRightColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderRightColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
   },
   sideCutoutRight: {
     position: 'absolute',
@@ -327,7 +524,9 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 9,
     backgroundColor: theme.colors.background,
     borderLeftWidth: 1,
-    borderLeftColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderLeftColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
   },
   detailsSection: {
     padding: spacing.xl,
@@ -383,7 +582,9 @@ const createStyles = (theme: AppTheme) => ({
   noteBox: {
     paddingVertical: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderTopColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
   },
   noteText: {
     fontFamily: fontFamilies.regular,
@@ -396,7 +597,9 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderTopColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
   },
   totalLabel: {
     fontFamily: fontFamilies.bold,
@@ -433,6 +636,9 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
+  trackButtonDisabled: {
+    opacity: 0.45,
+  },
   trackButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
@@ -448,5 +654,9 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
+  },
+  pressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.98 }],
   },
 });

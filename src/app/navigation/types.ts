@@ -44,18 +44,21 @@ export type BookingStackParamList = {
   DigitalTicket:
     | { source: 'checkout' }
     | {
-      source: 'history';
-      bookingId: string;
-      historyItem?: PassengerTicketHistoryItem;
-    };
+        source: 'history';
+        bookingId: string;
+        historyItem?: PassengerTicketHistoryItem;
+      };
 };
 
 // ─── Parcel Stack ─────────────────────────────────────────
 export type ParcelStackParamList = {
   CityPicker: { mode: 'from' | 'to' };
-  DistrictPicker: { city?: string };
   CreateParcel: undefined;
-  ParcelDetail: { parcelId: string; fromHistory?: boolean };
+  ParcelDetail: {
+    parcelId: string;
+    fromHistory?: boolean;
+    paymentRedirectUrl?: string;
+  };
   ParcelTracking: { parcelId: string };
 };
 

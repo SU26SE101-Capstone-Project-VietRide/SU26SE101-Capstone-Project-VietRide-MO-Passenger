@@ -34,23 +34,35 @@ export function ParcelCityPicker(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
-  const { data: locations = [], isLoading, isError, isFetching, refetch } = useLocations();
-  const { fromLocationCode, toLocationCode, setFromLocation, setToLocation } = useParcelStore();
+  const {
+    data: locations = [],
+    isLoading,
+    isError,
+    isFetching,
+    refetch,
+  } = useLocations();
+  const fromLocationCode = useParcelStore(state => state.fromLocationCode);
+  const toLocationCode = useParcelStore(state => state.toLocationCode);
+  const setFromLocation = useParcelStore(state => state.setFromLocation);
+  const setToLocation = useParcelStore(state => state.setToLocation);
   const [query, setQuery] = useState('');
   const mode = route.params.mode;
-  const oppositeLocationCode = mode === 'from' ? toLocationCode : fromLocationCode;
+  const oppositeLocationCode =
+    mode === 'from' ? toLocationCode : fromLocationCode;
 
   const filteredLocations = useMemo(() => {
-    const activeLocations = locations.filter((location) => location.isActive);
+    const activeLocations = locations.filter(location => location.isActive);
     const normalizedQuery = normalizeLocationSearchText(query);
 
     if (!normalizedQuery) {
       return activeLocations;
     }
 
-    return activeLocations.filter((location) => {
-      return normalizeLocationSearchText(location.name).includes(normalizedQuery)
-        || normalizeLocationSearchText(location.code).includes(normalizedQuery);
+    return activeLocations.filter(location => {
+      return (
+        normalizeLocationSearchText(location.name).includes(normalizedQuery) ||
+        normalizeLocationSearchText(location.code).includes(normalizedQuery)
+      );
     });
   }, [locations, query]);
 
@@ -74,7 +86,8 @@ export function ParcelCityPicker(): React.JSX.Element {
   const renderLocation = useCallback<ListRenderItem<Location>>(
     ({ item }) => {
       const isUnavailable = item.code === oppositeLocationCode;
-      const typeLabel = item.type === 'MUNICIPALITY' ? 'Municipality' : 'Province';
+      const typeLabel =
+        item.type === 'MUNICIPALITY' ? 'Municipality' : 'Province';
 
       return (
         <Pressable
@@ -94,7 +107,9 @@ export function ParcelCityPicker(): React.JSX.Element {
           <View style={styles.itemTextWrap}>
             <Text style={styles.itemName}>{item.name}</Text>
             <Text style={styles.itemRegion}>
-              {isUnavailable ? 'Already selected' : `${typeLabel} - ${item.code}`}
+              {isUnavailable
+                ? 'Already selected'
+                : `${typeLabel} - ${item.code}`}
             </Text>
           </View>
         </Pressable>
@@ -126,7 +141,10 @@ export function ParcelCityPicker(): React.JSX.Element {
             ]}
           >
             {isFetching ? (
-              <ActivityIndicator size="small" color={theme.colors.textInverse} />
+              <ActivityIndicator
+                size="small"
+                color={theme.colors.textInverse}
+              />
             ) : (
               <Text style={styles.retryText}>Try again</Text>
             )}
@@ -151,16 +169,25 @@ export function ParcelCityPicker(): React.JSX.Element {
       <View style={styles.headerRow}>
         <Pressable
           onPress={() => navigation.goBack()}
-          style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
+          style={({ pressed }) => [
+            styles.headerButton,
+            pressed ? styles.pressed : null,
+          ]}
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>{mode === 'from' ? 'Origin Province' : 'Destination Province'}</Text>
+        <Text style={styles.headerTitle}>
+          {mode === 'from' ? 'Origin Province' : 'Destination Province'}
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.searchBox}>
-        <MagnifyingGlass size={16} color={theme.colors.textTertiary} weight="bold" />
+        <MagnifyingGlass
+          size={16}
+          color={theme.colors.textTertiary}
+          weight="bold"
+        />
         <TextInput
           style={styles.searchInput}
           placeholder="Search province or city..."
@@ -214,9 +241,13 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.md,
     height: 44,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.fieldSurface : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.fieldSurface
+      : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.fieldBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.fieldBorder
+      : theme.colors.divider,
     marginBottom: spacing.md,
   },
   searchInput: {

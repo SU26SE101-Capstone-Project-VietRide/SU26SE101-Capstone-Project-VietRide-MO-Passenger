@@ -1,138 +1,258 @@
-import React, { memo, useRef } from 'react';
-import { View, Text, TextInput, Pressable } from 'react-native';
-import { PanResponder } from 'react-native';
-import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import Slider from '@react-native-community/slider';
+import React, { memo, useCallback, useEffect, useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
+import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import {
+  formatParcelMeasurement,
+  roundParcelMeasurement,
+  sanitizeParcelMeasurementDraft,
+} from '../config/parcelPackage';
+
+type WeightUnit = 'kg' | 'lb';
+
+const KG_TO_LB = 2.2046226218;
+const SLIDER_MIN_KG = 0.1;
+const SLIDER_MAX_KG = 30;
+const SLIDER_STEP_KG = 0.1;
 
 export interface WeightSliderProps {
-  value: number;
-  unit: 'kg' | 'lbs';
-  onValueChange: (v: number) => void;
-  onUnitChange: (unit: 'kg' | 'lbs') => void;
+  valueKg: number;
+  onValueChange: (valueKg: number) => void;
+  onValidityChange?: (isValid: boolean) => void;
+}
+
+function toDisplayWeight(valueKg: number, unit: WeightUnit): number {
+  return unit === 'kg' ? valueKg : valueKg * KG_TO_LB;
+}
+
+function formatWeight(valueKg: number, unit: WeightUnit): string {
+  return formatParcelMeasurement(toDisplayWeight(valueKg, unit));
+}
+
+function parseWeightKg(value: string, unit: WeightUnit): number | null {
+  const parsed = Number.parseFloat(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return roundParcelMeasurement(unit === 'kg' ? parsed : parsed / KG_TO_LB);
+}
+
+function clampToSliderRange(valueKg: number): number {
+  return Math.min(Math.max(valueKg, SLIDER_MIN_KG), SLIDER_MAX_KG);
 }
 
 export const WeightSlider = memo(function WeightSliderComponent({
-  value,
-  unit,
+  valueKg,
   onValueChange,
-  onUnitChange,
+  onValidityChange,
 }: WeightSliderProps): React.JSX.Element {
+  const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const sliderWidthRef = useRef(0);
+  const [unit, setUnit] = useState<WeightUnit>('kg');
+  const [inputDraft, setInputDraft] = useState(() =>
+    formatWeight(valueKg, 'kg'),
+  );
+  const [isEditing, setIsEditing] = useState(false);
 
-  const handleSliderTouch = (locationX: number) => {
-    const w = sliderWidthRef.current;
-    if (w <= 0) return;
-    const ratio = Math.max(0, Math.min(locationX / w, 1));
-    const minWeight = 0.5;
-    const maxWeight = unit === 'kg' ? 30 : 66;
-    const calculated = minWeight + ratio * (maxWeight - minWeight);
-    onValueChange(Number(calculated.toFixed(1)));
-  };
+  useEffect(() => {
+    if (!isEditing) {
+      setInputDraft(formatWeight(valueKg, unit));
+    }
+  }, [isEditing, unit, valueKg]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponderCapture: () => true,
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => handleSliderTouch(evt.nativeEvent.locationX),
-      onPanResponderMove: (evt) => handleSliderTouch(evt.nativeEvent.locationX),
-    })
-  ).current;
+  const handleInputChange = useCallback(
+    (text: string) => {
+      const sanitizedDraft = sanitizeParcelMeasurementDraft(text);
+      setInputDraft(sanitizedDraft);
 
-  const maxWeight = unit === 'kg' ? 30 : 66;
-  const pct = Math.max(0, Math.min(((value - 0.5) / (maxWeight - 0.5)) * 100, 100));
+      // Keep the canonical store current even when tapping "Next" does not
+      // blur TextInput on a physical device. Slider movement still commits
+      // only once in onSlidingComplete, so dragging never drives JS renders.
+      const parsedKg = parseWeightKg(sanitizedDraft, unit);
+      onValidityChange?.(parsedKg !== null);
+      if (parsedKg !== null && parsedKg !== valueKg) {
+        onValueChange(parsedKg);
+      }
+    },
+    [onValidityChange, onValueChange, unit, valueKg],
+  );
+
+  const commitInput = useCallback(() => {
+    const parsedKg = parseWeightKg(inputDraft, unit);
+    setIsEditing(false);
+
+    if (parsedKg === null) {
+      setInputDraft(formatWeight(valueKg, unit));
+      onValidityChange?.(true);
+      return;
+    }
+
+    onValidityChange?.(true);
+    setInputDraft(formatWeight(parsedKg, unit));
+    if (parsedKg !== valueKg) {
+      onValueChange(parsedKg);
+    }
+  }, [inputDraft, onValidityChange, onValueChange, unit, valueKg]);
+
+  const handleSlidingComplete = useCallback(
+    (nextValueKg: number) => {
+      const roundedValueKg = roundParcelMeasurement(nextValueKg);
+      setIsEditing(false);
+      setInputDraft(formatWeight(roundedValueKg, unit));
+      onValidityChange?.(true);
+
+      if (roundedValueKg !== valueKg) {
+        onValueChange(roundedValueKg);
+      }
+    },
+    [onValidityChange, onValueChange, unit, valueKg],
+  );
+
+  const selectUnit = useCallback(
+    (nextUnit: WeightUnit) => {
+      if (nextUnit === unit) {
+        return;
+      }
+
+      const parsedKg = parseWeightKg(inputDraft, unit) ?? valueKg;
+      setIsEditing(false);
+      setUnit(nextUnit);
+      setInputDraft(formatWeight(parsedKg, nextUnit));
+      onValidityChange?.(true);
+      if (parsedKg !== valueKg) {
+        onValueChange(parsedKg);
+      }
+    },
+    [inputDraft, onValidityChange, onValueChange, unit, valueKg],
+  );
+
+  const sliderValueKg = clampToSliderRange(valueKg);
+  const sliderMinLabel = formatWeight(SLIDER_MIN_KG, unit);
+  const sliderMaxLabel = formatWeight(SLIDER_MAX_KG, unit);
 
   return (
-    <>
-      <Text style={styles.formLabel}>Weight</Text>
-      <View style={styles.unitToggleRow}>
-        <Pressable
-          style={[styles.unitButton, unit === 'kg' && styles.unitButtonActive]}
-          onPress={() => {
-            if (unit === 'lbs') {
-              onUnitChange('kg');
-              onValueChange(Number((value / 2.20462).toFixed(1)));
-            }
-          }}
-        >
-          <Text style={[styles.unitText, unit === 'kg' && styles.unitTextActive]}>kg</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.unitButton, unit === 'lbs' && styles.unitButtonActive]}
-          onPress={() => {
-            if (unit === 'kg') {
-              onUnitChange('lbs');
-              onValueChange(Number((value * 2.20462).toFixed(1)));
-            }
-          }}
-        >
-          <Text style={[styles.unitText, unit === 'lbs' && styles.unitTextActive]}>lbs</Text>
-        </Pressable>
+    <View style={styles.container}>
+      <View style={styles.headingRow}>
+        <Text style={styles.formLabel}>Weight</Text>
+        <View style={styles.unitToggleRow} accessibilityRole="radiogroup">
+          {(['kg', 'lb'] as const).map(option => {
+            const active = unit === option;
+            return (
+              <Pressable
+                key={option}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: active }}
+                hitSlop={6}
+                onPress={() => selectUnit(option)}
+                style={({ pressed }) => [
+                  styles.unitButton,
+                  active && styles.unitButtonActive,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text
+                  style={[styles.unitText, active && styles.unitTextActive]}
+                >
+                  {option}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       <View style={styles.weightInputCard}>
         <TextInput
+          accessibilityLabel={`Parcel weight in ${unit}`}
+          keyboardType="decimal-pad"
+          returnKeyType="done"
+          selectTextOnFocus
           style={styles.weightInput}
-          keyboardType="numeric"
-          value={value.toString()}
-          onChangeText={(text) => {
-            const cleanText = text.replace(/[^0-9.]/g, '');
-            onValueChange(Number(cleanText) || 0.5);
-          }}
+          value={inputDraft}
+          onBlur={commitInput}
+          onChangeText={handleInputChange}
+          onFocus={() => setIsEditing(true)}
+          onSubmitEditing={commitInput}
         />
         <Text style={styles.weightInputUnit}>{unit}</Text>
       </View>
 
-      <View style={styles.sliderContainer}>
-        <View
-          style={styles.sliderTrack}
-          onLayout={(event) => {
-            const { width } = event.nativeEvent.layout;
-            sliderWidthRef.current = width;
-          }}
-          {...panResponder.panHandlers}
-        >
-          <View pointerEvents="none" style={[styles.sliderFill, { width: `${pct}%` }]} />
-          <View pointerEvents="none" style={[styles.sliderThumb, { left: `${pct}%` }]} />
-        </View>
-        <View style={styles.sliderMinMax}>
-          <Text style={styles.sliderLimitText}>0.5 {unit}</Text>
-          <Text style={styles.sliderLimitText}>{unit === 'kg' ? '30 kg max' : '66 lbs max'}</Text>
-        </View>
+      <Slider
+        accessibilityLabel="Parcel weight"
+        accessibilityValue={{
+          min: SLIDER_MIN_KG,
+          max: SLIDER_MAX_KG,
+          now: sliderValueKg,
+          text: `${formatWeight(sliderValueKg, unit)} ${unit}`,
+        }}
+        style={styles.slider}
+        value={sliderValueKg}
+        minimumValue={SLIDER_MIN_KG}
+        maximumValue={SLIDER_MAX_KG}
+        step={SLIDER_STEP_KG}
+        minimumTrackTintColor={theme.colors.primary}
+        maximumTrackTintColor={theme.colors.divider}
+        thumbTintColor={theme.colors.primary}
+        tapToSeek
+        onSlidingComplete={handleSlidingComplete}
+      />
+
+      <View style={styles.sliderMinMax}>
+        <Text style={styles.sliderLimitText}>
+          {sliderMinLabel} {unit}
+        </Text>
+        <Text style={styles.sliderLimitText}>
+          {sliderMaxLabel} {unit} slider range
+        </Text>
       </View>
-    </>
+    </View>
   );
 });
 
 const createStyles = (theme: AppTheme) => ({
+  container: {
+    marginBottom: spacing.lg,
+  },
+  headingRow: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
   formLabel: {
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
-    marginBottom: spacing.sm,
   },
   unitToggleRow: {
     flexDirection: 'row',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
     borderRadius: borderRadius.full,
     padding: 3,
-    marginBottom: spacing.md,
-    alignSelf: 'flex-start',
   },
   unitButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
+    minWidth: 48,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
     borderRadius: borderRadius.full,
   },
   unitButtonActive: {
     backgroundColor: theme.colors.primary,
-    shadowColor: theme.isDark ? '#000000' : '#003D3B',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 2,
+  },
+  pressed: {
+    opacity: 0.82,
   },
   unitText: {
     fontFamily: fontFamilies.semiBold,
@@ -143,68 +263,44 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textInverse,
   },
   weightInputCard: {
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.fieldSurface : theme.colors.surfaceAlt,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
     borderRadius: borderRadius.lg,
     borderWidth: 1.2,
-    borderColor: theme.effects.isLiquid ? theme.effects.fieldBorder : theme.colors.divider,
-    paddingHorizontal: spacing.lg,
-    height: 52,
-    marginBottom: spacing.lg,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.fieldBorder
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.fieldSurface
+      : theme.colors.surfaceAlt,
   },
   weightInput: {
     flex: 1,
+    padding: 0,
     fontFamily: fontFamilies.bold,
     fontSize: 22,
     color: theme.colors.textPrimary,
-    padding: 0,
   },
   weightInputUnit: {
+    marginLeft: spacing.sm,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
     color: theme.colors.textSecondary,
-    marginLeft: spacing.sm,
   },
-  sliderContainer: {
-    marginBottom: spacing.lg,
-  },
-  sliderTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.colors.divider,
-    position: 'relative',
-    overflow: 'visible',
-  },
-  sliderFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    height: '100%',
-    borderRadius: 3,
-    backgroundColor: theme.colors.primary,
-  },
-  sliderThumb: {
-    position: 'absolute',
-    top: -9,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: theme.colors.surfaceElevated,
-    borderWidth: 3,
-    borderColor: theme.colors.primary,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+  slider: {
+    width: '100%' as const,
+    height: 48,
   },
   sliderMinMax: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: spacing.sm,
+    gap: spacing.md,
   },
   sliderLimitText: {
+    flexShrink: 1,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,

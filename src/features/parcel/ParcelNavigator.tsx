@@ -4,12 +4,10 @@ import type { ParcelStackParamList } from '@app/navigation/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 
 import {
-
   CreateParcelScreen,
   ParcelDetailScreen,
   ParcelTrackingScreen,
   ParcelCityPicker,
-  DistrictPicker,
 } from './screens';
 
 const Stack = createNativeStackNavigator<ParcelStackParamList>();
@@ -24,9 +22,7 @@ export function ParcelNavigator(): React.JSX.Element {
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
-
       <Stack.Screen name="CityPicker" component={ParcelCityPicker} />
-      <Stack.Screen name="DistrictPicker" component={DistrictPicker} />
       <Stack.Screen name="CreateParcel" component={CreateParcelScreen} />
       <Stack.Screen
         name="ParcelDetail"
