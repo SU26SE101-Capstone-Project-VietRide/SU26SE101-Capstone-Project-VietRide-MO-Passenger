@@ -114,8 +114,12 @@ export interface GoogleLoginPayload {
   idToken: string;
 }
 
-export const mapAuthUser = (dto: AuthUserDto): User => {
+export const mapAuthUser = (
+  dto: AuthUserDto,
+  cachedUser?: User | null,
+): User => {
   const displayName = dto.displayName.trim();
+  const responseIncludesAvatar = Object.prototype.hasOwnProperty.call(dto, 'avatarUrl');
 
   return {
     id: dto.id,
@@ -126,7 +130,14 @@ export const mapAuthUser = (dto: AuthUserDto): User => {
     role: dto.role,
     operatorId: dto.operatorId,
     status: dto.status,
-    avatarUrl: dto.avatarUrl ?? null,
+    // Refresh and Google responses intentionally use the compact user summary
+    // and omit avatarUrl. Preserve the same account's already-authoritative
+    // login/profile value instead of clearing it during token rotation.
+    avatarUrl: responseIncludesAvatar
+      ? dto.avatarUrl ?? null
+      : cachedUser?.id === dto.id
+        ? cachedUser.avatarUrl
+        : null,
   };
 };
 

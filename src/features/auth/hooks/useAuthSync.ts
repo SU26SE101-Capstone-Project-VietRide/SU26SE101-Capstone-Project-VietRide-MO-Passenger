@@ -24,13 +24,17 @@ export function useAuthSync(): void {
         return;
       }
 
-      const { isGuest, setUser: setStoreUser } = useAuthStore.getState();
+      const {
+        isGuest,
+        setUser: setStoreUser,
+        user: cachedUser,
+      } = useAuthStore.getState();
 
       if (isGuest) {
         return;
       }
 
-      const user = mapAuthUser(bundle.user as AuthUserDto);
+      const user = mapAuthUser(bundle.user as AuthUserDto, cachedUser);
       queryClient.setQueryData(authKeys.me, user);
       setStoreUser(user, sessionEpoch);
     });

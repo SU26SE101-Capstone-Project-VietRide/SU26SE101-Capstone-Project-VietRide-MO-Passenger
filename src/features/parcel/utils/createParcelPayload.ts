@@ -2,14 +2,16 @@ import type { CreateParcelPayload } from '../types';
 
 export interface CreateParcelDraft
   extends Omit<CreateParcelPayload, 'photoUrl'> {
-  /** Local preview URIs are deliberately accepted only so this boundary can discard them. */
-  localPhotoUris: readonly string[];
+  /** Only a Firebase download URL returned by the shared upload service belongs here. */
+  photoUrl?: string | null;
+  /** @deprecated Local previews are never serialized across the API boundary. */
+  localPhotoUris?: readonly string[];
 }
 
 /**
- * Converts the local parcel draft into the exact backend payload. This mobile
- * build has no configured remote-photo uploader yet, so device URIs never
- * cross the network boundary and photoUrl remains explicitly null.
+ * Converts the local parcel draft into the exact backend payload. Device URIs
+ * remain UI-only; the optional photo URL must come from the authenticated,
+ * passenger-owned Firebase upload flow.
  */
 export const buildCreateParcelPayload = (
   draft: CreateParcelDraft,
@@ -24,7 +26,7 @@ export const buildCreateParcelPayload = (
   widthCm: draft.widthCm,
   heightCm: draft.heightCm,
   estimatedWeightKg: draft.estimatedWeightKg,
-  photoUrl: null,
+  photoUrl: draft.photoUrl?.trim() || null,
   recipient: draft.recipient,
   deliveryMethod: draft.deliveryMethod,
   paymentMethod: draft.paymentMethod,

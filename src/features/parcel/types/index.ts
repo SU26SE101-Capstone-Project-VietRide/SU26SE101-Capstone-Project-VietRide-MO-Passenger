@@ -7,6 +7,31 @@ export type ParcelSize = 'small' | 'medium' | 'large';
 export type ParcelSizeCategory = 'SMALL' | 'MEDIUM' | 'LARGE' | 'EXTRA_LARGE';
 export type ParcelPaymentMethod = PaymentMethod;
 export type ParcelBackendPaymentMethod = BackendPaymentMethod;
+export const PARCEL_STATUSES = [
+  'PENDING_OPERATOR_REVIEW',
+  'PENDING_PAYMENT',
+  'PENDING',
+  'PENDING_ADDITIONAL_PAYMENT',
+  'RESERVED',
+  'CHECKED_IN',
+  'PENDING_FINAL_PAYMENT',
+  'READY_TO_LOAD',
+  'LOADED',
+  'IN_TRANSIT',
+  'PENDING_TRANSFER_CONFIRM',
+  'TRANSFER_ESCALATED',
+  'UNLOADED',
+  'DELIVERED_PENDING_CONFIRM',
+  'DELIVERY_CONFIRMED',
+  'DELIVERY_REJECTED',
+  'RETURN_INITIATED',
+  'RETURNED',
+  'PENDING_OPERATOR_ACTION',
+  'CANCELLED',
+  'REJECTED',
+  'EXPIRED',
+] as const;
+export type ParcelStatus = (typeof PARCEL_STATUSES)[number];
 
 export interface Station {
   id: string;
@@ -72,7 +97,8 @@ export interface AvailableParcelTripsParams {
   widthCm: number;
   heightCm: number;
   estimatedWeightKg: number;
-  sizeCategory: ParcelSizeCategory;
+  /** Optional legacy hint; settlement v2 derives category from cargo metrics. */
+  sizeCategory?: ParcelSizeCategory;
   page?: number;
   pageSize?: number;
 }
@@ -144,18 +170,47 @@ export interface CreateParcelPayload {
 export interface CreateParcelResult {
   parcelId: string;
   parcelCode: string;
-  status: string;
-  totalAmount: number;
-  originalDepositAmount: number;
-  discountAmount: number;
+  status: ParcelStatus;
+  estimatedSizeCategory: ParcelSizeCategory;
+  estimatedGrossPriceVnd: number;
+  discountAmountVnd: number;
+  estimatedTotalPriceVnd: number;
+  depositPercent: number;
+  depositRequiredVnd: number;
+  depositPaidVnd: number;
   voucherCode: string | null;
+  settlementPolicyVersion: number;
+}
+
+export interface StartParcelPaymentInput {
+  parcelId: string;
+  paymentMethod: ParcelBackendPaymentMethod;
+}
+
+export interface ParcelDepositPaymentResult {
+  parcelId: string;
+  status: ParcelStatus;
+  depositPaymentId: string | null;
+  depositRequiredVnd: number;
+  depositPaidVnd: number;
+  paymentDueAt: string | null;
+  paymentRedirectUrl: string | null;
+}
+
+export interface ParcelFinalPaymentResult {
+  parcelId: string;
+  status: ParcelStatus;
+  balancePaymentId: string | null;
+  balanceRequiredVnd: number;
+  balancePaidVnd: number;
+  finalPaymentDeadline: string;
   paymentRedirectUrl: string | null;
 }
 
 export interface ParcelDetail {
   parcelId: string;
   parcelCode: string;
-  status: string;
+  status: ParcelStatus;
   senderUserId: string;
   recipientUserId: string | null;
   recipientName: string | null;
@@ -164,7 +219,9 @@ export interface ParcelDetail {
   tripId: string;
   dropoffStopId: string | null;
   description: string | null;
-  photoUrl?: string | null;
+  photoUrl: string | null;
+  checkInPhotoUrls: string[] | null;
+  deliveryPhotoUrls: string[] | null;
   sizeCategory: ParcelSizeCategory | string;
   estimatedWeightKg: number;
   actualWeightKg: number | null;
@@ -175,6 +232,46 @@ export interface ParcelDetail {
   voucherCode: string | null;
   voucherUsageId: string | null;
   additionalAmount: number;
+  estimatedSizeCategory: ParcelSizeCategory | string;
+  actualSizeCategory: ParcelSizeCategory | string | null;
+  estimatedLengthCm: number;
+  estimatedWidthCm: number;
+  estimatedHeightCm: number;
+  estimatedVolumeM3: number;
+  estimatedDimWeightKg: number;
+  estimatedChargeableWeightKg: number;
+  actualLengthCm: number | null;
+  actualWidthCm: number | null;
+  actualHeightCm: number | null;
+  actualVolumeM3: number | null;
+  actualDimWeightKg: number | null;
+  actualChargeableWeightKg: number | null;
+  estimatedGrossPriceVnd: number;
+  finalGrossPriceVnd: number;
+  discountAmountVnd: number;
+  estimatedTotalPriceVnd: number;
+  finalTotalPriceVnd: number;
+  depositPercent: number;
+  depositRequiredVnd: number;
+  depositPaidVnd: number;
+  balanceRequiredVnd: number;
+  balancePaidVnd: number;
+  refundDueVnd: number;
+  refundedAmountVnd: number;
+  forfeitedDepositVnd: number;
+  depositPaymentId: string | null;
+  balancePaymentId: string | null;
+  loadCutoffAt: string | null;
+  latestCheckInAt: string | null;
+  checkedInAt: string | null;
+  checkedInByUserId: string | null;
+  reweighedAt: string | null;
+  reweighedByUserId: string | null;
+  finalPaymentDeadline: string | null;
+  pricePerKgVnd: number;
+  minimumPriceVnd: number;
+  dimWeightFactor: number;
+  settlementPolicyVersion: number;
   createdAt: string;
   loadedAt: string | null;
   unloadedAt: string | null;
@@ -189,7 +286,7 @@ export interface ParcelDetail {
 export interface ReceivedParcel {
   parcelId: string;
   parcelCode: string;
-  status: string;
+  status: ParcelStatus;
   originStation: { id: string; name: string } | null;
   destinationStation: { id: string; name: string } | null;
   eta: string | null;

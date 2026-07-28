@@ -11,10 +11,19 @@ import type {
   CreateParcelResult,
   GetParcelVouchersParams,
   ParcelAvailableVoucher,
+  ParcelDepositPaymentResult,
   ParcelDetail,
+  ParcelFinalPaymentResult,
   PagedParcelResponse,
   ReceivedParcel,
+  StartParcelPaymentInput,
 } from '../types';
+
+type ParcelPaymentEndpoint = 'deposit-payment' | 'final-payment';
+
+const getIdempotencyHeaders = (idempotencyKey: string) => ({
+  'Idempotency-Key': normalizeIdempotencyKey(idempotencyKey),
+});
 
 export const parcelKeys = {
   all: ['parcels'] as const,
@@ -31,7 +40,6 @@ export const parcelKeys = {
         widthCm: params.widthCm,
         heightCm: params.heightCm,
         estimatedWeightKg: params.estimatedWeightKg,
-        sizeCategory: params.sizeCategory,
         pageSize: params.pageSize ?? 20,
       },
     ] as const;
@@ -75,13 +83,48 @@ export async function createParcel(
     '/parcels',
     payload,
     {
-      headers: {
-        'Idempotency-Key': normalizeIdempotencyKey(idempotencyKey),
-      },
+      headers: getIdempotencyHeaders(idempotencyKey),
     },
   );
 
   return unwrapApiResponse(response.data);
+}
+
+async function startParcelPayment<TResult>(
+  endpoint: ParcelPaymentEndpoint,
+  input: StartParcelPaymentInput,
+  idempotencyKey: string,
+): Promise<TResult> {
+  const parcelIdSegment = encodeUuidPathSegment(input.parcelId, 'parcelId');
+  const response = await apiClient.post<ApiEnvelope<TResult>>(
+    `/parcels/${parcelIdSegment}/${endpoint}`,
+    { paymentMethod: input.paymentMethod },
+    { headers: getIdempotencyHeaders(idempotencyKey) },
+  );
+
+  return unwrapApiResponse(response.data);
+}
+
+export function startParcelDepositPayment(
+  input: StartParcelPaymentInput,
+  idempotencyKey: string,
+): Promise<ParcelDepositPaymentResult> {
+  return startParcelPayment<ParcelDepositPaymentResult>(
+    'deposit-payment',
+    input,
+    idempotencyKey,
+  );
+}
+
+export function startParcelFinalPayment(
+  input: StartParcelPaymentInput,
+  idempotencyKey: string,
+): Promise<ParcelFinalPaymentResult> {
+  return startParcelPayment<ParcelFinalPaymentResult>(
+    'final-payment',
+    input,
+    idempotencyKey,
+  );
 }
 
 export async function getParcelDetail(

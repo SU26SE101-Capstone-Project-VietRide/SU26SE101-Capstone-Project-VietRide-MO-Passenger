@@ -88,9 +88,10 @@ const shouldKeepLocalSession = (error: unknown): boolean => {
 
 const authSessionFromRefreshBundle = async (
   bundle: RefreshTokenBundleDto,
+  cachedUser?: User | null,
 ): Promise<AuthSession> => {
   const user = bundle.user
-    ? mapAuthUser(bundle.user as AuthUserDto)
+    ? mapAuthUser(bundle.user as AuthUserDto, cachedUser)
     : await fetchCurrentUser();
 
   return {
@@ -130,37 +131,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     clearSessionData();
-    let hydratedUser = session.user;
-
-    try {
-      const currentUser = await fetchCurrentUser();
-
-      if (!isTokenSessionEpochCurrent(sessionEpoch)) {
-        throw new Error('Phiên đăng nhập đã được thay thế bởi một phiên mới hơn.');
-      }
-
-      if (!currentUser || currentUser.id !== session.user.id) {
-        throw new Error('Hồ sơ đăng nhập không khớp với tài khoản hiện tại.');
-      }
-
-      // POST /auth/login intentionally returns a compact user summary. Fetch
-      // /users/me before entering the app so fields omitted from that summary
-      // (notably avatarUrl) cannot be cached as an authoritative profile.
-      hydratedUser = currentUser;
-    } catch (error) {
-      if (!isTokenSessionEpochCurrent(sessionEpoch)) {
-        throw new Error('Phiên đăng nhập đã được thay thế bởi một phiên mới hơn.');
-      }
-
-      if (__DEV__) {
-        console.warn('[Auth] Could not hydrate the current user after login:', error);
-      }
-    }
-
-    cacheUser(hydratedUser);
+    // POST /auth/login returns the login-safe user projection, including
+    // avatarUrl. Keep that single response as the first app-frame profile.
+    cacheUser(session.user);
 
     set({
-      user: hydratedUser,
+      user: session.user,
       isAuthenticated: true,
       isGuest: false,
       isAuthLoading: false,
@@ -263,7 +239,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const refreshResult = await refreshStoredTokenBundle();
 
         if (refreshResult.success) {
-          const session = await authSessionFromRefreshBundle(refreshResult.data);
+          const session = await authSessionFromRefreshBundle(
+            refreshResult.data,
+            get().user,
+          );
           if (!isTokenSessionEpochCurrent(initializationEpoch)) {
             return;
           }
@@ -324,7 +303,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const refreshResult = await refreshStoredTokenBundle();
 
       if (refreshResult.success) {
-        const session = await authSessionFromRefreshBundle(refreshResult.data);
+        const session = await authSessionFromRefreshBundle(
+          refreshResult.data,
+          get().user,
+        );
         if (!isTokenSessionEpochCurrent(initializationEpoch)) {
           return;
         }
@@ -391,7 +373,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     try {
-      const session = await authSessionFromRefreshBundle(refreshResult.data);
+      const session = await authSessionFromRefreshBundle(
+        refreshResult.data,
+        get().user,
+      );
       if (!isTokenSessionEpochCurrent(refreshSessionEpoch)) {
         return null;
       }

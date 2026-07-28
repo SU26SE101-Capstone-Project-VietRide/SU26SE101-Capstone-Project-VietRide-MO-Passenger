@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { bookingKeys } from '@features/booking/api/bookingApi';
 import { parcelKeys } from '@features/parcel/api/parcelApi';
+import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { usePaymentDeepLink, type PaymentReturnEvent } from '@shared/hooks';
 
@@ -34,10 +35,17 @@ export function PaymentDeepLinkHandler(): null {
         })
         .catch(() => undefined);
 
-      // Payment screens own the authoritative foreground reconciliation. This
-      // only marks booking data stale so active polling is never restarted or
-      // raced by an untrusted OS redirect signal. Wallet top-up deliberately
-      // remains owned by its single-flight foreground gate.
+      queryClient
+        .invalidateQueries({
+          queryKey: passengerHistoryKeys.user(userId),
+          refetchType: 'none',
+        })
+        .catch(() => undefined);
+
+      // Payment screens own authoritative foreground reconciliation. This only
+      // marks booking/parcel/history data stale so the untrusted OS redirect
+      // never races active polling. Wallet top-up remains owned by its
+      // single-flight foreground gate.
 
       Alert.alert(
         'Đang xác nhận thanh toán',

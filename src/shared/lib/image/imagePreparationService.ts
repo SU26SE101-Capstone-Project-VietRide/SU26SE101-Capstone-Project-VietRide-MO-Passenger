@@ -1,10 +1,11 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { Image } from 'react-native';
 
 export interface ImagePreparationAsset {
   uri: string;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
 }
 
 export const IMAGE_UPLOAD_LIMITS = {
@@ -17,6 +18,30 @@ export interface PreparedImage {
   mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
   size: number;
 }
+
+const getImageDimensions = (
+  uri: string,
+  asset: ImagePreparationAsset,
+): Promise<{ width: number; height: number }> => {
+  if (
+    typeof asset.width === 'number'
+    && Number.isFinite(asset.width)
+    && asset.width > 0
+    && typeof asset.height === 'number'
+    && Number.isFinite(asset.height)
+    && asset.height > 0
+  ) {
+    return Promise.resolve({ width: asset.width, height: asset.height });
+  }
+
+  return new Promise((resolve, reject) => {
+    Image.getSize(
+      uri,
+      (width, height) => resolve({ width, height }),
+      () => reject(new Error('Failed to read image dimensions')),
+    );
+  });
+};
 
 /**
  * Prepares an image for upload by fulfilling shared policy rules:
@@ -33,16 +58,24 @@ export async function prepareImageUpload(
     throw new Error('Invalid asset URI');
   }
 
+  const sourceDimensions = await getImageDimensions(uri, asset);
+
   // 1. Resize if it exceeds dimensions
-  let width = asset.width;
-  let height = asset.height;
-  
-  if (width > IMAGE_UPLOAD_LIMITS.maxDimensionPixels || height > IMAGE_UPLOAD_LIMITS.maxDimensionPixels) {
+  let { width, height } = sourceDimensions;
+
+  if (
+    width > IMAGE_UPLOAD_LIMITS.maxDimensionPixels
+    || height > IMAGE_UPLOAD_LIMITS.maxDimensionPixels
+  ) {
     if (width > height) {
-      height = Math.round((height * IMAGE_UPLOAD_LIMITS.maxDimensionPixels) / width);
+      height = Math.round(
+        (height * IMAGE_UPLOAD_LIMITS.maxDimensionPixels) / width,
+      );
       width = IMAGE_UPLOAD_LIMITS.maxDimensionPixels;
     } else {
-      width = Math.round((width * IMAGE_UPLOAD_LIMITS.maxDimensionPixels) / height);
+      width = Math.round(
+        (width * IMAGE_UPLOAD_LIMITS.maxDimensionPixels) / height,
+      );
       height = IMAGE_UPLOAD_LIMITS.maxDimensionPixels;
     }
   }
@@ -53,21 +86,22 @@ export async function prepareImageUpload(
 
   // 2. Manipulate: Resize & Strip EXIF
   // Passing empty actions if no resize needed to just force format conversion & EXIF stripping.
-  const actions = width !== asset.width || height !== asset.height 
-    ? [{ resize: { width, height } }] 
+  const actions =
+    width !== sourceDimensions.width || height !== sourceDimensions.height
+    ? [{ resize: { width, height } }]
     : [];
 
-  const result = await manipulateAsync(
-    uri,
-    actions,
-    {
-      compress: 0.78,
-      format,
-    },
-  );
+  const result = await manipulateAsync(uri, actions, {
+    compress: 0.78,
+    format,
+  });
 
   const fileInfo = await FileSystem.getInfoAsync(result.uri);
-  if (!fileInfo.exists || typeof fileInfo.size !== 'number' || fileInfo.size <= 0) {
+  if (
+    !fileInfo.exists
+    || typeof fileInfo.size !== 'number'
+    || fileInfo.size <= 0
+  ) {
     throw new Error('Failed to read prepared file information');
   }
 

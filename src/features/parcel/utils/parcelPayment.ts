@@ -1,7 +1,5 @@
-const PARCEL_PAYMENT_PENDING_STATUSES = new Set([
-  'PENDING_PAYMENT',
-  'PENDING_ADDITIONAL_PAYMENT',
-]);
+const PARCEL_DEPOSIT_PAYMENT_STATUS = 'PENDING_PAYMENT';
+const PARCEL_FINAL_PAYMENT_STATUS = 'PENDING_FINAL_PAYMENT';
 
 const PARCEL_CHECKOUT_FAILED_STATUSES = new Set([
   'CANCELLED',
@@ -12,6 +10,9 @@ const PARCEL_CHECKOUT_FAILED_STATUSES = new Set([
 
 const PARCEL_CHECKOUT_ACTIVE_STATUSES = new Set([
   'PENDING',
+  'RESERVED',
+  'CHECKED_IN',
+  'READY_TO_LOAD',
   'LOADED',
   'IN_TRANSIT',
   'PENDING_TRANSFER_CONFIRM',
@@ -28,11 +29,25 @@ export type ParcelCheckoutState =
   | 'attention'
   | 'active';
 
+export type ParcelPaymentStage = 'deposit' | 'final';
+
 const normalizeParcelStatus = (status?: string | null): string =>
   status?.trim().toUpperCase() ?? '';
 
+export const getParcelPaymentStage = (
+  status?: string | null,
+): ParcelPaymentStage | null => {
+  const normalizedStatus = normalizeParcelStatus(status);
+
+  if (normalizedStatus === PARCEL_DEPOSIT_PAYMENT_STATUS) {
+    return 'deposit';
+  }
+
+  return normalizedStatus === PARCEL_FINAL_PAYMENT_STATUS ? 'final' : null;
+};
+
 export const isParcelPaymentPending = (status?: string | null): boolean => {
-  return PARCEL_PAYMENT_PENDING_STATUSES.has(normalizeParcelStatus(status));
+  return getParcelPaymentStage(status) !== null;
 };
 
 export const getParcelCheckoutState = (
@@ -40,7 +55,7 @@ export const getParcelCheckoutState = (
 ): ParcelCheckoutState => {
   const normalizedStatus = normalizeParcelStatus(status);
 
-  if (PARCEL_PAYMENT_PENDING_STATUSES.has(normalizedStatus)) {
+  if (getParcelPaymentStage(normalizedStatus)) {
     return 'awaiting_payment';
   }
 

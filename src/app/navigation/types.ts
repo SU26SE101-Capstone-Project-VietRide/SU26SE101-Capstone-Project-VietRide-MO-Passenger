@@ -9,6 +9,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { BookingEntryIntent } from '@features/booking/types';
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import type { TripLifecycleStatus } from '@features/trip/types';
+import type { PaymentMethod } from '@shared/utils/paymentMethod';
 
 // ─── Auth Stack ───────────────────────────────────────────
 export type AuthStackParamList = {
@@ -58,6 +59,7 @@ export type ParcelStackParamList = {
     parcelId: string;
     fromHistory?: boolean;
     paymentRedirectUrl?: string;
+    preferredPaymentMethod?: PaymentMethod;
   };
   ParcelTracking: { parcelId: string };
 };

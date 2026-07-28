@@ -32,7 +32,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Input, PhotoPicker } from '@shared/components';
-import { getApiErrorMessage, toApiError } from '@shared/api/errors';
+import { toApiError } from '@shared/api/errors';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import {
   isValidEmail,
@@ -77,7 +77,9 @@ import {
   useAvailableParcelTrips,
   useAvailableParcelVouchers,
   useCreateParcel,
+  useStartParcelDepositPayment,
 } from '../hooks/useParcelQueries';
+import { useParcelPhotoUpload } from '../hooks/useParcelPhotoUpload';
 import { useParcelStations } from '../hooks/useParcelStations';
 import type {
   AvailableParcelTrip,
@@ -217,6 +219,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const [weightDraftValid, setWeightDraftValid] = useState(true);
   const previousTripSearchRef = useRef<string | null>(null);
   const selectedTripIdRef = useRef<string | null>(null);
+  const checkoutInFlightRef = useRef(false);
   const walletBalanceQuery = useWalletBalance(step === 4);
 
   const currentLocation = useCurrentCoordinates(step === 1 || step === 2);
@@ -315,7 +318,6 @@ export function CreateParcelScreen(): React.JSX.Element {
       widthCm: dimensions.widthCm,
       heightCm: dimensions.heightCm,
       estimatedWeightKg,
-      sizeCategory,
       pageSize: 20,
     };
   }, [
@@ -327,7 +329,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     estimatedWeightKg,
     packageMeasurementsValid,
     receivingStation,
-    sizeCategory,
   ]);
 
   const availableTripsQuery = useAvailableParcelTrips(
@@ -371,7 +372,6 @@ export function CreateParcelScreen(): React.JSX.Element {
         receivingStation?.id ?? '',
         dropoffStation?.id ?? '',
         departureDate,
-        sizeCategory,
         dimensions.lengthCm,
         dimensions.widthCm,
         dimensions.heightCm,
@@ -385,7 +385,6 @@ export function CreateParcelScreen(): React.JSX.Element {
       dropoffStation?.id,
       estimatedWeightKg,
       receivingStation?.id,
-      sizeCategory,
     ],
   );
 
@@ -498,6 +497,12 @@ export function CreateParcelScreen(): React.JSX.Element {
   ]);
 
   const createParcelMutation = useCreateParcel();
+  const depositPaymentMutation = useStartParcelDepositPayment();
+  const {
+    uploadParcelPhoto,
+    isUploadingParcelPhoto,
+    resetParcelPhotoUpload,
+  } = useParcelPhotoUpload();
 
   const handleBackStep = useCallback(() => {
     if (step > 1) {
@@ -702,7 +707,9 @@ export function CreateParcelScreen(): React.JSX.Element {
     step,
   ]);
 
-  const buildCreatePayload = useCallback((): CreateParcelPayload => {
+  const buildCreatePayload = useCallback((
+    photoUrl: string | null,
+  ): CreateParcelPayload => {
     if (!selectedTrip) {
       throw new Error('Please select a trip before creating parcel.');
     }
@@ -723,7 +730,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       widthCm: dimensions.widthCm,
       heightCm: dimensions.heightCm,
       estimatedWeightKg,
-      localPhotoUris: photos,
+      photoUrl,
       recipient: {
         fullName: recipientName.trim(),
         phoneNumber: normalizeVietnamPhone(recipientPhone),
@@ -741,7 +748,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     estimatedValue,
     estimatedWeightKg,
     packageCategory,
-    photos,
     recipientEmail,
     recipientName,
     recipientPhone,
@@ -749,6 +755,34 @@ export function CreateParcelScreen(): React.JSX.Element {
     selectedVoucher?.code,
     sizeCategory,
   ]);
+
+  const invalidateParcelCheckoutQueries = useCallback((
+    includeWallet: boolean,
+  ): void => {
+    if (!user?.id) {
+      return;
+    }
+
+    const invalidations = [
+      queryClient.invalidateQueries({ queryKey: parcelKeys.user(user.id) }),
+      queryClient.invalidateQueries({
+        queryKey: parcelKeys.availableTripsRoot(),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: passengerHistoryKeys.user(user.id),
+      }),
+    ];
+
+    if (includeWallet) {
+      invalidations.push(
+        queryClient.invalidateQueries({
+          queryKey: walletKeys.user(user.id),
+        }),
+      );
+    }
+
+    Promise.all(invalidations).catch(() => undefined);
+  }, [queryClient, user?.id]);
 
   const handleSubmit = useCallback(async () => {
     if (!validateCurrentStep()) {
@@ -760,35 +794,97 @@ export function CreateParcelScreen(): React.JSX.Element {
       return;
     }
 
+    if (checkoutInFlightRef.current) {
+      return;
+    }
+    checkoutInFlightRef.current = true;
+
     try {
-      const result = await createParcelMutation.mutateAsync(
-        buildCreatePayload(),
-      );
-      if (user?.id) {
-        const invalidations = [
-          queryClient.invalidateQueries({ queryKey: parcelKeys.user(user.id) }),
-          queryClient.invalidateQueries({
-            queryKey: parcelKeys.availableTripsRoot(),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: passengerHistoryKeys.user(user.id),
-          }),
-        ];
-
-        if (paymentMethod === 'wallet') {
-          invalidations.push(
-            queryClient.invalidateQueries({
-              queryKey: walletKeys.user(user.id),
-            }),
+      let photoUrl: string | null = null;
+      if (photos[0]) {
+        try {
+          photoUrl = await uploadParcelPhoto(photos[0]);
+        } catch (error) {
+          const apiError = toApiError(error);
+          if (apiError.code === 'SESSION_INVALIDATED') {
+            return;
+          }
+          Alert.alert(
+            'Could not upload parcel photo',
+            apiError.code === 'UNKNOWN_ERROR'
+              ? 'The selected photo could not be prepared or uploaded. Try again, or remove it to continue without a photo.'
+              : apiError.message,
           );
+          return;
         }
-
-        await Promise.all(invalidations);
       }
 
-      if (result.paymentRedirectUrl) {
+      let result;
+      try {
+        result = await createParcelMutation.mutateAsync(
+          buildCreatePayload(photoUrl),
+        );
+      } catch (error) {
+        const apiError = toApiError(error);
+        if (apiError.code === 'SESSION_INVALIDATED') {
+          return;
+        }
+        if (apiError.statusCode === 409) {
+          setSelectedTripId(null);
+          setPromoCode('');
+          setAppliedPromo(null);
+          setPromoError(undefined);
+          await refetchAvailableTrips().catch(() => undefined);
+          Alert.alert(
+            'Trip availability changed',
+            'The selected trip or parcel estimate changed while you were confirming. Please choose an available trip again.',
+          );
+          return;
+        }
+        Alert.alert('VietRide', apiError.message);
+        return;
+      }
+
+      setPackage({ photos: [] });
+      resetParcelPhotoUpload();
+
+      let paymentRedirectUrl: string | null = null;
+      if (result.status === 'PENDING_PAYMENT') {
         try {
-          await openPaymentRedirect(result.paymentRedirectUrl);
+          const paymentResult = await depositPaymentMutation.mutateAsync({
+            parcelId: result.parcelId,
+            paymentMethod: backendPaymentMethod,
+          });
+          paymentRedirectUrl = paymentResult.paymentRedirectUrl;
+        } catch (error) {
+          const apiError = toApiError(error);
+          if (apiError.code === 'SESSION_INVALIDATED') {
+            return;
+          }
+
+          invalidateParcelCheckoutQueries(paymentMethod === 'wallet');
+          navigation.navigate('ParcelDetail', {
+            parcelId: result.parcelId,
+            preferredPaymentMethod: paymentMethod,
+          });
+          Alert.alert(
+            'Parcel created',
+            `Your parcel was saved, but payment could not be started. You can retry securely from its detail screen.\n\n${apiError.message}`,
+          );
+          return;
+        }
+      }
+
+      invalidateParcelCheckoutQueries(paymentMethod === 'wallet');
+      navigation.navigate('ParcelDetail', {
+        parcelId: result.parcelId,
+        paymentRedirectUrl: paymentRedirectUrl ?? undefined,
+        preferredPaymentMethod: paymentMethod,
+      });
+
+      if (paymentRedirectUrl) {
+        try {
+          await openPaymentRedirect(paymentRedirectUrl);
         } catch (error) {
           Alert.alert(
             PAYMENT_REDIRECT_ERROR_TITLE,
@@ -796,42 +892,24 @@ export function CreateParcelScreen(): React.JSX.Element {
           );
         }
       }
-
-      setPackage({ photos: [] });
-      navigation.navigate('ParcelDetail', {
-        parcelId: result.parcelId,
-        paymentRedirectUrl: result.paymentRedirectUrl ?? undefined,
-      });
-    } catch (error) {
-      const apiError = toApiError(error);
-      if (apiError.code === 'SESSION_INVALIDATED') {
-        return;
-      }
-      if (apiError.statusCode === 409) {
-        setSelectedTripId(null);
-        setPromoCode('');
-        setAppliedPromo(null);
-        setPromoError(undefined);
-        await refetchAvailableTrips().catch(() => undefined);
-        Alert.alert(
-          'Trip availability changed',
-          'The selected trip or parcel estimate changed while you were confirming. Please choose an available trip again.',
-        );
-        return;
-      }
-      Alert.alert('VietRide', getApiErrorMessage(error));
+    } finally {
+      checkoutInFlightRef.current = false;
     }
   }, [
     advanceStep,
+    backendPaymentMethod,
     buildCreatePayload,
     createParcelMutation,
+    depositPaymentMutation,
+    invalidateParcelCheckoutQueries,
     navigation,
     paymentMethod,
-    queryClient,
+    photos,
     refetchAvailableTrips,
+    resetParcelPhotoUpload,
     setPackage,
     step,
-    user?.id,
+    uploadParcelPhoto,
     validateCurrentStep,
   ]);
 
@@ -1170,10 +1248,15 @@ export function CreateParcelScreen(): React.JSX.Element {
           <PhotoPicker
             value={photos}
             onChange={handlePhotosChange}
+            disabled={
+              isUploadingParcelPhoto
+              || createParcelMutation.isPending
+              || depositPaymentMutation.isPending
+            }
             maxPhotos={1}
             photoLabel="parcel photo"
             title="Parcel photo (optional)"
-            helperText="Preview only in this build. The local photo is never added to the create request."
+            helperText="The photo is optimized on-device, then uploaded securely when you confirm the parcel."
           />
 
           <Input
@@ -1251,7 +1334,10 @@ export function CreateParcelScreen(): React.JSX.Element {
     );
   };
 
-  const isSubmitting = createParcelMutation.isPending;
+  const isSubmitting =
+    isUploadingParcelPhoto
+    || createParcelMutation.isPending
+    || depositPaymentMutation.isPending;
   const actionDisabled =
     isSubmitting ||
     ((step === 3 || step === 4) && !packageMeasurementsValid) ||
@@ -1362,7 +1448,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             ) : (
               <>
                 <Text style={styles.nextActionButtonText}>
-                  {step === 4 ? 'Confirm & Pay' : 'Next Step'}
+                  {step === 4 ? 'Confirm Parcel' : 'Next Step'}
                 </Text>
                 <ArrowLeft
                   size={18}

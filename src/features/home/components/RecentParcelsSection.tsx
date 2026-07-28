@@ -25,7 +25,14 @@ import { formatDate } from '@shared/utils/format';
 
 type StatusTone = 'active' | 'danger' | 'neutral' | 'success' | 'warning';
 
-const ACTIVE_STATUSES = new Set(['LOADED', 'IN_TRANSIT', 'PENDING_TRANSFER_CONFIRM']);
+const ACTIVE_STATUSES = new Set([
+  'RESERVED',
+  'CHECKED_IN',
+  'READY_TO_LOAD',
+  'LOADED',
+  'IN_TRANSIT',
+  'PENDING_TRANSFER_CONFIRM',
+]);
 const DANGER_STATUSES = new Set([
   'CANCELLED',
   'DELIVERY_REJECTED',
@@ -37,6 +44,7 @@ const SUCCESS_STATUSES = new Set(['DELIVERED_PENDING_CONFIRM', 'DELIVERY_CONFIRM
 const WARNING_STATUSES = new Set([
   'PENDING',
   'PENDING_ADDITIONAL_PAYMENT',
+  'PENDING_FINAL_PAYMENT',
   'PENDING_OPERATOR_ACTION',
   'PENDING_OPERATOR_REVIEW',
   'PENDING_PAYMENT',

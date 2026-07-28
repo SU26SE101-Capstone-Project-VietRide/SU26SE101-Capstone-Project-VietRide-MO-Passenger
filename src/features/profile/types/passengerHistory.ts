@@ -1,4 +1,5 @@
 import type { BookingStatus } from '@features/booking/types';
+import type { ParcelStatus } from '@features/parcel/types';
 
 export type PassengerHistoryType = 'TICKET' | 'PARCEL';
 
@@ -12,25 +13,7 @@ export type PassengerTicketLifecycleStatus =
   | 'REFUNDED'
   | 'EXPIRED';
 
-export type PassengerParcelStatus =
-  | 'PENDING_OPERATOR_REVIEW'
-  | 'PENDING_PAYMENT'
-  | 'PENDING'
-  | 'PENDING_ADDITIONAL_PAYMENT'
-  | 'LOADED'
-  | 'IN_TRANSIT'
-  | 'PENDING_TRANSFER_CONFIRM'
-  | 'TRANSFER_ESCALATED'
-  | 'UNLOADED'
-  | 'DELIVERED_PENDING_CONFIRM'
-  | 'DELIVERY_CONFIRMED'
-  | 'DELIVERY_REJECTED'
-  | 'RETURN_INITIATED'
-  | 'RETURNED'
-  | 'PENDING_OPERATOR_ACTION'
-  | 'CANCELLED'
-  | 'REJECTED'
-  | 'EXPIRED';
+export type PassengerParcelStatus = ParcelStatus;
 
 export interface PassengerHistoryTicketSummary {
   ticketId: string;

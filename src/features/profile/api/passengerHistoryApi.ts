@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { PARCEL_STATUSES } from '@features/parcel/types';
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import type {
@@ -43,26 +44,7 @@ const ticketLifecycleStatusSchema = z.enum([
   'EXPIRED',
 ]);
 
-const parcelStatusSchema = z.enum([
-  'PENDING_OPERATOR_REVIEW',
-  'PENDING_PAYMENT',
-  'PENDING',
-  'PENDING_ADDITIONAL_PAYMENT',
-  'LOADED',
-  'IN_TRANSIT',
-  'PENDING_TRANSFER_CONFIRM',
-  'TRANSFER_ESCALATED',
-  'UNLOADED',
-  'DELIVERED_PENDING_CONFIRM',
-  'DELIVERY_CONFIRMED',
-  'DELIVERY_REJECTED',
-  'RETURN_INITIATED',
-  'RETURNED',
-  'PENDING_OPERATOR_ACTION',
-  'CANCELLED',
-  'REJECTED',
-  'EXPIRED',
-]);
+const parcelStatusSchema = z.enum(PARCEL_STATUSES);
 
 const baseHistoryItemShape = {
   id: z.string().uuid(),

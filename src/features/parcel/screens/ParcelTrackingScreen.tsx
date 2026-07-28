@@ -149,7 +149,7 @@ export function ParcelTrackingScreen(): React.JSX.Element {
                   <Truck size={28} color={theme.colors.textTertiary} weight="duotone" />
                   <Text style={styles.trackingUnavailableTitle}>Live map not active yet</Text>
                   <Text style={styles.trackingUnavailableText}>
-                    Tracking starts after your parcel is accepted for transport.
+                    Live vehicle tracking starts after your parcel is loaded.
                   </Text>
                 </View>
               )}

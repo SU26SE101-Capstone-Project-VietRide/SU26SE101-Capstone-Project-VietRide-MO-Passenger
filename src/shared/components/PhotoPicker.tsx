@@ -109,7 +109,7 @@ const showPermissionDeniedAlert = (
 
   Alert.alert(
     `${sourceLabel} permission needed`,
-    `Allow ${sourceLabel.toLowerCase()} access to add ${photoLabel}s. Photos remain local until VietRide supports uploads.`,
+    `Allow ${sourceLabel.toLowerCase()} access to add ${photoLabel}s to this request.`,
     buttons,
   );
 };
@@ -128,7 +128,7 @@ export const PhotoPicker = memo(function PhotoPickerComponent({
   const isPickingRef = useRef(false);
   const safeMaxPhotos = normalizeMaxPhotos(maxPhotos);
   const resolvedHelperText = helperText
-    ?? `Up to ${safeMaxPhotos} local previews. Photos are not uploaded or sent yet.`;
+    ?? `Up to ${safeMaxPhotos} photos. Review your selection before submitting.`;
   const photos = useMemo(() => {
     const uniquePhotos = new Set<string>();
 
@@ -230,7 +230,7 @@ export const PhotoPicker = memo(function PhotoPickerComponent({
 
     Alert.alert(
       `Add ${photoLabel}`,
-      'Choose a source. Selected photos stay on this device and are not sent to VietRide yet.',
+      'Choose a source. Selected photos are added to this request when you submit.',
       [
         { text: 'Camera', onPress: handleCameraPress },
         { text: 'Photo library', onPress: handleLibraryPress },

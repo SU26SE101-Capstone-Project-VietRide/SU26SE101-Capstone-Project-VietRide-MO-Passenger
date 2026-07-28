@@ -7,8 +7,10 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   CheckCircle,
@@ -27,7 +29,15 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { getApiErrorMessage } from '@shared/api/errors';
-import { formatVnd } from '@shared/utils/format';
+import { formatDateTime, formatVnd } from '@shared/utils/format';
+import {
+  toBackendPaymentMethod,
+  type PaymentMethod,
+} from '@shared/utils/paymentMethod';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
+import { walletKeys } from '@features/profile/api/walletApi';
+import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import {
   getPaymentRedirectErrorMessage,
   openPaymentRedirect,
@@ -37,9 +47,20 @@ import type {
   ParcelStackParamList,
   RootStackParamList,
 } from '@app/navigation/types';
-import { useParcelDetail } from '../hooks/useParcelQueries';
-import { ErrorView } from '../components';
-import { getParcelCheckoutState } from '../utils/parcelPayment';
+import {
+  useParcelDetail,
+  useStartParcelDepositPayment,
+  useStartParcelFinalPayment,
+} from '../hooks/useParcelQueries';
+import {
+  ErrorView,
+  ParcelPaymentMethodSelector,
+} from '../components';
+import { parcelKeys } from '../api/parcelApi';
+import {
+  getParcelCheckoutState,
+  getParcelPaymentStage,
+} from '../utils/parcelPayment';
 import {
   formatParcelStatusLabel,
   isParcelTrackingEligible,
@@ -52,15 +73,75 @@ type ParcelDetailNavProp = NativeStackNavigationProp<
 >;
 type RootNavProp = NativeStackNavigationProp<RootStackParamList>;
 
+interface ParcelPhotoItem {
+  key: string;
+  label: string;
+  uri: string;
+}
+
+const ParcelPhotoGallery = React.memo(function ParcelPhotoGallery({
+  photos,
+}: {
+  photos: readonly ParcelPhotoItem[];
+}): React.JSX.Element | null {
+  const styles = useThemedStyles(createStyles);
+  if (photos.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={styles.evidenceCard}>
+      <Text style={styles.evidenceTitle}>Parcel photos</Text>
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        contentContainerStyle={styles.evidenceList}
+        showsHorizontalScrollIndicator={false}
+      >
+        {photos.map(photo => (
+          <View key={photo.key} style={styles.evidenceItem}>
+            <Image
+              source={{ uri: photo.uri }}
+              recyclingKey={photo.uri}
+              contentFit="cover"
+              transition={120}
+              style={styles.evidenceImage}
+            />
+            <Text style={styles.evidenceLabel} numberOfLines={1}>
+              {photo.label}
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+});
+
 export function ParcelDetailScreen(): React.JSX.Element {
   const route = useRoute<ParcelDetailRouteProp>();
   const navigation = useNavigation<ParcelDetailNavProp>();
   const rootNav = useNavigation<RootNavProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { parcelId, fromHistory, paymentRedirectUrl } = route.params;
-  const detailQuery = useParcelDetail(parcelId, !fromHistory);
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(state => state.user?.id);
+  const {
+    parcelId,
+    fromHistory,
+    paymentRedirectUrl,
+    preferredPaymentMethod,
+  } = route.params;
+  const [selectedPaymentMethod, setSelectedPaymentMethod] =
+    React.useState<PaymentMethod>(preferredPaymentMethod ?? 'vnpay');
+  const [paymentSessionActive, setPaymentSessionActive] = React.useState(
+    Boolean(paymentRedirectUrl),
+  );
+  const detailQuery = useParcelDetail(parcelId, paymentSessionActive);
+  const refetchParcelDetail = detailQuery.refetch;
+  const depositPaymentMutation = useStartParcelDepositPayment();
+  const finalPaymentMutation = useStartParcelFinalPayment();
   const parcel = detailQuery.data;
+  const paymentStage = getParcelPaymentStage(parcel?.status);
   const checkoutState = getParcelCheckoutState(parcel?.status);
   const paymentPending = checkoutState === 'awaiting_payment';
   const checkoutFailed = checkoutState === 'failed';
@@ -68,22 +149,115 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const needsAttention = checkoutState === 'attention';
   const deliveryCodeActive = checkoutState === 'active';
   const trackingAvailable = isParcelTrackingEligible(parcel?.status);
+  const paymentAmount = paymentStage === 'deposit'
+    ? Math.max(
+        (parcel?.depositRequiredVnd ?? 0) - (parcel?.depositPaidVnd ?? 0),
+        0,
+      )
+    : paymentStage === 'final'
+    ? Math.max(
+        (parcel?.balanceRequiredVnd ?? 0) - (parcel?.balancePaidVnd ?? 0),
+        0,
+      )
+    : 0;
+  const walletBalanceQuery = useWalletBalance(Boolean(paymentStage));
+  const isStartingPayment =
+    depositPaymentMutation.isPending || finalPaymentMutation.isPending;
+
+  const parcelPhotos = React.useMemo<ParcelPhotoItem[]>(() => {
+    const photos: ParcelPhotoItem[] = [];
+    const seen = new Set<string>();
+    const addPhoto = (uri: string | null | undefined, label: string) => {
+      const normalizedUri = uri?.trim();
+      if (!normalizedUri || seen.has(normalizedUri)) {
+        return;
+      }
+      seen.add(normalizedUri);
+      photos.push({
+        key: `${label}-${photos.length}`,
+        label,
+        uri: normalizedUri,
+      });
+    };
+
+    addPhoto(parcel?.photoUrl, 'Submitted photo');
+    parcel?.checkInPhotoUrls?.forEach((uri, index) => {
+      addPhoto(uri, `Check-in ${index + 1}`);
+    });
+    parcel?.deliveryPhotoUrls?.forEach((uri, index) => {
+      addPhoto(uri, `Delivery ${index + 1}`);
+    });
+    return photos;
+  }, [
+    parcel?.checkInPhotoUrls,
+    parcel?.deliveryPhotoUrls,
+    parcel?.photoUrl,
+  ]);
 
   React.useEffect(() => {
-    if (paymentRedirectUrl && parcel?.status && !paymentPending) {
+    if (paymentRedirectUrl && parcel?.status && !paymentStage) {
       navigation.setParams({ paymentRedirectUrl: undefined });
     }
-  }, [navigation, parcel?.status, paymentPending, paymentRedirectUrl]);
+    if (parcel?.status && !paymentStage) {
+      setPaymentSessionActive(false);
+    }
+  }, [navigation, parcel?.status, paymentRedirectUrl, paymentStage]);
 
-  const handleTrack = () => {
+  React.useEffect(() => {
+    if (
+      selectedPaymentMethod === 'wallet'
+      && !walletBalanceQuery.isLoading
+      && (
+        walletBalanceQuery.isError
+        || walletBalanceQuery.data?.balance === undefined
+        || walletBalanceQuery.data.balance < paymentAmount
+      )
+    ) {
+      setSelectedPaymentMethod('vnpay');
+    }
+  }, [
+    paymentAmount,
+    selectedPaymentMethod,
+    walletBalanceQuery.data?.balance,
+    walletBalanceQuery.isError,
+    walletBalanceQuery.isLoading,
+  ]);
+
+  const invalidatePaymentQueries = React.useCallback((): void => {
+    if (!userId) {
+      return;
+    }
+
+    Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: parcelKeys.detail(userId, parcelId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: passengerHistoryKeys.user(userId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: walletKeys.user(userId),
+      }),
+    ]).catch(() => undefined);
+  }, [parcelId, queryClient, userId]);
+
+  const handleTrack = React.useCallback(() => {
     navigation.navigate('ParcelTracking', { parcelId });
-  };
+  }, [navigation, parcelId]);
 
-  const handleGoHome = () => {
+  const handleGoHome = React.useCallback(() => {
     rootNav.navigate('Main', { screen: 'Home' });
-  };
+  }, [rootNav]);
 
-  const handleContinuePayment = async () => {
+  const handleBack = React.useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  const handleRefreshPayment = React.useCallback(() => {
+    refetchParcelDetail().catch(() => undefined);
+  }, [refetchParcelDetail]);
+
+  const handleContinuePayment = React.useCallback(async () => {
     if (!paymentRedirectUrl) {
       return;
     }
@@ -96,14 +270,59 @@ export function ParcelDetailScreen(): React.JSX.Element {
         getPaymentRedirectErrorMessage(error),
       );
     }
-  };
+  }, [paymentRedirectUrl]);
+
+  const handleStartPayment = React.useCallback(async () => {
+    if (!paymentStage || isStartingPayment) {
+      return;
+    }
+
+    try {
+      const input = {
+        parcelId,
+        paymentMethod: toBackendPaymentMethod(selectedPaymentMethod),
+      };
+      const result = paymentStage === 'deposit'
+        ? await depositPaymentMutation.mutateAsync(input)
+        : await finalPaymentMutation.mutateAsync(input);
+
+      setPaymentSessionActive(true);
+      navigation.setParams({
+        paymentRedirectUrl: result.paymentRedirectUrl ?? undefined,
+        preferredPaymentMethod: selectedPaymentMethod,
+      });
+      invalidatePaymentQueries();
+
+      if (result.paymentRedirectUrl) {
+        try {
+          await openPaymentRedirect(result.paymentRedirectUrl);
+        } catch (error) {
+          Alert.alert(
+            PAYMENT_REDIRECT_ERROR_TITLE,
+            getPaymentRedirectErrorMessage(error),
+          );
+        }
+      }
+    } catch (error) {
+      Alert.alert('Payment could not start', getApiErrorMessage(error));
+    }
+  }, [
+    depositPaymentMutation,
+    finalPaymentMutation,
+    invalidatePaymentQueries,
+    isStartingPayment,
+    navigation,
+    parcelId,
+    paymentStage,
+    selectedPaymentMethod,
+  ]);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.navbar}>
         <Pressable
           style={styles.navButton}
-          onPress={fromHistory ? () => navigation.goBack() : handleGoHome}
+          onPress={fromHistory ? handleBack : handleGoHome}
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
@@ -120,7 +339,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
         </View>
       ) : detailQuery.isError ? (
         <View style={styles.errorWrap}>
-          <ErrorView onRetry={() => detailQuery.refetch()} />
+          <ErrorView onRetry={handleRefreshPayment} />
           <Text style={styles.errorText}>
             {getApiErrorMessage(detailQuery.error)}
           </Text>
@@ -159,7 +378,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 {checkoutFailed
                   ? 'Parcel request unavailable'
                   : paymentPending
-                  ? 'Confirming payment'
+                  ? paymentStage === 'final'
+                    ? 'Final payment required'
+                    : 'Deposit required'
                   : awaitingReview
                   ? 'Awaiting operator review'
                   : needsAttention
@@ -170,7 +391,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 {checkoutFailed
                   ? 'This request can no longer continue. Check its status or create a new parcel request.'
                   : paymentPending
-                  ? 'Complete payment, then return to VietRide. The server will verify the result.'
+                  ? paymentStage === 'final'
+                    ? 'The parcel was reweighed. Pay the remaining balance before its deadline so it can be loaded.'
+                    : 'Choose a payment method to reserve cargo capacity for this parcel.'
                   : awaitingReview
                   ? 'The operator must approve this parcel before payment and delivery.'
                   : needsAttention
@@ -197,7 +420,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 {checkoutFailed
                   ? 'The delivery code is unavailable for this request.'
                   : paymentPending
-                  ? 'This delivery code activates after payment is verified.'
+                  ? paymentStage === 'final'
+                    ? 'The delivery code unlocks after final payment is verified.'
+                    : 'The delivery code unlocks after the deposit is verified.'
                   : awaitingReview
                   ? 'This delivery code activates after operator approval.'
                   : needsAttention
@@ -240,7 +465,10 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 <View style={styles.gridItem}>
                   <Text style={styles.specLabel}>PACKAGE SIZE</Text>
                   <Text style={styles.specValue}>
-                    {parcel?.sizeCategory || '-'}
+                    {parcel?.actualSizeCategory
+                      || parcel?.estimatedSizeCategory
+                      || parcel?.sizeCategory
+                      || '-'}
                   </Text>
                 </View>
                 <View style={styles.gridItem}>
@@ -264,7 +492,11 @@ export function ParcelDetailScreen(): React.JSX.Element {
                       color={theme.colors.primary}
                       weight="bold"
                     />
-                    <Text style={styles.specValue}>Deposit</Text>
+                    <Text style={styles.specValue}>
+                      {(parcel?.balanceRequiredVnd ?? 0) > 0
+                        ? 'Deposit + balance'
+                        : 'Deposit'}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -277,20 +509,53 @@ export function ParcelDetailScreen(): React.JSX.Element {
               ) : null}
 
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Deposit Due</Text>
+                <Text style={styles.totalLabel}>
+                  {parcel?.actualSizeCategory
+                    ? 'Final shipment total'
+                    : 'Estimated shipment total'}
+                </Text>
                 <Text style={styles.totalValue}>
-                  {formatVnd(parcel?.depositAmount ?? 0, {
+                  {formatVnd(
+                    parcel?.actualSizeCategory
+                      ? parcel.finalTotalPriceVnd
+                      : parcel?.estimatedTotalPriceVnd ?? 0,
+                    {
                     display: 'code',
                     clampNegative: true,
-                  })}
+                    },
+                  )}
                 </Text>
               </View>
-              {parcel?.discountAmount ? (
+              <View style={styles.settlementRow}>
+                <Text style={styles.settlementLabel}>Deposit paid</Text>
+                <Text style={styles.settlementValue}>
+                  {formatVnd(parcel?.depositPaidVnd ?? 0)} /{' '}
+                  {formatVnd(parcel?.depositRequiredVnd ?? 0)}
+                </Text>
+              </View>
+              {(parcel?.balanceRequiredVnd ?? 0) > 0 ? (
+                <View style={styles.settlementRow}>
+                  <Text style={styles.settlementLabel}>Remaining balance</Text>
+                  <Text style={styles.settlementValue}>
+                    {formatVnd(parcel?.balancePaidVnd ?? 0)} /{' '}
+                    {formatVnd(parcel?.balanceRequiredVnd ?? 0)}
+                  </Text>
+                </View>
+              ) : null}
+              {(parcel?.refundDueVnd ?? 0) > 0 ? (
+                <View style={styles.settlementRow}>
+                  <Text style={styles.settlementLabel}>Refund due</Text>
+                  <Text style={styles.refundValue}>
+                    {formatVnd(parcel?.refundDueVnd ?? 0)}
+                  </Text>
+                </View>
+              ) : null}
+              {(parcel?.discountAmountVnd ?? 0) > 0 ? (
                 <View style={styles.discountRow}>
                   <Text style={styles.discountLabel}>Voucher discount</Text>
                   <Text style={styles.discountValue}>
                     -
-                    {formatVnd(parcel.discountAmount, {
+                    {formatVnd(parcel?.discountAmountVnd ?? 0, {
                       display: 'code',
                       clampNegative: true,
                     })}
@@ -300,22 +565,119 @@ export function ParcelDetailScreen(): React.JSX.Element {
             </View>
           </View>
 
-          {paymentPending && paymentRedirectUrl ? (
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.trackButton,
-                pressed ? styles.pressed : null,
-              ]}
-              onPress={handleContinuePayment}
-            >
-              <CreditCard
-                size={18}
-                color={theme.colors.textInverse}
-                weight="bold"
-              />
-              <Text style={styles.trackButtonText}>Continue payment</Text>
-            </Pressable>
+          <ParcelPhotoGallery photos={parcelPhotos} />
+
+          {paymentPending ? (
+            <View style={styles.paymentActionCard}>
+              <View style={styles.paymentActionHeader}>
+                <View style={styles.paymentActionIcon}>
+                  <CreditCard
+                    size={22}
+                    color={theme.colors.primary}
+                    weight="duotone"
+                  />
+                </View>
+                <View style={styles.paymentActionCopy}>
+                  <Text style={styles.paymentActionTitle}>
+                    {paymentStage === 'final'
+                      ? 'Pay remaining balance'
+                      : 'Pay parcel deposit'}
+                  </Text>
+                  <Text style={styles.paymentActionAmount}>
+                    {formatVnd(paymentAmount)}
+                  </Text>
+                </View>
+              </View>
+
+              {paymentStage === 'final' && parcel?.finalPaymentDeadline ? (
+                <Text style={styles.paymentDeadline}>
+                  Pay before {formatDateTime(parcel.finalPaymentDeadline)}
+                </Text>
+              ) : null}
+
+              {paymentRedirectUrl ? (
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.trackButton,
+                    pressed ? styles.pressed : null,
+                  ]}
+                  onPress={handleContinuePayment}
+                >
+                  <CreditCard
+                    size={18}
+                    color={theme.colors.textInverse}
+                    weight="bold"
+                  />
+                  <Text style={styles.trackButtonText}>Open VNPay again</Text>
+                </Pressable>
+              ) : paymentSessionActive ? (
+                <View style={styles.verifyingPayment}>
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.primary}
+                  />
+                  <View style={styles.verifyingPaymentCopy}>
+                    <Text style={styles.verifyingPaymentTitle}>
+                      Verifying payment
+                    </Text>
+                    <Text style={styles.verifyingPaymentText}>
+                      VietRide is waiting for the backend confirmation.
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={handleRefreshPayment}
+                  >
+                    <Text style={styles.refreshPaymentText}>Refresh</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <>
+                  <ParcelPaymentMethodSelector
+                    value={selectedPaymentMethod}
+                    onChange={setSelectedPaymentMethod}
+                    requiredAmount={paymentAmount}
+                    walletBalance={walletBalanceQuery.data?.balance}
+                    walletIsLoading={walletBalanceQuery.isLoading}
+                    walletHasError={walletBalanceQuery.isError}
+                    disabled={isStartingPayment}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: isStartingPayment }}
+                    disabled={isStartingPayment}
+                    style={({ pressed }) => [
+                      styles.trackButton,
+                      isStartingPayment ? styles.trackButtonDisabled : null,
+                      pressed && !isStartingPayment ? styles.pressed : null,
+                    ]}
+                    onPress={handleStartPayment}
+                  >
+                    {isStartingPayment ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.textInverse}
+                      />
+                    ) : (
+                      <CreditCard
+                        size={18}
+                        color={theme.colors.textInverse}
+                        weight="bold"
+                      />
+                    )}
+                    <Text style={styles.trackButtonText}>
+                      {isStartingPayment
+                        ? 'Starting payment…'
+                        : selectedPaymentMethod === 'wallet'
+                        ? 'Pay with Wallet'
+                        : 'Continue to VNPay'}
+                    </Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
           ) : null}
 
           <Pressable
@@ -337,15 +699,12 @@ export function ParcelDetailScreen(): React.JSX.Element {
             <Text style={styles.trackButtonText}>
               {trackingAvailable
                 ? 'Track Shipment Status'
-                : 'Tracking unavailable'}
+                : 'Tracking starts after loading'}
             </Text>
           </Pressable>
 
           {fromHistory ? (
-            <Pressable
-              style={styles.homeButton}
-              onPress={() => navigation.goBack()}
-            >
+            <Pressable style={styles.homeButton} onPress={handleBack}>
               <Text style={styles.homeButtonText}>Go Back</Text>
             </Pressable>
           ) : (
@@ -436,6 +795,7 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
+    textAlign: 'center',
   },
   ticketCard: {
     backgroundColor: theme.effects.isLiquid
@@ -449,6 +809,37 @@ const createStyles = (theme: AppTheme) => ({
       : theme.colors.divider,
     overflow: 'visible',
     marginBottom: spacing.xxl,
+  },
+  evidenceCard: {
+    ...theme.components.card,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.xxl,
+  },
+  evidenceTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: theme.colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  evidenceList: {
+    gap: spacing.sm,
+    paddingRight: spacing.sm,
+  },
+  evidenceItem: {
+    width: 148,
+  },
+  evidenceImage: {
+    width: 148,
+    height: 108,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  evidenceLabel: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
   },
   qrSection: {
     alignItems: 'center',
@@ -611,6 +1002,30 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.lg,
     color: theme.colors.primary,
   },
+  settlementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  settlementLabel: {
+    flex: 1,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  settlementValue: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textPrimary,
+    textAlign: 'right',
+  },
+  refundValue: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.success,
+  },
   discountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -627,12 +1042,86 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.success,
   },
+  paymentActionCard: {
+    ...theme.components.card,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.xxl,
+  },
+  paymentActionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  paymentActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  paymentActionCopy: {
+    flex: 1,
+  },
+  paymentActionTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: theme.colors.textPrimary,
+  },
+  paymentActionAmount: {
+    marginTop: 2,
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.lg,
+    color: theme.colors.primary,
+  },
+  paymentDeadline: {
+    marginBottom: spacing.md,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.warning,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textPrimary,
+  },
+  verifyingPayment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  verifyingPaymentCopy: {
+    flex: 1,
+  },
+  verifyingPaymentTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+  },
+  verifyingPaymentText: {
+    marginTop: 2,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  refreshPaymentText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+  },
   trackButton: {
     ...theme.components.primaryButton,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 48,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
@@ -643,12 +1132,16 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
+    textAlign: 'center',
+    flexShrink: 1,
   },
   homeButton: {
     ...theme.components.secondaryButton,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 48,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   homeButtonText: {
     fontFamily: fontFamilies.semiBold,
