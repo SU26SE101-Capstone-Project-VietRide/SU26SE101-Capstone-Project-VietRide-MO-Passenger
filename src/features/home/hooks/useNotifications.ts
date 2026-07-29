@@ -11,7 +11,7 @@ import {
 
 type MarkNotificationReadInput = string | string[];
 
-const DEFAULT_NOTIFICATION_PARAMS: Required<ListNotificationsParams> = {
+export const DEFAULT_NOTIFICATION_LIST_PARAMS: Required<ListNotificationsParams> = {
   unreadOnly: false,
   page: 1,
   pageSize: 30,
@@ -24,7 +24,7 @@ const normalizeNotificationIds = (input: MarkNotificationReadInput): string[] =>
 
 export function useNotifications(params: ListNotificationsParams = {}) {
   const userId = useAuthStore((state) => state.user?.id);
-  const normalizedParams = { ...DEFAULT_NOTIFICATION_PARAMS, ...params };
+  const normalizedParams = { ...DEFAULT_NOTIFICATION_LIST_PARAMS, ...params };
 
   return useQuery({
     queryKey: notificationKeys.list(userId ?? 'none', normalizedParams),
@@ -41,7 +41,7 @@ export function useNotifications(params: ListNotificationsParams = {}) {
 export function useMarkNotificationRead(params: ListNotificationsParams = {}) {
   const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.user?.id);
-  const normalizedParams = { ...DEFAULT_NOTIFICATION_PARAMS, ...params };
+  const normalizedParams = { ...DEFAULT_NOTIFICATION_LIST_PARAMS, ...params };
   const queryKey = notificationKeys.list(userId ?? 'none', normalizedParams);
 
   return useMutation({

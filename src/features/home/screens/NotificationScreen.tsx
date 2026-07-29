@@ -19,59 +19,21 @@ import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { getApiErrorMessage } from '@shared/api/errors';
-import { isUuid } from '@shared/utils/pathSegment';
-import { formatShortDate } from '@shared/utils/format';
 import type { RootStackParamList } from '@app/navigation/types';
 import type { NotificationItemDto } from '../api/notificationApi';
-import { useMarkNotificationRead, useNotifications } from '../hooks/useNotifications';
+import {
+  DEFAULT_NOTIFICATION_LIST_PARAMS,
+  useMarkNotificationRead,
+  useNotifications,
+} from '../hooks/useNotifications';
+import {
+  formatNotificationRelativeTime,
+  getNotificationKind,
+} from '../utils/notificationPresentation';
 
-type NotificationKind = 'trip' | 'parcel' | 'promo' | 'notification';
 type NotificationNavigation = NativeStackNavigationProp<RootStackParamList>;
 
 const NOTIFICATION_BOTTOM_CONTENT_GAP = spacing.huge;
-const NOTIFICATION_QUERY_PARAMS = {
-  unreadOnly: false,
-  page: 1,
-  pageSize: 30,
-  sortBy: 'createdAt' as const,
-  sortDir: 'desc' as const,
-};
-
-const notificationKind = (type: string): NotificationKind => {
-  if (type.startsWith('PARCEL_')) {
-    return 'parcel';
-  }
-  if (type.includes('VOUCHER') || type.includes('SUBSCRIPTION')) {
-    return 'promo';
-  }
-  if (type.startsWith('BOOKING_') || type.startsWith('TRIP_') || type.startsWith('STOP_')) {
-    return 'trip';
-  }
-
-  return 'notification';
-};
-
-const formatRelativeTime = (dateLike: string): string => {
-  const date = new Date(dateLike);
-  const diffMs = Date.now() - date.getTime();
-
-  if (Number.isNaN(date.getTime()) || diffMs < 0) {
-    return '';
-  }
-
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return 'Now';
-  if (minutes < 60) return `${minutes}m`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-
-  return formatShortDate(date);
-};
-
 interface NotificationRowProps {
   id: string;
   type: string;
@@ -93,7 +55,7 @@ const NotificationRow = memo(function NotificationRowView({
 }: NotificationRowProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const kind = notificationKind(type);
+  const kind = getNotificationKind(type);
   const isUnread = !readAt;
 
   const meta = (() => {
@@ -163,7 +125,7 @@ const NotificationRow = memo(function NotificationRowView({
             {title}
           </Text>
           <Text style={[styles.cardTime, isUnread ? styles.cardTimeUnread : null]}>
-            {formatRelativeTime(createdAt)}
+            {formatNotificationRelativeTime(createdAt)}
           </Text>
         </View>
 
@@ -194,8 +156,8 @@ export function NotificationScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
-  const notificationsQuery = useNotifications(NOTIFICATION_QUERY_PARAMS);
-  const markReadMutation = useMarkNotificationRead(NOTIFICATION_QUERY_PARAMS);
+  const notificationsQuery = useNotifications(DEFAULT_NOTIFICATION_LIST_PARAMS);
+  const markReadMutation = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
 
   const notifications = useMemo(
     () => notificationsQuery.data?.items ?? [],
@@ -223,13 +185,7 @@ export function NotificationScreen(): React.JSX.Element {
       markReadMutation.mutate(id);
     }
 
-    const parcelId = item.data?.parcelId;
-    if (isUuid(parcelId) && notificationKind(item.type) === 'parcel') {
-      navigation.navigate('Parcel', {
-        screen: 'ParcelDetail',
-        params: { parcelId, fromHistory: true },
-      });
-    }
+    navigation.navigate('NotificationDetail', { notification: item });
   }, [markReadMutation, navigation, notifications]);
 
   const renderNotificationItem = useCallback(

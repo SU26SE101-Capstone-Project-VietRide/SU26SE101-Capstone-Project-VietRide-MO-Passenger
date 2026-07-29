@@ -112,13 +112,6 @@ describe('booking submission serialization', () => {
         time: '12:00',
         status: 'current',
       },
-      contactInfo: {
-        fullName: 'Passenger Name',
-        phoneCountryCode: '+84',
-        phone: '0912345678',
-        email: 'passenger@example.test',
-        idNumber: '012345678901',
-      },
       paymentMethod: 'vnpay',
     });
   });

@@ -11,7 +11,6 @@ import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
-import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import type {
@@ -25,7 +24,6 @@ import {
   FloatingActionBar,
   SectionCard,
   InfoRow,
-  ContactInfoModal,
 } from '../components';
 
 interface CheckoutStepProps {
@@ -40,7 +38,6 @@ export function CheckoutScreen({
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const {
-    contactInfo,
     selectedSeats,
     selectedTrip,
     selectedPickUp,
@@ -51,10 +48,8 @@ export function CheckoutScreen({
     outboundState,
     returnState,
     setHighestStep,
-    setContactInfo,
     restoreLegForEdit,
   } = useBookingStore(useShallow((state) => ({
-    contactInfo: state.contactInfo,
     selectedSeats: state.selectedSeats,
     selectedTrip: state.selectedTrip,
     selectedPickUp: state.selectedPickUp,
@@ -65,19 +60,8 @@ export function CheckoutScreen({
     outboundState: state.outboundState,
     returnState: state.returnState,
     setHighestStep: state.setHighestStep,
-    setContactInfo: state.setContactInfo,
     restoreLegForEdit: state.restoreLegForEdit,
   })));
-  const authUser = useAuthStore((state) => state.user);
-
-  const [isContactModalVisible, setIsContactModalVisible] = React.useState(false);
-  const [contactWarning, setContactWarning] = React.useState<string | null>(null);
-
-  const isContactComplete = React.useMemo(
-    () => Boolean(contactInfo.fullName.trim() && contactInfo.phone.trim() && contactInfo.idNumber.trim()),
-    [contactInfo.fullName, contactInfo.idNumber, contactInfo.phone],
-  );
-
   const checkoutSeats = React.useMemo(() => {
     if (!searchParams.isRoundTrip) {
       return selectedSeats;
@@ -91,53 +75,10 @@ export function CheckoutScreen({
     setHighestStep(checkoutStep); // Checkout step depends on trip type
   }, [setHighestStep, searchParams.isRoundTrip]);
 
-  React.useEffect(() => {
-    if (isContactComplete) {
-      setContactWarning(null);
-    }
-  }, [isContactComplete]);
-
-  React.useEffect(() => {
-    if (!authUser) {
-      return;
-    }
-
-    const fullName = (authUser.fullName || authUser.displayName || '').trim();
-    const phone = (authUser.phone || '').trim();
-    const email = (authUser.email || '').trim();
-    const nextContact: Partial<typeof contactInfo> = {};
-
-    if (!contactInfo.fullName.trim() && fullName) {
-      nextContact.fullName = fullName;
-    }
-    if (!contactInfo.phone.trim() && phone) {
-      nextContact.phone = phone;
-    }
-    if (!contactInfo.email.trim() && email) {
-      nextContact.email = email;
-    }
-
-    if (Object.keys(nextContact).length > 0) {
-      setContactInfo(nextContact);
-    }
-  }, [
-    authUser,
-    contactInfo.email,
-    contactInfo.fullName,
-    contactInfo.phone,
-    setContactInfo,
-  ]);
-
   const handleNext = useCallback(() => {
-    if (!isContactComplete) {
-      setContactWarning('Full name, phone number and ID number are required before payment.');
-      setIsContactModalVisible(true);
-      return;
-    }
-
     const nextStep = searchParams.isRoundTrip ? 10 : 6; // Payment step
     onNext(nextStep);
-  }, [isContactComplete, onNext, searchParams.isRoundTrip]);
+  }, [onNext, searchParams.isRoundTrip]);
 
   const renderLegSummary = (
     title: string,
@@ -217,31 +158,6 @@ export function CheckoutScreen({
           contentContainerStyle={styles.scrollContent}
           contentInsetAdjustmentBehavior="automatic"
         >
-          {/* Contact Info Card */}
-          <SectionCard>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardTitle}>Contact Info</Text>
-              <Pressable 
-                onPress={() => setIsContactModalVisible(true)}
-                style={({ pressed }) => [styles.editButton, pressed ? styles.editButtonPressed : null]}
-              >
-                <PencilSimple size={14} weight="bold" color={theme.colors.primary} />
-              </Pressable>
-            </View>
-
-            <InfoRow label="Full Name" value={contactInfo.fullName} />
-            <InfoRow
-              label="Phone Number"
-              value={contactInfo.phone}
-              showDivider
-            />
-            <InfoRow label="Email Address" value={contactInfo.email} showDivider />
-            <InfoRow label="ID Number" value={contactInfo.idNumber || 'Required'} />
-            {contactWarning ? (
-              <Text style={styles.contactWarning}>{contactWarning}</Text>
-            ) : null}
-          </SectionCard>
-
           {!searchParams.isRoundTrip && (
             renderLegSummary(
               'Departure Trip',
@@ -290,13 +206,8 @@ export function CheckoutScreen({
         <FloatingActionBar
           selectedSeats={checkoutSeats}
           totalPrice={totalPrice()}
-          ctaLabel={isContactComplete ? 'Next' : 'Add Contact Info'}
+          ctaLabel="Next"
           onPress={handleNext}
-        />
-
-        <ContactInfoModal 
-          visible={isContactModalVisible} 
-          onClose={() => setIsContactModalVisible(false)} 
         />
     </View>
   );
@@ -346,13 +257,6 @@ const createStyles = (theme: AppTheme) => ({
   editButtonPressed: {
     opacity: 0.8,
     transform: [{ scale: 0.94 }],
-  },
-  contactWarning: {
-    marginTop: spacing.sm,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.error,
-    lineHeight: 18,
   },
   locationBlock: {
     marginTop: spacing.md,

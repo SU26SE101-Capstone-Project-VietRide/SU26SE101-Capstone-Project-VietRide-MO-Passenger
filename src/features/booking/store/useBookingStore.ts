@@ -11,7 +11,6 @@ import type {
   BusTrip,
   SeatRow,
   Seat,
-  ContactInfo,
   PaymentMethod,
   DropOffPoint,
   PickUpPoint,
@@ -77,14 +76,6 @@ const staleBookingSessionError = (): ApiRequestError =>
     code: 'SESSION_INVALIDATED',
   });
 
-const createEmptyContactInfo = (): ContactInfo => ({
-  fullName: '',
-  phoneCountryCode: '+84',
-  phone: '',
-  email: '',
-  idNumber: '',
-});
-
 const buildTerminalPickUp = (trip: BusTrip): PickUpPoint => ({
   id: `station-${trip.originStationId}`,
   stationId: trip.originStationId,
@@ -149,12 +140,6 @@ const buildDropOffPoints = (trip: TripDetail, selectedPickUp?: PickUpPoint | nul
   ];
 };
 
-const assertContactInfo = (contactInfo: ContactInfo) => {
-  if (!contactInfo.fullName.trim() || !contactInfo.phone.trim() || !contactInfo.idNumber.trim()) {
-    throw new Error('Full name, phone number and ID number are required to book tickets.');
-  }
-};
-
 const shouldRetainBookingIdempotencyKey = (error: ApiRequestError): boolean =>
   error.isNetworkError
   || error.code === 'REQUEST_TIMEOUT'
@@ -205,9 +190,6 @@ interface BookingStore {
   initSeatMap: () => void;
 
   // ─── Contact Info ────────────────────────────────────
-  contactInfo: ContactInfo;
-  setContactInfo: (info: Partial<ContactInfo>) => void;
-
   // ─── Pick-up ─────────────────────────────────────────
   pickUpPoints: PickUpPoint[];
   selectedPickUp: PickUpPoint | null;
@@ -601,12 +583,6 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     }),
 
   // ─── Contact Info ────────────────────────────────────
-  contactInfo: createEmptyContactInfo(),
-  setContactInfo: (info) =>
-    set((state) => ({
-      contactInfo: { ...state.contactInfo, ...info },
-    })),
-
   // ─── Pick-up ─────────────────────────────────────────
   pickUpPoints: [],
   selectedPickUp: null,
@@ -675,7 +651,6 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       set({ bookingStatus: 'loading', bookingError: null });
 
       try {
-        assertContactInfo(state.contactInfo);
         const paymentMethod = toBackendPaymentMethod(state.paymentMethod);
         const voucherCode = state.voucherCode || undefined;
 
@@ -823,7 +798,6 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       selectedPickUp: null,
       selectedDropOff: null,
       selectedShuttlePickup: null,
-      contactInfo: createEmptyContactInfo(),
       pickUpPoints: [],
       dropOffPoints: [],
       paymentMethod: 'vnpay',
@@ -863,7 +837,6 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       selectedTrip: null,
       seatMap: [],
       selectedSeats: [],
-      contactInfo: createEmptyContactInfo(),
       pickUpPoints: [],
       dropOffPoints: [],
       selectedPickUp: null,
