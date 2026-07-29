@@ -65,11 +65,10 @@ export const StationCard = React.memo(function StationCard({
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.roleLabel}>{roleLabel}</Text>
         <Text style={styles.name} numberOfLines={2}>
           {station.name}
         </Text>
-        <Text style={styles.address} numberOfLines={3}>
+        <Text style={styles.address}>
           {station.address}
         </Text>
         {(station.distance || station.isClosest) ? (
@@ -131,14 +130,6 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
     minWidth: 0,
   },
-  roleLabel: {
-    color: theme.colors.textTertiary,
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs,
-    letterSpacing: 0.3,
-    marginBottom: 2,
-    textTransform: 'uppercase',
-  },
   name: {
     color: theme.colors.textPrimary,
     fontFamily: fontFamilies.bold,
@@ -148,8 +139,8 @@ const createStyles = (theme: AppTheme) => ({
   address: {
     color: theme.colors.textSecondary,
     fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    lineHeight: fontSizes.sm * 1.4,
+    fontSize: fontSizes.xs,
+    lineHeight: fontSizes.xs * 1.55,
     marginTop: spacing.xs,
   },
   metaRow: {

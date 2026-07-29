@@ -37,7 +37,6 @@ export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonPr
     <Animated.View key={`station-${index}`} style={[styles.card, { opacity: fadeAnim }]}>
       <View style={styles.stationIconStub} />
       <View style={styles.stationContentStub}>
-        <View style={styles.stationRoleStub} />
         <View style={styles.titleStub} />
         <View style={styles.addressLineStub} />
         <View style={styles.addressLineStubShort} />
@@ -119,13 +118,6 @@ const createStyles = (theme: AppTheme) => ({
   stationContentStub: {
     flex: 1,
     minWidth: 0,
-  },
-  stationRoleStub: {
-    width: '32%',
-    height: 10,
-    backgroundColor: theme.colors.skeleton,
-    borderRadius: borderRadius.xs,
-    marginBottom: spacing.xs,
   },
   titleStub: {
     width: '65%',
