@@ -70,14 +70,6 @@ export interface PickUpPoint {
 }
 
 // ─── Contact Info ─────────────────────────────────────────
-export interface ContactInfo {
-  fullName: string;
-  phoneCountryCode: string;
-  phone: string;
-  email: string;
-  idNumber: string;
-}
-
 // ─── Payment ──────────────────────────────────────────────
 export type PaymentMethod = SharedPaymentMethod;
 

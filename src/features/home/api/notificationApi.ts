@@ -1,6 +1,7 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
+import { createIdempotencyKey } from '@shared/api/idempotency';
 
 export type NotificationSortBy = 'createdAt' | 'readAt' | 'type';
 export type NotificationSortDir = 'asc' | 'desc';
@@ -60,5 +61,7 @@ export async function listNotifications(
 
 export async function markNotificationRead(notificationId: string): Promise<void> {
   const notificationIdSegment = encodeUuidPathSegment(notificationId, 'notificationId');
-  await apiClient.post(`/notifications/${notificationIdSegment}/read`);
+  await apiClient.post(`/notifications/${notificationIdSegment}/read`, undefined, {
+    headers: { 'Idempotency-Key': createIdempotencyKey('notification-read') },
+  });
 }
