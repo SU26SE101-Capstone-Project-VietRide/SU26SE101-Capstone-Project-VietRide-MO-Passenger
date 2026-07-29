@@ -6,6 +6,8 @@ export { Button } from './Button';
 export { Input } from './Input';
 export { LoadingOverlay } from './LoadingOverlay';
 export { AppLaunchScreen } from './AppLaunchScreen';
+export { ScannableCodeCard } from './ScannableCodeCard';
+export { StatusChip, type StatusChipTone } from './StatusChip';
 export { VectorImage } from './VectorImage';
 export { CustomTabBar } from './CustomTabBar';
 export { GlassCarouselSection } from './GlassCarouselSection';

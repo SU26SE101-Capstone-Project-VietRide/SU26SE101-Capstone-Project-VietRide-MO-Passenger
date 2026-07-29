@@ -1,175 +1,189 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { MapPin } from 'phosphor-react-native';
-import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import { Pressable, Text, View } from 'react-native';
+import { CheckCircle, MapPin } from 'phosphor-react-native';
+
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+} from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
+
 import type { Station } from '../types';
+
+export type StationSelectionRole = 'origin' | 'destination';
 
 interface StationCardProps {
   station: Station;
   onSelect: (station: Station) => void;
-  isSelected?: boolean;
+  isSelected: boolean;
+  selectionRole: StationSelectionRole;
 }
 
-export function StationCard({ station, onSelect, isSelected = false }: StationCardProps): React.JSX.Element {
+const selectionLabels: Record<StationSelectionRole, string> = {
+  origin: 'Sending terminal',
+  destination: 'Receiving terminal',
+};
+
+export const StationCard = React.memo(function StationCard({
+  station,
+  onSelect,
+  isSelected,
+  selectionRole,
+}: StationCardProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const roleLabel = selectionLabels[selectionRole];
 
-  // Dynamically split name into Brand and rest description for premium layout matching the screenshot
-  const getSplitName = (fullName: string) => {
-    const brands = ['FUTA', 'THANH BUOI', 'Thanh Buoi'];
-    for (const brand of brands) {
-      if (fullName.toLowerCase().startsWith(brand.toLowerCase())) {
-        const rest = fullName.substring(brand.length).trim();
-        return { brand: brand.toUpperCase(), rest };
-      }
-    }
-    const firstSpace = fullName.indexOf(' ');
-    if (firstSpace !== -1) {
-      return {
-        brand: fullName.substring(0, firstSpace).toUpperCase(),
-        rest: fullName.substring(firstSpace + 1)
-      };
-    }
-    return { brand: fullName.toUpperCase(), rest: '' };
-  };
-
-  const { brand, rest } = getSplitName(station.name);
+  const handlePress = React.useCallback(() => {
+    onSelect(station);
+  }, [onSelect, station]);
 
   return (
-    <View style={[styles.card, isSelected && styles.cardSelected]}>
-      {station.isClosest && (
-        <View style={styles.closestTag}>
-          <Text style={styles.closestText}>CLOSEST</Text>
-        </View>
-      )}
-
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.brandText}>{brand}</Text>
-          {rest ? <Text style={styles.branchText}>{rest}</Text> : null}
-        </View>
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: isSelected }}
+      accessibilityLabel={`${roleLabel}: ${station.name}${
+        station.distance ? `, ${station.distance}` : ''
+      }`}
+      onPress={handlePress}
+      style={({ pressed }) => [
+        styles.card,
+        isSelected ? styles.cardSelected : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <View style={[styles.iconTile, isSelected ? styles.iconTileSelected : null]}>
+        <MapPin
+          size={22}
+          color={isSelected ? theme.colors.textInverse : theme.colors.primary}
+          weight={isSelected ? 'fill' : 'duotone'}
+        />
       </View>
 
-      {station.distance ? (
-        <View style={styles.distanceRow}>
-          <MapPin size={15} color={theme.colors.textTertiary} weight="regular" />
-          <Text style={styles.distanceText}>{station.distance}</Text>
-        </View>
-      ) : null}
-
-      <Text style={styles.address} numberOfLines={2}>
-        {station.address}
-      </Text>
-
-      <Pressable
-        style={({ pressed }) => [
-          styles.button,
-          isSelected && styles.buttonSelected,
-          pressed ? styles.pressed : null,
-        ]}
-        onPress={() => onSelect(station)}
-      >
-        <Text style={[styles.buttonText, isSelected && styles.buttonTextSelected]}>
-          {isSelected ? 'Station Selected' : 'Select this Station'}
+      <View style={styles.content}>
+        <Text style={styles.roleLabel}>{roleLabel}</Text>
+        <Text style={styles.name} numberOfLines={2}>
+          {station.name}
         </Text>
-      </Pressable>
-    </View>
+        <Text style={styles.address} numberOfLines={3}>
+          {station.address}
+        </Text>
+        {(station.distance || station.isClosest) ? (
+          <View style={styles.metaRow}>
+            {station.distance ? (
+              <Text style={styles.distance}>{station.distance}</Text>
+            ) : null}
+            {station.isClosest ? (
+              <View style={styles.nearbyBadge}>
+                <Text style={styles.nearbyText}>NEAR YOU</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.selectionIcon}>
+        {isSelected ? (
+          <CheckCircle size={24} color={theme.colors.primary} weight="fill" />
+        ) : (
+          <View style={styles.selectionEmpty} />
+        )}
+      </View>
+    </Pressable>
   );
-}
+});
 
 const createStyles = (theme: AppTheme) => ({
   card: {
     ...theme.components.card,
+    alignItems: 'flex-start',
     borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+    flexDirection: 'row',
+    gap: spacing.md,
     marginBottom: spacing.md,
-    position: 'relative',
-    overflow: 'hidden',
+    minHeight: 112,
+    padding: spacing.lg,
   },
   cardSelected: {
-    borderColor: theme.colors.primary,
     backgroundColor: theme.colors.primaryFaded,
+    borderColor: theme.colors.primary,
     borderWidth: 2,
   },
-  closestTag: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    backgroundColor: theme.colors.accent,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderBottomRightRadius: borderRadius.sm,
-    zIndex: 10,
+  pressed: {
+    opacity: 0.88,
   },
-  closestText: {
+  iconTile: {
+    alignItems: 'center',
+    backgroundColor: theme.colors.primaryFaded,
+    borderRadius: borderRadius.md,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  iconTileSelected: {
+    backgroundColor: theme.colors.primary,
+  },
+  content: {
+    flex: 1,
+    minWidth: 0,
+  },
+  roleLabel: {
+    color: theme.colors.textTertiary,
     fontFamily: fontFamilies.bold,
-    fontSize: 9,
-    color: theme.colors.textInverse,
-    letterSpacing: 0.5,
+    fontSize: fontSizes.xs,
+    letterSpacing: 0.3,
+    marginBottom: 2,
+    textTransform: 'uppercase',
   },
-  header: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  titleContainer: {
-    width: '100%',
-  },
-  brandText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
+  name: {
     color: theme.colors.textPrimary,
-  },
-  branchText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: theme.colors.textPrimary,
-    marginTop: 2,
-  },
-  distanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: spacing.xs,
-  },
-  distanceText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textTertiary,
+    lineHeight: fontSizes.md * 1.3,
   },
   address: {
+    color: theme.colors.textSecondary,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: theme.colors.textSecondary,
-    marginTop: spacing.sm,
     lineHeight: fontSizes.sm * 1.4,
+    marginTop: spacing.xs,
   },
-  button: {
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    height: 44,
+  metaRow: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: theme.colors.primary,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
-  buttonSelected: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+  distance: {
+    color: theme.colors.textTertiary,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
   },
-  pressed: {
-    opacity: 0.86,
-    transform: [{ scale: 0.98 }],
+  nearbyBadge: {
+    backgroundColor: theme.colors.successLight,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
   },
-  buttonText: {
+  nearbyText: {
+    color: theme.colors.accent,
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primary,
+    fontSize: 9,
+    letterSpacing: 0.4,
   },
-  buttonTextSelected: {
-    color: theme.colors.textInverse,
+  selectionIcon: {
+    paddingTop: 2,
+  },
+  selectionEmpty: {
+    borderColor: theme.colors.border,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
+    height: 22,
+    width: 22,
   },
 });

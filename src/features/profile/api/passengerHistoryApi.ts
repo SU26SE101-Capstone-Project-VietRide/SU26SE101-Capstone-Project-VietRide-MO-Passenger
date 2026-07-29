@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-import { PARCEL_STATUSES } from '@features/parcel/types';
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import type {
@@ -23,28 +22,11 @@ const rfc3339Schema = z.string()
 const nullableTextSchema = z.string().trim().max(500).nullable();
 const moneySchema = z.number().int().nonnegative().safe();
 
-const ticketStatusSchema = z.enum([
-  'PENDING_PAYMENT',
-  'CONFIRMED',
-  'COMPLETED',
-  'EXPIRED',
-  'CANCELLED',
-  'NO_SHOW',
-  'PARTIAL_NO_SHOW',
-  'REFUNDED',
-  'DISRUPTED',
-]);
-
-const ticketLifecycleStatusSchema = z.enum([
-  'PENDING_PAYMENT',
-  'ISSUED',
-  'USED',
-  'CANCELLED',
-  'REFUNDED',
-  'EXPIRED',
-]);
-
-const parcelStatusSchema = z.enum(PARCEL_STATUSES);
+// Status tokens are intentionally forward-compatible. UI presentation only
+// enables actions for explicit allow-lists, so a new BE enum remains visible
+// as a neutral state instead of invalidating the entire History page.
+const statusTokenSchema = z.string().trim().min(1).max(100)
+  .regex(/^[A-Z0-9_]+$/, 'Invalid status token.');
 
 const baseHistoryItemShape = {
   id: z.string().uuid(),
@@ -61,7 +43,7 @@ const baseHistoryItemShape = {
 const ticketHistoryItemSchema = z.object({
   ...baseHistoryItemShape,
   type: z.literal('TICKET'),
-  status: ticketStatusSchema,
+  status: statusTokenSchema,
   ticket: z.object({
     bookingGroupId: z.string().uuid().nullable(),
     tripDirection: z.enum(['OUTBOUND', 'RETURN']).nullable(),
@@ -70,7 +52,7 @@ const ticketHistoryItemSchema = z.object({
       ticketId: z.string().uuid(),
       ticketCode: z.string().trim().min(1).max(100),
       seatNumber: z.string().trim().min(1).max(50),
-      status: ticketLifecycleStatusSchema,
+      status: statusTokenSchema,
       paidAmount: moneySchema,
     })).max(5),
   }),
@@ -80,7 +62,7 @@ const ticketHistoryItemSchema = z.object({
 const parcelHistoryItemSchema = z.object({
   ...baseHistoryItemShape,
   type: z.literal('PARCEL'),
-  status: parcelStatusSchema,
+  status: statusTokenSchema,
   ticket: z.null(),
   parcel: z.object({
     bookingId: z.string().uuid().nullable(),

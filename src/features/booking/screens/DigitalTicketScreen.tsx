@@ -21,10 +21,12 @@ import {
   WarningCircle,
 } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
+import { useTranslation } from 'react-i18next';
 
 import type { BookingStackParamList, RootStackParamList } from '@app/navigation/types';
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { ScannableCodeCard } from '@shared/components';
 import { useThemedStyles } from '@shared/hooks';
 import {
   borderRadius as BR,
@@ -39,17 +41,16 @@ import {
   openPaymentRedirect,
   PAYMENT_REDIRECT_ERROR_TITLE,
 } from '@shared/utils/paymentRedirect';
-import { useBookingHistoryTicket } from '../hooks/useBookingHistory';
 import { useBookingPaymentReconciliation } from '../hooks/useBookingPaymentReconciliation';
 import { useBookingStore } from '../store/useBookingStore';
 import type { BookingResult, RoundTripResult } from '../types';
 import {
   buildCheckoutTicketViewModel,
-  buildHistoryTicketViewModel,
   buildPassengerHistoryTicketViewModel,
   type TicketLegViewModel,
   type TicketViewModel,
 } from '../utils/ticketViewModel';
+import { getTicketLifecyclePresentation } from '../utils/ticketPresentation';
 
 type DigitalTicketRoute = RouteProp<BookingStackParamList, 'DigitalTicket'>;
 type DigitalTicketNavigation = CompositeNavigationProp<
@@ -85,6 +86,7 @@ function TicketView({
   pendingPaymentActions,
 }: TicketViewProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const paymentIcon = model.paymentMethod
     ? model.paymentMethod === 'WALLET'
@@ -198,7 +200,7 @@ function TicketView({
                       : 'Booking reference'}
                   </Text>
                   <Text style={styles.ticketIdText}>{leg.reference}</Text>
-                  {leg.ticketReferences ? (
+                  {leg.ticketReferences && !leg.ticketEntries?.length ? (
                     <Text style={styles.ticketReferencesText}>
                       {leg.ticketCount === 1 ? 'Ticket' : 'Tickets'}: {leg.ticketReferences}
                     </Text>
@@ -211,6 +213,35 @@ function TicketView({
                 </View>
 
                 <View style={styles.detailsSection}>
+                  {!model.isPendingPayment && leg.ticketEntries?.length ? (
+                    <View style={styles.codeList}>
+                      <Text style={styles.codeListTitle}>
+                        {leg.ticketEntries.length === 1
+                          ? 'Boarding QR code'
+                          : 'Boarding QR codes'}
+                      </Text>
+                      {leg.ticketEntries.map((ticket) => {
+                        const lifecycle = getTicketLifecyclePresentation(ticket.status);
+                        return (
+                          <ScannableCodeCard
+                            key={ticket.ticketCode}
+                            code={ticket.ticketCode}
+                            title={t('history.ticketSeat', {
+                              seat: ticket.seatNumber,
+                              defaultValue: `Seat ${ticket.seatNumber}`,
+                            })}
+                            description={ticket.status
+                              ? t(lifecycle.labelKey, lifecycle.fallback)
+                              : t(
+                                'history.ticketScanHint',
+                                'Show this exact code to the crew when boarding.',
+                              )}
+                            size={156}
+                          />
+                        );
+                      })}
+                    </View>
+                  ) : null}
                   {leg.shuttlePickupAddress ? (
                     <View style={styles.shuttleRequestCard}>
                       <Van size={20} color={theme.colors.primary} weight="duotone" />
@@ -572,16 +603,13 @@ function HistoryTicketContent({
   historyItem?: PassengerTicketHistoryItem;
 }): React.JSX.Element {
   const navigation = useNavigation<DigitalTicketNavigation>();
-  const ticketQuery = useBookingHistoryTicket(bookingId, !historyItem);
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
-  const result = ticketQuery.data;
   const model = useMemo<TicketViewModel | null>(() => {
     if (historyItem?.id === bookingId) {
       return buildPassengerHistoryTicketViewModel(historyItem);
     }
-    if (!result || result.source === 'unavailable') return null;
-    return buildHistoryTicketViewModel(result.source, result.detail);
-  }, [bookingId, historyItem, result]);
+    return null;
+  }, [bookingId, historyItem]);
 
   const handleTrack = useCallback((leg: TicketLegViewModel) => {
     if (!leg.tripId || !leg.trackingEnabled) return;
@@ -593,25 +621,14 @@ function HistoryTicketContent({
     });
   }, [navigation]);
 
-  if (!historyItem && ticketQuery.isPending) {
+  if (!model) {
     return (
       <UnavailableTicket
-        title="Loading ticket"
-        message="Reading the selected ticket detail..."
-        isLoading
+        title="Ticket unavailable"
+        message="Open History again and select this ticket to load its current details."
         onBack={handleBack}
       />
     );
-  }
-
-  if (ticketQuery.isError || !model) {
-    const reason = result?.source === 'unavailable' ? result.reason : undefined;
-    const message = reason === 'backend_not_supported'
-      ? 'Open History again to refresh this booking snapshot.'
-      : reason === 'authentication_required'
-        ? 'Sign in with the passenger account that owns this booking.'
-        : 'The selected ticket detail is unavailable.';
-    return <UnavailableTicket title="Ticket unavailable" message={message} onBack={handleBack} />;
   }
 
   return (
@@ -655,8 +672,8 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.surface,
   },
   navButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     borderRadius: BR.full,
@@ -826,6 +843,16 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     lineHeight: fontSizes.xs * 1.4,
     color: theme.colors.textSecondary,
+    textAlign: 'center' as const,
+  },
+  codeList: {
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  codeListTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
     textAlign: 'center' as const,
   },
   shuttleRequestHint: {

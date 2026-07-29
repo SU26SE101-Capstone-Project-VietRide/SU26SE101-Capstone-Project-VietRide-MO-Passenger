@@ -32,6 +32,11 @@ export interface AuthUserDto {
   role: UserRole;
   operatorId: string | null;
   status: UserStatus;
+  /**
+   * Login responses include this when an avatar exists. Compact refresh
+   * responses and rolling BE deployments may omit it, matching the API's
+   * null-omission policy.
+   */
   avatarUrl?: string | null;
 }
 
@@ -130,9 +135,9 @@ export const mapAuthUser = (
     role: dto.role,
     operatorId: dto.operatorId,
     status: dto.status,
-    // Refresh and Google responses intentionally use the compact user summary
-    // and omit avatarUrl. Preserve the same account's already-authoritative
-    // login/profile value instead of clearing it during token rotation.
+    // Compact refresh responses and rolling deployments may omit avatarUrl.
+    // Preserve the same account's already-authoritative login/profile value
+    // instead of clearing it during token rotation.
     avatarUrl: responseIncludesAvatar
       ? dto.avatarUrl ?? null
       : cachedUser?.id === dto.id

@@ -76,6 +76,83 @@
     "financialUnavailableDescription": "Wallet balance, top-up, withdrawal, and saved payment management are not enabled in this app yet.",
     "financialUnavailableSafety": "VietRide does not collect card numbers or CVV on this screen."
   },
+  "history": {
+    "routeUnavailable": "Route unavailable",
+    "originUnavailable": "Origin unavailable",
+    "destinationUnavailable": "Destination unavailable",
+    "departureUnavailable": "Departure schedule unavailable",
+    "seats": "Seats",
+    "ticketSeat": "Seat {{seat}}",
+    "ticketScanHint": "Show this exact code to the crew when boarding.",
+    "ticketCount_one": "{{count}} ticket",
+    "ticketCount_other": "{{count}} tickets",
+    "toRecipient": "To {{name}}",
+    "estimatedArrival": "Expected {{date}}",
+    "createdOn": "Created {{date}}",
+    "size": {
+      "small": "Small parcel",
+      "medium": "Medium parcel",
+      "large": "Large parcel",
+      "extraLarge": "Extra-large parcel",
+      "unknown": "Parcel size unavailable"
+    },
+    "delivery": {
+      "terminalPickup": "Terminal pickup",
+      "unknown": "Delivery method unavailable"
+    },
+    "parcel": {
+      "dropoffCode": "Terminal drop-off code",
+      "dropoffCodeHint": "Show this exact code at the terminal drop-off."
+    },
+    "ticketState": {
+      "pendingPayment": "Payment pending",
+      "issued": "Ready to board",
+      "used": "Used",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded",
+      "expired": "Expired",
+      "unknown": "Status unavailable"
+    },
+    "status": {
+      "ticket": {
+        "pendingPayment": "Payment pending",
+        "confirmed": "Confirmed",
+        "completed": "Completed",
+        "partialNoShow": "Partially used",
+        "disrupted": "Trip disrupted",
+        "expired": "Expired",
+        "cancelled": "Cancelled",
+        "noShow": "Not boarded",
+        "refunded": "Refunded",
+        "unknown": "Status unavailable"
+      },
+      "parcel": {
+        "review": "Awaiting review",
+        "pendingPayment": "Payment pending",
+        "pending": "Preparing shipment",
+        "additionalPayment": "Additional payment required",
+        "reserved": "Reserved",
+        "checkedIn": "Checked in",
+        "finalPayment": "Final payment required",
+        "readyToLoad": "Ready to load",
+        "loaded": "Loaded",
+        "inTransit": "In transit",
+        "transferConfirm": "Transfer confirmation required",
+        "transferEscalated": "Transfer needs attention",
+        "unloaded": "At destination terminal",
+        "deliveryConfirm": "Awaiting pickup confirmation",
+        "delivered": "Delivered",
+        "deliveryRejected": "Delivery rejected",
+        "returnInitiated": "Return started",
+        "returned": "Returned",
+        "operatorAction": "Operator action required",
+        "cancelled": "Cancelled",
+        "rejected": "Rejected",
+        "expired": "Expired",
+        "unknown": "Status unavailable"
+      }
+    }
+  },
   "chatbot": {
     "title": "VietRide Assistant",
     "online": "Ready to help",

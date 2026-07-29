@@ -11,14 +11,13 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   CheckCircle,
   Clock,
   CreditCard,
   MagnifyingGlass,
-  Package,
-  QrCode,
   WarningCircle,
   Wallet,
 } from 'phosphor-react-native';
@@ -26,6 +25,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { ScannableCodeCard, StatusChip } from '@shared/components';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { getApiErrorMessage } from '@shared/api/errors';
@@ -62,9 +62,13 @@ import {
   getParcelPaymentStage,
 } from '../utils/parcelPayment';
 import {
-  formatParcelStatusLabel,
   isParcelTrackingEligible,
 } from '../utils/parcelTracking';
+import {
+  getParcelDeliveryMethodPresentation,
+  getParcelSizePresentation,
+  getParcelStatusPresentation,
+} from '../utils/parcelPresentation';
 
 type ParcelDetailRouteProp = RouteProp<ParcelStackParamList, 'ParcelDetail'>;
 type ParcelDetailNavProp = NativeStackNavigationProp<
@@ -122,6 +126,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const navigation = useNavigation<ParcelDetailNavProp>();
   const rootNav = useNavigation<RootNavProp>();
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const queryClient = useQueryClient();
   const userId = useAuthStore(state => state.user?.id);
@@ -149,6 +154,14 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const needsAttention = checkoutState === 'attention';
   const deliveryCodeActive = checkoutState === 'active';
   const trackingAvailable = isParcelTrackingEligible(parcel?.status);
+  const isSender = Boolean(userId && parcel?.senderUserId === userId);
+  const statusPresentation = getParcelStatusPresentation(parcel?.status);
+  const sizePresentation = getParcelSizePresentation(
+    parcel?.actualSizeCategory
+      ?? parcel?.estimatedSizeCategory
+      ?? parcel?.sizeCategory,
+  );
+  const deliveryPresentation = getParcelDeliveryMethodPresentation(parcel?.deliveryMethod);
   const paymentAmount = paymentStage === 'deposit'
     ? Math.max(
         (parcel?.depositRequiredVnd ?? 0) - (parcel?.depositPaidVnd ?? 0),
@@ -405,17 +418,17 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
           <View style={styles.ticketCard}>
             <View style={styles.qrSection}>
-              <View style={styles.qrContainer}>
-                <QrCode
-                  size={128}
-                  color={
-                    deliveryCodeActive
-                      ? theme.colors.textPrimary
-                      : theme.colors.textTertiary
-                  }
-                  weight="light"
+              {deliveryCodeActive && parcel?.parcelCode ? (
+                <ScannableCodeCard
+                  code={parcel.parcelCode}
+                  title={t('history.parcel.dropoffCode', 'Terminal drop-off code')}
+                  description={t(
+                    'history.parcel.dropoffCodeHint',
+                    'Show this exact code at the terminal drop-off.',
+                  )}
+                  size={156}
                 />
-              </View>
+              ) : null}
               <Text style={styles.qrCaption}>
                 {checkoutFailed
                   ? 'The delivery code is unavailable for this request.'
@@ -429,15 +442,15 @@ export function ParcelDetailScreen(): React.JSX.Element {
                   ? 'The delivery code is unavailable for the current parcel status.'
                   : 'Show this parcel code at the terminal drop-off.'}
               </Text>
-              <Text style={styles.ticketIdText}>
-                {parcel?.parcelCode || parcelId}
-              </Text>
-              <View style={styles.statusPill}>
-                <Package size={14} color={theme.colors.primary} weight="fill" />
-                <Text style={styles.statusPillText}>
-                  {formatParcelStatusLabel(parcel?.status)}
+              {deliveryCodeActive ? null : (
+                <Text selectable style={styles.ticketIdText}>
+                  {parcel?.parcelCode || parcelId}
                 </Text>
-              </View>
+              )}
+              <StatusChip
+                label={t(statusPresentation.labelKey, statusPresentation.fallback)}
+                tone={statusPresentation.tone}
+              />
             </View>
 
             <View style={styles.dashedDivider}>
@@ -465,10 +478,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 <View style={styles.gridItem}>
                   <Text style={styles.specLabel}>PACKAGE SIZE</Text>
                   <Text style={styles.specValue}>
-                    {parcel?.actualSizeCategory
-                      || parcel?.estimatedSizeCategory
-                      || parcel?.sizeCategory
-                      || '-'}
+                    {t(sizePresentation.labelKey, sizePresentation.fallback)}
                   </Text>
                 </View>
                 <View style={styles.gridItem}>
@@ -479,26 +489,36 @@ export function ParcelDetailScreen(): React.JSX.Element {
                   </Text>
                 </View>
                 <View style={styles.gridItem}>
-                  <Text style={styles.specLabel}>RECIPIENT</Text>
+                  <Text style={styles.specLabel}>DELIVERY</Text>
                   <Text style={styles.specValue}>
-                    {parcel?.recipientName || '-'}
+                    {t(deliveryPresentation.labelKey, deliveryPresentation.fallback)}
                   </Text>
                 </View>
-                <View style={styles.gridItem}>
-                  <Text style={styles.specLabel}>PAYMENT</Text>
-                  <View style={styles.paymentMethodLabel}>
-                    <Wallet
-                      size={12}
-                      color={theme.colors.primary}
-                      weight="bold"
-                    />
+                {isSender ? (
+                  <View style={styles.gridItem}>
+                    <Text style={styles.specLabel}>RECIPIENT</Text>
                     <Text style={styles.specValue}>
-                      {(parcel?.balanceRequiredVnd ?? 0) > 0
-                        ? 'Deposit + balance'
-                        : 'Deposit'}
+                      {parcel?.recipientName || '-'}
                     </Text>
                   </View>
-                </View>
+                ) : null}
+                {isSender ? (
+                  <View style={styles.gridItem}>
+                    <Text style={styles.specLabel}>PAYMENT</Text>
+                    <View style={styles.paymentMethodLabel}>
+                      <Wallet
+                        size={12}
+                        color={theme.colors.primary}
+                        weight="bold"
+                      />
+                      <Text style={styles.specValue}>
+                        {(parcel?.balanceRequiredVnd ?? 0) > 0
+                          ? 'Deposit + balance'
+                          : 'Deposit'}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
               </View>
 
               {parcel?.description ? (
@@ -567,7 +587,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
           <ParcelPhotoGallery photos={parcelPhotos} />
 
-          {paymentPending ? (
+          {paymentPending && isSender ? (
             <View style={styles.paymentActionCard}>
               <View style={styles.paymentActionHeader}>
                 <View style={styles.paymentActionIcon}>

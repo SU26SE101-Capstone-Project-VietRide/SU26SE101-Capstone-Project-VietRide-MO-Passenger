@@ -35,18 +35,18 @@ export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonPr
 
   const renderStationSkeleton = (index: number) => (
     <Animated.View key={`station-${index}`} style={[styles.card, { opacity: fadeAnim }]}>
-      <View style={styles.closestTagStub} />
-      <View style={styles.titleRow}>
+      <View style={styles.stationIconStub} />
+      <View style={styles.stationContentStub}>
+        <View style={styles.stationRoleStub} />
         <View style={styles.titleStub} />
-        <View style={styles.ratingStub} />
+        <View style={styles.addressLineStub} />
+        <View style={styles.addressLineStubShort} />
+        <View style={styles.metaRowStub}>
+          <View style={styles.distanceStub} />
+          <View style={styles.badgeStub} />
+        </View>
       </View>
-      <View style={styles.addressLineStub} />
-      <View style={styles.addressLineStubShort} />
-      <View style={styles.metaRowStub}>
-        <View style={styles.badgeStub} />
-        <View style={styles.badgeStub} />
-      </View>
-      <View style={styles.buttonStub} />
+      <View style={styles.selectionStub} />
     </Animated.View>
   );
 
@@ -97,8 +97,12 @@ const createStyles = (theme: AppTheme) => ({
     width: '100%',
   },
   card: {
+    alignItems: 'flex-start',
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     borderRadius: borderRadius.lg,
+    flexDirection: 'row',
+    gap: spacing.md,
+    minHeight: 112,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -106,21 +110,22 @@ const createStyles = (theme: AppTheme) => ({
     position: 'relative',
     overflow: 'hidden',
   },
-  closestTagStub: {
-    width: 60,
-    height: 16,
+  stationIconStub: {
+    width: 44,
+    height: 44,
     backgroundColor: theme.colors.skeleton,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    borderBottomRightRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
   },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
+  stationContentStub: {
+    flex: 1,
+    minWidth: 0,
+  },
+  stationRoleStub: {
+    width: '32%',
+    height: 10,
+    backgroundColor: theme.colors.skeleton,
+    borderRadius: borderRadius.xs,
+    marginBottom: spacing.xs,
   },
   titleStub: {
     width: '65%',
@@ -132,11 +137,11 @@ const createStyles = (theme: AppTheme) => ({
     width: '50%',
     marginBottom: spacing.lg,
   },
-  ratingStub: {
-    width: '25%',
-    height: 14,
+  selectionStub: {
+    width: 24,
+    height: 24,
     backgroundColor: theme.colors.skeleton,
-    borderRadius: borderRadius.xs,
+    borderRadius: borderRadius.full,
   },
   addressLineStub: {
     width: '95%',
@@ -155,19 +160,19 @@ const createStyles = (theme: AppTheme) => ({
   metaRowStub: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginBottom: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  distanceStub: {
+    width: 44,
+    height: 12,
+    backgroundColor: theme.colors.skeleton,
+    borderRadius: borderRadius.xs,
   },
   badgeStub: {
     width: 80,
     height: 24,
     backgroundColor: theme.colors.skeleton,
     borderRadius: borderRadius.sm,
-  },
-  buttonStub: {
-    width: '100%',
-    height: 40,
-    backgroundColor: theme.colors.skeleton,
-    borderRadius: borderRadius.md,
   },
   shipmentCard: {
     flexDirection: 'row',

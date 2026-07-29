@@ -76,6 +76,83 @@
     "financialUnavailableDescription": "Số dư ví, nạp tiền, rút tiền và quản lý phương thức thanh toán chưa được bật trong ứng dụng.",
     "financialUnavailableSafety": "VietRide không thu thập số thẻ hoặc CVV tại màn hình này."
   },
+  "history": {
+    "routeUnavailable": "Chưa có thông tin tuyến",
+    "originUnavailable": "Chưa có điểm đi",
+    "destinationUnavailable": "Chưa có điểm đến",
+    "departureUnavailable": "Chưa có lịch khởi hành",
+    "seats": "Ghế",
+    "ticketSeat": "Ghế {{seat}}",
+    "ticketScanHint": "Đưa đúng mã này cho phụ xe khi lên xe.",
+    "ticketCount_one": "{{count}} vé",
+    "ticketCount_other": "{{count}} vé",
+    "toRecipient": "Gửi đến {{name}}",
+    "estimatedArrival": "Dự kiến {{date}}",
+    "createdOn": "Tạo ngày {{date}}",
+    "size": {
+      "small": "Gói nhỏ",
+      "medium": "Gói vừa",
+      "large": "Gói lớn",
+      "extraLarge": "Gói cỡ lớn",
+      "unknown": "Chưa có kích thước kiện hàng"
+    },
+    "delivery": {
+      "terminalPickup": "Nhận tại bến",
+      "unknown": "Chưa có phương thức giao nhận"
+    },
+    "parcel": {
+      "dropoffCode": "Mã gửi hàng tại bến",
+      "dropoffCodeHint": "Đưa đúng mã này cho nhân viên tại điểm gửi."
+    },
+    "ticketState": {
+      "pendingPayment": "Chờ thanh toán",
+      "issued": "Sẵn sàng lên xe",
+      "used": "Đã sử dụng",
+      "cancelled": "Đã hủy",
+      "refunded": "Đã hoàn tiền",
+      "expired": "Đã hết hạn",
+      "unknown": "Chưa có trạng thái"
+    },
+    "status": {
+      "ticket": {
+        "pendingPayment": "Chờ thanh toán",
+        "confirmed": "Đã xác nhận",
+        "completed": "Hoàn thành",
+        "partialNoShow": "Đã sử dụng một phần",
+        "disrupted": "Chuyến bị gián đoạn",
+        "expired": "Đã hết hạn",
+        "cancelled": "Đã hủy",
+        "noShow": "Chưa lên xe",
+        "refunded": "Đã hoàn tiền",
+        "unknown": "Chưa có trạng thái"
+      },
+      "parcel": {
+        "review": "Chờ duyệt",
+        "pendingPayment": "Chờ thanh toán",
+        "pending": "Đang chuẩn bị",
+        "additionalPayment": "Cần thanh toán thêm",
+        "reserved": "Đã giữ chỗ",
+        "checkedIn": "Đã nhận hàng",
+        "finalPayment": "Cần thanh toán phần còn lại",
+        "readyToLoad": "Sẵn sàng xếp hàng",
+        "loaded": "Đã xếp lên xe",
+        "inTransit": "Đang vận chuyển",
+        "transferConfirm": "Cần xác nhận bàn giao",
+        "transferEscalated": "Bàn giao cần xử lý",
+        "unloaded": "Đã đến bến nhận",
+        "deliveryConfirm": "Chờ xác nhận nhận hàng",
+        "delivered": "Đã giao",
+        "deliveryRejected": "Từ chối nhận hàng",
+        "returnInitiated": "Đã bắt đầu hoàn hàng",
+        "returned": "Đã hoàn hàng",
+        "operatorAction": "Cần nhà xe xử lý",
+        "cancelled": "Đã hủy",
+        "rejected": "Đã từ chối",
+        "expired": "Đã hết hạn",
+        "unknown": "Chưa có trạng thái"
+      }
+    }
+  },
   "chatbot": {
     "title": "Trợ lý VietRide",
     "online": "Sẵn sàng hỗ trợ",

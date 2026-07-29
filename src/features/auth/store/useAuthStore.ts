@@ -131,8 +131,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     clearSessionData();
-    // POST /auth/login returns the login-safe user projection, including
-    // avatarUrl. Keep that single response as the first app-frame profile.
+    // Both primary login endpoints return the login-safe user projection,
+    // including avatarUrl when present. Keep that response as the first
+    // app-frame profile without an extra /users/me round trip.
     cacheUser(session.user);
 
     set({

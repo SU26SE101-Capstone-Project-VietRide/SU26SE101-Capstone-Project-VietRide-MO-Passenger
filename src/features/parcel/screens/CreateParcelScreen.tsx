@@ -29,6 +29,7 @@ import {
   Truck,
   WarningCircle,
 } from 'phosphor-react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Input, PhotoPicker } from '@shared/components';
@@ -970,16 +971,45 @@ export function CreateParcelScreen(): React.JSX.Element {
     [availablePromos, depositBeforeDiscount],
   );
 
+  const isStationSelectionStep = step === 1 || step === 2;
   const stationStepQuery =
     step === 1 ? originStationsQuery : destinationStationsQuery;
-  const stationStepStations =
-    step === 1
-      ? originStationsQuery.stations
-      : destinationStationsQuery.stations.filter(
-          station => station.id !== receivingStation?.id,
-        );
+  const stationStepStations = useMemo(
+    () =>
+      step === 1
+        ? originStationsQuery.stations
+        : destinationStationsQuery.stations.filter(
+            station => station.id !== receivingStation?.id,
+          ),
+    [destinationStationsQuery.stations, originStationsQuery.stations, receivingStation?.id, step],
+  );
   const stationStepLocation = step === 1 ? originLocation : destinationLocation;
   const missingLocation = !stationStepLocation;
+  const selectedStationForStep =
+    step === 1 ? receivingStation : step === 2 ? dropoffStation : undefined;
+  const stationSelectionRole = step === 1 ? 'origin' : 'destination';
+  const handleStationSelect =
+    step === 1 ? handleSelectReceivingStation : handleSelectDropoffStation;
+  const isStationListReady =
+    isStationSelectionStep &&
+    !missingLocation &&
+    !stationStepQuery.isLoading &&
+    !stationStepQuery.isError &&
+    stationStepStations.length > 0;
+
+  const renderStation = useCallback(
+    ({ item }: { item: Station }) => (
+      <StationCard
+        station={item}
+        isSelected={selectedStationForStep?.id === item.id}
+        onSelect={handleStationSelect}
+        selectionRole={stationSelectionRole}
+      />
+    ),
+    [handleStationSelect, selectedStationForStep?.id, stationSelectionRole],
+  );
+
+  const stationKeyExtractor = useCallback((station: Station) => station.id, []);
 
   const renderStationStep = () => {
     if (missingLocation) {
@@ -1029,26 +1059,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       );
     }
 
-    return (
-      <View style={styles.stepContent}>
-        {stationStepStations.map(station => (
-          <StationCard
-            key={station.id}
-            station={station}
-            isSelected={
-              step === 1
-                ? receivingStation?.id === station.id
-                : dropoffStation?.id === station.id
-            }
-            onSelect={
-              step === 1
-                ? handleSelectReceivingStation
-                : handleSelectDropoffStation
-            }
-          />
-        ))}
-      </View>
-    );
+    return null;
   };
 
   const renderTripPicker = () => (
@@ -1340,8 +1351,21 @@ export function CreateParcelScreen(): React.JSX.Element {
     || depositPaymentMutation.isPending;
   const actionDisabled =
     isSubmitting ||
+    (isStationSelectionStep && !selectedStationForStep) ||
     ((step === 3 || step === 4) && !packageMeasurementsValid) ||
     (step === 4 && (availableTripsQuery.isLoading || !selectedTrip));
+  const actionLabel =
+    step === 1
+      ? selectedStationForStep
+        ? 'Continue to receiving terminal'
+        : 'Choose a sending terminal'
+      : step === 2
+      ? selectedStationForStep
+        ? 'Continue to parcel details'
+        : 'Choose a receiving terminal'
+      : step === 4
+      ? 'Confirm Parcel'
+      : 'Next Step';
   const routeTitle = selectedTrip
     ? `${selectedTrip.originStation.name} → ${selectedTrip.destinationStation.name}`
     : `${fromCity || 'Origin'} → ${toCity || 'Destination'}`;
@@ -1405,17 +1429,32 @@ export function CreateParcelScreen(): React.JSX.Element {
         />
         <StepHeaderWithMascot step={step} />
 
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: 96 + Math.max(insets.bottom, spacing.md) },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {renderStep()}
-        </ScrollView>
+        {isStationListReady ? (
+          <FlashList
+            data={stationStepStations}
+            renderItem={renderStation}
+            keyExtractor={stationKeyExtractor}
+            style={styles.scrollContainer}
+            contentContainerStyle={[
+              styles.stationListContent,
+              { paddingBottom: 96 + Math.max(insets.bottom, spacing.md) },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          <ScrollView
+            style={styles.scrollContainer}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: 96 + Math.max(insets.bottom, spacing.md) },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {renderStep()}
+          </ScrollView>
+        )}
 
         <View
           style={[
@@ -1430,6 +1469,11 @@ export function CreateParcelScreen(): React.JSX.Element {
                 {formatVnd(depositDue)}
               </Text>
             </View>
+          ) : null}
+          {isStationSelectionStep && selectedStationForStep ? (
+            <Text style={styles.selectedStationSummary} numberOfLines={1}>
+              Selected: {selectedStationForStep.name}
+            </Text>
           ) : null}
           <Pressable
             disabled={actionDisabled}
@@ -1448,7 +1492,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             ) : (
               <>
                 <Text style={styles.nextActionButtonText}>
-                  {step === 4 ? 'Confirm Parcel' : 'Next Step'}
+                  {actionLabel}
                 </Text>
                 <ArrowLeft
                   size={18}
@@ -1478,6 +1522,10 @@ const createStyles = (theme: AppTheme) => ({
   container: { flex: 1, backgroundColor: 'transparent' },
   scrollContainer: { flex: 1 },
   scrollContent: { paddingHorizontal: spacing.xl, paddingTop: 0 },
+  stationListContent: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
+  },
   stepContent: { paddingBottom: 80 },
   formSection: {
     marginTop: spacing.md,
@@ -1736,6 +1784,13 @@ const createStyles = (theme: AppTheme) => ({
   },
   nextActionButtonDisabled: {
     opacity: 0.52,
+  },
+  selectedStationSummary: {
+    color: theme.colors.textSecondary,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   nextActionButtonText: {
     fontFamily: fontFamilies.bold,

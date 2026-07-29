@@ -44,6 +44,7 @@
     "react-native-maps": "1.20.1",
     "react-native-nitro-google-signin": "^1.0.2",
     "react-native-nitro-modules": "^0.36.1",
+    "react-native-qrcode-svg": "^6.3.15",
     "react-native-responsive-fontsize": "^0.5.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",

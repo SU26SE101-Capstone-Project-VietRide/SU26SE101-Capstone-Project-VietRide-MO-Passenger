@@ -40,8 +40,13 @@ import type {
   RootStackParamList,
 } from '@app/navigation/types';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { formatParcelStatusLabel } from '@features/parcel/utils/parcelTracking';
+import { getTicketStatusPresentation } from '@features/booking/utils/ticketPresentation';
+import {
+  getParcelSizePresentation,
+  getParcelStatusPresentation,
+} from '@features/parcel/utils/parcelPresentation';
 import { getApiErrorMessage } from '@shared/api/errors';
+import { StatusChip } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import {
@@ -53,8 +58,6 @@ import {
 } from '@shared/theme';
 import {
   formatDate,
-  formatDateTime,
-  formatStatusLabel,
   formatTime,
   formatVnd,
 } from '@shared/utils/format';
@@ -63,7 +66,6 @@ import { usePassengerHistory } from '../hooks/usePassengerHistory';
 import type {
   PassengerParcelHistoryItem,
   PassengerTicketHistoryItem,
-  PassengerTicketStatus,
 } from '../types';
 
 type HistoryTab = 'ticket' | 'parcel';
@@ -74,22 +76,16 @@ type BookingHistoryNavigation = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-const TRACKABLE_TICKET_STATUSES = new Set<PassengerTicketStatus>([
-  'CONFIRMED',
-  'COMPLETED',
-  'PARTIAL_NO_SHOW',
-  'DISRUPTED',
-]);
-
 const ticketKeyExtractor = (item: PassengerTicketHistoryItem): string => item.id;
 const parcelKeyExtractor = (item: PassengerParcelHistoryItem): string => item.id;
 
 const getRouteLabel = (
   originName: string | null,
   destinationName: string | null,
+  unavailableLabel: string,
 ): string => {
   if (originName && destinationName) return `${originName} → ${destinationName}`;
-  return originName ?? destinationName ?? 'Journey details unavailable';
+  return originName ?? destinationName ?? unavailableLabel;
 };
 
 interface TicketFilterChipProps {
@@ -136,9 +132,8 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const isActive = item.status === 'PENDING_PAYMENT' || item.status === 'CONFIRMED';
-  const isCompleted = item.status === 'COMPLETED';
-  const canTrack = TRACKABLE_TICKET_STATUSES.has(item.status);
+  const statusPresentation = getTicketStatusPresentation(item.status);
+  const canTrack = statusPresentation.trackingEnabled;
   const seatNumbers = useMemo(
     () => item.ticket.tickets.map((ticket) => ticket.seatNumber).join(', ') || '—',
     [item.ticket.tickets],
@@ -174,27 +169,22 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
         <View style={styles.ticketHeader}>
           <View style={styles.refRow}>
             <Ticket size={18} color={theme.colors.primary} />
-            <Text style={styles.refText} numberOfLines={1}>{item.code}</Text>
-          </View>
-          <View
-            style={[
-              styles.statusBadge,
-              isActive ? styles.activeStatusBadge : null,
-              isCompleted ? styles.completedBadge : null,
-            ]}
-          >
-            <Text
-              style={[
-                styles.statusText,
-                isActive ? styles.activeStatusText : null,
-                isCompleted ? styles.completedStatusText : null,
-              ]}
-              numberOfLines={1}
-            >
-              {formatStatusLabel(item.status)}
+            <Text style={styles.refText} numberOfLines={1}>
+              {getRouteLabel(
+                item.originName,
+                item.destinationName,
+                t('history.routeUnavailable', 'Route unavailable'),
+              )}
             </Text>
           </View>
+          <StatusChip
+            label={t(statusPresentation.labelKey, statusPresentation.fallback)}
+            tone={statusPresentation.tone}
+            style={styles.statusBadge}
+          />
         </View>
+
+        <Text selectable style={styles.referenceCode} numberOfLines={1}>{item.code}</Text>
 
         {item.ticket.routeName ? (
           <Text style={styles.routeNameLabel} numberOfLines={1}>
@@ -210,10 +200,10 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
           </View>
           <View style={styles.routeTextContainer}>
             <Text style={styles.stationText} numberOfLines={1}>
-              {item.originName ?? 'Origin unavailable'}
+              {item.originName ?? t('history.originUnavailable', 'Origin unavailable')}
             </Text>
             <Text style={styles.stationText} numberOfLines={1}>
-              {item.destinationName ?? 'Destination unavailable'}
+              {item.destinationName ?? t('history.destinationUnavailable', 'Destination unavailable')}
             </Text>
           </View>
         </View>
@@ -235,9 +225,13 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
               </View>
             </>
           ) : (
-            <Text style={styles.detailValueText}>Departure schedule unavailable</Text>
+            <Text style={styles.detailValueText}>
+              {t('history.departureUnavailable', 'Departure schedule unavailable')}
+            </Text>
           )}
-          <Text style={styles.seatSummary} numberOfLines={1}>Seats {seatNumbers}</Text>
+          <Text style={styles.seatSummary} numberOfLines={1}>
+            {t('history.seats', 'Seats')}: {seatNumbers}
+          </Text>
         </View>
       </Pressable>
 
@@ -249,7 +243,10 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
           </Text>
         </View>
         <Text style={styles.ticketCountLabel}>
-          {item.ticket.tickets.length} {item.ticket.tickets.length === 1 ? 'ticket' : 'tickets'}
+          {t('history.ticketCount', {
+            count: item.ticket.tickets.length,
+            defaultValue: `${item.ticket.tickets.length} ticket(s)`,
+          })}
         </Text>
         {canTrack ? (
           <Pressable
@@ -277,7 +274,10 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
   onOpen,
 }: ParcelHistoryRowProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const statusPresentation = getParcelStatusPresentation(item.status);
+  const sizePresentation = getParcelSizePresentation(item.parcel.sizeCategory);
   const handleOpen = useCallback(() => onOpen(item.id), [item.id, onOpen]);
   const cardStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => [
@@ -299,27 +299,40 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
       </View>
       <View style={styles.parcelInfo}>
         <View style={styles.parcelHeader}>
-          <Text style={styles.parcelCode} numberOfLines={1}>{item.code}</Text>
-          <View style={styles.parcelBadge}>
-            <Text style={styles.parcelBadgeText} numberOfLines={1}>
-              {formatParcelStatusLabel(item.status)}
-            </Text>
-          </View>
+          <Text style={styles.parcelCode} numberOfLines={1}>
+            {getRouteLabel(
+              item.originName,
+              item.destinationName,
+              t('history.routeUnavailable', 'Route unavailable'),
+            )}
+          </Text>
+          <StatusChip
+            label={t(statusPresentation.labelKey, statusPresentation.fallback)}
+            tone={statusPresentation.tone}
+            style={styles.parcelBadge}
+          />
         </View>
-        <Text style={styles.parcelRoute} numberOfLines={1}>
-          {getRouteLabel(item.originName, item.destinationName)}
-        </Text>
+        <Text selectable style={styles.parcelReference} numberOfLines={1}>{item.code}</Text>
         <View style={styles.parcelMetaRow}>
           <User size={14} color={theme.colors.textTertiary} />
           <Text style={styles.parcelMeta} numberOfLines={1}>
-            {item.parcel.recipientName} · {item.parcel.sizeCategory}
+            {t('history.toRecipient', {
+              name: item.parcel.recipientName,
+              defaultValue: `To ${item.parcel.recipientName}`,
+            })} · {t(sizePresentation.labelKey, sizePresentation.fallback)}
           </Text>
         </View>
         <View style={styles.parcelAmountRow}>
           <Text style={styles.parcelDate} numberOfLines={1}>
             {item.estimatedArrivalTime
-              ? `ETA ${formatDateTime(item.estimatedArrivalTime)}`
-              : `Created ${formatDate(item.createdAt)}`}
+              ? t('history.estimatedArrival', {
+                date: formatDate(item.estimatedArrivalTime),
+                defaultValue: `Expected ${formatDate(item.estimatedArrivalTime)}`,
+              })
+              : t('history.createdOn', {
+                date: formatDate(item.createdAt),
+                defaultValue: `Created ${formatDate(item.createdAt)}`,
+              })}
           </Text>
           <Text style={styles.parcelAmount}>
             {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
@@ -902,11 +915,6 @@ const createStyles = (theme: AppTheme) => ({
   },
   statusBadge: {
     maxWidth: '48%' as const,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BR.full,
-    borderCurve: 'continuous' as const,
-    backgroundColor: theme.colors.surfaceAlt,
   },
   activeStatusBadge: { backgroundColor: theme.colors.infoLight },
   completedBadge: { backgroundColor: theme.colors.successLight },
@@ -918,6 +926,12 @@ const createStyles = (theme: AppTheme) => ({
   activeStatusText: { color: theme.colors.info },
   completedStatusText: { color: theme.colors.success },
   routeNameLabel: {
+    marginBottom: spacing.sm,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+  },
+  referenceCode: {
     marginBottom: spacing.sm,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
@@ -1018,7 +1032,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   trackButton: {
-    minHeight: 40,
+    minHeight: 44,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: spacing.xs,
@@ -1070,22 +1084,17 @@ const createStyles = (theme: AppTheme) => ({
   },
   parcelBadge: {
     maxWidth: '52%' as const,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BR.full,
-    borderCurve: 'continuous' as const,
-    backgroundColor: theme.colors.primaryFaded,
   },
   parcelBadgeText: {
     fontFamily: fontFamilies.bold,
     fontSize: 9,
     color: theme.colors.primary,
   },
-  parcelRoute: {
+  parcelReference: {
     marginTop: spacing.sm,
     fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textSecondary,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
   },
   parcelMetaRow: {
     flexDirection: 'row' as const,

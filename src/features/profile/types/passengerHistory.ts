@@ -3,7 +3,7 @@ import type { ParcelStatus } from '@features/parcel/types';
 
 export type PassengerHistoryType = 'TICKET' | 'PARCEL';
 
-export type PassengerTicketStatus = BookingStatus;
+export type PassengerTicketStatus = BookingStatus | (string & {});
 
 export type PassengerTicketLifecycleStatus =
   | 'PENDING_PAYMENT'
@@ -11,9 +11,10 @@ export type PassengerTicketLifecycleStatus =
   | 'USED'
   | 'CANCELLED'
   | 'REFUNDED'
-  | 'EXPIRED';
+  | 'EXPIRED'
+  | (string & {});
 
-export type PassengerParcelStatus = ParcelStatus;
+export type PassengerParcelStatus = ParcelStatus | (string & {});
 
 export interface PassengerHistoryTicketSummary {
   ticketId: string;

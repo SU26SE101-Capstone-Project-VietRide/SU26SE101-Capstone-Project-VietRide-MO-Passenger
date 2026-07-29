@@ -1,6 +1,6 @@
 import type { TripLifecycleStatus } from '@features/trip/types';
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
-import { formatStatusLabel, formatTime } from '@shared/utils/format';
+import { formatDateTime } from '@shared/utils/format';
 import type {
   BookingResult,
   BookingTicketResult,
@@ -18,6 +18,7 @@ export interface TicketLegViewModel {
   label: 'Outbound' | 'Return' | 'Trip';
   reference: string;
   ticketReferences?: string;
+  ticketEntries?: readonly TicketCodeViewModel[];
   boardingName: string;
   boardingAddress?: string;
   boardingTime?: string;
@@ -34,6 +35,12 @@ export interface TicketLegViewModel {
   tripStatus?: TripLifecycleStatus;
   trackingEnabled: boolean;
   shuttlePickupAddress?: string;
+}
+
+export interface TicketCodeViewModel {
+  ticketCode: string;
+  seatNumber: string;
+  status?: string;
 }
 
 export interface TicketViewModel {
@@ -92,6 +99,12 @@ const buildLeg = ({
     .map((ticket) => ticket.ticketCode.trim())
     .filter(Boolean)
     .join(', ') || undefined,
+  ticketEntries: tickets
+    .map((ticket) => ({
+      ticketCode: ticket.ticketCode.trim(),
+      seatNumber: ticket.seatNumber.trim(),
+    }))
+    .filter((ticket) => ticket.ticketCode.length > 0),
   boardingName: pickUp?.name || '—',
   boardingAddress: pickUp?.address || '',
   boardingTime: pickUp?.time || '—',
@@ -199,7 +212,7 @@ export const buildHistoryTicketViewModel = (
   title: 'Ticket Detail',
   statusTitle: detail.status === 'CONFIRMED'
     ? 'Ticket confirmed'
-    : formatStatusLabel(detail.status),
+    : 'Ticket status updated',
   statusMessage: detail.status === 'CONFIRMED'
     ? 'Show this ticket reference when boarding.'
     : 'This is the latest available ticket status.',
@@ -211,6 +224,7 @@ export const buildHistoryTicketViewModel = (
     label: 'Trip',
     reference: detail.ticketCode,
     ticketReferences: detail.ticketCode,
+    ticketEntries: [{ ticketCode: detail.ticketCode, seatNumber: detail.seatNumbers.join(', ') }],
     boardingName: detail.pickup.name,
     boardingAddress: detail.pickup.address,
     boardingTime: detail.pickup.time,
@@ -246,7 +260,7 @@ export const buildPassengerHistoryTicketViewModel = (
   title: 'Ticket Detail',
   statusTitle: item.status === 'CONFIRMED'
     ? 'Ticket confirmed'
-    : formatStatusLabel(item.status),
+    : 'Ticket status updated',
   statusMessage: item.status === 'CONFIRMED'
     ? 'Show the booking or ticket reference when boarding.'
     : 'This is the latest status recorded in your booking history.',
@@ -263,9 +277,14 @@ export const buildPassengerHistoryTicketViewModel = (
     ticketReferences: item.ticket.tickets
       .map((ticket) => ticket.ticketCode)
       .join(', ') || undefined,
+    ticketEntries: item.ticket.tickets.map((ticket) => ({
+      ticketCode: ticket.ticketCode,
+      seatNumber: ticket.seatNumber,
+      status: ticket.status,
+    })),
     boardingName: item.originName ?? 'Origin unavailable',
     boardingTime: item.departureDateTime
-      ? formatTime(item.departureDateTime)
+      ? formatDateTime(item.departureDateTime)
       : undefined,
     alightingName: item.destinationName ?? 'Destination unavailable',
     seatNumbers: item.ticket.tickets
