@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useEffect, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
@@ -15,11 +16,11 @@ type DimensionDraft = Record<DimensionKey, string>;
 
 const DIMENSION_FIELDS: readonly {
   key: DimensionKey;
-  label: string;
+  labelKey: string;
 }[] = [
-  { key: 'lengthCm', label: 'Length' },
-  { key: 'widthCm', label: 'Width' },
-  { key: 'heightCm', label: 'Height' },
+  { key: 'lengthCm', labelKey: 'parcel.dimensions.length' },
+  { key: 'widthCm', labelKey: 'parcel.dimensions.width' },
+  { key: 'heightCm', labelKey: 'parcel.dimensions.height' },
 ];
 
 export interface ParcelDimensionsInputProps {
@@ -51,6 +52,7 @@ export const ParcelDimensionsInput = memo(
     onValidityChange,
     errorMessage,
   }: ParcelDimensionsInputProps): React.JSX.Element {
+    const { t } = useTranslation();
     const styles = useThemedStyles(createStyles);
     const [draft, setDraft] = useState<DimensionDraft>(() =>
       createDraft(value),
@@ -131,34 +133,38 @@ export const ParcelDimensionsInput = memo(
 
     return (
       <View style={styles.container}>
-        <Text style={styles.formLabel}>Exact dimensions</Text>
+        <Text style={styles.formLabel}>{t('parcel.dimensions.title')}</Text>
         <Text style={styles.hint}>
-          Used to check trip capacity. The fare tier upgrades automatically when
-          needed.
+          {t('parcel.dimensions.hint')}
         </Text>
 
         <View style={styles.fieldRow}>
-          {DIMENSION_FIELDS.map(({ key, label }) => (
-            <View key={key} style={styles.field}>
-              <Text style={styles.fieldLabel}>{label}</Text>
-              <View style={styles.inputFrame}>
-                <TextInput
-                  accessibilityLabel={`${label} in centimetres`}
-                  keyboardType="decimal-pad"
-                  maxLength={7}
-                  returnKeyType="done"
-                  selectTextOnFocus
-                  style={styles.input}
-                  value={draft[key]}
-                  onBlur={() => commitDimension(key)}
-                  onChangeText={text => updateDraft(key, text)}
-                  onFocus={() => setEditingKey(key)}
-                  onSubmitEditing={() => commitDimension(key)}
-                />
-                <Text style={styles.unit}>cm</Text>
+          {DIMENSION_FIELDS.map(({ key, labelKey }) => {
+            const label = t(labelKey);
+            return (
+              <View key={key} style={styles.field}>
+                <Text style={styles.fieldLabel}>{label}</Text>
+                <View style={styles.inputFrame}>
+                  <TextInput
+                    accessibilityLabel={t('parcel.dimensions.inputAccessibility', {
+                      label,
+                    })}
+                    keyboardType="decimal-pad"
+                    maxLength={7}
+                    returnKeyType="done"
+                    selectTextOnFocus
+                    style={styles.input}
+                    value={draft[key]}
+                    onBlur={() => commitDimension(key)}
+                    onChangeText={text => updateDraft(key, text)}
+                    onFocus={() => setEditingKey(key)}
+                    onSubmitEditing={() => commitDimension(key)}
+                  />
+                  <Text style={styles.unit}>{t('parcel.units.cm')}</Text>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
         {errorMessage ? (
           <Text style={styles.errorText}>{errorMessage}</Text>

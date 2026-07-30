@@ -4,7 +4,7 @@
  * Stack: BusSearch -> CityPicker/DatePicker -> TripResults -> SeatSelection -> Checkout -> Payment -> DigitalTicket
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { BookingStackParamList } from '@app/navigation/types';
 
@@ -15,19 +15,20 @@ import { DatePicker } from './screens/DatePickerScreen';
 import { CreateTicketBookingScreen } from './screens/CreateTicketBookingScreen';
 import { DigitalTicketScreen } from './screens/DigitalTicketScreen';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { createNativeStackOptions, useMotion } from '@shared/motion';
 
 const Stack = createNativeStackNavigator<BookingStackParamList>();
 
 export function BookingNavigator(): React.JSX.Element {
   const theme = useTheme();
+  const { reduceMotion } = useMotion();
+  const screenOptions = useMemo(
+    () => createNativeStackOptions({ theme, reduceMotion }),
+    [reduceMotion, theme],
+  );
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: theme.colors.background },
-      }}
-    >
+    <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="SearchRoutes" component={BusSearchScreen} />
       <Stack.Screen name="PopularRoutes" component={PopularRoutesScreen} />
       <Stack.Screen name="CityPicker" component={CityPickerScreen} />

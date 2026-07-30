@@ -23,6 +23,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
@@ -56,6 +57,7 @@ const otpFieldAliases: Partial<Record<string, OtpFormField>> = {
 };
 
 export function OTPVerificationScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList & ProfileStackParamList>>();
   const route = useRoute<ScreenRouteProp>();
   const { errorMessage, clearError, handleError } = useApiError();
@@ -75,7 +77,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const [code, setCode] = useState<string[]>(Array(AUTH_CODE_LENGTH).fill(''));
   const [timer, setTimer] = useState(Math.max(otpTtlMinutes * 60, 1));
   const [errors, setErrors] = useState<OtpFormErrors>({});
-  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendSucceeded, setResendSucceeded] = useState(false);
   const inputRefs = useRef<Array<TextInput | null>>([]);
 
   const verifyMutation = useMutation({ mutationFn: verifyEmail });
@@ -93,7 +95,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const handleCodeChange = (text: string, index: number) => {
     clearError();
     setErrors({});
-    setResendMessage(null);
+    setResendSucceeded(false);
     const digits = text.replace(/\D/g, '').slice(0, AUTH_CODE_LENGTH);
 
     if (!digits) {
@@ -182,7 +184,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const handleResend = useCallback(async () => {
     clearError();
     setErrors({});
-    setResendMessage(null);
+    setResendSucceeded(false);
 
     try {
       const response = await resendMutation.mutateAsync({ email, purpose });
@@ -191,7 +193,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
       // Clear existing code
       setCode(Array(AUTH_CODE_LENGTH).fill(''));
       inputRefs.current[0]?.focus();
-      setResendMessage('A new code has been sent to your email.');
+      setResendSucceeded(true);
     } catch (error) {
       handleError(error);
     }
@@ -204,11 +206,13 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const visibleError = codeError ?? errorMessage;
 
   // ─── Dynamic copy based on purpose ──────────────────────
-  const headerTitle = 'Verify it\'s you';
-  const headerSubtitle = `We sent a 6-digit code to ${email}${phone ? ` (${phone})` : ''}.`;
-  const expiredText = 'Code expired. Please request a new code.';
-  const buttonTitle = 'Verify Code';
-  const footerQuestion = 'Wrong email?';
+  const headerTitle = t('auth.otp.title');
+  const headerSubtitle = phone
+    ? t('auth.otp.descriptionWithPhone', { email, phone })
+    : t('auth.otp.description', { email });
+  const expiredText = t('auth.otp.expired');
+  const buttonTitle = t('auth.otp.verify');
+  const footerQuestion = t('auth.otp.wrongEmail');
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
@@ -216,8 +220,8 @@ export function OTPVerificationScreen(): React.JSX.Element {
         <Svg height="520" width="100%">
           <Defs>
             <LinearGradient id="otpGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.7} />
-              <Stop offset="35%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.25} />
+              <Stop offset="0%" stopColor={theme.colors.accent} stopOpacity={0.7} />
+              <Stop offset="35%" stopColor={theme.colors.accent} stopOpacity={0.25} />
               <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
@@ -267,7 +271,9 @@ export function OTPVerificationScreen(): React.JSX.Element {
                     maxLength={AUTH_CODE_LENGTH}
                     value={digit}
                     editable={!isPending}
-                    accessibilityLabel={`Verification code digit ${index + 1}`}
+                    accessibilityLabel={t('auth.otp.digitAccessibility', {
+                      position: index + 1,
+                    })}
                     onChangeText={(text) => handleCodeChange(text, index)}
                     onKeyPress={(e) => handleKeyPress(e, index)}
                     selectTextOnFocus
@@ -283,7 +289,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
                 ) : (
                   <>
                     <Text style={[styles.resendText, { color: theme.colors.textSecondary }]}>
-                      Code expires in{' '}
+                      {t('auth.otp.expiresIn')}{' '}
                     </Text>
                     <Text style={[styles.timerText, { color: theme.colors.textTertiary }]}>
                       {formatCountdown(timer)}
@@ -302,13 +308,15 @@ export function OTPVerificationScreen(): React.JSX.Element {
                 ]}
               >
                 <Text style={[styles.resendLink, { color: theme.colors.primary }]}>
-                  {resendMutation.isPending ? 'Sending...' : 'Resend Code'}
+                  {resendMutation.isPending
+                    ? t('auth.otp.sending')
+                    : t('auth.otpResend')}
                 </Text>
               </Pressable>
 
-              {resendMessage ? (
-                <Text style={[styles.successText, { color: theme.colors.success ?? '#22C55E' }]}>
-                  {resendMessage}
+              {resendSucceeded ? (
+                <Text style={styles.successText}>
+                  {t('auth.otp.resendSuccess')}
                 </Text>
               ) : null}
 
@@ -331,7 +339,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
 
           <AuthFooter
             prompt={footerQuestion}
-            actionLabel="Go back"
+            actionLabel={t('common.back')}
             onAction={() => navigation.goBack()}
           />
         </KeyboardAvoidingView>
@@ -357,7 +365,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(42, 193, 188, 0.07)',
+    backgroundColor: theme.effects.ambientGlow,
   },
   container: { flex: 1, backgroundColor: 'transparent' },
   keyboardView: { flex: 1 },
@@ -424,7 +432,7 @@ const styles = StyleSheet.create({
   successText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: '#22C55E',
+    color: theme.colors.success,
     marginBottom: spacing.md,
     textAlign: 'center',
   },

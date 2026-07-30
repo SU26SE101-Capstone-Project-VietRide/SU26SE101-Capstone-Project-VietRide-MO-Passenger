@@ -1,12 +1,14 @@
 import type { ParcelDetail } from '../types';
-import { formatDate, formatStatusLabel, formatTime } from '@shared/utils/format';
+import i18n from '@shared/i18n';
+import { formatDate, formatTime } from '@shared/utils/format';
+import { getParcelStatusPresentation } from './parcelPresentation';
 
 export type ParcelMilestoneStatus = 'active' | 'completed' | 'pending';
 
 export interface ParcelMilestone {
   id: 'created' | 'loaded' | 'in-transit' | 'unloaded' | 'confirmed';
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   time: string | null;
   status: ParcelMilestoneStatus;
 }
@@ -50,7 +52,7 @@ const normalizeStatus = (status?: string | null): string =>
   status?.trim().toUpperCase() || 'PENDING';
 
 export const formatParcelStatusLabel = (status?: string | null): string =>
-  formatStatusLabel(status, 'Pending');
+  i18n.t(getParcelStatusPresentation(status).labelKey);
 
 export const isParcelRejected = (
   parcel: Pick<ParcelDetail, 'status' | 'rejectedAt'>,
@@ -104,15 +106,15 @@ export function buildParcelMilestones(parcel: ParcelDetail): ParcelMilestone[] {
   return [
     {
       id: 'created',
-      title: 'Shipment created',
-      description: 'The shipment request was registered.',
+      titleKey: 'parcel.tracking.timeline.created.title',
+      descriptionKey: 'parcel.tracking.timeline.created.description',
       time: formatParcelEventTime(parcel.createdAt),
       status: isRejected || hasMovedBeyondCreation ? 'completed' : 'active',
     },
     {
       id: 'loaded',
-      title: 'Load at origin',
-      description: 'Origin-terminal loading checkpoint.',
+      titleKey: 'parcel.tracking.timeline.loaded.title',
+      descriptionKey: 'parcel.tracking.timeline.loaded.description',
       time: formatParcelEventTime(parcel.loadedAt),
       status: isCurrentlyLoaded
         ? 'active'
@@ -122,8 +124,8 @@ export function buildParcelMilestones(parcel: ParcelDetail): ParcelMilestone[] {
     },
     {
       id: 'in-transit',
-      title: 'In transit',
-      description: 'Travel checkpoint between the origin and destination terminals.',
+      titleKey: 'parcel.tracking.timeline.inTransit.title',
+      descriptionKey: 'parcel.tracking.timeline.inTransit.description',
       time: isCurrentlyInTransit ? formatParcelEventTime(parcel.loadedAt) : null,
       status: isCurrentlyInTransit
         ? 'active'
@@ -133,8 +135,8 @@ export function buildParcelMilestones(parcel: ParcelDetail): ParcelMilestone[] {
     },
     {
       id: 'unloaded',
-      title: 'Unload at destination',
-      description: 'Destination-terminal unloading checkpoint.',
+      titleKey: 'parcel.tracking.timeline.unloaded.title',
+      descriptionKey: 'parcel.tracking.timeline.unloaded.description',
       time: formatParcelEventTime(parcel.unloadedAt),
       status: isCurrentlyUnloaded
         ? 'active'
@@ -144,8 +146,8 @@ export function buildParcelMilestones(parcel: ParcelDetail): ParcelMilestone[] {
     },
     {
       id: 'confirmed',
-      title: 'Pickup confirmation',
-      description: 'Recipient pickup-confirmation checkpoint.',
+      titleKey: 'parcel.tracking.timeline.confirmed.title',
+      descriptionKey: 'parcel.tracking.timeline.confirmed.description',
       time: formatParcelEventTime(parcel.confirmedAt),
       status: isConfirmed
         ? 'completed'

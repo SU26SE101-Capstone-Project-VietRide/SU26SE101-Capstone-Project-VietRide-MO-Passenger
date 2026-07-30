@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
@@ -42,6 +43,7 @@ const forgotPasswordFieldAliases: Partial<Record<string, ForgotPasswordFormField
 };
 
 export function ForgotPasswordScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
@@ -100,8 +102,8 @@ export function ForgotPasswordScreen(): React.JSX.Element {
         <Svg height="520" width="100%">
           <Defs>
             <LinearGradient id="forgotGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.7} />
-              <Stop offset="35%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.25} />
+              <Stop offset="0%" stopColor={theme.colors.accent} stopOpacity={0.7} />
+              <Stop offset="35%" stopColor={theme.colors.accent} stopOpacity={0.25} />
               <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
@@ -123,8 +125,8 @@ export function ForgotPasswordScreen(): React.JSX.Element {
             contentContainerStyle={styles.scrollContent}
           >
             <AuthStepHeader
-              title="Reset Password"
-              subtitle="Enter your account email to receive a 6-digit reset code."
+              title={t('auth.forgotPasswordFlow.title')}
+              subtitle={t('auth.forgotPasswordFlow.description')}
               onBack={() => navigation.goBack()}
               showMascot={false}
             />
@@ -132,8 +134,8 @@ export function ForgotPasswordScreen(): React.JSX.Element {
             <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
               <View style={styles.inputWrapper}>
                 <Input
-                  label="Email"
-                  placeholder="Email address"
+                  label={t('auth.fields.email')}
+                  placeholder={t('auth.fields.emailPlaceholder')}
                   keyboardType="email-address"
                   textContentType="emailAddress"
                   autoComplete="email"
@@ -156,11 +158,11 @@ export function ForgotPasswordScreen(): React.JSX.Element {
               ) : null}
 
               <Text style={[styles.helperText, { color: theme.colors.textTertiary }]}>
-                If the account exists, VietRide will send a reset code to the verified email.
+                {t('auth.forgotPasswordFlow.privacyHint')}
               </Text>
 
               <Button
-                title="Send Reset Code"
+                title={t('auth.forgotPasswordFlow.submit')}
                 onPress={handleSubmit}
                 disabled={!email.trim() || resetMutation.isPending}
                 loading={resetMutation.isPending}
@@ -192,7 +194,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(42, 193, 188, 0.07)',
+    backgroundColor: theme.effects.ambientGlow,
   },
   container: { flex: 1, backgroundColor: 'transparent' },
   keyboardView: { flex: 1 },

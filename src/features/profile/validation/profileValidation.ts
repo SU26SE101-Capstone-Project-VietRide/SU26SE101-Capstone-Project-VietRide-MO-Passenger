@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { TFunction } from 'i18next';
 
 import {
   MAX_DISPLAY_NAME_LENGTH,
@@ -15,8 +16,8 @@ import {
 const displayNameSchema = z
   .string()
   .trim()
-  .min(1, 'Full name is required.')
-  .max(MAX_DISPLAY_NAME_LENGTH, 'Full name is too long.')
+  .min(1, 'profile.validation.fullNameRequired')
+  .max(MAX_DISPLAY_NAME_LENGTH, 'profile.validation.fullNameTooLong')
   .transform(normalizeDisplayName);
 
 const phoneSchema = z
@@ -25,16 +26,16 @@ const phoneSchema = z
   .optional()
   .transform((value) => value ?? '')
   .refine((value) => value.length === 0 || isValidVietnamPhone(value), {
-    message: 'Enter a valid Vietnam phone number, e.g. +84901234567.',
+    message: 'profile.validation.phoneInvalid',
   })
   .transform((value) => (value ? normalizeVietnamPhone(value) : value));
 
 const passwordSchema = z
   .string()
-  .min(MIN_PASSWORD_LENGTH, 'Password must be at least 8 characters.')
-  .max(MAX_PASSWORD_LENGTH, 'Password is too long.')
-  .regex(/[A-Za-z]/, 'Include at least one letter.')
-  .regex(/\d/, 'Include at least one number.');
+  .min(MIN_PASSWORD_LENGTH, 'security.validation.passwordMin')
+  .max(MAX_PASSWORD_LENGTH, 'security.validation.passwordMax')
+  .regex(/[A-Za-z]/, 'security.validation.passwordLetter')
+  .regex(/\d/, 'security.validation.passwordNumber');
 
 export const editProfileSchema = z.object({
   displayName: displayNameSchema,
@@ -43,16 +44,16 @@ export const editProfileSchema = z.object({
 
 export const changePasswordSchema = z
   .object({
-    currentPassword: z.string().min(1, 'Current password is required.'),
+    currentPassword: z.string().min(1, 'security.validation.currentPasswordRequired'),
     newPassword: passwordSchema,
-    confirmPassword: z.string().min(1, 'Confirm your new password.'),
+    confirmPassword: z.string().min(1, 'security.validation.confirmPasswordRequired'),
   })
   .superRefine((data, context) => {
     if (data.currentPassword === data.newPassword) {
       context.addIssue({
         code: 'custom',
         path: ['newPassword'],
-        message: 'New password must be different from the current password.',
+        message: 'security.validation.passwordMustDiffer',
       });
     }
 
@@ -60,7 +61,7 @@ export const changePasswordSchema = z
       context.addIssue({
         code: 'custom',
         path: ['confirmPassword'],
-        message: 'Passwords do not match.',
+        message: 'security.validation.passwordsMismatch',
       });
     }
   });
@@ -83,3 +84,20 @@ export const changePasswordFieldErrors = (
 export const apiProfileFieldErrors = <Field extends string>(
   fields: Parameters<typeof apiFieldErrors<Field>>[0],
 ): FieldErrorMap<Field> => apiFieldErrors<Field>(fields);
+
+const LOCAL_VALIDATION_KEY_PREFIXES = [
+  'profile.validation.',
+  'security.validation.',
+] as const;
+
+/** Translate local schema keys while preserving backend-provided field copy. */
+export const localizeProfileFieldError = (
+  message: string | undefined,
+  t: TFunction,
+): string | undefined => {
+  if (!message) return undefined;
+
+  return LOCAL_VALIDATION_KEY_PREFIXES.some((prefix) => message.startsWith(prefix))
+    ? t(message)
+    : message;
+};

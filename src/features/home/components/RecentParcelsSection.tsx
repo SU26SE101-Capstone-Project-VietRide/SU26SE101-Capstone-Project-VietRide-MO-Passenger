@@ -7,11 +7,12 @@ import {
 } from 'react-native';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { ArrowRight, Package, Truck } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useReceivedParcels } from '@features/parcel/hooks/useParcelQueries';
 import type { ReceivedParcel } from '@features/parcel/types';
-import { formatParcelStatusLabel } from '@features/parcel/utils/parcelTracking';
+import { getParcelStatusPresentation } from '@features/parcel/utils/parcelPresentation';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -89,19 +90,34 @@ const RecentParcelCard = memo(function RecentParcelCardItem({
   status,
   tripId,
 }: RecentParcelCardProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handlePress = useCallback(() => {
     onPress?.(parcelId, tripId);
   }, [onPress, parcelId, tripId]);
   const tone = resolveStatusTone(status);
-  const createdLabel = formatDate(createdAt) || createdAt;
-  const etaLabel = eta ? (formatDate(eta) || eta) : 'Pending';
+  const createdLabel = useMemo(
+    () => formatDate(createdAt) || createdAt,
+    [createdAt],
+  );
+  const etaLabel = useMemo(
+    () => eta ? (formatDate(eta) || eta) : t('home.parcels.pending'),
+    [eta, t],
+  );
+  const statusPresentation = getParcelStatusPresentation(status);
+  const statusLabel = t(
+    statusPresentation.labelKey,
+    statusPresentation.fallback,
+  );
 
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={`Parcel ${parcelCode}, ${formatParcelStatusLabel(status)}`}
+      accessibilityLabel={t('home.parcels.cardAccessibility', {
+        code: parcelCode,
+        status: statusLabel,
+      })}
       disabled={!onPress}
       onPress={handlePress}
       style={({ pressed }) => [
@@ -121,7 +137,7 @@ const RecentParcelCard = memo(function RecentParcelCardItem({
           tone === 'warning' ? styles.statusWarning : null,
         ]}>
           <Text style={styles.statusText} numberOfLines={1}>
-            {formatParcelStatusLabel(status)}
+            {statusLabel}
           </Text>
         </View>
       </View>
@@ -134,8 +150,12 @@ const RecentParcelCard = memo(function RecentParcelCardItem({
         </Text>
       </View>
       <View style={styles.metaRow}>
-        <Text style={styles.metaLabel}>Created {createdLabel}</Text>
-        <Text style={styles.metaLabel}>ETA {etaLabel}</Text>
+        <Text style={styles.metaLabel}>
+          {t('home.parcels.created', { date: createdLabel })}
+        </Text>
+        <Text style={styles.metaLabel}>
+          {t('home.parcels.eta', { date: etaLabel })}
+        </Text>
       </View>
     </Pressable>
   );
@@ -152,8 +172,9 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
   onParcelPress,
   onViewAll,
   pageSize = 5,
-  title = 'Recent parcels',
+  title,
 }: RecentParcelsSectionProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const isGuest = useAuthStore((state) => state.isGuest);
@@ -172,54 +193,60 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
   const renderParcel: ListRenderItem<ReceivedParcel> = useCallback(({ item }) => (
     <RecentParcelCard
       createdAt={item.createdAt}
-      destinationName={item.destinationStation?.name ?? 'Destination pending'}
+      destinationName={item.destinationStation?.name ?? t('home.parcels.destinationPending')}
       eta={item.eta}
       onPress={onParcelPress}
-      originName={item.originStation?.name ?? 'Origin pending'}
+      originName={item.originStation?.name ?? t('home.parcels.originPending')}
       parcelCode={item.parcelCode}
       parcelId={item.parcelId}
       status={item.status}
       tripId={item.tripId}
     />
-  ), [onParcelPress]);
+  ), [onParcelPress, t]);
 
   let content: React.ReactNode;
   if (isGuest) {
     content = (
-      <View style={styles.stateBox} accessibilityLabel="Sign in required for recent parcels">
-        <Text style={styles.stateTitle}>Sign in required</Text>
+      <View
+        style={styles.stateBox}
+        accessibilityLabel={t('home.parcels.signInAccessibility')}
+      >
+        <Text style={styles.stateTitle}>{t('home.parcels.signInTitle')}</Text>
         <Text style={styles.stateText}>
-          Sign in to view parcels sent to your VietRide account.
+          {t('home.parcels.signInDescription')}
         </Text>
       </View>
     );
   } else if (parcelsQuery.isLoading) {
     content = (
-      <View style={styles.stateBox} accessibilityLabel="Loading recent parcels">
+      <View
+        style={styles.stateBox}
+        accessibilityLabel={t('home.parcels.loadingAccessibility')}
+      >
         <ActivityIndicator color={theme.colors.primary} />
-        <Text style={styles.stateText}>Loading received parcels…</Text>
+        <Text style={styles.stateText}>{t('home.parcels.loading')}</Text>
       </View>
     );
   } else if (parcelsQuery.isError) {
     content = (
       <View style={styles.stateBox}>
-        <Text style={styles.stateTitle}>Parcels are unavailable</Text>
-        <Text style={styles.stateText}>We could not load your received parcels.</Text>
+        <Text style={styles.stateTitle}>{t('home.parcels.unavailableTitle')}</Text>
+        <Text style={styles.stateText}>{t('home.parcels.unavailableDescription')}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Retry recent parcels"
+          accessibilityLabel={t('home.parcels.retryAccessibility')}
           onPress={handleRetry}
           style={styles.retryButton}
         >
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{t('home.parcels.retry')}</Text>
         </Pressable>
       </View>
     );
   } else if (parcels.length === 0) {
     content = (
       <View style={styles.stateBox}>
-        <Text style={styles.stateTitle}>No received parcels yet</Text>
-        <Text style={styles.stateText}>Parcels sent to your account will appear here.</Text>
+        <Text style={styles.stateTitle}>{t('home.parcels.emptyTitle')}</Text>
+        <Text style={styles.stateText}>{t('home.parcels.emptyDescription')}</Text>
       </View>
     );
   } else {
@@ -238,15 +265,15 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={styles.sectionTitle}>{title ?? t('home.parcels.title')}</Text>
         {onViewAll && !isGuest ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="View all received parcels"
+            accessibilityLabel={t('home.parcels.viewAllAccessibility')}
             onPress={onViewAll}
             style={styles.viewAllButton}
           >
-            <Text style={styles.viewAllText}>View all</Text>
+            <Text style={styles.viewAllText}>{t('home.parcels.viewAll')}</Text>
             <ArrowRight size={15} color={theme.colors.primary} weight="bold" />
           </Pressable>
         ) : null}

@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, CheckCircle } from 'phosphor-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemeStore } from '@shared/store/useThemeStore';
 import { themes } from '@shared/theme';
@@ -14,17 +15,24 @@ import type { AppTheme, ThemeVariant } from '@shared/theme';
 const THEME_OPTIONS = Object.entries(themes) as Array<[ThemeVariant, AppTheme]>;
 const THEME_SCREEN_BOTTOM_GAP = spacing.huge;
 
-const themeCaptions: Record<ThemeVariant, string> = {
-  liquid_light: 'Bright glass with soft refraction',
-  liquid_dark: 'Dark glass with teal glow',
-};
-
-const themeTags: Record<ThemeVariant, string> = {
-  liquid_light: 'Light',
-  liquid_dark: 'Dark',
+const themeTranslationKeys: Record<
+  ThemeVariant,
+  { caption: string; name: string; tag: string }
+> = {
+  liquid_light: {
+    caption: 'settings.appearance.themes.light.caption',
+    name: 'settings.appearance.themes.light.name',
+    tag: 'settings.appearance.themes.light.tag',
+  },
+  liquid_dark: {
+    caption: 'settings.appearance.themes.dark.caption',
+    name: 'settings.appearance.themes.dark.name',
+    tag: 'settings.appearance.themes.dark.tag',
+  },
 };
 
 export function ThemeScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const currentThemeVariant = useThemeStore((state) => state.currentTheme);
@@ -121,12 +129,14 @@ export function ThemeScreen(): React.JSX.Element {
     <SafeAreaView style={styles.safeContainer}>
       <View style={styles.topBar}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}
         >
           <ArrowLeft size={24} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.topBarTitle}>Appearance</Text>
+        <Text style={styles.topBarTitle}>{t('settings.appearance.title')}</Text>
         <View style={styles.topBarRightPlaceholder} />
       </View>
       <ScrollView
@@ -142,6 +152,9 @@ export function ThemeScreen(): React.JSX.Element {
           return (
             <Pressable
               key={key}
+              accessibilityRole="radio"
+              accessibilityLabel={t(themeTranslationKeys[key].name)}
+              accessibilityState={{ checked: isSelected }}
               style={({ pressed }) => [
                 styles.themeCard,
                 isSelected ? styles.activeTheme : null,
@@ -153,14 +166,18 @@ export function ThemeScreen(): React.JSX.Element {
 
               <View style={styles.themeInfo}>
                 <View style={styles.themeTitleRow}>
-                  <Text style={styles.themeName}>{themeOption.name}</Text>
+                  <Text style={styles.themeName}>
+                    {t(themeTranslationKeys[key].name)}
+                  </Text>
                   <View style={[styles.themeTag, isSelected ? styles.themeTagActive : null]}>
                     <Text style={[styles.themeTagText, isSelected ? styles.themeTagTextActive : null]}>
-                      {themeTags[key]}
+                      {t(themeTranslationKeys[key].tag)}
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.themeCaption}>{themeCaptions[key]}</Text>
+                <Text style={styles.themeCaption}>
+                  {t(themeTranslationKeys[key].caption)}
+                </Text>
               </View>
 
               {isSelected ? (

@@ -1,99 +1,120 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import React, { memo } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ticket, Package } from 'phosphor-react-native';
+
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
 
 interface ServiceGridProps {
   onBuyTickets?: () => void;
   onDelivery?: () => void;
 }
 
-export function ServiceGrid({
+export const ServiceGrid = memo(function ServiceGridComponent({
   onBuyTickets,
   onDelivery,
 }: ServiceGridProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
-      {/* Large Ticket Card */}
-      <TouchableOpacity
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('home.services.buyTickets')}
         onPress={onBuyTickets}
-        activeOpacity={0.85}
-        style={styles.largeCard}
+        style={({ pressed }) => [styles.largeCard, pressed ? styles.pressed : null]}
       >
         <View style={styles.textContainer}>
-          <Text style={styles.largeTitle}>Buy Tickets</Text>
-          <Text style={styles.largeSubtitle}>Intercity travel</Text>
+          <Text style={styles.largeTitle}>{t('home.services.buyTickets')}</Text>
+          <Text style={styles.largeSubtitle}>{t('home.services.intercityTravel')}</Text>
         </View>
 
         <View style={styles.largeIconBackground}>
-          <Ticket size={40} color="#fff" weight="fill" />
+          <Ticket size={40} color={theme.colors.textInverse} weight="fill" />
         </View>
-      </TouchableOpacity>
+      </Pressable>
 
-      {/* Large Delivery Card (matching the style and width of Buy Tickets) */}
-      <TouchableOpacity
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('home.services.sendParcel')}
         onPress={onDelivery}
-        activeOpacity={0.85}
-        style={[styles.largeCard, styles.deliveryCard]}
+        style={({ pressed }) => [
+          styles.largeCard,
+          styles.deliveryCard,
+          pressed ? styles.pressed : null,
+        ]}
       >
         <View style={styles.textContainer}>
-          <Text style={styles.largeTitle}>Send Parcel</Text>
-          <Text style={styles.largeSubtitle}>Fast package delivery</Text>
+          <Text style={styles.largeTitle}>{t('home.services.sendParcel')}</Text>
+          <Text style={styles.largeSubtitle}>{t('home.services.fastDelivery')}</Text>
         </View>
 
         <View style={[styles.largeIconBackground, styles.deliveryIconBackground]}>
-          <Package size={40} color={colors.error} weight="fill" />
+          <Package size={40} color={theme.colors.error} weight="fill" />
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
-}
+});
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
-    width: '100%',
+    width: '100%' as const,
     marginVertical: spacing.md,
   },
   largeCard: {
-    backgroundColor: colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    ...shadows.md,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    width: '100%' as const,
     marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
   },
   deliveryCard: {
     marginBottom: spacing.sm,
   },
   textContainer: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
+    flex: 1,
+    flexDirection: 'column' as const,
+    alignItems: 'flex-start' as const,
+    paddingRight: spacing.md,
   },
   largeTitle: {
     fontFamily: fontFamilies.bold,
-    fontSize: 20,
-    color: colors.textPrimary,
+    fontSize: fontSizes.xl,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.xxs,
   },
   largeSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   largeIconBackground: {
-    backgroundColor: colors.primaryLight, // Vibrant Mint Green
+    backgroundColor: theme.colors.primary,
     borderRadius: borderRadius.xl,
     width: 80,
     height: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   deliveryIconBackground: {
-    backgroundColor: colors.errorLight, // Coral red container background
+    backgroundColor: theme.colors.errorLight,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.98 }],
   },
 });

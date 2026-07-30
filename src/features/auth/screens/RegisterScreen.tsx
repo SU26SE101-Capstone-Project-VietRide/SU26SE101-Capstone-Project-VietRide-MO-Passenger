@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation } from '@tanstack/react-query';
+import { Trans, useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
@@ -51,6 +52,7 @@ const registerFieldAliases: Partial<Record<string, RegisterFormField>> = {
 };
 
 export function RegisterScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
@@ -163,8 +165,8 @@ export function RegisterScreen(): React.JSX.Element {
         <Svg height="520" width="100%">
           <Defs>
             <LinearGradient id="registerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.7} />
-              <Stop offset="35%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.25} />
+              <Stop offset="0%" stopColor={theme.colors.accent} stopOpacity={0.7} />
+              <Stop offset="35%" stopColor={theme.colors.accent} stopOpacity={0.25} />
               <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
@@ -185,15 +187,15 @@ export function RegisterScreen(): React.JSX.Element {
             keyboardShouldPersistTaps="handled"
           >
             <AuthStepHeader
-              title="Join the ride"
-              subtitle="Create an account to book and track your journeys."
+              title={t('auth.registerFlow.title')}
+              subtitle={t('auth.registerFlow.description')}
             />
 
             <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
               <View style={styles.inputWrapper}>
                 <Input
-                  label="Full Name"
-                  placeholder="e.g. Nguyen Van A"
+                  label={t('auth.fields.fullName')}
+                  placeholder={t('auth.fields.fullNamePlaceholder')}
                   autoCapitalize="words"
                   textContentType="name"
                   autoComplete="name"
@@ -209,8 +211,8 @@ export function RegisterScreen(): React.JSX.Element {
               </View>
               <View style={styles.inputWrapper}>
                 <Input
-                  label="Email"
-                  placeholder="Email address"
+                  label={t('auth.fields.email')}
+                  placeholder={t('auth.fields.emailPlaceholder')}
                   keyboardType="email-address"
                   textContentType="emailAddress"
                   autoComplete="email"
@@ -227,7 +229,7 @@ export function RegisterScreen(): React.JSX.Element {
               </View>
               <View style={styles.inputWrapper}>
                 <Input
-                  label="Phone Number"
+                  label={t('auth.phone')}
                   placeholder="0900000000"
                   keyboardType="phone-pad"
                   textContentType="telephoneNumber"
@@ -235,7 +237,7 @@ export function RegisterScreen(): React.JSX.Element {
                   value={phone}
                   required
                   error={errors.phone}
-                  hint="Vietnam phone number, e.g. 0901234567 or +84901234567."
+                  hint={t('auth.fields.phoneHint')}
                   onBlur={() => validateField('phone')}
                   onChangeText={(value) => {
                     setPhone(value);
@@ -245,15 +247,15 @@ export function RegisterScreen(): React.JSX.Element {
               </View>
               <View style={styles.inputWrapper}>
                 <Input
-                  label="Password"
-                  placeholder="Create a strong password"
+                  label={t('auth.password')}
+                  placeholder={t('auth.fields.createPasswordPlaceholder')}
                   secureTextEntry
                   textContentType="newPassword"
                   autoComplete="password-new"
                   value={password}
                   required
                   error={errors.password}
-                  hint="At least 8 characters with a letter and a number."
+                  hint={t('auth.fields.passwordRequirements')}
                   onBlur={() => validateField('password')}
                   onChangeText={(value) => {
                     setPassword(value);
@@ -263,8 +265,8 @@ export function RegisterScreen(): React.JSX.Element {
               </View>
               <View style={styles.inputWrapper}>
                 <Input
-                  label="Confirm Password"
-                  placeholder="Confirm your password"
+                  label={t('auth.fields.confirmPassword')}
+                  placeholder={t('auth.fields.confirmPasswordPlaceholder')}
                   secureTextEntry
                   textContentType="newPassword"
                   autoComplete="password-new"
@@ -286,13 +288,25 @@ export function RegisterScreen(): React.JSX.Element {
               ) : null}
 
               <Text style={[styles.termsText, { color: theme.colors.textTertiary }]}>
-                By creating an account, you agree to our{' '}
-                <Text style={[styles.termsLink, { color: theme.colors.primary }]}>Terms of Service</Text> and{' '}
-                <Text style={[styles.termsLink, { color: theme.colors.primary }]}>Privacy Policy</Text>.
+                <Trans
+                  i18nKey="auth.registerFlow.agreement"
+                  components={{
+                    terms: (
+                      <Text
+                        style={[styles.termsLink, { color: theme.colors.primary }]}
+                      />
+                    ),
+                    privacy: (
+                      <Text
+                        style={[styles.termsLink, { color: theme.colors.primary }]}
+                      />
+                    ),
+                  }}
+                />
               </Text>
 
               <Button
-                title="Create Account"
+                title={t('auth.createAccount')}
                 onPress={handleRegister}
                 disabled={isSubmitDisabled}
                 loading={registerMutation.isPending}
@@ -304,8 +318,8 @@ export function RegisterScreen(): React.JSX.Element {
           </ScrollView>
 
           <AuthFooter
-            prompt="Already have an account?"
-            actionLabel="Log in"
+            prompt={t('auth.registerFlow.hasAccount')}
+            actionLabel={t('auth.login')}
             onAction={() => navigation.navigate('Login')}
           />
         </KeyboardAvoidingView>
@@ -331,7 +345,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(42, 193, 188, 0.07)',
+    backgroundColor: theme.effects.ambientGlow,
   },
   container: { flex: 1, backgroundColor: 'transparent' },
   keyboardView: { flex: 1 },

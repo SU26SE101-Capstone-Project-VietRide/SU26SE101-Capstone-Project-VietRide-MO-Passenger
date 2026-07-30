@@ -8,6 +8,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ArrowLeft, X } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 
 export interface AuthProgressBarProps {
@@ -26,12 +27,21 @@ export const AuthProgressBar = ({
   subtitle,
   onBack,
   onCancel,
-}: AuthProgressBarProps): React.JSX.Element => (
-  <View style={styles.root}>
+}: AuthProgressBarProps): React.JSX.Element => {
+  const { t } = useTranslation();
+
+  return (
+    <View style={styles.root}>
     {/* Row 1: controls */}
     <View style={styles.controlsRow}>
       {onBack ? (
-        <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={styles.iconBtn}>
+        <TouchableOpacity
+          accessibilityLabel={t('common.back')}
+          accessibilityRole="button"
+          onPress={onBack}
+          activeOpacity={0.7}
+          style={styles.iconBtn}
+        >
           <ArrowLeft size={18} color={colors.primary} />
         </TouchableOpacity>
       ) : (
@@ -44,7 +54,13 @@ export const AuthProgressBar = ({
       </View>
 
       {onCancel ? (
-        <TouchableOpacity onPress={onCancel} activeOpacity={0.7} style={styles.iconBtn}>
+        <TouchableOpacity
+          accessibilityLabel={t('common.cancel')}
+          accessibilityRole="button"
+          onPress={onCancel}
+          activeOpacity={0.7}
+          style={styles.iconBtn}
+        >
           <X size={18} color={colors.primary} />
         </TouchableOpacity>
       ) : (
@@ -84,8 +100,9 @@ export const AuthProgressBar = ({
         })}
       </View>
     </View>
-  </View>
-);
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   root: {

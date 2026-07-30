@@ -17,6 +17,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
 import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
@@ -51,6 +52,7 @@ const resetPasswordFieldAliases: Partial<Record<string, ResetPasswordFormField>>
 };
 
 export function ResetPasswordScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<ScreenRouteProp>();
   const { errorMessage, clearError, handleError } = useApiError();
@@ -164,8 +166,8 @@ export function ResetPasswordScreen(): React.JSX.Element {
         <Svg height="520" width="100%">
           <Defs>
             <LinearGradient id="resetPasswordGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.7} />
-              <Stop offset="35%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.25} />
+              <Stop offset="0%" stopColor={theme.colors.accent} stopOpacity={0.7} />
+              <Stop offset="35%" stopColor={theme.colors.accent} stopOpacity={0.25} />
               <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
@@ -196,17 +198,19 @@ export function ResetPasswordScreen(): React.JSX.Element {
                     },
                   ]}
                 >
-                  <Text style={[styles.successIcon, { color: theme.colors.primary }]}>OK</Text>
+                  <Text style={[styles.successIcon, { color: theme.colors.primary }]}>
+                    {t('common.ok')}
+                  </Text>
                 </View>
                 <Text style={[styles.successTitle, { color: theme.colors.textPrimary }]}>
-                  Password updated
+                  {t('auth.resetPassword.successTitle')}
                 </Text>
                 <Text style={[styles.successSubtitle, { color: theme.colors.textSecondary }]}>
-                  You can now log in with your new password.
+                  {t('auth.resetPassword.successDescription')}
                 </Text>
 
                 <Button
-                  title="Back to Login"
+                  title={t('auth.resetPassword.backToLogin')}
                   onPress={() => navigation.navigate('Login', { email })}
                   size="md"
                   fullWidth
@@ -222,8 +226,8 @@ export function ResetPasswordScreen(): React.JSX.Element {
               contentContainerStyle={styles.scrollContent}
             >
               <AuthStepHeader
-                title="Create new password"
-                subtitle={`Enter the 6-digit code sent to ${email}, then choose a new password.`}
+                title={t('auth.resetPassword.title')}
+                subtitle={t('auth.resetPassword.description', { email })}
                 onBack={() => navigation.goBack()}
                 showMascot={false}
               />
@@ -231,7 +235,7 @@ export function ResetPasswordScreen(): React.JSX.Element {
               <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
                 <View style={styles.inputWrapper}>
                   <Input
-                    label="Reset Code"
+                    label={t('auth.fields.resetCode')}
                     placeholder="123456"
                     keyboardType="number-pad"
                     textContentType="oneTimeCode"
@@ -240,7 +244,13 @@ export function ResetPasswordScreen(): React.JSX.Element {
                     value={code}
                     required
                     error={errors.code}
-                    hint={isExpired ? 'Code expired. Go back and request a new reset code.' : `Code expires in ${formatCountdown(timer)}.`}
+                    hint={
+                      isExpired
+                        ? t('auth.resetPassword.codeExpired')
+                        : t('auth.resetPassword.codeExpiresIn', {
+                            time: formatCountdown(timer),
+                          })
+                    }
                     onBlur={() => validateField('code')}
                     onChangeText={(value) => {
                       setCode(value.replace(/\D/g, '').slice(0, AUTH_CODE_LENGTH));
@@ -251,15 +261,15 @@ export function ResetPasswordScreen(): React.JSX.Element {
 
                 <View style={styles.inputWrapper}>
                   <Input
-                    label="New Password"
-                    placeholder="Enter new password"
+                    label={t('auth.fields.newPassword')}
+                    placeholder={t('auth.fields.newPasswordPlaceholder')}
                     secureTextEntry
                     textContentType="newPassword"
                     autoComplete="password-new"
                     value={password}
                     required
                     error={errors.password}
-                    hint="At least 8 characters with a letter and a number."
+                    hint={t('auth.fields.passwordRequirements')}
                     onBlur={() => validateField('password')}
                     onChangeText={(value) => {
                       setPassword(value);
@@ -270,8 +280,8 @@ export function ResetPasswordScreen(): React.JSX.Element {
 
                 <View style={styles.inputWrapper}>
                   <Input
-                    label="Confirm New Password"
-                    placeholder="Confirm new password"
+                    label={t('auth.fields.confirmNewPassword')}
+                    placeholder={t('auth.fields.confirmNewPasswordPlaceholder')}
                     secureTextEntry
                     textContentType="newPassword"
                     autoComplete="password-new"
@@ -293,7 +303,7 @@ export function ResetPasswordScreen(): React.JSX.Element {
                 ) : null}
 
                 <Button
-                  title="Update Password"
+                  title={t('auth.resetPassword.submit')}
                   onPress={handleReset}
                   disabled={isSubmitDisabled}
                   loading={resetMutation.isPending}
@@ -326,7 +336,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(42, 193, 188, 0.07)',
+    backgroundColor: theme.effects.ambientGlow,
   },
   container: { flex: 1, backgroundColor: 'transparent' },
   keyboardView: { flex: 1 },

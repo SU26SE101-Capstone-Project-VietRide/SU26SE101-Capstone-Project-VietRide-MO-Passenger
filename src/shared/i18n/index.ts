@@ -20,10 +20,23 @@ i18n.use(initReactI18next).init({
   resources,
   lng: 'vi',
   fallbackLng: 'en',
+  supportedLngs: ['vi', 'en'],
+  nonExplicitSupportedLngs: true,
+  load: 'languageOnly',
+  returnNull: false,
+  saveMissing: __DEV__,
+  missingKeyHandler: (_languages, _namespace, key) => {
+    if (__DEV__) {
+      console.warn(`[i18n] Missing translation key: ${key}`);
+    }
+  },
   interpolation: {
     escapeValue: false, // React already escapes
   },
   compatibilityJSON: 'v4',
+  react: {
+    useSuspense: false,
+  },
 });
 
 export default i18n;

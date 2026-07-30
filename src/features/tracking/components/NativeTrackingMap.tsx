@@ -5,8 +5,9 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { Bus, Crosshair, MapPin } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 import MapView, {
   Marker,
   Polyline,
@@ -25,6 +26,7 @@ import {
   type AppTheme,
 } from '@shared/theme';
 import type { GeoCoordinate } from '@shared/types/common';
+import { motionTokens, useMotion } from '@shared/motion';
 import type { TrackingPoint } from '../api/trackingApi';
 import type { TrackingMapStop } from './trackingMapModel';
 
@@ -38,10 +40,11 @@ const MAP_PADDING = { top: 24, right: 24, bottom: 68, left: 24 } as const;
 const INITIAL_VIEWPORT_PADDING = { top: 48, right: 40, bottom: 88, left: 40 } as const;
 const VEHICLE_MARKER_ANCHOR = { x: 0.5, y: 0.5 } as const;
 const STOP_MARKER_ANCHOR = { x: 0.5, y: 1 } as const;
-const FOLLOW_CAMERA_DURATION_MS = 350;
 const DEFAULT_FOLLOW_ZOOM = 15;
 const MIN_ZOOM_LEVEL = 5;
 const MAX_ZOOM_LEVEL = 19;
+const MAP_MARKER_CONTRAST = '#FFFFFF';
+const TRAIL_HALO_COLOR = 'rgba(255, 255, 255, 0.92)';
 
 const hasMoved = (left: LatLng | null, right: LatLng): boolean => !left
   || Math.abs(left.latitude - right.latitude) > 0.000001
@@ -63,7 +66,16 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
   const lastFollowedCoordinateRef = useRef<LatLng | null>(null);
   const [isFollowingVehicle, setIsFollowingVehicle] = useState(true);
   const theme = useTheme();
+  const { t } = useTranslation();
+  const { reduceMotion } = useMotion();
+  const { height: viewportHeight } = useWindowDimensions();
   const styles = useThemedStyles(createStyles);
+  const mapFrameStyle = useMemo(
+    () => ({
+      height: Math.min(360, Math.max(260, viewportHeight * 0.4)),
+    }),
+    [viewportHeight],
+  );
   const coordinates = useMemo(() => points.map(toCoordinate), [points]);
   const latestCoordinate = useMemo(() => toCoordinate(latest), [latest]);
   const initialRegion = useMemo(() => ({
@@ -95,9 +107,13 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
     lastFollowedCoordinateRef.current = latestCoordinate;
     mapRef.current.animateCamera(
       { center: latestCoordinate },
-      { duration: FOLLOW_CAMERA_DURATION_MS },
+      {
+        duration: reduceMotion
+          ? 0
+          : motionTokens.duration.emphasis,
+      },
     );
-  }, [isFollowingVehicle, latestCoordinate]);
+  }, [isFollowingVehicle, latestCoordinate, reduceMotion]);
 
   const stopFollowingVehicle = useCallback(() => {
     setIsFollowingVehicle(false);
@@ -127,12 +143,16 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
     setIsFollowingVehicle(true);
     mapRef.current?.animateCamera(
       { center: latestCoordinate, zoom: DEFAULT_FOLLOW_ZOOM },
-      { duration: FOLLOW_CAMERA_DURATION_MS },
+      {
+        duration: reduceMotion
+          ? 0
+          : motionTokens.duration.emphasis,
+      },
     );
-  }, [latestCoordinate]);
+  }, [latestCoordinate, reduceMotion]);
 
   return (
-    <View style={styles.mapFrame}>
+    <View style={[styles.mapFrame, mapFrameStyle]}>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -165,8 +185,8 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
         onMapReady={handleMapReady}
         onPanDrag={stopFollowingVehicle}
         onRegionChangeComplete={handleRegionChangeComplete}
-        accessibilityLabel="Live trip map"
-        accessibilityHint="Drag or pinch to explore the trip. Use Follow bus to resume live tracking."
+        accessibilityLabel={t('tracking.map.accessibilityLabel')}
+        accessibilityHint={t('tracking.map.accessibilityHint')}
       >
         {stopCoordinates.map(({ stop, coordinate }) => (
           <Marker
@@ -178,7 +198,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             zIndex={1}
           >
             <View collapsable={false} style={styles.stopMarker}>
-              <MapPin size={18} color="#FFFFFF" weight="fill" />
+              <MapPin size={18} color={MAP_MARKER_CONTRAST} weight="fill" />
             </View>
           </Marker>
         ))}
@@ -186,7 +206,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
           <>
             <Polyline
               coordinates={coordinates}
-              strokeColor="rgba(255, 255, 255, 0.92)"
+              strokeColor={TRAIL_HALO_COLOR}
               strokeWidth={8}
               lineCap="round"
               lineJoin="round"
@@ -204,7 +224,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
         ) : null}
         <Marker
           coordinate={latestCoordinate}
-          title="Latest bus location"
+          title={t('tracking.map.latestVehicle')}
           rotation={heading}
           anchor={VEHICLE_MARKER_ANCHOR}
           flat
@@ -212,18 +232,18 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
           zIndex={10}
         >
           <View collapsable={false} style={styles.vehicleMarker}>
-            <Bus size={20} color="#FFFFFF" weight="fill" />
+            <Bus size={20} color={MAP_MARKER_CONTRAST} weight="fill" />
           </View>
         </Marker>
       </MapView>
       {!isFollowingVehicle ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Follow the live bus location"
+          accessibilityLabel={t('tracking.map.followAccessibility')}
           onPress={handleRecenter}
           style={({ pressed }) => [
             styles.recenterButton,
-            pressed && styles.recenterButtonPressed,
+            pressed ? styles.recenterButtonPressed : null,
           ]}
           hitSlop={spacing.sm}
         >
@@ -232,7 +252,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             style={styles.recenterLabel}
             numberOfLines={1}
           >
-            Follow bus
+            {t('tracking.map.followVehicle')}
           </Text>
         </Pressable>
       ) : null}
@@ -242,7 +262,6 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
 
 const createStyles = (theme: AppTheme) => ({
   mapFrame: {
-    height: 320,
     overflow: 'hidden' as const,
     borderRadius: borderRadius.xl,
     borderCurve: 'continuous' as const,
@@ -258,7 +277,7 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center' as const,
     borderRadius: borderRadius.full,
     borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderColor: MAP_MARKER_CONTRAST,
     backgroundColor: theme.colors.primary,
     ...theme.effects.floatingShadow,
   },
@@ -269,7 +288,7 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center' as const,
     borderRadius: borderRadius.full,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: MAP_MARKER_CONTRAST,
     backgroundColor: theme.colors.textSecondary,
   },
   recenterButton: {

@@ -3,7 +3,6 @@ import { useFonts } from 'expo-font';
 import { AppProviders } from '@app/providers';
 import { useNetworkStatus } from '@shared/hooks';
 import { LoadingOverlay } from '@shared/components/LoadingOverlay';
-import { AppLaunchScreen } from '@shared/components/AppLaunchScreen';
 import { useAppStore } from '@shared/store';
 
 function AppContent(): React.JSX.Element {
@@ -19,7 +18,7 @@ function AppContent(): React.JSX.Element {
   );
 }
 
-export default function App(): React.JSX.Element | null {
+export default function App(): React.JSX.Element {
   // Load Be Vietnam Pro font weights asynchronously
   const [fontsLoaded, fontError] = useFonts({
     'BeVietnamPro-Regular': require('../assets/fonts/BeVietnamPro-Regular.ttf'),
@@ -28,13 +27,8 @@ export default function App(): React.JSX.Element | null {
     'BeVietnamPro-Bold': require('../assets/fonts/BeVietnamPro-Bold.ttf'),
   });
 
-  // Keep the native splash and the first React frame visually continuous.
-  if (!fontsLoaded && !fontError) {
-    return <AppLaunchScreen message="Đang chuẩn bị trải nghiệm của bạn..." />;
-  }
-
   return (
-    <AppProviders>
+    <AppProviders isAppReady={fontsLoaded || Boolean(fontError)}>
       <AppContent />
     </AppProviders>
   );

@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { Location } from '@features/location/types/location';
 import { searchStations, stationKeys } from '@features/trip/api/stationApi';
 import type { StationSearchResult } from '@features/trip/types';
 import type { CurrentCoordinates } from '@shared/hooks/useCurrentCoordinates';
 import { getGeoDistanceKm } from '@shared/utils/geo';
+import i18n from '@shared/i18n';
 import type { Station } from '../types';
 
 const STATION_STALE_TIME_MS = 10 * 60 * 1000;
@@ -36,10 +38,14 @@ const formatDistance = (distanceKm: number | null): string | null => {
   }
 
   if (distanceKm < 1) {
-    return `${Math.round(distanceKm * 1000)} m away`;
+    return i18n.t('parcel.stations.distanceMeters', {
+      distance: Math.round(distanceKm * 1000),
+    });
   }
 
-  return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km away`;
+  return i18n.t('parcel.stations.distanceKilometers', {
+    distance: distanceKm.toFixed(distanceKm < 10 ? 1 : 0),
+  });
 };
 
 export const mapParcelStation = (
@@ -63,7 +69,7 @@ export const mapParcelStation = (
       (isResolvingCurrentLocation &&
       station.latitude != null &&
       station.longitude != null
-        ? 'Calculating distance...'
+        ? i18n.t('parcel.stations.calculatingDistance')
         : null),
     isClosest: index === 0 && distanceKm != null,
     city: station.city || station.province || '',
@@ -76,6 +82,8 @@ export function useParcelStations(
   currentCoordinates: CurrentCoordinates | null = null,
   isResolvingCurrentLocation = false,
 ) {
+  const { i18n: i18nInstance } = useTranslation();
+  const language = i18nInstance.resolvedLanguage;
   const locationId = location?.id.trim() ?? '';
 
   const query = useQuery({
@@ -126,7 +134,7 @@ export function useParcelStations(
           distanceKm,
         ),
       );
-  }, [currentCoordinates, isResolvingCurrentLocation, query.data]);
+  }, [currentCoordinates, isResolvingCurrentLocation, language, query.data]);
 
   return {
     ...query,

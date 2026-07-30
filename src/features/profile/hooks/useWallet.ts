@@ -81,8 +81,7 @@ export class TopUpSubmissionCoordinator {
     ) {
       return Promise.reject(
         new ApiRequestError({
-          message:
-            'A previous top-up is still being reconciled. Retry the same amount or return from VNPay before starting another request.',
+          message: 'topUp.errors.reconciliationRequired',
           code: 'TOP_UP_RECONCILIATION_REQUIRED',
         }),
       );
@@ -101,7 +100,7 @@ export class TopUpSubmissionCoordinator {
         activeUserId !== userId
       ) {
         throw new ApiRequestError({
-          message: 'Phiên đăng nhập đã thay đổi.',
+          message: 'topUp.errors.sessionChanged',
           code: 'SESSION_INVALIDATED',
         });
       }
@@ -230,7 +229,7 @@ export function useCreateWalletTopUp() {
     mutationFn: (amount: number) => {
       if (!userId) {
         throw new ApiRequestError({
-          message: 'Vui lòng đăng nhập để nạp tiền.',
+          message: 'topUp.errors.authRequired',
           code: 'AUTH_REQUIRED',
           statusCode: 401,
         });

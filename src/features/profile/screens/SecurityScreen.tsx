@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Platform,
   Pressable,
@@ -10,6 +10,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   ClockCounterClockwise,
@@ -32,19 +33,33 @@ type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList>;
 
 const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
 
-const platformLabel = Platform.select({
-  ios: 'iOS',
-  android: 'Android',
-  default: 'Mobile',
-});
-
 export function SecurityScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<ProfileNavProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const handleTabBarScroll = useTabBarScrollBehavior();
   const user = useAuthStore((state) => state.user);
+  const platformLabel = Platform.select({
+    ios: 'iOS',
+    android: 'Android',
+    default: t('security.mobilePlatform'),
+  });
+  const accountStatus = useMemo(() => {
+    switch (user?.status) {
+      case 'ACTIVE':
+        return t('security.status.active');
+      case 'PENDING_EMAIL_VERIFICATION':
+        return t('security.status.pendingEmailVerification');
+      case 'PENDING_INITIAL_PASSWORD':
+        return t('security.status.pendingInitialPassword');
+      case 'LOCKED':
+        return t('security.status.locked');
+      default:
+        return t('security.status.unknown');
+    }
+  }, [t, user?.status]);
   const bottomTabClearance =
     CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
 
@@ -57,12 +72,14 @@ export function SecurityScreen(): React.JSX.Element {
 
       <View style={styles.topBar}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
           <ArrowLeft size={24} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.topBarTitle}>Bảo mật</Text>
+        <Text style={styles.topBarTitle}>{t('security.title')}</Text>
         <View style={styles.topBarRightPlaceholder} />
       </View>
 
@@ -78,23 +95,30 @@ export function SecurityScreen(): React.JSX.Element {
             <ShieldCheck size={28} color={theme.colors.primary} weight="fill" />
           </View>
           <View style={styles.heroTextWrap}>
-            <Text style={styles.heroTitle}>Thông tin bảo mật tài khoản</Text>
+            <Text style={styles.heroTitle}>{t('security.heroTitle')}</Text>
             <Text style={styles.heroText}>
-              Các mục nhạy cảm sẽ chỉ hiển thị dữ liệu thật từ backend hoặc từ phiên hiện tại trên thiết bị.
+              {t('security.heroDescription')}
             </Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tài khoản</Text>
+          <Text style={styles.sectionTitle}>{t('security.accountSection')}</Text>
           <View style={styles.card}>
-            <InfoRow label="Email đăng nhập" value={user?.email || 'Chưa có'} />
+            <InfoRow
+              label={t('security.loginEmail')}
+              value={user?.email || t('security.notAvailable')}
+            />
             <View style={styles.rowDivider} />
-            <InfoRow label="Trạng thái" value={user?.status || 'Không rõ'} />
+            <InfoRow label={t('security.accountStatus')} value={accountStatus} />
             <View style={styles.rowDivider} />
             <Pressable
               style={[styles.actionRow, styles.disabledAction]}
               disabled={!PROFILE_SECURITY_CAPABILITIES.changePassword}
+              accessibilityRole="button"
+              accessibilityState={{
+                disabled: !PROFILE_SECURITY_CAPABILITIES.changePassword,
+              }}
               onPress={() => navigation.navigate('ChangePassword')}
             >
               <View style={styles.actionLeft}>
@@ -102,54 +126,58 @@ export function SecurityScreen(): React.JSX.Element {
                   <Key size={18} color={theme.colors.primary} />
                 </View>
                 <View style={styles.actionCopy}>
-                  <Text style={styles.actionLabel}>Đổi mật khẩu</Text>
-                  <Text style={styles.actionDesc}>Chưa được backend hỗ trợ an toàn</Text>
+                  <Text style={styles.actionLabel}>{t('security.changePassword.title')}</Text>
+                  <Text style={styles.actionDesc}>
+                    {t('security.changePassword.unavailableDescription')}
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.unavailableLabel}>Chưa khả dụng</Text>
+              <Text style={styles.unavailableLabel}>{t('security.unavailable')}</Text>
             </Pressable>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thiết bị hiện tại</Text>
+          <Text style={styles.sectionTitle}>{t('security.currentDeviceSection')}</Text>
           <View style={styles.card}>
             <View style={styles.deviceRow}>
               <View style={styles.deviceIcon}>
                 <DeviceMobile size={22} color={theme.colors.primary} weight="fill" />
               </View>
               <View style={styles.deviceCopy}>
-                <Text style={styles.deviceTitle}>{platformLabel} device</Text>
-                <Text style={styles.deviceMeta}>Đang dùng phiên đăng nhập hiện tại</Text>
+                <Text style={styles.deviceTitle}>
+                  {t('security.deviceName', { platform: platformLabel })}
+                </Text>
+                <Text style={styles.deviceMeta}>{t('security.currentSession')}</Text>
               </View>
               <View style={styles.liveBadge}>
-                <Text style={styles.liveBadgeText}>Active</Text>
+                <Text style={styles.liveBadgeText}>{t('security.active')}</Text>
               </View>
             </View>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thiết bị đã đăng nhập</Text>
+          <Text style={styles.sectionTitle}>{t('security.signedInDevicesSection')}</Text>
           <View style={styles.card}>
             <View style={styles.emptyState}>
               <WarningCircle size={24} color={theme.colors.warning} weight="fill" />
-              <Text style={styles.emptyTitle}>Danh sách phiên chưa khả dụng</Text>
+              <Text style={styles.emptyTitle}>{t('security.sessionsUnavailableTitle')}</Text>
               <Text style={styles.emptyText}>
-                Ứng dụng sẽ chỉ hiển thị thiết bị đăng nhập khi backend cung cấp API công khai với dữ liệu thật.
+                {t('security.sessionsUnavailableDescription')}
               </Text>
             </View>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Đăng nhập gần đây</Text>
+          <Text style={styles.sectionTitle}>{t('security.recentLoginsSection')}</Text>
           <View style={styles.card}>
             <View style={styles.emptyState}>
               <ClockCounterClockwise size={24} color={theme.colors.textTertiary} />
-              <Text style={styles.emptyTitle}>Chờ API audit/login activity</Text>
+              <Text style={styles.emptyTitle}>{t('security.activityUnavailableTitle')}</Text>
               <Text style={styles.emptyText}>
-                UI đã có khung hiển thị, nhưng sẽ không tự tạo dữ liệu mẫu khi BE chưa trả dữ liệu thật.
+                {t('security.activityUnavailableDescription')}
               </Text>
             </View>
           </View>

@@ -29,7 +29,7 @@ export function VectorImage({
   color,
 }: VectorImageProps): React.JSX.Element {
   const theme = useTheme();
-  const iconColor = color || (theme.isDark ? '#FFFFFF' : '#181C20');
+  const iconColor = color ?? theme.colors.textPrimary;
 
   if (source && source.endsWith('.svg')) {
     return (

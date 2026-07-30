@@ -33,12 +33,12 @@ export type AvatarValidationErrorCode =
 
 export type AvatarValidationResult =
   | { success: true; file: AvatarUploadFile }
-  | { success: false; code: AvatarValidationErrorCode; message: string };
+  | { success: false; code: AvatarValidationErrorCode; messageKey: string };
 
 const failure = (
   code: AvatarValidationErrorCode,
-  message: string,
-): AvatarValidationResult => ({ code, message, success: false });
+  messageKey: string,
+): AvatarValidationResult => ({ code, messageKey, success: false });
 
 const sanitizeAvatarBaseName = (fileName?: string | null): string => {
   const leafName = fileName?.trim().split(/[\\/]/).pop() || '';
@@ -64,7 +64,10 @@ export const validateAvatarAsset = (
 ): AvatarValidationResult => {
   const uri = asset.uri?.trim();
   if (!uri || (asset.type != null && asset.type !== 'image')) {
-    return failure('AVATAR_INVALID_ASSET', 'Vui lòng chọn một ảnh hợp lệ.');
+    return failure(
+      'AVATAR_INVALID_ASSET',
+      'profile.avatar.errors.invalidAsset',
+    );
   }
 
   if (
@@ -75,7 +78,7 @@ export const validateAvatarAsset = (
   ) {
     return failure(
       'AVATAR_DIMENSIONS_UNAVAILABLE',
-      'Không thể xác định kích thước ảnh. Vui lòng chọn ảnh khác.',
+      'profile.avatar.errors.dimensionsUnavailable',
     );
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -35,7 +35,7 @@ type SettingsNavigationProp = NativeStackNavigationProp<
 >;
 
 export function SettingsScreen(): React.JSX.Element {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigation = useNavigation<SettingsNavigationProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -48,13 +48,25 @@ export function SettingsScreen(): React.JSX.Element {
   const [parcelNotif, setParcelNotif] = useState(true);
   const [promoNotif, setPromoNotif] = useState(false);
 
-  // Current active language code
-  const currentLanguage = i18n.language || localeStore;
-
   const handleLanguageChange = useCallback((lang: 'en' | 'vi') => {
-    i18n.changeLanguage(lang);
     setLocaleStore(lang);
-  }, [i18n, setLocaleStore]);
+  }, [setLocaleStore]);
+  const handleBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleThemeSettings = useCallback(
+    () => navigation.navigate('ThemeSettings'),
+    [navigation],
+  );
+  const handleSecuritySettings = useCallback(
+    () => navigation.navigate('SecuritySettings'),
+    [navigation],
+  );
+  const switchTrackColors = useMemo(
+    () => ({
+      false: theme.colors.border,
+      true: theme.colors.primaryLight,
+    }),
+    [theme.colors.border, theme.colors.primaryLight],
+  );
 
   return (
     <SafeAreaView style={styles.safeContainer}>
@@ -66,12 +78,14 @@ export function SettingsScreen(): React.JSX.Element {
       {/* Navigation Top Bar */}
       <View style={styles.topBar}>
         <Pressable
-          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
+          onPress={handleBack}
           style={styles.backButton}
         >
           <ArrowLeft size={24} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.topBarTitle}>{t('profile.settings', 'Settings')}</Text>
+        <Text style={styles.topBarTitle}>{t('settings.title')}</Text>
         <View style={styles.topBarRightPlaceholder} />
       </View>
 
@@ -85,22 +99,24 @@ export function SettingsScreen(): React.JSX.Element {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Translate size={18} color={theme.colors.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>{t('profile.language', 'Language')}</Text>
+            <Text style={styles.sectionTitle}>{t('settings.language.title')}</Text>
           </View>
 
           <View style={styles.card}>
             <Pressable
               style={[
                 styles.languageRow,
-                currentLanguage.startsWith('vi') ? styles.activeLanguageRow : null,
+                localeStore === 'vi' ? styles.activeLanguageRow : null,
               ]}
               onPress={() => handleLanguageChange('vi')}
             >
               <View style={styles.languageTextContainer}>
-                <Text style={styles.languageLabel}>Tiếng Việt</Text>
-                <Text style={styles.languageSubLabel}>Vietnamese</Text>
+                <Text style={styles.languageLabel}>{t('settings.language.vietnamese')}</Text>
+                <Text style={styles.languageSubLabel}>
+                  {t('settings.language.vietnameseDescription')}
+                </Text>
               </View>
-              {currentLanguage.startsWith('vi') ? (
+              {localeStore === 'vi' ? (
                 <View style={styles.radioCheck} />
               ) : null}
             </Pressable>
@@ -110,15 +126,17 @@ export function SettingsScreen(): React.JSX.Element {
             <Pressable
               style={[
                 styles.languageRow,
-                currentLanguage.startsWith('en') ? styles.activeLanguageRow : null,
+                localeStore === 'en' ? styles.activeLanguageRow : null,
               ]}
               onPress={() => handleLanguageChange('en')}
             >
               <View style={styles.languageTextContainer}>
-                <Text style={styles.languageLabel}>English</Text>
-                <Text style={styles.languageSubLabel}>Tiếng Anh</Text>
+                <Text style={styles.languageLabel}>{t('settings.language.english')}</Text>
+                <Text style={styles.languageSubLabel}>
+                  {t('settings.language.englishDescription')}
+                </Text>
               </View>
-              {currentLanguage.startsWith('en') ? (
+              {localeStore === 'en' ? (
                 <View style={styles.radioCheck} />
               ) : null}
             </Pressable>
@@ -129,17 +147,19 @@ export function SettingsScreen(): React.JSX.Element {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Palette size={18} color={theme.colors.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Appearance</Text>
+            <Text style={styles.sectionTitle}>{t('settings.appearance.title')}</Text>
           </View>
 
           <View style={styles.card}>
             <Pressable
               style={styles.settingRow}
-              onPress={() => navigation.navigate('ThemeSettings')}
+              onPress={handleThemeSettings}
             >
               <View style={styles.settingTextContainer}>
-                <Text style={styles.settingLabel}>Theme & Visuals</Text>
-                <Text style={styles.settingDesc}>Choose Light or Dark Liquid Glass mode</Text>
+                <Text style={styles.settingLabel}>{t('settings.appearance.themeTitle')}</Text>
+                <Text style={styles.settingDesc}>
+                  {t('settings.appearance.themeDescription')}
+                </Text>
               </View>
             </Pressable>
           </View>
@@ -149,18 +169,18 @@ export function SettingsScreen(): React.JSX.Element {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <LockKey size={18} color={theme.colors.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Security</Text>
+            <Text style={styles.sectionTitle}>{t('settings.security.title')}</Text>
           </View>
 
           <View style={styles.card}>
             <Pressable
               style={styles.settingRow}
-              onPress={() => navigation.navigate('SecuritySettings')}
+              onPress={handleSecuritySettings}
             >
               <View style={styles.settingTextContainer}>
-                <Text style={styles.settingLabel}>Account Security</Text>
+                <Text style={styles.settingLabel}>{t('settings.security.accountTitle')}</Text>
                 <Text style={styles.settingDesc}>
-                  Change password, check signed-in devices and recent logins
+                  {t('settings.security.accountDescription')}
                 </Text>
               </View>
               <CaretRight size={16} color={theme.colors.textTertiary} weight="bold" />
@@ -172,23 +192,23 @@ export function SettingsScreen(): React.JSX.Element {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Bell size={18} color={theme.colors.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>{t('profile.notifications', 'Notifications')}</Text>
+            <Text style={styles.sectionTitle}>{t('settings.notifications.title')}</Text>
           </View>
 
           <View style={styles.card}>
             <View style={styles.settingRow}>
               <View style={styles.settingTextContainer}>
                 <Text style={styles.settingLabel}>
-                  {t('profile.tripUpdates', 'Trip Updates')}
+                  {t('settings.notifications.tripUpdates')}
                 </Text>
                 <Text style={styles.settingDesc}>
-                  {t('profile.tripUpdatesDesc', 'Alerts on departures, delays, and arrivals')}
+                  {t('settings.notifications.tripUpdatesDescription')}
                 </Text>
               </View>
               <Switch
                 value={tripNotif}
                 onValueChange={setTripNotif}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primaryLight }}
+                trackColor={switchTrackColors}
                 thumbColor={tripNotif ? theme.colors.primary : theme.colors.divider}
               />
             </View>
@@ -198,16 +218,16 @@ export function SettingsScreen(): React.JSX.Element {
             <View style={styles.settingRow}>
               <View style={styles.settingTextContainer}>
                 <Text style={styles.settingLabel}>
-                  {t('profile.parcelAlerts', 'Parcel Alerts')}
+                  {t('settings.notifications.parcelAlerts')}
                 </Text>
                 <Text style={styles.settingDesc}>
-                  {t('profile.parcelAlertsDesc', 'Status changes of shipped and received packages')}
+                  {t('settings.notifications.parcelAlertsDescription')}
                 </Text>
               </View>
               <Switch
                 value={parcelNotif}
                 onValueChange={setParcelNotif}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primaryLight }}
+                trackColor={switchTrackColors}
                 thumbColor={parcelNotif ? theme.colors.primary : theme.colors.divider}
               />
             </View>
@@ -217,16 +237,16 @@ export function SettingsScreen(): React.JSX.Element {
             <View style={styles.settingRow}>
               <View style={styles.settingTextContainer}>
                 <Text style={styles.settingLabel}>
-                  {t('profile.specialOffers', 'Promotions & Offers')}
+                  {t('settings.notifications.promotions')}
                 </Text>
                 <Text style={styles.settingDesc}>
-                  {t('profile.specialOffersDesc', 'Receive vouchers, loyalty points and campaign alerts')}
+                  {t('settings.notifications.promotionsDescription')}
                 </Text>
               </View>
               <Switch
                 value={promoNotif}
                 onValueChange={setPromoNotif}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primaryLight }}
+                trackColor={switchTrackColors}
                 thumbColor={promoNotif ? theme.colors.primary : theme.colors.divider}
               />
             </View>
@@ -237,13 +257,13 @@ export function SettingsScreen(): React.JSX.Element {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <ShieldCheck size={18} color={theme.colors.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>{t('profile.privacyAbout', 'About & Legal')}</Text>
+            <Text style={styles.sectionTitle}>{t('settings.legal.title')}</Text>
           </View>
 
           <View style={styles.card}>
             <Pressable style={styles.legalRow}>
               <View style={styles.legalTextContainer}>
-                <Text style={styles.settingLabel}>{t('profile.terms', 'Terms of Service')}</Text>
+                <Text style={styles.settingLabel}>{t('settings.legal.terms')}</Text>
               </View>
             </Pressable>
 
@@ -251,7 +271,7 @@ export function SettingsScreen(): React.JSX.Element {
 
             <Pressable style={styles.legalRow}>
               <View style={styles.legalTextContainer}>
-                <Text style={styles.settingLabel}>{t('profile.privacyPolicy', 'Privacy Policy')}</Text>
+                <Text style={styles.settingLabel}>{t('settings.legal.privacy')}</Text>
               </View>
             </Pressable>
           </View>
@@ -261,7 +281,7 @@ export function SettingsScreen(): React.JSX.Element {
         <View style={styles.supportNote}>
           <Info size={16} color={theme.colors.textTertiary} style={styles.supportNoteIcon} />
           <Text style={styles.supportNoteText}>
-            VietRide uses end-to-end encryption for security. All data stays local to your phone.
+            {t('settings.securityNote')}
           </Text>
         </View>
       </ScrollView>
@@ -334,7 +354,7 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'space-between',
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
-    backgroundColor: 'transparent',
+    backgroundColor: theme.colors.transparent,
   },
   activeLanguageRow: {
     backgroundColor: theme.colors.primaryFaded,

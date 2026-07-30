@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
 import { ArrowLeft, LockKey, ShieldCheck } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { Button, Input } from '@shared/components';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
@@ -26,12 +27,14 @@ import {
   apiProfileFieldErrors,
   changePasswordFieldErrors,
   changePasswordSchema,
+  localizeProfileFieldError,
   type ChangePasswordField,
 } from '../validation/profileValidation';
 
 const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
 
 export function ChangePasswordScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -71,9 +74,9 @@ export function ChangePasswordScreen(): React.JSX.Element {
       }
 
       Alert.alert(
-        'Đã đổi mật khẩu',
-        'Mật khẩu của bạn đã được cập nhật.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
+        t('security.changePassword.successTitle'),
+        t('security.changePassword.successDescription'),
+        [{ text: t('common.ok'), onPress: () => navigation.goBack() }],
       );
     },
     onError: (error) => {
@@ -83,7 +86,10 @@ export function ChangePasswordScreen(): React.JSX.Element {
         setErrors(apiProfileFieldErrors<ChangePasswordField>(apiError.fields));
       }
 
-      Alert.alert('Không thể đổi mật khẩu', getApiErrorMessage(apiError));
+      Alert.alert(
+        t('security.changePassword.errorTitle'),
+        getApiErrorMessage(apiError),
+      );
     },
   });
 
@@ -100,12 +106,14 @@ export function ChangePasswordScreen(): React.JSX.Element {
       >
         <View style={styles.topBar}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
             <ArrowLeft size={24} color={theme.colors.textPrimary} />
           </Pressable>
-          <Text style={styles.topBarTitle}>Đổi mật khẩu</Text>
+          <Text style={styles.topBarTitle}>{t('security.changePassword.title')}</Text>
           <View style={styles.topBarRightPlaceholder} />
         </View>
 
@@ -122,16 +130,18 @@ export function ChangePasswordScreen(): React.JSX.Element {
               <ShieldCheck size={22} color={theme.colors.primary} weight="fill" />
             </View>
             <View style={styles.infoTextWrap}>
-              <Text style={styles.infoTitle}>Bảo vệ tài khoản</Text>
+              <Text style={styles.infoTitle}>
+                {t('security.changePassword.protectTitle')}
+              </Text>
               <Text style={styles.infoText}>
-                Dùng mật khẩu khác mật khẩu cũ, tối thiểu 8 ký tự và có cả chữ lẫn số.
+                {t('security.changePassword.protectDescription')}
               </Text>
             </View>
           </View>
 
           <View style={styles.formCard}>
             <Input
-              label="Mật khẩu hiện tại"
+              label={t('security.changePassword.currentPassword')}
               value={currentPassword}
               onChangeText={(text) => {
                 setCurrentPassword(text);
@@ -142,12 +152,12 @@ export function ChangePasswordScreen(): React.JSX.Element {
               secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
-              error={errors.currentPassword}
+              error={localizeProfileFieldError(errors.currentPassword, t)}
               required
             />
 
             <Input
-              label="Mật khẩu mới"
+              label={t('security.changePassword.newPassword')}
               value={newPassword}
               onChangeText={(text) => {
                 setNewPassword(text);
@@ -158,12 +168,12 @@ export function ChangePasswordScreen(): React.JSX.Element {
               secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
-              error={errors.newPassword}
+              error={localizeProfileFieldError(errors.newPassword, t)}
               required
             />
 
             <Input
-              label="Nhập lại mật khẩu mới"
+              label={t('security.changePassword.confirmPassword')}
               value={confirmPassword}
               onChangeText={(text) => {
                 setConfirmPassword(text);
@@ -174,13 +184,13 @@ export function ChangePasswordScreen(): React.JSX.Element {
               secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
-              error={errors.confirmPassword}
+              error={localizeProfileFieldError(errors.confirmPassword, t)}
               required
             />
           </View>
 
           <Button
-            title="Cập nhật mật khẩu"
+            title={t('security.changePassword.submit')}
             onPress={() => mutation.mutate()}
             loading={mutation.isPending}
             fullWidth
@@ -190,8 +200,7 @@ export function ChangePasswordScreen(): React.JSX.Element {
           <View style={styles.backendNote}>
             <LockKey size={16} color={theme.colors.textTertiary} />
             <Text style={styles.backendNoteText}>
-              Mobile đã chuẩn bị sẵn request POST /v1/auth/change-password. Nếu BE chưa mở endpoint,
-              app sẽ báo chưa hỗ trợ thay vì cập nhật giả.
+              {t('security.changePassword.backendNote')}
             </Text>
           </View>
         </ScrollView>

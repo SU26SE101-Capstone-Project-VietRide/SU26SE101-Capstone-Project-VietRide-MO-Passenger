@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { WarningCircle } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -12,21 +13,23 @@ interface ErrorViewProps {
 }
 
 export function ErrorView({
-  message = 'Failed to load data. Please check your connection.',
+  message,
   onRetry,
 }: ErrorViewProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const displayedMessage = message ?? t('parcel.errors.loadData');
 
   return (
     <View style={styles.container}>
       <View style={styles.card}>
         <WarningCircle size={40} color={theme.colors.error} weight="fill" />
-        <Text style={styles.title}>Something went wrong</Text>
-        <Text style={styles.message}>{message}</Text>
+        <Text style={styles.title}>{t('parcel.errors.title')}</Text>
+        <Text style={styles.message}>{displayedMessage}</Text>
         {onRetry ? (
           <Pressable style={styles.button} onPress={onRetry}>
-            <Text style={styles.buttonText}>Try Again</Text>
+            <Text style={styles.buttonText}>{t('parcel.actions.tryAgain')}</Text>
           </Pressable>
         ) : null}
       </View>

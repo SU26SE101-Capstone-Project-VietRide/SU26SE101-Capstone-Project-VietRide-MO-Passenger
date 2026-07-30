@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Package } from 'phosphor-react-native';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -69,13 +70,19 @@ function PricingBreakdownComponent({
   walletHasError,
 }: PricingBreakdownProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const packageCategoryLabel = packageCategory
+    ? t(`parcel.categories.${packageCategory.toLowerCase()}`)
+    : t('parcel.categories.others');
 
   return (
     <View style={styles.summaryContent}>
       <View style={styles.card}>
         <View style={styles.cardAccent} />
-        <Text style={styles.cardHeading}>Route Information</Text>
+        <Text style={styles.cardHeading}>
+          {t('parcel.summary.routeInformation')}
+        </Text>
         <View style={styles.summaryRoute}>
           <View style={styles.routeTrack}>
             <View style={styles.dotStart} />
@@ -84,9 +91,11 @@ function PricingBreakdownComponent({
           </View>
           <View style={styles.routeDetailsText}>
             <View style={styles.routeStationSection}>
-              <Text style={styles.routeLabelText}>FROM</Text>
+              <Text style={styles.routeLabelText}>
+                {t('parcel.route.from')}
+              </Text>
               <Text style={styles.routeStationName}>
-                {receivingStation?.name || 'Origin terminal'}
+                {receivingStation?.name || t('parcel.route.originTerminal')}
               </Text>
               {receivingStation?.city ? (
                 <Text style={styles.routeStationCity}>
@@ -95,9 +104,11 @@ function PricingBreakdownComponent({
               ) : null}
             </View>
             <View style={styles.routeStationSection}>
-              <Text style={styles.routeLabelText}>TO</Text>
+              <Text style={styles.routeLabelText}>
+                {t('parcel.route.to')}
+              </Text>
               <Text style={styles.routeStationName}>
-                {dropoffStation?.name || 'Destination terminal'}
+                {dropoffStation?.name || t('parcel.route.destinationTerminal')}
               </Text>
               {dropoffStation?.city ? (
                 <Text style={styles.routeStationCity}>
@@ -110,24 +121,33 @@ function PricingBreakdownComponent({
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardHeading}>Package Specifications</Text>
+        <Text style={styles.cardHeading}>
+          {t('parcel.summary.packageSpecifications')}
+        </Text>
         <View style={styles.specCardRow}>
           <View style={styles.specIcon}>
             <Package size={22} color={theme.colors.primary} weight="duotone" />
           </View>
           <View style={styles.specDetails}>
             <Text style={styles.specTitle}>
-              {packageSize.toUpperCase()} · {packageCategory}
+              {t(`parcel.packageSize.options.${packageSize}`)} ·{' '}
+              {packageCategoryLabel}
             </Text>
             <Text style={styles.specMeta}>
-              {dimensionsLabel} · {packageWeightKg} kg
+              {t('parcel.summary.dimensionsAndWeight', {
+                dimensions: dimensionsLabel,
+                weight: packageWeightKg,
+                unit: t('parcel.units.kg'),
+              })}
             </Text>
           </View>
         </View>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardHeading}>Payment Method</Text>
+        <Text style={styles.cardHeading}>
+          {t('parcel.payment.methodTitle')}
+        </Text>
         <ParcelPaymentMethodSelector
           value={paymentMethod}
           onChange={onPaymentMethodChange}
@@ -150,15 +170,22 @@ function PricingBreakdownComponent({
       />
 
       <View style={styles.card}>
-        <Text style={styles.cardHeading}>Payment Details</Text>
-        <PriceRow label="Estimated shipment price" value={estimatedPrice} />
+        <Text style={styles.cardHeading}>
+          {t('parcel.summary.paymentDetails')}
+        </Text>
         <PriceRow
-          label="Deposit before discount"
+          label={t('parcel.summary.estimatedShipmentPrice')}
+          value={estimatedPrice}
+        />
+        <PriceRow
+          label={t('parcel.summary.depositBeforeDiscount')}
           value={depositBeforeDiscount}
         />
         {promoApplied && promoDiscount > 0 ? (
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Verified voucher discount</Text>
+            <Text style={styles.priceLabel}>
+              {t('parcel.summary.verifiedVoucherDiscount')}
+            </Text>
             <Text style={[styles.priceValue, styles.discountValue]}>
               -{formatVnd(promoDiscount)}
             </Text>
@@ -166,12 +193,13 @@ function PricingBreakdownComponent({
         ) : null}
         <View style={styles.summaryDivider} />
         <View style={[styles.priceRow, styles.totalRow]}>
-          <Text style={styles.totalLabel}>Deposit due now</Text>
+          <Text style={styles.totalLabel}>
+            {t('parcel.summary.depositDueNow')}
+          </Text>
           <Text style={styles.totalValue}>{formatVnd(depositDue)}</Text>
         </View>
         <Text style={styles.priceHint}>
-          Final parcel pricing is confirmed by VietRide&apos;s server for the
-          selected trip.
+          {t('parcel.summary.serverPricingHint')}
         </Text>
       </View>
     </View>

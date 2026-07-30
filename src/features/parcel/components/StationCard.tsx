@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle, MapPin } from 'phosphor-react-native';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -23,9 +24,9 @@ interface StationCardProps {
   selectionRole: StationSelectionRole;
 }
 
-const selectionLabels: Record<StationSelectionRole, string> = {
-  origin: 'Sending terminal',
-  destination: 'Receiving terminal',
+const selectionLabelKeys: Record<StationSelectionRole, string> = {
+  origin: 'parcel.stations.originAccessibility',
+  destination: 'parcel.stations.destinationAccessibility',
 };
 
 export const StationCard = React.memo(function StationCard({
@@ -35,8 +36,9 @@ export const StationCard = React.memo(function StationCard({
   selectionRole,
 }: StationCardProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const roleLabel = selectionLabels[selectionRole];
+  const roleLabel = t(selectionLabelKeys[selectionRole]);
 
   const handlePress = React.useCallback(() => {
     onSelect(station);
@@ -46,9 +48,11 @@ export const StationCard = React.memo(function StationCard({
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected: isSelected }}
-      accessibilityLabel={`${roleLabel}: ${station.name}${
-        station.distance ? `, ${station.distance}` : ''
-      }`}
+      accessibilityLabel={t('parcel.stations.cardAccessibility', {
+        role: roleLabel,
+        name: station.name,
+        distance: station.distance ?? '',
+      })}
       onPress={handlePress}
       style={({ pressed }) => [
         styles.card,
@@ -78,7 +82,9 @@ export const StationCard = React.memo(function StationCard({
             ) : null}
             {station.isClosest ? (
               <View style={styles.nearbyBadge}>
-                <Text style={styles.nearbyText}>NEAR YOU</Text>
+                <Text style={styles.nearbyText}>
+                  {t('parcel.stations.nearYou')}
+                </Text>
               </View>
             ) : null}
           </View>

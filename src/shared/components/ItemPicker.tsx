@@ -12,6 +12,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, Pressable, TextInput, FlatList } from 'react-native';
 import type { ListRenderItemInfo } from 'react-native';
 import { ArrowLeft, MagnifyingGlass } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -36,10 +37,11 @@ export function ItemPicker<T>({
   renderItem,
   onSelect,
   onBack,
-  searchPlaceholder = 'Search...',
+  searchPlaceholder,
   initialQuery = '',
   searchBy,
 }: ItemPickerProps<T>): React.JSX.Element {
+  const { t } = useTranslation();
   const [query, setQuery] = useState(initialQuery);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -60,7 +62,15 @@ export function ItemPicker<T>({
   return (
     <View style={styles.safe}>
       <View style={styles.headerRow}>
-        <Pressable onPress={onBack} style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}>
+        <Pressable
+          accessibilityLabel={t('common.back')}
+          accessibilityRole="button"
+          onPress={onBack}
+          style={({ pressed }) => [
+            styles.headerButton,
+            pressed ? styles.pressed : null,
+          ]}
+        >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>{title}</Text>
@@ -71,7 +81,7 @@ export function ItemPicker<T>({
         <MagnifyingGlass size={16} color={theme.colors.textTertiary} />
         <TextInput
           style={styles.searchInput}
-          placeholder={searchPlaceholder}
+          placeholder={searchPlaceholder ?? t('common.searchPlaceholder')}
           placeholderTextColor={theme.colors.textTertiary}
           value={query}
           onChangeText={setQuery}
@@ -85,7 +95,7 @@ export function ItemPicker<T>({
         contentContainerStyle={styles.list}
         renderItem={renderListItem}
         ListEmptyComponent={
-          <Text style={styles.empty}>Nothing found</Text>
+          <Text style={styles.empty}>{t('common.noResults')}</Text>
         }
       />
     </View>

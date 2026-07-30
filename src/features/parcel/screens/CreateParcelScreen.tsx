@@ -14,6 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -49,9 +50,7 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useCurrentCoordinates, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import {
-  getPaymentRedirectErrorMessage,
   openPaymentRedirect,
-  PAYMENT_REDIRECT_ERROR_TITLE,
 } from '@shared/utils/paymentRedirect';
 import {
   addLocalDays,
@@ -131,6 +130,7 @@ const TripOptionCard = React.memo(function TripOptionCard({
   onPress: (tripId: string) => void;
 }): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
 
   return (
@@ -153,7 +153,7 @@ const TripOptionCard = React.memo(function TripOptionCard({
       </View>
       <View style={styles.tripMeta}>
         <Text style={styles.tripOperator} numberOfLines={1}>
-          {trip.operatorName?.trim() || 'Operator unavailable'}
+          {trip.operatorName?.trim() || t('parcel.trips.operatorUnavailable')}
         </Text>
         <Text style={styles.tripRoute} numberOfLines={2}>
           {trip.originStation.name} → {trip.destinationStation.name}
@@ -163,8 +163,10 @@ const TripOptionCard = React.memo(function TripOptionCard({
           {formatTripTime(trip.estimatedArrivalTime)}
         </Text>
         <Text style={styles.tripPrice}>
-          Deposit {formatVnd(trip.estimatedDepositVnd)} / Est.{' '}
-          {formatVnd(trip.estimatedPriceVnd)}
+          {t('parcel.trips.priceSummary', {
+            deposit: formatVnd(trip.estimatedDepositVnd),
+            estimated: formatVnd(trip.estimatedPriceVnd),
+          })}
         </Text>
       </View>
       {selected ? (
@@ -178,6 +180,8 @@ export function CreateParcelScreen(): React.JSX.Element {
   const navigation = useNavigation<CreateParcelNavProp>();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { t, i18n } = useTranslation();
+  const language = i18n.resolvedLanguage;
   const styles = useThemedStyles(createStyles);
   const queryClient = useQueryClient();
   const user = useAuthStore(state => state.user);
@@ -293,11 +297,11 @@ export function CreateParcelScreen(): React.JSX.Element {
     dimensionsFitSelectedTier &&
     packageWeight > 0;
   const dimensionsErrorMessage = !dimensionsDraftValid
-    ? 'Enter a value greater than 0 for every dimension.'
+    ? t('parcel.validation.dimensionsPositive')
     : smallestPackageSize === null
-    ? 'This parcel is larger than the supported 60 × 45 × 35 cm tier.'
+    ? t('parcel.validation.dimensionsTooLarge')
     : !dimensionsFitSelectedTier
-    ? 'Choose a larger size tier for these dimensions.'
+    ? t('parcel.validation.chooseLargerSize')
     : undefined;
   const sizeCategory = getParcelSizeCategory(packageSize);
   const estimatedWeightKg = packageWeight;
@@ -446,7 +450,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const vouchersQuery = useAvailableParcelVouchers(voucherParams, step === 4);
   const availablePromos = useMemo(
     () => (vouchersQuery.data ?? []).map(mapParcelVoucherToPromo),
-    [vouchersQuery.data],
+    [language, vouchersQuery.data],
   );
 
   const selectedVoucher = useMemo(() => {
@@ -468,10 +472,10 @@ export function CreateParcelScreen(): React.JSX.Element {
     if (vouchersQuery.isSuccess && appliedPromo && !selectedVoucher) {
       setAppliedPromo(null);
       setPromoError(
-        'This voucher is no longer valid for the selected trip or payment method.',
+        t('parcel.promos.noLongerValid'),
       );
     }
-  }, [appliedPromo, selectedVoucher, vouchersQuery.isSuccess]);
+  }, [appliedPromo, selectedVoucher, t, vouchersQuery.isSuccess]);
 
   const estimatedPrice = selectedTrip?.estimatedPriceVnd ?? 0;
   const depositBeforeDiscount = selectedTrip?.estimatedDepositVnd ?? 0;
@@ -655,42 +659,54 @@ export function CreateParcelScreen(): React.JSX.Element {
     const validateWholeDraft = step === 4;
 
     if ((step === 1 || validateWholeDraft) && !receivingStation) {
-      Alert.alert('VietRide', 'Please select an origin station.');
+      Alert.alert(
+        t('parcel.common.appName'),
+        t('parcel.validation.selectOriginStation'),
+      );
       return false;
     }
     if ((step === 2 || validateWholeDraft) && !dropoffStation) {
-      Alert.alert('VietRide', 'Please select a destination station.');
+      Alert.alert(
+        t('parcel.common.appName'),
+        t('parcel.validation.selectDestinationStation'),
+      );
       return false;
     }
     if (step === 3 || validateWholeDraft) {
       if (!recipientName.trim() || !recipientPhone.trim()) {
         Alert.alert(
-          'VietRide',
-          'Recipient name and phone number are required.',
+          t('parcel.common.appName'),
+          t('parcel.validation.recipientRequired'),
         );
         return false;
       }
       if (!isValidVietnamPhone(recipientPhone)) {
-        Alert.alert('VietRide', 'Enter a valid Vietnam phone number.');
+        Alert.alert(
+          t('parcel.common.appName'),
+          t('parcel.validation.invalidVietnamPhone'),
+        );
         return false;
       }
       if (recipientEmail.trim() && !isValidEmail(recipientEmail)) {
-        Alert.alert('VietRide', 'Enter a valid recipient email address.');
+        Alert.alert(
+          t('parcel.common.appName'),
+          t('parcel.validation.invalidRecipientEmail'),
+        );
         return false;
       }
       if (!packageMeasurementsValid) {
         Alert.alert(
-          'VietRide',
+          t('parcel.common.appName'),
           dimensionsErrorMessage ??
-            'Enter a valid package weight and dimensions.',
+            t('parcel.validation.invalidMeasurements'),
         );
         return false;
       }
     }
     if (step === 4 && !selectedTrip) {
       Alert.alert(
-        'VietRide',
-        'Please select an available trip for this parcel.',
+        t('parcel.common.appName'),
+        t('parcel.validation.selectAvailableTrip'),
       );
       return false;
     }
@@ -706,17 +722,22 @@ export function CreateParcelScreen(): React.JSX.Element {
     recipientPhone,
     selectedTrip,
     step,
+    t,
   ]);
 
   const buildCreatePayload = useCallback((
     photoUrl: string | null,
   ): CreateParcelPayload => {
     if (!selectedTrip) {
-      throw new Error('Please select a trip before creating parcel.');
+      throw new Error(t('parcel.validation.selectTripBeforeCreate'));
     }
 
     const descriptionParts = [
-      estimatedValue ? `Estimated value: ${estimatedValue} VND` : null,
+      estimatedValue
+        ? t('parcel.form.estimatedValueMetadata', {
+            value: estimatedValue,
+          })
+        : null,
     ].filter(Boolean);
 
     return buildCreateParcelPayload({
@@ -755,6 +776,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     selectedTrip,
     selectedVoucher?.code,
     sizeCategory,
+    t,
   ]);
 
   const invalidateParcelCheckoutQueries = useCallback((
@@ -811,9 +833,9 @@ export function CreateParcelScreen(): React.JSX.Element {
             return;
           }
           Alert.alert(
-            'Could not upload parcel photo',
+            t('parcel.errors.photoUploadTitle'),
             apiError.code === 'UNKNOWN_ERROR'
-              ? 'The selected photo could not be prepared or uploaded. Try again, or remove it to continue without a photo.'
+              ? t('parcel.errors.photoUploadDescription')
               : apiError.message,
           );
           return;
@@ -837,12 +859,12 @@ export function CreateParcelScreen(): React.JSX.Element {
           setPromoError(undefined);
           await refetchAvailableTrips().catch(() => undefined);
           Alert.alert(
-            'Trip availability changed',
-            'The selected trip or parcel estimate changed while you were confirming. Please choose an available trip again.',
+            t('parcel.errors.tripAvailabilityChangedTitle'),
+            t('parcel.errors.tripAvailabilityChangedDescription'),
           );
           return;
         }
-        Alert.alert('VietRide', apiError.message);
+        Alert.alert(t('parcel.common.appName'), apiError.message);
         return;
       }
 
@@ -869,8 +891,10 @@ export function CreateParcelScreen(): React.JSX.Element {
             preferredPaymentMethod: paymentMethod,
           });
           Alert.alert(
-            'Parcel created',
-            `Your parcel was saved, but payment could not be started. You can retry securely from its detail screen.\n\n${apiError.message}`,
+            t('parcel.create.savedTitle'),
+            t('parcel.create.savedPaymentFailed', {
+              error: apiError.message,
+            }),
           );
           return;
         }
@@ -886,10 +910,10 @@ export function CreateParcelScreen(): React.JSX.Element {
       if (paymentRedirectUrl) {
         try {
           await openPaymentRedirect(paymentRedirectUrl);
-        } catch (error) {
+        } catch {
           Alert.alert(
-            PAYMENT_REDIRECT_ERROR_TITLE,
-            getPaymentRedirectErrorMessage(error),
+            t('parcel.payment.redirectErrorTitle'),
+            t('parcel.payment.redirectErrorDescription'),
           );
         }
       }
@@ -910,6 +934,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     resetParcelPhotoUpload,
     setPackage,
     step,
+    t,
     uploadParcelPhoto,
     validateCurrentStep,
   ]);
@@ -940,26 +965,28 @@ export function CreateParcelScreen(): React.JSX.Element {
 
       if (!normalizedCode) {
         setAppliedPromo(null);
-        setPromoError('Enter a promo code to apply.');
+        setPromoError(t('parcel.promos.validation.enterCode'));
         return false;
       }
 
       if (!promo) {
         setAppliedPromo(null);
-        setPromoError('This promo code is not available for this parcel.');
+        setPromoError(t('parcel.promos.validation.unavailable'));
         return false;
       }
 
       if (isPromoExpired(promo)) {
         setAppliedPromo(null);
-        setPromoError('This promo code has expired.');
+        setPromoError(t('parcel.promos.validation.expired'));
         return false;
       }
 
       if (promo.minimumSpend && depositBeforeDiscount < promo.minimumSpend) {
         setAppliedPromo(null);
         setPromoError(
-          `Minimum parcel deposit is ${formatVnd(promo.minimumSpend)}.`,
+          t('parcel.promos.validation.minimumDeposit', {
+            amount: formatVnd(promo.minimumSpend),
+          }),
         );
         return false;
       }
@@ -968,7 +995,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       setPromoError(undefined);
       return true;
     },
-    [availablePromos, depositBeforeDiscount],
+    [availablePromos, depositBeforeDiscount, t],
   );
 
   const isStationSelectionStep = step === 1 || step === 2;
@@ -1020,10 +1047,11 @@ export function CreateParcelScreen(): React.JSX.Element {
             color={theme.colors.warning}
             weight="duotone"
           />
-          <Text style={styles.stateTitle}>Choose route first</Text>
+          <Text style={styles.stateTitle}>
+            {t('parcel.stations.chooseRouteFirstTitle')}
+          </Text>
           <Text style={styles.stateText}>
-            Go back to Home and select origin and destination before creating a
-            parcel.
+            {t('parcel.stations.chooseRouteFirstDescription')}
           </Text>
         </View>
       );
@@ -1049,11 +1077,15 @@ export function CreateParcelScreen(): React.JSX.Element {
             color={theme.colors.warning}
             weight="duotone"
           />
-          <Text style={styles.stateTitle}>No parcel station found</Text>
+          <Text style={styles.stateTitle}>
+            {t('parcel.stations.emptyTitle')}
+          </Text>
           <Text style={styles.stateText}>
             {stationStepLocation
-              ? `No station found in ${stationStepLocation.name}. Try another province or city for this route.`
-              : 'Try another province or city for this route.'}
+              ? t('parcel.stations.emptyInLocation', {
+                  location: stationStepLocation.name,
+                })
+              : t('parcel.stations.emptyDescription')}
           </Text>
         </View>
       );
@@ -1064,7 +1096,9 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   const renderTripPicker = () => (
     <View style={styles.bentoSummaryCard}>
-      <Text style={styles.bentoCardHeading}>Departure Date</Text>
+      <Text style={styles.bentoCardHeading}>
+        {t('parcel.trips.departureDate')}
+      </Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -1075,9 +1109,9 @@ export function CreateParcelScreen(): React.JSX.Element {
           const date = addLocalDays(departureDateBase, offset);
           const label =
             offset === 0
-              ? 'Today'
+              ? t('parcel.date.today')
               : offset === 1
-              ? 'Tomorrow'
+              ? t('parcel.date.tomorrow')
               : formatShortDate(date);
           return (
             <Pressable
@@ -1108,7 +1142,9 @@ export function CreateParcelScreen(): React.JSX.Element {
       </ScrollView>
 
       <View style={styles.tripHeaderRow}>
-        <Text style={styles.bentoCardHeading}>Available Trips</Text>
+        <Text style={styles.bentoCardHeading}>
+          {t('parcel.trips.availableTitle')}
+        </Text>
         {availableTripsQuery.isFetching ? (
           <ActivityIndicator size="small" color={theme.colors.primary} />
         ) : null}
@@ -1121,16 +1157,23 @@ export function CreateParcelScreen(): React.JSX.Element {
       ) : visibleTrips.length === 0 ? (
         <View style={styles.stateBoxCompact}>
           <Clock size={24} color={theme.colors.textTertiary} weight="duotone" />
-          <Text style={styles.stateTitle}>No parcel-enabled trip found</Text>
-          <Text style={styles.stateText}>
-            {receivingStation?.name ?? 'Selected origin'} →{' '}
-            {dropoffStation?.name ?? 'selected destination'} on{' '}
-            {formatShortDate(addLocalDays(departureDateBase, departureOffset))}.
+          <Text style={styles.stateTitle}>
+            {t('parcel.trips.emptyTitle')}
           </Text>
           <Text style={styles.stateText}>
-            Parcel service requires a scheduled trip with cargo capacity and a
-            parcel fare for this exact terminal pair. Try another date or choose
-            different terminals.
+            {t('parcel.trips.emptyRouteDate', {
+              origin:
+                receivingStation?.name ?? t('parcel.route.selectedOrigin'),
+              destination:
+                dropoffStation?.name ??
+                t('parcel.route.selectedDestination'),
+              date: formatShortDate(
+                addLocalDays(departureDateBase, departureOffset),
+              ),
+            })}
+          </Text>
+          <Text style={styles.stateText}>
+            {t('parcel.trips.emptyDescription')}
           </Text>
           <View style={styles.emptyTripActions}>
             <Pressable
@@ -1142,7 +1185,7 @@ export function CreateParcelScreen(): React.JSX.Element {
               ]}
             >
               <Text style={styles.emptyTripSecondaryText}>
-                Change terminals
+                {t('parcel.trips.changeTerminals')}
               </Text>
             </Pressable>
             <Pressable
@@ -1167,7 +1210,9 @@ export function CreateParcelScreen(): React.JSX.Element {
                 />
               ) : (
                 <Text style={styles.emptyTripPrimaryText}>
-                  {hasNextTripsPage ? 'Check more trips' : 'Try next day'}
+                  {hasNextTripsPage
+                    ? t('parcel.trips.checkMore')
+                    : t('parcel.trips.tryNextDay')}
                 </Text>
               )}
             </Pressable>
@@ -1196,9 +1241,13 @@ export function CreateParcelScreen(): React.JSX.Element {
               pressed && canGoToPreviousTripPage ? styles.pressed : null,
             ]}
           >
-            <Text style={styles.tripPageButtonText}>Previous</Text>
+            <Text style={styles.tripPageButtonText}>
+              {t('parcel.actions.previous')}
+            </Text>
           </Pressable>
-          <Text style={styles.tripPageIndicator}>Page {tripPageIndex + 1}</Text>
+          <Text style={styles.tripPageIndicator}>
+            {t('parcel.pagination.page', { page: tripPageIndex + 1 })}
+          </Text>
           <Pressable
             accessibilityRole="button"
             accessibilityState={{
@@ -1219,7 +1268,9 @@ export function CreateParcelScreen(): React.JSX.Element {
             {isFetchingNextTripsPage ? (
               <ActivityIndicator size="small" color={theme.colors.primary} />
             ) : (
-              <Text style={styles.tripPageButtonText}>Next</Text>
+              <Text style={styles.tripPageButtonText}>
+                {t('parcel.actions.next')}
+              </Text>
             )}
           </Pressable>
         </View>
@@ -1265,41 +1316,43 @@ export function CreateParcelScreen(): React.JSX.Element {
               || depositPaymentMutation.isPending
             }
             maxPhotos={1}
-            photoLabel="parcel photo"
-            title="Parcel photo (optional)"
-            helperText="The photo is optimized on-device, then uploaded securely when you confirm the parcel."
+            photoLabel={t('parcel.form.photoLabel')}
+            title={t('parcel.form.photoTitle')}
+            helperText={t('parcel.form.photoHelper')}
           />
 
           <Input
-            label="Estimated Value (Optional)"
-            placeholder="Enter package value (VND)"
+            label={t('parcel.form.estimatedValueLabel')}
+            placeholder={t('parcel.form.estimatedValuePlaceholder')}
             keyboardType="numeric"
             maxLength={15}
             value={estimatedValue}
             onChangeText={handleEstimatedValueChange}
-            hint="Used only as parcel description metadata."
+            hint={t('parcel.form.estimatedValueHint')}
           />
 
           <View style={styles.formSection}>
-            <Text style={styles.sectionLabel}>Recipient</Text>
+            <Text style={styles.sectionLabel}>
+              {t('parcel.form.recipientTitle')}
+            </Text>
             <Input
-              label="Full Name"
-              placeholder="Recipient full name"
+              label={t('parcel.form.fullNameLabel')}
+              placeholder={t('parcel.form.fullNamePlaceholder')}
               maxLength={255}
               value={recipientName}
               onChangeText={setRecipientName}
             />
             <Input
-              label="Phone Number"
-              placeholder="Recipient phone number"
+              label={t('parcel.form.phoneLabel')}
+              placeholder={t('parcel.form.phonePlaceholder')}
               keyboardType="phone-pad"
               maxLength={20}
               value={recipientPhone}
               onChangeText={setRecipientPhone}
             />
             <Input
-              label="Email (Optional)"
-              placeholder="recipient@example.com"
+              label={t('parcel.form.emailLabel')}
+              placeholder={t('parcel.form.emailPlaceholder')}
               keyboardType="email-address"
               maxLength={255}
               value={recipientEmail}
@@ -1332,7 +1385,11 @@ export function CreateParcelScreen(): React.JSX.Element {
           availablePromos={availablePromos}
           selectedPromoCode={appliedPromo?.code}
           appliedPromoLabel={
-            selectedVoucher ? `${selectedVoucher.code} Applied` : undefined
+            selectedVoucher
+              ? t('parcel.promos.appliedCode', {
+                  code: selectedVoucher.code,
+                })
+              : undefined
           }
           promoError={promoError}
           paymentMethod={paymentMethod}
@@ -1357,39 +1414,44 @@ export function CreateParcelScreen(): React.JSX.Element {
   const actionLabel =
     step === 1
       ? selectedStationForStep
-        ? 'Continue to receiving terminal'
-        : 'Choose a sending terminal'
+        ? t('parcel.actions.continueToDestination')
+        : t('parcel.actions.chooseOriginTerminal')
       : step === 2
       ? selectedStationForStep
-        ? 'Continue to parcel details'
-        : 'Choose a receiving terminal'
+        ? t('parcel.actions.continueToDetails')
+        : t('parcel.actions.chooseDestinationTerminal')
       : step === 4
-      ? 'Confirm Parcel'
-      : 'Next Step';
+      ? t('parcel.actions.confirm')
+      : t('parcel.actions.nextStep');
   const routeTitle = selectedTrip
     ? `${selectedTrip.originStation.name} → ${selectedTrip.destinationStation.name}`
-    : `${fromCity || 'Origin'} → ${toCity || 'Destination'}`;
+    : `${fromCity || t('parcel.route.origin')} → ${
+        toCity || t('parcel.route.destination')
+      }`;
   const stationCount = stationStepStations.length;
   const headerSubtitle =
     step === 1 || step === 2
       ? !stationStepLocation
-        ? 'Choose a valid route to continue'
+        ? t('parcel.stations.chooseValidRoute')
         : stationStepQuery.isError
-        ? 'Could not load terminals'
+        ? t('parcel.stations.loadError')
         : stationStepQuery.isLoading
-        ? 'Finding terminals…'
-        : `${stationCount} ${
-            stationCount === 1 ? 'terminal' : 'terminals'
-          } available`
+        ? t('parcel.stations.finding')
+        : t('parcel.stations.availableCount', { count: stationCount })
       : step === 3
-      ? `${formatParcelDimensions(dimensions)} · ${estimatedWeightKg} kg`
+      ? t('parcel.summary.dimensionsAndWeight', {
+          dimensions: formatParcelDimensions(dimensions),
+          weight: estimatedWeightKg,
+          unit: t('parcel.units.kg'),
+        })
       : selectedTrip
-      ? `${selectedTrip.operatorName} · ${formatTripTime(
-          selectedTrip.departureDateTime,
-        )}`
-      : `${availableTrips.length} ${
-          availableTrips.length === 1 ? 'trip' : 'trips'
-        } available`;
+      ? t('parcel.trips.operatorDeparture', {
+          operator: selectedTrip.operatorName,
+          departure: formatTripTime(selectedTrip.departureDateTime),
+        })
+      : t('parcel.trips.availableCount', {
+          count: availableTrips.length,
+        });
 
   return (
     <View style={styles.root}>
@@ -1464,7 +1526,9 @@ export function CreateParcelScreen(): React.JSX.Element {
         >
           {step === 4 ? (
             <View style={styles.priceSummaryBox}>
-              <Text style={styles.totalPriceLabel}>Deposit Due</Text>
+              <Text style={styles.totalPriceLabel}>
+                {t('parcel.summary.depositDue')}
+              </Text>
               <Text style={styles.totalPriceValue}>
                 {formatVnd(depositDue)}
               </Text>
@@ -1472,7 +1536,9 @@ export function CreateParcelScreen(): React.JSX.Element {
           ) : null}
           {isStationSelectionStep && selectedStationForStep ? (
             <Text style={styles.selectedStationSummary} numberOfLines={1}>
-              Selected: {selectedStationForStep.name}
+              {t('parcel.stations.selected', {
+                name: selectedStationForStep.name,
+              })}
             </Text>
           ) : null}
           <Pressable

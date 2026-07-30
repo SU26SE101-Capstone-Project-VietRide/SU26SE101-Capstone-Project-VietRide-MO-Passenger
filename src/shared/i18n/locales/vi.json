@@ -1,4 +1,11 @@
 {
+  "app": {
+    "preparing": "Đang chuẩn bị VietRide...",
+    "restoringSession": "Đang khôi phục phiên đăng nhập...",
+    "tagline": "Đi lại dễ dàng, an tâm mỗi chuyến",
+    "loadingLabel": "Màn hình đang tải VietRide",
+    "logoLabel": "Logo VietRide"
+  },
   "common": {
     "loading": "Đang tải...",
     "error": "Đã xảy ra lỗi",
@@ -11,7 +18,15 @@
     "noResults": "Không tìm thấy kết quả",
     "networkError": "Không có kết nối internet",
     "unknownError": "Đã xảy ra lỗi. Vui lòng thử lại.",
-    "ok": "OK"
+    "ok": "OK",
+    "back": "Quay lại",
+    "notAvailable": "Chưa có thông tin",
+    "continue": "Tiếp tục",
+    "notNow": "Để sau",
+    "openSettings": "Mở cài đặt",
+    "or": "hoặc",
+    "searchPlaceholder": "Tìm kiếm...",
+    "understood": "Đã hiểu"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -24,7 +39,81 @@
     "otpSubtitle": "Nhập mã 6 chữ số đã gửi đến {{phone}}",
     "otpResend": "Gửi lại mã",
     "welcomeBack": "Chào mừng trở lại!",
-    "createAccount": "Tạo tài khoản"
+    "createAccount": "Tạo tài khoản",
+    "fields": {
+      "email": "Email",
+      "emailPlaceholder": "Địa chỉ email",
+      "passwordPlaceholder": "Nhập mật khẩu",
+      "vietnamPhone": "Số điện thoại Việt Nam",
+      "fullName": "Họ và tên",
+      "fullNamePlaceholder": "VD: Nguyễn Văn A",
+      "phoneHint": "Số điện thoại Việt Nam, VD: 0901234567 hoặc +84901234567.",
+      "createPasswordPlaceholder": "Tạo mật khẩu mạnh",
+      "passwordRequirements": "Ít nhất 8 ký tự, gồm cả chữ cái và chữ số.",
+      "confirmPassword": "Xác nhận mật khẩu",
+      "confirmPasswordPlaceholder": "Nhập lại mật khẩu",
+      "resetCode": "Mã đặt lại mật khẩu",
+      "newPassword": "Mật khẩu mới",
+      "newPasswordPlaceholder": "Nhập mật khẩu mới",
+      "confirmNewPassword": "Xác nhận mật khẩu mới",
+      "confirmNewPasswordPlaceholder": "Nhập lại mật khẩu mới"
+    },
+    "completeProfile": {
+      "invalidPhone": "Nhập số điện thoại Việt Nam hợp lệ, VD: +84901234567.",
+      "sessionRefreshFailed": "Không thể làm mới phiên bảo mật sau khi cập nhật số điện thoại.",
+      "updateFailed": "Không thể hoàn tất hồ sơ.",
+      "eyebrow": "Chỉ còn một bước",
+      "title": "Thêm số điện thoại",
+      "description": "Chào {{name}}, bạn cần thêm số điện thoại trước khi đặt vé hoặc sử dụng dịch vụ hành khách.",
+      "defaultName": "bạn"
+    },
+    "forgotPasswordFlow": {
+      "title": "Đặt lại mật khẩu",
+      "description": "Nhập email tài khoản để nhận mã đặt lại gồm 6 chữ số.",
+      "privacyHint": "Nếu tài khoản tồn tại, VietRide sẽ gửi mã đặt lại đến email đã xác minh.",
+      "submit": "Gửi mã đặt lại"
+    },
+    "loginFlow": {
+      "description": "Đăng nhập để đặt chuyến đi tiếp theo.",
+      "emailVerified": "Email đã được xác minh. Vui lòng đăng nhập để tiếp tục.",
+      "google": "Tiếp tục với Google",
+      "googleConnecting": "Đang kết nối Google…",
+      "continueAsGuest": "Tiếp tục với tư cách khách",
+      "noAccount": "Chưa có tài khoản?",
+      "signUp": "Đăng ký"
+    },
+    "registerFlow": {
+      "title": "Cùng VietRide lên đường",
+      "description": "Tạo tài khoản để đặt và theo dõi hành trình.",
+      "agreement": "Bằng việc tạo tài khoản, bạn đồng ý với <terms>Điều khoản dịch vụ</terms> và <privacy>Chính sách quyền riêng tư</privacy>.",
+      "hasAccount": "Đã có tài khoản?"
+    },
+    "resetPassword": {
+      "successTitle": "Đã cập nhật mật khẩu",
+      "successDescription": "Bạn có thể đăng nhập bằng mật khẩu mới.",
+      "backToLogin": "Quay lại đăng nhập",
+      "title": "Tạo mật khẩu mới",
+      "description": "Nhập mã 6 chữ số đã gửi đến {{email}}, sau đó chọn mật khẩu mới.",
+      "codeExpired": "Mã đã hết hạn. Hãy quay lại và yêu cầu mã mới.",
+      "codeExpiresIn": "Mã hết hạn sau {{time}}.",
+      "submit": "Cập nhật mật khẩu"
+    },
+    "otp": {
+      "title": "Xác minh danh tính",
+      "description": "Chúng tôi đã gửi mã 6 chữ số đến {{email}}.",
+      "descriptionWithPhone": "Chúng tôi đã gửi mã 6 chữ số đến {{email}} ({{phone}}).",
+      "expired": "Mã đã hết hạn. Vui lòng yêu cầu mã mới.",
+      "verify": "Xác minh mã",
+      "wrongEmail": "Sai email?",
+      "digitAccessibility": "Chữ số thứ {{position}} của mã xác minh",
+      "expiresIn": "Mã hết hạn sau",
+      "sending": "Đang gửi...",
+      "resendSuccess": "Mã mới đã được gửi đến email của bạn."
+    }
+  },
+  "paymentReturn": {
+    "reconcilingTitle": "Đang xác nhận thanh toán",
+    "reconcilingDescription": "VietRide đã nhận tín hiệu quay lại. Kết quả chỉ được cập nhật sau khi hệ thống xác minh giao dịch với VNPay."
   },
   "nav": {
     "home": "Trang chủ",
@@ -53,7 +142,66 @@
     "liveTracking": "Theo dõi trực tiếp",
     "eta": "Thời gian dự kiến đến",
     "boardingPoint": "Điểm đón",
-    "dropOff": "Điểm trả"
+    "dropOff": "Điểm trả",
+    "bookingReference": "Đơn {{id}}",
+    "tripReference": "Chuyến {{id}}",
+    "tripCancelled": "Chuyến đi đã bị hủy. Cập nhật vị trí tự động đã dừng.",
+    "tripDisrupted": "Chuyến đi bị gián đoạn. Cập nhật vị trí tự động đã dừng.",
+    "tripComplete": "Hành trình đã hoàn tất. Cập nhật vị trí tự động đã dừng.",
+    "loadingLatest": "Đang tải vị trí mới nhất của chuyến...",
+    "delayMinutes_one": "Chuyến đi đang trễ khoảng {{count}} phút.",
+    "delayMinutes_other": "Chuyến đi đang trễ khoảng {{count}} phút.",
+    "distanceKilometers": "{{value}} km",
+    "distanceMeters": "{{value}} m",
+    "connection": {
+      "offline": "Đang ngoại tuyến. Hiển thị vị trí gần nhất đã lưu trên thiết bị.",
+      "connected": "Đã kết nối thời gian thực. Vị trí xe sẽ cập nhật khi tài xế gửi GPS.",
+      "connecting": "Đang kết nối theo dõi thời gian thực...",
+      "fallback": "Kết nối thời gian thực đang phục hồi. Cơ chế cập nhật vị trí dự phòng vẫn hoạt động."
+    },
+    "states": {
+      "unavailableTitle": "Chưa thể theo dõi",
+      "invalidTripId": "Mục này không có mã chuyến hợp lệ để theo dõi.",
+      "signInTitle": "Cần đăng nhập",
+      "signInMessage": "Hãy đăng nhập bằng tài khoản hành khách sở hữu đơn vé hoặc đơn hàng này.",
+      "deniedTitle": "Không có quyền theo dõi",
+      "deniedMessage": "Tài khoản hành khách này không được phép theo dõi chuyến đã chọn.",
+      "notFoundTitle": "Không tìm thấy chuyến",
+      "notFoundMessage": "Dịch vụ theo dõi không tìm thấy chuyến đi này."
+    },
+    "errors": {
+      "refresh": "Cập nhật vị trí bị gián đoạn. Vui lòng thử lại."
+    },
+    "metrics": {
+      "lastUpdate": "Cập nhật gần nhất",
+      "waitingGps": "Đang chờ GPS",
+      "speed": "Tốc độ",
+      "notReported": "Chưa ghi nhận"
+    },
+    "details": {
+      "title": "Chi tiết vị trí",
+      "coordinates": "Tọa độ",
+      "trailPoints": "Điểm hành trình",
+      "destinationUnavailable": "Chưa có điểm dừng đích",
+      "invalidDestination": "Điểm dừng đích không hợp lệ",
+      "etaValue_one": "{{count}} phút ({{distance}})",
+      "etaValue_other": "{{count}} phút ({{distance}})",
+      "waitingEta": "Đang chờ thời gian dự kiến"
+    },
+    "map": {
+      "unavailableTitle": "Bản đồ chưa khả dụng",
+      "unavailableProduction": "Bản đồ trực tiếp chưa khả dụng trong bản dựng này. Tọa độ chuyến đã xác minh vẫn hiển thị bên dưới.",
+      "unavailableDevelopment": "Tọa độ trực tiếp vẫn hiển thị bên dưới. Hãy cấu hình bản dựng bản đồ native hợp lệ để bật bản đồ.",
+      "waitingTitle": "Đang chờ vị trí",
+      "waitingMessage": "Tài xế chưa gửi điểm GPS cho chuyến đi này.",
+      "loadingTitle": "Đang tải bản đồ",
+      "loadingMessage": "Đang chuẩn bị bản đồ chuyến đi...",
+      "accessibilityLabel": "Bản đồ chuyến đi trực tiếp",
+      "accessibilityHint": "Kéo hoặc chụm để khám phá hành trình. Dùng Theo xe để tiếp tục theo dõi trực tiếp.",
+      "latestVehicle": "Vị trí xe mới nhất",
+      "followAccessibility": "Theo dõi vị trí trực tiếp của xe",
+      "followVehicle": "Theo xe"
+    }
   },
   "parcel": {
     "sendParcel": "Gửi hàng",
@@ -153,6 +301,38 @@
       }
     }
   },
+  "shared": {
+    "photoPicker": {
+      "defaultPhotoLabel": "ảnh",
+      "defaultTitle": "Ảnh (không bắt buộc)",
+      "helperText": "Tối đa {{count}} ảnh. Hãy kiểm tra ảnh đã chọn trước khi gửi.",
+      "removePhoto": "Xóa {{label}} số {{position}}",
+      "permissionTitle": "Cần quyền truy cập {{source}}",
+      "permissionDescription": "Cho phép truy cập {{source}} để thêm {{label}} vào yêu cầu này.",
+      "camera": "Máy ảnh",
+      "photoLibrary": "Thư viện ảnh",
+      "cameraUnavailableTitle": "Không thể dùng máy ảnh",
+      "cameraUnavailableDescription": "Trên phiên bản Android này, hãy chọn ảnh có sẵn từ thư viện. Ứng dụng không yêu cầu quyền truy cập bộ nhớ cũ.",
+      "addErrorTitle": "Không thể thêm ảnh",
+      "addErrorDescription": "Không thể mở trình chọn ảnh. Vui lòng thử lại.",
+      "addTitle": "Thêm {{label}}",
+      "addDescription": "Chọn nguồn ảnh. Ảnh đã chọn sẽ được thêm vào yêu cầu khi bạn gửi.",
+      "addAnother": "Thêm {{label}} khác",
+      "add": "Thêm",
+      "addPhotos": "Thêm {{label}}",
+      "emptyTitle": "Chụp hoặc chọn ảnh",
+      "supportedFormats": "JPG, PNG, HEIC"
+    },
+    "profileHeader": {
+      "greeting": "Xin chào,",
+      "defaultUserName": "Hành khách VietRide",
+      "authenticationAction": "Đăng nhập / Đăng ký",
+      "signedOut": "Bạn chưa đăng nhập"
+    },
+    "tabBar": {
+      "assistantAccessibility": "Trợ lý VietRide"
+    }
+  },
   "chatbot": {
     "title": "Trợ lý VietRide",
     "online": "Sẵn sàng hỗ trợ",
@@ -179,6 +359,8 @@
     "bookingAction": "Mở luồng đặt vé",
     "completeBookingDetails": "Bổ sung tuyến và ngày đi trong màn hình đặt vé",
     "passengerCount": "{{count}} khách",
+    "passengerCount_one": "{{count}} khách",
+    "passengerCount_other": "{{count}} khách",
     "signInAction": "Đăng nhập để trò chuyện",
     "completeProfileAction": "Bổ sung số điện thoại",
     "quickActions": {

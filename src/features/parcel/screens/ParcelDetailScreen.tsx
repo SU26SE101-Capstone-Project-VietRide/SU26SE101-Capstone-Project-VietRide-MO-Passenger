@@ -27,6 +27,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { ScannableCodeCard, StatusChip } from '@shared/components';
 import { useThemedStyles } from '@shared/hooks';
+import { useMotion } from '@shared/motion';
 import type { AppTheme } from '@shared/theme';
 import { getApiErrorMessage } from '@shared/api/errors';
 import { formatDateTime, formatVnd } from '@shared/utils/format';
@@ -39,9 +40,7 @@ import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi'
 import { walletKeys } from '@features/profile/api/walletApi';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import {
-  getPaymentRedirectErrorMessage,
   openPaymentRedirect,
-  PAYMENT_REDIRECT_ERROR_TITLE,
 } from '@shared/utils/paymentRedirect';
 import type {
   ParcelStackParamList,
@@ -88,6 +87,8 @@ const ParcelPhotoGallery = React.memo(function ParcelPhotoGallery({
 }: {
   photos: readonly ParcelPhotoItem[];
 }): React.JSX.Element | null {
+  const { t } = useTranslation();
+  const { reduceMotion } = useMotion();
   const styles = useThemedStyles(createStyles);
   if (photos.length === 0) {
     return null;
@@ -95,7 +96,9 @@ const ParcelPhotoGallery = React.memo(function ParcelPhotoGallery({
 
   return (
     <View style={styles.evidenceCard}>
-      <Text style={styles.evidenceTitle}>Parcel photos</Text>
+      <Text style={styles.evidenceTitle}>
+        {t('parcel.detail.photosTitle')}
+      </Text>
       <ScrollView
         horizontal
         nestedScrollEnabled
@@ -105,10 +108,11 @@ const ParcelPhotoGallery = React.memo(function ParcelPhotoGallery({
         {photos.map(photo => (
           <View key={photo.key} style={styles.evidenceItem}>
             <Image
+              accessibilityLabel={photo.label}
               source={{ uri: photo.uri }}
               recyclingKey={photo.uri}
               contentFit="cover"
-              transition={120}
+              transition={reduceMotion ? 0 : 120}
               style={styles.evidenceImage}
             />
             <Text style={styles.evidenceLabel} numberOfLines={1}>
@@ -180,31 +184,48 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const parcelPhotos = React.useMemo<ParcelPhotoItem[]>(() => {
     const photos: ParcelPhotoItem[] = [];
     const seen = new Set<string>();
-    const addPhoto = (uri: string | null | undefined, label: string) => {
+    const addPhoto = (
+      uri: string | null | undefined,
+      key: string,
+      label: string,
+    ) => {
       const normalizedUri = uri?.trim();
       if (!normalizedUri || seen.has(normalizedUri)) {
         return;
       }
       seen.add(normalizedUri);
       photos.push({
-        key: `${label}-${photos.length}`,
+        key,
         label,
         uri: normalizedUri,
       });
     };
 
-    addPhoto(parcel?.photoUrl, 'Submitted photo');
+    addPhoto(
+      parcel?.photoUrl,
+      'submitted',
+      t('parcel.detail.photos.submitted'),
+    );
     parcel?.checkInPhotoUrls?.forEach((uri, index) => {
-      addPhoto(uri, `Check-in ${index + 1}`);
+      addPhoto(
+        uri,
+        `check-in-${index}`,
+        t('parcel.detail.photos.checkIn', { index: index + 1 }),
+      );
     });
     parcel?.deliveryPhotoUrls?.forEach((uri, index) => {
-      addPhoto(uri, `Delivery ${index + 1}`);
+      addPhoto(
+        uri,
+        `delivery-${index}`,
+        t('parcel.detail.photos.delivery', { index: index + 1 }),
+      );
     });
     return photos;
   }, [
     parcel?.checkInPhotoUrls,
     parcel?.deliveryPhotoUrls,
     parcel?.photoUrl,
+    t,
   ]);
 
   React.useEffect(() => {
@@ -277,13 +298,13 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
     try {
       await openPaymentRedirect(paymentRedirectUrl);
-    } catch (error) {
+    } catch {
       Alert.alert(
-        PAYMENT_REDIRECT_ERROR_TITLE,
-        getPaymentRedirectErrorMessage(error),
+        t('parcel.payment.redirectErrorTitle'),
+        t('parcel.payment.redirectErrorDescription'),
       );
     }
-  }, [paymentRedirectUrl]);
+  }, [paymentRedirectUrl, t]);
 
   const handleStartPayment = React.useCallback(async () => {
     if (!paymentStage || isStartingPayment) {
@@ -309,15 +330,18 @@ export function ParcelDetailScreen(): React.JSX.Element {
       if (result.paymentRedirectUrl) {
         try {
           await openPaymentRedirect(result.paymentRedirectUrl);
-        } catch (error) {
+        } catch {
           Alert.alert(
-            PAYMENT_REDIRECT_ERROR_TITLE,
-            getPaymentRedirectErrorMessage(error),
+            t('parcel.payment.redirectErrorTitle'),
+            t('parcel.payment.redirectErrorDescription'),
           );
         }
       }
     } catch (error) {
-      Alert.alert('Payment could not start', getApiErrorMessage(error));
+      Alert.alert(
+        t('parcel.payment.startErrorTitle'),
+        getApiErrorMessage(error),
+      );
     }
   }, [
     depositPaymentMutation,
@@ -328,19 +352,26 @@ export function ParcelDetailScreen(): React.JSX.Element {
     parcelId,
     paymentStage,
     selectedPaymentMethod,
+    t,
   ]);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.navbar}>
         <Pressable
+          accessibilityLabel={fromHistory
+            ? t('parcel.actions.goBack')
+            : t('parcel.actions.backToDashboard')}
+          accessibilityRole="button"
           style={styles.navButton}
           onPress={fromHistory ? handleBack : handleGoHome}
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
         <Text style={styles.navTitle}>
-          {fromHistory ? 'Delivery Detail' : 'Delivery Ticket'}
+          {fromHistory
+            ? t('parcel.detail.historyTitle')
+            : t('parcel.detail.ticketTitle')}
         </Text>
         <View style={styles.navSpacer} />
       </View>
@@ -348,7 +379,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
       {detailQuery.isLoading ? (
         <View style={styles.stateContainer}>
           <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.stateText}>Loading parcel detail...</Text>
+          <Text style={styles.stateText}>
+            {t('parcel.detail.loading')}
+          </Text>
         </View>
       ) : detailQuery.isError ? (
         <View style={styles.errorWrap}>
@@ -389,29 +422,29 @@ export function ParcelDetailScreen(): React.JSX.Element {
               )}
               <Text style={styles.successTitle}>
                 {checkoutFailed
-                  ? 'Parcel request unavailable'
+                  ? t('parcel.detail.state.unavailableTitle')
                   : paymentPending
                   ? paymentStage === 'final'
-                    ? 'Final payment required'
-                    : 'Deposit required'
+                    ? t('parcel.detail.state.finalPaymentTitle')
+                    : t('parcel.detail.state.depositTitle')
                   : awaitingReview
-                  ? 'Awaiting operator review'
+                  ? t('parcel.detail.state.awaitingReviewTitle')
                   : needsAttention
-                  ? 'Parcel requires attention'
-                  : 'Parcel request created'}
+                  ? t('parcel.detail.state.attentionTitle')
+                  : t('parcel.detail.state.createdTitle')}
               </Text>
               <Text style={styles.successSubtitle}>
                 {checkoutFailed
-                  ? 'This request can no longer continue. Check its status or create a new parcel request.'
+                  ? t('parcel.detail.state.unavailableDescription')
                   : paymentPending
                   ? paymentStage === 'final'
-                    ? 'The parcel was reweighed. Pay the remaining balance before its deadline so it can be loaded.'
-                    : 'Choose a payment method to reserve cargo capacity for this parcel.'
+                    ? t('parcel.detail.state.finalPaymentDescription')
+                    : t('parcel.detail.state.depositDescription')
                   : awaitingReview
-                  ? 'The operator must approve this parcel before payment and delivery.'
+                  ? t('parcel.detail.state.awaitingReviewDescription')
                   : needsAttention
-                  ? 'Review the latest parcel status before continuing. The delivery code is temporarily unavailable.'
-                  : 'Your parcel request is ready for the next delivery step.'}
+                  ? t('parcel.detail.state.attentionDescription')
+                  : t('parcel.detail.state.createdDescription')}
               </Text>
             </View>
           ) : null}
@@ -421,26 +454,23 @@ export function ParcelDetailScreen(): React.JSX.Element {
               {deliveryCodeActive && parcel?.parcelCode ? (
                 <ScannableCodeCard
                   code={parcel.parcelCode}
-                  title={t('history.parcel.dropoffCode', 'Terminal drop-off code')}
-                  description={t(
-                    'history.parcel.dropoffCodeHint',
-                    'Show this exact code at the terminal drop-off.',
-                  )}
+                  title={t('parcel.detail.dropoffCode')}
+                  description={t('parcel.detail.dropoffCodeHint')}
                   size={156}
                 />
               ) : null}
               <Text style={styles.qrCaption}>
                 {checkoutFailed
-                  ? 'The delivery code is unavailable for this request.'
+                  ? t('parcel.detail.code.unavailableRequest')
                   : paymentPending
                   ? paymentStage === 'final'
-                    ? 'The delivery code unlocks after final payment is verified.'
-                    : 'The delivery code unlocks after the deposit is verified.'
+                    ? t('parcel.detail.code.afterFinalPayment')
+                    : t('parcel.detail.code.afterDeposit')
                   : awaitingReview
-                  ? 'This delivery code activates after operator approval.'
+                  ? t('parcel.detail.code.afterApproval')
                   : needsAttention
-                  ? 'The delivery code is unavailable for the current parcel status.'
-                  : 'Show this parcel code at the terminal drop-off.'}
+                  ? t('parcel.detail.code.unavailableStatus')
+                  : t('parcel.detail.code.showAtDropoff')}
               </Text>
               {deliveryCodeActive ? null : (
                 <Text selectable style={styles.ticketIdText}>
@@ -461,42 +491,56 @@ export function ParcelDetailScreen(): React.JSX.Element {
             <View style={styles.detailsSection}>
               <View style={styles.routeRow}>
                 <View style={styles.routeItem}>
-                  <Text style={styles.routeLabel}>FROM</Text>
+                  <Text style={styles.routeLabel}>
+                    {t('parcel.route.from')}
+                  </Text>
                   <Text style={styles.routeName}>
-                    {parcel?.originStationName || 'Origin terminal'}
+                    {parcel?.originStationName ||
+                      t('parcel.route.originTerminal')}
                   </Text>
                 </View>
                 <View style={styles.routeItem}>
-                  <Text style={[styles.routeLabel, styles.textRight]}>TO</Text>
+                  <Text style={[styles.routeLabel, styles.textRight]}>
+                    {t('parcel.route.to')}
+                  </Text>
                   <Text style={[styles.routeName, styles.textRight]}>
-                    {parcel?.destinationStationName || 'Destination terminal'}
+                    {parcel?.destinationStationName ||
+                      t('parcel.route.destinationTerminal')}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.specsGrid}>
                 <View style={styles.gridItem}>
-                  <Text style={styles.specLabel}>PACKAGE SIZE</Text>
+                  <Text style={styles.specLabel}>
+                    {t('parcel.detail.packageSize')}
+                  </Text>
                   <Text style={styles.specValue}>
                     {t(sizePresentation.labelKey, sizePresentation.fallback)}
                   </Text>
                 </View>
                 <View style={styles.gridItem}>
-                  <Text style={styles.specLabel}>WEIGHT</Text>
+                  <Text style={styles.specLabel}>
+                    {t('parcel.weight.title')}
+                  </Text>
                   <Text style={styles.specValue}>
                     {parcel?.actualWeightKg ?? parcel?.estimatedWeightKg ?? '-'}{' '}
-                    kg
+                    {t('parcel.units.kg')}
                   </Text>
                 </View>
                 <View style={styles.gridItem}>
-                  <Text style={styles.specLabel}>DELIVERY</Text>
+                  <Text style={styles.specLabel}>
+                    {t('parcel.detail.delivery')}
+                  </Text>
                   <Text style={styles.specValue}>
                     {t(deliveryPresentation.labelKey, deliveryPresentation.fallback)}
                   </Text>
                 </View>
                 {isSender ? (
                   <View style={styles.gridItem}>
-                    <Text style={styles.specLabel}>RECIPIENT</Text>
+                    <Text style={styles.specLabel}>
+                      {t('parcel.detail.recipient')}
+                    </Text>
                     <Text style={styles.specValue}>
                       {parcel?.recipientName || '-'}
                     </Text>
@@ -504,7 +548,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 ) : null}
                 {isSender ? (
                   <View style={styles.gridItem}>
-                    <Text style={styles.specLabel}>PAYMENT</Text>
+                    <Text style={styles.specLabel}>
+                      {t('parcel.detail.payment')}
+                    </Text>
                     <View style={styles.paymentMethodLabel}>
                       <Wallet
                         size={12}
@@ -513,8 +559,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
                       />
                       <Text style={styles.specValue}>
                         {(parcel?.balanceRequiredVnd ?? 0) > 0
-                          ? 'Deposit + balance'
-                          : 'Deposit'}
+                          ? t('parcel.detail.depositAndBalance')
+                          : t('parcel.detail.deposit')}
                       </Text>
                     </View>
                   </View>
@@ -523,7 +569,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
               {parcel?.description ? (
                 <View style={styles.noteBox}>
-                  <Text style={styles.specLabel}>DESCRIPTION</Text>
+                  <Text style={styles.specLabel}>
+                    {t('parcel.detail.description')}
+                  </Text>
                   <Text style={styles.noteText}>{parcel.description}</Text>
                 </View>
               ) : null}
@@ -531,8 +579,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>
                   {parcel?.actualSizeCategory
-                    ? 'Final shipment total'
-                    : 'Estimated shipment total'}
+                    ? t('parcel.detail.finalTotal')
+                    : t('parcel.detail.estimatedTotal')}
                 </Text>
                 <Text style={styles.totalValue}>
                   {formatVnd(
@@ -547,7 +595,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 </Text>
               </View>
               <View style={styles.settlementRow}>
-                <Text style={styles.settlementLabel}>Deposit paid</Text>
+                <Text style={styles.settlementLabel}>
+                  {t('parcel.detail.depositPaid')}
+                </Text>
                 <Text style={styles.settlementValue}>
                   {formatVnd(parcel?.depositPaidVnd ?? 0)} /{' '}
                   {formatVnd(parcel?.depositRequiredVnd ?? 0)}
@@ -555,7 +605,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
               </View>
               {(parcel?.balanceRequiredVnd ?? 0) > 0 ? (
                 <View style={styles.settlementRow}>
-                  <Text style={styles.settlementLabel}>Remaining balance</Text>
+                  <Text style={styles.settlementLabel}>
+                    {t('parcel.detail.remainingBalance')}
+                  </Text>
                   <Text style={styles.settlementValue}>
                     {formatVnd(parcel?.balancePaidVnd ?? 0)} /{' '}
                     {formatVnd(parcel?.balanceRequiredVnd ?? 0)}
@@ -564,7 +616,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
               ) : null}
               {(parcel?.refundDueVnd ?? 0) > 0 ? (
                 <View style={styles.settlementRow}>
-                  <Text style={styles.settlementLabel}>Refund due</Text>
+                  <Text style={styles.settlementLabel}>
+                    {t('parcel.detail.refundDue')}
+                  </Text>
                   <Text style={styles.refundValue}>
                     {formatVnd(parcel?.refundDueVnd ?? 0)}
                   </Text>
@@ -572,7 +626,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
               ) : null}
               {(parcel?.discountAmountVnd ?? 0) > 0 ? (
                 <View style={styles.discountRow}>
-                  <Text style={styles.discountLabel}>Voucher discount</Text>
+                  <Text style={styles.discountLabel}>
+                    {t('parcel.detail.voucherDiscount')}
+                  </Text>
                   <Text style={styles.discountValue}>
                     -
                     {formatVnd(parcel?.discountAmountVnd ?? 0, {
@@ -600,8 +656,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 <View style={styles.paymentActionCopy}>
                   <Text style={styles.paymentActionTitle}>
                     {paymentStage === 'final'
-                      ? 'Pay remaining balance'
-                      : 'Pay parcel deposit'}
+                      ? t('parcel.payment.payRemainingBalance')
+                      : t('parcel.payment.payDeposit')}
                   </Text>
                   <Text style={styles.paymentActionAmount}>
                     {formatVnd(paymentAmount)}
@@ -611,7 +667,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
               {paymentStage === 'final' && parcel?.finalPaymentDeadline ? (
                 <Text style={styles.paymentDeadline}>
-                  Pay before {formatDateTime(parcel.finalPaymentDeadline)}
+                  {t('parcel.payment.payBefore', {
+                    deadline: formatDateTime(parcel.finalPaymentDeadline),
+                  })}
                 </Text>
               ) : null}
 
@@ -629,7 +687,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
                     color={theme.colors.textInverse}
                     weight="bold"
                   />
-                  <Text style={styles.trackButtonText}>Open VNPay again</Text>
+                  <Text style={styles.trackButtonText}>
+                    {t('parcel.payment.openVnPayAgain')}
+                  </Text>
                 </Pressable>
               ) : paymentSessionActive ? (
                 <View style={styles.verifyingPayment}>
@@ -639,10 +699,10 @@ export function ParcelDetailScreen(): React.JSX.Element {
                   />
                   <View style={styles.verifyingPaymentCopy}>
                     <Text style={styles.verifyingPaymentTitle}>
-                      Verifying payment
+                      {t('parcel.payment.verifyingTitle')}
                     </Text>
                     <Text style={styles.verifyingPaymentText}>
-                      VietRide is waiting for the backend confirmation.
+                      {t('parcel.payment.verifyingDescription')}
                     </Text>
                   </View>
                   <Pressable
@@ -650,7 +710,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
                     hitSlop={8}
                     onPress={handleRefreshPayment}
                   >
-                    <Text style={styles.refreshPaymentText}>Refresh</Text>
+                    <Text style={styles.refreshPaymentText}>
+                      {t('parcel.actions.refresh')}
+                    </Text>
                   </Pressable>
                 </View>
               ) : (
@@ -689,10 +751,10 @@ export function ParcelDetailScreen(): React.JSX.Element {
                     )}
                     <Text style={styles.trackButtonText}>
                       {isStartingPayment
-                        ? 'Starting payment…'
+                        ? t('parcel.payment.starting')
                         : selectedPaymentMethod === 'wallet'
-                        ? 'Pay with Wallet'
-                        : 'Continue to VNPay'}
+                        ? t('parcel.payment.payWithWallet')
+                        : t('parcel.payment.continueToVnPay')}
                     </Text>
                   </Pressable>
                 </>
@@ -718,18 +780,22 @@ export function ParcelDetailScreen(): React.JSX.Element {
             />
             <Text style={styles.trackButtonText}>
               {trackingAvailable
-                ? 'Track Shipment Status'
-                : 'Tracking starts after loading'}
+                ? t('parcel.tracking.openStatus')
+                : t('parcel.tracking.startsAfterLoading')}
             </Text>
           </Pressable>
 
           {fromHistory ? (
             <Pressable style={styles.homeButton} onPress={handleBack}>
-              <Text style={styles.homeButtonText}>Go Back</Text>
+              <Text style={styles.homeButtonText}>
+                {t('parcel.actions.goBack')}
+              </Text>
             </Pressable>
           ) : (
             <Pressable style={styles.homeButton} onPress={handleGoHome}>
-              <Text style={styles.homeButtonText}>Back to Dashboard</Text>
+              <Text style={styles.homeButtonText}>
+                {t('parcel.actions.backToDashboard')}
+              </Text>
             </Pressable>
           )}
         </ScrollView>

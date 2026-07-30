@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   ArrowFatUp,
   ArrowLeft,
@@ -24,7 +25,11 @@ import {
 } from 'phosphor-react-native';
 
 import type { ProfileStackParamList } from '@app/navigation/types';
-import { getApiErrorMessage } from '@shared/api/errors';
+import {
+  ApiRequestError,
+  getApiErrorMessage,
+  toApiError,
+} from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -58,6 +63,21 @@ const PRESET_AMOUNTS = [
   500_000,
   1_000_000,
 ] as const;
+
+const getTopUpErrorMessage = (error: unknown, t: TFunction): string => {
+  const apiError = toApiError(error);
+
+  switch (apiError.code) {
+    case 'TOP_UP_RECONCILIATION_REQUIRED':
+      return t('topUp.errors.reconciliationRequired');
+    case 'SESSION_INVALIDATED':
+      return t('topUp.errors.sessionChanged');
+    case 'AUTH_REQUIRED':
+      return t('topUp.errors.authRequired');
+    default:
+      return getApiErrorMessage(apiError);
+  }
+};
 
 interface PresetAmountButtonProps {
   amount: number;
@@ -175,17 +195,20 @@ export function TopUpScreen(): React.JSX.Element {
       if (result.status !== 'PENDING') {
         completePaymentReturn();
         Alert.alert(
-          t('topup.statusTitle', 'Top-up request status'),
-          t(
-            'topup.unexpectedStatus',
-            `The request is ${result.status.toLowerCase()} and cannot be opened for payment.`,
-          ),
+          t('topUp.statusTitle'),
+          t('topUp.unexpectedStatus', {
+            status: t(`topUp.status.${result.status.toLowerCase()}`),
+          }),
         );
         return;
       }
 
       if (!armPaymentReturn()) {
-        throw new Error('Authentication is required to continue this payment.');
+        throw new ApiRequestError({
+          code: 'AUTH_REQUIRED',
+          message: 'topUp.errors.authRequired',
+          statusCode: 401,
+        });
       }
 
       try {
@@ -193,24 +216,21 @@ export function TopUpScreen(): React.JSX.Element {
       } catch (error: unknown) {
         cancelPaymentReturn();
         Alert.alert(
-          t('topup.redirectErrorTitle', 'Could not open VNPay'),
+          t('topUp.redirectErrorTitle'),
           getPaymentRedirectErrorMessage(error),
         );
       }
     } catch (error: unknown) {
       cancelPaymentReturn();
       const retrySafetyMessage = isAmbiguousTopUpError(error)
-        ? t(
-          'topup.ambiguousRetryHint',
-          'The result is not confirmed. Retrying the same amount will safely reuse this request.',
-        )
+        ? t('topUp.ambiguousRetryHint')
         : '';
-      const message = [getApiErrorMessage(error), retrySafetyMessage]
+      const message = [getTopUpErrorMessage(error, t), retrySafetyMessage]
         .filter(Boolean)
         .join('\n\n');
 
       Alert.alert(
-        t('topup.errorTitle', 'Top-up could not be started'),
+        t('topUp.errorTitle'),
         message,
       );
     } finally {
@@ -237,7 +257,7 @@ export function TopUpScreen(): React.JSX.Element {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('common.back', 'Back')}
+          accessibilityLabel={t('common.back')}
           hitSlop={8}
           onPress={handleBack}
           style={styles.backButton}
@@ -245,7 +265,7 @@ export function TopUpScreen(): React.JSX.Element {
           <ArrowLeft size={24} color={theme.colors.textPrimary} weight="bold" />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {t('wallet.topUp', 'Top Up Wallet')}
+          {t('topUp.title')}
         </Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -267,17 +287,14 @@ export function TopUpScreen(): React.JSX.Element {
               <ClockCountdown size={22} color={theme.colors.warning} />
               <View style={styles.noticeCopy}>
                 <Text style={styles.pendingNoticeTitle}>
-                  {t('topup.pendingTitle', 'Waiting for VNPay')}
+                  {t('topUp.pendingTitle')}
                 </Text>
                 <Text style={styles.pendingNoticeText}>
-                  {t(
-                    'topup.pendingDescription',
-                    'Complete payment, then return to VietRide. Your wallet will refresh when the app becomes active again.',
-                  )}
+                  {t('topUp.pendingDescription')}
                 </Text>
                 {pendingRequestId ? (
                   <Text style={styles.requestIdText} numberOfLines={1}>
-                    ID: {pendingRequestId}
+                    {t('topUp.requestId', { id: pendingRequestId })}
                   </Text>
                 ) : null}
               </View>
@@ -288,14 +305,8 @@ export function TopUpScreen(): React.JSX.Element {
             <View style={styles.returnNotice}>
               <Text style={styles.returnNoticeText}>
                 {returnRefreshStatus === 'success'
-                  ? t(
-                      'topup.returnNotice',
-                      'Wallet data was refreshed. Check the ledger for the final result; no success is assumed from the redirect.',
-                    )
-                  : t(
-                      'topup.returnRefreshFailed',
-                      'Wallet data could not be refreshed yet. Check your connection and refresh the ledger again.',
-                    )}
+                  ? t('topUp.returnNotice')
+                  : t('topUp.returnRefreshFailed')}
               </Text>
             </View>
           ) : null}
@@ -303,7 +314,7 @@ export function TopUpScreen(): React.JSX.Element {
           <View style={styles.amountCard}>
             <CurrencyDollar size={28} color={theme.colors.primary} />
             <Text style={styles.amountLabel}>
-              {t('topup.amount', 'Top-up amount')}
+              {t('topUp.amount')}
             </Text>
             <Text
               adjustsFontSizeToFit
@@ -318,16 +329,15 @@ export function TopUpScreen(): React.JSX.Element {
             </Text>
             {amount > 0 && !isAmountValid ? (
               <Text style={styles.amountHint}>
-                {t(
-                  'topup.minimumHint',
-                  `Minimum top-up: ${formatVnd(MINIMUM_TOP_UP_AMOUNT)}`,
-                )}
+                {t('topUp.minimumHint', {
+                  amount: formatVnd(MINIMUM_TOP_UP_AMOUNT),
+                })}
               </Text>
             ) : null}
           </View>
 
           <Text style={styles.sectionTitle}>
-            {t('topup.quickSelect', 'Quick select')}
+            {t('topUp.quickSelect')}
           </Text>
           <View style={styles.presetGrid}>
             {PRESET_AMOUNTS.map((presetAmount) => (
@@ -343,15 +353,15 @@ export function TopUpScreen(): React.JSX.Element {
           </View>
 
           <Text style={styles.sectionTitle}>
-            {t('topup.customAmount', 'Custom amount (₫)')}
+            {t('topUp.customAmount')}
           </Text>
           <TextInput
-            accessibilityLabel={t('topup.customAmount', 'Custom amount')}
+            accessibilityLabel={t('topUp.customAmountAccessibility')}
             editable={!isBusy}
             keyboardType="number-pad"
             maxLength={12}
             onChangeText={handleCustomAmountChange}
-            placeholder={t('topup.customPlaceholder', 'Enter amount')}
+            placeholder={t('topUp.customPlaceholder')}
             placeholderTextColor={theme.colors.textTertiary}
             returnKeyType="done"
             style={styles.customInput}
@@ -360,7 +370,7 @@ export function TopUpScreen(): React.JSX.Element {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('topup.confirm', 'Proceed to VNPay')}
+            accessibilityLabel={t('topUp.confirm')}
             accessibilityState={{ disabled: !isAmountValid || isBusy }}
             disabled={!isAmountValid || isBusy}
             onPress={handleTopUp}
@@ -376,7 +386,7 @@ export function TopUpScreen(): React.JSX.Element {
               <>
                 <ClockCountdown size={18} color={theme.colors.textInverse} />
                 <Text style={styles.submitButtonText}>
-                  {t('topup.awaitingReturn', 'Awaiting payment return')}
+                  {t('topUp.awaitingReturn')}
                 </Text>
               </>
             ) : (
@@ -388,18 +398,15 @@ export function TopUpScreen(): React.JSX.Element {
                 />
                 <Text style={styles.submitButtonText}>
                   {pendingRequestId
-                    ? t('topup.openAgain', 'Open VNPay again')
-                    : t('topup.confirm', 'Proceed to VNPay')}
+                    ? t('topUp.openAgain')
+                    : t('topUp.confirm')}
                 </Text>
               </>
             )}
           </Pressable>
 
           <Text style={styles.vnpayNote}>
-            {t(
-              'topup.vnpayNote',
-              'VNPay handles payment outside VietRide. Your balance changes only after the backend confirms the transaction.',
-            )}
+            {t('topUp.vnpayNote')}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -409,8 +416,7 @@ export function TopUpScreen(): React.JSX.Element {
 
 const createStyles = (theme: AppTheme) => ({
   safeArea: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
+    ...theme.components.screen,
   },
   header: {
     height: 56,
@@ -418,7 +424,12 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center' as const,
     paddingHorizontal: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.divider,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
   },
   backButton: {
     width: 40,
@@ -498,10 +509,14 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.xl,
     padding: spacing.xl,
     borderWidth: 1,
-    borderColor: theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorderStrong
+      : theme.colors.divider,
     borderRadius: BR.xl,
     borderCurve: 'continuous' as const,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
   },
   amountLabel: {
     fontFamily: fontFamilies.medium,
@@ -542,7 +557,7 @@ const createStyles = (theme: AppTheme) => ({
     borderColor: theme.colors.primary,
     borderRadius: BR.full,
     borderCurve: 'continuous' as const,
-    backgroundColor: 'transparent',
+    backgroundColor: theme.colors.transparent,
   },
   presetButtonSelected: {
     backgroundColor: theme.colors.primary,
@@ -560,13 +575,17 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.xl,
     paddingHorizontal: spacing.md,
     borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.fieldBorder
+      : theme.colors.border,
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.fieldSurface
+      : theme.colors.surface,
   },
   submitButton: {
     minHeight: 56,

@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check, FunnelSimple } from 'phosphor-react-native';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -16,7 +17,12 @@ export interface StepProgressBarProps {
   onFilter?: () => void;
 }
 
-const STEP_LABELS = ['Origin', 'Dest', 'Item', 'Pay'];
+const STEP_LABEL_KEYS = [
+  'parcel.progress.origin',
+  'parcel.progress.destination',
+  'parcel.progress.item',
+  'parcel.progress.payment',
+] as const;
 
 function StepProgressBarComponent({
   step,
@@ -28,6 +34,7 @@ function StepProgressBarComponent({
   onFilter,
 }: StepProgressBarProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
 
   return (
@@ -35,7 +42,7 @@ function StepProgressBarComponent({
       <View style={styles.navHeaderRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('parcel.actions.goBack')}
           hitSlop={8}
           style={({ pressed }) => [
             styles.navButtonLeft,
@@ -60,7 +67,7 @@ function StepProgressBarComponent({
         {onFilter ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Filter stations"
+            accessibilityLabel={t('parcel.stations.filterAccessibility')}
             hitSlop={8}
             style={({ pressed }) => [
               styles.navButtonRight,
@@ -89,8 +96,9 @@ function StepProgressBarComponent({
           />
         </View>
         <View style={styles.stepsRow}>
-          {STEP_LABELS.map((label, index) => {
+          {STEP_LABEL_KEYS.map((labelKey, index) => {
             const stepNumber = index + 1;
+            const label = t(labelKey);
             const isActive = stepNumber === step;
             const isCompleted = stepNumber < step;
             const isDisabled = !onStepPress || stepNumber > highestStepReached;
@@ -98,12 +106,16 @@ function StepProgressBarComponent({
             return (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${label}, step ${stepNumber} of 4`}
+                accessibilityLabel={t('parcel.progress.stepAccessibility', {
+                  label,
+                  step: stepNumber,
+                  total: STEP_LABEL_KEYS.length,
+                })}
                 accessibilityState={{
                   selected: isActive,
                   disabled: isDisabled,
                 }}
-                key={label}
+                key={labelKey}
                 style={styles.stepContainer}
                 disabled={isDisabled}
                 onPress={() => onStepPress?.(stepNumber)}

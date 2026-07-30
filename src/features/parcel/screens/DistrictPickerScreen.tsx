@@ -7,6 +7,7 @@
  */
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, MapPinLine } from 'phosphor-react-native';
@@ -23,6 +24,7 @@ import {
 
 export function DistrictPicker(): React.JSX.Element {
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -31,7 +33,7 @@ export function DistrictPicker(): React.JSX.Element {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('parcel.actions.goBack')}
           hitSlop={8}
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [
@@ -41,7 +43,9 @@ export function DistrictPicker(): React.JSX.Element {
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>District delivery</Text>
+        <Text style={styles.headerTitle}>
+          {t('parcel.district.title')}
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -49,10 +53,9 @@ export function DistrictPicker(): React.JSX.Element {
         <View style={styles.iconWrap}>
           <MapPinLine size={34} color={theme.colors.primary} weight="duotone" />
         </View>
-        <Text style={styles.title}>Not available yet</Text>
+        <Text style={styles.title}>{t('parcel.district.unavailableTitle')}</Text>
         <Text style={styles.description}>
-          Parcel delivery currently supports terminal pickup only. District
-          selection will be enabled when the backend provides service-area data.
+          {t('parcel.district.unavailableDescription')}
         </Text>
       </View>
     </SafeAreaView>

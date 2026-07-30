@@ -1,15 +1,24 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  Image,
   StatusBar,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { useTranslation } from 'react-i18next';
 
 import { APP_LOGO } from '@shared/constants/assets';
-import { colors, spacing } from '@shared/theme';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
+import { MotionFade } from '@shared/motion';
 
 interface AppLaunchScreenProps {
   message?: string;
@@ -20,48 +29,55 @@ interface AppLaunchScreenProps {
  * Global blocking operations continue to use LoadingOverlay over live content.
  */
 export function AppLaunchScreen({
-  message = 'Đang khởi động VietRide...',
+  message,
 }: AppLaunchScreenProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
-    <View style={styles.screen} accessibilityLabel="VietRide loading screen">
-      <StatusBar barStyle="dark-content" backgroundColor={BRAND_BACKGROUND} />
+    <View
+      style={styles.screen}
+      accessibilityLabel={t('app.loadingLabel')}
+    >
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
       <View style={styles.glowTop} pointerEvents="none" />
       <View style={styles.glowBottom} pointerEvents="none" />
 
-      <View style={styles.content}>
+      <MotionFade style={styles.content}>
         <View style={styles.logoFrame}>
           <Image
-            accessibilityLabel="VietRide logo"
+            accessibilityLabel={t('app.logoLabel')}
             source={APP_LOGO}
-            defaultSource={APP_LOGO}
-            fadeDuration={0}
             style={styles.logo}
-            resizeMode="contain"
+            contentFit="contain"
+            transition={0}
           />
         </View>
         <Text style={styles.tagline} maxFontSizeMultiplier={1.35}>
-          Đi lại dễ dàng, an tâm mỗi chuyến
+          {t('app.tagline')}
         </Text>
         <View style={styles.progressRow} accessibilityRole="progressbar">
-          <ActivityIndicator size="small" color={colors.primary} />
+          <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={styles.message} maxFontSizeMultiplier={1.35}>
-            {message}
+            {message ?? t('app.preparing')}
           </Text>
         </View>
-      </View>
+      </MotionFade>
     </View>
   );
 }
 
-const BRAND_BACKGROUND = '#EFF7F8';
-
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   screen: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    backgroundColor: BRAND_BACKGROUND,
+    backgroundColor: theme.colors.background,
     paddingHorizontal: spacing.xxl,
   },
   glowTop: {
@@ -71,7 +87,7 @@ const styles = StyleSheet.create({
     width: 310,
     height: 310,
     borderRadius: 155,
-    backgroundColor: 'rgba(42, 193, 188, 0.12)',
+    backgroundColor: theme.effects.ambientGlow,
   },
   glowBottom: {
     position: 'absolute',
@@ -80,7 +96,7 @@ const styles = StyleSheet.create({
     width: 360,
     height: 360,
     borderRadius: 180,
-    backgroundColor: 'rgba(0, 125, 120, 0.08)',
+    backgroundColor: theme.effects.glassTint,
   },
   content: {
     width: '100%',
@@ -92,13 +108,8 @@ const styles = StyleSheet.create({
     height: 184,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 92,
-    backgroundColor: 'rgba(255, 255, 255, 0.76)',
-    shadowColor: '#005653',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 6,
+    borderRadius: borderRadius.full,
+    ...theme.components.elevatedCard,
   },
   logo: {
     width: 168,
@@ -106,10 +117,10 @@ const styles = StyleSheet.create({
   },
   tagline: {
     marginTop: spacing.xxl,
-    color: colors.textPrimary,
-    fontSize: 17,
-    lineHeight: 25,
-    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.lg,
+    lineHeight: fontSizes.lg * 1.5,
     textAlign: 'center',
   },
   progressRow: {
@@ -123,10 +134,10 @@ const styles = StyleSheet.create({
   },
   message: {
     flexShrink: 1,
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '500',
+    color: theme.colors.textSecondary,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    lineHeight: fontSizes.sm * 1.5,
     textAlign: 'center',
   },
 });

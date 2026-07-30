@@ -41,7 +41,7 @@ export function FinancialFeatureUnavailableScreen(): React.JSX.Element {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('common.back', 'Back')}
+          accessibilityLabel={t('common.back')}
           hitSlop={8}
           onPress={handleBack}
           style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}
@@ -49,16 +49,16 @@ export function FinancialFeatureUnavailableScreen(): React.JSX.Element {
           <ArrowLeft size={22} color={theme.colors.textPrimary} weight="bold" />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {notice.title}
+          {t(notice.titleKey)}
         </Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.content}>
         <FinancialFeatureNotice
-          title={notice.title}
-          description={notice.description}
-          safetyNote={notice.safetyNote}
+          title={t(notice.titleKey)}
+          description={t(notice.descriptionKey)}
+          safetyNote={t(notice.safetyNoteKey)}
         />
       </View>
     </SafeAreaView>
@@ -67,8 +67,7 @@ export function FinancialFeatureUnavailableScreen(): React.JSX.Element {
 
 const createStyles = (theme: AppTheme) => ({
   safeArea: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
+    ...theme.components.screen,
   },
   header: {
     height: 56,
@@ -77,7 +76,12 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'space-between' as const,
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.divider,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
   },
   backButton: {
     width: 40,

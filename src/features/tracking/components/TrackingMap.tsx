@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { MapPin } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { appConfig } from '@shared/constants/config';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -60,6 +61,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
   points,
   stops = EMPTY_STOPS,
 }: TrackingMapProps): React.JSX.Element {
+  const { t } = useTranslation();
   const mapData = React.useMemo(
     () => prepareTrackingMapData(latest, points, stops),
     [latest, points, stops],
@@ -68,10 +70,10 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
   if (!isNativeTrackingMapConfigured()) {
     return (
       <MapPlaceholder
-        title="Map unavailable"
+        title={t('tracking.map.unavailableTitle')}
         message={appConfig.isProd
-          ? 'Live map is not available in this build. Verified trip coordinates remain visible below.'
-          : 'Live coordinates remain available below. Configure an eligible native map build to enable the map.'}
+          ? t('tracking.map.unavailableProduction')
+          : t('tracking.map.unavailableDevelopment')}
       />
     );
   }
@@ -79,8 +81,8 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
   if (!mapData.latest) {
     return (
       <MapPlaceholder
-        title="Waiting for location"
-        message="The driver has not published a GPS point for this trip yet."
+        title={t('tracking.map.waitingTitle')}
+        message={t('tracking.map.waitingMessage')}
       />
     );
   }
@@ -89,8 +91,8 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     <Suspense
       fallback={(
         <MapPlaceholder
-          title="Loading map"
-          message="Preparing the native trip map..."
+          title={t('tracking.map.loadingTitle')}
+          message={t('tracking.map.loadingMessage')}
         />
       )}
     >

@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { completeProfile } from '@features/profile/api/profileApi';
 import { Button, Input } from '@shared/components';
@@ -18,6 +19,7 @@ import { isValidVietnamPhone } from '../validation/authValidation';
 import { useAuthStore } from '../store/useAuthStore';
 
 export function CompleteProfileScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const user = useAuthStore((state) => state.user);
   const refreshSession = useAuthStore((state) => state.refreshSession);
@@ -28,17 +30,21 @@ export function CompleteProfileScreen(): React.JSX.Element {
     mutationFn: async () => {
       const normalizedPhone = phone.trim();
       if (!isValidVietnamPhone(normalizedPhone)) {
-        throw new Error('Enter a valid Vietnam phone number, e.g. +84901234567.');
+        throw new Error(t('auth.completeProfile.invalidPhone'));
       }
 
       await completeProfile({ phone: normalizedPhone });
       const refreshedSession = await refreshSession();
       if (!refreshedSession?.user.phone) {
-        throw new Error('Could not refresh the secure session after updating your phone number.');
+        throw new Error(t('auth.completeProfile.sessionRefreshFailed'));
       }
     },
     onError: (error) => {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to complete your profile.');
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : t('auth.completeProfile.updateFailed'),
+      );
     },
   });
 
@@ -55,13 +61,22 @@ export function CompleteProfileScreen(): React.JSX.Element {
         style={styles.keyboardView}
       >
         <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.divider }]}>
-          <Text style={[styles.eyebrow, { color: theme.colors.primary }]}>One more step</Text>
-          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Add your phone number</Text>
+          <Text style={[styles.eyebrow, { color: theme.colors.primary }]}>
+            {t('auth.completeProfile.eyebrow')}
+          </Text>
+          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+            {t('auth.completeProfile.title')}
+          </Text>
           <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-            Hi {user?.displayName || user?.email || 'there'}, your phone number is required before booking or using passenger services.
+            {t('auth.completeProfile.description', {
+              name:
+                user?.displayName
+                || user?.email
+                || t('auth.completeProfile.defaultName'),
+            })}
           </Text>
           <Input
-            label="Vietnam phone number"
+            label={t('auth.fields.vietnamPhone')}
             value={phone}
             onChangeText={setPhone}
             placeholder="+84901234567"
@@ -72,7 +87,7 @@ export function CompleteProfileScreen(): React.JSX.Element {
             required
           />
           <Button
-            title="Continue"
+            title={t('common.continue')}
             onPress={handleSubmit}
             loading={mutation.isPending}
             disabled={!phone.trim()}

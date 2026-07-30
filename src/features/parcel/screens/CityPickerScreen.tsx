@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import type { ListRenderItem } from 'react-native';
 import { ArrowLeft, MagnifyingGlass, MapPin } from 'phosphor-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -31,6 +32,7 @@ const locationKeyExtractor = (item: Location) => item.id;
 export function ParcelCityPicker(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
@@ -87,7 +89,9 @@ export function ParcelCityPicker(): React.JSX.Element {
     ({ item }) => {
       const isUnavailable = item.code === oppositeLocationCode;
       const typeLabel =
-        item.type === 'MUNICIPALITY' ? 'Municipality' : 'Province';
+        item.type === 'MUNICIPALITY'
+          ? t('parcel.locations.municipality')
+          : t('parcel.locations.province');
 
       return (
         <Pressable
@@ -108,14 +112,17 @@ export function ParcelCityPicker(): React.JSX.Element {
             <Text style={styles.itemName}>{item.name}</Text>
             <Text style={styles.itemRegion}>
               {isUnavailable
-                ? 'Already selected'
-                : `${typeLabel} - ${item.code}`}
+                ? t('parcel.locations.alreadySelected')
+                : t('parcel.locations.typeAndCode', {
+                    type: typeLabel,
+                    code: item.code,
+                  })}
             </Text>
           </View>
         </Pressable>
       );
     },
-    [onSelectLocation, oppositeLocationCode, styles, theme.colors.primary],
+    [onSelectLocation, oppositeLocationCode, styles, t, theme.colors.primary],
   );
 
   const listEmpty = useMemo(() => {
@@ -123,7 +130,9 @@ export function ParcelCityPicker(): React.JSX.Element {
       return (
         <View style={styles.stateContainer}>
           <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.empty}>Loading locations...</Text>
+          <Text style={styles.empty}>
+            {t('parcel.locations.loading')}
+          </Text>
         </View>
       );
     }
@@ -131,7 +140,9 @@ export function ParcelCityPicker(): React.JSX.Element {
     if (isError) {
       return (
         <View style={styles.stateContainer}>
-          <Text style={styles.empty}>Could not load locations.</Text>
+          <Text style={styles.empty}>
+            {t('parcel.locations.loadError')}
+          </Text>
           <Pressable
             onPress={() => refetch()}
             disabled={isFetching}
@@ -146,20 +157,27 @@ export function ParcelCityPicker(): React.JSX.Element {
                 color={theme.colors.textInverse}
               />
             ) : (
-              <Text style={styles.retryText}>Try again</Text>
+              <Text style={styles.retryText}>
+                {t('parcel.actions.tryAgain')}
+              </Text>
             )}
           </Pressable>
         </View>
       );
     }
 
-    return <Text style={styles.empty}>No matching locations found.</Text>;
+    return (
+      <Text style={styles.empty}>
+        {t('parcel.locations.emptySearch')}
+      </Text>
+    );
   }, [
     isError,
     isFetching,
     isLoading,
     refetch,
     styles,
+    t,
     theme.colors.primary,
     theme.colors.textInverse,
   ]);
@@ -168,6 +186,8 @@ export function ParcelCityPicker(): React.JSX.Element {
     <View style={[styles.safe, { paddingTop: insets.top }]}>
       <View style={styles.headerRow}>
         <Pressable
+          accessibilityLabel={t('parcel.actions.goBack')}
+          accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [
             styles.headerButton,
@@ -177,7 +197,9 @@ export function ParcelCityPicker(): React.JSX.Element {
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {mode === 'from' ? 'Origin Province' : 'Destination Province'}
+          {mode === 'from'
+            ? t('parcel.locations.originTitle')
+            : t('parcel.locations.destinationTitle')}
         </Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -189,8 +211,9 @@ export function ParcelCityPicker(): React.JSX.Element {
           weight="bold"
         />
         <TextInput
+          accessibilityLabel={t('parcel.locations.searchAccessibility')}
           style={styles.searchInput}
-          placeholder="Search province or city..."
+          placeholder={t('parcel.locations.searchPlaceholder')}
           placeholderTextColor={theme.colors.textTertiary}
           value={query}
           onChangeText={setQuery}

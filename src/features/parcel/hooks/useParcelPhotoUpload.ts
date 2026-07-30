@@ -4,6 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { ApiRequestError } from '@shared/api/errors';
+import i18n from '@shared/i18n';
 import { uploadImageToFirebase } from '@shared/lib/firebase/firebaseImageUploadService';
 import { prepareImageUpload } from '@shared/lib/image/imagePreparationService';
 import {
@@ -40,11 +41,11 @@ export function useParcelPhotoUpload() {
       const normalizedUri = sourceUri.trim();
       const user = useAuthStore.getState().user;
       if (!normalizedUri) {
-        return Promise.reject(new Error('Parcel photo URI is empty.'));
+        return Promise.reject(new Error(i18n.t('parcel.errors.photoUriEmpty')));
       }
       if (!user) {
         return Promise.reject(
-          new Error('Unauthenticated user cannot upload a parcel photo.'),
+          new Error(i18n.t('parcel.errors.photoUploadRequiresLogin')),
         );
       }
 
@@ -82,7 +83,7 @@ export function useParcelPhotoUpload() {
             || useAuthStore.getState().user?.id !== user.id
           ) {
             throw new ApiRequestError({
-              message: 'Phiên đăng nhập đã thay đổi.',
+              message: i18n.t('parcel.errors.sessionChanged'),
               code: 'SESSION_INVALIDATED',
             });
           }

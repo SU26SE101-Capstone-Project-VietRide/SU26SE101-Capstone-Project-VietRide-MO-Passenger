@@ -18,6 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { GoogleLogo } from 'phosphor-react-native';
 
@@ -44,6 +45,7 @@ type LoginFormField = 'email' | 'password';
 type LoginFormErrors = FieldErrorMap<LoginFormField>;
 
 export function LoginScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<ScreenRouteProp>();
   const setSession = useAuthStore((state) => state.setSession);
@@ -137,9 +139,9 @@ export function LoginScreen(): React.JSX.Element {
         <Svg height="520" width="100%">
           <Defs>
             <LinearGradient id="loginGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.7} />
-              <Stop offset="35%" stopColor={theme.isDark ? theme.colors.primaryDark : '#2AC1BC'} stopOpacity={0.25} />
-              <Stop offset="100%" stopColor={theme.isDark ? theme.colors.background : '#FFFFFF'} stopOpacity={0} />
+              <Stop offset="0%" stopColor={theme.colors.accent} stopOpacity={0.7} />
+              <Stop offset="35%" stopColor={theme.colors.accent} stopOpacity={0.25} />
+              <Stop offset="100%" stopColor={theme.colors.background} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect width="100%" height="100%" fill="url(#loginGrad)" />
@@ -164,15 +166,15 @@ export function LoginScreen(): React.JSX.Element {
             keyboardShouldPersistTaps="handled"
           >
             <AuthStepHeader
-              title="Welcome back!"
-              subtitle="Log in to book your next ride."
+              title={t('auth.welcomeBack')}
+              subtitle={t('auth.loginFlow.description')}
             />
 
             <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
               <View style={styles.inputWrapper}>
                 <Input
-                  label="Email"
-                  placeholder="Email address"
+                  label={t('auth.fields.email')}
+                  placeholder={t('auth.fields.emailPlaceholder')}
                   keyboardType="email-address"
                   textContentType="emailAddress"
                   autoComplete="email"
@@ -189,8 +191,8 @@ export function LoginScreen(): React.JSX.Element {
               </View>
               <View style={styles.inputWrapper}>
                 <Input
-                  label="Password"
-                  placeholder="Enter your password"
+                  label={t('auth.password')}
+                  placeholder={t('auth.fields.passwordPlaceholder')}
                   secureTextEntry
                   textContentType="password"
                   autoComplete="password"
@@ -207,7 +209,7 @@ export function LoginScreen(): React.JSX.Element {
 
               {route.params?.verified ? (
                 <Text style={[styles.successText, { color: theme.colors.success }]}>
-                  Email verified. Please log in to continue.
+                  {t('auth.loginFlow.emailVerified')}
                 </Text>
               ) : null}
               {errorMessage || authError || googleLoginError ? (
@@ -224,12 +226,12 @@ export function LoginScreen(): React.JSX.Element {
                 ]}
               >
                 <Text style={[styles.forgotText, { color: theme.colors.primary }]}>
-                  Forgot password?
+                  {t('auth.forgotPassword')}
                 </Text>
               </Pressable>
 
               <Button
-                title="Log In"
+                title={t('auth.login')}
                 onPress={handleLogin}
                 disabled={isSubmitDisabled}
                 loading={loginMutation.isPending}
@@ -239,7 +241,7 @@ export function LoginScreen(): React.JSX.Element {
 
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Continue with Google"
+                accessibilityLabel={t('auth.loginFlow.google')}
                 accessibilityState={{ disabled: loginMutation.isPending || isGuestPending || isGoogleLoginPending, busy: isGoogleLoginPending }}
                 disabled={loginMutation.isPending || isGuestPending || isGoogleLoginPending}
                 onPress={handleGoogleLogin}
@@ -252,18 +254,22 @@ export function LoginScreen(): React.JSX.Element {
               >
                 <GoogleLogo size={20} color={theme.colors.textPrimary} weight="bold" />
                 <Text style={[styles.googleButtonText, { color: theme.colors.textPrimary }]}>
-                  {isGoogleLoginPending ? 'Connecting to Google…' : 'Continue with Google'}
+                  {isGoogleLoginPending
+                    ? t('auth.loginFlow.googleConnecting')
+                    : t('auth.loginFlow.google')}
                 </Text>
               </Pressable>
 
               <View style={styles.guestDivider}>
                 <View style={[styles.dividerLine, { backgroundColor: theme.colors.divider }]} />
-                <Text style={[styles.guestDividerText, { color: theme.colors.textTertiary }]}>or</Text>
+                <Text style={[styles.guestDividerText, { color: theme.colors.textTertiary }]}>
+                  {t('common.or')}
+                </Text>
                 <View style={[styles.dividerLine, { backgroundColor: theme.colors.divider }]} />
               </View>
 
               <Button
-                title="Continue as guest"
+                title={t('auth.loginFlow.continueAsGuest')}
                 onPress={handleContinueAsGuest}
                 disabled={loginMutation.isPending || isGuestPending || isGoogleLoginPending}
                 loading={isGuestPending}
@@ -276,8 +282,8 @@ export function LoginScreen(): React.JSX.Element {
           </ScrollView>
 
           <AuthFooter
-            prompt="Don't have an account?"
-            actionLabel="Sign up"
+            prompt={t('auth.loginFlow.noAccount')}
+            actionLabel={t('auth.loginFlow.signUp')}
             onAction={() => navigation.navigate('Register')}
           />
         </KeyboardAvoidingView>
@@ -303,7 +309,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(42, 193, 188, 0.07)',
+    backgroundColor: theme.effects.ambientGlow,
   },
   container: { flex: 1, backgroundColor: 'transparent' },
   keyboardView: { flex: 1 },

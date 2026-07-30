@@ -6,8 +6,9 @@
  * otherwise Auth (login/register) is shown.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 
 import type { RootStackParamList } from './types';
 import { AuthNavigator } from './AuthNavigator';
@@ -27,6 +28,7 @@ import {
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { AppLaunchScreen } from '@shared/components';
 import { PaymentDeepLinkHandler } from '@app/components/PaymentDeepLinkHandler';
+import { createNativeStackOptions, useMotion } from '@shared/motion';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -40,22 +42,29 @@ export function RootNavigator(): React.JSX.Element {
   const isAuthLoading = useAuthStore((state) => state.isAuthLoading);
   const user = useAuthStore((state) => state.user);
   const theme = useTheme();
+  const { t } = useTranslation();
+  const { reduceMotion } = useMotion();
+  const screenOptions = useMemo(
+    () =>
+      createNativeStackOptions({
+        theme,
+        reduceMotion,
+        animation: 'fade',
+      }),
+    [reduceMotion, theme],
+  );
   const needsPhoneCompletion = isAuthenticated && Boolean(user && !user.phone);
   const canEnterApp = isGuest || (isAuthenticated && Boolean(user?.phone));
 
   if (isAuthLoading || (isAuthenticated && !user)) {
-    return <AppLaunchScreen message="Đang khôi phục phiên đăng nhập..." />;
+    return <AppLaunchScreen message={t('app.restoringSession')} />;
   }
 
   return (
     <>
       <PaymentDeepLinkHandler />
       <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: theme.colors.background },
-          animation: 'fade',
-        }}
+        screenOptions={screenOptions}
       >
         {needsPhoneCompletion ? (
           <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
@@ -64,9 +73,18 @@ export function RootNavigator(): React.JSX.Element {
             <Stack.Screen name="Main" component={MainTabNavigator} />
             <Stack.Screen name="Booking" component={BookingNavigator} />
             <Stack.Screen name="Parcel" component={ParcelNavigator} />
-            <Stack.Screen name="Chatbot" component={ChatbotScreen} options={{ animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="Tracking" component={TrackingScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="NotificationDetail" component={NotificationDetailScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen
+              name="Chatbot"
+              component={ChatbotScreen}
+              options={{
+                animation: reduceMotion ? 'none' : 'slide_from_bottom',
+              }}
+            />
+            <Stack.Screen name="Tracking" component={TrackingScreen} />
+            <Stack.Screen
+              name="NotificationDetail"
+              component={NotificationDetailScreen}
+            />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />

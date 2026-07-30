@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   ArrowCounterClockwise,
   ArrowFatUp,
@@ -60,17 +61,18 @@ const ComingSoonAction = memo(function ComingSoonActionItem({
   onOpen,
   route,
 }: ComingSoonActionProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handlePress = useCallback(() => onOpen(route), [onOpen, route]);
   const Icon = route === 'Withdraw' ? Money : CreditCard;
-  const title = getFinancialUnavailableNotice(route).title;
+  const title = t(getFinancialUnavailableNotice(route).titleKey);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${title}, coming soon`}
-      accessibilityHint="Opens details about why this financial tool is not enabled yet"
+      accessibilityLabel={t('financial.comingSoonAccessibility', { title })}
+      accessibilityHint={t('financial.comingSoonHint')}
       onPress={handlePress}
       style={({ pressed }) => [
         styles.comingSoonAction,
@@ -82,7 +84,7 @@ const ComingSoonAction = memo(function ComingSoonActionItem({
       </View>
       <Text style={styles.comingSoonTitle} numberOfLines={2}>{title}</Text>
       <View style={styles.comingSoonBadge}>
-        <Text style={styles.comingSoonBadgeText}>Coming soon</Text>
+        <Text style={styles.comingSoonBadgeText}>{t('financial.comingSoon')}</Text>
       </View>
       <CaretRight size={16} color={theme.colors.textTertiary} weight="bold" />
     </Pressable>
@@ -92,6 +94,7 @@ const ComingSoonAction = memo(function ComingSoonActionItem({
 const getTransactionTitle = (
   referenceType: WalletTransactionReferenceType,
   note: string | null,
+  t: TFunction,
 ): string => {
   const normalizedNote = note?.trim();
   if (normalizedNote) {
@@ -100,21 +103,21 @@ const getTransactionTitle = (
 
   switch (referenceType) {
     case 'TOP_UP':
-      return 'Nạp tiền vào ví';
+      return t('wallet.transactions.topUp');
     case 'BOOKING_PAYMENT':
-      return 'Thanh toán vé';
+      return t('wallet.transactions.bookingPayment');
     case 'BOOKING_REFUND':
-      return 'Hoàn tiền vé';
+      return t('wallet.transactions.bookingRefund');
     case 'PARCEL_PAYMENT':
-      return 'Thanh toán gửi hàng';
+      return t('wallet.transactions.parcelPayment');
     case 'PARCEL_REFUND':
-      return 'Hoàn tiền gửi hàng';
+      return t('wallet.transactions.parcelRefund');
     case 'PARCEL_ADDITIONAL_PAYMENT':
-      return 'Thanh toán bổ sung gửi hàng';
+      return t('wallet.transactions.parcelAdditionalPayment');
     case 'MANUAL_ADJUSTMENT':
-      return 'Điều chỉnh số dư';
+      return t('wallet.transactions.manualAdjustment');
     default:
-      return 'Giao dịch ví';
+      return t('wallet.transactions.generic');
   }
 };
 
@@ -159,6 +162,7 @@ const TransactionRow = memo(function TransactionRowComponent({
   note,
   createdAt,
 }: TransactionRowProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const isCredit = type === 'CREDIT';
@@ -177,7 +181,7 @@ const TransactionRow = memo(function TransactionRowComponent({
 
       <View style={styles.transactionInfo}>
         <Text style={styles.transactionTitle} numberOfLines={2}>
-          {getTransactionTitle(referenceType, note)}
+          {getTransactionTitle(referenceType, note, t)}
         </Text>
         <Text style={styles.transactionDate}>{formatDateTime(createdAt)}</Text>
       </View>
@@ -196,7 +200,9 @@ const TransactionRow = memo(function TransactionRowComponent({
           {formatVnd(Math.abs(amount))}
         </Text>
         <Text style={styles.balanceAfter} numberOfLines={1}>
-          Số dư: {formatVnd(balanceAfter)}
+          {t('wallet.transactions.balanceAfter', {
+            amount: formatVnd(balanceAfter),
+          })}
         </Text>
       </View>
     </View>
@@ -296,7 +302,7 @@ export function WalletScreen(): React.JSX.Element {
     () => (
       <View style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>
-          {t('wallet.balance', 'Available balance')}
+          {t('wallet.balance')}
         </Text>
 
         {isBalancePending ? (
@@ -315,7 +321,7 @@ export function WalletScreen(): React.JSX.Element {
               style={styles.retryBalanceButton}
             >
               <Text style={styles.retryBalanceText}>
-                {t('common.retry', 'Retry')}
+                {t('common.retry')}
               </Text>
             </Pressable>
           </View>
@@ -331,7 +337,7 @@ export function WalletScreen(): React.JSX.Element {
             </Text>
             {isBalanceRefetchError ? (
               <Text style={styles.staleDataText}>
-                {t('wallet.staleBalance', 'Balance may be out of date')}
+                {t('wallet.staleBalance')}
               </Text>
             ) : null}
           </>
@@ -339,7 +345,7 @@ export function WalletScreen(): React.JSX.Element {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('wallet.topUp', 'Top Up')}
+          accessibilityLabel={t('wallet.topUp')}
           onPress={handleTopUp}
           style={({ pressed }) => [
             styles.topUpButton,
@@ -348,13 +354,13 @@ export function WalletScreen(): React.JSX.Element {
         >
           <ArrowFatUp size={16} color={theme.colors.primary} weight="fill" />
           <Text style={styles.topUpButtonText}>
-            {t('wallet.topUp', 'Top Up')}
+            {t('wallet.topUp')}
           </Text>
         </Pressable>
 
         <View style={styles.comingSoonSection}>
           <Text style={styles.comingSoonSectionTitle}>
-            {t('wallet.moreTools', 'More wallet tools')}
+            {t('wallet.moreTools')}
           </Text>
           {COMING_SOON_FINANCIAL_ROUTES.map((routeName) => (
             <ComingSoonAction
@@ -366,14 +372,11 @@ export function WalletScreen(): React.JSX.Element {
         </View>
 
         <Text style={styles.sectionTitle}>
-          {t('wallet.recentTransactions', 'Recent Transactions')}
+          {t('wallet.recentTransactions')}
         </Text>
         {isTransactionsRefetchError && transactions.length > 0 ? (
           <Text style={styles.ledgerStaleText}>
-            {t(
-              'wallet.staleTransactions',
-              'Transactions could not be refreshed. Showing the last loaded ledger.',
-            )}
+            {t('wallet.staleTransactions')}
           </Text>
         ) : null}
       </View>
@@ -409,7 +412,7 @@ export function WalletScreen(): React.JSX.Element {
       return (
         <View style={styles.emptyState}>
           <Text style={styles.errorTitle}>
-            {t('wallet.loadTransactionsFailed', 'Could not load transactions')}
+            {t('wallet.loadTransactionsFailed')}
           </Text>
           <Text style={styles.errorMessage}>
             {getApiErrorMessage(transactionsError)}
@@ -420,7 +423,7 @@ export function WalletScreen(): React.JSX.Element {
             style={styles.retryButton}
           >
             <Text style={styles.retryButtonText}>
-              {t('common.retry', 'Retry')}
+              {t('common.retry')}
             </Text>
           </Pressable>
         </View>
@@ -431,7 +434,7 @@ export function WalletScreen(): React.JSX.Element {
       <View style={styles.emptyState}>
         <Money size={48} color={theme.colors.textTertiary} weight="thin" />
         <Text style={styles.emptyText}>
-          {t('wallet.noTransactions', 'No transactions yet')}
+          {t('wallet.noTransactions')}
         </Text>
       </View>
     );
@@ -464,7 +467,7 @@ export function WalletScreen(): React.JSX.Element {
           style={styles.footerRetry}
         >
           <Text style={styles.footerRetryText}>
-            {t('wallet.retryMore', 'Could not load more. Tap to retry.')}
+            {t('wallet.retryMore')}
           </Text>
         </Pressable>
       );
@@ -487,14 +490,14 @@ export function WalletScreen(): React.JSX.Element {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('common.back', 'Back')}
+          accessibilityLabel={t('common.back')}
           hitSlop={8}
           onPress={handleBack}
           style={styles.backButton}
         >
           <ArrowLeft size={24} color={theme.colors.textInverse} weight="bold" />
         </Pressable>
-        <Text style={styles.headerTitle}>{t('wallet.title', 'My Wallet')}</Text>
+        <Text style={styles.headerTitle}>{t('wallet.title')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 

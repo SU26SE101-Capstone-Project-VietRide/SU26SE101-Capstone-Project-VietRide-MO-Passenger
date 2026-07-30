@@ -5,24 +5,22 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { ArrowLeft, Package, Ticket } from 'phosphor-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import type { RootStackParamList } from '@app/navigation/types';
 import { isUuid } from '@shared/utils/pathSegment';
 import { borderRadius, fontFamilies, fontSizes, spacing, type AppTheme } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
+import { formatDateTime, toIntlLocale } from '@shared/utils/format';
 import { DEFAULT_NOTIFICATION_LIST_PARAMS, useMarkNotificationRead } from '../hooks/useNotifications';
 import { getNotificationKind } from '../utils/notificationPresentation';
 
 type NotificationDetailRoute = RouteProp<RootStackParamList, 'NotificationDetail'>;
 type NotificationDetailNavigation = NativeStackNavigationProp<RootStackParamList>;
 
-const notificationDateFormatter = new Intl.DateTimeFormat('vi-VN', {
-  dateStyle: 'full',
-  timeStyle: 'short',
-});
-
 export function NotificationDetailScreen(): React.JSX.Element {
+  const { i18n, t } = useTranslation();
   const route = useRoute<NotificationDetailRoute>();
   const navigation = useNavigation<NotificationDetailNavigation>();
   const theme = useTheme();
@@ -34,9 +32,11 @@ export function NotificationDetailScreen(): React.JSX.Element {
   const canOpenParcel = kind === 'parcel' && isUuid(parcelId);
 
   const timestamp = useMemo(() => {
-    const date = new Date(notification.createdAt);
-    return Number.isNaN(date.getTime()) ? '' : notificationDateFormatter.format(date);
-  }, [notification.createdAt]);
+    return formatDateTime(
+      notification.createdAt,
+      toIntlLocale(i18n.resolvedLanguage),
+    );
+  }, [i18n.resolvedLanguage, notification.createdAt]);
 
   useEffect(() => {
     if (!notification.readAt) {
@@ -62,14 +62,14 @@ export function NotificationDetailScreen(): React.JSX.Element {
       />
       <View style={styles.header}>
         <Pressable
-          accessibilityLabel="Back"
+          accessibilityLabel={t('notification.back')}
           hitSlop={10}
           onPress={handleBack}
           style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} weight="bold" />
         </Pressable>
-        <Text style={styles.headerTitle}>Notification</Text>
+        <Text style={styles.headerTitle}>{t('notification.detailTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -80,7 +80,11 @@ export function NotificationDetailScreen(): React.JSX.Element {
           ) : (
             <Ticket size={18} color={theme.colors.primary} weight="fill" />
           )}
-          <Text style={styles.typeLabel}>{kind === 'parcel' ? 'Parcel update' : 'VietRide update'}</Text>
+          <Text style={styles.typeLabel}>
+            {kind === 'parcel'
+              ? t('notification.parcelUpdate')
+              : t('notification.vietRideUpdate')}
+          </Text>
         </View>
 
         <Text style={styles.title}>{notification.title}</Text>
@@ -92,11 +96,15 @@ export function NotificationDetailScreen(): React.JSX.Element {
 
         {canOpenParcel ? (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('notification.viewParcelDetails')}
             onPress={handleOpenParcel}
             style={({ pressed }) => [styles.relatedAction, pressed ? styles.pressed : null]}
           >
             <Package size={20} color={theme.colors.textInverse} weight="fill" />
-            <Text style={styles.relatedActionLabel}>View parcel details</Text>
+            <Text style={styles.relatedActionLabel}>
+              {t('notification.viewParcelDetails')}
+            </Text>
           </Pressable>
         ) : null}
       </ScrollView>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Animated } from 'react-native';
 import { spacing, borderRadius } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
+import { useMotion } from '@shared/motion';
 import type { AppTheme } from '@shared/theme';
 
 interface ParcelSkeletonProps {
@@ -11,9 +12,16 @@ interface ParcelSkeletonProps {
 
 export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonProps): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
+  const { reduceMotion } = useMotion();
   const fadeAnim = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
+    if (reduceMotion) {
+      fadeAnim.stopAnimation();
+      fadeAnim.setValue(0.7);
+      return;
+    }
+
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(fadeAnim, {
@@ -31,7 +39,7 @@ export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonPr
     animation.start();
 
     return () => animation.stop();
-  }, [fadeAnim]);
+  }, [fadeAnim, reduceMotion]);
 
   const renderStationSkeleton = (index: number) => (
     <Animated.View key={`station-${index}`} style={[styles.card, { opacity: fadeAnim }]}>
@@ -83,7 +91,11 @@ export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonPr
   );
 
   return (
-    <View style={styles.container}>
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={styles.container}
+    >
       {type === 'station' ? Array.from({ length: count }).map((_, i) => renderStationSkeleton(i)) : null}
       {type === 'shipment' ? Array.from({ length: count }).map((_, i) => renderShipmentSkeleton(i)) : null}
       {type === 'summary' ? renderSummarySkeleton() : null}

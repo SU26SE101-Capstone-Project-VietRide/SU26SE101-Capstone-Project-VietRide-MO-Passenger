@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { bookingKeys } from '@features/booking/api/bookingApi';
 import { parcelKeys } from '@features/parcel/api/parcelApi';
@@ -15,6 +16,7 @@ import { usePaymentDeepLink, type PaymentReturnEvent } from '@shared/hooks';
  */
 export function PaymentDeepLinkHandler(): null {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const userId = useAuthStore(state => state.user?.id);
 
   const handlePaymentReturn = useCallback(
@@ -48,12 +50,12 @@ export function PaymentDeepLinkHandler(): null {
       // single-flight foreground gate.
 
       Alert.alert(
-        'Đang xác nhận thanh toán',
-        'VietRide đã nhận tín hiệu quay lại. Kết quả chỉ được cập nhật sau khi hệ thống xác minh giao dịch với VNPay.',
-        [{ text: 'Đã hiểu' }],
+        t('paymentReturn.reconcilingTitle'),
+        t('paymentReturn.reconcilingDescription'),
+        [{ text: t('common.understood') }],
       );
     },
-    [queryClient, userId],
+    [queryClient, t, userId],
   );
 
   usePaymentDeepLink(handlePaymentReturn);

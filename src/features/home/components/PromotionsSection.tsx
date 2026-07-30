@@ -1,4 +1,4 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { ArrowRight, Tag } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 
 import type { PromotionItem } from '@features/booking/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -25,15 +26,6 @@ import {
 } from '../hooks/useHomePromotions';
 
 const promotionKeyExtractor = (item: PromotionItem): string => item.voucherId;
-
-const formatPromotionValue = (type: string, value: number): string => {
-  const normalizedType = type.trim().toUpperCase();
-  if (normalizedType.includes('PERCENT')) {
-    return `${value}% off`;
-  }
-
-  return `${formatVnd(value)} off`;
-};
 
 interface PromotionCardProps {
   code: string;
@@ -54,18 +46,27 @@ const PromotionCard = memo(function PromotionCardItem({
   value,
   voucherId,
 }: PromotionCardProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handlePress = useCallback(() => {
     onPress?.(voucherId, code);
   }, [code, onPress, voucherId]);
-  const expiresLabel = formatDate(expiresAt) || expiresAt;
-  const valueLabel = formatPromotionValue(type, value);
+  const expiresLabel = useMemo(
+    () => formatDate(expiresAt) || expiresAt,
+    [expiresAt],
+  );
+  const valueLabel = useMemo(
+    () => type.trim().toUpperCase().includes('PERCENT')
+      ? t('home.promotions.percentOff', { value })
+      : t('home.promotions.amountOff', { value: formatVnd(value) }),
+    [t, type, value],
+  );
 
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={`${name}, code ${code}`}
+      accessibilityLabel={t('home.promotions.cardAccessibility', { name, code })}
       disabled={!onPress}
       onPress={handlePress}
       style={({ pressed }) => [
@@ -86,7 +87,9 @@ const PromotionCard = memo(function PromotionCardItem({
           <ArrowRight size={16} color={theme.colors.primary} weight="bold" />
         ) : null}
       </View>
-      <Text style={styles.expiryLabel}>Valid until {expiresLabel}</Text>
+      <Text style={styles.expiryLabel}>
+        {t('home.promotions.validUntil', { date: expiresLabel })}
+      </Text>
     </Pressable>
   );
 });
@@ -100,8 +103,9 @@ export interface PromotionsSectionProps {
 export const PromotionsSection = memo(function PromotionsSectionComponent({
   onPromotionPress,
   service = 'BOOKING',
-  title = 'Offers for you',
+  title,
 }: PromotionsSectionProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const promotionsQuery = useHomePromotions(service);
@@ -126,31 +130,34 @@ export const PromotionsSection = memo(function PromotionsSectionComponent({
   let content: React.ReactNode;
   if (promotionsQuery.isPending) {
     content = (
-      <View style={styles.stateBox} accessibilityLabel="Loading promotions">
+      <View
+        style={styles.stateBox}
+        accessibilityLabel={t('home.promotions.loadingAccessibility')}
+      >
         <ActivityIndicator color={theme.colors.primary} />
-        <Text style={styles.stateText}>Loading current offers…</Text>
+        <Text style={styles.stateText}>{t('home.promotions.loading')}</Text>
       </View>
     );
   } else if (promotionsQuery.isError) {
     content = (
       <View style={styles.stateBox}>
-        <Text style={styles.stateTitle}>Offers are unavailable</Text>
-        <Text style={styles.stateText}>Pull them from VietRide again when your connection is ready.</Text>
+        <Text style={styles.stateTitle}>{t('home.promotions.unavailableTitle')}</Text>
+        <Text style={styles.stateText}>{t('home.promotions.unavailableDescription')}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Retry promotions"
+          accessibilityLabel={t('home.promotions.retryAccessibility')}
           onPress={handleRetry}
           style={styles.retryButton}
         >
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{t('home.promotions.retry')}</Text>
         </Pressable>
       </View>
     );
   } else if (promotionsQuery.data.length === 0) {
     content = (
       <View style={styles.stateBox}>
-        <Text style={styles.stateTitle}>No active offers</Text>
-        <Text style={styles.stateText}>New VietRide promotions will appear here automatically.</Text>
+        <Text style={styles.stateTitle}>{t('home.promotions.emptyTitle')}</Text>
+        <Text style={styles.stateText}>{t('home.promotions.emptyDescription')}</Text>
       </View>
     );
   } else {
@@ -168,7 +175,7 @@ export const PromotionsSection = memo(function PromotionsSectionComponent({
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={styles.sectionTitle}>{title ?? t('home.promotions.title')}</Text>
       {content}
     </View>
   );

@@ -34,6 +34,9 @@ export const AuthActionBar = ({
       </View>
     ) : null}
     <TouchableOpacity
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
       style={[styles.cta, disabled && styles.ctaDisabled]}
       onPress={onPress}
       activeOpacity={0.85}

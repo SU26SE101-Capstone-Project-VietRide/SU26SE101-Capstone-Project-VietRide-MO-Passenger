@@ -14,6 +14,7 @@ import {
   WifiSlash,
 } from 'phosphor-react-native';
 import { useIsFocused } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useTripDetail } from '@features/trip/hooks';
@@ -36,12 +37,6 @@ interface LiveTripTrackingPanelProps {
 }
 
 const TRIP_STATUS_REFRESH_MS = 60_000;
-
-const distanceLabel = (distanceMeters: number): string => (
-  distanceMeters >= 1_000
-    ? `${(distanceMeters / 1_000).toFixed(1)} km`
-    : `${distanceMeters} m`
-);
 
 const toMapStops = (stops?: readonly TripStop[]): TrackingMapStop[] => (
   stops?.flatMap((stop) => (
@@ -83,6 +78,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   terminalMessage,
 }: LiveTripTrackingPanelProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const userId = useAuthStore((state) => state.user?.id);
   const isFocused = useIsFocused();
@@ -140,12 +136,21 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const handleRetry = useCallback(() => {
     refetchAll().catch(() => undefined);
   }, [refetchAll]);
+  const formatDistance = useCallback(
+    (distanceMeters: number): string =>
+      distanceMeters >= 1_000
+        ? t('tracking.distanceKilometers', {
+            value: (distanceMeters / 1_000).toFixed(1),
+          })
+        : t('tracking.distanceMeters', { value: distanceMeters }),
+    [t],
+  );
 
   if (!tracking.hasValidTripId) {
     return (
       <InlineState
-        title="Tracking unavailable"
-        message="This item does not have a valid trip tracking identifier."
+        title={t('tracking.states.unavailableTitle')}
+        message={t('tracking.states.invalidTripId')}
       />
     );
   }
@@ -153,8 +158,8 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   if (!tracking.hasAuthenticatedUser) {
     return (
       <InlineState
-        title="Sign in required"
-        message="Sign in with the passenger account that owns this booking or parcel."
+        title={t('tracking.states.signInTitle')}
+        message={t('tracking.states.signInMessage')}
       />
     );
   }
@@ -163,10 +168,14 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     const isForbidden = fatalError.statusCode === 403;
     return (
       <InlineState
-        title={isForbidden ? 'Tracking access denied' : 'Trip not found'}
+        title={
+          isForbidden
+            ? t('tracking.states.deniedTitle')
+            : t('tracking.states.notFoundTitle')
+        }
         message={isForbidden
-          ? 'This passenger account is not allowed to track the selected trip.'
-          : 'The tracking service could not find this trip.'}
+          ? t('tracking.states.deniedMessage')
+          : t('tracking.states.notFoundMessage')}
       />
     );
   }
@@ -177,7 +186,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         <View style={styles.warningBanner}>
           <WifiSlash size={18} color={theme.colors.warning} />
           <Text style={styles.warningBannerText}>
-            Offline. Showing the last location saved on this device.
+            {t('tracking.connection.offline')}
           </Text>
         </View>
       ) : null}
@@ -186,7 +195,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         <View style={styles.liveBanner}>
           <Broadcast size={18} color={theme.colors.success} weight="fill" />
           <Text style={styles.liveBannerText}>
-            Realtime connected. Vehicle updates arrive as the driver publishes GPS.
+            {t('tracking.connection.connected')}
           </Text>
         </View>
       ) : null}
@@ -194,7 +203,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       {tracking.isOnline && !tracking.isTerminal && tracking.realtimeStatus === 'connecting' ? (
         <View style={styles.neutralBanner}>
           <Broadcast size={18} color={theme.colors.textSecondary} weight="duotone" />
-          <Text style={styles.neutralBannerText}>Connecting to realtime tracking...</Text>
+          <Text style={styles.neutralBannerText}>
+            {t('tracking.connection.connecting')}
+          </Text>
         </View>
       ) : null}
 
@@ -202,7 +213,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         <View style={styles.warningBanner}>
           <WifiSlash size={18} color={theme.colors.warning} />
           <Text style={styles.warningBannerText}>
-            Realtime is reconnecting. REST fallback keeps the location refreshed.
+            {t('tracking.connection.fallback')}
           </Text>
         </View>
       ) : null}
@@ -211,7 +222,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         <View style={styles.warningBanner}>
           <Clock size={18} color={theme.colors.warning} />
           <Text style={styles.warningBannerText}>
-            This trip is delayed by about {tracking.delay.delayMinutes} minutes.
+            {t('tracking.delayMinutes', {
+              count: tracking.delay.delayMinutes,
+            })}
           </Text>
         </View>
       ) : null}
@@ -220,7 +233,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         <View style={styles.neutralBanner}>
           <Clock size={18} color={theme.colors.textSecondary} />
           <Text style={styles.neutralBannerText}>
-            {terminalMessage ?? 'This journey is complete. Automatic location updates are stopped.'}
+            {terminalMessage ?? t('tracking.tripComplete')}
           </Text>
         </View>
       ) : null}
@@ -229,14 +242,14 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         <View style={styles.errorBanner}>
           <WarningCircle size={18} color={theme.colors.error} />
           <Text style={styles.errorBannerText} numberOfLines={2}>
-            {transientError.message}
+            {t('tracking.errors.refresh')}
           </Text>
           <Pressable
             accessibilityRole="button"
             onPress={handleRetry}
             style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
           >
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -244,7 +257,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       {isInitialLoading && tracking.isOnline ? (
         <View style={styles.loadingState}>
           <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Loading the latest trip location...</Text>
+          <Text style={styles.loadingText}>
+            {t('tracking.loadingLatest')}
+          </Text>
         </View>
       ) : (
         <TrackingMap latest={tracking.latest} points={tracking.trailPoints} stops={stops} />
@@ -253,18 +268,24 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       <View style={styles.metricsGrid}>
         <View style={styles.metricCard}>
           <Broadcast size={22} color={theme.colors.primary} weight="duotone" />
-          <Text style={styles.metricLabel}>LAST UPDATE</Text>
+          <Text style={styles.metricLabel}>
+            {t('tracking.metrics.lastUpdate')}
+          </Text>
           <Text style={styles.metricValue}>
-            {tracking.latest ? formatDateTime(tracking.latest.recordedAt) : 'Waiting for GPS'}
+            {tracking.latest
+              ? formatDateTime(tracking.latest.recordedAt)
+              : t('tracking.metrics.waitingGps')}
           </Text>
         </View>
         <View style={styles.metricCard}>
           <NavigationArrow size={22} color={theme.colors.primary} weight="duotone" />
-          <Text style={styles.metricLabel}>SPEED</Text>
+          <Text style={styles.metricLabel}>
+            {t('tracking.metrics.speed')}
+          </Text>
           <Text style={styles.metricValue}>
             {tracking.latest?.speedKmh !== undefined
               ? `${Math.round(tracking.latest.speedKmh)} km/h`
-              : 'Not reported'}
+              : t('tracking.metrics.notReported')}
           </Text>
         </View>
       </View>
@@ -272,30 +293,43 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       <View style={styles.detailCard}>
         <View style={styles.detailHeading}>
           <MapPin size={21} color={theme.colors.primary} weight="duotone" />
-          <Text style={styles.detailTitle}>Location details</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Coordinates</Text>
-          <Text style={styles.detailValue}>
-            {tracking.latest
-              ? `${tracking.latest.latitude.toFixed(6)}, ${tracking.latest.longitude.toFixed(6)}`
-              : 'Not available'}
+          <Text style={styles.detailTitle}>
+            {t('tracking.details.title')}
           </Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Trail points</Text>
+          <Text style={styles.detailLabel}>
+            {t('tracking.details.coordinates')}
+          </Text>
+          <Text style={styles.detailValue}>
+            {tracking.latest
+              ? `${tracking.latest.latitude.toFixed(6)}, ${tracking.latest.longitude.toFixed(6)}`
+              : t('common.notAvailable')}
+          </Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>
+            {t('tracking.details.trailPoints')}
+          </Text>
           <Text style={styles.detailValue}>{tracking.trailPoints.length}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>ETA</Text>
+          <Text style={styles.detailLabel}>
+            {t('tracking.eta')}
+          </Text>
           <Text style={styles.detailValue}>
             {!stopId
-              ? 'Destination stop unavailable'
+              ? t('tracking.details.destinationUnavailable')
               : !tracking.hasValidStopId
-                ? 'Invalid destination stop'
+                ? t('tracking.details.invalidDestination')
                 : tracking.eta
-                  ? `${tracking.eta.etaMinutes} min (${distanceLabel(tracking.eta.distanceMeters)})`
-                  : 'Waiting for ETA'}
+                  ? t('tracking.details.etaValue', {
+                      count: tracking.eta.etaMinutes,
+                      distance: formatDistance(
+                        tracking.eta.distanceMeters,
+                      ),
+                    })
+                  : t('tracking.details.waitingEta')}
           </Text>
         </View>
       </View>

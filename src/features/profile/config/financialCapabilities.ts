@@ -41,43 +41,38 @@ export const COMING_SOON_FINANCIAL_ROUTES: readonly ComingSoonFinancialRoute[] =
 ]);
 
 export interface FinancialUnavailableNotice {
-  readonly title: string;
-  readonly description: string;
-  readonly safetyNote: string;
+  readonly titleKey: string;
+  readonly descriptionKey: string;
+  readonly safetyNoteKey: string;
 }
 
 const FINANCIAL_UNAVAILABLE_NOTICES: Readonly<
   Record<FinancialUnavailableRoute, FinancialUnavailableNotice>
 > = Object.freeze({
   Wallet: {
-    title: 'Wallet unavailable',
-    description:
-      'Wallet access is disabled for this release. No balance or transaction request will be made from this screen.',
-    safetyNote: 'Your existing booking and payment flows are not changed.',
+    titleKey: 'financial.walletUnavailable.title',
+    descriptionKey: 'financial.walletUnavailable.description',
+    safetyNoteKey: 'financial.walletUnavailable.safety',
   },
   TopUp: {
-    title: 'Top up unavailable',
-    description:
-      'VNPay top-up is disabled for this release. VietRide will not start a payment request from this screen.',
-    safetyNote: 'No payment is assumed successful until the backend ledger confirms it.',
+    titleKey: 'financial.topUpUnavailable.title',
+    descriptionKey: 'financial.topUpUnavailable.description',
+    safetyNoteKey: 'financial.topUpUnavailable.safety',
   },
   Withdraw: {
-    title: 'Withdraw funds',
-    description:
-      'Coming soon. The current passenger backend does not expose a supported withdrawal or payout contract.',
-    safetyNote: 'No bank account, card number, PIN, or CVV is collected here.',
+    titleKey: 'financial.withdraw.title',
+    descriptionKey: 'financial.withdraw.description',
+    safetyNoteKey: 'financial.withdraw.safety',
   },
   SavedPayments: {
-    title: 'Saved payment methods',
-    description:
-      'Coming soon. The current passenger backend does not expose a supported tokenized payment-method management contract.',
-    safetyNote: 'VietRide does not invent or store card details in app state.',
+    titleKey: 'financial.savedPayments.title',
+    descriptionKey: 'financial.savedPayments.description',
+    safetyNoteKey: 'financial.savedPayments.safety',
   },
   AddPaymentMethod: {
-    title: 'Add payment method',
-    description:
-      'Coming soon. Adding a payment method requires a backend-approved, PCI-compliant hosted flow or native SDK.',
-    safetyNote: 'This app does not collect raw card numbers or CVV.',
+    titleKey: 'financial.addPaymentMethod.title',
+    descriptionKey: 'financial.addPaymentMethod.description',
+    safetyNoteKey: 'financial.addPaymentMethod.safety',
   },
 });
 

@@ -1,27 +1,26 @@
 /** Pure, allocation-conscious display formatters shared by mobile features. */
 
+import i18n from '@shared/i18n';
+
 export type VndDisplay = 'symbol' | 'code';
 
-const vndFormatters: Record<VndDisplay, Intl.NumberFormat> = {
-  symbol: new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    currencyDisplay: 'narrowSymbol',
-    maximumFractionDigits: 0,
-  }),
-  code: new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    currencyDisplay: 'code',
-    maximumFractionDigits: 0,
-  }),
-};
-
+const vndFormatters = new Map<string, Intl.NumberFormat>();
 const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 const shortDateFormatters = new Map<string, Intl.DateTimeFormat>();
 const monthYearFormatters = new Map<string, Intl.DateTimeFormat>();
 const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>();
 const timeFormatters = new Map<string, Intl.DateTimeFormat>();
+
+export type SupportedLocale = 'en' | 'vi';
+
+export const normalizeAppLocale = (language?: string): SupportedLocale =>
+  language?.toLowerCase().startsWith('en') ? 'en' : 'vi';
+
+export const toIntlLocale = (language?: string): string =>
+  normalizeAppLocale(language) === 'en' ? 'en-US' : 'vi-VN';
+
+export const getActiveIntlLocale = (): string =>
+  toIntlLocale(i18n.resolvedLanguage ?? i18n.language);
 
 const toValidDate = (dateLike: string | number | Date): Date | null => {
   const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
@@ -34,14 +33,33 @@ const toValidDate = (dateLike: string | number | Date): Date | null => {
  */
 export function formatVnd(
   amount: number,
-  options: { display?: VndDisplay; clampNegative?: boolean } = {},
+  options: {
+    display?: VndDisplay;
+    clampNegative?: boolean;
+    locale?: string;
+  } = {},
 ): string {
   const finiteAmount = Number.isFinite(amount) ? amount : 0;
   const normalizedAmount = options.clampNegative
     ? Math.max(finiteAmount, 0)
     : finiteAmount;
 
-  return vndFormatters[options.display ?? 'symbol'].format(normalizedAmount);
+  const display = options.display ?? 'symbol';
+  const locale = options.locale ?? getActiveIntlLocale();
+  const formatterKey = `${locale}:${display}`;
+  let formatter = vndFormatters.get(formatterKey);
+
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: 'VND',
+      currencyDisplay: display === 'code' ? 'code' : 'narrowSymbol',
+      maximumFractionDigits: 0,
+    });
+    vndFormatters.set(formatterKey, formatter);
+  }
+
+  return formatter.format(normalizedAmount);
 }
 
 /** @deprecated Prefer the consistently-cased `formatVnd`. */
@@ -53,7 +71,7 @@ export const formatVND = formatVnd;
  */
 export function formatDate(
   dateLike: string | number | Date,
-  locale = 'vi-VN',
+  locale = getActiveIntlLocale(),
 ): string {
   const date = toValidDate(dateLike);
   if (!date) {
@@ -76,7 +94,7 @@ export function formatDate(
 /** Format a date without a year, for compact list metadata. */
 export function formatShortDate(
   dateLike: string | number | Date,
-  locale = 'vi-VN',
+  locale = getActiveIntlLocale(),
 ): string {
   const date = toValidDate(dateLike);
   if (!date) {
@@ -98,7 +116,7 @@ export function formatShortDate(
 /** Format the month and year with a cached locale-aware formatter. */
 export function formatMonthYear(
   dateLike: string | number | Date,
-  locale = 'vi-VN',
+  locale = getActiveIntlLocale(),
 ): string {
   const date = toValidDate(dateLike);
   if (!date) {
@@ -120,7 +138,7 @@ export function formatMonthYear(
 /** Format a compact local date and time without constructing Intl per render. */
 export function formatDateTime(
   dateLike: string | number | Date,
-  locale = 'vi-VN',
+  locale = getActiveIntlLocale(),
 ): string {
   const date = toValidDate(dateLike);
   if (!date) {
@@ -170,7 +188,7 @@ export function formatDateTime(
  */
 export function formatTime(
   dateLike: string | number | Date,
-  locale = 'vi-VN',
+  locale = getActiveIntlLocale(),
 ): string {
   const date = toValidDate(dateLike);
   if (!date) {
@@ -182,7 +200,7 @@ export function formatTime(
     formatter = new Intl.DateTimeFormat(locale, {
       hour: '2-digit',
       minute: '2-digit',
-      ...(locale.startsWith('vi') ? { hour12: false } : {}),
+      hourCycle: 'h23',
     });
     timeFormatters.set(locale, formatter);
   }
@@ -194,14 +212,15 @@ export function formatTime(
 export function formatStatusLabel(
   status: string | null | undefined,
   fallback = 'Unknown',
+  locale = getActiveIntlLocale(),
 ): string {
   const normalized = status?.trim();
   if (!normalized) return fallback;
 
   return normalized
     .replace(/_/g, ' ')
-    .toLocaleLowerCase('en-US')
-    .replace(/\b\w/g, (character) => character.toLocaleUpperCase('en-US'));
+    .toLocaleLowerCase(locale)
+    .replace(/\b\w/g, character => character.toLocaleUpperCase(locale));
 }
 
 /** Format a non-negative duration as `mm:ss` for OTP/session countdowns. */
@@ -239,13 +258,29 @@ export function truncate(text: string, maxLength: number): string {
 /**
  * Calculate estimated time of arrival in minutes.
  */
-export function formatETA(minutes: number): string {
+export function formatETA(
+  minutes: number,
+  locale = getActiveIntlLocale(),
+): string {
+  const language = normalizeAppLocale(locale);
   if (minutes < 60) {
-    return `${minutes} phút`;
+    return language === 'vi'
+      ? `${minutes} phút`
+      : `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
   }
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  return remainingMinutes > 0
-    ? `${hours}h ${remainingMinutes}m`
-    : `${hours}h`;
+  if (language === 'vi') {
+    return remainingMinutes > 0
+      ? `${hours} giờ ${remainingMinutes} phút`
+      : `${hours} giờ`;
+  }
+
+  const hourLabel = hours === 1 ? 'hour' : 'hours';
+  if (remainingMinutes === 0) {
+    return `${hours} ${hourLabel}`;
+  }
+
+  const minuteLabel = remainingMinutes === 1 ? 'minute' : 'minutes';
+  return `${hours} ${hourLabel} ${remainingMinutes} ${minuteLabel}`;
 }

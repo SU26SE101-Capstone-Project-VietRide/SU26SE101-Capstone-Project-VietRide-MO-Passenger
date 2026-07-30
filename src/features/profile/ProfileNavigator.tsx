@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { ProfileStackParamList } from '@app/navigation/types';
@@ -17,6 +17,7 @@ import { PROFILE_FINANCIAL_CAPABILITIES } from './config/financialCapabilities';
 import { OTPVerificationScreen } from '@features/auth';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { createNativeStackOptions, useMotion } from '@shared/motion';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
 const ChangePasswordRoute = PROFILE_SECURITY_CAPABILITIES.changePassword
@@ -31,14 +32,15 @@ const TopUpRoute = PROFILE_FINANCIAL_CAPABILITIES.topUp
 
 export function ProfileNavigator(): React.JSX.Element {
   const theme = useTheme();
+  const { reduceMotion } = useMotion();
+  const screenOptions = useMemo(
+    () => createNativeStackOptions({ theme, reduceMotion }),
+    [reduceMotion, theme],
+  );
 
   return (
     <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: theme.colors.background },
-        animation: 'slide_from_right',
-      }}
+      screenOptions={screenOptions}
       initialRouteName="ProfileOverview"
     >
       <Stack.Screen name="ProfileOverview" component={ProfileOverviewScreen} />
@@ -52,7 +54,13 @@ export function ProfileNavigator(): React.JSX.Element {
       <Stack.Screen name="Withdraw" component={FinancialFeatureUnavailableScreen} />
       <Stack.Screen name="SavedPayments" component={FinancialFeatureUnavailableScreen} />
       <Stack.Screen name="AddPaymentMethod" component={FinancialFeatureUnavailableScreen} />
-      <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen
+        name="OTPVerification"
+        component={OTPVerificationScreen}
+        options={{
+          animation: reduceMotion ? 'none' : 'slide_from_bottom',
+        }}
+      />
     </Stack.Navigator>
   );
 }

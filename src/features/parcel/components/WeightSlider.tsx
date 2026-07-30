@@ -1,6 +1,7 @@
 import Slider from '@react-native-community/slider';
 import React, { memo, useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -52,6 +53,7 @@ export const WeightSlider = memo(function WeightSliderComponent({
   onValidityChange,
 }: WeightSliderProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const [unit, setUnit] = useState<WeightUnit>('kg');
   const [inputDraft, setInputDraft] = useState(() =>
@@ -138,7 +140,7 @@ export const WeightSlider = memo(function WeightSliderComponent({
   return (
     <View style={styles.container}>
       <View style={styles.headingRow}>
-        <Text style={styles.formLabel}>Weight</Text>
+        <Text style={styles.formLabel}>{t('parcel.weight.title')}</Text>
         <View style={styles.unitToggleRow} accessibilityRole="radiogroup">
           {(['kg', 'lb'] as const).map(option => {
             const active = unit === option;
@@ -158,7 +160,7 @@ export const WeightSlider = memo(function WeightSliderComponent({
                 <Text
                   style={[styles.unitText, active && styles.unitTextActive]}
                 >
-                  {option}
+                  {t(`parcel.units.${option}`)}
                 </Text>
               </Pressable>
             );
@@ -168,7 +170,9 @@ export const WeightSlider = memo(function WeightSliderComponent({
 
       <View style={styles.weightInputCard}>
         <TextInput
-          accessibilityLabel={`Parcel weight in ${unit}`}
+          accessibilityLabel={t('parcel.weight.inputAccessibility', {
+            unit: t(`parcel.units.${unit}`),
+          })}
           keyboardType="decimal-pad"
           returnKeyType="done"
           selectTextOnFocus
@@ -179,16 +183,21 @@ export const WeightSlider = memo(function WeightSliderComponent({
           onFocus={() => setIsEditing(true)}
           onSubmitEditing={commitInput}
         />
-        <Text style={styles.weightInputUnit}>{unit}</Text>
+        <Text style={styles.weightInputUnit}>
+          {t(`parcel.units.${unit}`)}
+        </Text>
       </View>
 
       <Slider
-        accessibilityLabel="Parcel weight"
+        accessibilityLabel={t('parcel.weight.sliderAccessibility')}
         accessibilityValue={{
           min: SLIDER_MIN_KG,
           max: SLIDER_MAX_KG,
           now: sliderValueKg,
-          text: `${formatWeight(sliderValueKg, unit)} ${unit}`,
+          text: t('parcel.weight.valueAccessibility', {
+            value: formatWeight(sliderValueKg, unit),
+            unit: t(`parcel.units.${unit}`),
+          }),
         }}
         style={styles.slider}
         value={sliderValueKg}
@@ -204,10 +213,13 @@ export const WeightSlider = memo(function WeightSliderComponent({
 
       <View style={styles.sliderMinMax}>
         <Text style={styles.sliderLimitText}>
-          {sliderMinLabel} {unit}
+          {sliderMinLabel} {t(`parcel.units.${unit}`)}
         </Text>
         <Text style={styles.sliderLimitText}>
-          {sliderMaxLabel} {unit} slider range
+          {t('parcel.weight.sliderMaximum', {
+            value: sliderMaxLabel,
+            unit: t(`parcel.units.${unit}`),
+          })}
         </Text>
       </View>
     </View>

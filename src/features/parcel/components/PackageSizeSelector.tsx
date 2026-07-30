@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   FileText,
   TShirt,
@@ -32,15 +33,17 @@ export const PackageSizeSelector = memo(function PackageSizeSelectorComponent({
   onSelect,
 }: PackageSizeSelectorProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
 
   return (
     <>
-      <Text style={styles.formLabel}>Package Size</Text>
+      <Text style={styles.formLabel}>{t('parcel.packageSize.title')}</Text>
       <View style={styles.sizeCardRow}>
-        {PARCEL_PACKAGE_SIZE_OPTIONS.map(({ size, label, dimensions }) => {
+        {PARCEL_PACKAGE_SIZE_OPTIONS.map(({ size, labelKey, dimensions }) => {
           const active = packageSize === size;
           const Icon = SIZE_ICONS[size];
+          const label = t(labelKey);
           return (
             <Pressable
               key={size}

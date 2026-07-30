@@ -271,7 +271,8 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.xs,
   },
   userTimeText: {
-    color: theme.isDark ? 'rgba(3, 19, 18, 0.62)' : 'rgba(255, 255, 255, 0.72)',
+    color: theme.colors.textInverse,
+    opacity: 0.68,
   },
   assistantTimeText: {
     color: theme.colors.textTertiary,

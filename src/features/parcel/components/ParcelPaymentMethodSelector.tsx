@@ -1,5 +1,6 @@
 import React, { memo, useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { CreditCard, Wallet } from 'phosphor-react-native';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -83,6 +84,7 @@ export const ParcelPaymentMethodSelector = memo(
     disabled = false,
   }: ParcelPaymentMethodSelectorProps): React.JSX.Element {
     const theme = useTheme();
+    const { t } = useTranslation();
     const walletHasKnownBalance = typeof walletBalance === 'number';
     const walletHasEnoughBalance =
       walletHasKnownBalance && walletBalance >= requiredAmount;
@@ -105,19 +107,23 @@ export const ParcelPaymentMethodSelector = memo(
     }, [disabled, onChange]);
 
     const walletSubtitle = walletIsLoading
-      ? 'Checking balance…'
+      ? t('parcel.payment.wallet.checkingBalance')
       : walletHasError || !walletHasKnownBalance
-      ? 'Balance unavailable'
+      ? t('parcel.payment.wallet.balanceUnavailable')
       : walletHasEnoughBalance
-      ? `Balance: ${formatVnd(walletBalance)}`
-      : `Insufficient balance: ${formatVnd(walletBalance)}`;
+      ? t('parcel.payment.wallet.balance', {
+          amount: formatVnd(walletBalance),
+        })
+      : t('parcel.payment.wallet.insufficientBalance', {
+          amount: formatVnd(walletBalance),
+        });
 
     return (
       <View accessibilityRole="radiogroup">
         <PaymentOption
           selected={value === 'wallet'}
           disabled={walletDisabled}
-          label="VietRide Wallet"
+          label={t('parcel.payment.wallet.label')}
           subtitle={walletSubtitle}
           Icon={Wallet}
           iconColor={theme.colors.primary}
@@ -126,8 +132,8 @@ export const ParcelPaymentMethodSelector = memo(
         <PaymentOption
           selected={value === 'vnpay'}
           disabled={disabled}
-          label="VNPay"
-          subtitle="Continue securely in the VNPay payment page"
+          label={t('parcel.payment.vnpay.label')}
+          subtitle={t('parcel.payment.vnpay.subtitle')}
           Icon={CreditCard}
           iconColor={theme.colors.accentDark}
           onSelect={selectVnPay}

@@ -3,6 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import { ArrowLeft, Bell } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -26,8 +27,9 @@ export function ProfileHeader({
   showNotificationButton = true,
   onNotificationPress,
   userName,
-  greeting = 'Xin chào,',
+  greeting,
 }: ProfileHeaderProps): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -35,7 +37,11 @@ export function ProfileHeader({
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const logout = useAuthStore((state) => state.logout);
   const resolvedUserName =
-    authUser?.fullName || authUser?.displayName || userName || 'VietRide Passenger';
+    authUser?.fullName
+    || authUser?.displayName
+    || userName
+    || t('shared.profileHeader.defaultUserName');
+  const resolvedGreeting = greeting ?? t('shared.profileHeader.greeting');
   const shouldShowGreeting = isAuthenticated && resolvedUserName.trim().length > 0;
 
   const handleAuthPress = useCallback(() => {
@@ -67,6 +73,8 @@ export function ProfileHeader({
       <View style={styles.profileRow}>
         {showBackButton && navigation.canGoBack() ? (
           <Pressable
+            accessibilityLabel={t('common.back')}
+            accessibilityRole="button"
             onPress={handleBack}
             style={({ pressed }) => [
               styles.backButton,
@@ -79,22 +87,26 @@ export function ProfileHeader({
         <UserAvatar url={authUser?.avatarUrl} name={resolvedUserName} size={44} />
         {shouldShowGreeting ? (
           <View style={styles.profileTextContainer}>
-            <Text style={styles.greetingText}>{greeting}</Text>
+            <Text style={styles.greetingText}>{resolvedGreeting}</Text>
             <Text style={styles.userNameText} numberOfLines={1}>
               {resolvedUserName}
             </Text>
           </View>
         ) : (
           <Pressable
+            accessibilityLabel={t('shared.profileHeader.authenticationAction')}
+            accessibilityRole="button"
             onPress={handleAuthPress}
             style={({ pressed }) => [
               styles.authPromptButton,
               pressed ? styles.pressed : null,
             ]}
           >
-            <Text style={styles.authPromptEyebrow}>Bạn chưa đăng nhập</Text>
+            <Text style={styles.authPromptEyebrow}>
+              {t('shared.profileHeader.signedOut')}
+            </Text>
             <Text style={styles.authPromptText} numberOfLines={1}>
-              Đăng nhập / Đăng ký
+              {t('shared.profileHeader.authenticationAction')}
             </Text>
           </Pressable>
         )}
@@ -102,6 +114,8 @@ export function ProfileHeader({
       
       {showNotificationButton ? (
         <Pressable
+          accessibilityLabel={t('profile.notifications')}
+          accessibilityRole="button"
           onPress={handleNotification}
           style={({ pressed }) => [
             styles.bellButton,

@@ -8,6 +8,7 @@ import {
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { ApiRequestError, toApiError } from '@shared/api/errors';
 import { IdempotencyKeyTracker } from '@shared/api/idempotency';
+import i18n from '@shared/i18n';
 import {
   getTokenSessionEpoch,
   isTokenSessionEpochCurrent,
@@ -94,7 +95,7 @@ class ParcelSubmissionCoordinator<TInput, TResult> {
 
       if (!isTokenSessionEpochCurrent(sessionEpoch)) {
         throw new ApiRequestError({
-          message: 'Phiên đăng nhập đã thay đổi.',
+          message: i18n.t('parcel.errors.sessionChanged'),
           code: 'SESSION_INVALIDATED',
         });
       }
@@ -158,7 +159,7 @@ export function useAvailableParcelTrips(
       : [...parcelKeys.all, 'available-trips', 'none'],
     queryFn: ({ pageParam, signal }) => {
       if (!params) {
-        throw new Error('Missing parcel trip search parameters.');
+        throw new Error(i18n.t('parcel.errors.missingTripSearchParameters'));
       }
 
       return getAvailableParcelTrips(
@@ -192,7 +193,7 @@ export function useAvailableParcelVouchers(
       : [...parcelKeys.all, userId ?? 'none', 'vouchers', 'none'],
     queryFn: ({ signal }) => {
       if (!params) {
-        throw new Error('Missing parcel voucher parameters.');
+        throw new Error(i18n.t('parcel.errors.missingVoucherParameters'));
       }
 
       return getAvailableParcelVouchers(params, signal);

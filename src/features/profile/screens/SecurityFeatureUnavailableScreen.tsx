@@ -3,6 +3,7 @@ import { Pressable, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, ShieldCheck } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -10,6 +11,7 @@ import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
 
 export function SecurityFeatureUnavailableScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -23,14 +25,14 @@ export function SecurityFeatureUnavailableScreen(): React.JSX.Element {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Quay lại"
+          accessibilityLabel={t('common.back')}
           hitSlop={8}
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} weight="bold" />
         </Pressable>
-        <Text style={styles.headerTitle}>Bảo mật tài khoản</Text>
+        <Text style={styles.headerTitle}>{t('security.accountSecurity')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -40,9 +42,9 @@ export function SecurityFeatureUnavailableScreen(): React.JSX.Element {
             <ShieldCheck size={24} color={theme.colors.primary} weight="duotone" />
           </View>
           <View style={styles.noticeCopy}>
-            <Text style={styles.noticeTitle}>Tính năng chưa khả dụng</Text>
+            <Text style={styles.noticeTitle}>{t('security.unavailableTitle')}</Text>
             <Text style={styles.noticeText}>
-              Đổi mật khẩu chỉ được mở khi backend hỗ trợ cập nhật thật và thu hồi các phiên đăng nhập cũ.
+              {t('security.unavailableDescription')}
             </Text>
           </View>
         </View>
@@ -63,7 +65,12 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'space-between' as const,
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.divider,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
   },
   backButton: {
     width: 40,

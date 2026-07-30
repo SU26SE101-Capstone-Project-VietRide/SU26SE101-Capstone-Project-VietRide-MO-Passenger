@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ArrowRight, Wallet } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -26,13 +27,14 @@ export const WalletSummaryCard = memo(function WalletSummaryCardComponent({
   hasError,
   onPress,
 }: WalletSummaryCardProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Open VietRide wallet"
+      accessibilityLabel={t('home.wallet.open')}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
     >
@@ -40,18 +42,18 @@ export const WalletSummaryCard = memo(function WalletSummaryCardComponent({
         <Wallet size={22} color={theme.colors.primary} weight="fill" />
       </View>
       <View style={styles.content}>
-        <Text style={styles.label}>VietRide Wallet</Text>
+        <Text style={styles.label}>{t('home.wallet.title')}</Text>
         {isLoading ? (
           <ActivityIndicator size="small" color={theme.colors.primary} />
         ) : (
           <>
             <Text style={balance === undefined ? styles.error : styles.balance}>
             {balance === undefined
-              ? 'Balance unavailable'
+              ? t('home.wallet.balanceUnavailable')
               : formatVnd(balance)}
             </Text>
             {hasError && balance !== undefined ? (
-              <Text style={styles.stale}>May be out of date</Text>
+              <Text style={styles.stale}>{t('home.wallet.stale')}</Text>
             ) : null}
           </>
         )}

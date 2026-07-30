@@ -45,7 +45,6 @@ import {
   getParcelSizePresentation,
   getParcelStatusPresentation,
 } from '@features/parcel/utils/parcelPresentation';
-import { getApiErrorMessage } from '@shared/api/errors';
 import { StatusChip } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
@@ -164,7 +163,9 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
         style={bodyStyle}
         onPress={handleOpen}
         accessibilityRole="button"
-        accessibilityLabel={`Booking ${item.code}`}
+        accessibilityLabel={t('profile.history.bookingAccessibility', {
+          code: item.code,
+        })}
       >
         <View style={styles.ticketHeader}>
           <View style={styles.refRow}>
@@ -173,12 +174,12 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
               {getRouteLabel(
                 item.originName,
                 item.destinationName,
-                t('history.routeUnavailable', 'Route unavailable'),
+                t('history.routeUnavailable'),
               )}
             </Text>
           </View>
           <StatusChip
-            label={t(statusPresentation.labelKey, statusPresentation.fallback)}
+            label={t(statusPresentation.labelKey)}
             tone={statusPresentation.tone}
             style={styles.statusBadge}
           />
@@ -200,10 +201,10 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
           </View>
           <View style={styles.routeTextContainer}>
             <Text style={styles.stationText} numberOfLines={1}>
-              {item.originName ?? t('history.originUnavailable', 'Origin unavailable')}
+              {item.originName ?? t('history.originUnavailable')}
             </Text>
             <Text style={styles.stationText} numberOfLines={1}>
-              {item.destinationName ?? t('history.destinationUnavailable', 'Destination unavailable')}
+              {item.destinationName ?? t('history.destinationUnavailable')}
             </Text>
           </View>
         </View>
@@ -226,18 +227,18 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
             </>
           ) : (
             <Text style={styles.detailValueText}>
-              {t('history.departureUnavailable', 'Departure schedule unavailable')}
+              {t('history.departureUnavailable')}
             </Text>
           )}
           <Text style={styles.seatSummary} numberOfLines={1}>
-            {t('history.seats', 'Seats')}: {seatNumbers}
+            {t('history.seats')}: {seatNumbers}
           </Text>
         </View>
       </Pressable>
 
       <View style={styles.ticketFooter}>
         <View style={styles.footerLeft}>
-          <Text style={styles.priceLabel}>{t('booking.totalPrice', 'Total Price')}</Text>
+          <Text style={styles.priceLabel}>{t('booking.totalPrice')}</Text>
           <Text style={styles.priceValue}>
             {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
           </Text>
@@ -245,7 +246,6 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
         <Text style={styles.ticketCountLabel}>
           {t('history.ticketCount', {
             count: item.ticket.tickets.length,
-            defaultValue: `${item.ticket.tickets.length} ticket(s)`,
           })}
         </Text>
         {canTrack ? (
@@ -253,10 +253,12 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
             style={trackStyle}
             onPress={handleTrack}
             accessibilityRole="button"
-            accessibilityLabel={`Track booking ${item.code}`}
+            accessibilityLabel={t('profile.history.trackAccessibility', {
+              code: item.code,
+            })}
           >
             <NavigationArrow size={14} color={theme.colors.textInverse} weight="fill" />
-            <Text style={styles.trackButtonText}>{t('booking.track', 'Track')}</Text>
+            <Text style={styles.trackButtonText}>{t('profile.history.track')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -290,7 +292,9 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Parcel ${item.code}`}
+      accessibilityLabel={t('profile.history.parcelAccessibility', {
+        code: item.code,
+      })}
       style={cardStyle}
       onPress={handleOpen}
     >
@@ -303,11 +307,11 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
             {getRouteLabel(
               item.originName,
               item.destinationName,
-              t('history.routeUnavailable', 'Route unavailable'),
+              t('history.routeUnavailable'),
             )}
           </Text>
           <StatusChip
-            label={t(statusPresentation.labelKey, statusPresentation.fallback)}
+            label={t(statusPresentation.labelKey)}
             tone={statusPresentation.tone}
             style={styles.parcelBadge}
           />
@@ -318,8 +322,7 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
           <Text style={styles.parcelMeta} numberOfLines={1}>
             {t('history.toRecipient', {
               name: item.parcel.recipientName,
-              defaultValue: `To ${item.parcel.recipientName}`,
-            })} · {t(sizePresentation.labelKey, sizePresentation.fallback)}
+            })} · {t(sizePresentation.labelKey)}
           </Text>
         </View>
         <View style={styles.parcelAmountRow}>
@@ -327,11 +330,9 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
             {item.estimatedArrivalTime
               ? t('history.estimatedArrival', {
                 date: formatDate(item.estimatedArrivalTime),
-                defaultValue: `Expected ${formatDate(item.estimatedArrivalTime)}`,
               })
               : t('history.createdOn', {
                 date: formatDate(item.createdAt),
-                defaultValue: `Created ${formatDate(item.createdAt)}`,
               })}
           </Text>
           <Text style={styles.parcelAmount}>
@@ -358,6 +359,7 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
   error,
   onRetry,
 }: HistoryEmptyStateProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const Icon = kind === 'ticket' ? Ticket : Package;
@@ -366,9 +368,13 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
     return (
       <View style={styles.emptyContainer} accessibilityRole="summary">
         <Icon size={48} color={theme.colors.textTertiary} weight="thin" />
-        <Text style={styles.emptyTitle}>Sign in required</Text>
+        <Text style={styles.emptyTitle}>
+          {t('profile.history.signInRequiredTitle')}
+        </Text>
         <Text style={styles.emptyText}>
-          Sign in to view your {kind === 'ticket' ? 'ticket bookings' : 'sent parcels'}.
+          {kind === 'ticket'
+            ? t('profile.history.signInTicketsDescription')
+            : t('profile.history.signInParcelsDescription')}
         </Text>
       </View>
     );
@@ -378,7 +384,7 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
     return (
       <View style={styles.emptyContainer} accessibilityRole="summary">
         <ActivityIndicator color={theme.colors.primary} />
-        <Text style={styles.emptyText}>Loading history...</Text>
+        <Text style={styles.emptyText}>{t('profile.history.loading')}</Text>
       </View>
     );
   }
@@ -387,10 +393,14 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
     return (
       <View style={styles.emptyContainer} accessibilityRole="summary">
         <WarningCircle size={48} color={theme.colors.error} weight="duotone" />
-        <Text style={styles.emptyTitle}>History unavailable</Text>
-        <Text style={styles.emptyText}>{getApiErrorMessage(error)}</Text>
+        <Text style={styles.emptyTitle}>
+          {t('profile.history.unavailableTitle')}
+        </Text>
+        <Text style={styles.emptyText}>
+          {t('profile.history.unavailableDescription')}
+        </Text>
         <Pressable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>Try again</Text>
+          <Text style={styles.retryButtonText}>{t('profile.history.retry')}</Text>
         </Pressable>
       </View>
     );
@@ -400,10 +410,14 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
     <View style={styles.emptyContainer} accessibilityRole="summary">
       <Icon size={48} color={theme.colors.textTertiary} weight="thin" />
       <Text style={styles.emptyTitle}>
-        No {kind === 'ticket' ? 'ticket bookings' : 'sent parcels'} yet
+        {kind === 'ticket'
+          ? t('profile.history.emptyTicketsTitle')
+          : t('profile.history.emptyParcelsTitle')}
       </Text>
       <Text style={styles.emptyText}>
-        Completed and active {kind === 'ticket' ? 'bookings' : 'parcel requests'} will appear here.
+        {kind === 'ticket'
+          ? t('profile.history.emptyTicketsDescription')
+          : t('profile.history.emptyParcelsDescription')}
       </Text>
     </View>
   );
@@ -414,6 +428,7 @@ const PaginationFooter = memo(function PaginationFooterComponent({
 }: {
   loading: boolean;
 }): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   return (
@@ -434,10 +449,10 @@ const HistoryStaleBanner = memo(function HistoryStaleBannerComponent({
     <View style={styles.staleBanner} accessibilityRole="alert">
       <WarningCircle size={18} color={theme.colors.warning} weight="fill" />
       <Text style={styles.staleBannerText}>
-        Refresh failed. Showing the most recent saved results.
+        {t('profile.history.staleDescription')}
       </Text>
       <Pressable accessibilityRole="button" onPress={onRetry} hitSlop={8}>
-        <Text style={styles.staleRetryText}>Retry</Text>
+        <Text style={styles.staleRetryText}>{t('profile.history.retry')}</Text>
       </Pressable>
     </View>
   );
@@ -614,14 +629,14 @@ export function BookingHistoryScreen(): React.JSX.Element {
       />
       <View style={styles.topBar}>
         <Pressable
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.back')}
           accessibilityRole="button"
           onPress={handleGoBack}
           style={styles.backButton}
         >
           <ArrowLeft size={24} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.topBarTitle}>{t('profile.history', 'History')}</Text>
+        <Text style={styles.topBarTitle}>{t('profile.history')}</Text>
         <View style={styles.topBarRightPlaceholder} />
       </View>
 
@@ -644,7 +659,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
               activeTab === 'ticket' ? styles.activeMainTabText : null,
             ]}
           >
-            Tickets
+            {t('profile.history.ticketsTab')}
           </Text>
         </Pressable>
         <Pressable
@@ -665,7 +680,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
               activeTab === 'parcel' ? styles.activeMainTabText : null,
             ]}
           >
-            Parcels
+            {t('profile.history.parcelsTab')}
           </Text>
         </Pressable>
       </View>
@@ -674,25 +689,25 @@ export function BookingHistoryScreen(): React.JSX.Element {
         <>
           <View style={styles.filterContainer}>
             <TicketFilterChip
-              label="All"
+              label={t('profile.history.filters.all')}
               value="ALL"
               selected={ticketFilter === 'ALL'}
               onSelect={setTicketFilter}
             />
             <TicketFilterChip
-              label="Confirmed"
+              label={t('profile.history.filters.confirmed')}
               value="CONFIRMED"
               selected={ticketFilter === 'CONFIRMED'}
               onSelect={setTicketFilter}
             />
             <TicketFilterChip
-              label="Completed"
+              label={t('profile.history.filters.completed')}
               value="COMPLETED"
               selected={ticketFilter === 'COMPLETED'}
               onSelect={setTicketFilter}
             />
             <TicketFilterChip
-              label="Cancelled"
+              label={t('profile.history.filters.cancelled')}
               value="CANCELLED"
               selected={ticketFilter === 'CANCELLED'}
               onSelect={setTicketFilter}

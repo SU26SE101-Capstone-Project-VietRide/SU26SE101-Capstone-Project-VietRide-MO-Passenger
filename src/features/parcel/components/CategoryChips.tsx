@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { FileText, TShirt, DeviceMobile, BowlFood, DotsThreeCircle } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -11,12 +12,12 @@ export interface CategoryChipsProps {
   onChange: (category: string) => void;
 }
 
-const CATEGORIES: { key: string; label: string; Icon: React.ElementType }[] = [
-  { key: 'Documents', label: 'Documents', Icon: FileText },
-  { key: 'Clothing', label: 'Clothing', Icon: TShirt },
-  { key: 'Electronics', label: 'Electronics', Icon: DeviceMobile },
-  { key: 'Food', label: 'Food', Icon: BowlFood },
-  { key: 'Others', label: 'Others', Icon: DotsThreeCircle },
+const CATEGORIES: { key: string; labelKey: string; Icon: React.ElementType }[] = [
+  { key: 'Documents', labelKey: 'parcel.categories.documents', Icon: FileText },
+  { key: 'Clothing', labelKey: 'parcel.categories.clothing', Icon: TShirt },
+  { key: 'Electronics', labelKey: 'parcel.categories.electronics', Icon: DeviceMobile },
+  { key: 'Food', labelKey: 'parcel.categories.food', Icon: BowlFood },
+  { key: 'Others', labelKey: 'parcel.categories.others', Icon: DotsThreeCircle },
 ];
 
 export const CategoryChips = memo(function CategoryChipsComponent({
@@ -24,15 +25,20 @@ export const CategoryChips = memo(function CategoryChipsComponent({
   onChange,
 }: CategoryChipsProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
 
   return (
     <View style={styles.chipRow}>
-      {CATEGORIES.map(({ key, label, Icon }) => {
+      {CATEGORIES.map(({ key, labelKey, Icon }) => {
         const active = value === key;
+        const label = t(labelKey);
         return (
           <Pressable
             key={key}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: active }}
+            accessibilityLabel={label}
             style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed ? styles.pressed : null]}
             onPress={() => onChange(key)}
           >

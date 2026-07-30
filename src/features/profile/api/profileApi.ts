@@ -1,5 +1,9 @@
 import { apiClient } from '@shared/api/axiosInstance';
-import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import {
+  ApiRequestError,
+  unwrapApiResponse,
+  type ApiEnvelope,
+} from '@shared/api/errors';
 import type { AuthUserDto, User } from '@features/auth/types';
 import { mapAuthUser } from '@features/auth/types';
 import { normalizeVietnamPhone } from '@features/auth/validation/authValidation';
@@ -61,7 +65,7 @@ const PROFILE_ENDPOINTS = {
 
 const mapLoginSession = (dto: LoginSessionDto): LoginSession => ({
   id: dto.id,
-  deviceName: dto.deviceName?.trim() || 'Unknown device',
+  deviceName: dto.deviceName?.trim() || '',
   platform: dto.platform ?? null,
   ipAddress: dto.ipAddress ?? null,
   location: dto.location ?? null,
@@ -96,7 +100,10 @@ export async function updateAvatarUrl(
 ): Promise<UpdateAvatarResponse> {
   const normalizedAvatarUrl = avatarUrl.trim();
   if (!normalizedAvatarUrl) {
-    throw new Error('Avatar URL is required.');
+    throw new ApiRequestError({
+      code: 'AVATAR_URL_REQUIRED',
+      message: 'profile.avatar.errors.urlRequired',
+    });
   }
 
   const response = await apiClient.patch<ApiEnvelope<UpdateAvatarResponse>>(

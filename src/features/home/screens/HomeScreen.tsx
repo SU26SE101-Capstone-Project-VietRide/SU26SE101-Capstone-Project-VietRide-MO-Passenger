@@ -14,6 +14,7 @@ import {
 } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
@@ -54,6 +55,7 @@ type HomeNavigationProp = CompositeNavigationProp<
 >;
 
 export function HomeScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<HomeNavigationProp>();
   const user = useAuthStore(state => state.user);
   const theme = useTheme();
@@ -138,12 +140,12 @@ export function HomeScreen(): React.JSX.Element {
 
       if (result === 'past_date' || result === 'invalid_date') {
         Alert.alert(
-          'Choose a new departure date',
-          'That saved travel date is no longer available. Select a new date to continue.',
+          t('home.recentSearch.dateUnavailableTitle'),
+          t('home.recentSearch.dateUnavailableDescription'),
         );
       }
     },
-    [applyRecentSearch, navigation],
+    [applyRecentSearch, navigation, t],
   );
 
   const handleClearRecentSearches = useCallback(() => {
@@ -234,7 +236,7 @@ export function HomeScreen(): React.JSX.Element {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar
         barStyle={theme.isDark ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
+        backgroundColor={theme.colors.transparent}
         translucent
       />
 
@@ -264,6 +266,9 @@ export function HomeScreen(): React.JSX.Element {
           {/* Tabs Segment Control */}
           <View style={styles.tabHeader}>
             <Pressable
+              accessibilityRole="tab"
+              accessibilityLabel={t('home.tabs.ticket')}
+              accessibilityState={{ selected: activeTab === 'ticket' }}
               onPress={() => setActiveTab('ticket')}
               style={({ pressed }) => [
                 styles.tabButton,
@@ -286,11 +291,14 @@ export function HomeScreen(): React.JSX.Element {
                   activeTab === 'ticket' ? styles.activeTabText : null,
                 ]}
               >
-                Buy Ticket
+                {t('home.tabs.ticket')}
               </Text>
             </Pressable>
 
             <Pressable
+              accessibilityRole="tab"
+              accessibilityLabel={t('home.tabs.parcel')}
+              accessibilityState={{ selected: activeTab === 'parcel' }}
               onPress={() => setActiveTab('parcel')}
               style={({ pressed }) => [
                 styles.tabButton,
@@ -313,7 +321,7 @@ export function HomeScreen(): React.JSX.Element {
                   activeTab === 'parcel' ? styles.activeTabText : null,
                 ]}
               >
-                Send Parcel
+                {t('home.tabs.parcel')}
               </Text>
             </Pressable>
           </View>
@@ -323,8 +331,10 @@ export function HomeScreen(): React.JSX.Element {
             {activeTab === 'ticket' ? (
               // Booking Form
               <View>
-                <Text style={styles.fieldLabel}>Departure location</Text>
+                <Text style={styles.fieldLabel}>{t('home.ticket.departureLocation')}</Text>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('home.ticket.selectOrigin')}
                   style={styles.selectorField}
                   onPress={() => openBookingCityPicker('from')}
                 >
@@ -342,17 +352,19 @@ export function HomeScreen(): React.JSX.Element {
                   >
                     {searchParams.originStationName ||
                       searchParams.from ||
-                      'Select origin province'}
+                      t('home.ticket.selectOrigin')}
                   </Text>
                 </Pressable>
 
                 <Text
                   style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}
                 >
-                  Destination location
+                  {t('home.ticket.destinationLocation')}
                 </Text>
                 <View style={styles.toRow}>
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('home.ticket.selectDestination')}
                     style={[styles.selectorField, styles.selectorFieldGrow]}
                     onPress={() => openBookingCityPicker('to')}
                   >
@@ -371,10 +383,15 @@ export function HomeScreen(): React.JSX.Element {
                     >
                       {searchParams.destinationStationName ||
                         searchParams.to ||
-                        'Select destination province'}
+                        t('home.ticket.selectDestination')}
                     </Text>
                   </Pressable>
-                  <Pressable onPress={swapCities} style={styles.swapBtn}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('home.ticket.swapLocations')}
+                    onPress={swapCities}
+                    style={styles.swapBtn}
+                  >
                     <ArrowsDownUp
                       size={18}
                       color={theme.colors.primary}
@@ -385,6 +402,8 @@ export function HomeScreen(): React.JSX.Element {
 
                 <View style={styles.metaRow}>
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('home.ticket.selectDepartureDate')}
                     style={styles.metaField}
                     onPress={() => openBookingDatePicker('departure')}
                   >
@@ -394,7 +413,7 @@ export function HomeScreen(): React.JSX.Element {
                       weight="fill"
                     />
                     <Text style={styles.metaText} numberOfLines={1}>
-                      {searchParams.date || 'Select date'}
+                      {searchParams.date || t('home.ticket.selectDate')}
                     </Text>
                   </Pressable>
 
@@ -407,6 +426,8 @@ export function HomeScreen(): React.JSX.Element {
                 <View style={[styles.metaRow, styles.metaRowCompact]}>
                   {searchParams.isRoundTrip ? (
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('home.ticket.selectReturnDate')}
                       style={styles.metaField}
                       onPress={() => openBookingDatePicker('return')}
                     >
@@ -416,13 +437,16 @@ export function HomeScreen(): React.JSX.Element {
                         weight="fill"
                       />
                       <Text style={styles.metaText} numberOfLines={1}>
-                        {searchParams.returnDate || 'Return date'}
+                        {searchParams.returnDate || t('home.ticket.returnDate')}
                       </Text>
                     </Pressable>
                   ) : null}
                   <View style={[styles.metaField, styles.switchField]}>
-                    <Text style={styles.switchLabel}>Round-trip</Text>
+                    <Text style={styles.switchLabel}>{t('home.ticket.roundTrip')}</Text>
                     <Pressable
+                      accessibilityRole="switch"
+                      accessibilityLabel={t('home.ticket.roundTrip')}
+                      accessibilityState={{ checked: searchParams.isRoundTrip }}
                       onPress={() =>
                         setSearchParams({
                           isRoundTrip: !searchParams.isRoundTrip,
@@ -451,6 +475,7 @@ export function HomeScreen(): React.JSX.Element {
                   onPress={handleTicketSearch}
                   disabled={!canSearchTickets}
                   accessibilityRole="button"
+                  accessibilityLabel={t('home.ticket.searchBuses')}
                   accessibilityState={{ disabled: !canSearchTickets }}
                   style={({ pressed }) => [
                     styles.searchButton,
@@ -458,7 +483,7 @@ export function HomeScreen(): React.JSX.Element {
                     pressed && canSearchTickets ? styles.pressed : null,
                   ]}
                 >
-                  <Text style={styles.searchButtonText}>Search Buses</Text>
+                  <Text style={styles.searchButtonText}>{t('home.ticket.searchBuses')}</Text>
                   <MagnifyingGlass
                     size={18}
                     color={theme.colors.textInverse}
@@ -469,8 +494,10 @@ export function HomeScreen(): React.JSX.Element {
             ) : (
               // Parcel Form
               <View>
-                <Text style={styles.fieldLabel}>From</Text>
+                <Text style={styles.fieldLabel}>{t('home.parcel.from')}</Text>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('home.parcel.selectOrigin')}
                   style={styles.selectorField}
                   onPress={() => openParcelCityPicker('from')}
                 >
@@ -486,16 +513,18 @@ export function HomeScreen(): React.JSX.Element {
                         : styles.selectorPlaceholder
                     }
                   >
-                    {fromCity || 'Select origin province'}
+                    {fromCity || t('home.parcel.selectOrigin')}
                   </Text>
                 </Pressable>
 
                 <Text
                   style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}
                 >
-                  To
+                  {t('home.parcel.to')}
                 </Text>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('home.parcel.selectDestination')}
                   style={styles.selectorField}
                   onPress={() => openParcelCityPicker('to')}
                 >
@@ -510,18 +539,18 @@ export function HomeScreen(): React.JSX.Element {
                     }
                     numberOfLines={1}
                   >
-                    {toCity || 'Select destination province'}
+                    {toCity || t('home.parcel.selectDestination')}
                   </Text>
                 </Pressable>
                 <Text style={styles.parcelRouteHint}>
-                  You will choose the exact origin and destination terminals
-                  next.
+                  {t('home.parcel.terminalHint')}
                 </Text>
 
                 <View style={styles.parcelActionsRow}>
                   <Pressable
                     disabled={!canStartParcel}
                     accessibilityRole="button"
+                    accessibilityLabel={t('home.parcel.next')}
                     accessibilityState={{ disabled: !canStartParcel }}
                     style={({ pressed }) => [
                       styles.nextButton,
@@ -530,7 +559,7 @@ export function HomeScreen(): React.JSX.Element {
                     ]}
                     onPress={handleStartShipment}
                   >
-                    <Text style={styles.searchButtonText}>Next</Text>
+                    <Text style={styles.searchButtonText}>{t('home.parcel.next')}</Text>
                     <ArrowRight
                       size={18}
                       color={theme.colors.textInverse}
@@ -609,7 +638,7 @@ const createStyles = (theme: AppTheme) => ({
     position: 'absolute',
     backgroundColor: theme.effects.isLiquid
       ? theme.effects.glassTint
-      : 'transparent',
+      : theme.colors.transparent,
     width: 318,
     height: 318,
     borderRadius: 9999,
@@ -626,10 +655,8 @@ const createStyles = (theme: AppTheme) => ({
     height: 444,
     borderRadius: 48,
     backgroundColor: theme.effects.isLiquid
-      ? theme.isDark
-        ? 'rgba(3, 17, 17, 0.5)'
-        : 'rgba(248, 253, 253, 0.58)'
-      : 'transparent',
+      ? theme.effects.glassOverlay
+      : theme.colors.transparent,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,

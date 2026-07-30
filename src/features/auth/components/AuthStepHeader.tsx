@@ -13,6 +13,7 @@ import type { AppTheme } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import { ArrowLeft } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 
 const catMascotImage = require('@assets/images/image 1.png');
 
@@ -31,6 +32,7 @@ export const AuthStepHeader = ({
   onBack,
   showMascot = true,
 }: AuthStepHeaderProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -38,6 +40,8 @@ export const AuthStepHeader = ({
     <View style={styles.root}>
       {onBack ? (
         <Pressable
+          accessibilityLabel={t('common.back')}
+          accessibilityRole="button"
           style={({ pressed }) => [
             styles.backBtn,
             pressed ? styles.pressed : null,

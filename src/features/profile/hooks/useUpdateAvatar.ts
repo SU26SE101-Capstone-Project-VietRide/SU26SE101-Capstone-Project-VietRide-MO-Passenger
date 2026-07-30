@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { authKeys } from '@features/auth/api/authApi';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { createIdempotencyKey } from '@shared/api/idempotency';
-import { toApiError } from '@shared/api/errors';
+import { ApiRequestError, toApiError } from '@shared/api/errors';
 import { uploadImageToFirebase } from '@shared/lib/firebase/firebaseImageUploadService';
 import {
   prepareImageUpload,
@@ -43,13 +43,20 @@ export function useUpdateAvatar() {
     mutationFn: async ({ asset }: { asset: AvatarPickerAsset }) => {
       const user = useAuthStore.getState().user;
       if (!user) {
-        throw new Error('Unauthenticated user cannot update an avatar.');
+        throw new ApiRequestError({
+          code: 'AVATAR_AUTH_REQUIRED',
+          message: 'profile.avatar.errors.authRequired',
+          statusCode: 401,
+        });
       }
       const sessionEpoch = getTokenSessionEpoch();
 
       const validation = validateAvatarAsset(asset);
       if (!validation.success) {
-        throw new Error(validation.message);
+        throw new ApiRequestError({
+          code: validation.code,
+          message: validation.messageKey,
+        });
       }
 
       let operation = operationRef.current;
@@ -77,7 +84,10 @@ export function useUpdateAvatar() {
         !isTokenSessionEpochCurrent(sessionEpoch)
         || useAuthStore.getState().user?.id !== user.id
       ) {
-        throw new Error('The active account changed before the avatar could be saved.');
+        throw new ApiRequestError({
+          code: 'AVATAR_SESSION_CHANGED',
+          message: 'profile.avatar.errors.sessionChanged',
+        });
       }
 
       const response = await updateAvatarUrl(
@@ -85,7 +95,10 @@ export function useUpdateAvatar() {
         operation.idempotencyKey,
       );
       if (response.userId !== user.id) {
-        throw new Error('Avatar update response did not match the active account.');
+        throw new ApiRequestError({
+          code: 'AVATAR_ACCOUNT_MISMATCH',
+          message: 'profile.avatar.errors.accountMismatch',
+        });
       }
 
       return {

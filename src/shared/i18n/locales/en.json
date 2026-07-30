@@ -1,4 +1,11 @@
 {
+  "app": {
+    "preparing": "Preparing VietRide...",
+    "restoringSession": "Restoring your session...",
+    "tagline": "Easy journeys, peace of mind",
+    "loadingLabel": "VietRide loading screen",
+    "logoLabel": "VietRide logo"
+  },
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",
@@ -11,7 +18,15 @@
     "noResults": "No results found",
     "networkError": "No internet connection",
     "unknownError": "Something went wrong. Please try again.",
-    "ok": "OK"
+    "ok": "OK",
+    "back": "Go back",
+    "notAvailable": "Not available",
+    "continue": "Continue",
+    "notNow": "Not now",
+    "openSettings": "Open settings",
+    "or": "or",
+    "searchPlaceholder": "Search...",
+    "understood": "Understood"
   },
   "auth": {
     "login": "Log In",
@@ -24,7 +39,81 @@
     "otpSubtitle": "Enter the 6-digit code sent to {{phone}}",
     "otpResend": "Resend Code",
     "welcomeBack": "Welcome back!",
-    "createAccount": "Create an account"
+    "createAccount": "Create an account",
+    "fields": {
+      "email": "Email",
+      "emailPlaceholder": "Email address",
+      "passwordPlaceholder": "Enter your password",
+      "vietnamPhone": "Vietnam phone number",
+      "fullName": "Full name",
+      "fullNamePlaceholder": "e.g. Nguyen Van A",
+      "phoneHint": "Vietnam phone number, e.g. 0901234567 or +84901234567.",
+      "createPasswordPlaceholder": "Create a strong password",
+      "passwordRequirements": "At least 8 characters with a letter and a number.",
+      "confirmPassword": "Confirm password",
+      "confirmPasswordPlaceholder": "Confirm your password",
+      "resetCode": "Reset code",
+      "newPassword": "New password",
+      "newPasswordPlaceholder": "Enter new password",
+      "confirmNewPassword": "Confirm new password",
+      "confirmNewPasswordPlaceholder": "Confirm new password"
+    },
+    "completeProfile": {
+      "invalidPhone": "Enter a valid Vietnam phone number, e.g. +84901234567.",
+      "sessionRefreshFailed": "Could not refresh the secure session after updating your phone number.",
+      "updateFailed": "Unable to complete your profile.",
+      "eyebrow": "One more step",
+      "title": "Add your phone number",
+      "description": "Hi {{name}}, your phone number is required before booking or using passenger services.",
+      "defaultName": "there"
+    },
+    "forgotPasswordFlow": {
+      "title": "Reset password",
+      "description": "Enter your account email to receive a 6-digit reset code.",
+      "privacyHint": "If the account exists, VietRide will send a reset code to the verified email.",
+      "submit": "Send reset code"
+    },
+    "loginFlow": {
+      "description": "Log in to book your next ride.",
+      "emailVerified": "Email verified. Please log in to continue.",
+      "google": "Continue with Google",
+      "googleConnecting": "Connecting to Google…",
+      "continueAsGuest": "Continue as guest",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "registerFlow": {
+      "title": "Join the ride",
+      "description": "Create an account to book and track your journeys.",
+      "agreement": "By creating an account, you agree to our <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>.",
+      "hasAccount": "Already have an account?"
+    },
+    "resetPassword": {
+      "successTitle": "Password updated",
+      "successDescription": "You can now log in with your new password.",
+      "backToLogin": "Back to login",
+      "title": "Create new password",
+      "description": "Enter the 6-digit code sent to {{email}}, then choose a new password.",
+      "codeExpired": "Code expired. Go back and request a new reset code.",
+      "codeExpiresIn": "Code expires in {{time}}.",
+      "submit": "Update password"
+    },
+    "otp": {
+      "title": "Verify it's you",
+      "description": "We sent a 6-digit code to {{email}}.",
+      "descriptionWithPhone": "We sent a 6-digit code to {{email}} ({{phone}}).",
+      "expired": "Code expired. Please request a new code.",
+      "verify": "Verify code",
+      "wrongEmail": "Wrong email?",
+      "digitAccessibility": "Verification code digit {{position}}",
+      "expiresIn": "Code expires in",
+      "sending": "Sending...",
+      "resendSuccess": "A new code has been sent to your email."
+    }
+  },
+  "paymentReturn": {
+    "reconcilingTitle": "Confirming payment",
+    "reconcilingDescription": "VietRide received the return signal. The result will update only after the system verifies the transaction with VNPay."
   },
   "nav": {
     "home": "Home",
@@ -53,7 +142,66 @@
     "liveTracking": "Live Tracking",
     "eta": "Estimated Arrival",
     "boardingPoint": "Boarding Point",
-    "dropOff": "Drop-off Point"
+    "dropOff": "Drop-off Point",
+    "bookingReference": "Booking {{id}}",
+    "tripReference": "Trip {{id}}",
+    "tripCancelled": "This trip was cancelled. Automatic location updates are stopped.",
+    "tripDisrupted": "This trip was disrupted. Automatic location updates are stopped.",
+    "tripComplete": "This journey is complete. Automatic location updates are stopped.",
+    "loadingLatest": "Loading the latest trip location...",
+    "delayMinutes_one": "This trip is delayed by about {{count}} minute.",
+    "delayMinutes_other": "This trip is delayed by about {{count}} minutes.",
+    "distanceKilometers": "{{value}} km",
+    "distanceMeters": "{{value}} m",
+    "connection": {
+      "offline": "Offline. Showing the last location saved on this device.",
+      "connected": "Realtime connected. Vehicle updates arrive as the driver publishes GPS.",
+      "connecting": "Connecting to realtime tracking...",
+      "fallback": "Realtime is reconnecting. Location polling remains active."
+    },
+    "states": {
+      "unavailableTitle": "Tracking unavailable",
+      "invalidTripId": "This item does not have a valid trip tracking identifier.",
+      "signInTitle": "Sign in required",
+      "signInMessage": "Sign in with the passenger account that owns this booking or parcel.",
+      "deniedTitle": "Tracking access denied",
+      "deniedMessage": "This passenger account is not allowed to track the selected trip.",
+      "notFoundTitle": "Trip not found",
+      "notFoundMessage": "The tracking service could not find this trip."
+    },
+    "errors": {
+      "refresh": "Location updates were interrupted. Please try again."
+    },
+    "metrics": {
+      "lastUpdate": "Last update",
+      "waitingGps": "Waiting for GPS",
+      "speed": "Speed",
+      "notReported": "Not reported"
+    },
+    "details": {
+      "title": "Location details",
+      "coordinates": "Coordinates",
+      "trailPoints": "Trail points",
+      "destinationUnavailable": "Destination stop unavailable",
+      "invalidDestination": "Invalid destination stop",
+      "etaValue_one": "{{count}} min ({{distance}})",
+      "etaValue_other": "{{count}} min ({{distance}})",
+      "waitingEta": "Waiting for ETA"
+    },
+    "map": {
+      "unavailableTitle": "Map unavailable",
+      "unavailableProduction": "Live map is not available in this build. Verified trip coordinates remain visible below.",
+      "unavailableDevelopment": "Live coordinates remain available below. Configure an eligible native map build to enable the map.",
+      "waitingTitle": "Waiting for location",
+      "waitingMessage": "The driver has not published a GPS point for this trip yet.",
+      "loadingTitle": "Loading map",
+      "loadingMessage": "Preparing the native trip map...",
+      "accessibilityLabel": "Live trip map",
+      "accessibilityHint": "Drag or pinch to explore the trip. Use Follow bus to resume live tracking.",
+      "latestVehicle": "Latest bus location",
+      "followAccessibility": "Follow the live bus location",
+      "followVehicle": "Follow bus"
+    }
   },
   "parcel": {
     "sendParcel": "Send Parcel",
@@ -153,6 +301,38 @@
       }
     }
   },
+  "shared": {
+    "photoPicker": {
+      "defaultPhotoLabel": "photo",
+      "defaultTitle": "Photos (optional)",
+      "helperText": "Up to {{count}} photos. Review your selection before submitting.",
+      "removePhoto": "Remove {{label}} {{position}}",
+      "permissionTitle": "{{source}} permission needed",
+      "permissionDescription": "Allow access to {{source}} to add {{label}} to this request.",
+      "camera": "Camera",
+      "photoLibrary": "Photo library",
+      "cameraUnavailableTitle": "Camera unavailable",
+      "cameraUnavailableDescription": "On this Android version, choose an existing photo from the library. The app does not request legacy storage access.",
+      "addErrorTitle": "Unable to add photo",
+      "addErrorDescription": "The photo picker could not be opened. Please try again.",
+      "addTitle": "Add {{label}}",
+      "addDescription": "Choose a source. Selected photos are added to this request when you submit.",
+      "addAnother": "Add another {{label}}",
+      "add": "Add",
+      "addPhotos": "Add {{label}}",
+      "emptyTitle": "Take or choose photos",
+      "supportedFormats": "JPG, PNG, HEIC"
+    },
+    "profileHeader": {
+      "greeting": "Hello,",
+      "defaultUserName": "VietRide Passenger",
+      "authenticationAction": "Sign in / Register",
+      "signedOut": "You are not signed in"
+    },
+    "tabBar": {
+      "assistantAccessibility": "VietRide assistant"
+    }
+  },
   "chatbot": {
     "title": "VietRide Assistant",
     "online": "Ready to help",
@@ -179,6 +359,8 @@
     "bookingAction": "Open ticket booking",
     "completeBookingDetails": "Complete the route and date in ticket booking",
     "passengerCount": "{{count}} passengers",
+    "passengerCount_one": "{{count}} passenger",
+    "passengerCount_other": "{{count}} passengers",
     "signInAction": "Sign in to chat",
     "completeProfileAction": "Add phone number",
     "quickActions": {

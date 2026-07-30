@@ -10,20 +10,28 @@
 
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  DarkTheme as NavigationDarkTheme,
+  DefaultTheme as NavigationLightTheme,
+  NavigationContainer,
+  type Theme as NavigationTheme,
+} from '@react-navigation/native';
 import { ThemeProvider } from '@shared/contexts/ThemeContext';
+import { useTheme } from '@shared/contexts/ThemeContext';
 import { StatusBarDynamic } from '@shared/components/StatusBarDynamic';
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { queryClient } from '@shared/api/queryClient';
 import { RootNavigator } from '@app/navigation/RootNavigator';
 import { useLocations } from '@features/location/hooks/useLocations';
-
-// Side-effect: initializes i18next
-import '@shared/i18n';
+import { AppPreferencesProvider } from './AppPreferencesProvider';
+import { MotionProvider } from '@shared/motion';
+import { AppLaunchScreen } from '@shared/components';
+import { useTranslation } from 'react-i18next';
 
 interface AppProvidersProps {
   children?: React.ReactNode;
+  isAppReady?: boolean;
 }
 
 function LocationCatalogBootstrap(): null {
@@ -31,17 +39,68 @@ function LocationCatalogBootstrap(): null {
   return null;
 }
 
-export function AppProviders({ children }: AppProvidersProps): React.JSX.Element {
+function ThemedNavigation({
+  children,
+}: AppProvidersProps): React.JSX.Element {
+  const theme = useTheme();
+  const navigationTheme = React.useMemo<NavigationTheme>(() => {
+    const baseTheme = theme.isDark
+      ? NavigationDarkTheme
+      : NavigationLightTheme;
+
+    return {
+      ...baseTheme,
+      dark: theme.isDark,
+      colors: {
+        ...baseTheme.colors,
+        primary: theme.colors.primary,
+        background: theme.colors.background,
+        card: theme.colors.surfaceElevated,
+        text: theme.colors.textPrimary,
+        border: theme.colors.divider,
+        notification: theme.colors.error,
+      },
+    };
+  }, [theme]);
+
+  return (
+    <NavigationContainer theme={navigationTheme}>
+      <StatusBarDynamic />
+      <RootNavigator />
+      {children}
+    </NavigationContainer>
+  );
+}
+
+function AppSurface({
+  children,
+  isAppReady = true,
+}: AppProvidersProps): React.JSX.Element {
+  const { t } = useTranslation();
+
+  if (!isAppReady) {
+    return <AppLaunchScreen message={t('app.preparing')} />;
+  }
+
+  return <ThemedNavigation>{children}</ThemedNavigation>;
+}
+
+export function AppProviders({
+  children,
+  isAppReady = true,
+}: AppProvidersProps): React.JSX.Element {
   return (
     <QueryClientProvider client={queryClient}>
       <LocationCatalogBootstrap />
       <SafeAreaProvider>
         <ThemeProvider>
-          <NavigationContainer>
-            <StatusBarDynamic />
-            <RootNavigator />
-            {children}
-          </NavigationContainer>
+          <MotionProvider>
+            <AppPreferencesProvider>
+              <AppSurface isAppReady={isAppReady}>
+                {children}
+              </AppSurface>
+            </AppPreferencesProvider>
+          </MotionProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </QueryClientProvider>

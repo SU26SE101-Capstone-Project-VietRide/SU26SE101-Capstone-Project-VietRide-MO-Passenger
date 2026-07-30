@@ -30,19 +30,13 @@ export function FinancialFeatureNotice({
       </View>
       <View style={styles.copy}>
         <Text style={styles.title}>
-          {title ?? t('profile.financialUnavailableTitle', 'Some payment tools are unavailable')}
+          {title ?? t('financial.generic.title')}
         </Text>
         <Text style={styles.description}>
-          {description ?? t(
-            'profile.financialUnavailableDescription',
-            'Unsupported payment tools stay visible as coming-soon placeholders until the backend contract is ready.',
-          )}
+          {description ?? t('financial.generic.description')}
         </Text>
         <Text style={styles.safetyNote}>
-          {safetyNote ?? t(
-            'profile.financialUnavailableSafety',
-            'VietRide does not collect card numbers or CVV on this screen.',
-          )}
+          {safetyNote ?? t('financial.generic.safety')}
         </Text>
       </View>
     </View>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Image } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
@@ -11,23 +12,24 @@ export interface StepHeaderWithMascotProps {
 }
 
 export const StepHeaderWithMascot = ({ step }: StepHeaderWithMascotProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const heading = (() => {
     switch (step) {
-      case 1: return 'Choose Sending Station';
-      case 2: return 'Choose Receiving Station';
-      case 3: return 'Tell us about your package';
-      case 4: return 'Order Summary';
-      default: return 'Create Parcel';
+      case 1: return t('parcel.steps.origin.heading');
+      case 2: return t('parcel.steps.destination.heading');
+      case 3: return t('parcel.steps.package.heading');
+      case 4: return t('parcel.steps.summary.heading');
+      default: return t('parcel.create.title');
     }
   })();
 
   const subtext = (() => {
     switch (step) {
-      case 1: return 'Where will you drop off your parcel?';
-      case 2: return 'Where should the recipient pick up?';
-      case 3: return 'Help us find the right vehicle for you.';
-      case 4: return 'Confirm details and make payment.';
+      case 1: return t('parcel.steps.origin.description');
+      case 2: return t('parcel.steps.destination.description');
+      case 3: return t('parcel.steps.package.description');
+      case 4: return t('parcel.steps.summary.description');
       default: return '';
     }
   })();

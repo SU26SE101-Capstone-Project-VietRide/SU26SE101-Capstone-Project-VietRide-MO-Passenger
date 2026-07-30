@@ -10,6 +10,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 
 import type { RootStackParamList } from '@app/navigation/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -20,12 +21,14 @@ import { LiveTripTrackingPanel } from '../components/LiveTripTrackingPanel';
 type TrackingRoute = RouteProp<RootStackParamList, 'Tracking'>;
 type TrackingNavigation = NativeStackNavigationProp<RootStackParamList, 'Tracking'>;
 
-const terminalMessageForStatus = (status: TrackingRoute['params']['tripStatus']): string | undefined => {
+const terminalMessageKeyForStatus = (
+  status: TrackingRoute['params']['tripStatus'],
+): string | undefined => {
   if (status === 'CANCELLED') {
-    return 'This trip was cancelled. Automatic location updates are stopped.';
+    return 'tracking.tripCancelled';
   }
   if (status === 'DISRUPTED') {
-    return 'This trip was disrupted. Automatic location updates are stopped.';
+    return 'tracking.tripDisrupted';
   }
   return undefined;
 };
@@ -34,8 +37,10 @@ export function TrackingScreen(): React.JSX.Element {
   const route = useRoute<TrackingRoute>();
   const navigation = useNavigation<TrackingNavigation>();
   const theme = useTheme();
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const { tripId, stopId, bookingId, tripStatus } = route.params;
+  const terminalMessageKey = terminalMessageKeyForStatus(tripStatus);
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
 
   return (
@@ -47,16 +52,18 @@ export function TrackingScreen(): React.JSX.Element {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.back')}
           style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
           onPress={handleBack}
         >
           <ArrowLeft size={23} color={theme.colors.textPrimary} />
         </Pressable>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Live tracking</Text>
+          <Text style={styles.headerTitle}>{t('tracking.liveTracking')}</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {bookingId ? `Booking ${bookingId}` : `Trip ${tripId}`}
+            {bookingId
+              ? t('tracking.bookingReference', { id: bookingId })
+              : t('tracking.tripReference', { id: tripId })}
           </Text>
         </View>
         <View style={styles.headerButton} />
@@ -71,7 +78,9 @@ export function TrackingScreen(): React.JSX.Element {
           tripId={tripId}
           stopId={stopId}
           tripStatus={tripStatus}
-          terminalMessage={terminalMessageForStatus(tripStatus)}
+          terminalMessage={
+            terminalMessageKey ? t(terminalMessageKey) : undefined
+          }
         />
       </ScrollView>
     </SafeAreaView>

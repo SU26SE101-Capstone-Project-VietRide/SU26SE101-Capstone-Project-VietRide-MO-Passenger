@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   CaretRight,
   Check,
@@ -20,6 +21,7 @@ import {
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
+import { useMotion } from '@shared/motion';
 import type { AppTheme } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
 import type { PromoOffer } from '@shared/utils/promo';
@@ -50,6 +52,8 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
   errorText,
 }: PromoCodeInputProps): React.JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
+  const { reduceMotion } = useMotion();
   const styles = useThemedStyles(createStyles);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [draftCode, setDraftCode] = useState(code);
@@ -67,8 +71,8 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
 
   const displayCode = normalizePromoCode(code);
   const statusText = applied
-    ? appliedLabel || `${displayCode} Applied`
-    : 'Choose available promo or enter code';
+    ? appliedLabel || t('parcel.promos.appliedCode', { code: displayCode })
+    : t('parcel.promos.chooseOrEnter');
 
   const closePicker = useCallback(() => {
     setPickerVisible(false);
@@ -112,8 +116,12 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
     <View style={styles.bentoSummaryCard}>
       <View style={styles.cardHeader}>
         <View style={styles.headingBlock}>
-          <Text style={styles.bentoCardHeading}>Promo Code</Text>
-          <Text style={styles.cardSubtitle}>Save with vouchers before payment</Text>
+          <Text style={styles.bentoCardHeading}>
+            {t('parcel.promos.title')}
+          </Text>
+          <Text style={styles.cardSubtitle}>
+            {t('parcel.promos.subtitle')}
+          </Text>
         </View>
         <View style={styles.headerIconBubble}>
           <Gift size={18} color={theme.colors.primary} weight="duotone" />
@@ -122,7 +130,7 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Choose or enter promo code"
+        accessibilityLabel={t('parcel.promos.openAccessibility')}
         onPress={openPicker}
         style={({ pressed }) => [
           styles.promoTrigger,
@@ -139,7 +147,9 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
         </View>
         <View style={styles.triggerTextBlock}>
           <Text style={[styles.triggerTitle, applied ? styles.triggerTitleApplied : null]} numberOfLines={1}>
-            {applied && displayCode ? displayCode : 'Add promo code'}
+            {applied && displayCode
+              ? displayCode
+              : t('parcel.promos.addCode')}
           </Text>
           <Text style={styles.triggerSubtitle} numberOfLines={1}>
             {statusText}
@@ -155,7 +165,7 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
       <Modal
         visible={pickerVisible}
         transparent
-        animationType="fade"
+        animationType={reduceMotion ? 'none' : 'fade'}
         statusBarTranslucent
         onRequestClose={closePicker}
       >
@@ -169,12 +179,16 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
 
             <View style={styles.sheetHeader}>
               <View style={styles.headingBlock}>
-                <Text style={styles.sheetTitle}>Choose Promo</Text>
-                <Text style={styles.sheetSubtitle}>Apply an available voucher or enter a code.</Text>
+                <Text style={styles.sheetTitle}>
+                  {t('parcel.promos.sheetTitle')}
+                </Text>
+                <Text style={styles.sheetSubtitle}>
+                  {t('parcel.promos.sheetSubtitle')}
+                </Text>
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Close promo picker"
+                accessibilityLabel={t('parcel.promos.closeAccessibility')}
                 onPress={closePicker}
                 style={({ pressed }) => [styles.closeButton, pressed ? styles.closeButtonPressed : null]}
               >
@@ -183,13 +197,15 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
             </View>
 
             <View style={styles.manualCard}>
-              <Text style={styles.manualLabel}>Enter code directly</Text>
+              <Text style={styles.manualLabel}>
+                {t('parcel.promos.manualLabel')}
+              </Text>
               <View style={styles.manualRow}>
                 <TextInput
                   style={styles.promoInput}
                   value={draftCode}
                   onChangeText={handleDraftChange}
-                  placeholder="PROMO CODE"
+                  placeholder={t('parcel.promos.placeholder')}
                   placeholderTextColor={theme.colors.textTertiary}
                   autoCapitalize="characters"
                   autoCorrect={false}
@@ -206,7 +222,9 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
                     pressed && canApplyDraft ? styles.applyButtonPressed : null,
                   ]}
                 >
-                  <Text style={styles.applyButtonText}>Apply</Text>
+                  <Text style={styles.applyButtonText}>
+                    {t('parcel.actions.apply')}
+                  </Text>
                 </Pressable>
               </View>
               {errorText ? (
@@ -214,7 +232,9 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
               ) : null}
             </View>
 
-            <Text style={styles.availableTitle}>Available vouchers</Text>
+            <Text style={styles.availableTitle}>
+              {t('parcel.promos.availableTitle')}
+            </Text>
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.promoListContent}
@@ -223,8 +243,12 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
                 promos.map((promo) => {
                   const isSelected = normalizedSelectedCode === normalizePromoCode(promo.code);
                   const minimumSpendText = promo.minimumSpend
-                    ? `Min spend ${formatVnd(promo.minimumSpend, { clampNegative: true })}`
-                    : 'No minimum spend';
+                    ? t('parcel.promos.minimumSpend', {
+                        amount: formatVnd(promo.minimumSpend, {
+                          clampNegative: true,
+                        }),
+                      })
+                    : t('parcel.promos.noMinimumSpend');
 
                   return (
                     <Pressable
@@ -245,7 +269,9 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
                         {isSelected ? (
                           <View style={styles.selectedBadge}>
                             <Check size={12} color={theme.colors.success} weight="bold" />
-                            <Text style={styles.selectedBadgeText}>Applied</Text>
+                            <Text style={styles.selectedBadgeText}>
+                              {t('parcel.promos.applied')}
+                            </Text>
                           </View>
                         ) : null}
                       </View>
@@ -258,7 +284,11 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
                       <View style={styles.promoMetaRow}>
                         <View style={styles.expiryMeta}>
                           <Clock size={13} color={theme.colors.textTertiary} weight="bold" />
-                          <Text style={styles.promoMetaText}>Expires {formatPromoExpiry(promo.expiresAt)}</Text>
+                          <Text style={styles.promoMetaText}>
+                            {t('parcel.promos.expires', {
+                              date: formatPromoExpiry(promo.expiresAt),
+                            })}
+                          </Text>
                         </View>
                         <Text style={styles.promoMetaText}>{minimumSpendText}</Text>
                       </View>
@@ -270,9 +300,11 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
                   <View style={styles.emptyPromoIcon}>
                     <Gift size={24} color={theme.colors.primary} weight="duotone" />
                   </View>
-                  <Text style={styles.emptyPromoTitle}>No vouchers available</Text>
+                  <Text style={styles.emptyPromoTitle}>
+                    {t('parcel.promos.emptyTitle')}
+                  </Text>
                   <Text style={styles.emptyPromoText}>
-                    Enter a promo code manually if you received one, or check back later for new offers.
+                    {t('parcel.promos.emptyDescription')}
                   </Text>
                 </View>
               )}

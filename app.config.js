@@ -6,7 +6,7 @@ const baseConfig = {
   version: '0.0.1',
   scheme: 'vietride',
   orientation: 'portrait',
-  userInterfaceStyle: 'light',
+  userInterfaceStyle: 'automatic',
   splash: {
     image: './src/assets/images/app_logo_placeholder.png',
     resizeMode: 'contain',

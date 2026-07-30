@@ -4,6 +4,7 @@ import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import type { PromoOffer } from '@shared/utils/promo';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 import { formatVnd } from '@shared/utils/format';
+import i18n from '@shared/i18n';
 import type {
   AvailableParcelTrip,
   AvailableParcelTripsParams,
@@ -160,11 +161,13 @@ export function mapParcelVoucherToPromo(
   const normalizedType = voucher.type.toUpperCase();
   const isPercent = normalizedType.includes('PERCENT');
   const discountLabel = isPercent
-    ? `${voucher.value}% OFF`
-    : `${formatVnd(voucher.discountAmount || voucher.value, {
-        display: 'code',
-        clampNegative: true,
-      })} OFF`;
+    ? i18n.t('parcel.promos.percentOff', { value: voucher.value })
+    : i18n.t('parcel.promos.amountOff', {
+        amount: formatVnd(voucher.discountAmount || voucher.value, {
+          display: 'code',
+          clampNegative: true,
+        }),
+      });
 
   return {
     id: voucher.id,
@@ -172,10 +175,12 @@ export function mapParcelVoucherToPromo(
     title: voucher.name,
     description:
       voucher.discountAmount > 0
-        ? `Save ${formatVnd(voucher.discountAmount, {
-            display: 'code',
-          })} on parcel deposit.`
-        : 'Available for this parcel route.',
+        ? i18n.t('parcel.promos.saveDeposit', {
+            amount: formatVnd(voucher.discountAmount, {
+              display: 'code',
+            }),
+          })
+        : i18n.t('parcel.promos.availableForRoute'),
     discountLabel,
     expiresAt: voucher.validUntil,
     minimumSpend: voucher.minOrderAmount,

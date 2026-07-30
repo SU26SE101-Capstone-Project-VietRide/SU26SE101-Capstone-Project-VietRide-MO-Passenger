@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
 import { Camera, ArrowLeft, CheckCircle } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -21,12 +22,17 @@ import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { Button, Input, UserAvatar } from '@shared/components';
 import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
-import { getApiErrorMessage, toApiError } from '@shared/api/errors';
+import {
+  ApiRequestError,
+  getApiErrorMessage,
+  toApiError,
+} from '@shared/api/errors';
 import { pickLocalImages } from '@shared/services/localImagePicker';
 import {
   apiProfileFieldErrors,
   editProfileFieldErrors,
   editProfileSchema,
+  localizeProfileFieldError,
   type EditProfileField,
 } from '../validation/profileValidation';
 import {
@@ -46,6 +52,7 @@ interface SelectedAvatar {
 const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
 
 export function EditProfileScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -81,7 +88,10 @@ export function EditProfileScreen(): React.JSX.Element {
         await completeProfile({ phone: parsed.data.phone });
         const refreshedSession = await refreshSession();
         if (!refreshedSession) {
-          throw new Error('Không thể làm mới phiên đăng nhập sau khi bổ sung số điện thoại.');
+          throw new ApiRequestError({
+            code: 'PROFILE_SESSION_REFRESH_FAILED',
+            message: 'profile.edit.errors.sessionRefresh',
+          });
         }
       }
 
@@ -99,7 +109,13 @@ export function EditProfileScreen(): React.JSX.Element {
         setErrors(apiProfileFieldErrors<EditProfileField>(apiError.fields));
       }
 
-      Alert.alert('Không thể cập nhật hồ sơ', getApiErrorMessage(apiError));
+      const errorMessage = getApiErrorMessage(apiError);
+      Alert.alert(
+        t('profile.edit.errorTitle'),
+        errorMessage.startsWith('profile.')
+          ? t(errorMessage)
+          : errorMessage,
+      );
     },
   });
 
@@ -122,8 +138,8 @@ export function EditProfileScreen(): React.JSX.Element {
 
       if (result.status === 'permission-denied') {
         Alert.alert(
-          'Cần quyền truy cập ảnh',
-          'VietRide cần quyền mở thư viện ảnh để bạn chọn ảnh đại diện.',
+          t('profile.avatar.permissionTitle'),
+          t('profile.avatar.permissionDescription'),
         );
         return;
       }
@@ -136,7 +152,10 @@ export function EditProfileScreen(): React.JSX.Element {
       const validation = validateAvatarAsset(asset);
 
       if (!validation.success) {
-        Alert.alert('Ảnh không hợp lệ', validation.message);
+        Alert.alert(
+          t('profile.avatar.invalidTitle'),
+          t(validation.messageKey),
+        );
         return;
       }
 
@@ -146,11 +165,11 @@ export function EditProfileScreen(): React.JSX.Element {
       });
     } catch {
       Alert.alert(
-        'Không thể mở thư viện ảnh',
-        'Vui lòng thử lại sau.',
+        t('profile.avatar.pickerErrorTitle'),
+        t('profile.avatar.pickerErrorDescription'),
       );
     }
-  }, []);
+  }, [t]);
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
@@ -165,12 +184,14 @@ export function EditProfileScreen(): React.JSX.Element {
       >
         <View style={styles.topBar}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
             <ArrowLeft size={24} color={theme.colors.textPrimary} />
           </Pressable>
-          <Text style={styles.topBarTitle}>Chỉnh sửa hồ sơ</Text>
+          <Text style={styles.topBarTitle}>{t('profile.edit.title')}</Text>
           <View style={styles.topBarRightPlaceholder} />
         </View>
 
@@ -184,6 +205,8 @@ export function EditProfileScreen(): React.JSX.Element {
         >
           <View style={styles.avatarSection}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('profile.avatar.change')}
               style={styles.avatarContainer}
               onPress={handlePickAvatar}
             >
@@ -192,36 +215,41 @@ export function EditProfileScreen(): React.JSX.Element {
                 <Camera size={16} color={theme.colors.textInverse} weight="fill" />
               </View>
             </Pressable>
-            <Text style={styles.changePhotoText}>Đổi ảnh đại diện</Text>
+            <Text style={styles.changePhotoText}>{t('profile.avatar.change')}</Text>
             {selectedAvatar ? (
               <View style={styles.pendingAvatarNote}>
                 <CheckCircle size={14} color={theme.colors.primary} weight="fill" />
-                <Text style={styles.pendingAvatarText}>Ảnh mới đang chờ lưu</Text>
+                <Text style={styles.pendingAvatarText}>
+                  {t('profile.avatar.pendingSave')}
+                </Text>
               </View>
             ) : null}
           </View>
 
           <View style={styles.formContainer}>
             <Input
-              label="Họ và tên"
+              label={t('profile.edit.fullName')}
               value={displayName}
               editable={false}
-              hint="Backend hiện chưa hỗ trợ cập nhật họ và tên trên ứng dụng."
+              hint={t('profile.edit.fullNameReadOnlyHint')}
+              error={localizeProfileFieldError(errors.displayName, t)}
               autoCapitalize="words"
             />
 
             <View style={styles.readOnlyContainer}>
-              <Text style={styles.readOnlyLabel}>Email</Text>
+              <Text style={styles.readOnlyLabel}>{t('profile.edit.email')}</Text>
               <View style={styles.readOnlyInput}>
-                <Text style={styles.readOnlyText}>{user?.email || 'Chưa có email'}</Text>
+                <Text style={styles.readOnlyText}>
+                  {user?.email || t('profile.edit.emailUnavailable')}
+                </Text>
               </View>
               <Text style={styles.readOnlyHint}>
-                Email dùng để đăng nhập nên chưa thể thay đổi trên app.
+                {t('profile.edit.emailReadOnlyHint')}
               </Text>
             </View>
 
             <Input
-              label="Số điện thoại"
+              label={t('profile.edit.phone')}
               value={phone}
               onChangeText={(text) => {
                 setPhone(text);
@@ -232,17 +260,17 @@ export function EditProfileScreen(): React.JSX.Element {
               placeholder="+84901234567"
               keyboardType="phone-pad"
               editable={canCompletePhone}
-              error={errors.phone}
+              error={localizeProfileFieldError(errors.phone, t)}
               hint={
                 canCompletePhone
-                  ? 'Backend hiện chỉ hỗ trợ bổ sung số điện thoại một lần.'
-                  : 'Backend hiện chưa cho đổi số điện thoại đã xác thực.'
+                  ? t('profile.edit.phoneCompleteHint')
+                  : t('profile.edit.phoneReadOnlyHint')
               }
             />
           </View>
 
           <Button
-            title="Lưu thay đổi"
+            title={t('profile.edit.save')}
             onPress={() => saveMutation.mutate()}
             loading={saveMutation.isPending || isUploading}
             disabled={!hasUnsavedChanges}

@@ -1,4 +1,5 @@
 import type { ParcelSize, ParcelSizeCategory } from '../types';
+import i18n from '@shared/i18n';
 
 export interface ParcelDimensions {
   lengthCm: number;
@@ -9,7 +10,7 @@ export interface ParcelDimensions {
 export interface ParcelPackageSizeOption {
   size: ParcelSize;
   sizeCategory: ParcelSizeCategory;
-  label: string;
+  labelKey: string;
   dimensions: ParcelDimensions;
 }
 
@@ -21,19 +22,19 @@ export const PARCEL_PACKAGE_SIZE_CONFIG = {
   small: {
     size: 'small',
     sizeCategory: 'SMALL',
-    label: 'Small',
+    labelKey: 'parcel.packageSize.options.small',
     dimensions: { lengthCm: 25, widthCm: 20, heightCm: 10 },
   },
   medium: {
     size: 'medium',
     sizeCategory: 'MEDIUM',
-    label: 'Medium',
+    labelKey: 'parcel.packageSize.options.medium',
     dimensions: { lengthCm: 45, widthCm: 35, heightCm: 25 },
   },
   large: {
     size: 'large',
     sizeCategory: 'LARGE',
-    label: 'Large',
+    labelKey: 'parcel.packageSize.options.large',
     dimensions: { lengthCm: 60, widthCm: 45, heightCm: 35 },
   },
 } as const satisfies Record<ParcelSize, ParcelPackageSizeOption>;
@@ -109,5 +110,7 @@ export function formatParcelDimensions({
   widthCm,
   heightCm,
 }: ParcelDimensions): string {
-  return `${lengthCm} x ${widthCm} x ${heightCm} cm`;
+  return `${lengthCm} × ${widthCm} × ${heightCm} ${i18n.t(
+    'parcel.units.cm',
+  )}`;
 }

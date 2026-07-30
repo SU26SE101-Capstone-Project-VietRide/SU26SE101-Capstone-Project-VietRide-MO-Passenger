@@ -59,8 +59,16 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
-  const displayName = user?.fullName ?? (isGuest ? 'Guest traveler' : 'VietRide Passenger');
-  const displayPhone = user?.phone ?? (isGuest ? 'Sign in to save your trips' : 'No phone number');
+  const displayName = user?.fullName ?? (
+    isGuest
+      ? t('profile.guestName')
+      : t('profile.passengerName')
+  );
+  const displayPhone = user?.phone ?? (
+    isGuest
+      ? t('profile.signInToSaveTrips')
+      : t('profile.phoneUnavailable')
+  );
   const isVerified = user?.status === 'ACTIVE';
   const bottomTabClearance =
     CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
@@ -71,15 +79,15 @@ export function ProfileOverviewScreen(): React.JSX.Element {
     }
 
     Alert.alert(
-      'Sign in required',
-      'Please sign in or create an account to use this feature.',
+      t('profile.signInRequiredTitle'),
+      t('profile.signInRequiredDescription'),
       [
         {
-          text: t('common.cancel', 'Cancel'),
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Sign in',
+          text: t('profile.signIn'),
           onPress: async () => {
             await logout();
           },
@@ -97,15 +105,15 @@ export function ProfileOverviewScreen(): React.JSX.Element {
     }
 
     Alert.alert(
-      t('auth.logout', 'Log Out'),
-      t('profile.logoutConfirm', 'Are you sure you want to log out of VietRide?'),
+      t('auth.logout'),
+      t('profile.logoutConfirm'),
       [
         {
-          text: t('common.cancel', 'Cancel'),
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: t('auth.logout', 'Log Out'),
+          text: t('auth.logout'),
           style: 'destructive',
           onPress: async () => {
             await logout();
@@ -118,7 +126,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   const profileMenuItems = useMemo(() => [
     {
       id: 'edit-profile',
-      title: t('profile.editProfile', 'Edit Profile'),
+      title: t('profile.editProfile'),
       icon: User,
       onPress: () => {
         if (handleRequireAccount()) {
@@ -128,25 +136,25 @@ export function ProfileOverviewScreen(): React.JSX.Element {
     },
     ...(isProfileWalletEntryPointEnabled() && !isGuest ? [{
       id: 'wallet',
-      title: 'Wallet',
+      title: t('profile.wallet'),
       icon: Wallet,
       onPress: () => navigation.navigate('Wallet'),
     }] : []),
     {
       id: 'booking-history',
-      title: t('profile.history', 'History'),
+      title: t('profile.history'),
       icon: ClockCounterClockwise,
       onPress: () => navigation.navigate('BookingHistory', { initialTab: 'ticket' }),
     },
     {
       id: 'settings',
-      title: t('profile.settings', 'Settings'),
+      title: t('profile.settings'),
       icon: Gear,
       onPress: () => navigation.navigate('Settings'),
     },
     {
       id: 'help-support',
-      title: t('profile.helpSupport', 'Help & Support'),
+      title: t('profile.helpSupport'),
       icon: Question,
       onPress: () => {
         // Chatbot helper navigation (registered at root level)
@@ -157,7 +165,11 @@ export function ProfileOverviewScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
-      <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.transparent}
+        translucent
+      />
 
       {/* Scrollable Container */}
       <ScrollView
@@ -170,7 +182,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       >
         {/* Title Header */}
         <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>{t('nav.profile', 'Profile')}</Text>
+          <Text style={styles.headerTitle}>{t('profile.title')}</Text>
         </View>
 
         {/* User Card Bento Wrapper */}
@@ -184,9 +196,19 @@ export function ProfileOverviewScreen(): React.JSX.Element {
                 <Text style={styles.fullNameText}>{displayName}</Text>
                 {!isGuest ? (
                   isVerified ? (
-                    <CheckCircle size={18} color={theme.colors.success ?? '#22C55E'} weight="fill" style={styles.verifyBadge} />
+                    <CheckCircle
+                      size={18}
+                      color={theme.colors.success}
+                      weight="fill"
+                      style={styles.verifyBadge}
+                    />
                   ) : (
-                    <WarningCircle size={18} color="#F59E0B" weight="fill" style={styles.verifyBadge} />
+                    <WarningCircle
+                      size={18}
+                      color={theme.colors.warning}
+                      weight="fill"
+                      style={styles.verifyBadge}
+                    />
                   )
                 ) : null}
               </View>
@@ -196,6 +218,8 @@ export function ProfileOverviewScreen(): React.JSX.Element {
               </View>
               {!isGuest && !isVerified && user?.email ? (
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('profile.verifyAccount')}
                   onPress={() => navigation.navigate('OTPVerification', {
                     email: user.email ?? '',
                     purpose: 'REGISTRATION',
@@ -203,8 +227,8 @@ export function ProfileOverviewScreen(): React.JSX.Element {
                   })}
                   style={({ pressed }) => [styles.verifyButton, pressed ? styles.pressed : null]}
                 >
-                  <WarningCircle size={14} color="#F59E0B" weight="bold" />
-                  <Text style={styles.verifyButtonText}>Verify Account</Text>
+                  <WarningCircle size={14} color={theme.colors.warning} weight="bold" />
+                  <Text style={styles.verifyButtonText}>{t('profile.verifyAccount')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -220,6 +244,8 @@ export function ProfileOverviewScreen(): React.JSX.Element {
             const isLast = index === profileMenuItems.length - 1;
             return (
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={item.title}
                 key={item.id}
                 style={[
                   styles.menuItem,
@@ -241,6 +267,8 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         </View>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isGuest ? t('profile.signInRegister') : t('auth.logout')}
           style={({ pressed }) => [
             styles.logoutButton,
             isGuest ? styles.signInButton : null,
@@ -250,11 +278,13 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         >
           <SignOut size={20} color={isGuest ? theme.colors.primary : theme.colors.error} weight="bold" />
           <Text style={[styles.logoutText, isGuest ? styles.signInText : null]}>
-            {isGuest ? 'Sign in / Register' : t('auth.logout', 'Log Out')}
+            {isGuest ? t('profile.signInRegister') : t('auth.logout')}
           </Text>
         </Pressable>
 
-        <Text style={styles.versionText}>VietRide Passenger • v1.0.0</Text>
+        <Text style={styles.versionText}>
+          {t('profile.appVersion', { version: '1.0.0' })}
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -315,7 +345,7 @@ const createStyles = (theme: AppTheme) => ({
   verifyButton: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    backgroundColor: theme.colors.warningLight,
     borderRadius: borderRadius.sm,
     paddingVertical: 4,
     paddingHorizontal: spacing.sm,
@@ -325,7 +355,7 @@ const createStyles = (theme: AppTheme) => ({
   verifyButtonText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: '#D97706',
+    color: theme.colors.warning,
     marginLeft: 4,
   },
   phoneRow: {

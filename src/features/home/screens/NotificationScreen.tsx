@@ -53,10 +53,15 @@ const NotificationRow = memo(function NotificationRowView({
   readAt,
   onPress,
 }: NotificationRowProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const kind = getNotificationKind(type);
   const isUnread = !readAt;
+  const relativeTime = useMemo(
+    () => formatNotificationRelativeTime(createdAt, t),
+    [createdAt, t],
+  );
 
   const meta = (() => {
     switch (kind) {
@@ -89,6 +94,8 @@ const NotificationRow = memo(function NotificationRowView({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t('notification.itemAccessibility', { title })}
       style={({ pressed }) => [
         styles.notificationRow,
         isUnread ? styles.unreadRow : null,
@@ -125,7 +132,7 @@ const NotificationRow = memo(function NotificationRowView({
             {title}
           </Text>
           <Text style={[styles.cardTime, isUnread ? styles.cardTimeUnread : null]}>
-            {formatNotificationRelativeTime(createdAt)}
+            {relativeTime}
           </Text>
         </View>
 
@@ -158,10 +165,22 @@ export function NotificationScreen(): React.JSX.Element {
   const handleTabBarScroll = useTabBarScrollBehavior();
   const notificationsQuery = useNotifications(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const markReadMutation = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
+  const {
+    data: notificationsData,
+    error: notificationsError,
+    isError: isNotificationsError,
+    isLoading: isNotificationsLoading,
+    isRefetching: isNotificationsRefetching,
+    refetch: refetchNotifications,
+  } = notificationsQuery;
+  const {
+    isPending: isMarkReadPending,
+    mutate: markRead,
+  } = markReadMutation;
 
   const notifications = useMemo(
-    () => notificationsQuery.data?.items ?? [],
-    [notificationsQuery.data?.items],
+    () => notificationsData?.items ?? [],
+    [notificationsData?.items],
   );
   const unreadItems = useMemo(
     () => notifications.filter((item) => !item.readAt),
@@ -172,8 +191,8 @@ export function NotificationScreen(): React.JSX.Element {
     CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + NOTIFICATION_BOTTOM_CONTENT_GAP;
 
   const handleMarkAllRead = useCallback(() => {
-    markReadMutation.mutate(unreadItems.map((item) => item.id));
-  }, [markReadMutation, unreadItems]);
+    markRead(unreadItems.map((item) => item.id));
+  }, [markRead, unreadItems]);
 
   const handleNotificationPress = useCallback((id: string) => {
     const item = notifications.find((notification) => notification.id === id);
@@ -182,11 +201,11 @@ export function NotificationScreen(): React.JSX.Element {
     }
 
     if (!item.readAt) {
-      markReadMutation.mutate(id);
+      markRead(id);
     }
 
     navigation.navigate('NotificationDetail', { notification: item });
-  }, [markReadMutation, navigation, notifications]);
+  }, [markRead, navigation, notifications]);
 
   const renderNotificationItem = useCallback(
     ({ item }: { item: NotificationItemDto }) => (
@@ -204,25 +223,27 @@ export function NotificationScreen(): React.JSX.Element {
   );
 
   const renderEmptyState = useCallback(() => {
-    if (notificationsQuery.isLoading) {
+    if (isNotificationsLoading) {
       return (
         <View style={styles.emptyContainer}>
           <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.emptyText}>Loading notifications...</Text>
+          <Text style={styles.emptyText}>{t('notification.loading')}</Text>
         </View>
       );
     }
 
-    if (notificationsQuery.isError) {
+    if (isNotificationsError) {
       return (
         <View style={styles.emptyContainer}>
           <Bell size={48} color={theme.colors.textTertiary} weight="thin" />
-          <Text style={styles.emptyText}>{getApiErrorMessage(notificationsQuery.error)}</Text>
+          <Text style={styles.emptyText}>{getApiErrorMessage(notificationsError)}</Text>
           <Pressable
-            onPress={() => notificationsQuery.refetch()}
+            accessibilityRole="button"
+            accessibilityLabel={t('notification.retry')}
+            onPress={refetchNotifications}
             style={({ pressed }) => [styles.retryButton, pressed ? styles.pressedRow : null]}
           >
-            <Text style={styles.retryText}>Try again</Text>
+            <Text style={styles.retryText}>{t('notification.retry')}</Text>
           </Pressable>
         </View>
       );
@@ -231,11 +252,14 @@ export function NotificationScreen(): React.JSX.Element {
     return (
       <View style={styles.emptyContainer}>
         <Bell size={48} color={theme.colors.textTertiary} weight="thin" />
-        <Text style={styles.emptyText}>{t('notification.noNotifications', 'No notifications yet.')}</Text>
+        <Text style={styles.emptyText}>{t('notification.noNotifications')}</Text>
       </View>
     );
   }, [
-    notificationsQuery,
+    isNotificationsError,
+    isNotificationsLoading,
+    notificationsError,
+    refetchNotifications,
     styles.emptyContainer,
     styles.emptyText,
     styles.pressedRow,
@@ -259,11 +283,11 @@ export function NotificationScreen(): React.JSX.Element {
         <View style={styles.headerLeft}>
           <Bell size={24} color={theme.colors.textPrimary} style={styles.headerIcon} />
           <View>
-            <Text style={styles.headerTitle}>{t('profile.notifications', 'Notifications')}</Text>
+            <Text style={styles.headerTitle}>{t('notification.title')}</Text>
             <Text style={styles.headerSubtitle}>
               {unreadCount > 0
-                ? t('notification.unreadCount', '{{count}} unread', { count: unreadCount })
-                : t('notification.allCaughtUp', 'All caught up')}
+                ? t('notification.unreadCount', { count: unreadCount })
+                : t('notification.allCaughtUp')}
             </Text>
           </View>
         </View>
@@ -271,14 +295,16 @@ export function NotificationScreen(): React.JSX.Element {
         {notifications.length > 0 ? (
           <View style={styles.headerActions}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('notification.markAllRead')}
               onPress={handleMarkAllRead}
-              disabled={unreadCount === 0 || markReadMutation.isPending}
+              disabled={unreadCount === 0 || isMarkReadPending}
               style={[
                 styles.actionButton,
                 unreadCount === 0 ? styles.actionButtonDisabled : null,
               ]}
             >
-              {markReadMutation.isPending ? (
+              {isMarkReadPending ? (
                 <ActivityIndicator size="small" color={theme.colors.primary} />
               ) : (
                 <Check size={18} color={unreadCount === 0 ? theme.colors.textDisabled : theme.colors.primary} />
@@ -299,8 +325,8 @@ export function NotificationScreen(): React.JSX.Element {
           notifications.length === 0 ? styles.emptyListContent : null,
           { paddingBottom: bottomTabClearance },
         ]}
-        onRefresh={notificationsQuery.refetch}
-        refreshing={notificationsQuery.isRefetching}
+        onRefresh={refetchNotifications}
+        refreshing={isNotificationsRefetching}
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}
       />
@@ -408,9 +434,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   unreadRow: {
     backgroundColor: theme.effects.isLiquid
-      ? theme.isDark
-        ? 'rgba(85, 241, 232, 0.13)'
-        : 'rgba(0, 125, 120, 0.09)'
+      ? theme.effects.glassTint
       : theme.colors.primaryFaded,
     borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.primaryFaded,
   },

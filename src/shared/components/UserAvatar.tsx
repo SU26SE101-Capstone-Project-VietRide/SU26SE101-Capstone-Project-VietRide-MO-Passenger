@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, type ImageStyle, type ViewStyle } from 'react-n
 import { Image } from 'expo-image';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { motionTokens, useMotion } from '@shared/motion';
 import { fontFamilies } from '@shared/theme';
 
 export interface UserAvatarProps {
@@ -24,6 +25,7 @@ export const UserAvatar = memo(function UserAvatar({
   size = 48,
 }: UserAvatarProps): React.JSX.Element {
   const theme = useTheme();
+  const { reduceMotion } = useMotion();
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const hasRemoteImage = Boolean(url && url !== failedUrl);
   const initials = useMemo(() => getInitials(name), [name]);
@@ -55,7 +57,7 @@ export const UserAvatar = memo(function UserAvatar({
           contentFit="cover"
           cachePolicy="memory-disk"
           recyclingKey={url ?? undefined}
-          transition={120}
+          transition={reduceMotion ? 0 : motionTokens.duration.quick}
           onError={() => setFailedUrl(url ?? null)}
         />
       ) : (

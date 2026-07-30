@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import {
@@ -42,6 +43,7 @@ type ParcelTrackingNavProp = NativeStackNavigationProp<ParcelStackParamList, 'Pa
 export function ParcelTrackingScreen(): React.JSX.Element {
   const route = useRoute<ParcelTrackingRouteProp>();
   const navigation = useNavigation<ParcelTrackingNavProp>();
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { parcelId } = route.params;
@@ -74,7 +76,7 @@ export function ParcelTrackingScreen(): React.JSX.Element {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.navbar}>
         <Pressable
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('parcel.actions.goBack')}
           accessibilityRole="button"
           hitSlop={8}
           onPress={handleGoBack}
@@ -83,7 +85,9 @@ export function ParcelTrackingScreen(): React.JSX.Element {
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
         <View style={styles.titleBlock}>
-          <Text style={styles.navTitle}>Shipment status</Text>
+          <Text style={styles.navTitle}>
+            {t('parcel.tracking.title')}
+          </Text>
           <Text numberOfLines={1} style={styles.navSubtitle}>
             {parcel?.parcelCode || parcelId}
           </Text>
@@ -94,7 +98,9 @@ export function ParcelTrackingScreen(): React.JSX.Element {
       {isLoading ? (
         <View style={styles.stateContainer}>
           <ActivityIndicator color={theme.colors.primary} size="large" />
-          <Text style={styles.stateText}>Loading latest shipment status...</Text>
+          <Text style={styles.stateText}>
+            {t('parcel.tracking.loading')}
+          </Text>
         </View>
       ) : isError || !parcel ? (
         <ErrorView
@@ -123,18 +129,26 @@ export function ParcelTrackingScreen(): React.JSX.Element {
               )}
             </View>
             <View style={styles.statusMeta}>
-              <Text style={styles.eyebrow}>LATEST RECORDED STATUS</Text>
+              <Text style={styles.eyebrow}>
+                {t('parcel.tracking.latestStatus')}
+              </Text>
               <Text style={[styles.statusValue, isRejected ? styles.rejectedText : null]}>
                 {formatParcelStatusLabel(parcel.status)}
               </Text>
-              {eta ? <Text style={styles.etaText}>Estimated arrival: {eta}</Text> : null}
+              {eta ? (
+                <Text style={styles.etaText}>
+                  {t('parcel.tracking.estimatedArrival', { time: eta })}
+                </Text>
+              ) : null}
             </View>
           </View>
 
           <View style={styles.trackingSection}>
-            <Text style={styles.cardHeading}>Live vehicle location</Text>
+            <Text style={styles.cardHeading}>
+              {t('parcel.tracking.liveLocationTitle')}
+            </Text>
             <Text style={styles.cardDescription}>
-              GPS updates are shared securely and visible only to the parcel owner.
+              {t('parcel.tracking.liveLocationDescription')}
             </Text>
             <View style={styles.trackingContent}>
               {isTrackingEligible ? (
@@ -142,14 +156,16 @@ export function ParcelTrackingScreen(): React.JSX.Element {
                   tripId={parcel.tripId}
                   stopId={parcel.dropoffStopId ?? undefined}
                   sourceTerminal={isTrackingTerminal}
-                  terminalMessage="Parcel transport is complete. Automatic location updates are stopped."
+                  terminalMessage={t('parcel.tracking.transportComplete')}
                 />
               ) : (
                 <View style={styles.trackingUnavailable} accessibilityRole="summary">
                   <Truck size={28} color={theme.colors.textTertiary} weight="duotone" />
-                  <Text style={styles.trackingUnavailableTitle}>Live map not active yet</Text>
+                  <Text style={styles.trackingUnavailableTitle}>
+                    {t('parcel.tracking.mapUnavailableTitle')}
+                  </Text>
                   <Text style={styles.trackingUnavailableText}>
-                    Live vehicle tracking starts after your parcel is loaded.
+                    {t('parcel.tracking.mapUnavailableDescription')}
                   </Text>
                 </View>
               )}
@@ -160,11 +176,13 @@ export function ParcelTrackingScreen(): React.JSX.Element {
             <View style={styles.rejectedNotice}>
               <WarningCircle size={20} color={theme.colors.error} weight="fill" />
               <View style={styles.noticeContent}>
-                <Text style={styles.noticeTitle}>Shipment was rejected</Text>
+                <Text style={styles.noticeTitle}>
+                  {t('parcel.tracking.rejectedTitle')}
+                </Text>
                 <Text style={styles.noticeText}>
                   {rejectedTime
-                    ? `Recorded at ${rejectedTime}. Contact support for further details.`
-                    : 'Contact support for further details.'}
+                    ? t('parcel.tracking.rejectedAt', { time: rejectedTime })
+                    : t('parcel.tracking.rejectedContactSupport')}
                 </Text>
               </View>
             </View>
@@ -173,25 +191,29 @@ export function ParcelTrackingScreen(): React.JSX.Element {
           {(parcel.originStationName || parcel.destinationStationName) ? (
             <View style={styles.routeCard}>
               <View style={styles.routeEndpoint}>
-                <Text style={styles.eyebrow}>ORIGIN</Text>
+                <Text style={styles.eyebrow}>{t('parcel.route.origin')}</Text>
                 <Text style={styles.routeName}>
-                  {parcel.originStationName || 'Not provided'}
+                  {parcel.originStationName || t('parcel.common.notProvided')}
                 </Text>
               </View>
               <View style={styles.routeDivider} />
               <View style={styles.routeEndpoint}>
-                <Text style={styles.eyebrow}>DESTINATION</Text>
+                <Text style={styles.eyebrow}>
+                  {t('parcel.route.destination')}
+                </Text>
                 <Text style={styles.routeName}>
-                  {parcel.destinationStationName || 'Not provided'}
+                  {parcel.destinationStationName || t('parcel.common.notProvided')}
                 </Text>
               </View>
             </View>
           ) : null}
 
           <View style={styles.timelineCard}>
-            <Text style={styles.cardHeading}>Recorded timeline</Text>
+            <Text style={styles.cardHeading}>
+              {t('parcel.tracking.timelineTitle')}
+            </Text>
             <Text style={styles.cardDescription}>
-              Times appear only when the service has returned a recorded event.
+              {t('parcel.tracking.timelineDescription')}
             </Text>
 
             <View style={styles.timelineContainer}>
@@ -236,9 +258,11 @@ export function ParcelTrackingScreen(): React.JSX.Element {
                           item.status === 'pending' ? styles.timelineTitlePending : null,
                         ]}
                       >
-                        {item.title}
+                        {t(item.titleKey)}
                       </Text>
-                      <Text style={styles.timelineDescription}>{item.description}</Text>
+                      <Text style={styles.timelineDescription}>
+                        {t(item.descriptionKey)}
+                      </Text>
                       {item.time ? <Text style={styles.timelineTime}>{item.time}</Text> : null}
                     </View>
                   </View>

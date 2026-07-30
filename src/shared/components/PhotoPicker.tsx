@@ -9,9 +9,12 @@ import {
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { Camera, ImageSquare, Plus, X } from 'phosphor-react-native';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
+import { motionTokens, useMotion } from '@shared/motion';
 import {
   borderRadius,
   fontFamilies,
@@ -43,7 +46,9 @@ const PhotoPreview = memo(function PhotoPreviewItem({
   uri,
   onRemove,
 }: PhotoPreviewProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
+  const { reduceMotion } = useMotion();
   const styles = useThemedStyles(createStyles);
   const handleRemove = useCallback(() => onRemove(index), [index, onRemove]);
 
@@ -53,12 +58,15 @@ const PhotoPreview = memo(function PhotoPreviewItem({
         source={{ uri }}
         recyclingKey={uri}
         contentFit="cover"
-        transition={120}
+        transition={reduceMotion ? 0 : motionTokens.duration.quick}
         style={styles.previewImage}
       />
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Remove ${photoLabel} ${index + 1}`}
+        accessibilityLabel={t('shared.photoPicker.removePhoto', {
+          label: photoLabel,
+          position: index + 1,
+        })}
         hitSlop={8}
         onPress={handleRemove}
         style={styles.removeButton}
@@ -91,16 +99,17 @@ const normalizeMaxPhotos = (maxPhotos: number): number => {
 };
 
 const showPermissionDeniedAlert = (
+  t: TFunction,
   sourceLabel: string,
   canAskAgain: boolean,
   photoLabel: string,
 ): void => {
   const buttons = canAskAgain
-    ? [{ text: 'OK' }]
+    ? [{ text: t('common.ok') }]
     : [
-        { text: 'Not now', style: 'cancel' as const },
+        { text: t('common.notNow'), style: 'cancel' as const },
         {
-          text: 'Open settings',
+          text: t('common.openSettings'),
           onPress: () => {
             Linking.openSettings().catch(() => undefined);
           },
@@ -108,8 +117,11 @@ const showPermissionDeniedAlert = (
       ];
 
   Alert.alert(
-    `${sourceLabel} permission needed`,
-    `Allow ${sourceLabel.toLowerCase()} access to add ${photoLabel}s to this request.`,
+    t('shared.photoPicker.permissionTitle', { source: sourceLabel }),
+    t('shared.photoPicker.permissionDescription', {
+      source: sourceLabel,
+      label: photoLabel,
+    }),
     buttons,
   );
 };
@@ -120,15 +132,19 @@ export const PhotoPicker = memo(function PhotoPickerComponent({
   disabled = false,
   helperText,
   maxPhotos = DEFAULT_MAX_LOCAL_PHOTO_PREVIEWS,
-  photoLabel = 'photo',
-  title = 'Photos (optional)',
+  photoLabel,
+  title,
 }: PhotoPickerProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const isPickingRef = useRef(false);
   const safeMaxPhotos = normalizeMaxPhotos(maxPhotos);
+  const resolvedPhotoLabel =
+    photoLabel ?? t('shared.photoPicker.defaultPhotoLabel');
+  const resolvedTitle = title ?? t('shared.photoPicker.defaultTitle');
   const resolvedHelperText = helperText
-    ?? `Up to ${safeMaxPhotos} photos. Review your selection before submitting.`;
+    ?? t('shared.photoPicker.helperText', { count: safeMaxPhotos });
   const photos = useMemo(() => {
     const uniquePhotos = new Set<string>();
 
@@ -187,17 +203,20 @@ export const PhotoPicker = memo(function PhotoPickerComponent({
 
       if (result.status === 'permission-denied') {
         showPermissionDeniedAlert(
-          result.source === 'camera' ? 'Camera' : 'Photo library',
+          t,
+          result.source === 'camera'
+            ? t('shared.photoPicker.camera')
+            : t('shared.photoPicker.photoLibrary'),
           result.canAskAgain,
-          photoLabel,
+          resolvedPhotoLabel,
         );
         return;
       }
 
       if (result.status === 'unavailable') {
         Alert.alert(
-          'Camera unavailable',
-          'On this Android version, choose an existing photo from the library. The app does not request legacy storage access.',
+          t('shared.photoPicker.cameraUnavailableTitle'),
+          t('shared.photoPicker.cameraUnavailableDescription'),
         );
         return;
       }
@@ -207,13 +226,20 @@ export const PhotoPicker = memo(function PhotoPickerComponent({
       }
     } catch {
       Alert.alert(
-        'Unable to add photo',
-        'The photo picker could not be opened. Please try again.',
+        t('shared.photoPicker.addErrorTitle'),
+        t('shared.photoPicker.addErrorDescription'),
       );
     } finally {
       isPickingRef.current = false;
     }
-  }, [appendAssets, disabled, photoLabel, photos.length, safeMaxPhotos]);
+  }, [
+    appendAssets,
+    disabled,
+    photos.length,
+    resolvedPhotoLabel,
+    safeMaxPhotos,
+    t,
+  ]);
 
   const handleCameraPress = useCallback(() => {
     runPicker('camera').catch(() => undefined);
@@ -229,15 +255,29 @@ export const PhotoPicker = memo(function PhotoPickerComponent({
     }
 
     Alert.alert(
-      `Add ${photoLabel}`,
-      'Choose a source. Selected photos are added to this request when you submit.',
+      t('shared.photoPicker.addTitle', { label: resolvedPhotoLabel }),
+      t('shared.photoPicker.addDescription'),
       [
-        { text: 'Camera', onPress: handleCameraPress },
-        { text: 'Photo library', onPress: handleLibraryPress },
-        { text: 'Cancel', style: 'cancel' },
+        {
+          text: t('shared.photoPicker.camera'),
+          onPress: handleCameraPress,
+        },
+        {
+          text: t('shared.photoPicker.photoLibrary'),
+          onPress: handleLibraryPress,
+        },
+        { text: t('common.cancel'), style: 'cancel' },
       ],
     );
-  }, [disabled, handleCameraPress, handleLibraryPress, photoLabel, photos.length, safeMaxPhotos]);
+  }, [
+    disabled,
+    handleCameraPress,
+    handleLibraryPress,
+    photos.length,
+    resolvedPhotoLabel,
+    safeMaxPhotos,
+    t,
+  ]);
 
   const handleRemove = useCallback((index: number) => {
     onChange(photos.filter((_, photoIndex) => photoIndex !== index));
@@ -246,11 +286,11 @@ export const PhotoPicker = memo(function PhotoPickerComponent({
   const renderPhoto: ListRenderItem<string> = useCallback(({ item, index }) => (
     <PhotoPreview
       index={index}
-      photoLabel={photoLabel}
+      photoLabel={resolvedPhotoLabel}
       uri={item}
       onRemove={handleRemove}
     />
-  ), [handleRemove, photoLabel]);
+  ), [handleRemove, resolvedPhotoLabel]);
 
   const keyExtractor = useCallback((uri: string) => uri, []);
   const canAddMore = !disabled && photos.length < safeMaxPhotos;
@@ -259,21 +299,30 @@ export const PhotoPicker = memo(function PhotoPickerComponent({
     canAddMore ? (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Add another ${photoLabel}`}
+        accessibilityLabel={t('shared.photoPicker.addAnother', {
+          label: resolvedPhotoLabel,
+        })}
         onPress={handleAddPress}
         style={styles.addTile}
       >
         <Plus size={22} color={theme.colors.primary} weight="bold" />
-        <Text style={styles.addTileText}>Add</Text>
+        <Text style={styles.addTileText}>{t('shared.photoPicker.add')}</Text>
       </Pressable>
     ) : null
-  ), [canAddMore, handleAddPress, photoLabel, styles, theme.colors.primary]);
+  ), [
+    canAddMore,
+    handleAddPress,
+    resolvedPhotoLabel,
+    styles,
+    t,
+    theme.colors.primary,
+  ]);
 
   return (
     <View style={styles.container}>
       <View style={styles.headingRow}>
         <View style={styles.headingCopy}>
-          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.title}>{resolvedTitle}</Text>
           <Text style={styles.counter}>{photos.length}/{safeMaxPhotos}</Text>
         </View>
         <ImageSquare size={22} color={theme.colors.primary} weight="duotone" />
@@ -282,7 +331,9 @@ export const PhotoPicker = memo(function PhotoPickerComponent({
       {photos.length === 0 ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Add ${photoLabel}s`}
+          accessibilityLabel={t('shared.photoPicker.addPhotos', {
+            label: resolvedPhotoLabel,
+          })}
           accessibilityState={{ disabled }}
           disabled={disabled}
           onPress={handleAddPress}
@@ -293,8 +344,12 @@ export const PhotoPicker = memo(function PhotoPickerComponent({
           ]}
         >
           <Camera size={30} color={theme.colors.primary} weight="duotone" />
-          <Text style={styles.emptyTitle}>Take or choose photos</Text>
-          <Text style={styles.emptyText}>JPG, PNG, HEIC</Text>
+          <Text style={styles.emptyTitle}>
+            {t('shared.photoPicker.emptyTitle')}
+          </Text>
+          <Text style={styles.emptyText}>
+            {t('shared.photoPicker.supportedFormats')}
+          </Text>
         </Pressable>
       ) : (
         <FlashList

@@ -14,18 +14,18 @@ import { House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native'
 import { spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
+import { motionTokens, useMotion } from '@shared/motion';
 import { useTabBarStore } from '@shared/store/useTabBarStore';
 import type { AppTheme } from '@shared/theme';
 import { APP_LOGO } from '@shared/constants/assets';
 
 export const CUSTOM_TAB_BAR_BASE_HEIGHT = 76;
-const TAB_BAR_COLLAPSE_DURATION_MS = 320;
-const TAB_BAR_EXPAND_DURATION_MS = 360;
 
 export function CustomTabBar({ state, descriptors: _descriptors, navigation }: BottomTabBarProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const theme = useTheme();
+  const { reduceMotion } = useMotion();
   const styles = useThemedStyles(createStyles);
   const isCompact = useTabBarStore((tabBarState) => tabBarState.isCompact);
   const setCompact = useTabBarStore((tabBarState) => tabBarState.setCompact);
@@ -35,7 +35,7 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: B
   useEffect(() => {
     const animation = Animated.timing(compactProgress, {
       toValue: isCompact ? 1 : 0,
-      duration: isCompact ? TAB_BAR_COLLAPSE_DURATION_MS : TAB_BAR_EXPAND_DURATION_MS,
+      duration: reduceMotion ? 0 : motionTokens.duration.emphasis,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
@@ -45,7 +45,7 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: B
     return () => {
       animation.stop();
     };
-  }, [compactProgress, isCompact]);
+  }, [compactProgress, isCompact, reduceMotion]);
 
   const animatedTabBarStyle = useMemo(
     () => ({
@@ -58,18 +58,6 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: B
           translateY: compactProgress.interpolate({
             inputRange: [0, 1],
             outputRange: [0, 8],
-          }),
-        },
-        {
-          scaleX: compactProgress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [1, 0.88],
-          }),
-        },
-        {
-          scaleY: compactProgress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [1, 0.82],
           }),
         },
       ],
@@ -117,7 +105,7 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: B
                     navigation.navigate('Chatbot');
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="VietRide assistant"
+                  accessibilityLabel={t('shared.tabBar.assistantAccessibility')}
                   style={({ pressed }) => [
                     styles.fabButton,
                     pressed ? styles.pressed : null,
@@ -144,7 +132,7 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: B
             label = t('profile.notifications');
             IconComponent = Bell;
           } else if (route.name === 'BookingHistory') {
-            label = t('profile.history', 'History');
+            label = t('profile.history');
             IconComponent = ClockCounterClockwise;
           } else if (route.name === 'Profile') {
             label = t('nav.profile');
@@ -208,11 +196,7 @@ const createStyles = (theme: AppTheme) => ({
     bottom: -3,
     left: -3,
     borderRadius: 42,
-    backgroundColor: theme.isDark
-      ? 'rgba(85, 241, 232, 0.09)'
-      : theme.effects.isLiquid
-        ? 'rgba(0, 125, 120, 0.14)'
-        : 'rgba(0, 106, 103, 0.10)',
+    backgroundColor: theme.effects.ambientGlow,
   },
   tabBarShadowWide: {
     position: 'absolute',
@@ -221,11 +205,7 @@ const createStyles = (theme: AppTheme) => ({
     bottom: -13,
     height: 48,
     borderRadius: 999,
-    backgroundColor: theme.isDark
-      ? 'rgba(0, 0, 0, 0.48)'
-      : theme.effects.isLiquid
-        ? 'rgba(0, 106, 103, 0.22)'
-        : 'rgba(0, 74, 72, 0.20)',
+    backgroundColor: theme.colors.overlayLight,
   },
   tabBarShadowTight: {
     position: 'absolute',
@@ -234,11 +214,7 @@ const createStyles = (theme: AppTheme) => ({
     bottom: -6,
     height: 30,
     borderRadius: 999,
-    backgroundColor: theme.isDark
-      ? 'rgba(0, 0, 0, 0.58)'
-      : theme.effects.isLiquid
-        ? 'rgba(0, 106, 103, 0.28)'
-        : 'rgba(0, 74, 72, 0.24)',
+    backgroundColor: theme.colors.overlay,
   },
   tabBarSurface: {
     position: 'absolute',
@@ -247,17 +223,13 @@ const createStyles = (theme: AppTheme) => ({
     bottom: 0,
     left: 0,
     borderRadius: 38,
-    backgroundColor: theme.isDark
+    backgroundColor: theme.effects.isLiquid
       ? theme.effects.tabBarSurface
-      : theme.effects.isLiquid
-        ? 'rgba(255, 255, 255, 0.96)'
-        : '#FFFFFF',
+      : theme.colors.surface,
     borderWidth: 1.5,
-    borderColor: theme.isDark
+    borderColor: theme.effects.isLiquid
       ? theme.effects.glassBorderStrong
-      : theme.effects.isLiquid
-        ? 'rgba(0, 106, 103, 0.24)'
-        : 'rgba(0, 106, 103, 0.18)',
+      : theme.colors.divider,
   },
   tabBarSheen: {
     position: 'absolute',
