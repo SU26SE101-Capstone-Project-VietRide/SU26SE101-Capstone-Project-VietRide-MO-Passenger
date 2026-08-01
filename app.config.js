@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const { resolveGoogleMapsNativeConfig } = require('./config/googleMapsConfig');
 
 const baseConfig = {
@@ -49,6 +51,7 @@ const baseConfig = {
       backgroundColor: '#EFF7F8',
     },
     allowBackup: false,
+    permissions: ['android.permission.POST_NOTIFICATIONS'],
     intentFilters: [
       {
         action: 'VIEW',
@@ -86,6 +89,52 @@ const baseConfig = {
 
 const { androidApiKey, iosApiKey } = resolveGoogleMapsNativeConfig();
 const buildPlatform = process.env.EAS_BUILD_PLATFORM;
+const configuredAndroidFirebaseFile = process.env.GOOGLE_SERVICES_ANDROID_FILE?.trim();
+const configuredIosFirebaseFile = process.env.GOOGLE_SERVICE_INFO_PLIST?.trim();
+const fileExists = (filePath) => Boolean(
+  filePath && fs.existsSync(path.resolve(__dirname, filePath)),
+);
+const hasManagedAndroidFirebaseConfig = fileExists(configuredAndroidFirebaseFile);
+const hasManagedIosFirebaseConfig = fileExists(configuredIosFirebaseFile);
+const hasNativeAndroidFirebaseConfig = fs.existsSync(
+  path.resolve(__dirname, 'android/app/google-services.json'),
+);
+const hasAndroidFirebaseConfig =
+  hasManagedAndroidFirebaseConfig || hasNativeAndroidFirebaseConfig;
+const hasIosFirebaseConfig = hasManagedIosFirebaseConfig;
+const androidFirebaseConfigPath = hasManagedAndroidFirebaseConfig
+  ? path.resolve(__dirname, configuredAndroidFirebaseFile)
+  : path.resolve(__dirname, 'android/app/google-services.json');
+const validateAndroidFirebaseConfig = (filePath) => {
+  let config;
+  try {
+    config = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    throw new Error('[Push] Android Firebase client config must be valid JSON.');
+  }
+
+  const clients = Array.isArray(config.client) ? config.client : [];
+  const matchingClient = clients.find(
+    (client) => client?.client_info?.android_client_info?.package_name
+      === baseConfig.android.package,
+  );
+  if (!matchingClient?.client_info?.mobilesdk_app_id) {
+    throw new Error(
+      `[Push] Firebase Android config must contain package ${baseConfig.android.package}.`,
+    );
+  }
+
+  const projectId = config?.project_info?.project_id;
+  const expectedProjectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID?.trim();
+  if (!projectId || (expectedProjectId && projectId !== expectedProjectId)) {
+    throw new Error(
+      '[Push] Firebase Android project_id does not match EXPO_PUBLIC_FIREBASE_PROJECT_ID.',
+    );
+  }
+};
+if (hasAndroidFirebaseConfig) {
+  validateAndroidFirebaseConfig(androidFirebaseConfigPath);
+}
 const googleIosUrlScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_REVERSED_CLIENT_ID?.trim();
 const googleSignInPlugins = googleIosUrlScheme
   ? [['react-native-nitro-google-signin', { iosUrlScheme: googleIosUrlScheme }]]
@@ -97,6 +146,10 @@ const isGoogleMapsProductionEligible =
   process.env.GOOGLE_MAPS_PRODUCTION_ELIGIBLE === 'true';
 const googleMapsEnabledForBuild =
   !isProduction || isGoogleMapsProductionEligible;
+const firebaseNativePlugins =
+  hasManagedAndroidFirebaseConfig || hasManagedIosFirebaseConfig
+    ? ['@react-native-firebase/app', '@react-native-firebase/messaging']
+    : [];
 
 if (
   isProduction &&
@@ -138,9 +191,42 @@ process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED = String(
 process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED = String(
   googleMapsEnabledForBuild && Boolean(iosApiKey),
 );
+process.env.EXPO_PUBLIC_NATIVE_PUSH_ANDROID_ENABLED = String(
+  hasAndroidFirebaseConfig,
+);
+process.env.EXPO_PUBLIC_NATIVE_PUSH_IOS_ENABLED = String(
+  hasIosFirebaseConfig,
+);
+
+if (isProduction && buildPlatform === 'android' && !hasAndroidFirebaseConfig) {
+  throw new Error(
+    '[Push] GOOGLE_SERVICES_ANDROID_FILE is required for a production Android build.',
+  );
+}
+
+if (isProduction && buildPlatform === 'ios' && !hasIosFirebaseConfig) {
+  throw new Error(
+    '[Push] GOOGLE_SERVICE_INFO_PLIST is required for a production iOS build.',
+  );
+}
 
 module.exports = {
   ...baseConfig,
+  ios: {
+    ...baseConfig.ios,
+    ...(configuredIosFirebaseFile
+      ? { googleServicesFile: configuredIosFirebaseFile }
+      : {}),
+    entitlements: {
+      'aps-environment': isProduction ? 'production' : 'development',
+    },
+  },
+  android: {
+    ...baseConfig.android,
+    ...(configuredAndroidFirebaseFile
+      ? { googleServicesFile: configuredAndroidFirebaseFile }
+      : {}),
+  },
   plugins: [
     ...baseConfig.plugins,
     [
@@ -148,6 +234,7 @@ module.exports = {
       { enabled: googleMapsEnabledForBuild },
     ],
     ...googleSignInPlugins,
+    ...firebaseNativePlugins,
   ],
 };
 

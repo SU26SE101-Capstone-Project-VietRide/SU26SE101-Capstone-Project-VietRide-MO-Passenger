@@ -55,6 +55,7 @@ interface PassengerHistoryItemBase {
   destinationName: string | null;
   departureDateTime: string | null;
   estimatedArrivalTime: string | null;
+  paymentRedirectUrl: string | null;
 }
 
 export interface PassengerTicketHistoryItem extends PassengerHistoryItemBase {

@@ -57,8 +57,10 @@ the Web client ID sent to the backend.
    the authority that mints the custom token. Do not enable broad anonymous or
    public writes.
 4. Keep the Firebase Admin SDK/service-account credential exclusively on the
-   backend. Do not add `google-services.json`, `GoogleService-Info.plist`, or
-   an Admin JSON file to this repository for the current architecture.
+   backend. Avatar upload still does not need native Firebase files. System
+   push notifications do require the public native client files, but they are
+   injected locally/EAS and ignored by Git. See `PUSH_NOTIFICATIONS_SETUP.md`.
+   Never place an Admin JSON file in this repository or in an app build.
 
 ## 3. Mobile environment
 

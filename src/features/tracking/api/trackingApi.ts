@@ -50,6 +50,24 @@ const trackingEtaResponseSchema = z.object({
   eta: trackingEtaSchema.nullable(),
 });
 
+const shuttleTrackingPointSchema = z.object({
+  shuttleTripId: z.string().uuid(),
+  latitude: z.number(),
+  longitude: z.number(),
+  speedKmh: z.number().finite().nonnegative().optional(),
+  heading: z.number().finite().min(0).max(360).optional(),
+  recordedAt: trackingDateTimeSchema,
+}).strict().refine(isValidGeoCoordinate, 'Invalid shuttle GPS coordinate.');
+
+export const shuttleTrackingEtaSchema = z.object({
+  shuttleTripId: z.string().uuid(),
+  nextPickupOrder: z.number().int().positive(),
+  etaMinutes: z.number().int().positive(),
+  estimatedArrivalTime: trackingDateTimeSchema,
+  distanceMeters: z.number().int().nonnegative(),
+  updatedAt: trackingDateTimeSchema,
+}).strict();
+
 export type TrackingPoint = z.infer<typeof trackingPointSchema>;
 
 export type TrackingTrailPoint = z.infer<typeof trackingTrailPointSchema>;
@@ -61,6 +79,16 @@ export type TrackingTrailResponse = z.infer<typeof trackingTrailResponseSchema>;
 export type TrackingEta = z.infer<typeof trackingEtaSchema>;
 
 export type TrackingEtaResponse = z.infer<typeof trackingEtaResponseSchema>;
+
+export type ShuttleTrackingEta = z.infer<typeof shuttleTrackingEtaSchema>;
+
+export interface ShuttleTrackingLatestResponse {
+  latest: TrackingPoint | null;
+}
+
+export interface ShuttleTrackingEtaResponse {
+  eta: ShuttleTrackingEta | null;
+}
 
 export interface TrackingTrailParams {
   from?: string;
@@ -83,6 +111,46 @@ const assertExpectedTrip = (
 export const parseTrackingPoint = (value: unknown): TrackingPoint | null => {
   const result = trackingPointSchema.safeParse(value);
   return result.success ? result.data : null;
+};
+
+export const parseShuttleTrackingPoint = (
+  value: unknown,
+  expectedShuttleTripId?: string,
+): TrackingPoint | null => {
+  const result = shuttleTrackingPointSchema.safeParse(value);
+  if (
+    !result.success
+    || (
+      expectedShuttleTripId !== undefined
+      && result.data.shuttleTripId !== expectedShuttleTripId
+    )
+  ) {
+    return null;
+  }
+
+  const { shuttleTripId, heading, ...point } = result.data;
+  return {
+    ...point,
+    tripId: shuttleTripId,
+    ...(heading !== undefined ? { headingDeg: heading } : {}),
+  };
+};
+
+export const parseShuttleTrackingEta = (
+  value: unknown,
+  expectedShuttleTripId?: string,
+): ShuttleTrackingEta | null => {
+  const result = shuttleTrackingEtaSchema.safeParse(value);
+  if (
+    !result.success
+    || (
+      expectedShuttleTripId !== undefined
+      && result.data.shuttleTripId !== expectedShuttleTripId
+    )
+  ) {
+    return null;
+  }
+  return result.data;
 };
 
 export const parseTrackingLatestResponse = (
@@ -126,6 +194,12 @@ export const trackingKeys = {
     [...trackingKeys.trip(userId, tripId), 'trail'] as const,
   eta: (userId: string, tripId: string, stopId: string) =>
     [...trackingKeys.trip(userId, tripId), 'eta', stopId] as const,
+  shuttle: (userId: string, shuttleTripId: string) =>
+    [...trackingKeys.all, userId, 'shuttle', shuttleTripId] as const,
+  shuttleLatest: (userId: string, shuttleTripId: string) =>
+    [...trackingKeys.shuttle(userId, shuttleTripId), 'latest'] as const,
+  shuttleEta: (userId: string, shuttleTripId: string) =>
+    [...trackingKeys.shuttle(userId, shuttleTripId), 'eta'] as const,
 };
 
 const trackingTripPath = (tripId: string): string => {
@@ -183,4 +257,48 @@ export async function getTrackingEta(
     tripId,
     stopId,
   );
+}
+
+const trackingShuttlePath = (shuttleTripId: string): string => {
+  const shuttleTripIdSegment = encodeUuidPathSegment(
+    shuttleTripId,
+    'shuttleTripId',
+  );
+  return `/tracking/shuttle-trips/${shuttleTripIdSegment}`;
+};
+
+export async function getShuttleTrackingLatest(
+  shuttleTripId: string,
+  signal?: AbortSignal,
+): Promise<ShuttleTrackingLatestResponse> {
+  const response = await apiClient.get<ApiEnvelope<unknown>>(
+    `${trackingShuttlePath(shuttleTripId)}/latest`,
+    signal ? { signal } : undefined,
+  );
+  const value = unwrapApiResponse(response.data);
+  if (value === null) return { latest: null };
+
+  const latest = parseShuttleTrackingPoint(value, shuttleTripId);
+  if (!latest) {
+    throw new Error('Invalid shuttle tracking response.');
+  }
+  return { latest };
+}
+
+export async function getShuttleTrackingEta(
+  shuttleTripId: string,
+  signal?: AbortSignal,
+): Promise<ShuttleTrackingEtaResponse> {
+  const response = await apiClient.get<ApiEnvelope<unknown>>(
+    `${trackingShuttlePath(shuttleTripId)}/eta`,
+    signal ? { signal } : undefined,
+  );
+  const value = unwrapApiResponse(response.data);
+  if (value === null) return { eta: null };
+
+  const eta = parseShuttleTrackingEta(value, shuttleTripId);
+  if (!eta) {
+    throw new Error('Invalid shuttle tracking ETA response.');
+  }
+  return { eta };
 }

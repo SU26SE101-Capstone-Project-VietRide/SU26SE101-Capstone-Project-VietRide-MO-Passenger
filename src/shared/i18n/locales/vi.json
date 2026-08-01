@@ -274,8 +274,10 @@
     "unreadCount_other": "{{count}} thông báo chưa đọc",
     "itemAccessibility": "Mở thông báo: {{title}}",
     "parcelUpdate": "Cập nhật đơn hàng",
+    "shuttleUpdate": "Cập nhật trung chuyển",
     "vietRideUpdate": "Cập nhật từ VietRide",
     "viewParcelDetails": "Xem chi tiết đơn hàng",
+    "trackShuttle": "Theo dõi xe trung chuyển",
     "time": {
       "now": "Vừa xong",
       "minutesCompact_one": "{{count}} phút",
@@ -694,11 +696,13 @@
   },
   "tracking": {
     "liveTracking": "Theo dõi trực tiếp",
+    "shuttleLiveTracking": "Theo dõi xe trung chuyển",
     "eta": "Thời gian dự kiến đến",
     "boardingPoint": "Điểm đón",
     "dropOff": "Điểm trả",
-    "bookingReference": "Đơn {{id}}",
-    "tripReference": "Chuyến {{id}}",
+    "bookingReference": "Hành trình đã đặt",
+    "tripReference": "Vị trí xe trực tiếp",
+    "shuttleReference": "Xe trung chuyển đã được phân",
     "tripCancelled": "Chuyến đi đã bị hủy. Cập nhật vị trí tự động đã dừng.",
     "tripDisrupted": "Chuyến đi bị gián đoạn. Cập nhật vị trí tự động đã dừng.",
     "tripComplete": "Hành trình đã hoàn tất. Cập nhật vị trí tự động đã dừng.",
@@ -716,12 +720,14 @@
     "states": {
       "unavailableTitle": "Chưa thể theo dõi",
       "invalidTripId": "Mục này không có mã chuyến hợp lệ để theo dõi.",
+      "invalidShuttleTripId": "Thông báo này không có mã chuyến trung chuyển hợp lệ.",
       "signInTitle": "Cần đăng nhập",
       "signInMessage": "Hãy đăng nhập bằng tài khoản hành khách sở hữu đơn vé hoặc đơn hàng này.",
       "deniedTitle": "Không có quyền theo dõi",
       "deniedMessage": "Tài khoản hành khách này không được phép theo dõi chuyến đã chọn.",
       "notFoundTitle": "Không tìm thấy chuyến",
-      "notFoundMessage": "Dịch vụ theo dõi không tìm thấy chuyến đi này."
+      "notFoundMessage": "Dịch vụ theo dõi không tìm thấy chuyến đi này.",
+      "shuttleNotFoundMessage": "Dịch vụ theo dõi không tìm thấy chuyến trung chuyển này."
     },
     "errors": {
       "refresh": "Cập nhật vị trí bị gián đoạn. Vui lòng thử lại."
@@ -736,11 +742,15 @@
       "title": "Chi tiết vị trí",
       "coordinates": "Tọa độ",
       "trailPoints": "Điểm hành trình",
+      "liveSamples": "Điểm cập nhật trực tiếp",
       "destinationUnavailable": "Chưa có điểm dừng đích",
       "invalidDestination": "Điểm dừng đích không hợp lệ",
       "etaValue_one": "{{count}} phút ({{distance}})",
       "etaValue_other": "{{count}} phút ({{distance}})",
-      "waitingEta": "Đang chờ thời gian dự kiến"
+      "waitingEta": "Đang chờ thời gian dự kiến",
+      "shuttleEtaValue_one": "Điểm đón #{{order}} · {{count}} phút · {{distance}}",
+      "shuttleEtaValue_other": "Điểm đón #{{order}} · {{count}} phút · {{distance}}",
+      "waitingShuttleEta": "Đang chờ ETA đến điểm đón tiếp theo"
     },
     "map": {
       "unavailableTitle": "Bản đồ chưa khả dụng",
@@ -748,6 +758,7 @@
       "unavailableDevelopment": "Tọa độ trực tiếp vẫn hiển thị bên dưới. Hãy cấu hình bản dựng bản đồ native hợp lệ để bật bản đồ.",
       "waitingTitle": "Đang chờ vị trí",
       "waitingMessage": "Tài xế chưa gửi điểm GPS cho chuyến đi này.",
+      "waitingShuttleMessage": "Tài xế trung chuyển chưa gửi điểm GPS.",
       "loadingTitle": "Đang tải bản đồ",
       "loadingMessage": "Đang chuẩn bị bản đồ chuyến đi...",
       "accessibilityLabel": "Bản đồ chuyến đi trực tiếp",
@@ -1178,6 +1189,8 @@
     "parcelAccessibility": "Mở đơn hàng {{code}}",
     "trackAccessibility": "Theo dõi đơn vé {{code}}",
     "track": "Theo dõi chuyến",
+    "continuePayment": "Tiếp tục thanh toán",
+    "continuePaymentAccessibility": "Tiếp tục thanh toán đơn {{code}}",
     "signInRequiredTitle": "Đăng nhập để xem lịch sử",
     "signInTicketsDescription": "Các vé xe đã đặt sẽ xuất hiện tại đây sau khi bạn đăng nhập.",
     "signInParcelsDescription": "Các đơn gửi hàng sẽ xuất hiện tại đây sau khi bạn đăng nhập.",
@@ -1286,12 +1299,21 @@
     },
     "notifications": {
       "title": "Thông báo",
-      "tripUpdates": "Cập nhật chuyến đi",
-      "tripUpdatesDescription": "Thông báo lên xe, khởi hành và trạng thái chuyến",
-      "parcelAlerts": "Thông báo đơn hàng",
-      "parcelAlertsDescription": "Thông báo trạng thái vận chuyển và nhận hàng",
-      "promotions": "Ưu đãi và tin tức",
-      "promotionsDescription": "Các ưu đãi VietRide không thường xuyên"
+      "systemPush": "Thông báo trên thiết bị",
+      "systemPushDescription": "Nhận cập nhật về vé, chuyến đi, kiện hàng, ví và tài khoản",
+      "systemPushActive": "Thiết bị đã kết nối an toàn với VietRide",
+      "systemPushSyncing": "Đang kết nối thiết bị...",
+      "systemPushError": "Chưa thể kết nối thiết bị. Hãy kiểm tra mạng và thử lại",
+      "permissionDenied": "Thông báo đang bị chặn. Chạm để mở cài đặt hệ thống",
+      "configurationRequired": "Bản dựng này chưa có cấu hình thông báo từ máy chủ",
+      "dailyReminder": "Nhắc hằng ngày từ VietRide",
+      "dailyReminderDescription": "Nhắc nhẹ khoảng 19:00 theo giờ trên thiết bị",
+      "dailyTitle": "Ghé VietRide một chút nhé",
+      "dailyBody": "Kiểm tra chuyến sắp tới, kiện hàng và các cập nhật mới nhất.",
+      "updatesChannel": "Cập nhật VietRide",
+      "remindersChannel": "Lời nhắc VietRide",
+      "fallbackTitle": "VietRide có cập nhật mới",
+      "fallbackBody": "Mở VietRide để xem thông tin mới nhất."
     },
     "legal": {
       "title": "Quyền riêng tư và pháp lý",

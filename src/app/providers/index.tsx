@@ -23,11 +23,16 @@ import { QueryClientProvider } from '@tanstack/react-query';
 
 import { queryClient } from '@shared/api/queryClient';
 import { RootNavigator } from '@app/navigation/RootNavigator';
+import {
+  flushPendingNotificationOpen,
+  navigationRef,
+} from '@app/navigation/navigationRef';
 import { useLocations } from '@features/location/hooks/useLocations';
 import { AppPreferencesProvider } from './AppPreferencesProvider';
 import { MotionProvider } from '@shared/motion';
 import { AppLaunchScreen } from '@shared/components';
 import { useTranslation } from 'react-i18next';
+import { NotificationCoordinator } from './NotificationCoordinator';
 
 interface AppProvidersProps {
   children?: React.ReactNode;
@@ -64,9 +69,15 @@ function ThemedNavigation({
   }, [theme]);
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer
+      ref={navigationRef}
+      theme={navigationTheme}
+      onReady={flushPendingNotificationOpen}
+      onStateChange={flushPendingNotificationOpen}
+    >
       <StatusBarDynamic />
       <RootNavigator />
+      <NotificationCoordinator />
       {children}
     </NavigationContainer>
   );

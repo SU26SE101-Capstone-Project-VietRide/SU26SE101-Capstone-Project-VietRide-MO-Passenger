@@ -40,14 +40,16 @@ export function PaymentDeepLinkHandler(): null {
       queryClient
         .invalidateQueries({
           queryKey: passengerHistoryKeys.user(userId),
+          // The initiating History screen owns its one foreground refetch.
+          // Other payment surfaces only mark this user-scoped cache stale so
+          // the next History visit refreshes without racing that owner.
           refetchType: 'none',
         })
         .catch(() => undefined);
 
-      // Payment screens own authoritative foreground reconciliation. This only
-      // marks booking/parcel/history data stale so the untrusted OS redirect
-      // never races active polling. Wallet top-up remains owned by its
-      // single-flight foreground gate.
+      // Payment detail screens own authoritative reconciliation. Booking,
+      // Parcel and History caches stay stale-only here so this global wake
+      // signal cannot race the initiating screen's foreground owner.
 
       Alert.alert(
         t('paymentReturn.reconcilingTitle'),

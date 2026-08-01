@@ -1,5 +1,9 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import {
+  createIdempotencyKey,
+  IdempotencyKeyTracker,
+} from '@shared/api/idempotency';
 import { refreshStoredTokenBundle } from '@shared/api/tokenRefresh';
 import type {
   AuthSession,
@@ -26,6 +30,11 @@ import {
 } from '../validation/authValidation';
 
 const PUBLIC_AUTH_REQUEST = { skipAuthRefresh: true, skipAuth: true } as const;
+const logoutIdempotency = new IdempotencyKeyTracker('auth-logout');
+const publicAuthMutationRequest = (scope: string) => ({
+  ...PUBLIC_AUTH_REQUEST,
+  headers: { 'Idempotency-Key': createIdempotencyKey(scope) },
+});
 
 export const authKeys = {
   all: ['auth'] as const,
@@ -54,7 +63,7 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
       displayName: normalizeDisplayName(payload.displayName),
       phone: normalizeVietnamPhone(payload.phone),
     },
-    PUBLIC_AUTH_REQUEST,
+    publicAuthMutationRequest('auth-register'),
   );
 
   return unwrapApiResponse(response.data);
@@ -70,7 +79,7 @@ export async function verifyEmail(
       code: payload.code,
       purpose: payload.purpose,
     },
-    PUBLIC_AUTH_REQUEST,
+    publicAuthMutationRequest('auth-verify-email'),
   );
 
   return unwrapApiResponse(response.data);
@@ -96,16 +105,25 @@ export async function refreshSession(_refreshToken?: string): Promise<AuthSessio
   };
 }
 
-export async function logout(refreshToken: string, accessToken: string): Promise<void> {
+export async function logout(
+  refreshToken: string,
+  accessToken: string,
+  sessionEpoch: number,
+): Promise<void> {
+  const idempotencyKey = logoutIdempotency.getOrCreate({ sessionEpoch });
   await apiClient.post(
     '/auth/logout',
     { refreshToken },
     {
       skipAuthRefresh: true,
       skipAuth: true,
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Idempotency-Key': idempotencyKey,
+      },
     },
   );
+  logoutIdempotency.reset();
 }
 
 export async function getCurrentUser(signal?: AbortSignal): Promise<User> {
@@ -119,7 +137,7 @@ export async function requestPasswordReset(
   const response = await apiClient.post<ApiEnvelope<PasswordResetResponse>>(
     '/auth/forgot-password',
     { email: normalizeEmail(payload.email) },
-    PUBLIC_AUTH_REQUEST,
+    publicAuthMutationRequest('auth-forgot-password'),
   );
 
   return unwrapApiResponse(response.data);
@@ -135,7 +153,7 @@ export async function resetPassword(
       code: payload.code,
       newPassword: payload.newPassword,
     },
-    PUBLIC_AUTH_REQUEST,
+    publicAuthMutationRequest('auth-reset-password'),
   );
 
   return unwrapApiResponse(response.data);
@@ -160,7 +178,7 @@ export async function resendVerificationEmail(
       email: normalizeEmail(payload.email),
       purpose: payload.purpose,
     },
-    PUBLIC_AUTH_REQUEST,
+    publicAuthMutationRequest('auth-resend-verification'),
   );
 
   return unwrapApiResponse(response.data);

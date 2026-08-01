@@ -10,6 +10,7 @@ import { create } from 'zustand';
 import { queryClient } from '@shared/api/queryClient';
 import { ApiRequestError, toApiError } from '@shared/api/errors';
 import { clearSessionBoundState } from '@shared/session/cleanup';
+import { revokeDeviceRegistration } from '@shared/notifications';
 import {
   isTokenExpired,
   isTokenExpiringSoon,
@@ -433,6 +434,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
+    // Snapshot the access token and start device-token revocation before the
+    // local credential bundle is cleared. The endpoint requires auth and the
+    // exact FCM token; the shared service owns both details.
+    const pushRevocationPromise = tokenBundle
+      ? revokeDeviceRegistration(tokenBundle.accessToken)
+      : Promise.resolve();
+
     let clearPromise = clearToken();
     let clearedSessionEpoch = getTokenSessionEpoch();
     let cleared = await clearPromise;
@@ -455,17 +463,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     }
 
-    try {
-      if (tokenBundle) {
-        await authApi.logout(tokenBundle.refreshToken, tokenBundle.accessToken);
-      }
-    } catch (error) {
-      if (__DEV__) {
-        const apiError = toApiError(error);
-        console.warn(
-          `[Auth] Session revoke failed (${apiError.code}, ${apiError.statusCode ?? 'no-status'}).`,
-        );
-      }
+    const remoteLogoutPromise = tokenBundle
+      ? authApi.logout(
+          tokenBundle.refreshToken,
+          tokenBundle.accessToken,
+          logoutSessionEpoch,
+        )
+      : Promise.resolve();
+    const [pushResult, logoutResult] = await Promise.allSettled([
+      pushRevocationPromise,
+      remoteLogoutPromise,
+    ]);
+
+    if (__DEV__ && pushResult.status === 'rejected') {
+      console.warn('[Auth] Device notification token revocation did not fully complete.');
+    }
+    if (__DEV__ && logoutResult.status === 'rejected') {
+      const apiError = toApiError(logoutResult.reason);
+      console.warn(
+        `[Auth] Session revoke failed (${apiError.code}, ${apiError.statusCode ?? 'no-status'}).`,
+      );
     }
   },
 }));

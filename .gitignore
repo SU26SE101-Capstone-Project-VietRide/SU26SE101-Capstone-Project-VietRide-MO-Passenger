@@ -72,6 +72,11 @@ yarn-error.log
 .env.*
 !.env.example
 
+# Native Firebase client configuration is injected locally or by EAS file vars.
+/google-services.json
+/GoogleService-Info.plist
+/android/app/google-services.json
+
 # Expo
 .expo/
 .expo-shared/

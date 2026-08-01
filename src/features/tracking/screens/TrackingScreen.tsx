@@ -13,6 +13,7 @@ import { ArrowLeft } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
 import type { RootStackParamList } from '@app/navigation/types';
+import type { TripLifecycleStatus } from '@features/trip/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import { borderRadius, fontFamilies, fontSizes, spacing, type AppTheme } from '@shared/theme';
@@ -22,7 +23,7 @@ type TrackingRoute = RouteProp<RootStackParamList, 'Tracking'>;
 type TrackingNavigation = NativeStackNavigationProp<RootStackParamList, 'Tracking'>;
 
 const terminalMessageKeyForStatus = (
-  status: TrackingRoute['params']['tripStatus'],
+  status: TripLifecycleStatus | undefined,
 ): string | undefined => {
   if (status === 'CANCELLED') {
     return 'tracking.tripCancelled';
@@ -39,8 +40,15 @@ export function TrackingScreen(): React.JSX.Element {
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const { tripId, stopId, bookingId, tripStatus } = route.params;
+  const isShuttle = route.params.source === 'shuttle';
+  const bookingId = route.params.bookingId;
+  const tripStatus = isShuttle ? undefined : route.params.tripStatus;
   const terminalMessageKey = terminalMessageKeyForStatus(tripStatus);
+  const headerSubtitleKey = bookingId
+    ? 'tracking.bookingReference'
+    : isShuttle
+      ? 'tracking.shuttleReference'
+      : 'tracking.tripReference';
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
 
   return (
@@ -59,11 +67,13 @@ export function TrackingScreen(): React.JSX.Element {
           <ArrowLeft size={23} color={theme.colors.textPrimary} />
         </Pressable>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{t('tracking.liveTracking')}</Text>
+          <Text style={styles.headerTitle}>
+            {t(isShuttle
+              ? 'tracking.shuttleLiveTracking'
+              : 'tracking.liveTracking')}
+          </Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {bookingId
-              ? t('tracking.bookingReference', { id: bookingId })
-              : t('tracking.tripReference', { id: tripId })}
+            {t(headerSubtitleKey)}
           </Text>
         </View>
         <View style={styles.headerButton} />
@@ -74,14 +84,22 @@ export function TrackingScreen(): React.JSX.Element {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <LiveTripTrackingPanel
-          tripId={tripId}
-          stopId={stopId}
-          tripStatus={tripStatus}
-          terminalMessage={
-            terminalMessageKey ? t(terminalMessageKey) : undefined
-          }
-        />
+        {isShuttle ? (
+          <LiveTripTrackingPanel
+            source="shuttle"
+            shuttleTripId={route.params.shuttleTripId}
+          />
+        ) : (
+          <LiveTripTrackingPanel
+            source="trip"
+            tripId={route.params.tripId}
+            stopId={route.params.stopId}
+            tripStatus={tripStatus}
+            terminalMessage={
+              terminalMessageKey ? t(terminalMessageKey) : undefined
+            }
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

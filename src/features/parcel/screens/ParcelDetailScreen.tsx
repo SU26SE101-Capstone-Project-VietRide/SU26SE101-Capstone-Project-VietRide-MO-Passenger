@@ -40,7 +40,7 @@ import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi'
 import { walletKeys } from '@features/profile/api/walletApi';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import {
-  openPaymentRedirect,
+  PaymentRedirectCoordinator,
 } from '@shared/utils/paymentRedirect';
 import type {
   ParcelStackParamList,
@@ -134,6 +134,10 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const queryClient = useQueryClient();
+  const paymentRedirectCoordinator = React.useMemo(
+    () => new PaymentRedirectCoordinator(),
+    [],
+  );
   const userId = useAuthStore(state => state.user?.id);
   const {
     parcelId,
@@ -292,20 +296,16 @@ export function ParcelDetailScreen(): React.JSX.Element {
     refetchParcelDetail().catch(() => undefined);
   }, [refetchParcelDetail]);
 
-  const handleContinuePayment = React.useCallback(async () => {
-    if (!paymentRedirectUrl) {
-      return;
-    }
+  const handleContinuePayment = React.useCallback(() => {
+    if (!paymentRedirectUrl || paymentRedirectCoordinator.isRunning) return;
 
-    try {
-      await openPaymentRedirect(paymentRedirectUrl);
-    } catch {
+    paymentRedirectCoordinator.open(paymentRedirectUrl).catch(() => {
       Alert.alert(
         t('parcel.payment.redirectErrorTitle'),
         t('parcel.payment.redirectErrorDescription'),
       );
-    }
-  }, [paymentRedirectUrl, t]);
+    });
+  }, [paymentRedirectCoordinator, paymentRedirectUrl, t]);
 
   const handleStartPayment = React.useCallback(async () => {
     if (!paymentStage || isStartingPayment) {
@@ -330,7 +330,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
       if (result.paymentRedirectUrl) {
         try {
-          await openPaymentRedirect(result.paymentRedirectUrl);
+          await paymentRedirectCoordinator.open(result.paymentRedirectUrl);
         } catch {
           Alert.alert(
             t('parcel.payment.redirectErrorTitle'),
@@ -355,6 +355,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
     isStartingPayment,
     navigation,
     parcelId,
+    paymentRedirectCoordinator,
     paymentStage,
     selectedPaymentMethod,
     t,

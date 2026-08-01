@@ -13,6 +13,30 @@ def googleMapsApiKey = (
         ?: System.getenv('GOOGLE_MAPS_ANDROID_API_KEY')
         ?: localProperties.getProperty('GOOGLE_MAPS_ANDROID_API_KEY')
 )?.trim()
+def googleServicesTarget = file('google-services.json')
+def configuredGoogleServicesPath = System.getenv('GOOGLE_SERVICES_ANDROID_FILE')?.trim()
+
+// Keep the Firebase client file outside Git. An explicitly injected file is
+// always authoritative so switching build profiles cannot reuse stale config.
+if (configuredGoogleServicesPath) {
+    def googleServicesSource = new File(configuredGoogleServicesPath)
+    if (!googleServicesSource.isAbsolute()) {
+        googleServicesSource = new File(projectRoot, configuredGoogleServicesPath)
+    }
+    if (googleServicesSource.exists()) {
+        if (googleServicesSource.canonicalFile != googleServicesTarget.canonicalFile) {
+            copy {
+                from googleServicesSource
+                into projectDir
+                rename { 'google-services.json' }
+            }
+        }
+    } else {
+        throw new GradleException(
+            "GOOGLE_SERVICES_ANDROID_FILE does not exist: ${configuredGoogleServicesPath}"
+        )
+    }
+}
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -193,4 +217,8 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+}
+
+if (googleServicesTarget.exists()) {
+    apply plugin: 'com.google.gms.google-services'
 }

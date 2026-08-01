@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import { ArrowLeft, Package, Ticket } from 'phosphor-react-native';
+import { ArrowLeft, Package, Ticket, Van } from 'phosphor-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
@@ -14,7 +14,11 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import { formatDateTime, toIntlLocale } from '@shared/utils/format';
 import { DEFAULT_NOTIFICATION_LIST_PARAMS, useMarkNotificationRead } from '../hooks/useNotifications';
-import { getNotificationKind } from '../utils/notificationPresentation';
+import {
+  getNotificationDataString,
+  getNotificationKind,
+  getShuttleTrackingNotificationIntent,
+} from '../utils/notificationPresentation';
 
 type NotificationDetailRoute = RouteProp<RootStackParamList, 'NotificationDetail'>;
 type NotificationDetailNavigation = NativeStackNavigationProp<RootStackParamList>;
@@ -28,8 +32,12 @@ export function NotificationDetailScreen(): React.JSX.Element {
   const { notification } = route.params;
   const { mutate: markRead } = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const kind = getNotificationKind(notification.type);
-  const parcelId = notification.data?.parcelId;
+  const parcelId = getNotificationDataString(notification.data, 'parcelId');
   const canOpenParcel = kind === 'parcel' && isUuid(parcelId);
+  const shuttleTrackingIntent = useMemo(
+    () => getShuttleTrackingNotificationIntent(notification),
+    [notification],
+  );
 
   const timestamp = useMemo(() => {
     return formatDateTime(
@@ -53,6 +61,17 @@ export function NotificationDetailScreen(): React.JSX.Element {
       params: { parcelId, fromHistory: true },
     });
   }, [canOpenParcel, navigation, parcelId]);
+  const handleOpenShuttleTracking = useCallback(() => {
+    if (!shuttleTrackingIntent) return;
+
+    navigation.navigate('Tracking', {
+      source: 'shuttle',
+      shuttleTripId: shuttleTrackingIntent.shuttleTripId,
+      ...(shuttleTrackingIntent.bookingId
+        ? { bookingId: shuttleTrackingIntent.bookingId }
+        : {}),
+    });
+  }, [navigation, shuttleTrackingIntent]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -78,13 +97,17 @@ export function NotificationDetailScreen(): React.JSX.Element {
         <View style={styles.typeBadge}>
           {kind === 'parcel' ? (
             <Package size={18} color={theme.colors.success} weight="fill" />
+          ) : kind === 'shuttle' ? (
+            <Van size={18} color={theme.colors.primary} weight="fill" />
           ) : (
             <Ticket size={18} color={theme.colors.primary} weight="fill" />
           )}
           <Text style={styles.typeLabel}>
             {kind === 'parcel'
               ? t('notification.parcelUpdate')
-              : t('notification.vietRideUpdate')}
+              : kind === 'shuttle'
+                ? t('notification.shuttleUpdate')
+                : t('notification.vietRideUpdate')}
           </Text>
         </View>
 
@@ -105,6 +128,20 @@ export function NotificationDetailScreen(): React.JSX.Element {
             <Package size={20} color={theme.colors.textInverse} weight="fill" />
             <Text style={styles.relatedActionLabel}>
               {t('notification.viewParcelDetails')}
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {shuttleTrackingIntent ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('notification.trackShuttle')}
+            onPress={handleOpenShuttleTracking}
+            style={({ pressed }) => [styles.relatedAction, pressed ? styles.pressed : null]}
+          >
+            <Van size={20} color={theme.colors.textInverse} weight="fill" />
+            <Text style={styles.relatedActionLabel}>
+              {t('notification.trackShuttle')}
             </Text>
           </Pressable>
         ) : null}

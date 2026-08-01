@@ -274,8 +274,10 @@
     "unreadCount_other": "{{count}} unread notifications",
     "itemAccessibility": "Open notification: {{title}}",
     "parcelUpdate": "Parcel update",
+    "shuttleUpdate": "Shuttle update",
     "vietRideUpdate": "VietRide update",
     "viewParcelDetails": "View parcel details",
+    "trackShuttle": "Track your shuttle",
     "time": {
       "now": "Now",
       "minutesCompact_one": "{{count}}m",
@@ -694,11 +696,13 @@
   },
   "tracking": {
     "liveTracking": "Live Tracking",
+    "shuttleLiveTracking": "Shuttle tracking",
     "eta": "Estimated Arrival",
     "boardingPoint": "Boarding Point",
     "dropOff": "Drop-off Point",
-    "bookingReference": "Booking {{id}}",
-    "tripReference": "Trip {{id}}",
+    "bookingReference": "Your booked journey",
+    "tripReference": "Live vehicle location",
+    "shuttleReference": "Assigned pickup vehicle",
     "tripCancelled": "This trip was cancelled. Automatic location updates are stopped.",
     "tripDisrupted": "This trip was disrupted. Automatic location updates are stopped.",
     "tripComplete": "This journey is complete. Automatic location updates are stopped.",
@@ -716,12 +720,14 @@
     "states": {
       "unavailableTitle": "Tracking unavailable",
       "invalidTripId": "This item does not have a valid trip tracking identifier.",
+      "invalidShuttleTripId": "This notification does not contain a valid shuttle tracking identifier.",
       "signInTitle": "Sign in required",
       "signInMessage": "Sign in with the passenger account that owns this booking or parcel.",
       "deniedTitle": "Tracking access denied",
       "deniedMessage": "This passenger account is not allowed to track the selected trip.",
       "notFoundTitle": "Trip not found",
-      "notFoundMessage": "The tracking service could not find this trip."
+      "notFoundMessage": "The tracking service could not find this trip.",
+      "shuttleNotFoundMessage": "The tracking service could not find this shuttle trip."
     },
     "errors": {
       "refresh": "Location updates were interrupted. Please try again."
@@ -736,11 +742,15 @@
       "title": "Location details",
       "coordinates": "Coordinates",
       "trailPoints": "Trail points",
+      "liveSamples": "Live samples",
       "destinationUnavailable": "Destination stop unavailable",
       "invalidDestination": "Invalid destination stop",
       "etaValue_one": "{{count}} min ({{distance}})",
       "etaValue_other": "{{count}} min ({{distance}})",
-      "waitingEta": "Waiting for ETA"
+      "waitingEta": "Waiting for ETA",
+      "shuttleEtaValue_one": "Pickup #{{order}} · {{count}} min · {{distance}}",
+      "shuttleEtaValue_other": "Pickup #{{order}} · {{count}} min · {{distance}}",
+      "waitingShuttleEta": "Waiting for the next shuttle pickup ETA"
     },
     "map": {
       "unavailableTitle": "Map unavailable",
@@ -748,13 +758,14 @@
       "unavailableDevelopment": "Live coordinates remain available below. Configure an eligible native map build to enable the map.",
       "waitingTitle": "Waiting for location",
       "waitingMessage": "The driver has not published a GPS point for this trip yet.",
+      "waitingShuttleMessage": "The shuttle driver has not published a GPS point yet.",
       "loadingTitle": "Loading map",
       "loadingMessage": "Preparing the native trip map...",
       "accessibilityLabel": "Live trip map",
-      "accessibilityHint": "Drag or pinch to explore the trip. Use Follow bus to resume live tracking.",
-      "latestVehicle": "Latest bus location",
-      "followAccessibility": "Follow the live bus location",
-      "followVehicle": "Follow bus"
+      "accessibilityHint": "Drag or pinch to explore the trip. Use Follow vehicle to resume live tracking.",
+      "latestVehicle": "Latest vehicle location",
+      "followAccessibility": "Follow the live vehicle location",
+      "followVehicle": "Follow vehicle"
     }
   },
   "parcel": {
@@ -1178,6 +1189,8 @@
     "parcelAccessibility": "Open parcel {{code}}",
     "trackAccessibility": "Track booking {{code}}",
     "track": "Track trip",
+    "continuePayment": "Continue payment",
+    "continuePaymentAccessibility": "Continue payment for {{code}}",
     "signInRequiredTitle": "Sign in to view history",
     "signInTicketsDescription": "Your ticket bookings will appear here after you sign in.",
     "signInParcelsDescription": "Your parcel bookings will appear here after you sign in.",
@@ -1286,12 +1299,21 @@
     },
     "notifications": {
       "title": "Notifications",
-      "tripUpdates": "Trip updates",
-      "tripUpdatesDescription": "Boarding, departure, and trip status alerts",
-      "parcelAlerts": "Parcel alerts",
-      "parcelAlertsDescription": "Shipment and pickup status alerts",
-      "promotions": "Offers and news",
-      "promotionsDescription": "Occasional VietRide promotions"
+      "systemPush": "Device notifications",
+      "systemPushDescription": "Receive booking, trip, parcel, wallet, and account updates",
+      "systemPushActive": "Connected securely to VietRide updates",
+      "systemPushSyncing": "Connecting this device...",
+      "systemPushError": "Could not connect this device. Check your connection and try again",
+      "permissionDenied": "Notifications are blocked. Tap to open system settings",
+      "configurationRequired": "Remote notifications are not configured in this build",
+      "dailyReminder": "Daily VietRide reminder",
+      "dailyReminderDescription": "A gentle reminder around 7:00 PM device time",
+      "dailyTitle": "A quick VietRide check-in",
+      "dailyBody": "Review your upcoming trips, parcels, and latest updates.",
+      "updatesChannel": "VietRide updates",
+      "remindersChannel": "VietRide reminders",
+      "fallbackTitle": "New VietRide update",
+      "fallbackBody": "Open VietRide to view the latest information."
     },
     "legal": {
       "title": "Privacy and legal",

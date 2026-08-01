@@ -6,7 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
-import { Bus, Crosshair, MapPin } from 'phosphor-react-native';
+import { Bus, Crosshair, MapPin, Van } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 import MapView, {
   Marker,
@@ -34,6 +34,7 @@ interface NativeTrackingMapProps {
   latest: TrackingPoint;
   points: readonly TrackingPoint[];
   stops: readonly TrackingMapStop[];
+  vehicleKind: 'bus' | 'shuttle';
 }
 
 const MAP_PADDING = { top: 24, right: 24, bottom: 68, left: 24 } as const;
@@ -59,6 +60,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
   latest,
   points,
   stops,
+  vehicleKind,
 }: NativeTrackingMapProps): React.JSX.Element {
   const mapRef = useRef<MapView | null>(null);
   const isMapReadyRef = useRef(false);
@@ -232,7 +234,11 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
           zIndex={10}
         >
           <View collapsable={false} style={styles.vehicleMarker}>
-            <Bus size={20} color={MAP_MARKER_CONTRAST} weight="fill" />
+            {vehicleKind === 'shuttle' ? (
+              <Van size={20} color={MAP_MARKER_CONTRAST} weight="fill" />
+            ) : (
+              <Bus size={20} color={MAP_MARKER_CONTRAST} weight="fill" />
+            )}
           </View>
         </Marker>
       </MapView>

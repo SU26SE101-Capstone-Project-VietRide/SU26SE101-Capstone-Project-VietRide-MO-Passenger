@@ -3,10 +3,12 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -28,6 +30,7 @@ import {
   ArrowLeft,
   CalendarBlank,
   Clock,
+  CreditCard,
   NavigationArrow,
   Package,
   Ticket,
@@ -45,9 +48,14 @@ import {
   getParcelSizePresentation,
   getParcelStatusPresentation,
 } from '@features/parcel/utils/parcelPresentation';
+import { getParcelPaymentStage } from '@features/parcel/utils/parcelPayment';
 import { StatusChip } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
+import {
+  useIsAppActive,
+  useTabBarScrollBehavior,
+  useThemedStyles,
+} from '@shared/hooks';
 import {
   borderRadius as BR,
   fontFamilies,
@@ -60,6 +68,10 @@ import {
   formatTime,
   formatVnd,
 } from '@shared/utils/format';
+import {
+  PaymentRedirectCoordinator,
+  PaymentReturnGate,
+} from '@shared/utils/paymentRedirect';
 import { PASSENGER_HISTORY_DEFAULT_PAGE_SIZE } from '../api/passengerHistoryApi';
 import { usePassengerHistory } from '../hooks/usePassengerHistory';
 import type {
@@ -68,6 +80,7 @@ import type {
 } from '../types';
 
 type HistoryTab = 'ticket' | 'parcel';
+type HistoryPaymentType = 'TICKET' | 'PARCEL';
 type TicketFilter = 'ALL' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
 type BookingHistoryRoute = RouteProp<MainTabParamList, 'BookingHistory'>;
 type BookingHistoryNavigation = CompositeNavigationProp<
@@ -77,6 +90,19 @@ type BookingHistoryNavigation = CompositeNavigationProp<
 
 const ticketKeyExtractor = (item: PassengerTicketHistoryItem): string => item.id;
 const parcelKeyExtractor = (item: PassengerParcelHistoryItem): string => item.id;
+const getPaymentItemKey = (type: HistoryPaymentType, id: string): string => `${type}:${id}`;
+
+interface PendingPaymentReturn {
+  itemKey: string;
+  type: HistoryPaymentType;
+  userId: string;
+}
+
+type ContinuePaymentHandler = (
+  itemId: string,
+  type: HistoryPaymentType,
+  redirectUrl: string,
+) => void;
 
 const getRouteLabel = (
   originName: string | null,
@@ -122,18 +148,25 @@ interface TicketHistoryRowProps {
   item: PassengerTicketHistoryItem;
   onOpen: (item: PassengerTicketHistoryItem) => void;
   onTrack: (tripId: string, bookingId: string) => void;
+  onContinuePayment: ContinuePaymentHandler;
+  isOpeningPayment: boolean;
 }
 
 const TicketHistoryRow = memo(function TicketHistoryRowComponent({
   item,
   onOpen,
   onTrack,
+  onContinuePayment,
+  isOpeningPayment,
 }: TicketHistoryRowProps): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const statusPresentation = getTicketStatusPresentation(item.status);
   const canTrack = statusPresentation.trackingEnabled;
+  const paymentRedirectUrl = statusPresentation.pendingPayment
+    ? item.paymentRedirectUrl
+    : null;
   const seatNumbers = useMemo(
     () => item.ticket.tickets.map((ticket) => ticket.seatNumber).join(', ')
       || t('common.notAvailable'),
@@ -143,6 +176,13 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
   const handleTrack = useCallback(
     () => onTrack(item.tripId, item.id),
     [item.id, item.tripId, onTrack],
+  );
+  const handleContinuePayment = useCallback(() => {
+    if (paymentRedirectUrl) onContinuePayment(item.id, item.type, paymentRedirectUrl);
+  }, [item.id, item.type, onContinuePayment, paymentRedirectUrl]);
+  const paymentAccessibilityState = useMemo(
+    () => ({ busy: isOpeningPayment, disabled: isOpeningPayment }),
+    [isOpeningPayment],
   );
   const bodyStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => [
@@ -245,24 +285,47 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
             {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
           </Text>
         </View>
-        <Text style={styles.ticketCountLabel}>
-          {t('history.ticketCount', {
-            count: item.ticket.tickets.length,
-          })}
-        </Text>
-        {canTrack ? (
-          <Pressable
-            style={trackStyle}
-            onPress={handleTrack}
-            accessibilityRole="button"
-            accessibilityLabel={t('bookingHistory.trackAccessibility', {
-              code: item.code,
+        <View style={styles.footerActions}>
+          <Text style={styles.ticketCountLabel}>
+            {t('history.ticketCount', {
+              count: item.ticket.tickets.length,
             })}
-          >
-            <NavigationArrow size={14} color={theme.colors.textInverse} weight="fill" />
-            <Text style={styles.trackButtonText}>{t('bookingHistory.track')}</Text>
-          </Pressable>
-        ) : null}
+          </Text>
+          {paymentRedirectUrl ? (
+            <Pressable
+              style={trackStyle}
+              onPress={handleContinuePayment}
+              disabled={isOpeningPayment}
+              accessibilityRole="button"
+              accessibilityState={paymentAccessibilityState}
+              accessibilityLabel={t('bookingHistory.continuePaymentAccessibility', {
+                code: item.code,
+              })}
+            >
+              {isOpeningPayment ? (
+                <ActivityIndicator size="small" color={theme.colors.textInverse} />
+              ) : (
+                <CreditCard size={15} color={theme.colors.textInverse} weight="bold" />
+              )}
+              <Text style={styles.trackButtonText} numberOfLines={2}>
+                {t('bookingHistory.continuePayment')}
+              </Text>
+            </Pressable>
+          ) : null}
+          {canTrack ? (
+            <Pressable
+              style={trackStyle}
+              onPress={handleTrack}
+              accessibilityRole="button"
+              accessibilityLabel={t('bookingHistory.trackAccessibility', {
+                code: item.code,
+              })}
+            >
+              <NavigationArrow size={14} color={theme.colors.textInverse} weight="fill" />
+              <Text style={styles.trackButtonText}>{t('bookingHistory.track')}</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -271,78 +334,124 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
 interface ParcelHistoryRowProps {
   item: PassengerParcelHistoryItem;
   onOpen: (parcelId: string) => void;
+  onContinuePayment: ContinuePaymentHandler;
+  isOpeningPayment: boolean;
 }
 
 const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
   item,
   onOpen,
+  onContinuePayment,
+  isOpeningPayment,
 }: ParcelHistoryRowProps): React.JSX.Element {
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const statusPresentation = getParcelStatusPresentation(item.status);
   const sizePresentation = getParcelSizePresentation(item.parcel.sizeCategory);
+  const paymentRedirectUrl = getParcelPaymentStage(item.status)
+    ? item.paymentRedirectUrl
+    : null;
   const handleOpen = useCallback(() => onOpen(item.id), [item.id, onOpen]);
+  const handleContinuePayment = useCallback(() => {
+    if (paymentRedirectUrl) onContinuePayment(item.id, item.type, paymentRedirectUrl);
+  }, [item.id, item.type, onContinuePayment, paymentRedirectUrl]);
+  const paymentAccessibilityState = useMemo(
+    () => ({ busy: isOpeningPayment, disabled: isOpeningPayment }),
+    [isOpeningPayment],
+  );
   const cardStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => [
-      styles.parcelCard,
+      styles.parcelBody,
+      pressed ? styles.pressedCard : null,
+    ],
+    [styles],
+  );
+  const paymentStyle = useCallback(
+    ({ pressed }: { pressed: boolean }) => [
+      styles.paymentButton,
       pressed ? styles.pressedCard : null,
     ],
     [styles],
   );
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={t('bookingHistory.parcelAccessibility', {
-        code: item.code,
-      })}
-      style={cardStyle}
-      onPress={handleOpen}
-    >
-      <View style={styles.parcelIconContainer}>
-        <Package size={25} color={theme.colors.primary} weight="duotone" />
-      </View>
-      <View style={styles.parcelInfo}>
-        <View style={styles.parcelHeader}>
-          <Text style={styles.parcelCode} numberOfLines={1}>
-            {getRouteLabel(
-              item.originName,
-              item.destinationName,
-              t('history.routeUnavailable'),
+    <View style={styles.parcelCard}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('bookingHistory.parcelAccessibility', {
+          code: item.code,
+        })}
+        style={cardStyle}
+        onPress={handleOpen}
+      >
+        <View style={styles.parcelIconContainer}>
+          <Package size={25} color={theme.colors.primary} weight="duotone" />
+        </View>
+        <View style={styles.parcelInfo}>
+          <View style={styles.parcelHeader}>
+            <Text style={styles.parcelCode} numberOfLines={1}>
+              {getRouteLabel(
+                item.originName,
+                item.destinationName,
+                t('history.routeUnavailable'),
+              )}
+            </Text>
+            <StatusChip
+              label={t(statusPresentation.labelKey)}
+              tone={statusPresentation.tone}
+              style={styles.parcelBadge}
+            />
+          </View>
+          <Text selectable style={styles.parcelReference} numberOfLines={1}>{item.code}</Text>
+          <View style={styles.parcelMetaRow}>
+            <User size={14} color={theme.colors.textTertiary} />
+            <Text style={styles.parcelMeta} numberOfLines={1}>
+              {t('history.toRecipient', {
+                name: item.parcel.recipientName,
+              })} · {t(sizePresentation.labelKey)}
+            </Text>
+          </View>
+          <View style={styles.parcelAmountRow}>
+            <Text style={styles.parcelDate} numberOfLines={1}>
+              {item.estimatedArrivalTime
+                ? t('history.estimatedArrival', {
+                  date: formatDate(item.estimatedArrivalTime),
+                })
+                : t('history.createdOn', {
+                  date: formatDate(item.createdAt),
+                })}
+            </Text>
+            <Text style={styles.parcelAmount}>
+              {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
+            </Text>
+          </View>
+        </View>
+      </Pressable>
+      {paymentRedirectUrl ? (
+        <View style={styles.parcelPaymentFooter}>
+          <Pressable
+            style={paymentStyle}
+            onPress={handleContinuePayment}
+            disabled={isOpeningPayment}
+            accessibilityRole="button"
+            accessibilityState={paymentAccessibilityState}
+            accessibilityLabel={t('bookingHistory.continuePaymentAccessibility', {
+              code: item.code,
+            })}
+          >
+            {isOpeningPayment ? (
+              <ActivityIndicator size="small" color={theme.colors.textInverse} />
+            ) : (
+              <CreditCard size={15} color={theme.colors.textInverse} weight="bold" />
             )}
-          </Text>
-          <StatusChip
-            label={t(statusPresentation.labelKey)}
-            tone={statusPresentation.tone}
-            style={styles.parcelBadge}
-          />
+            <Text style={styles.trackButtonText} numberOfLines={2}>
+              {t('bookingHistory.continuePayment')}
+            </Text>
+          </Pressable>
         </View>
-        <Text selectable style={styles.parcelReference} numberOfLines={1}>{item.code}</Text>
-        <View style={styles.parcelMetaRow}>
-          <User size={14} color={theme.colors.textTertiary} />
-          <Text style={styles.parcelMeta} numberOfLines={1}>
-            {t('history.toRecipient', {
-              name: item.parcel.recipientName,
-            })} · {t(sizePresentation.labelKey)}
-          </Text>
-        </View>
-        <View style={styles.parcelAmountRow}>
-          <Text style={styles.parcelDate} numberOfLines={1}>
-            {item.estimatedArrivalTime
-              ? t('history.estimatedArrival', {
-                date: formatDate(item.estimatedArrivalTime),
-              })
-              : t('history.createdOn', {
-                date: formatDate(item.createdAt),
-              })}
-          </Text>
-          <Text style={styles.parcelAmount}>
-            {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
-          </Text>
-        </View>
-      </View>
-    </Pressable>
+      ) : null}
+    </View>
   );
 });
 
@@ -472,7 +581,15 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const isAppActive = useIsAppActive();
+  const paymentRedirectCoordinator = useMemo(
+    () => new PaymentRedirectCoordinator(),
+    [],
+  );
+  const paymentReturnGate = useMemo(() => new PaymentReturnGate(), []);
+  const pendingPaymentReturnRef = useRef<PendingPaymentReturn | null>(null);
   const userId = useAuthStore((state) => state.user?.id);
+  const [openingPaymentItemKey, setOpeningPaymentItemKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<HistoryTab>(
     route.params?.initialTab ?? 'ticket',
   );
@@ -519,6 +636,35 @@ export function BookingHistoryScreen(): React.JSX.Element {
   } = parcelQuery;
 
   useEffect(() => {
+    const pendingPaymentReturn = pendingPaymentReturnRef.current;
+    if (!pendingPaymentReturn) return;
+
+    if (!paymentReturnGate.consume(isAppActive ? 'active' : 'background')) return;
+
+    pendingPaymentReturnRef.current = null;
+    setOpeningPaymentItemKey(null);
+
+    if (pendingPaymentReturn.userId !== userId) return;
+
+    const refreshActiveHistory = pendingPaymentReturn.type === 'TICKET'
+      ? refetchTickets
+      : refetchParcels;
+    refreshActiveHistory().catch(() => undefined);
+  }, [
+    isAppActive,
+    paymentReturnGate,
+    refetchParcels,
+    refetchTickets,
+    userId,
+  ]);
+
+  useEffect(() => {
+    paymentReturnGate.cancel();
+    pendingPaymentReturnRef.current = null;
+    setOpeningPaymentItemKey(null);
+  }, [paymentReturnGate, userId]);
+
+  useEffect(() => {
     if (route.params?.initialTab) setActiveTab(route.params.initialTab);
   }, [route.params?.initialTab]);
 
@@ -538,18 +684,23 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
 
   const handleTicketOpen = useCallback((item: PassengerTicketHistoryItem) => {
+    // Signed redirect URLs stay in the authenticated query cache and are not
+    // serialized into navigation state.
+    const historyItem = item.paymentRedirectUrl
+      ? { ...item, paymentRedirectUrl: null }
+      : item;
     navigation.navigate('Booking', {
       screen: 'DigitalTicket',
       params: {
         source: 'history',
         bookingId: item.id,
-        historyItem: item,
+        historyItem,
       },
     });
   }, [navigation]);
 
   const handleTrack = useCallback((tripId: string, bookingId: string) => {
-    navigation.navigate('Tracking', { tripId, bookingId });
+    navigation.navigate('Tracking', { source: 'trip', tripId, bookingId });
   }, [navigation]);
 
   const handleParcelOpen = useCallback((parcelId: string) => {
@@ -559,17 +710,80 @@ export function BookingHistoryScreen(): React.JSX.Element {
     });
   }, [navigation]);
 
+  const handleContinuePayment = useCallback<ContinuePaymentHandler>((
+    itemId,
+    type,
+    redirectUrl,
+  ) => {
+    if (
+      !userId
+      || paymentRedirectCoordinator.isRunning
+      || pendingPaymentReturnRef.current
+    ) {
+      return;
+    }
+
+    const itemKey = getPaymentItemKey(type, itemId);
+    pendingPaymentReturnRef.current = { itemKey, type, userId };
+    paymentReturnGate.arm(isAppActive ? 'active' : 'background');
+    setOpeningPaymentItemKey(itemKey);
+
+    paymentRedirectCoordinator.open(redirectUrl).catch(() => {
+      const pendingPaymentReturn = pendingPaymentReturnRef.current;
+      if (pendingPaymentReturn?.itemKey === itemKey) {
+        pendingPaymentReturnRef.current = null;
+        paymentReturnGate.cancel();
+        setOpeningPaymentItemKey(null);
+      }
+
+      if (type === 'PARCEL') {
+        Alert.alert(
+          t('parcel.payment.redirectErrorTitle'),
+          t('parcel.payment.redirectErrorDescription'),
+        );
+        return;
+      }
+
+      Alert.alert(
+        t('booking.paymentRedirect.errorTitle'),
+        t('booking.paymentRedirect.errorDescription'),
+      );
+    });
+  }, [
+    isAppActive,
+    paymentRedirectCoordinator,
+    paymentReturnGate,
+    t,
+    userId,
+  ]);
+
   const renderTicket = useCallback(
     ({ item }: ListRenderItemInfo<PassengerTicketHistoryItem>) => (
-      <TicketHistoryRow item={item} onOpen={handleTicketOpen} onTrack={handleTrack} />
+      <TicketHistoryRow
+        item={item}
+        onOpen={handleTicketOpen}
+        onTrack={handleTrack}
+        onContinuePayment={handleContinuePayment}
+        isOpeningPayment={openingPaymentItemKey === getPaymentItemKey(item.type, item.id)}
+      />
     ),
-    [handleTicketOpen, handleTrack],
+    [
+      handleContinuePayment,
+      handleTicketOpen,
+      handleTrack,
+      openingPaymentItemKey,
+    ],
   );
   const renderParcel = useCallback(
     ({ item }: ListRenderItemInfo<PassengerParcelHistoryItem>) => (
-      <ParcelHistoryRow item={item} onOpen={handleParcelOpen} />
+      <ParcelHistoryRow
+        item={item}
+        onOpen={handleParcelOpen}
+        onContinuePayment={handleContinuePayment}
+        isOpeningPayment={openingPaymentItemKey === getPaymentItemKey(item.type, item.id)}
+      />
     ),
-    [handleParcelOpen],
+    [handleContinuePayment, handleParcelOpen, openingPaymentItemKey],
   );
 
   const refreshTickets = useCallback(() => {
@@ -1051,6 +1265,7 @@ const createStyles = (theme: AppTheme) => ({
   ticketFooter: {
     minHeight: 70,
     flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
     alignItems: 'center' as const,
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
@@ -1059,6 +1274,12 @@ const createStyles = (theme: AppTheme) => ({
     borderTopColor: theme.colors.divider,
   },
   footerLeft: { flex: 1 },
+  footerActions: {
+    minWidth: 120,
+    flexShrink: 1,
+    alignItems: 'flex-end' as const,
+    gap: spacing.sm,
+  },
   priceLabel: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
@@ -1092,14 +1313,17 @@ const createStyles = (theme: AppTheme) => ({
   },
   parcelCard: {
     ...theme.components.card,
+    marginBottom: spacing.md,
+    borderRadius: BR.xl,
+    borderCurve: 'continuous' as const,
+    overflow: 'hidden' as const,
+  },
+  parcelBody: {
     minHeight: 128,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: spacing.md,
-    marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: BR.xl,
-    borderCurve: 'continuous' as const,
   },
   parcelIconContainer: {
     width: 48,
@@ -1168,5 +1392,26 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.primary,
+  },
+  parcelPaymentFooter: {
+    alignItems: 'flex-end' as const,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.divider,
+  },
+  paymentButton: {
+    minHeight: 44,
+    maxWidth: '100%' as const,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: BR.md,
+    borderCurve: 'continuous' as const,
+    backgroundColor: theme.colors.primary,
   },
 });

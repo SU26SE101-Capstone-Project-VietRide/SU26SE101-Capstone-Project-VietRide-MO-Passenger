@@ -9,10 +9,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type Locale = 'en' | 'vi';
+export type PushNotificationStatus =
+  | 'idle'
+  | 'syncing'
+  | 'active'
+  | 'permission_denied'
+  | 'configuration_required'
+  | 'error';
+
 const DEFAULT_LOCALE: Locale = 'vi';
 
 const isLocale = (value: unknown): value is Locale =>
   value === 'en' || value === 'vi';
+
+const persistedBoolean = (value: unknown, fallback: boolean): boolean =>
+  typeof value === 'boolean' ? value : fallback;
 
 interface AppState {
   /** Whether the device has internet connectivity */
@@ -27,10 +38,22 @@ interface AppState {
   /** Whether persisted app preferences have been restored */
   hasHydrated: boolean;
 
+  /** User intent for account-scoped remote notifications. */
+  pushNotificationsEnabled: boolean;
+
+  /** A generic local reminder scheduled for 19:00 device time. */
+  dailyReminderEnabled: boolean;
+
+  /** Ephemeral status of the native push registration pipeline. */
+  pushNotificationStatus: PushNotificationStatus;
+
   // ─── Actions ────────────────────────────────────────────
   setOnline: (status: boolean) => void;
   setLocale: (locale: Locale) => void;
   setGlobalLoading: (loading: boolean) => void;
+  setPushNotificationsEnabled: (enabled: boolean) => void;
+  setDailyReminderEnabled: (enabled: boolean) => void;
+  setPushNotificationStatus: (status: PushNotificationStatus) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -40,26 +63,43 @@ export const useAppStore = create<AppState>()(
       locale: DEFAULT_LOCALE,
       isGlobalLoading: false,
       hasHydrated: false,
+      pushNotificationsEnabled: true,
+      dailyReminderEnabled: false,
+      pushNotificationStatus: 'idle',
 
       setOnline: status => set({ isOnline: status }),
       setLocale: locale => set({ locale }),
       setGlobalLoading: loading => set({ isGlobalLoading: loading }),
+      setPushNotificationsEnabled: enabled => set({ pushNotificationsEnabled: enabled }),
+      setDailyReminderEnabled: enabled => set({ dailyReminderEnabled: enabled }),
+      setPushNotificationStatus: status => set({ pushNotificationStatus: status }),
     }),
     {
       name: 'vietride-app-preferences',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: state => ({ locale: state.locale }),
+      partialize: state => ({
+        locale: state.locale,
+        pushNotificationsEnabled: state.pushNotificationsEnabled,
+        dailyReminderEnabled: state.dailyReminderEnabled,
+      }),
       merge: (persistedState, currentState) => {
-        const persistedLocale = (
-          persistedState as Partial<AppState> | undefined
-        )?.locale;
+        const persisted = persistedState as Partial<AppState> | undefined;
+        const persistedLocale = persisted?.locale;
 
         return {
           ...currentState,
           locale: isLocale(persistedLocale)
             ? persistedLocale
             : DEFAULT_LOCALE,
+          pushNotificationsEnabled: persistedBoolean(
+            persisted?.pushNotificationsEnabled,
+            true,
+          ),
+          dailyReminderEnabled: persistedBoolean(
+            persisted?.dailyReminderEnabled,
+            false,
+          ),
         };
       },
       onRehydrateStorage: () => (_state, error) => {

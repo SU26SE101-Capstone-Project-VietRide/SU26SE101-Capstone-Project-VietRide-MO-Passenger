@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   useNavigation,
@@ -37,7 +37,7 @@ import {
 } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
 import {
-  openPaymentRedirect,
+  PaymentRedirectCoordinator,
 } from '@shared/utils/paymentRedirect';
 import { useBookingPaymentReconciliation } from '../hooks/useBookingPaymentReconciliation';
 import { useBookingStore } from '../store/useBookingStore';
@@ -447,7 +447,10 @@ function UnavailableTicket({
 function CheckoutTicketContent(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<DigitalTicketNavigation>();
-  const paymentRedirectRef = useRef<Promise<void> | null>(null);
+  const paymentRedirectCoordinator = useMemo(
+    () => new PaymentRedirectCoordinator(),
+    [],
+  );
   const {
     selectedTrip,
     paymentMethod,
@@ -525,6 +528,7 @@ function CheckoutTicketContent(): React.JSX.Element {
   const handleTrack = useCallback((leg: TicketLegViewModel) => {
     if (!leg.tripId || !leg.trackingEnabled) return;
     navigation.navigate('Tracking', {
+      source: 'trip',
       tripId: leg.tripId,
       bookingId: leg.bookingId,
       stopId: leg.stopId,
@@ -538,20 +542,15 @@ function CheckoutTicketContent(): React.JSX.Element {
 
   const handleOpenPayment = useCallback(() => {
     const redirectUrl = bookingResult?.paymentRedirectUrl;
-    if (!redirectUrl || paymentRedirectRef.current) return;
+    if (!redirectUrl || paymentRedirectCoordinator.isRunning) return;
 
-    const request = openPaymentRedirect(redirectUrl)
-      .catch(() => {
-        Alert.alert(
-          t('booking.paymentRedirect.errorTitle'),
-          t('booking.paymentRedirect.errorDescription'),
-        );
-      })
-      .finally(() => {
-        if (paymentRedirectRef.current === request) paymentRedirectRef.current = null;
-      });
-    paymentRedirectRef.current = request;
-  }, [bookingResult?.paymentRedirectUrl, t]);
+    paymentRedirectCoordinator.open(redirectUrl).catch(() => {
+      Alert.alert(
+        t('booking.paymentRedirect.errorTitle'),
+        t('booking.paymentRedirect.errorDescription'),
+      );
+    });
+  }, [bookingResult?.paymentRedirectUrl, paymentRedirectCoordinator, t]);
 
   const pendingPaymentActions = useMemo<PendingPaymentActions | undefined>(() => {
     if (!model?.isPendingPayment) return undefined;
@@ -652,6 +651,7 @@ function HistoryTicketContent({
   const handleTrack = useCallback((leg: TicketLegViewModel) => {
     if (!leg.tripId || !leg.trackingEnabled) return;
     navigation.navigate('Tracking', {
+      source: 'trip',
       tripId: leg.tripId,
       bookingId: leg.bookingId,
       stopId: leg.stopId,

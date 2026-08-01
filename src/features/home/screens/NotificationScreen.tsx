@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { Bell, Check, Package, Tag, Ticket } from 'phosphor-react-native';
+import { Bell, Check, Package, Tag, Ticket, Van } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -80,6 +80,12 @@ const NotificationRow = memo(function NotificationRowView({
           icon: <Package size={20} color={theme.colors.success} weight="fill" />,
           bg: theme.colors.successLight,
           accent: theme.colors.success,
+        };
+      case 'shuttle':
+        return {
+          icon: <Van size={20} color={theme.colors.primary} weight="fill" />,
+          bg: theme.colors.primaryFaded,
+          accent: theme.colors.primary,
         };
       case 'promo':
         return {
@@ -205,12 +211,8 @@ export function NotificationScreen(): React.JSX.Element {
       return;
     }
 
-    if (!item.readAt) {
-      markRead(id);
-    }
-
     navigation.navigate('NotificationDetail', { notification: item });
-  }, [markRead, navigation, notifications]);
+  }, [navigation, notifications]);
 
   const renderNotificationItem = useCallback(
     ({ item }: { item: NotificationItemDto }) => (

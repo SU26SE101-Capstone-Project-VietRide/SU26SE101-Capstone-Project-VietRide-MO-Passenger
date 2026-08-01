@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,9 +24,17 @@ import {
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
+import {
+  useIsAppActive,
+  useTabBarScrollBehavior,
+  useThemedStyles,
+} from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAppStore } from '@shared/store/useAppStore';
+import {
+  getNotificationPermissionState,
+  openSystemNotificationSettings,
+} from '@shared/notifications';
 import type { ProfileStackParamList } from '@app/navigation/types';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
@@ -40,13 +48,63 @@ export function SettingsScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const isAppActive = useIsAppActive();
   const setLocaleStore = useAppStore((state) => state.setLocale);
   const localeStore = useAppStore((state) => state.locale);
 
-  // States for toggles
-  const [tripNotif, setTripNotif] = useState(true);
-  const [parcelNotif, setParcelNotif] = useState(true);
-  const [promoNotif, setPromoNotif] = useState(false);
+  const pushNotificationsEnabled = useAppStore(
+    (state) => state.pushNotificationsEnabled,
+  );
+  const dailyReminderEnabled = useAppStore(
+    (state) => state.dailyReminderEnabled,
+  );
+  const pushNotificationStatus = useAppStore(
+    (state) => state.pushNotificationStatus,
+  );
+  const setPushNotificationsEnabled = useAppStore(
+    (state) => state.setPushNotificationsEnabled,
+  );
+  const setDailyReminderEnabled = useAppStore(
+    (state) => state.setDailyReminderEnabled,
+  );
+  const wasAppActiveRef = useRef(isAppActive);
+  const pendingPushEnableRef = useRef(false);
+  const pendingDailyEnableRef = useRef(false);
+
+  useEffect(() => {
+    const wasAppActive = wasAppActiveRef.current;
+    wasAppActiveRef.current = isAppActive;
+    if (
+      !isAppActive
+      || wasAppActive
+      || (!pendingPushEnableRef.current && !pendingDailyEnableRef.current)
+    ) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    getNotificationPermissionState()
+      .then((permission) => {
+        if (cancelled || permission === 'denied') return;
+        if (pendingPushEnableRef.current) {
+          pendingPushEnableRef.current = false;
+          setPushNotificationsEnabled(true);
+        }
+        if (pendingDailyEnableRef.current) {
+          pendingDailyEnableRef.current = false;
+          setDailyReminderEnabled(true);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isAppActive,
+    setDailyReminderEnabled,
+    setPushNotificationsEnabled,
+  ]);
 
   const handleLanguageChange = useCallback((lang: 'en' | 'vi') => {
     setLocaleStore(lang);
@@ -68,6 +126,71 @@ export function SettingsScreen(): React.JSX.Element {
     () => navigation.navigate('SecuritySettings'),
     [navigation],
   );
+  const handlePushNotificationsChange = useCallback((enabled: boolean) => {
+    if (!enabled) {
+      pendingPushEnableRef.current = false;
+      setPushNotificationsEnabled(false);
+      return;
+    }
+
+    // Read the OS state again instead of trusting the last coordinator status:
+    // the user may have granted permission while this app was backgrounded.
+    getNotificationPermissionState()
+      .then((permission) => {
+        if (permission === 'denied') {
+          pendingPushEnableRef.current = true;
+          return openSystemNotificationSettings().catch((error: unknown) => {
+            pendingPushEnableRef.current = false;
+            throw error;
+          });
+        }
+        pendingPushEnableRef.current = false;
+        setPushNotificationsEnabled(true);
+        return undefined;
+      })
+      .catch(() => undefined);
+  }, [setPushNotificationsEnabled]);
+  const handleDailyReminderChange = useCallback((enabled: boolean) => {
+    if (!enabled) {
+      pendingDailyEnableRef.current = false;
+      setDailyReminderEnabled(false);
+      return;
+    }
+
+    getNotificationPermissionState()
+      .then((permission) => {
+        if (permission === 'denied') {
+          pendingDailyEnableRef.current = true;
+          return openSystemNotificationSettings().catch((error: unknown) => {
+            pendingDailyEnableRef.current = false;
+            throw error;
+          });
+        }
+        pendingDailyEnableRef.current = false;
+        setDailyReminderEnabled(true);
+        return undefined;
+      })
+      .catch(() => undefined);
+  }, [setDailyReminderEnabled]);
+  const pushDescriptionKey = useMemo(() => {
+    switch (pushNotificationStatus) {
+      case 'active':
+        return 'settings.notifications.systemPushActive';
+      case 'syncing':
+        return 'settings.notifications.systemPushSyncing';
+      case 'permission_denied':
+        return 'settings.notifications.permissionDenied';
+      case 'configuration_required':
+        return 'settings.notifications.configurationRequired';
+      case 'error':
+        return 'settings.notifications.systemPushError';
+      default:
+        return 'settings.notifications.systemPushDescription';
+    }
+  }, [pushNotificationStatus]);
+  const isPushSwitchOn = pushNotificationsEnabled
+    && pushNotificationStatus !== 'permission_denied'
+    && pushNotificationStatus !== 'configuration_required';
   const switchTrackColors = useMemo(
     () => ({
       false: theme.colors.border,
@@ -218,18 +341,27 @@ export function SettingsScreen(): React.JSX.Element {
             <View style={styles.settingRow}>
               <View style={styles.settingTextContainer}>
                 <Text style={styles.settingLabel}>
-                  {t('settings.notifications.tripUpdates')}
+                  {t('settings.notifications.systemPush')}
                 </Text>
                 <Text style={styles.settingDesc}>
-                  {t('settings.notifications.tripUpdatesDescription')}
+                  {t(pushDescriptionKey)}
                 </Text>
               </View>
               <Switch
-                accessibilityLabel={t('settings.notifications.tripUpdates')}
-                value={tripNotif}
-                onValueChange={setTripNotif}
+                accessibilityLabel={t('settings.notifications.systemPush')}
+                accessibilityHint={t(pushDescriptionKey)}
+                disabled={
+                  pushNotificationStatus === 'syncing'
+                  || pushNotificationStatus === 'configuration_required'
+                }
+                value={isPushSwitchOn}
+                onValueChange={handlePushNotificationsChange}
                 trackColor={switchTrackColors}
-                thumbColor={tripNotif ? theme.colors.primary : theme.colors.divider}
+                thumbColor={
+                  isPushSwitchOn
+                    ? theme.colors.primary
+                    : theme.colors.divider
+                }
               />
             </View>
 
@@ -238,38 +370,23 @@ export function SettingsScreen(): React.JSX.Element {
             <View style={styles.settingRow}>
               <View style={styles.settingTextContainer}>
                 <Text style={styles.settingLabel}>
-                  {t('settings.notifications.parcelAlerts')}
+                  {t('settings.notifications.dailyReminder')}
                 </Text>
                 <Text style={styles.settingDesc}>
-                  {t('settings.notifications.parcelAlertsDescription')}
+                  {t('settings.notifications.dailyReminderDescription')}
                 </Text>
               </View>
               <Switch
-                accessibilityLabel={t('settings.notifications.parcelAlerts')}
-                value={parcelNotif}
-                onValueChange={setParcelNotif}
+                accessibilityLabel={t('settings.notifications.dailyReminder')}
+                accessibilityHint={t('settings.notifications.dailyReminderDescription')}
+                value={dailyReminderEnabled}
+                onValueChange={handleDailyReminderChange}
                 trackColor={switchTrackColors}
-                thumbColor={parcelNotif ? theme.colors.primary : theme.colors.divider}
-              />
-            </View>
-
-            <View style={styles.rowDivider} />
-
-            <View style={styles.settingRow}>
-              <View style={styles.settingTextContainer}>
-                <Text style={styles.settingLabel}>
-                  {t('settings.notifications.promotions')}
-                </Text>
-                <Text style={styles.settingDesc}>
-                  {t('settings.notifications.promotionsDescription')}
-                </Text>
-              </View>
-              <Switch
-                accessibilityLabel={t('settings.notifications.promotions')}
-                value={promoNotif}
-                onValueChange={setPromoNotif}
-                trackColor={switchTrackColors}
-                thumbColor={promoNotif ? theme.colors.primary : theme.colors.divider}
+                thumbColor={
+                  dailyReminderEnabled
+                    ? theme.colors.primary
+                    : theme.colors.divider
+                }
               />
             </View>
           </View>

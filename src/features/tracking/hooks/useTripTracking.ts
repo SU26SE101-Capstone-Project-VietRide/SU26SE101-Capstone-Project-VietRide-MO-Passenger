@@ -16,10 +16,15 @@ import { isUuid } from '@shared/utils/pathSegment';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { TripLifecycleStatus } from '@features/trip/types';
 import {
+  getShuttleTrackingEta,
+  getShuttleTrackingLatest,
   getTrackingEta,
   getTrackingLatest,
   getTrackingTrail,
   trackingKeys,
+  type ShuttleTrackingEta,
+  type ShuttleTrackingEtaResponse,
+  type ShuttleTrackingLatestResponse,
   type TrackingEta,
   type TrackingEtaResponse,
   type TrackingLatestResponse,
@@ -40,13 +45,29 @@ export const MAX_TRACKING_TRAIL_POINTS = 300;
 
 export type TrackingTripStatus = TripLifecycleStatus;
 
-export interface UseTripTrackingOptions {
+interface UseMainTripTrackingOptions {
+  source?: 'trip';
   tripId: string;
   stopId?: string;
   tripStatus?: TrackingTripStatus;
   /** Lets non-trip sources (for example a delivered parcel) stop live work. */
   sourceTerminal?: boolean;
 }
+
+interface UseShuttleTrackingOptions {
+  source: 'shuttle';
+  shuttleTripId: string;
+}
+
+export type UseTripTrackingOptions =
+  | UseMainTripTrackingOptions
+  | UseShuttleTrackingOptions;
+
+type LiveTrackingEta = TrackingEta | ShuttleTrackingEta;
+type LiveTrackingEtaResponse = TrackingEtaResponse | ShuttleTrackingEtaResponse;
+type LiveTrackingLatestResponse =
+  | TrackingLatestResponse
+  | ShuttleTrackingLatestResponse;
 
 interface ScopedLiveTrailState {
   scopeKey: string;
@@ -65,7 +86,7 @@ interface ScopedRealtimeState {
 
 interface ScopedEtaState {
   scopeKey: string;
-  eta: TrackingEta;
+  eta: LiveTrackingEta;
 }
 
 interface ScopedDelayState {
@@ -206,10 +227,10 @@ const appendScopedTrackingPoint = (
     : { scopeKey, points: nextPoints };
 };
 
-const getNewestEta = (
-  restEta: TrackingEta | null | undefined,
-  liveEta: TrackingEta | null | undefined,
-): TrackingEta | null => {
+const getNewestEta = <T extends { updatedAt: string }>(
+  restEta: T | null | undefined,
+  liveEta: T | null | undefined,
+): T | null => {
   if (!restEta) return liveEta ?? null;
   if (!liveEta) return restEta;
   return Date.parse(liveEta.updatedAt) >= Date.parse(restEta.updatedAt)
@@ -221,7 +242,10 @@ const shouldRetryTracking = (failureCount: number, error: unknown): boolean =>
   !isFatalTrackingError(error) && failureCount < 2;
 
 const createSocketFatalError = (
-  failure: Extract<TrackingJoinFailure, 'ACCESS_DENIED' | 'TRIP_NOT_FOUND'>,
+  failure: Extract<
+    TrackingJoinFailure,
+    'ACCESS_DENIED' | 'TRIP_NOT_FOUND' | 'SHUTTLE_TRIP_NOT_FOUND'
+  >,
 ): ApiRequestError => new ApiRequestError({
   message: failure === 'ACCESS_DENIED'
     ? 'You do not have permission to track this trip.'
@@ -230,12 +254,17 @@ const createSocketFatalError = (
   statusCode: failure === 'ACCESS_DENIED' ? 403 : 404,
 });
 
-export function useTripTracking({
-  tripId,
-  stopId,
-  tripStatus,
-  sourceTerminal = false,
-}: UseTripTrackingOptions) {
+export function useTripTracking(options: UseTripTrackingOptions) {
+  const source = options.source ?? 'trip';
+  const isShuttle = options.source === 'shuttle';
+  const trackingId = options.source === 'shuttle'
+    ? options.shuttleTripId
+    : options.tripId;
+  const stopId = options.source === 'shuttle' ? undefined : options.stopId;
+  const tripStatus = options.source === 'shuttle' ? undefined : options.tripStatus;
+  const sourceTerminal = options.source === 'shuttle'
+    ? false
+    : (options.sourceTerminal ?? false);
   const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.user?.id);
   const isFocused = useIsFocused();
@@ -254,12 +283,12 @@ export function useTripTracking({
   const [liveEtaState, setLiveEtaState] = useState<ScopedEtaState | null>(null);
   const [delayState, setDelayState] = useState<ScopedDelayState | null>(null);
 
-  const hasValidTripId = isUuid(tripId);
+  const hasValidTrackingId = isUuid(trackingId);
   const hasValidStopId = stopId === undefined || isUuid(stopId);
   const queryUserId = userId ?? 'guest';
-  const queryTripId = hasValidTripId ? tripId : 'invalid';
+  const queryTrackingId = hasValidTrackingId ? trackingId : 'invalid';
   const queryStopId = stopId && hasValidStopId ? stopId : 'none';
-  const scopeKey = `${queryUserId}:${queryTripId}`;
+  const scopeKey = `${queryUserId}:${source}:${queryTrackingId}`;
   const etaScopeKey = `${scopeKey}:${queryStopId}`;
   const activeFatalError = fatalState?.scopeKey === scopeKey
     ? fatalState.error
@@ -270,7 +299,7 @@ export function useTripTracking({
     || isTerminalTrackingStatus(tripStatus);
   const executionPolicy = getTrackingExecutionPolicy({
     hasAuthenticatedUser: Boolean(userId),
-    hasValidTripId,
+    hasValidTripId: hasValidTrackingId,
     isFocused,
     isOnline,
     isAppActive,
@@ -291,21 +320,29 @@ export function useTripTracking({
   const isRealtimeConnected = realtimeStatus === 'connected';
 
   const latestKey = useMemo(
-    () => trackingKeys.latest(queryUserId, queryTripId),
-    [queryTripId, queryUserId],
+    () => isShuttle
+      ? trackingKeys.shuttleLatest(queryUserId, queryTrackingId)
+      : trackingKeys.latest(queryUserId, queryTrackingId),
+    [isShuttle, queryTrackingId, queryUserId],
   );
   const trailKey = useMemo(
-    () => trackingKeys.trail(queryUserId, queryTripId),
-    [queryTripId, queryUserId],
+    () => isShuttle
+      ? [...trackingKeys.shuttle(queryUserId, queryTrackingId), 'live-points'] as const
+      : trackingKeys.trail(queryUserId, queryTrackingId),
+    [isShuttle, queryTrackingId, queryUserId],
   );
   const etaKey = useMemo(
-    () => trackingKeys.eta(queryUserId, queryTripId, queryStopId),
-    [queryStopId, queryTripId, queryUserId],
+    () => isShuttle
+      ? trackingKeys.shuttleEta(queryUserId, queryTrackingId)
+      : trackingKeys.eta(queryUserId, queryTrackingId, queryStopId),
+    [isShuttle, queryStopId, queryTrackingId, queryUserId],
   );
 
   const latestQuery = useQuery({
     queryKey: latestKey,
-    queryFn: ({ signal }) => getTrackingLatest(tripId, signal),
+    queryFn: ({ signal }) => isShuttle
+      ? getShuttleTrackingLatest(trackingId, signal)
+      : getTrackingLatest(trackingId, signal),
     enabled: queryEnabled,
     staleTime: TRACKING_LATEST_POLL_MS - 1_000,
     gcTime: TRACKING_TRAIL_REFRESH_MS,
@@ -320,8 +357,8 @@ export function useTripTracking({
 
   const trailQuery = useQuery({
     queryKey: trailKey,
-    queryFn: ({ signal }) => getTrackingTrail(tripId, {}, signal),
-    enabled: queryEnabled,
+    queryFn: ({ signal }) => getTrackingTrail(trackingId, {}, signal),
+    enabled: queryEnabled && !isShuttle,
     staleTime: TRACKING_TRAIL_REFRESH_MS,
     gcTime: TRACKING_TRAIL_REFRESH_MS,
     retry: shouldRetryTracking,
@@ -333,19 +370,20 @@ export function useTripTracking({
     ),
   });
 
-  const etaQuery = useQuery({
+  const etaQuery = useQuery<LiveTrackingEtaResponse>({
     queryKey: etaKey,
     queryFn: ({ signal }) => {
+      if (isShuttle) return getShuttleTrackingEta(trackingId, signal);
       if (!stopId) throw new Error('Missing stopId.');
-      return getTrackingEta(tripId, stopId, signal);
+      return getTrackingEta(trackingId, stopId, signal);
     },
-    enabled: queryEnabled && Boolean(stopId) && hasValidStopId,
+    enabled: queryEnabled && (isShuttle || (Boolean(stopId) && hasValidStopId)),
     staleTime: TRACKING_ETA_POLL_MS - 5_000,
     gcTime: TRACKING_TRAIL_REFRESH_MS,
     retry: shouldRetryTracking,
     refetchOnReconnect: false,
     refetchInterval: (query) => getTrackingRefetchInterval(
-      pollingEnabled && Boolean(stopId),
+      pollingEnabled && (isShuttle || Boolean(stopId)),
       query.state.error,
       TRACKING_ETA_POLL_MS,
     ),
@@ -402,7 +440,7 @@ export function useTripTracking({
         scopeKey,
         point,
       ));
-      queryClient.setQueryData<TrackingLatestResponse>(latestKey, (current) => ({
+      queryClient.setQueryData<LiveTrackingLatestResponse>(latestKey, (current) => ({
         latest: getNewestTrackingPoint([current?.latest, point]),
       }));
     };
@@ -410,8 +448,57 @@ export function useTripTracking({
     const startConnection = (accessToken: string): void => {
       if (disposed) return;
       connection?.disconnect();
+      const handleJoinRejected = (failure: TrackingJoinFailure): void => {
+        if (
+          failure === 'ACCESS_DENIED'
+          || failure === 'TRIP_NOT_FOUND'
+          || failure === 'SHUTTLE_TRIP_NOT_FOUND'
+        ) {
+          setFatalState({ scopeKey, error: createSocketFatalError(failure) });
+        } else if (failure === 'TRACKING_TRIP_NOT_ACTIVE') {
+          setInactiveScopeKey(scopeKey);
+        }
+      };
+      const handleUnauthorized = (): void => {
+        connection?.disconnect();
+        if (disposed || didRetryUnauthorized) {
+          setScopedStatus('fallback');
+          return;
+        }
+
+        didRetryUnauthorized = true;
+        refreshAccessTokenAfterUnauthorized()
+          .then((refreshedToken) => {
+            if (disposed) return;
+            if (refreshedToken) startConnection(refreshedToken);
+            else setScopedStatus('idle');
+          })
+          .catch(() => setScopedStatus('fallback'));
+      };
+
+      if (isShuttle) {
+        connection = createTripTrackingConnection({
+          source: 'shuttle',
+          shuttleTripId: trackingId,
+          accessToken,
+          onStatusChange: setScopedStatus,
+          onGpsUpdate: appendLivePoint,
+          onEtaUpdate: (eta) => {
+            if (disposed) return;
+            setLiveEtaState({ scopeKey: etaScopeKey, eta });
+            queryClient.setQueryData<ShuttleTrackingEtaResponse>(
+              etaKey,
+              (current) => ({ eta: getNewestEta(current?.eta, eta) }),
+            );
+          },
+          onJoinRejected: handleJoinRejected,
+          onUnauthorized: handleUnauthorized,
+        });
+        return;
+      }
+
       connection = createTripTrackingConnection({
-        tripId,
+        tripId: trackingId,
         ...(stopId && hasValidStopId ? { stopId } : {}),
         accessToken,
         onStatusChange: setScopedStatus,
@@ -444,29 +531,8 @@ export function useTripTracking({
         onDelayUpdate: (delay) => {
           if (!disposed) setDelayState({ scopeKey, delay });
         },
-        onJoinRejected: (failure) => {
-          if (failure === 'ACCESS_DENIED' || failure === 'TRIP_NOT_FOUND') {
-            setFatalState({ scopeKey, error: createSocketFatalError(failure) });
-          } else if (failure === 'TRACKING_TRIP_NOT_ACTIVE') {
-            setInactiveScopeKey(scopeKey);
-          }
-        },
-        onUnauthorized: () => {
-          connection?.disconnect();
-          if (disposed || didRetryUnauthorized) {
-            setScopedStatus('fallback');
-            return;
-          }
-
-          didRetryUnauthorized = true;
-          refreshAccessTokenAfterUnauthorized()
-            .then((refreshedToken) => {
-              if (disposed) return;
-              if (refreshedToken) startConnection(refreshedToken);
-              else setScopedStatus('idle');
-            })
-            .catch(() => setScopedStatus('fallback'));
-        },
+        onJoinRejected: handleJoinRejected,
+        onUnauthorized: handleUnauthorized,
       });
     };
 
@@ -489,12 +555,13 @@ export function useTripTracking({
     etaScopeKey,
     hasValidStopId,
     isInactive,
+    isShuttle,
     latestKey,
     pollingEnabled,
     queryClient,
     scopeKey,
     stopId,
-    tripId,
+    trackingId,
     userId,
   ]);
 
@@ -525,13 +592,19 @@ export function useTripTracking({
   const refetchAll = useCallback(async (): Promise<void> => {
     if (!queryEnabled) return;
 
-    const requests: Array<Promise<unknown>> = [
-      refetchLatest(),
-      refetchTrail(),
-    ];
-    if (stopId && hasValidStopId) requests.push(refetchEta());
+    const requests: Array<Promise<unknown>> = [refetchLatest()];
+    if (!isShuttle) requests.push(refetchTrail());
+    if (isShuttle || (stopId && hasValidStopId)) requests.push(refetchEta());
     await Promise.all(requests);
-  }, [hasValidStopId, queryEnabled, refetchEta, refetchLatest, refetchTrail, stopId]);
+  }, [
+    hasValidStopId,
+    isShuttle,
+    queryEnabled,
+    refetchEta,
+    refetchLatest,
+    refetchTrail,
+    stopId,
+  ]);
 
   const queryFatalError = getFatalTrackingError([
     latestQuery.error,
@@ -552,8 +625,11 @@ export function useTripTracking({
     realtimeStatus,
     isRealtimeConnected,
     hasAuthenticatedUser: Boolean(userId),
-    hasValidTripId,
+    hasValidTripId: hasValidTrackingId,
+    hasValidTrackingId,
     hasValidStopId,
+    source,
+    isShuttle,
     isAppActive,
     isFocused,
     isOnline,

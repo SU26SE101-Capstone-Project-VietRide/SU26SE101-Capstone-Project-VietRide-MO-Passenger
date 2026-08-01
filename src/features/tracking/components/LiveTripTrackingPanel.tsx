@@ -28,13 +28,23 @@ import { isUuid } from '@shared/utils/pathSegment';
 import { TrackingMap, type TrackingMapStop } from './TrackingMap';
 import { isTerminalTrackingStatus, useTripTracking } from '../hooks/useTripTracking';
 
-interface LiveTripTrackingPanelProps {
+interface LiveMainTripTrackingPanelProps {
+  source?: 'trip';
   tripId: string;
   stopId?: string;
   tripStatus?: TripLifecycleStatus;
   sourceTerminal?: boolean;
   terminalMessage?: string;
 }
+
+interface LiveShuttleTrackingPanelProps {
+  source: 'shuttle';
+  shuttleTripId: string;
+}
+
+type LiveTripTrackingPanelProps =
+  | LiveMainTripTrackingPanelProps
+  | LiveShuttleTrackingPanelProps;
 
 const TRIP_STATUS_REFRESH_MS = 60_000;
 
@@ -70,13 +80,19 @@ function InlineState({
   );
 }
 
-export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelComponent({
-  tripId,
-  stopId,
-  tripStatus,
-  sourceTerminal = false,
-  terminalMessage,
-}: LiveTripTrackingPanelProps): React.JSX.Element {
+export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelComponent(
+  props: LiveTripTrackingPanelProps,
+): React.JSX.Element {
+  const isShuttle = props.source === 'shuttle';
+  const tripId = props.source === 'shuttle' ? props.shuttleTripId : props.tripId;
+  const stopId = props.source === 'shuttle' ? undefined : props.stopId;
+  const tripStatus = props.source === 'shuttle' ? undefined : props.tripStatus;
+  const sourceTerminal = props.source === 'shuttle'
+    ? false
+    : (props.sourceTerminal ?? false);
+  const terminalMessage = props.source === 'shuttle'
+    ? undefined
+    : props.terminalMessage;
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -86,7 +102,12 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const isOnline = useNetworkStatus();
   const hasValidRouteTripId = isUuid(tripId);
   const canLoadTrip = Boolean(
-    userId && hasValidRouteTripId && isFocused && isAppActive && isOnline,
+    !isShuttle
+    && userId
+    && hasValidRouteTripId
+    && isFocused
+    && isAppActive
+    && isOnline,
   );
   const getTripRefetchInterval = useCallback(
     (trip: { status: TripLifecycleStatus } | undefined): number | false => (
@@ -99,7 +120,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     [canLoadTrip, sourceTerminal, tripStatus],
   );
   const tripQuery = useTripDetail(
-    hasValidRouteTripId ? tripId : undefined,
+    !isShuttle && hasValidRouteTripId ? tripId : undefined,
     {
       enabled: canLoadTrip,
       staleTimeMs: TRIP_STATUS_REFRESH_MS,
@@ -107,12 +128,15 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     },
   );
   const effectiveTripStatus = tripQuery.data?.status ?? tripStatus;
-  const tracking = useTripTracking({
-    tripId,
-    stopId,
-    tripStatus: effectiveTripStatus,
-    sourceTerminal,
-  });
+  const tracking = useTripTracking(isShuttle
+    ? { source: 'shuttle', shuttleTripId: tripId }
+    : {
+        source: 'trip',
+        tripId,
+        stopId,
+        tripStatus: effectiveTripStatus,
+        sourceTerminal,
+      });
   const refetchAll = tracking.refetchAll;
 
   const stops = useMemo(() => toMapStops(tripQuery.data?.stops), [tripQuery.data?.stops]);
@@ -130,7 +154,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     .find((error) => error.statusCode !== 403 && error.statusCode !== 404) ?? null;
   const isInitialLoading = tracking.isQueryEnabled && (
     tracking.latestQuery.isPending
-    || tracking.trailQuery.isPending
+    || (!isShuttle && tracking.trailQuery.isPending)
   ) && !tracking.latest && tracking.trailPoints.length === 0;
 
   const handleRetry = useCallback(() => {
@@ -146,11 +170,13 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     [t],
   );
 
-  if (!tracking.hasValidTripId) {
+  if (!tracking.hasValidTrackingId) {
     return (
       <InlineState
         title={t('tracking.states.unavailableTitle')}
-        message={t('tracking.states.invalidTripId')}
+        message={t(isShuttle
+          ? 'tracking.states.invalidShuttleTripId'
+          : 'tracking.states.invalidTripId')}
       />
     );
   }
@@ -175,7 +201,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         }
         message={isForbidden
           ? t('tracking.states.deniedMessage')
-          : t('tracking.states.notFoundMessage')}
+          : t(isShuttle
+            ? 'tracking.states.shuttleNotFoundMessage'
+            : 'tracking.states.notFoundMessage')}
       />
     );
   }
@@ -262,7 +290,12 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           </Text>
         </View>
       ) : (
-        <TrackingMap latest={tracking.latest} points={tracking.trailPoints} stops={stops} />
+          <TrackingMap
+            latest={tracking.latest}
+            points={tracking.trailPoints}
+            stops={stops}
+            vehicleKind={isShuttle ? 'shuttle' : 'bus'}
+          />
       )}
 
       <View style={styles.metricsGrid}>
@@ -309,7 +342,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>
-            {t('tracking.details.trailPoints')}
+            {t(isShuttle
+              ? 'tracking.details.liveSamples'
+              : 'tracking.details.trailPoints')}
           </Text>
           <Text style={styles.detailValue}>{tracking.trailPoints.length}</Text>
         </View>
@@ -318,18 +353,26 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
             {t('tracking.eta')}
           </Text>
           <Text style={styles.detailValue}>
-            {!stopId
-              ? t('tracking.details.destinationUnavailable')
-              : !tracking.hasValidStopId
-                ? t('tracking.details.invalidDestination')
-                : tracking.eta
-                  ? t('tracking.details.etaValue', {
-                      count: tracking.eta.etaMinutes,
-                      distance: formatDistance(
-                        tracking.eta.distanceMeters,
-                      ),
-                    })
-                  : t('tracking.details.waitingEta')}
+            {isShuttle
+              ? tracking.eta && 'nextPickupOrder' in tracking.eta
+                ? t('tracking.details.shuttleEtaValue', {
+                    order: tracking.eta.nextPickupOrder,
+                    count: tracking.eta.etaMinutes,
+                    distance: formatDistance(tracking.eta.distanceMeters),
+                  })
+                : t('tracking.details.waitingShuttleEta')
+              : !stopId
+                ? t('tracking.details.destinationUnavailable')
+                : !tracking.hasValidStopId
+                  ? t('tracking.details.invalidDestination')
+                  : tracking.eta
+                    ? t('tracking.details.etaValue', {
+                        count: tracking.eta.etaMinutes,
+                        distance: formatDistance(
+                          tracking.eta.distanceMeters,
+                        ),
+                      })
+                    : t('tracking.details.waitingEta')}
           </Text>
         </View>
       </View>

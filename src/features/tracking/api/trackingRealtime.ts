@@ -8,7 +8,10 @@ import {
 } from '@shared/constants';
 import { isUuid } from '@shared/utils/pathSegment';
 import {
+  parseShuttleTrackingEta,
+  parseShuttleTrackingPoint,
   parseTrackingPoint,
+  type ShuttleTrackingEta,
   trackingDateTimeSchema,
   trackingEtaSchema,
   type TrackingEta,
@@ -30,6 +33,7 @@ export type TrackingRealtimeStatus =
 export type TrackingJoinFailure =
   | 'ACCESS_DENIED'
   | 'TRIP_NOT_FOUND'
+  | 'SHUTTLE_TRIP_NOT_FOUND'
   | 'TRACKING_TRIP_NOT_ACTIVE'
   | 'TRACKING_AUTH_UNAVAILABLE'
   | 'UNAUTHORIZED'
@@ -53,6 +57,8 @@ interface TrackingServerEvents {
   'gps:update': (payload: unknown) => void;
   'eta:update': (payload: unknown) => void;
   'trip:statusChanged': (payload: unknown) => void;
+  'shuttle:gps:update': (payload: unknown) => void;
+  'shuttle:eta:update': (payload: unknown) => void;
 }
 
 interface TrackingClientEvents {
@@ -60,19 +66,39 @@ interface TrackingClientEvents {
     payload: { tripId: string },
     acknowledgement: (value: unknown) => void,
   ) => void;
+  joinShuttleTracking: (
+    payload: { shuttleTripId: string },
+    acknowledgement: (value: unknown) => void,
+  ) => void;
 }
 
-interface CreateTripTrackingConnectionOptions {
-  tripId: string;
-  stopId?: string;
+interface CreateTrackingConnectionBaseOptions {
   accessToken: string;
   onStatusChange: (status: TrackingRealtimeStatus) => void;
   onGpsUpdate: (point: TrackingPoint) => void;
-  onEtaUpdate: (eta: TrackingEtaUpdate) => void;
-  onDelayUpdate: (delay: TrackingDelayUpdate) => void;
   onJoinRejected: (failure: TrackingJoinFailure) => void;
   onUnauthorized: () => void;
 }
+
+interface CreateTripTrackingConnectionOptions
+  extends CreateTrackingConnectionBaseOptions {
+  source?: 'trip';
+  tripId: string;
+  stopId?: string;
+  onEtaUpdate: (eta: TrackingEtaUpdate) => void;
+  onDelayUpdate: (delay: TrackingDelayUpdate) => void;
+}
+
+interface CreateShuttleTrackingConnectionOptions
+  extends CreateTrackingConnectionBaseOptions {
+  source: 'shuttle';
+  shuttleTripId: string;
+  onEtaUpdate: (eta: ShuttleTrackingEta) => void;
+}
+
+type CreateTrackingConnectionOptions =
+  | CreateTripTrackingConnectionOptions
+  | CreateShuttleTrackingConnectionOptions;
 
 export interface TripTrackingConnection {
   disconnect: () => void;
@@ -103,6 +129,7 @@ const joinFailureSchema = z.object({
   error: z.enum([
     'ACCESS_DENIED',
     'TRIP_NOT_FOUND',
+    'SHUTTLE_TRIP_NOT_FOUND',
     'TRACKING_TRIP_NOT_ACTIVE',
     'TRACKING_AUTH_UNAVAILABLE',
     'UNAUTHORIZED',
@@ -128,24 +155,33 @@ const realtimeStatusForJoinFailure = (
   failure: TrackingJoinFailure,
 ): TrackingRealtimeStatus => {
   if (failure === 'ACCESS_DENIED') return 'forbidden';
-  if (failure === 'TRIP_NOT_FOUND') return 'not_found';
+  if (failure === 'TRIP_NOT_FOUND' || failure === 'SHUTTLE_TRIP_NOT_FOUND') {
+    return 'not_found';
+  }
   if (failure === 'TRACKING_TRIP_NOT_ACTIVE') return 'inactive';
   return 'fallback';
 };
 
-export function createTripTrackingConnection({
-  tripId,
-  stopId,
-  accessToken,
-  onStatusChange,
-  onGpsUpdate,
-  onEtaUpdate,
-  onDelayUpdate,
-  onJoinRejected,
-  onUnauthorized,
-}: CreateTripTrackingConnectionOptions): TripTrackingConnection {
-  if (!isUuid(tripId)) {
-    throw new Error('Invalid tripId for realtime tracking.');
+export function createTripTrackingConnection(
+  options: CreateTrackingConnectionOptions,
+): TripTrackingConnection {
+  const isShuttle = options.source === 'shuttle';
+  const trackingId = isShuttle ? options.shuttleTripId : options.tripId;
+  const stopId = isShuttle ? undefined : options.stopId;
+  const {
+    accessToken,
+    onStatusChange,
+    onGpsUpdate,
+    onJoinRejected,
+    onUnauthorized,
+  } = options;
+
+  if (!isUuid(trackingId)) {
+    throw new Error(
+      isShuttle
+        ? 'Invalid shuttleTripId for realtime tracking.'
+        : 'Invalid tripId for realtime tracking.',
+    );
   }
   if (stopId !== undefined && !isUuid(stopId)) {
     throw new Error('Invalid stopId for realtime tracking.');
@@ -206,51 +242,68 @@ export function createTripTrackingConnection({
     const requestSequence = ++joinSequence;
     notifyStatus('connecting');
 
-    socket
-      .timeout(TRACKING_JOIN_ACK_TIMEOUT_MS)
-      .emit('joinTripTracking', { tripId }, (timeoutError, value) => {
-        if (disposed || requestSequence !== joinSequence) return;
-        if (timeoutError) {
-          scheduleJoinRetry(requestJoin);
-          return;
-        }
+    const handleAcknowledgement = (
+      timeoutError: Error | null,
+      value: unknown,
+    ): void => {
+      if (disposed || requestSequence !== joinSequence) return;
+      if (timeoutError) {
+        scheduleJoinRetry(requestJoin);
+        return;
+      }
 
-        const parsed = joinAcknowledgementSchema.safeParse(value);
-        if (!parsed.success) {
+      const parsed = joinAcknowledgementSchema.safeParse(value);
+      if (!parsed.success) {
+        onJoinRejected('INVALID_ACK');
+        scheduleJoinRetry(requestJoin);
+        return;
+      }
+
+      if (parsed.data.success) {
+        // BE intentionally reuses `tripId` in both join acknowledgements.
+        if (parsed.data.tripId !== trackingId) {
           onJoinRejected('INVALID_ACK');
           scheduleJoinRetry(requestJoin);
           return;
         }
+        joinAttempt = 0;
+        notifyStatus('connected');
+        return;
+      }
 
-        if (parsed.data.success) {
-          if (parsed.data.tripId !== tripId) {
-            onJoinRejected('INVALID_ACK');
-            scheduleJoinRetry(requestJoin);
-            return;
-          }
-          joinAttempt = 0;
-          notifyStatus('connected');
-          return;
-        }
-
-        const failure = parsed.data.error;
-        onJoinRejected(failure);
-        if (failure === 'UNAUTHORIZED') {
-          onUnauthorized();
-          socket.disconnect();
-          return;
-        }
-        if (
-          failure === 'TRACKING_AUTH_UNAVAILABLE'
-          || failure === 'VALIDATION_ERROR'
-        ) {
-          scheduleJoinRetry(requestJoin);
-          return;
-        }
-
-        notifyStatus(realtimeStatusForJoinFailure(failure));
+      const failure = parsed.data.error;
+      onJoinRejected(failure);
+      if (failure === 'UNAUTHORIZED') {
+        onUnauthorized();
         socket.disconnect();
-      });
+        return;
+      }
+      if (
+        failure === 'TRACKING_AUTH_UNAVAILABLE'
+        || failure === 'VALIDATION_ERROR'
+      ) {
+        scheduleJoinRetry(requestJoin);
+        return;
+      }
+
+      notifyStatus(realtimeStatusForJoinFailure(failure));
+      socket.disconnect();
+    };
+
+    const socketWithTimeout = socket.timeout(TRACKING_JOIN_ACK_TIMEOUT_MS);
+    if (isShuttle) {
+      socketWithTimeout.emit(
+        'joinShuttleTracking',
+        { shuttleTripId: trackingId },
+        handleAcknowledgement,
+      );
+    } else {
+      socketWithTimeout.emit(
+        'joinTripTracking',
+        { tripId: trackingId },
+        handleAcknowledgement,
+      );
+    }
   };
 
   socket.on('connect', () => {
@@ -284,24 +337,36 @@ export function createTripTrackingConnection({
     notifyStatus('connecting');
   });
 
-  socket.on('gps:update', (value) => {
-    const point = parseTrackingPoint(value);
-    if (point?.tripId === tripId) onGpsUpdate(point);
-  });
+  if (isShuttle) {
+    socket.on('shuttle:gps:update', (value) => {
+      const point = parseShuttleTrackingPoint(value, trackingId);
+      if (point) onGpsUpdate(point);
+    });
 
-  socket.on('eta:update', (value) => {
-    const parsed = trackingEtaUpdateSchema.safeParse(value);
-    if (!parsed.success || parsed.data.tripId !== tripId) return;
-    if (stopId !== undefined && parsed.data.stopId !== stopId) return;
-    onEtaUpdate(parsed.data);
-  });
+    socket.on('shuttle:eta:update', (value) => {
+      const eta = parseShuttleTrackingEta(value, trackingId);
+      if (eta) options.onEtaUpdate(eta);
+    });
+  } else {
+    socket.on('gps:update', (value) => {
+      const point = parseTrackingPoint(value);
+      if (point?.tripId === trackingId) onGpsUpdate(point);
+    });
 
-  socket.on('trip:statusChanged', (value) => {
-    const parsed = trackingDelayUpdateSchema.safeParse(value);
-    if (parsed.success && parsed.data.tripId === tripId) {
-      onDelayUpdate(parsed.data);
-    }
-  });
+    socket.on('eta:update', (value) => {
+      const parsed = trackingEtaUpdateSchema.safeParse(value);
+      if (!parsed.success || parsed.data.tripId !== trackingId) return;
+      if (stopId !== undefined && parsed.data.stopId !== stopId) return;
+      options.onEtaUpdate(parsed.data);
+    });
+
+    socket.on('trip:statusChanged', (value) => {
+      const parsed = trackingDelayUpdateSchema.safeParse(value);
+      if (parsed.success && parsed.data.tripId === trackingId) {
+        options.onDelayUpdate(parsed.data);
+      }
+    });
+  }
 
   notifyStatus('connecting');
   socket.connect();

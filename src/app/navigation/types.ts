@@ -104,18 +104,19 @@ export type RootStackParamList = {
   Booking: NavigatorScreenParams<BookingStackParamList>;
   Parcel: NavigatorScreenParams<ParcelStackParamList>;
   Chatbot: undefined;
-  /**
-   * Tracking screen — accessible from DigitalTicket CTA or Chatbot intent
-   * tripId  : ID of the active trip to track
-   * bookingId: optional — display context (booking code header)
-   * stopId  : optional — destination route-stop UUID used for live ETA
-   */
-  Tracking: {
-    tripId: string;
-    bookingId?: string;
-    stopId?: string;
-    tripStatus?: TripLifecycleStatus;
-  };
+  Tracking:
+    | {
+        source: 'trip';
+        tripId: string;
+        bookingId?: string;
+        stopId?: string;
+        tripStatus?: TripLifecycleStatus;
+      }
+    | {
+        source: 'shuttle';
+        shuttleTripId: string;
+        bookingId?: string;
+      };
   NotificationDetail: { notification: NotificationItemDto };
 };
 

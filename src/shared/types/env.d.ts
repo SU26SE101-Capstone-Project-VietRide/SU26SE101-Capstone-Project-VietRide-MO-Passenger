@@ -11,6 +11,8 @@ declare namespace NodeJS {
     EXPO_PUBLIC_WS_URL?: string;
     EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED?: 'true' | 'false';
     EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED?: 'true' | 'false';
+    EXPO_PUBLIC_NATIVE_PUSH_ANDROID_ENABLED?: 'true' | 'false';
+    EXPO_PUBLIC_NATIVE_PUSH_IOS_ENABLED?: 'true' | 'false';
     EXPO_PUBLIC_APP_ENV?: 'development' | 'staging' | 'production';
     EXPO_PUBLIC_DEMO_MODE?: 'true' | 'false';
     EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?: string;

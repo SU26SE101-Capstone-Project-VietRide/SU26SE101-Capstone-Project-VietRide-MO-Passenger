@@ -43,6 +43,7 @@ export function useMarkNotificationRead(params: ListNotificationsParams = {}) {
   const userId = useAuthStore((state) => state.user?.id);
   const normalizedParams = { ...DEFAULT_NOTIFICATION_LIST_PARAMS, ...params };
   const queryKey = notificationKeys.list(userId ?? 'none', normalizedParams);
+  const userQueryKey = notificationKeys.user(userId ?? 'none');
 
   return useMutation({
     mutationFn: async (input: MarkNotificationReadInput) => {
@@ -83,7 +84,7 @@ export function useMarkNotificationRead(params: ListNotificationsParams = {}) {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: userQueryKey });
     },
   });
 }

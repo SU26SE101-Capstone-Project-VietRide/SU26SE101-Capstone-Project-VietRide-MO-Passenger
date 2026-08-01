@@ -19,6 +19,7 @@ interface TrackingMapProps {
   latest: TrackingPoint | null;
   points: readonly TrackingPoint[];
   stops?: readonly TrackingMapStop[];
+  vehicleKind?: 'bus' | 'shuttle';
 }
 
 const LazyNativeTrackingMap = React.lazy(async () => {
@@ -60,6 +61,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
   latest,
   points,
   stops = EMPTY_STOPS,
+  vehicleKind = 'bus',
 }: TrackingMapProps): React.JSX.Element {
   const { t } = useTranslation();
   const mapData = React.useMemo(
@@ -82,7 +84,9 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     return (
       <MapPlaceholder
         title={t('tracking.map.waitingTitle')}
-        message={t('tracking.map.waitingMessage')}
+        message={t(vehicleKind === 'shuttle'
+          ? 'tracking.map.waitingShuttleMessage'
+          : 'tracking.map.waitingMessage')}
       />
     );
   }
@@ -100,6 +104,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
         latest={mapData.latest}
         points={mapData.points}
         stops={mapData.stops}
+        vehicleKind={vehicleKind}
       />
     </Suspense>
   );

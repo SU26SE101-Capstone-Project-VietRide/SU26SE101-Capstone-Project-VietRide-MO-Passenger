@@ -15,6 +15,7 @@ import {
   getTokenSessionEpoch,
   isTokenSessionEpochCurrent,
 } from '@shared/utils/storage';
+import { PaymentReturnGate } from '@shared/utils/paymentRedirect';
 import {
   createTopUpPayload,
   getWalletBalance,
@@ -138,39 +139,9 @@ export class TopUpSubmissionCoordinator {
   }
 }
 
-/** Pure AppState gate used by the hook and unit tests. */
-export class PaymentReturnGate {
-  private isArmed = false;
-  private hasLeftApp = false;
-
-  arm(currentState: AppStateStatus): void {
-    this.isArmed = true;
-    this.hasLeftApp = currentState !== 'active';
-  }
-
-  cancel(): void {
-    this.isArmed = false;
-    this.hasLeftApp = false;
-  }
-
-  consume(nextState: AppStateStatus): boolean {
-    if (!this.isArmed) {
-      return false;
-    }
-
-    if (nextState !== 'active') {
-      this.hasLeftApp = true;
-      return false;
-    }
-
-    if (!this.hasLeftApp) {
-      return false;
-    }
-
-    this.cancel();
-    return true;
-  }
-}
+// Preserve the established public import while the generic lifecycle owner
+// now lives beside the shared trusted redirect coordinator.
+export { PaymentReturnGate };
 
 export const getNextWalletTransactionsPage = (
   lastPage: WalletTransactionsPage,

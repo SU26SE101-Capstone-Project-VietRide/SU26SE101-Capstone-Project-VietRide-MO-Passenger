@@ -7,6 +7,10 @@ import {
 import type { AuthUserDto, User } from '@features/auth/types';
 import { mapAuthUser } from '@features/auth/types';
 import { normalizeVietnamPhone } from '@features/auth/validation/authValidation';
+import {
+  createIdempotencyKey,
+  IdempotencyKeyTracker,
+} from '@shared/api/idempotency';
 
 export interface CompleteProfilePayload {
   phone: string;
@@ -62,6 +66,7 @@ const PROFILE_ENDPOINTS = {
   changePassword: '/auth/change-password',
   sessions: '/auth/sessions',
 } as const;
+const completeProfileIdempotency = new IdempotencyKeyTracker('complete-profile');
 
 const mapLoginSession = (dto: LoginSessionDto): LoginSession => ({
   id: dto.id,
@@ -86,12 +91,19 @@ export async function getProfile(): Promise<User> {
 export async function completeProfile(
   payload: CompleteProfilePayload,
 ): Promise<CompleteProfileResponse> {
+  const phone = normalizeVietnamPhone(payload.phone);
+  const idempotencyKey = completeProfileIdempotency.getOrCreate({ phone });
   const response = await apiClient.post<ApiEnvelope<CompleteProfileResponse>>(
     PROFILE_ENDPOINTS.completeProfile,
-    { phone: normalizeVietnamPhone(payload.phone) },
+    { phone },
+    {
+      headers: { 'Idempotency-Key': idempotencyKey },
+    },
   );
 
-  return unwrapApiResponse(response.data);
+  const result = unwrapApiResponse(response.data);
+  completeProfileIdempotency.reset();
+  return result;
 }
 
 export async function updateAvatarUrl(
@@ -121,6 +133,11 @@ export async function changePassword(
   const response = await apiClient.post<ApiEnvelope<ChangePasswordResponse>>(
     PROFILE_ENDPOINTS.changePassword,
     payload,
+    {
+      headers: {
+        'Idempotency-Key': createIdempotencyKey('change-password'),
+      },
+    },
   );
 
   return unwrapApiResponse(response.data);

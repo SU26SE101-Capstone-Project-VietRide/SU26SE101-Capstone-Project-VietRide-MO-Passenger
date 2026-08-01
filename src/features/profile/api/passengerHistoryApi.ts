@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import { isTrustedPaymentRedirectUrl } from '@shared/utils/url';
 import type {
   PassengerHistoryItem,
   PassengerHistoryPage,
@@ -21,6 +22,19 @@ const rfc3339Schema = z.string()
 
 const nullableTextSchema = z.string().trim().max(500).nullable();
 const moneySchema = z.number().int().nonnegative().safe();
+const paymentRedirectUrlSchema = z.string()
+  .trim()
+  .min(1)
+  .max(2_048)
+  .url()
+  .refine(
+    isTrustedPaymentRedirectUrl,
+    'Expected a trusted HTTPS VNPay redirect URL.',
+  )
+  .nullable()
+  // v1.53 serializes null explicitly; this default keeps app/BE rolling
+  // deploys compatible without weakening validation for a supplied URL.
+  .default(null);
 
 // Status tokens are intentionally forward-compatible. UI presentation only
 // enables actions for explicit allow-lists, so a new BE enum remains visible
@@ -38,6 +52,7 @@ const baseHistoryItemShape = {
   destinationName: nullableTextSchema,
   departureDateTime: rfc3339Schema.nullable(),
   estimatedArrivalTime: rfc3339Schema.nullable(),
+  paymentRedirectUrl: paymentRedirectUrlSchema,
 } as const;
 
 const ticketHistoryItemSchema = z.object({

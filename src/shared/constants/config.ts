@@ -16,6 +16,10 @@ interface AppConfig {
     android: boolean;
     ios: boolean;
   }>;
+  readonly nativePushNotificationsEnabled: Readonly<{
+    android: boolean;
+    ios: boolean;
+  }>;
   readonly env: Environment;
   readonly isDev: boolean;
   readonly isStaging: boolean;
@@ -95,6 +99,14 @@ export const appConfig: AppConfig = {
       process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED,
     ),
     ios: isExplicitlyEnabled(process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED),
+  },
+  nativePushNotificationsEnabled: {
+    android: isExplicitlyEnabled(
+      process.env.EXPO_PUBLIC_NATIVE_PUSH_ANDROID_ENABLED,
+    ),
+    ios: isExplicitlyEnabled(
+      process.env.EXPO_PUBLIC_NATIVE_PUSH_IOS_ENABLED,
+    ),
   },
   env,
   isDev: env === 'development',
