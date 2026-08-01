@@ -1,5 +1,6 @@
 {
   "app": {
+    "name": "VietRide",
     "preparing": "Đang chuẩn bị VietRide...",
     "restoringSession": "Đang khôi phục phiên đăng nhập...",
     "tagline": "Đi lại dễ dàng, an tâm mỗi chuyến",
@@ -26,7 +27,35 @@
     "openSettings": "Mở cài đặt",
     "or": "hoặc",
     "searchPlaceholder": "Tìm kiếm...",
-    "understood": "Đã hiểu"
+    "understood": "Đã hiểu",
+    "none": "Không có"
+  },
+  "errors": {
+    "api": {
+      "invalidCredentials": "Email hoặc mật khẩu không đúng.",
+      "emailNotVerified": "Email chưa được xác minh. Hãy kiểm tra mã xác minh.",
+      "accountLocked": "Tài khoản này đã bị khóa.",
+      "emailAlreadyRegistered": "Email này đã được đăng ký.",
+      "phoneAlreadyRegistered": "Số điện thoại này đã được đăng ký.",
+      "phoneInvalid": "Hãy nhập số điện thoại hợp lệ.",
+      "otpInvalid": "Mã xác minh không đúng.",
+      "otpExpired": "Mã xác minh đã hết hạn.",
+      "otpRateLimit": "Bạn đã yêu cầu mã quá nhiều lần. Vui lòng thử lại sau.",
+      "passwordResetInvalid": "Phiên đặt lại mật khẩu không hợp lệ. Hãy yêu cầu mã mới.",
+      "passwordResetExpired": "Phiên đặt lại mật khẩu đã hết hạn. Hãy yêu cầu mã mới.",
+      "sessionExpired": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+      "validation": "Một số thông tin chưa hợp lệ. Hãy kiểm tra và thử lại.",
+      "gatewayUnavailable": "Dịch vụ đang tạm bận. Hãy chờ khoảng {{retryAfter}} giây rồi thử lại.",
+      "notFound": "Không tìm thấy thông tin được yêu cầu.",
+      "timeout": "Kết nối quá thời gian. Vui lòng thử lại.",
+      "network": "Không thể kết nối VietRide. Hãy kiểm tra kết nối mạng.",
+      "requestFailed": "Không thể hoàn tất yêu cầu. Vui lòng thử lại.",
+      "forbidden": "Bạn không có quyền truy cập thông tin này.",
+      "conflict": "Thông tin đã thay đổi trong lúc thao tác. Hãy tải lại và thử lại.",
+      "rateLimit": "Có quá nhiều yêu cầu. Vui lòng chờ rồi thử lại.",
+      "serverUnavailable": "VietRide đang tạm thời gián đoạn. Vui lòng thử lại sau ít phút.",
+      "unknown": "Đã xảy ra lỗi. Vui lòng thử lại."
+    }
   },
   "auth": {
     "login": "Đăng nhập",
@@ -57,6 +86,38 @@
       "newPasswordPlaceholder": "Nhập mật khẩu mới",
       "confirmNewPassword": "Xác nhận mật khẩu mới",
       "confirmNewPasswordPlaceholder": "Nhập lại mật khẩu mới"
+    },
+    "validation": {
+      "emailRequired": "Vui lòng nhập email.",
+      "emailTooLong": "Email quá dài.",
+      "emailInvalid": "Hãy nhập địa chỉ email hợp lệ.",
+      "passwordRequired": "Vui lòng nhập mật khẩu.",
+      "passwordTooLong": "Mật khẩu quá dài.",
+      "passwordMin": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "passwordLetter": "Mật khẩu cần có ít nhất một chữ cái.",
+      "passwordNumber": "Mật khẩu cần có ít nhất một chữ số.",
+      "fullNameRequired": "Vui lòng nhập họ và tên.",
+      "fullNameTooLong": "Họ và tên quá dài.",
+      "phoneRequired": "Vui lòng nhập số điện thoại.",
+      "phoneInvalid": "Hãy nhập số điện thoại Việt Nam hợp lệ, VD: +84901234567.",
+      "confirmPasswordRequired": "Vui lòng nhập lại mật khẩu.",
+      "confirmNewPasswordRequired": "Vui lòng nhập lại mật khẩu mới.",
+      "passwordsMismatch": "Mật khẩu xác nhận không khớp.",
+      "otpLength": "Hãy nhập mã xác minh gồm 6 chữ số.",
+      "otpDigits": "Mã xác minh chỉ được chứa chữ số.",
+      "fieldInvalid": "Hãy kiểm tra lại thông tin này."
+    },
+    "errors": {
+      "sessionClearFailed": "VietRide chưa thể xóa hoàn toàn phiên trên thiết bị. Hãy khởi động lại ứng dụng trước khi đăng nhập lại."
+    },
+    "google": {
+      "errors": {
+        "configuration": "Bản ứng dụng này chưa hỗ trợ đăng nhập Google đúng cách. Hãy cập nhật ứng dụng hoặc liên hệ hỗ trợ.",
+        "tokenMissing": "Google không trả về mã đăng nhập hợp lệ. Vui lòng thử lại.",
+        "playServicesUnavailable": "Google Play Services chưa khả dụng hoặc cần được cập nhật.",
+        "generic": "Không thể đăng nhập bằng Google. Vui lòng thử lại.",
+        "inProgress": "Một yêu cầu đăng nhập Google đang được xử lý."
+      }
     },
     "completeProfile": {
       "invalidPhone": "Nhập số điện thoại Việt Nam hợp lệ, VD: +84901234567.",
@@ -125,6 +186,106 @@
     "scan": "Quét",
     "wallet": "Ví"
   },
+  "home": {
+    "tabs": {
+      "ticket": "Vé xe",
+      "parcel": "Gửi hàng"
+    },
+    "ticket": {
+      "departureLocation": "Điểm đi",
+      "destinationLocation": "Điểm đến",
+      "selectOrigin": "Chọn trạm đi",
+      "selectDestination": "Chọn trạm đến",
+      "swapLocations": "Đổi điểm đi và điểm đến",
+      "selectDepartureDate": "Chọn ngày đi",
+      "selectReturnDate": "Chọn ngày về",
+      "selectDate": "Chọn ngày",
+      "returnDate": "Ngày về",
+      "roundTrip": "Khứ hồi",
+      "searchBuses": "Tìm chuyến"
+    },
+    "parcel": {
+      "from": "Gửi từ",
+      "to": "Gửi đến",
+      "selectOrigin": "Chọn bến gửi hàng",
+      "selectDestination": "Chọn bến nhận hàng",
+      "terminalHint": "Chọn bến nơi kiện hàng được gửi và nhận."
+    },
+    "recentSearch": {
+      "dateUnavailableTitle": "Chọn ngày đi mới",
+      "dateUnavailableDescription": "Lượt tìm kiếm đã lưu có ngày cũ hoặc không hợp lệ. Hãy cập nhật ngày trước khi tìm lại."
+    },
+    "wallet": {
+      "open": "Mở ví",
+      "title": "Số dư ví",
+      "balanceUnavailable": "Chưa thể tải số dư",
+      "stale": "Đang hiển thị số dư gần nhất"
+    },
+    "services": {
+      "buyTickets": "Đặt vé xe",
+      "intercityTravel": "Di chuyển liên tỉnh thoải mái",
+      "sendParcel": "Gửi hàng",
+      "fastDelivery": "Giao nhận tại bến đáng tin cậy"
+    },
+    "promotions": {
+      "title": "Ưu đãi dành cho bạn",
+      "percentOff": "Giảm {{value}}%",
+      "amountOff": "Giảm {{value}}",
+      "cardAccessibility": "Ưu đãi {{name}}, mã {{code}}",
+      "validUntil": "Có hiệu lực đến {{date}}",
+      "loadingAccessibility": "Đang tải ưu đãi",
+      "loading": "Đang tải ưu đãi...",
+      "unavailableTitle": "Chưa thể tải ưu đãi",
+      "unavailableDescription": "Không thể tải các ưu đãi hiện tại.",
+      "retryAccessibility": "Thử tải lại ưu đãi",
+      "emptyTitle": "Hiện chưa có ưu đãi",
+      "emptyDescription": "Ưu đãi mới của VietRide sẽ xuất hiện tại đây."
+    },
+    "parcels": {
+      "title": "Đơn hàng gần đây",
+      "pending": "Đang chờ",
+      "cardAccessibility": "Đơn hàng {{code}}, trạng thái {{status}}",
+      "created": "Tạo ngày {{date}}",
+      "eta": "Dự kiến {{date}}",
+      "originPending": "Chưa có điểm gửi",
+      "destinationPending": "Chưa có điểm nhận",
+      "signInAccessibility": "Đăng nhập để xem đơn hàng gần đây",
+      "signInTitle": "Đăng nhập để xem đơn hàng",
+      "signInDescription": "Các đơn gửi hàng gần nhất sẽ xuất hiện tại đây sau khi bạn đăng nhập.",
+      "loadingAccessibility": "Đang tải đơn hàng gần đây",
+      "loading": "Đang tải đơn hàng...",
+      "unavailableTitle": "Chưa thể tải đơn hàng",
+      "unavailableDescription": "Không thể tải các đơn hàng gần đây của bạn.",
+      "retryAccessibility": "Thử tải lại đơn hàng gần đây",
+      "emptyTitle": "Chưa có đơn hàng",
+      "emptyDescription": "Các đơn gửi hàng gần đây sẽ xuất hiện tại đây.",
+      "viewAllAccessibility": "Xem toàn bộ lịch sử gửi hàng",
+      "viewAll": "Xem tất cả"
+    }
+  },
+  "notification": {
+    "title": "Thông báo",
+    "detailTitle": "Chi tiết thông báo",
+    "loading": "Đang tải thông báo...",
+    "noNotifications": "Chưa có thông báo",
+    "markAllRead": "Đánh dấu tất cả thông báo là đã đọc",
+    "allCaughtUp": "Bạn đã xem hết thông báo",
+    "unreadCount_one": "{{count}} thông báo chưa đọc",
+    "unreadCount_other": "{{count}} thông báo chưa đọc",
+    "itemAccessibility": "Mở thông báo: {{title}}",
+    "parcelUpdate": "Cập nhật đơn hàng",
+    "vietRideUpdate": "Cập nhật từ VietRide",
+    "viewParcelDetails": "Xem chi tiết đơn hàng",
+    "time": {
+      "now": "Vừa xong",
+      "minutesCompact_one": "{{count}} phút",
+      "minutesCompact_other": "{{count}} phút",
+      "hoursCompact_one": "{{count}} giờ",
+      "hoursCompact_other": "{{count}} giờ",
+      "daysCompact_one": "{{count}} ngày",
+      "daysCompact_other": "{{count}} ngày"
+    }
+  },
   "booking": {
     "searchRoutes": "Tìm tuyến đường",
     "departure": "Điểm đi",
@@ -136,7 +297,400 @@
     "payment": "Thanh toán",
     "bookNow": "Đặt ngay",
     "totalPrice": "Tổng tiền",
-    "voucher": "Mã giảm giá"
+    "voucher": "Mã giảm giá",
+    "steps": {
+      "outboundTrip": "Chuyến chiều đi",
+      "outboundSeats": "Ghế chiều đi",
+      "outboundPickup": "Điểm đón chiều đi",
+      "outboundDropoff": "Điểm trả chiều đi",
+      "returnTrip": "Chuyến chiều về",
+      "returnSeats": "Ghế chiều về",
+      "returnPickup": "Điểm đón chiều về",
+      "returnDropoff": "Điểm trả chiều về",
+      "trip": "Chuyến xe",
+      "seats": "Chọn ghế",
+      "pickup": "Điểm đón",
+      "dropoff": "Điểm trả",
+      "checkout": "Kiểm tra",
+      "payment": "Thanh toán",
+      "unknown": "Bước đặt vé",
+      "accessibilityLabel": "Bước {{current}} trên {{total}}: {{label}}"
+    },
+    "states": {
+      "connectionFailed": "Kết nối bị gián đoạn",
+      "connectionFailedDescription": "Không thể tải thông tin đặt vé mới nhất. Hãy kiểm tra kết nối và thử lại.",
+      "findingRoutes": "Đang tìm chuyến phù hợp",
+      "checkingSeatsAndFares": "Đang kiểm tra ghế và giá vé mới nhất..."
+    },
+    "seats": {
+      "available": "Còn trống",
+      "selected": "Đã chọn",
+      "sold": "Đã bán",
+      "unavailable": "Không khả dụng",
+      "select": "Chọn ghế",
+      "selectOutbound": "Chọn ghế chiều đi",
+      "selectReturn": "Chọn ghế chiều về"
+    },
+    "imageUpload": {
+      "addPhotos": "Thêm ảnh",
+      "supportedFormats": "JPG, PNG hoặc HEIC"
+    },
+    "passengerCount": {
+      "accessibilityLabel": "Số hành khách"
+    },
+    "routes": {
+      "routeAccessibility": "Tuyến từ {{origin}} đến {{destination}}",
+      "tapToPlan": "Chạm để lên kế hoạch chuyến đi",
+      "popularTitle": "Tuyến phổ biến",
+      "popularSubtitle": "Lên kế hoạch cho tuyến quen thuộc chỉ với một chạm",
+      "viewAllAccessibility": "Xem tất cả tuyến phổ biến",
+      "viewAll": "Xem tất cả",
+      "loadingAccessibility": "Đang tải tuyến phổ biến",
+      "loading": "Đang tải tuyến...",
+      "unavailableTitle": "Chưa thể tải tuyến phổ biến",
+      "unavailableDescription": "Hiện không thể tải các tuyến phổ biến.",
+      "emptyTitle": "Chưa có tuyến phổ biến",
+      "emptyDescription": "Các tuyến phổ biến sẽ xuất hiện tại đây khi có dữ liệu.",
+      "toDestination": "Đến {{destination}}",
+      "finding": "Đang tìm tuyến phổ biến...",
+      "unavailableLater": "Chưa thể tải tuyến phổ biến. Vui lòng thử lại sau.",
+      "noSearchMatches": "Không có tuyến phù hợp với tìm kiếm.",
+      "areaEmpty": "Khu vực này chưa có tuyến phổ biến.",
+      "searchAccessibility": "Tìm tuyến phổ biến",
+      "searchPlaceholder": "Tìm theo thành phố hoặc tỉnh"
+    },
+    "promo": {
+      "title": "Mã ưu đãi",
+      "minimumSpend": "Đơn tối thiểu {{amount}}",
+      "placeholder": "Nhập mã",
+      "applied": "Đã áp dụng"
+    },
+    "recentSearches": {
+      "routeAccessibility": "Tìm kiếm gần đây từ {{origin}} đến {{destination}} ngày {{date}}",
+      "meta": "{{date}} · {{count}} hành khách",
+      "meta_one": "{{date}} · {{count}} hành khách",
+      "meta_other": "{{date}} · {{count}} hành khách",
+      "title": "Tìm kiếm gần đây",
+      "clearAccessibility": "Xóa tất cả tìm kiếm gần đây",
+      "clear": "Xóa",
+      "loadingAccessibility": "Đang tải tìm kiếm gần đây",
+      "loading": "Đang tải tìm kiếm gần đây...",
+      "storageError": "Không thể tải tìm kiếm gần đây trên thiết bị này.",
+      "empty": "Các tìm kiếm gần đây sẽ xuất hiện tại đây.",
+      "expiredDateTitle": "Chọn ngày đi mới",
+      "expiredDateDescription": "Tìm kiếm đã lưu dùng ngày đã qua hoặc không hợp lệ. Hãy cập nhật ngày trước khi tìm lại."
+    },
+    "tripCard": {
+      "accessibilityLabel": "{{operator}}, khởi hành lúc {{departure}}, đến lúc {{arrival}}",
+      "from": "Từ",
+      "durationHours": "{{value}} giờ",
+      "seatsLeft": "Còn {{count}} ghế",
+      "seatsLeft_one": "Còn {{count}} ghế",
+      "seatsLeft_other": "Còn {{count}} ghế"
+    },
+    "searchForm": {
+      "title": "Bạn muốn đi đâu?",
+      "departureLabel": "Điểm đi",
+      "selectDeparture": "Chọn điểm đi",
+      "locationPlaceholder": "Chọn địa điểm",
+      "destinationLabel": "Điểm đến",
+      "selectDestination": "Chọn điểm đến",
+      "swapLocations": "Đổi điểm đi và điểm đến",
+      "selectDate": "Chọn ngày đi",
+      "datePlaceholder": "Chọn ngày",
+      "searchAction": "Tìm chuyến"
+    },
+    "seatMap": {
+      "lowerDeck": "Tầng dưới",
+      "upperDeck": "Tầng trên",
+      "deckName": "Tầng {{deck}}",
+      "seatAccessibility": "Ghế {{seat}}, {{status}}",
+      "rowCode": "Hàng {{row}}",
+      "frontOfVehicle": "Đầu xe",
+      "deckEyebrow": "Sơ đồ ghế tầng {{deck}}",
+      "title": "Sơ đồ ghế",
+      "noDeck": "Chưa chọn tầng",
+      "selectedCount": "Đã chọn ({{count}})",
+      "available": "Còn trống",
+      "rowAxis": "Hàng",
+      "columnCode": "Cột {{column}}",
+      "unavailable": "Chuyến này chưa có sơ đồ ghế."
+    },
+    "shuttleSheet": {
+      "title": "Điểm đón trung chuyển",
+      "subtitle": "Yêu cầu đón đến {{station}}",
+      "closeAccessibility": "Đóng biểu mẫu điểm đón trung chuyển",
+      "findingLocation": "Đang xác định vị trí...",
+      "useCurrentLocation": "Dùng vị trí hiện tại",
+      "useCurrentLocationAccessibility": "Dùng vị trí hiện tại làm điểm đón trung chuyển",
+      "orEnterAddress": "hoặc nhập địa chỉ",
+      "addressPlaceholder": "Nhập địa chỉ đón",
+      "addressAccessibility": "Địa chỉ đón trung chuyển",
+      "characterCount": "{{count}}/{{max}} ký tự",
+      "verifyingAddress": "Đang xác minh địa chỉ...",
+      "verifyAddress": "Xác minh địa chỉ",
+      "verified": "Đã xác minh địa chỉ",
+      "verifyHint": "Hãy xác minh trước khi lưu để nhà xe nhận được tọa độ hợp lệ.",
+      "privacy": "Vị trí chính xác chỉ được dùng để sắp xếp yêu cầu trung chuyển này.",
+      "save": "Lưu yêu cầu đón",
+      "errors": {
+        "addressRequired": "Hãy nhập địa chỉ đón.",
+        "addressTooLong": "Địa chỉ không được dài quá {{max}} ký tự.",
+        "verifyBeforeSave": "Hãy xác minh địa chỉ trước khi lưu."
+      },
+      "locationErrors": {
+        "permission-denied": "Chưa được cấp quyền vị trí. Bạn có thể nhập địa chỉ đón thủ công.",
+        "position-unavailable": "Hiện không thể xác định vị trí của bạn. Vui lòng thử lại.",
+        "invalid-address": "Hãy nhập địa chỉ đón hợp lệ.",
+        "invalid-coordinates": "Tọa độ đã chọn không hợp lệ.",
+        "address-not-found": "Không tìm thấy vị trí cho địa chỉ này.",
+        "geocoding-unavailable": "Dịch vụ tra cứu địa chỉ đang không khả dụng. Vui lòng thử lại.",
+        "generic": "Không thể xác minh vị trí này. Vui lòng thử lại."
+      }
+    },
+    "shuttle": {
+      "title": "Trung chuyển đến bến",
+      "requestToStation": "Yêu cầu đón đến {{station}}",
+      "departureStation": "bến khởi hành",
+      "requestAccessibility": "Yêu cầu trung chuyển đến bến",
+      "requestHint": "Thêm hoặc xóa địa chỉ đón đã xác minh khỏi lượt đặt vé",
+      "arrangementNotice": "Nhà xe sẽ xác nhận phương án trung chuyển riêng sau khi đặt vé.",
+      "editAddress": "Sửa địa chỉ đón trung chuyển",
+      "pickupAddress": "Địa chỉ đón",
+      "savedAwaitingArrangement": "Đã lưu · chờ nhà xe xác nhận",
+      "unavailable": "Điểm lên xe này không hỗ trợ trung chuyển.",
+      "verificationFailed": "Không thể kiểm tra dịch vụ trung chuyển.",
+      "retryAvailability": "Kiểm tra lại dịch vụ trung chuyển",
+      "reasons": {
+        "selectTripAndBoarding": "Hãy chọn chuyến và điểm lên xe trước.",
+        "departureStationOnly": "Dịch vụ trung chuyển chỉ hỗ trợ tại bến khởi hành của chuyến.",
+        "tripStatus": "Chuyến này không nhận yêu cầu trung chuyển.",
+        "tripSchedule": "Chưa có lịch trình để sắp xếp trung chuyển.",
+        "cutoff": "Đã quá thời hạn gửi yêu cầu trung chuyển.",
+        "stationInactive": "Bến này hiện không hoạt động.",
+        "stationUnsupported": "Bến này không hỗ trợ đón trung chuyển.",
+        "stationCoordinates": "Bến này chưa có tọa độ bản đồ đã xác minh."
+      }
+    },
+    "stops": {
+      "unnamed": "Điểm dừng chưa có tên",
+      "accessibilityLabel": "{{name}}, {{address}}, {{time}}",
+      "refund": "Hoàn {{amount}}",
+      "selectPickup": "Chọn điểm đón",
+      "selectOutboundPickup": "Chọn điểm đón chiều đi",
+      "selectReturnPickup": "Chọn điểm đón chiều về",
+      "selectDropoff": "Chọn điểm trả",
+      "selectOutboundDropoff": "Chọn điểm trả chiều đi",
+      "selectReturnDropoff": "Chọn điểm trả chiều về"
+    },
+    "busType": {
+      "sleeper": "Xe giường nằm",
+      "limousine": "Xe limousine",
+      "standard": "Xe tiêu chuẩn"
+    },
+    "paymentStatus": {
+      "contractMismatch": "VietRide chưa thể xác minh trạng thái đặt vé này. Hãy làm mới và thử lại.",
+      "unavailable": "Trạng thái thanh toán đang tạm thời không khả dụng. Vui lòng thử lại.",
+      "offline": "Bạn đang ngoại tuyến. Hãy kết nối mạng để kiểm tra trạng thái thanh toán."
+    },
+    "home": {
+      "welcome": "Chào mừng đến VietRide",
+      "question": "Hôm nay bạn muốn đi đâu?",
+      "mascotAccessibility": "Trợ lý hành trình VietRide"
+    },
+    "checkout": {
+      "title": "Kiểm tra đặt vé",
+      "editLeg": "Chỉnh sửa {{leg}}",
+      "route": "Tuyến",
+      "departureTime": "Giờ khởi hành",
+      "seats": "Ghế",
+      "shuttleRequest": "Yêu cầu trung chuyển",
+      "shuttleAwaiting": "Chờ nhà xe sắp xếp",
+      "boardingAt": "Lên xe · {{time}}",
+      "selectPickup": "Chọn điểm đón",
+      "alightingAt": "Xuống xe · {{time}}",
+      "selectDropoff": "Chọn điểm trả",
+      "departureTrip": "Chuyến chiều đi",
+      "returnTrip": "Chuyến chiều về"
+    },
+    "locations": {
+      "municipality": "Thành phố",
+      "province": "Tỉnh",
+      "locationAccessibility": "{{name}}, {{type}}",
+      "alreadySelected": "Đã được chọn",
+      "typeAndCode": "{{type}} · {{code}}",
+      "loading": "Đang tải địa điểm...",
+      "loadError": "Không thể tải danh sách địa điểm.",
+      "noMatches": "Không có địa điểm phù hợp.",
+      "departureTitle": "Chọn điểm đi",
+      "destinationTitle": "Chọn điểm đến",
+      "searchAccessibility": "Tìm địa điểm",
+      "searchPlaceholder": "Tìm thành phố hoặc tỉnh"
+    },
+    "filters": {
+      "title": "Lọc chuyến",
+      "subtitle": "Thu gọn danh sách mà không thay đổi tuyến",
+      "closeAccessibility": "Đóng bộ lọc chuyến",
+      "operator": "Nhà xe",
+      "allOperators": "Tất cả nhà xe",
+      "departureTime": "Giờ khởi hành",
+      "vehicleType": "Loại xe",
+      "comingSoon": "Sắp có",
+      "vehicleComingSoonAccessibility": "Bộ lọc loại xe sắp ra mắt",
+      "vehicleDisabledTitle": "Chưa thể lọc theo loại xe",
+      "vehicleDisabledDescription": "Dữ liệu tìm chuyến hiện tại chưa cung cấp metadata loại xe đủ tin cậy.",
+      "fare": "Giá vé",
+      "reset": "Đặt lại",
+      "applyFilters": "Áp dụng bộ lọc",
+      "apply": "Áp dụng",
+      "openAccessibility": "Mở bộ lọc chuyến",
+      "clear": "Xóa bộ lọc",
+      "time": {
+        "any": "Mọi khung giờ",
+        "morning": "Buổi sáng",
+        "afternoon": "Buổi chiều",
+        "evening": "Buổi tối",
+        "night": "Ban đêm"
+      },
+      "price": {
+        "any": "Mọi mức giá",
+        "under350k": "Dưới 350.000 VND",
+        "from350To450k": "350.000–450.000 VND",
+        "over450k": "Trên 450.000 VND"
+      }
+    },
+    "header": {
+      "oneWay": "Một chiều",
+      "selectDate": "Chọn ngày",
+      "returnDate": "Ngày về",
+      "departureDate": "Ngày đi",
+      "return": "Chiều về",
+      "outbound": "Chiều đi",
+      "trip": "Chuyến đi"
+    },
+    "paymentRedirect": {
+      "errorTitle": "Không thể mở VNPay",
+      "errorDescription": "Liên kết thanh toán không hợp lệ hoặc thiết bị không thể mở liên kết này."
+    },
+    "datePicker": {
+      "returnTitle": "Chọn ngày về",
+      "departureTitle": "Chọn ngày đi",
+      "dateAccessibility": "Chọn ngày {{date}}",
+      "today": "Hôm nay",
+      "confirmAccessibility": "Xác nhận ngày {{date}}",
+      "confirm": "Xác nhận {{date}}",
+      "weekdays": {
+        "sun": "CN",
+        "mon": "T2",
+        "tue": "T3",
+        "wed": "T4",
+        "thu": "T5",
+        "fri": "T6",
+        "sat": "T7"
+      }
+    },
+    "ticket": {
+      "notReported": "Chưa có thông tin",
+      "confirmationTitle": "Xác nhận đặt vé",
+      "paymentPending": "Chờ thanh toán",
+      "bookingCreated": "Đã tạo lượt đặt vé",
+      "completePayment": "Hoàn tất thanh toán để phát hành vé.",
+      "bookingRecorded": "Lượt đặt vé của bạn đã được ghi nhận.",
+      "detailTitle": "Chi tiết vé",
+      "confirmed": "Đã xác nhận đặt vé",
+      "statusUpdated": "Trạng thái đặt vé đã cập nhật",
+      "showReferenceWhenBoarding": "Đưa mã này cho nhân viên khi lên xe.",
+      "latestAvailableStatus": "Đây là trạng thái mới nhất hiện có của lượt đặt vé.",
+      "showBookingReferenceWhenBoarding": "Đưa mã đặt vé hoặc mã QR vé khi lên xe.",
+      "latestHistoryStatus": "Đây là trạng thái mới nhất trong lịch sử đặt vé.",
+      "backToDashboard": "Về trang chủ",
+      "demoDetail": "Chi tiết vé minh họa",
+      "vnpayConfirmationTitle": "Hoàn tất thanh toán qua VNPay",
+      "vnpayConfirmationDescription": "Lượt đặt vé đã được lưu. Hãy hoàn tất VNPay để phát hành vé hoặc kiểm tra trạng thái sau khi quay lại VietRide.",
+      "openVnpayAccessibility": "Mở trang thanh toán VNPay",
+      "openVnpay": "Mở VNPay",
+      "checkPaymentAccessibility": "Kiểm tra trạng thái thanh toán",
+      "checkingPayment": "Đang kiểm tra thanh toán...",
+      "checkPayment": "Kiểm tra thanh toán",
+      "legBookingReference": "Mã đặt vé {{leg}}",
+      "bookingReference": "Mã đặt vé",
+      "references": "{{count}} vé: {{references}}",
+      "references_one": "{{count}} vé: {{references}}",
+      "references_other": "{{count}} vé: {{references}}",
+      "boardingQrCode": "Mã QR lên xe",
+      "boardingQrCodes": "Các mã QR lên xe",
+      "shuttleSent": "Đã gửi yêu cầu trung chuyển",
+      "shuttleAwaiting": "Nhà xe sẽ xác nhận phương án đón riêng.",
+      "boardingWithTime": "Lên xe · {{time}}",
+      "boarding": "Lên xe",
+      "alightingWithTime": "Xuống xe · {{time}}",
+      "alighting": "Xuống xe",
+      "busType": "Loại xe",
+      "seats": "Ghế",
+      "tickets": "Số vé",
+      "paymentMethod": "Phương thức thanh toán",
+      "legAmount": "Tiền vé {{leg}}",
+      "amountDue": "Số tiền cần trả",
+      "totalAmount": "Tổng tiền",
+      "trackLeg": "Theo dõi {{leg}}",
+      "grandTotalDue": "Tổng tiền cần trả",
+      "roundTripTotal": "Tổng tiền khứ hồi",
+      "viewBookings": "Xem lịch sử đặt vé",
+      "paymentNotCompleted": "Thanh toán chưa hoàn tất",
+      "paymentExpiredDescription": "Thời gian thanh toán đã hết trước khi lượt đặt vé được xác nhận.",
+      "statusChanged": "Trạng thái đặt vé đã thay đổi",
+      "inactiveDescription": "Lượt đặt vé hiện ở trạng thái {{status}} và không thể hiển thị vé đang hoạt động.",
+      "statusUnavailable": "Chưa thể xác minh trạng thái",
+      "statusUnavailableDescription": "Không thể xác minh trạng thái đặt vé mới nhất.",
+      "detailsUnavailable": "Chưa có chi tiết vé",
+      "detailsUnavailableDescription": "Lượt đặt vé này chưa có đủ thông tin để hiển thị vé.",
+      "unavailable": "Vé không khả dụng",
+      "unavailableDescription": "Không thể tải vé này. Hãy quay lại lịch sử đặt vé và thử lại."
+    },
+    "vouchers": {
+      "percentOff": "Giảm {{value}}%",
+      "amountOff": "Giảm {{amount}}",
+      "estimatedSaving": "Ước tính tiết kiệm {{amount}}",
+      "finalDiscountNotice": "Mức giảm cuối cùng được tính khi xác nhận đặt vé.",
+      "selectedUnavailable": "Ưu đãi đã chọn không còn khả dụng.",
+      "refreshFailed": "Không thể làm mới danh sách ưu đãi.",
+      "enterCode": "Hãy nhập mã ưu đãi.",
+      "notAvailableForSelection": "Ưu đãi này không áp dụng cho chuyến đã chọn.",
+      "appliedCode": "Đã áp dụng: {{code}}"
+    },
+    "paymentScreen": {
+      "ticketFallback": "Vé hành khách",
+      "title": "Thanh toán",
+      "routeInformation": "Thông tin tuyến",
+      "shuttleAwaiting": "Chờ nhà xe sắp xếp",
+      "pickupPoint": "Điểm đón",
+      "dropoffPoint": "Điểm trả",
+      "ticketSpecifications": "Chi tiết vé",
+      "seatSummary": "{{busType}} · Ghế {{seats}}",
+      "method": "Phương thức thanh toán",
+      "vnpayLabel": "VNPay",
+      "vnpayDescription": "Thanh toán an toàn trên VNPay",
+      "walletLabel": "Ví VietRide",
+      "walletDescription": "Thanh toán từ số dư ví khả dụng",
+      "breakdown": "Chi tiết giá",
+      "baseFare": "Giá vé · {{count}} ghế",
+      "baseFare_one": "Giá vé · {{count}} ghế",
+      "baseFare_other": "Giá vé · {{count}} ghế",
+      "voucherDiscount": "Giảm giá ưu đãi",
+      "processing": "Đang xử lý...",
+      "payWithVnpay": "Thanh toán qua VNPay",
+      "confirmBooking": "Xác nhận đặt vé"
+    },
+    "results": {
+      "noRidesTitle": "Không tìm thấy chuyến",
+      "noRidesDescription": "Hãy thử ngày hoặc tuyến khác.",
+      "noFilterMatchesTitle": "Không có chuyến phù hợp bộ lọc",
+      "noFilterMatchesDescription": "Xóa hoặc điều chỉnh bộ lọc để xem thêm chuyến.",
+      "searchAgain": "Tìm lại",
+      "selectOutbound": "Chọn chuyến chiều đi",
+      "selectReturn": "Chọn chuyến chiều về",
+      "selectTrip": "Chọn chuyến"
+    }
   },
   "tracking": {
     "liveTracking": "Theo dõi trực tiếp",
@@ -209,7 +763,355 @@
     "senderInfo": "Thông tin người gửi",
     "receiverInfo": "Thông tin người nhận",
     "parcelDetails": "Chi tiết bưu kiện",
-    "otpConfirm": "Xác nhận OTP"
+    "otpConfirm": "Xác nhận OTP",
+    "actions": {
+      "apply": "Áp dụng",
+      "backToDashboard": "Về trang chủ",
+      "chooseDestinationTerminal": "Chọn bến nhận",
+      "chooseOriginTerminal": "Chọn bến gửi",
+      "continueToDestination": "Tiếp tục chọn bến nhận",
+      "continueToDetails": "Tiếp tục nhập thông tin kiện hàng",
+      "next": "Tiếp",
+      "nextStep": "Bước tiếp theo",
+      "previous": "Trước",
+      "refresh": "Làm mới"
+    },
+    "categories": {
+      "documents": "Tài liệu",
+      "clothing": "Quần áo",
+      "electronics": "Thiết bị điện tử",
+      "food": "Thực phẩm",
+      "others": "Khác"
+    },
+    "create": {
+      "title": "Tạo đơn gửi hàng",
+      "savedTitle": "Đã tạo đơn gửi hàng",
+      "savedPaymentFailed": "Đơn gửi hàng đã được lưu nhưng chưa thể bắt đầu thanh toán. Bạn có thể thử lại an toàn từ màn hình chi tiết.\n\n{{error}}"
+    },
+    "date": {
+      "today": "Hôm nay",
+      "tomorrow": "Ngày mai"
+    },
+    "detail": {
+      "historyTitle": "Chi tiết kiện hàng",
+      "ticketTitle": "Phiếu gửi hàng",
+      "loading": "Đang tải chi tiết kiện hàng...",
+      "photosTitle": "Ảnh kiện hàng",
+      "photos": {
+        "submitted": "Ảnh đã gửi",
+        "checkIn": "Ảnh nhận hàng {{index}}",
+        "delivery": "Ảnh giao hàng {{index}}"
+      },
+      "state": {
+        "unavailableTitle": "Yêu cầu gửi hàng không khả dụng",
+        "unavailableDescription": "Yêu cầu này không thể tiếp tục. Hãy kiểm tra trạng thái hoặc tạo yêu cầu gửi hàng mới.",
+        "finalPaymentTitle": "Cần thanh toán phần còn lại",
+        "finalPaymentDescription": "Kiện hàng đã được cân lại. Hãy thanh toán phần còn lại trước hạn để kiện hàng được xếp lên xe.",
+        "depositTitle": "Cần thanh toán tiền cọc",
+        "depositDescription": "Chọn phương thức thanh toán để giữ chỗ chứa hàng cho kiện này.",
+        "awaitingReviewTitle": "Đang chờ nhà xe duyệt",
+        "awaitingReviewDescription": "Nhà xe phải duyệt kiện hàng trước khi thanh toán và vận chuyển.",
+        "attentionTitle": "Kiện hàng cần được xử lý",
+        "attentionDescription": "Hãy xem trạng thái mới nhất trước khi tiếp tục. Mã giao hàng đang tạm thời không khả dụng.",
+        "createdTitle": "Đã tạo yêu cầu gửi hàng",
+        "createdDescription": "Yêu cầu gửi hàng của bạn đã sẵn sàng cho bước tiếp theo."
+      },
+      "dropoffCode": "Mã gửi hàng tại bến",
+      "dropoffCodeHint": "Xuất trình chính xác mã này khi gửi hàng tại bến.",
+      "code": {
+        "unavailableRequest": "Mã giao hàng không khả dụng cho yêu cầu này.",
+        "afterFinalPayment": "Mã giao hàng sẽ mở sau khi khoản thanh toán cuối được xác nhận.",
+        "afterDeposit": "Mã giao hàng sẽ mở sau khi tiền cọc được xác nhận.",
+        "afterApproval": "Mã giao hàng sẽ được kích hoạt sau khi nhà xe duyệt.",
+        "unavailableStatus": "Mã giao hàng không khả dụng ở trạng thái hiện tại.",
+        "showAtDropoff": "Xuất trình mã kiện hàng này tại bến gửi."
+      },
+      "packageSize": "KÍCH THƯỚC KIỆN",
+      "delivery": "GIAO NHẬN",
+      "recipient": "NGƯỜI NHẬN",
+      "payment": "THANH TOÁN",
+      "depositAndBalance": "Tiền cọc + phần còn lại",
+      "deposit": "Tiền cọc",
+      "description": "MÔ TẢ",
+      "finalTotal": "Tổng phí vận chuyển chính thức",
+      "estimatedTotal": "Tổng phí vận chuyển dự kiến",
+      "depositPaid": "Tiền cọc đã thanh toán",
+      "remainingBalance": "Số tiền còn lại",
+      "refundDue": "Số tiền được hoàn",
+      "voucherDiscount": "Ưu đãi từ voucher"
+    },
+    "dimensions": {
+      "title": "Kích thước chính xác",
+      "hint": "Dùng để kiểm tra sức chứa của chuyến. Hạng cước sẽ tự động nâng khi cần.",
+      "length": "Dài",
+      "width": "Rộng",
+      "height": "Cao",
+      "inputAccessibility": "{{label}} theo centimet"
+    },
+    "district": {
+      "title": "Giao hàng theo quận/huyện",
+      "unavailableTitle": "Chưa khả dụng",
+      "unavailableDescription": "Hiện tại dịch vụ gửi hàng chỉ hỗ trợ nhận tại bến. Chọn quận/huyện sẽ được mở khi backend cung cấp dữ liệu vùng phục vụ."
+    },
+    "errors": {
+      "loadData": "Không thể tải dữ liệu. Vui lòng kiểm tra kết nối.",
+      "missingTripSearchParameters": "Thiếu tham số tìm chuyến gửi hàng.",
+      "missingVoucherParameters": "Thiếu tham số tìm voucher gửi hàng.",
+      "photoUriEmpty": "Đường dẫn ảnh kiện hàng đang trống.",
+      "photoUploadRequiresLogin": "Vui lòng đăng nhập trước khi tải ảnh kiện hàng lên.",
+      "sessionChanged": "Phiên đăng nhập đã thay đổi. Vui lòng thử lại.",
+      "photoUploadTitle": "Không thể tải ảnh kiện hàng lên",
+      "photoUploadDescription": "Không thể chuẩn bị hoặc tải ảnh đã chọn lên. Hãy thử lại hoặc xóa ảnh để tiếp tục mà không có ảnh.",
+      "tripAvailabilityChangedTitle": "Tình trạng chuyến đã thay đổi",
+      "tripAvailabilityChangedDescription": "Chuyến đã chọn hoặc giá ước tính đã thay đổi trong lúc xác nhận. Vui lòng chọn lại một chuyến khả dụng."
+    },
+    "form": {
+      "photoLabel": "ảnh kiện hàng",
+      "photoTitle": "Ảnh kiện hàng (không bắt buộc)",
+      "photoHelper": "Ảnh được tối ưu ngay trên thiết bị rồi tải lên an toàn khi bạn xác nhận kiện hàng.",
+      "estimatedValueLabel": "Giá trị ước tính (không bắt buộc)",
+      "estimatedValuePlaceholder": "Nhập giá trị kiện hàng (VND)",
+      "estimatedValueHint": "Chỉ dùng làm thông tin mô tả kiện hàng.",
+      "estimatedValueMetadata": "Giá trị ước tính: {{value}} VND",
+      "recipientTitle": "Người nhận",
+      "fullNameLabel": "Họ và tên",
+      "fullNamePlaceholder": "Họ tên người nhận",
+      "phoneLabel": "Số điện thoại",
+      "phonePlaceholder": "Số điện thoại người nhận",
+      "emailLabel": "Email (không bắt buộc)",
+      "emailPlaceholder": "nguoinhan@example.com"
+    },
+    "locations": {
+      "municipality": "Thành phố trực thuộc trung ương",
+      "province": "Tỉnh",
+      "alreadySelected": "Đã được chọn",
+      "typeAndCode": "{{type}} - {{code}}",
+      "itemAccessibility": "{{name}}. {{details}}",
+      "loading": "Đang tải địa điểm...",
+      "loadError": "Không thể tải địa điểm.",
+      "emptySearch": "Không tìm thấy địa điểm phù hợp.",
+      "originTitle": "Tỉnh/thành gửi",
+      "destinationTitle": "Tỉnh/thành nhận",
+      "searchAccessibility": "Tìm tỉnh hoặc thành phố",
+      "searchPlaceholder": "Tìm tỉnh hoặc thành phố..."
+    },
+    "packageSize": {
+      "title": "Kích thước kiện hàng",
+      "options": {
+        "small": "Nhỏ",
+        "medium": "Vừa",
+        "large": "Lớn"
+      }
+    },
+    "pagination": {
+      "page": "Trang {{page}}"
+    },
+    "payment": {
+      "methodTitle": "Phương thức thanh toán",
+      "wallet": {
+        "label": "Ví VietRide",
+        "checkingBalance": "Đang kiểm tra số dư…",
+        "balanceUnavailable": "Không thể lấy số dư",
+        "balance": "Số dư: {{amount}}",
+        "insufficientBalance": "Số dư không đủ: {{amount}}"
+      },
+      "vnpay": {
+        "label": "VNPay",
+        "subtitle": "Tiếp tục thanh toán an toàn trên trang VNPay"
+      },
+      "redirectErrorTitle": "Không thể mở trang thanh toán",
+      "redirectErrorDescription": "Liên kết thanh toán không hợp lệ hoặc thiết bị không thể mở liên kết này.",
+      "startErrorTitle": "Không thể bắt đầu thanh toán",
+      "payRemainingBalance": "Thanh toán phần còn lại",
+      "payDeposit": "Thanh toán tiền cọc",
+      "payBefore": "Thanh toán trước {{deadline}}",
+      "openVnPayAgain": "Mở lại VNPay",
+      "verifyingTitle": "Đang xác minh thanh toán",
+      "verifyingDescription": "VietRide đang chờ backend xác nhận.",
+      "starting": "Đang bắt đầu thanh toán…",
+      "payWithWallet": "Thanh toán bằng ví",
+      "continueToVnPay": "Tiếp tục đến VNPay"
+    },
+    "progress": {
+      "origin": "Bến gửi",
+      "destination": "Bến nhận",
+      "item": "Kiện hàng",
+      "payment": "Thanh toán",
+      "stepAccessibility": "{{label}}, bước {{step}} trên {{total}}"
+    },
+    "promos": {
+      "title": "Mã ưu đãi",
+      "subtitle": "Áp dụng voucher để tiết kiệm trước khi thanh toán",
+      "openAccessibility": "Chọn hoặc nhập mã ưu đãi",
+      "addCode": "Thêm mã ưu đãi",
+      "appliedCode": "Đã áp dụng {{code}}",
+      "chooseOrEnter": "Chọn ưu đãi hiện có hoặc nhập mã",
+      "sheetTitle": "Chọn ưu đãi",
+      "sheetSubtitle": "Áp dụng voucher hiện có hoặc nhập mã.",
+      "closeAccessibility": "Đóng bảng chọn ưu đãi",
+      "manualLabel": "Nhập mã trực tiếp",
+      "manualInputAccessibility": "Ô nhập mã ưu đãi",
+      "placeholder": "MÃ ƯU ĐÃI",
+      "availableTitle": "Voucher khả dụng",
+      "minimumSpend": "Đơn tối thiểu {{amount}}",
+      "noMinimumSpend": "Không yêu cầu giá trị tối thiểu",
+      "applied": "Đã áp dụng",
+      "expires": "Hết hạn {{date}}",
+      "emptyTitle": "Chưa có voucher khả dụng",
+      "emptyDescription": "Nếu đã nhận mã ưu đãi, hãy nhập mã thủ công hoặc quay lại sau để xem ưu đãi mới.",
+      "percentOff": "GIẢM {{value}}%",
+      "amountOff": "GIẢM {{amount}}",
+      "saveDeposit": "Tiết kiệm {{amount}} trên tiền cọc kiện hàng.",
+      "availableForRoute": "Khả dụng cho tuyến gửi hàng này.",
+      "noLongerValid": "Voucher này không còn hợp lệ với chuyến hoặc phương thức thanh toán đã chọn.",
+      "validation": {
+        "enterCode": "Nhập mã ưu đãi để áp dụng.",
+        "unavailable": "Mã ưu đãi này không khả dụng cho kiện hàng.",
+        "expired": "Mã ưu đãi này đã hết hạn.",
+        "minimumDeposit": "Tiền cọc tối thiểu là {{amount}}."
+      }
+    },
+    "route": {
+      "from": "TỪ",
+      "to": "ĐẾN",
+      "origin": "Điểm đi",
+      "destination": "Điểm đến",
+      "originTerminal": "Bến gửi",
+      "destinationTerminal": "Bến nhận",
+      "selectedOrigin": "Điểm đi đã chọn",
+      "selectedDestination": "Điểm đến đã chọn"
+    },
+    "stations": {
+      "originAccessibility": "Bến gửi",
+      "destinationAccessibility": "Bến nhận",
+      "cardAccessibility": "{{role}}: {{name}}. {{distance}}",
+      "nearYou": "GẦN BẠN",
+      "filterAccessibility": "Lọc bến xe",
+      "distanceMeters": "Cách {{distance}} m",
+      "distanceKilometers": "Cách {{distance}} km",
+      "calculatingDistance": "Đang tính khoảng cách...",
+      "chooseRouteFirstTitle": "Hãy chọn tuyến trước",
+      "chooseRouteFirstDescription": "Quay lại Trang chủ và chọn điểm đi, điểm đến trước khi tạo đơn gửi hàng.",
+      "emptyTitle": "Không tìm thấy bến nhận gửi hàng",
+      "emptyInLocation": "Không tìm thấy bến tại {{location}}. Hãy thử một tỉnh hoặc thành phố khác cho tuyến này.",
+      "emptyDescription": "Hãy thử một tỉnh hoặc thành phố khác cho tuyến này.",
+      "chooseValidRoute": "Chọn tuyến hợp lệ để tiếp tục",
+      "loadError": "Không thể tải danh sách bến",
+      "finding": "Đang tìm bến…",
+      "availableCount_one": "Có {{count}} bến khả dụng",
+      "availableCount_other": "Có {{count}} bến khả dụng",
+      "selected": "Đã chọn: {{name}}"
+    },
+    "steps": {
+      "origin": {
+        "heading": "Chọn bến gửi",
+        "description": "Bạn sẽ gửi kiện hàng ở đâu?"
+      },
+      "destination": {
+        "heading": "Chọn bến nhận",
+        "description": "Người nhận sẽ lấy kiện hàng ở đâu?"
+      },
+      "package": {
+        "heading": "Thông tin kiện hàng",
+        "description": "Giúp chúng tôi tìm chuyến xe phù hợp cho bạn."
+      },
+      "summary": {
+        "heading": "Tóm tắt đơn hàng",
+        "description": "Xác nhận thông tin và thanh toán."
+      }
+    },
+    "summary": {
+      "routeInformation": "Thông tin tuyến",
+      "packageSpecifications": "Thông số kiện hàng",
+      "dimensionsAndWeight": "{{dimensions}} · {{weight}} {{unit}}",
+      "paymentDetails": "Chi tiết thanh toán",
+      "estimatedShipmentPrice": "Phí vận chuyển dự kiến",
+      "depositBeforeDiscount": "Tiền cọc trước ưu đãi",
+      "verifiedVoucherDiscount": "Ưu đãi voucher đã xác minh",
+      "depositDueNow": "Tiền cọc cần thanh toán",
+      "serverPricingHint": "Giá cuối cùng được máy chủ VietRide xác nhận theo chuyến đã chọn.",
+      "depositDue": "Tiền cọc cần trả"
+    },
+    "tracking": {
+      "title": "Trạng thái kiện hàng",
+      "loading": "Đang tải trạng thái kiện hàng mới nhất...",
+      "latestStatus": "TRẠNG THÁI GẦN NHẤT",
+      "estimatedArrival": "Dự kiến đến: {{time}}",
+      "liveLocationTitle": "Vị trí xe theo thời gian thực",
+      "liveLocationDescription": "Dữ liệu GPS được chia sẻ an toàn và chỉ chủ kiện hàng mới xem được.",
+      "transportComplete": "Quá trình vận chuyển đã hoàn tất. Cập nhật vị trí tự động đã dừng.",
+      "mapUnavailableTitle": "Bản đồ trực tiếp chưa hoạt động",
+      "mapUnavailableDescription": "Theo dõi vị trí xe sẽ bắt đầu sau khi kiện hàng được xếp lên xe.",
+      "rejectedTitle": "Kiện hàng đã bị từ chối",
+      "rejectedAt": "Ghi nhận lúc {{time}}. Vui lòng liên hệ hỗ trợ để biết thêm chi tiết.",
+      "rejectedContactSupport": "Vui lòng liên hệ hỗ trợ để biết thêm chi tiết.",
+      "timelineTitle": "Dòng thời gian đã ghi nhận",
+      "timelineDescription": "Thời gian chỉ hiển thị khi dịch vụ đã ghi nhận sự kiện tương ứng.",
+      "openStatus": "Theo dõi trạng thái kiện hàng",
+      "startsAfterLoading": "Theo dõi bắt đầu sau khi xếp hàng lên xe",
+      "timeline": {
+        "created": {
+          "title": "Đã tạo kiện hàng",
+          "description": "Yêu cầu gửi hàng đã được ghi nhận."
+        },
+        "loaded": {
+          "title": "Xếp hàng tại bến gửi",
+          "description": "Điểm kiểm tra xếp hàng tại bến gửi."
+        },
+        "inTransit": {
+          "title": "Đang vận chuyển",
+          "description": "Chặng vận chuyển giữa bến gửi và bến nhận."
+        },
+        "unloaded": {
+          "title": "Dỡ hàng tại bến nhận",
+          "description": "Điểm kiểm tra dỡ hàng tại bến nhận."
+        },
+        "confirmed": {
+          "title": "Xác nhận nhận hàng",
+          "description": "Điểm xác nhận người nhận đã lấy kiện hàng."
+        }
+      }
+    },
+    "trips": {
+      "operatorUnavailable": "Chưa có thông tin nhà xe",
+      "priceSummary": "Cọc {{deposit}} / Dự kiến {{estimated}}",
+      "departureDate": "Ngày khởi hành",
+      "availableTitle": "Chuyến khả dụng",
+      "emptyTitle": "Không tìm thấy chuyến nhận gửi hàng",
+      "emptyRouteDate": "{{origin}} → {{destination}} vào {{date}}.",
+      "emptyDescription": "Dịch vụ gửi hàng cần chuyến đã lên lịch, còn sức chứa và có giá cước kiện hàng cho đúng cặp bến này. Hãy thử ngày khác hoặc chọn bến khác.",
+      "changeTerminals": "Đổi bến",
+      "checkMore": "Xem thêm chuyến",
+      "tryNextDay": "Thử ngày tiếp theo",
+      "operatorDeparture": "{{operator}} · {{departure}}",
+      "availableCount_one": "Có {{count}} chuyến khả dụng",
+      "availableCount_other": "Có {{count}} chuyến khả dụng"
+    },
+    "units": {
+      "cm": "cm",
+      "kg": "kg",
+      "lb": "lb"
+    },
+    "validation": {
+      "dimensionsPositive": "Mỗi kích thước phải lớn hơn 0.",
+      "dimensionsTooLarge": "Kiện hàng lớn hơn hạng tối đa được hỗ trợ 60 × 45 × 35 cm.",
+      "chooseLargerSize": "Hãy chọn hạng kích thước lớn hơn cho số đo này.",
+      "selectOriginStation": "Vui lòng chọn bến gửi.",
+      "selectDestinationStation": "Vui lòng chọn bến nhận.",
+      "recipientRequired": "Cần nhập tên và số điện thoại người nhận.",
+      "invalidVietnamPhone": "Nhập số điện thoại Việt Nam hợp lệ.",
+      "invalidRecipientEmail": "Nhập email người nhận hợp lệ.",
+      "invalidMeasurements": "Nhập khối lượng và kích thước kiện hàng hợp lệ.",
+      "selectAvailableTrip": "Vui lòng chọn một chuyến khả dụng cho kiện hàng.",
+      "selectTripBeforeCreate": "Vui lòng chọn chuyến trước khi tạo đơn gửi hàng."
+    },
+    "weight": {
+      "title": "Khối lượng",
+      "inputAccessibility": "Khối lượng kiện hàng theo {{unit}}",
+      "sliderAccessibility": "Khối lượng kiện hàng",
+      "valueAccessibility": "{{value}} {{unit}}",
+      "sliderMaximum": "Thanh trượt tối đa {{value}} {{unit}}"
+    }
   },
   "profile": {
     "myProfile": "Hồ sơ của tôi",
@@ -219,10 +1121,183 @@
     "language": "Ngôn ngữ",
     "notifications": "Thông báo",
     "helpSupport": "Hỗ trợ",
-    "walletAndPayments": "Ví và thanh toán",
-    "financialUnavailableTitle": "Ví và thanh toán chưa khả dụng",
-    "financialUnavailableDescription": "Số dư ví, nạp tiền, rút tiền và quản lý phương thức thanh toán chưa được bật trong ứng dụng.",
-    "financialUnavailableSafety": "VietRide không thu thập số thẻ hoặc CVV tại màn hình này."
+    "title": "Hồ sơ",
+    "guestName": "Khách",
+    "passengerName": "Hành khách VietRide",
+    "signInToSaveTrips": "Đăng nhập để lưu chuyến đi",
+    "phoneUnavailable": "Chưa có số điện thoại",
+    "signInRequiredTitle": "Cần đăng nhập",
+    "signInRequiredDescription": "Hãy đăng nhập để sử dụng tính năng tài khoản này.",
+    "logoutConfirm": "Bạn có chắc muốn đăng xuất không?",
+    "wallet": "Ví VietRide",
+    "verifyAccount": "Xác minh tài khoản",
+    "signInRegister": "Đăng nhập hoặc đăng ký",
+    "appVersion": "VietRide phiên bản {{version}}",
+    "avatar": {
+      "change": "Đổi ảnh đại diện",
+      "pendingSave": "Ảnh mới đã sẵn sàng để lưu",
+      "permissionTitle": "Cần quyền truy cập ảnh",
+      "permissionDescription": "Hãy cho phép truy cập ảnh để chọn ảnh đại diện.",
+      "unavailableTitle": "Không thể mở trình chọn ảnh",
+      "unavailableDescription": "Thiết bị này không hỗ trợ trình chọn ảnh hiện tại. Hãy thử lại trên thiết bị được hỗ trợ.",
+      "invalidTitle": "Ảnh không được hỗ trợ",
+      "pickerErrorTitle": "Không thể mở thư viện ảnh",
+      "pickerErrorDescription": "Vui lòng thử chọn ảnh lại.",
+      "errors": {
+        "invalidAsset": "Hãy chọn một tệp ảnh hợp lệ.",
+        "dimensionsUnavailable": "Không thể đọc kích thước của ảnh này.",
+        "authRequired": "Hãy đăng nhập lại trước khi đổi ảnh đại diện.",
+        "sessionChanged": "Phiên đăng nhập đã thay đổi trong lúc tải ảnh. Vui lòng chọn ảnh lại.",
+        "accountMismatch": "Ảnh đã tải lên không thuộc tài khoản hiện tại. Vui lòng đăng nhập lại."
+      }
+    },
+    "edit": {
+      "title": "Chỉnh sửa hồ sơ",
+      "errorTitle": "Không thể cập nhật hồ sơ",
+      "fullName": "Họ và tên",
+      "fullNameReadOnlyHint": "Tên đã xác minh không thể thay đổi tại đây.",
+      "email": "Email",
+      "emailUnavailable": "Chưa có email",
+      "emailReadOnlyHint": "Email đăng nhập không thể thay đổi tại đây.",
+      "phone": "Số điện thoại",
+      "phoneCompleteHint": "Thêm số điện thoại Việt Nam để hoàn tất hồ sơ.",
+      "phoneReadOnlyHint": "Số điện thoại đã xác minh không thể thay đổi tại đây.",
+      "save": "Lưu thay đổi",
+      "errors": {
+        "sessionRefresh": "Hồ sơ đã được cập nhật nhưng không thể làm mới phiên bảo mật. Vui lòng đăng nhập lại."
+      }
+    },
+    "validation": {
+      "fullNameRequired": "Hãy nhập họ và tên.",
+      "fullNameTooLong": "Họ và tên quá dài.",
+      "phoneInvalid": "Hãy nhập số điện thoại Việt Nam hợp lệ."
+    }
+  },
+  "bookingHistory": {
+    "bookingAccessibility": "Mở đơn vé {{code}}",
+    "parcelAccessibility": "Mở đơn hàng {{code}}",
+    "trackAccessibility": "Theo dõi đơn vé {{code}}",
+    "track": "Theo dõi chuyến",
+    "signInRequiredTitle": "Đăng nhập để xem lịch sử",
+    "signInTicketsDescription": "Các vé xe đã đặt sẽ xuất hiện tại đây sau khi bạn đăng nhập.",
+    "signInParcelsDescription": "Các đơn gửi hàng sẽ xuất hiện tại đây sau khi bạn đăng nhập.",
+    "loading": "Đang tải lịch sử...",
+    "unavailableTitle": "Chưa thể tải lịch sử",
+    "unavailableDescription": "Không thể tải lịch sử đặt dịch vụ của bạn.",
+    "emptyTicketsTitle": "Chưa có vé xe",
+    "emptyTicketsDescription": "Các chuyến bạn đặt sẽ xuất hiện tại đây.",
+    "emptyParcelsTitle": "Chưa có đơn hàng",
+    "emptyParcelsDescription": "Các kiện hàng bạn gửi sẽ xuất hiện tại đây.",
+    "staleDescription": "Đang hiển thị dữ liệu đã lưu vì lần cập nhật mới nhất thất bại.",
+    "ticketsTab": "Vé xe",
+    "parcelsTab": "Gửi hàng",
+    "filters": {
+      "all": "Tất cả",
+      "confirmed": "Đã xác nhận",
+      "completed": "Hoàn tất",
+      "cancelled": "Đã hủy"
+    }
+  },
+  "security": {
+    "title": "Bảo mật tài khoản",
+    "accountSecurity": "Bảo mật tài khoản",
+    "heroTitle": "Tài khoản của bạn được bảo vệ",
+    "heroDescription": "Kiểm tra trạng thái tài khoản và các tính năng bảo mật có trong phiên bản này.",
+    "accountSection": "Tài khoản",
+    "loginEmail": "Email đăng nhập",
+    "accountStatus": "Trạng thái tài khoản",
+    "mobilePlatform": "Điện thoại",
+    "currentDeviceSection": "Thiết bị hiện tại",
+    "deviceName": "VietRide trên {{platform}}",
+    "currentSession": "Thiết bị này",
+    "active": "Đang hoạt động",
+    "signedInDevicesSection": "Thiết bị đã đăng nhập",
+    "sessionsUnavailableTitle": "Chưa hỗ trợ quản lý thiết bị",
+    "sessionsUnavailableDescription": "Backend hiện chưa cung cấp API quản lý phiên đăng nhập cho hành khách.",
+    "recentLoginsSection": "Lần đăng nhập gần đây",
+    "activityUnavailableTitle": "Chưa có lịch sử đăng nhập",
+    "activityUnavailableDescription": "Hoạt động tài khoản gần đây sẽ xuất hiện khi backend hỗ trợ.",
+    "unavailable": "Chưa hỗ trợ",
+    "unavailableTitle": "Tính năng bảo mật chưa khả dụng",
+    "unavailableDescription": "Tính năng bảo mật này chưa được backend hiện tại hỗ trợ.",
+    "status": {
+      "active": "Đang hoạt động",
+      "pendingEmailVerification": "Cần xác minh email",
+      "pendingInitialPassword": "Cần thiết lập mật khẩu",
+      "locked": "Đã khóa",
+      "unknown": "Chưa rõ trạng thái"
+    },
+    "changePassword": {
+      "title": "Đổi mật khẩu",
+      "unavailableDescription": "Tài khoản này hiện chưa hỗ trợ đổi mật khẩu.",
+      "protectTitle": "Chọn mật khẩu mạnh",
+      "protectDescription": "Hãy dùng mật khẩu bạn không sử dụng ở dịch vụ khác.",
+      "currentPassword": "Mật khẩu hiện tại",
+      "newPassword": "Mật khẩu mới",
+      "confirmPassword": "Xác nhận mật khẩu mới",
+      "submit": "Cập nhật mật khẩu",
+      "successTitle": "Đã cập nhật mật khẩu",
+      "successDescription": "Mật khẩu của bạn đã được thay đổi thành công.",
+      "errorTitle": "Không thể đổi mật khẩu",
+      "backendNote": "Mật khẩu chỉ được gửi qua API bảo mật đã xác thực và không được lưu trong state của ứng dụng."
+    },
+    "validation": {
+      "currentPasswordRequired": "Hãy nhập mật khẩu hiện tại.",
+      "passwordMin": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "passwordMax": "Mật khẩu quá dài.",
+      "passwordLetter": "Mật khẩu phải có ít nhất một chữ cái.",
+      "passwordNumber": "Mật khẩu phải có ít nhất một chữ số.",
+      "passwordMustDiffer": "Mật khẩu mới phải khác mật khẩu hiện tại.",
+      "confirmPasswordRequired": "Hãy xác nhận mật khẩu mới.",
+      "passwordsMismatch": "Mật khẩu xác nhận không khớp."
+    }
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "securityNote": "Một số tùy chọn phụ thuộc vào hỗ trợ của backend và thiết bị.",
+    "language": {
+      "title": "Ngôn ngữ",
+      "vietnamese": "Tiếng Việt",
+      "vietnameseDescription": "Sử dụng tiếng Việt trong toàn bộ ứng dụng",
+      "english": "English",
+      "englishDescription": "Sử dụng tiếng Anh trong toàn bộ ứng dụng"
+    },
+    "appearance": {
+      "title": "Giao diện",
+      "themeTitle": "Chủ đề ứng dụng",
+      "themeDescription": "Chọn phong cách Liquid Glass bạn yêu thích.",
+      "themes": {
+        "light": {
+          "name": "Liquid Glass Sáng",
+          "caption": "Bề mặt kính thoáng nhẹ với điểm nhấn xanh dịu.",
+          "tag": "Sáng"
+        },
+        "dark": {
+          "name": "Liquid Glass Tối",
+          "caption": "Bề mặt kính sâu, dễ nhìn trong môi trường thiếu sáng.",
+          "tag": "Tối"
+        }
+      }
+    },
+    "security": {
+      "title": "Bảo mật",
+      "accountTitle": "Bảo mật tài khoản",
+      "accountDescription": "Kiểm tra tài khoản và thiết bị hiện tại"
+    },
+    "notifications": {
+      "title": "Thông báo",
+      "tripUpdates": "Cập nhật chuyến đi",
+      "tripUpdatesDescription": "Thông báo lên xe, khởi hành và trạng thái chuyến",
+      "parcelAlerts": "Thông báo đơn hàng",
+      "parcelAlertsDescription": "Thông báo trạng thái vận chuyển và nhận hàng",
+      "promotions": "Ưu đãi và tin tức",
+      "promotionsDescription": "Các ưu đãi VietRide không thường xuyên"
+    },
+    "legal": {
+      "title": "Quyền riêng tư và pháp lý",
+      "terms": "Điều khoản dịch vụ",
+      "privacy": "Chính sách quyền riêng tư"
+    }
   },
   "history": {
     "routeUnavailable": "Chưa có thông tin tuyến",
@@ -299,6 +1374,100 @@
         "expired": "Đã hết hạn",
         "unknown": "Chưa có trạng thái"
       }
+    }
+  },
+  "financial": {
+    "comingSoon": "Sắp ra mắt",
+    "comingSoonAccessibility": "{{title}}, sắp ra mắt",
+    "comingSoonHint": "Mở thông tin về tính năng chưa khả dụng",
+    "generic": {
+      "title": "Thanh toán được bảo vệ",
+      "description": "Tính năng tài chính này chưa có trong phiên bản hiện tại.",
+      "safety": "VietRide không thu thập số thẻ hoặc CVV trong các trường dữ liệu do ứng dụng quản lý."
+    },
+    "walletUnavailable": {
+      "title": "Ví chưa khả dụng",
+      "description": "Backend hiện tại chưa cung cấp contract ví cần thiết cho màn hình này.",
+      "safety": "Không có thông tin thanh toán nào được thu thập khi ví chưa khả dụng."
+    },
+    "topUpUnavailable": {
+      "title": "Nạp tiền chưa khả dụng",
+      "description": "Backend hiện tại chưa cung cấp luồng nạp tiền vào ví được hỗ trợ.",
+      "safety": "Không có thanh toán nào được tạo khi chưa có luồng backend được hỗ trợ."
+    },
+    "withdraw": {
+      "title": "Rút tiền",
+      "description": "Tính năng rút tiền đang chờ contract chi trả được backend hỗ trợ.",
+      "safety": "Màn hình này không thu thập tài khoản ngân hàng hoặc thông tin nhận tiền."
+    },
+    "savedPayments": {
+      "title": "Phương thức thanh toán đã lưu",
+      "description": "Thanh toán đã lưu cần contract quản lý phương thức thanh toán dạng token.",
+      "safety": "VietRide không lưu số thẻ hoặc CVV thô."
+    },
+    "addPaymentMethod": {
+      "title": "Thêm phương thức thanh toán",
+      "description": "Việc thêm phương thức thanh toán cần luồng hosted đạt chuẩn PCI hoặc SDK native của nhà cung cấp.",
+      "safety": "Thông tin thẻ chỉ được thu thập bởi nhà cung cấp thanh toán đã được chứng nhận."
+    }
+  },
+  "wallet": {
+    "title": "Ví VietRide",
+    "balance": "Số dư khả dụng",
+    "topUp": "Nạp tiền",
+    "moreTools": "Tiện ích ví khác",
+    "recentTransactions": "Giao dịch gần đây",
+    "staleBalance": "Đang hiển thị số dư gần nhất",
+    "staleTransactions": "Một số giao dịch có thể chưa được cập nhật.",
+    "loadTransactionsFailed": "Không thể tải giao dịch",
+    "noTransactions": "Chưa có giao dịch",
+    "retryMore": "Thử tải thêm lần nữa",
+    "transactions": {
+      "topUp": "Nạp tiền vào ví",
+      "bookingPayment": "Thanh toán vé xe",
+      "bookingRefund": "Hoàn tiền vé xe",
+      "parcelPayment": "Thanh toán đơn hàng",
+      "parcelRefund": "Hoàn tiền đơn hàng",
+      "parcelAdditionalPayment": "Thanh toán bổ sung đơn hàng",
+      "manualAdjustment": "Điều chỉnh số dư",
+      "generic": "Giao dịch ví",
+      "balanceAfter": "Số dư {{amount}}"
+    }
+  },
+  "topUp": {
+    "title": "Nạp tiền vào ví",
+    "amount": "Số tiền nạp",
+    "quickSelect": "Chọn nhanh",
+    "customAmount": "Số tiền khác",
+    "customAmountAccessibility": "Nhập số tiền muốn nạp",
+    "customPlaceholder": "Nhập số tiền",
+    "presetAccessibility": "Chọn {{amount}}",
+    "minimumHint": "Số tiền nạp tối thiểu là {{amount}}",
+    "confirm": "Tiếp tục với VNPay",
+    "awaitingReturn": "Đang chờ thanh toán",
+    "openAgain": "Mở lại trang thanh toán",
+    "pendingTitle": "Đang thanh toán",
+    "pendingDescription": "Hoàn tất hoặc đóng VNPay rồi quay lại VietRide. Ví chỉ được làm mới sau khi ứng dụng trở lại foreground.",
+    "requestId": "Yêu cầu {{id}}",
+    "returnNotice": "Đã làm mới ví sau khi quay lại từ thanh toán.",
+    "returnRefreshFailed": "Đã quay lại từ thanh toán nhưng chưa thể làm mới ví. Hãy kéo để tải lại trong màn hình Ví.",
+    "statusTitle": "Trạng thái nạp tiền",
+    "unexpectedStatus": "Yêu cầu trả về trạng thái: {{status}}.",
+    "redirectErrorTitle": "Không thể mở VNPay",
+    "redirectErrorDescription": "Liên kết thanh toán không hợp lệ hoặc thiết bị không thể mở liên kết này.",
+    "ambiguousRetryHint": "Kết quả hiện chưa rõ. Đừng tạo yêu cầu nạp tiền mới; hãy mở lại yêu cầu hiện tại hoặc kiểm tra ví trước.",
+    "errorTitle": "Không thể bắt đầu nạp tiền",
+    "vnpayNote": "Thanh toán được thực hiện an toàn trên VNPay. VietRide không thu thập thông tin thẻ ngân hàng của bạn.",
+    "errors": {
+      "reconciliationRequired": "Yêu cầu nạp tiền này cần được đối soát. Hãy kiểm tra ví trước khi thử lại.",
+      "sessionChanged": "Phiên đăng nhập đã thay đổi. Vui lòng đăng nhập lại trước khi tiếp tục.",
+      "authRequired": "Hãy đăng nhập để nạp tiền vào ví."
+    },
+    "status": {
+      "pending": "Đang chờ",
+      "succeeded": "Thành công",
+      "failed": "Thất bại",
+      "expired": "Hết hạn"
     }
   },
   "shared": {

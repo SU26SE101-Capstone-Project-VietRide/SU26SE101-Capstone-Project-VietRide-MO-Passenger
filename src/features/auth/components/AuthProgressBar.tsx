@@ -6,10 +6,18 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { ArrowLeft, X } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
 
 export interface AuthProgressBarProps {
   step: number;
@@ -29,6 +37,8 @@ export const AuthProgressBar = ({
   onCancel,
 }: AuthProgressBarProps): React.JSX.Element => {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   return (
     <View style={styles.root}>
@@ -42,7 +52,7 @@ export const AuthProgressBar = ({
           activeOpacity={0.7}
           style={styles.iconBtn}
         >
-          <ArrowLeft size={18} color={colors.primary} />
+          <ArrowLeft size={18} color={theme.colors.primary} />
         </TouchableOpacity>
       ) : (
         <View style={styles.iconBtn} />
@@ -61,7 +71,7 @@ export const AuthProgressBar = ({
           activeOpacity={0.7}
           style={styles.iconBtn}
         >
-          <X size={18} color={colors.primary} />
+          <X size={18} color={theme.colors.primary} />
         </TouchableOpacity>
       ) : (
         <View style={styles.iconBtn} />
@@ -104,7 +114,7 @@ export const AuthProgressBar = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   root: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
@@ -124,32 +134,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
   },
   titleWrap: { alignItems: 'center', flex: 1 },
   title: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.primaryDark,
+    color: theme.colors.textPrimary,
   },
   subtitle: {
     fontFamily: fontFamilies.medium,
     fontSize: 10,
-    color: colors.primary,
+    color: theme.colors.primary,
     marginBottom: 2,
   },
   progressRow: { marginTop: spacing.xs },
   trackBg: {
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceAlt,
     overflow: 'hidden',
     marginBottom: spacing.sm,
   },
   trackFill: {
     height: '100%',
     borderRadius: 1.5,
-    backgroundColor: colors.textInverse,
+    backgroundColor: theme.colors.primary,
   },
   bubblesRow: {
     flexDirection: 'row',
@@ -161,29 +171,25 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
   },
   bubbleActive: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 5,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+    ...theme.effects.cardShadow,
   },
   bubbleDone: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
   bubbleLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
-  bubbleLabelInverse: { color: colors.textInverse },
+  bubbleLabelInverse: { color: theme.colors.textInverse },
 });

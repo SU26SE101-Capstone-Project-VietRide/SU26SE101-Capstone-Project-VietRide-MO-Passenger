@@ -6,7 +6,6 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
@@ -19,9 +18,15 @@ import { useMutation } from '@tanstack/react-query';
 import { Trans, useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
 import { Input, Button } from '@shared/components';
-import { useApiError } from '@shared/hooks';
+import { useApiError, useThemedStyles } from '@shared/hooks';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
 import type { AuthStackParamList } from '@app/navigation/types';
@@ -29,6 +34,7 @@ import { register } from '../api/authApi';
 import { AuthFooter, AuthStepHeader } from '../components';
 import {
   apiFieldErrors,
+  localizeAuthMessage,
   registerSchema,
   zodFieldErrors,
   type FieldErrorMap,
@@ -56,6 +62,7 @@ export function RegisterScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const isLiquid = theme.variant.startsWith('liquid');
 
   const [fullName, setFullName] = useState('');
@@ -201,7 +208,7 @@ export function RegisterScreen(): React.JSX.Element {
                   autoComplete="name"
                   value={fullName}
                   required
-                  error={errors.fullName}
+                  error={localizeAuthMessage(errors.fullName, t)}
                   onBlur={() => validateField('fullName')}
                   onChangeText={(value) => {
                     setFullName(value);
@@ -219,7 +226,7 @@ export function RegisterScreen(): React.JSX.Element {
                   autoCapitalize="none"
                   value={email}
                   required
-                  error={errors.email}
+                  error={localizeAuthMessage(errors.email, t)}
                   onBlur={() => validateField('email')}
                   onChangeText={(value) => {
                     setEmail(value);
@@ -236,7 +243,7 @@ export function RegisterScreen(): React.JSX.Element {
                   autoComplete="tel"
                   value={phone}
                   required
-                  error={errors.phone}
+                  error={localizeAuthMessage(errors.phone, t)}
                   hint={t('auth.fields.phoneHint')}
                   onBlur={() => validateField('phone')}
                   onChangeText={(value) => {
@@ -254,7 +261,7 @@ export function RegisterScreen(): React.JSX.Element {
                   autoComplete="password-new"
                   value={password}
                   required
-                  error={errors.password}
+                  error={localizeAuthMessage(errors.password, t)}
                   hint={t('auth.fields.passwordRequirements')}
                   onBlur={() => validateField('password')}
                   onChangeText={(value) => {
@@ -272,7 +279,7 @@ export function RegisterScreen(): React.JSX.Element {
                   autoComplete="password-new"
                   value={confirmPassword}
                   required
-                  error={errors.confirmPassword}
+                  error={localizeAuthMessage(errors.confirmPassword, t)}
                   onBlur={() => validateField('confirmPassword')}
                   onChangeText={(value) => {
                     setConfirmPassword(value);
@@ -328,8 +335,8 @@ export function RegisterScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+const createStyles = (theme: AppTheme) => ({
+  root: { flex: 1, backgroundColor: theme.colors.background },
   gradientContainer: {
     position: 'absolute',
     top: 0,
@@ -356,14 +363,14 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   formCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.colors.divider,
     borderTopWidth: 3,
-    borderTopColor: colors.primaryLight,
-    ...shadows.md,
+    borderTopColor: theme.colors.primaryLight,
+    ...theme.effects.cardShadow,
     marginBottom: spacing.lg,
   },
   inputWrapper: {
@@ -374,20 +381,20 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.error,
+    color: theme.colors.error,
     marginBottom: spacing.sm,
   },
   termsText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     textAlign: 'center',
     marginTop: spacing.md,
     marginBottom: spacing.lg,
     lineHeight: fontSizes.sm * 1.5,
   },
   termsLink: {
-    color: colors.primary,
+    color: theme.colors.primary,
     fontFamily: fontFamilies.medium,
   },
 });

@@ -19,7 +19,7 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import { formatDate, formatVnd } from '@shared/utils/format';
+import { formatDate, formatVnd, toIntlLocale } from '@shared/utils/format';
 import {
   useHomePromotions,
   type HomePromotionService,
@@ -46,21 +46,24 @@ const PromotionCard = memo(function PromotionCardItem({
   value,
   voucherId,
 }: PromotionCardProps): React.JSX.Element {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const intlLocale = toIntlLocale(i18n.resolvedLanguage);
   const handlePress = useCallback(() => {
     onPress?.(voucherId, code);
   }, [code, onPress, voucherId]);
   const expiresLabel = useMemo(
-    () => formatDate(expiresAt) || expiresAt,
-    [expiresAt],
+    () => formatDate(expiresAt, intlLocale) || expiresAt,
+    [expiresAt, intlLocale],
   );
   const valueLabel = useMemo(
     () => type.trim().toUpperCase().includes('PERCENT')
       ? t('home.promotions.percentOff', { value })
-      : t('home.promotions.amountOff', { value: formatVnd(value) }),
-    [t, type, value],
+      : t('home.promotions.amountOff', {
+          value: formatVnd(value, { locale: intlLocale }),
+        }),
+    [intlLocale, t, type, value],
   );
 
   return (
@@ -149,7 +152,7 @@ export const PromotionsSection = memo(function PromotionsSectionComponent({
           onPress={handleRetry}
           style={styles.retryButton}
         >
-          <Text style={styles.retryText}>{t('home.promotions.retry')}</Text>
+          <Text style={styles.retryText}>{t('common.retry')}</Text>
         </Pressable>
       </View>
     );

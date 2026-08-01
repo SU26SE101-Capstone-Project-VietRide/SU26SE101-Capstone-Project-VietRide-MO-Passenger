@@ -2,21 +2,14 @@ import { Linking } from 'react-native';
 
 import { isTrustedPaymentRedirectUrl } from './url';
 
-export const PAYMENT_REDIRECT_ERROR_TITLE = 'Không thể mở trang thanh toán';
-const PAYMENT_REDIRECT_ERROR_MESSAGE =
-  'Liên kết thanh toán không hợp lệ hoặc thiết bị không thể mở liên kết này.';
-
 export class PaymentRedirectError extends Error {
   constructor() {
-    super(PAYMENT_REDIRECT_ERROR_MESSAGE);
+    // Presentation copy belongs to each localized payment surface. The error
+    // carries only a stable diagnostic code and is never rendered directly.
+    super('PAYMENT_REDIRECT_FAILED');
     this.name = 'PaymentRedirectError';
   }
 }
-
-export const getPaymentRedirectErrorMessage = (error: unknown): string =>
-  error instanceof PaymentRedirectError
-    ? error.message
-    : PAYMENT_REDIRECT_ERROR_MESSAGE;
 
 export const openPaymentRedirect = async (redirectUrl: string): Promise<void> => {
   const normalizedUrl = redirectUrl.trim();

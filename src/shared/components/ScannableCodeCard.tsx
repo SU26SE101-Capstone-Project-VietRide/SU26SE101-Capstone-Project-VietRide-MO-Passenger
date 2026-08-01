@@ -1,9 +1,21 @@
 import React, { memo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useThemedStyles } from '@shared/hooks';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
+
+// High, fixed contrast is intentional: dynamically themed QR modules can
+// reduce scanner reliability. Only the code surface remains black-on-white.
+const QR_FOREGROUND = '#101828';
+const QR_BACKGROUND = '#FFFFFF';
 
 interface ScannableCodeCardProps {
   code: string;
@@ -20,6 +32,7 @@ export const ScannableCodeCard = memo(function ScannableCodeCard({
   size = 164,
 }: ScannableCodeCardProps): React.JSX.Element {
   const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   return (
     <View
@@ -32,8 +45,8 @@ export const ScannableCodeCard = memo(function ScannableCodeCard({
         <QRCode
           value={code}
           size={size}
-          color="#101828"
-          backgroundColor="#FFFFFF"
+          color={QR_FOREGROUND}
+          backgroundColor={QR_BACKGROUND}
           ecl="M"
           quietZone={12}
         />
@@ -50,14 +63,12 @@ export const ScannableCodeCard = memo(function ScannableCodeCard({
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => ({
   container: {
     alignItems: 'center',
     gap: spacing.sm,
     padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderCurve: 'continuous',
-    backgroundColor: '#FFFFFF',
+    ...theme.components.card,
   },
   title: {
     alignSelf: 'stretch',
@@ -69,7 +80,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: borderRadius.md,
     borderCurve: 'continuous',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: QR_BACKGROUND,
   },
   code: {
     fontFamily: fontFamilies.bold,

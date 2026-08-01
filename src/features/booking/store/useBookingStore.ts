@@ -214,7 +214,7 @@ interface BookingStore {
   bookingStatus: 'idle' | 'loading' | 'success' | 'error';
   bookingResult: BookingResult | RoundTripResult | null;
   bookingPaymentMethod: PaymentMethod | null;
-  bookingError: string | null;
+  bookingError: ApiRequestError | null;
   createBooking: () => Promise<BookingSubmissionResult>;
 
   // ─── Reset ───────────────────────────────────────────
@@ -736,7 +736,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           }
           set({
             bookingStatus: 'error',
-            bookingError: apiError.message || 'Could not create your booking. Please try again.',
+            bookingError: apiError,
           });
         }
         throw apiError;

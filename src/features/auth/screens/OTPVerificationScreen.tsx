@@ -8,7 +8,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   StatusBar,
   Pressable,
@@ -26,9 +25,15 @@ import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
 import { Button } from '@shared/components';
-import { useApiError } from '@shared/hooks';
+import { useApiError, useThemedStyles } from '@shared/hooks';
 import { getTokenSessionEpoch } from '@shared/utils/storage';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
@@ -40,6 +45,7 @@ import { AuthFooter, AuthStepHeader } from '../components';
 import {
   AUTH_CODE_LENGTH,
   apiFieldErrors,
+  localizeAuthMessage,
   otpSchema,
   zodFieldErrors,
   type FieldErrorMap,
@@ -62,6 +68,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const route = useRoute<ScreenRouteProp>();
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const isLiquid = theme.variant.startsWith('liquid');
   const setUser = useAuthStore((state) => state.setUser);
   const currentUser = useAuthStore((state) => state.user);
@@ -202,7 +209,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const isPending = verifyMutation.isPending;
   const fullCode = code.join('');
   const isExpired = timer === 0;
-  const codeError = errors.code;
+  const codeError = localizeAuthMessage(errors.code, t);
   const visibleError = codeError ?? errorMessage;
 
   // ─── Dynamic copy based on purpose ──────────────────────
@@ -348,8 +355,8 @@ export function OTPVerificationScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+const createStyles = (theme: AppTheme) => ({
+  root: { flex: 1, backgroundColor: theme.colors.background },
   gradientContainer: {
     position: 'absolute',
     top: 0,
@@ -376,14 +383,14 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   formCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.colors.divider,
     borderTopWidth: 3,
-    borderTopColor: colors.primaryLight,
-    ...shadows.md,
+    borderTopColor: theme.colors.primaryLight,
+    ...theme.effects.cardShadow,
     marginBottom: spacing.xxl,
   },
   otpContainer: {
@@ -396,11 +403,11 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: borderRadius.lg,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
   },
   resendContainer: {
@@ -412,12 +419,12 @@ const styles = StyleSheet.create({
   resendText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   timerText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
   },
   resendButton: {
     alignSelf: 'center',
@@ -427,7 +434,7 @@ const styles = StyleSheet.create({
   resendLink: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   successText: {
     fontFamily: fontFamilies.medium,
@@ -439,7 +446,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.error,
+    color: theme.colors.error,
     marginBottom: spacing.md,
     textAlign: 'center',
   },

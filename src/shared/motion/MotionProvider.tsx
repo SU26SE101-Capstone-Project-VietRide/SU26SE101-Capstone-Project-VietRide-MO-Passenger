@@ -28,11 +28,17 @@ export function MotionProvider({
   useEffect(() => {
     let isActive = true;
 
-    void AccessibilityInfo.isReduceMotionEnabled().then(isEnabled => {
-      if (isActive) {
-        setReduceMotion(isEnabled);
-      }
-    });
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(isEnabled => {
+        if (isActive) {
+          setReduceMotion(isEnabled);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setReduceMotion(false);
+        }
+      });
 
     const subscription = AccessibilityInfo.addEventListener(
       'reduceMotionChanged',

@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
@@ -15,10 +15,14 @@ import { Bell, Check, Package, Tag, Ticket } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
+import {
+  useFloatingTabBarContentInset,
+  useTabBarScrollBehavior,
+  useThemedStyles,
+} from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
-import { getApiErrorMessage } from '@shared/api/errors';
+import { getLocalizedApiErrorMessage } from '@shared/api/errors';
+import { toIntlLocale } from '@shared/utils/format';
 import type { RootStackParamList } from '@app/navigation/types';
 import type { NotificationItemDto } from '../api/notificationApi';
 import {
@@ -33,7 +37,6 @@ import {
 
 type NotificationNavigation = NativeStackNavigationProp<RootStackParamList>;
 
-const NOTIFICATION_BOTTOM_CONTENT_GAP = spacing.huge;
 interface NotificationRowProps {
   id: string;
   type: string;
@@ -53,14 +56,15 @@ const NotificationRow = memo(function NotificationRowView({
   readAt,
   onPress,
 }: NotificationRowProps): React.JSX.Element {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const kind = getNotificationKind(type);
   const isUnread = !readAt;
+  const intlLocale = toIntlLocale(i18n.resolvedLanguage);
   const relativeTime = useMemo(
-    () => formatNotificationRelativeTime(createdAt, t),
-    [createdAt, t],
+    () => formatNotificationRelativeTime(createdAt, t, intlLocale),
+    [createdAt, intlLocale, t],
   );
 
   const meta = (() => {
@@ -159,10 +163,10 @@ const NotificationRow = memo(function NotificationRowView({
 export function NotificationScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<NotificationNavigation>();
-  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const bottomTabClearance = useFloatingTabBarContentInset();
   const notificationsQuery = useNotifications(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const markReadMutation = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const {
@@ -187,12 +191,13 @@ export function NotificationScreen(): React.JSX.Element {
     [notifications],
   );
   const unreadCount = unreadItems.length;
-  const bottomTabClearance =
-    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + NOTIFICATION_BOTTOM_CONTENT_GAP;
-
   const handleMarkAllRead = useCallback(() => {
     markRead(unreadItems.map((item) => item.id));
   }, [markRead, unreadItems]);
+
+  const handleRefresh = useCallback(() => {
+    refetchNotifications().catch(() => undefined);
+  }, [refetchNotifications]);
 
   const handleNotificationPress = useCallback((id: string) => {
     const item = notifications.find((notification) => notification.id === id);
@@ -236,14 +241,16 @@ export function NotificationScreen(): React.JSX.Element {
       return (
         <View style={styles.emptyContainer}>
           <Bell size={48} color={theme.colors.textTertiary} weight="thin" />
-          <Text style={styles.emptyText}>{getApiErrorMessage(notificationsError)}</Text>
+          <Text style={styles.emptyText}>
+            {getLocalizedApiErrorMessage(notificationsError, t)}
+          </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('notification.retry')}
-            onPress={refetchNotifications}
+            accessibilityLabel={t('common.retry')}
+            onPress={handleRefresh}
             style={({ pressed }) => [styles.retryButton, pressed ? styles.pressedRow : null]}
           >
-            <Text style={styles.retryText}>{t('notification.retry')}</Text>
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
           </Pressable>
         </View>
       );
@@ -259,7 +266,7 @@ export function NotificationScreen(): React.JSX.Element {
     isNotificationsError,
     isNotificationsLoading,
     notificationsError,
-    refetchNotifications,
+    handleRefresh,
     styles.emptyContainer,
     styles.emptyText,
     styles.pressedRow,
@@ -325,7 +332,7 @@ export function NotificationScreen(): React.JSX.Element {
           notifications.length === 0 ? styles.emptyListContent : null,
           { paddingBottom: bottomTabClearance },
         ]}
-        onRefresh={refetchNotifications}
+        onRefresh={handleRefresh}
         refreshing={isNotificationsRefetching}
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}

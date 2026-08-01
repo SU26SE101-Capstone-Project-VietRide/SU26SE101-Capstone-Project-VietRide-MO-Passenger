@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { TFunction } from 'i18next';
 
 import type { ApiFieldError } from '@shared/api/errors';
 
@@ -61,20 +62,20 @@ export const isValidEmailOrPhone = (value: string): boolean =>
 const emailSchema = z
   .string()
   .trim()
-  .min(1, 'Email is required.')
-  .max(MAX_EMAIL_LENGTH, 'Email is too long.')
-  .email('Enter a valid email address.')
+  .min(1, 'auth.validation.emailRequired')
+  .max(MAX_EMAIL_LENGTH, 'auth.validation.emailTooLong')
+  .email('auth.validation.emailInvalid')
   .transform(normalizeEmail);
 
 const loginPasswordSchema = z
   .string()
-  .min(1, 'Password is required.')
-  .max(MAX_PASSWORD_LENGTH, 'Password is too long.');
+  .min(1, 'auth.validation.passwordRequired')
+  .max(MAX_PASSWORD_LENGTH, 'auth.validation.passwordTooLong');
 
 const registerPasswordSchema = loginPasswordSchema
-  .min(MIN_PASSWORD_LENGTH, 'Password must be at least 8 characters.')
-  .regex(/[A-Za-z]/, 'Include at least one letter.')
-  .regex(/\d/, 'Include at least one number.');
+  .min(MIN_PASSWORD_LENGTH, 'auth.validation.passwordMin')
+  .regex(/[A-Za-z]/, 'auth.validation.passwordLetter')
+  .regex(/\d/, 'auth.validation.passwordNumber');
 
 export const loginSchema = z.object({
   email: emailSchema,
@@ -86,28 +87,28 @@ export const registerSchema = z
     displayName: z
       .string()
       .trim()
-      .min(1, 'Full name is required.')
-      .max(MAX_DISPLAY_NAME_LENGTH, 'Full name is too long.')
+      .min(1, 'auth.validation.fullNameRequired')
+      .max(MAX_DISPLAY_NAME_LENGTH, 'auth.validation.fullNameTooLong')
       .transform(normalizeDisplayName),
     email: emailSchema,
     phone: z
       .string()
       .trim()
-      .min(1, 'Phone number is required.')
+      .min(1, 'auth.validation.phoneRequired')
       .refine(
         isValidVietnamPhone,
-        'Enter a valid Vietnam phone number, e.g. +84901234567.',
+        'auth.validation.phoneInvalid',
       )
       .transform(normalizeVietnamPhone),
     password: registerPasswordSchema,
-    confirmPassword: z.string().min(1, 'Confirm your password.'),
+    confirmPassword: z.string().min(1, 'auth.validation.confirmPasswordRequired'),
   })
   .superRefine((data, context) => {
     if (data.password !== data.confirmPassword) {
       context.addIssue({
         code: 'custom',
         path: ['confirmPassword'],
-        message: 'Passwords do not match.',
+        message: 'auth.validation.passwordsMismatch',
       });
     }
   });
@@ -119,21 +120,21 @@ export const forgotPasswordSchema = z.object({
 export const otpSchema = z.object({
   code: z
     .string()
-    .length(AUTH_CODE_LENGTH, 'Enter the 6-digit verification code.')
-    .regex(/^\d{6}$/, 'Verification code must contain digits only.'),
+    .length(AUTH_CODE_LENGTH, 'auth.validation.otpLength')
+    .regex(/^\d{6}$/, 'auth.validation.otpDigits'),
 });
 
 export const resetPasswordSchema = z
   .object({
     password: registerPasswordSchema,
-    confirmPassword: z.string().min(1, 'Confirm your new password.'),
+    confirmPassword: z.string().min(1, 'auth.validation.confirmNewPasswordRequired'),
   })
   .superRefine((data, context) => {
     if (data.password !== data.confirmPassword) {
       context.addIssue({
         code: 'custom',
         path: ['confirmPassword'],
-        message: 'Passwords do not match.',
+        message: 'auth.validation.passwordsMismatch',
       });
     }
   });
@@ -165,6 +166,19 @@ export const zodFieldErrors = <Field extends string>(
 const normalizeFieldName = (field: string): string =>
   field.trim().replace(/^[A-Z]/, (letter) => letter.toLowerCase());
 
+const AUTH_FORM_FIELDS = new Set([
+  'code',
+  'confirmPassword',
+  'currentPassword',
+  'displayName',
+  'email',
+  'fullName',
+  'newPassword',
+  'otp',
+  'password',
+  'phone',
+]);
+
 export const apiFieldErrors = <Field extends string>(
   fields: ApiFieldError[],
   aliases: Partial<Record<string, Field>> = {},
@@ -173,9 +187,20 @@ export const apiFieldErrors = <Field extends string>(
     const normalizedField = normalizeFieldName(item.field);
     const field = aliases[normalizedField] ?? (normalizedField as Field);
 
-    if (!nextErrors[field]) {
-      nextErrors[field] = item.message;
+    // Field messages are backend-owned prose and may be in any locale. Keep
+    // only known auth fields and map them to app-owned copy before rendering.
+    if (AUTH_FORM_FIELDS.has(field) && !nextErrors[field]) {
+      nextErrors[field] = 'auth.validation.fieldInvalid';
     }
 
     return nextErrors;
   }, {});
+
+/** Translate app-owned validation keys and fail closed for unexpected prose. */
+export const localizeAuthMessage = (
+  message: string | undefined,
+  t: TFunction,
+): string | undefined =>
+  message
+    ? t(message.startsWith('auth.') ? message : 'auth.validation.fieldInvalid')
+    : undefined;

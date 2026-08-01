@@ -1,15 +1,16 @@
 /** CityPicker - choose the FE trip-search location catalog item. */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   StatusBar,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft, MapPin, MagnifyingGlass } from 'phosphor-react-native';
@@ -31,7 +32,69 @@ type CityPickerRouteProp = RouteProp<BookingStackParamList, 'CityPicker'>;
 
 const locationKeyExtractor = (item: Location) => item.id;
 
+interface LocationRowProps {
+  location: Location;
+  isUnavailable: boolean;
+  onSelect: (location: Location) => void;
+}
+
+const LocationRow = memo(function LocationRowComponent({
+  location,
+  isUnavailable,
+  onSelect,
+}: LocationRowProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const handlePress = useCallback(() => onSelect(location), [location, onSelect]);
+  const typeLabel = location.type === 'MUNICIPALITY'
+    ? t('booking.locations.municipality')
+    : t('booking.locations.province');
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.item,
+        isUnavailable ? styles.itemDisabled : null,
+        pressed && !isUnavailable ? styles.pressed : null,
+      ]}
+      onPress={handlePress}
+      disabled={isUnavailable}
+      accessibilityRole="button"
+      accessibilityLabel={t('booking.locations.locationAccessibility', {
+        name: location.name,
+        type: typeLabel,
+      })}
+      accessibilityState={{ disabled: isUnavailable }}
+    >
+      <View style={styles.itemIcon}>
+        <MapPin size={16} color={theme.colors.primary} weight="fill" />
+      </View>
+      <View style={styles.itemTextWrap}>
+        <Text style={styles.itemName}>{location.name}</Text>
+        <Text style={styles.itemRegion}>
+          {isUnavailable
+            ? t('booking.locations.alreadySelected')
+            : t('booking.locations.typeAndCode', {
+              type: typeLabel,
+              code: location.code,
+            })}
+        </Text>
+      </View>
+      <View style={styles.itemArrow}>
+        <ArrowLeft
+          size={16}
+          color={theme.colors.textTertiary}
+          weight="bold"
+          style={styles.arrowForward}
+        />
+      </View>
+    </Pressable>
+  );
+});
+
 export function CityPickerScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<CityPickerRouteProp>();
   const theme = useTheme();
@@ -85,49 +148,14 @@ export function CityPickerScreen(): React.JSX.Element {
   );
 
   const renderLocation = useCallback(
-    ({ item }: { item: Location }) => {
-      const isUnavailable = item.code === oppositeLocationCode;
-      const typeLabel = item.type === 'MUNICIPALITY' ? 'Municipality' : 'Province';
-
-      return (
-        <Pressable
-          style={({ pressed }) => [
-            styles.item,
-            isUnavailable ? styles.itemDisabled : null,
-            pressed && !isUnavailable ? styles.pressed : null,
-          ]}
-          onPress={() => onSelectLocation(item)}
-          disabled={isUnavailable}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isUnavailable }}
-        >
-          <View style={styles.itemIcon}>
-            <MapPin size={16} color={theme.colors.primary} weight="fill" />
-          </View>
-          <View style={styles.itemTextWrap}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <Text style={styles.itemRegion}>
-              {isUnavailable ? 'Already selected' : `${typeLabel} - ${item.code}`}
-            </Text>
-          </View>
-          <View style={styles.itemArrow}>
-            <ArrowLeft
-              size={16}
-              color={theme.colors.textTertiary}
-              weight="bold"
-              style={styles.arrowForward}
-            />
-          </View>
-        </Pressable>
-      );
-    },
-    [
-      onSelectLocation,
-      oppositeLocationCode,
-      styles,
-      theme.colors.primary,
-      theme.colors.textTertiary,
-    ],
+    ({ item }: ListRenderItemInfo<Location>) => (
+      <LocationRow
+        location={item}
+        isUnavailable={item.code === oppositeLocationCode}
+        onSelect={onSelectLocation}
+      />
+    ),
+    [onSelectLocation, oppositeLocationCode],
   );
 
   const locationEmptyState = useMemo(() => {
@@ -135,7 +163,7 @@ export function CityPickerScreen(): React.JSX.Element {
       return (
         <View style={styles.stateContainer}>
           <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.empty}>Loading provinces and cities...</Text>
+          <Text style={styles.empty}>{t('booking.locations.loading')}</Text>
         </View>
       );
     }
@@ -143,7 +171,7 @@ export function CityPickerScreen(): React.JSX.Element {
     if (isError) {
       return (
         <View style={styles.stateContainer}>
-          <Text style={styles.empty}>Could not load locations.</Text>
+          <Text style={styles.empty}>{t('booking.locations.loadError')}</Text>
           <Pressable
             onPress={() => refetch()}
             disabled={isFetching}
@@ -155,14 +183,14 @@ export function CityPickerScreen(): React.JSX.Element {
             {isFetching ? (
               <ActivityIndicator size="small" color={theme.colors.textInverse} />
             ) : (
-              <Text style={styles.retryText}>Try again</Text>
+              <Text style={styles.retryText}>{t('common.retry')}</Text>
             )}
           </Pressable>
         </View>
       );
     }
 
-    return <Text style={styles.empty}>No matching locations found.</Text>;
+    return <Text style={styles.empty}>{t('booking.locations.noMatches')}</Text>;
   }, [
     isError,
     isFetching,
@@ -171,6 +199,7 @@ export function CityPickerScreen(): React.JSX.Element {
     styles,
     theme.colors.primary,
     theme.colors.textInverse,
+    t,
   ]);
 
   return (
@@ -192,7 +221,9 @@ export function CityPickerScreen(): React.JSX.Element {
 
         <View style={styles.header}>
           <Pressable
-            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
+            onPress={navigation.goBack}
             style={({ pressed }) => [styles.backBtn, pressed ? styles.pressed : null]}
           >
             <View style={styles.backBubble}>
@@ -200,7 +231,9 @@ export function CityPickerScreen(): React.JSX.Element {
             </View>
           </Pressable>
           <Text style={styles.headerTitle}>
-            {mode === 'from' ? 'Departure Province' : 'Destination Province'}
+            {mode === 'from'
+              ? t('booking.locations.departureTitle')
+              : t('booking.locations.destinationTitle')}
           </Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -208,8 +241,9 @@ export function CityPickerScreen(): React.JSX.Element {
         <View style={styles.searchBox}>
           <MagnifyingGlass size={16} color={theme.colors.textTertiary} weight="bold" />
           <TextInput
+            accessibilityLabel={t('booking.locations.searchAccessibility')}
             style={styles.searchInput}
-            placeholder="Search province or city..."
+            placeholder={t('booking.locations.searchPlaceholder')}
             placeholderTextColor={theme.colors.textTertiary}
             value={query}
             onChangeText={setQuery}
@@ -218,7 +252,7 @@ export function CityPickerScreen(): React.JSX.Element {
           />
         </View>
 
-        <FlatList
+        <FlashList
           data={filteredLocations}
           keyExtractor={locationKeyExtractor}
           contentContainerStyle={styles.list}

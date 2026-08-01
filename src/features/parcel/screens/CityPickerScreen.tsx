@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -28,6 +28,61 @@ type NavProp = NativeStackNavigationProp<ParcelStackParamList, 'CityPicker'>;
 type RouteProps = RouteProp<ParcelStackParamList, 'CityPicker'>;
 
 const locationKeyExtractor = (item: Location) => item.id;
+
+interface LocationOptionProps {
+  location: Location;
+  disabled: boolean;
+  onSelect: (location: Location) => void;
+}
+
+const LocationOption = memo(function LocationOption({
+  location,
+  disabled,
+  onSelect,
+}: LocationOptionProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const typeLabel =
+    location.type === 'MUNICIPALITY'
+      ? t('parcel.locations.municipality')
+      : t('parcel.locations.province');
+  const details = disabled
+    ? t('parcel.locations.alreadySelected')
+    : t('parcel.locations.typeAndCode', {
+        type: typeLabel,
+        code: location.code,
+      });
+  const handlePress = useCallback(() => {
+    onSelect(location);
+  }, [location, onSelect]);
+
+  return (
+    <Pressable
+      accessibilityLabel={t('parcel.locations.itemAccessibility', {
+        name: location.name,
+        details,
+      })}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={handlePress}
+      style={({ pressed }) => [
+        styles.item,
+        disabled ? styles.itemDisabled : null,
+        pressed && !disabled ? styles.pressed : null,
+      ]}
+    >
+      <View style={styles.itemIcon}>
+        <MapPin size={16} color={theme.colors.primary} weight="fill" />
+      </View>
+      <View style={styles.itemTextWrap}>
+        <Text style={styles.itemName}>{location.name}</Text>
+        <Text style={styles.itemRegion}>{details}</Text>
+      </View>
+    </Pressable>
+  );
+});
 
 export function ParcelCityPicker(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
@@ -86,43 +141,14 @@ export function ParcelCityPicker(): React.JSX.Element {
   );
 
   const renderLocation = useCallback<ListRenderItem<Location>>(
-    ({ item }) => {
-      const isUnavailable = item.code === oppositeLocationCode;
-      const typeLabel =
-        item.type === 'MUNICIPALITY'
-          ? t('parcel.locations.municipality')
-          : t('parcel.locations.province');
-
-      return (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isUnavailable }}
-          disabled={isUnavailable}
-          onPress={() => onSelectLocation(item)}
-          style={({ pressed }) => [
-            styles.item,
-            isUnavailable ? styles.itemDisabled : null,
-            pressed && !isUnavailable ? styles.pressed : null,
-          ]}
-        >
-          <View style={styles.itemIcon}>
-            <MapPin size={16} color={theme.colors.primary} weight="fill" />
-          </View>
-          <View style={styles.itemTextWrap}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <Text style={styles.itemRegion}>
-              {isUnavailable
-                ? t('parcel.locations.alreadySelected')
-                : t('parcel.locations.typeAndCode', {
-                    type: typeLabel,
-                    code: item.code,
-                  })}
-            </Text>
-          </View>
-        </Pressable>
-      );
-    },
-    [onSelectLocation, oppositeLocationCode, styles, t, theme.colors.primary],
+    ({ item }) => (
+      <LocationOption
+        disabled={item.code === oppositeLocationCode}
+        location={item}
+        onSelect={onSelectLocation}
+      />
+    ),
+    [onSelectLocation, oppositeLocationCode],
   );
 
   const listEmpty = useMemo(() => {
@@ -158,7 +184,7 @@ export function ParcelCityPicker(): React.JSX.Element {
               />
             ) : (
               <Text style={styles.retryText}>
-                {t('parcel.actions.tryAgain')}
+                {t('common.retry')}
               </Text>
             )}
           </Pressable>
@@ -186,7 +212,7 @@ export function ParcelCityPicker(): React.JSX.Element {
     <View style={[styles.safe, { paddingTop: insets.top }]}>
       <View style={styles.headerRow}>
         <Pressable
-          accessibilityLabel={t('parcel.actions.goBack')}
+          accessibilityLabel={t('common.back')}
           accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [
@@ -228,8 +254,13 @@ export function ParcelCityPicker(): React.JSX.Element {
         contentContainerStyle={styles.list}
         renderItem={renderLocation}
         ListEmptyComponent={listEmpty}
+        initialNumToRender={12}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        maxToRenderPerBatch={12}
+        removeClippedSubviews={process.env.EXPO_OS === 'android'}
         showsVerticalScrollIndicator={false}
+        windowSize={7}
       />
     </View>
   );

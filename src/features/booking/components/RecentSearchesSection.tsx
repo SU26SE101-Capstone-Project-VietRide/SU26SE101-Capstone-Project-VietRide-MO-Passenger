@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { ArrowRight, ClockCounterClockwise, X } from 'phosphor-react-native';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import { useTranslation } from 'react-i18next';
 
 import type { RecentSearch } from '../hooks/useRecentSearches';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -45,6 +46,7 @@ const RecentSearchCard = memo(function RecentSearchCardComponent({
   passengers,
   onPress,
 }: RecentSearchCardProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handlePress = useCallback(() => onPress(id), [id, onPress]);
@@ -52,7 +54,11 @@ const RecentSearchCard = memo(function RecentSearchCardComponent({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${fromName} to ${toName}, ${date}`}
+      accessibilityLabel={t('booking.recentSearches.routeAccessibility', {
+        origin: fromName,
+        destination: toName,
+        date,
+      })}
       onPress={handlePress}
       style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
     >
@@ -62,7 +68,9 @@ const RecentSearchCard = memo(function RecentSearchCardComponent({
         <ArrowRight size={14} color={theme.colors.textTertiary} />
         <Text style={styles.routeText} numberOfLines={1}>{toName}</Text>
       </View>
-      <Text style={styles.meta}>{date} · {passengers} passenger{passengers > 1 ? 's' : ''}</Text>
+      <Text style={styles.meta}>
+        {t('booking.recentSearches.meta', { date, count: passengers })}
+      </Text>
     </Pressable>
   );
 });
@@ -76,6 +84,7 @@ export const RecentSearchesSection = memo(function RecentSearchesSectionComponen
   onSearchPress,
   onClear,
 }: RecentSearchesSectionProps): React.JSX.Element | null {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { fontScale } = useWindowDimensions();
@@ -97,27 +106,30 @@ export const RecentSearchesSection = memo(function RecentSearchesSectionComponen
   return (
     <View style={styles.section}>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Recent searches</Text>
+        <Text style={styles.sectionTitle}>{t('booking.recentSearches.title')}</Text>
         {searches.length > 0 ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Clear recent searches"
+            accessibilityLabel={t('booking.recentSearches.clearAccessibility')}
             onPress={onClear}
             style={styles.clearButton}
           >
             <X size={14} color={theme.colors.textSecondary} />
-            <Text style={styles.clearText}>Clear</Text>
+            <Text style={styles.clearText}>{t('booking.recentSearches.clear')}</Text>
           </Pressable>
         ) : null}
       </View>
       {isLoading ? (
-        <View style={[styles.stateBox, listFrameStyle]} accessibilityLabel="Loading recent searches">
+        <View
+          style={[styles.stateBox, listFrameStyle]}
+          accessibilityLabel={t('booking.recentSearches.loadingAccessibility')}
+        >
           <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.stateText}>Restoring recent searches…</Text>
+          <Text style={styles.stateText}>{t('booking.recentSearches.loading')}</Text>
         </View>
       ) : error ? (
         <View style={[styles.stateBox, listFrameStyle]}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>{t('booking.recentSearches.storageError')}</Text>
         </View>
       ) : searches.length > 0 ? (
         <View style={[styles.listFrame, listFrameStyle]}>
@@ -132,7 +144,7 @@ export const RecentSearchesSection = memo(function RecentSearchesSectionComponen
         </View>
       ) : (
         <View style={[styles.stateBox, listFrameStyle]}>
-          <Text style={styles.stateText}>Your completed route searches will appear here.</Text>
+          <Text style={styles.stateText}>{t('booking.recentSearches.empty')}</Text>
         </View>
       )}
     </View>

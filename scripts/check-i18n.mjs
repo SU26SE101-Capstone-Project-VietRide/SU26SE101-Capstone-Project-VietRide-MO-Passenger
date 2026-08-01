@@ -77,8 +77,16 @@ const hasTranslationKey = key =>
   );
 
 const translationCallPattern = /\bt\(\s*['"`]([^'"`]+)['"`]/g;
+const literalFallbackPattern = /\bt\(\s*['"`][^'"`]+['"`]\s*,\s*['"`]/;
 for (const filePath of await collectSourceFiles(sourceDirectory)) {
   const source = await readFile(filePath, 'utf8');
+
+  if (literalFallbackPattern.test(source)) {
+    errors.push(
+      `Literal translation fallback in ${path.relative(projectRoot, filePath)}`,
+    );
+  }
+
   for (const match of source.matchAll(translationCallPattern)) {
     const key = match[1];
     // Template-literal keys are resolved from a finite domain at runtime and

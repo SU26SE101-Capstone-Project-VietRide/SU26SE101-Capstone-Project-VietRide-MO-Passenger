@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { User } from 'phosphor-react-native';
+import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -21,6 +22,7 @@ export function PassengerCountInput({
   value,
   onChange,
 }: PassengerCountInputProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const [inputValue, setInputValue] = useState(String(value));
@@ -66,7 +68,7 @@ export function PassengerCountInput({
         maxLength={1}
         selectTextOnFocus
         style={styles.input}
-        accessibilityLabel="Passenger count"
+        accessibilityLabel={t('booking.passengerCount.accessibilityLabel')}
       />
     </View>
   );

@@ -22,11 +22,12 @@ function PreferencesHydrationGate({
   const [syncedLocale, setSyncedLocale] = useState<Locale>(() =>
     resolveLocale(i18n.resolvedLanguage),
   );
+  const [isBootstrapped, setIsBootstrapped] = useState(false);
 
   useEffect(() => {
     let isActive = true;
 
-    void i18n
+    i18n
       .changeLanguage(locale)
       .then(() => {
         if (isActive) {
@@ -45,12 +46,21 @@ function PreferencesHydrationGate({
     };
   }, [locale]);
 
-  const isReady =
+  const initialPreferencesReady =
     appPreferencesHydrated &&
     themePreferencesHydrated &&
     syncedLocale === locale;
 
-  if (!isReady) {
+  useEffect(() => {
+    if (initialPreferencesReady) {
+      setIsBootstrapped(true);
+    }
+  }, [initialPreferencesReady]);
+
+  // Keep the mounted navigation tree alive for later language changes. The
+  // bundled resources switch synchronously; remounting every screen behind a
+  // launch gate would lose local UI state and create a visible flash.
+  if (!isBootstrapped) {
     return <AppLaunchScreen message={i18n.t('app.preparing')} />;
   }
 

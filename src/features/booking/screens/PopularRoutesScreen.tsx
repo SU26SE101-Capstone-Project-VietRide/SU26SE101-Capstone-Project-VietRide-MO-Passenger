@@ -3,6 +3,7 @@ import { Pressable, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ArrowRight, MagnifyingGlass, MapPin } from 'phosphor-react-native';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import { useTranslation } from 'react-i18next';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -33,6 +34,7 @@ const PopularRouteRow = memo(function PopularRouteRowComponent({
   route,
   onPress,
 }: PopularRouteRowProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handlePress = useCallback(() => {
@@ -42,7 +44,10 @@ const PopularRouteRow = memo(function PopularRouteRowComponent({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${route.originName} to ${route.destinationName}`}
+      accessibilityLabel={t('booking.routes.routeAccessibility', {
+        origin: route.originName,
+        destination: route.destinationName,
+      })}
       onPress={handlePress}
       style={({ pressed }) => [styles.routeCard, pressed ? styles.pressed : null]}
     >
@@ -51,7 +56,9 @@ const PopularRouteRow = memo(function PopularRouteRowComponent({
       </View>
       <View style={styles.routeCopy}>
         <Text style={styles.routeName} numberOfLines={1}>{route.originName}</Text>
-        <Text style={styles.routeHint}>to {route.destinationName}</Text>
+        <Text style={styles.routeHint}>
+          {t('booking.routes.toDestination', { destination: route.destinationName })}
+        </Text>
       </View>
       <ArrowRight size={18} color={theme.colors.textTertiary} weight="bold" />
     </Pressable>
@@ -61,6 +68,7 @@ const PopularRouteRow = memo(function PopularRouteRowComponent({
 const keyExtractor = (item: PopularRouteShortcut): string => item.id;
 
 export function PopularRoutesScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<PopularRoutesRouteProp>();
   const theme = useTheme();
@@ -97,12 +105,12 @@ export function PopularRoutesScreen(): React.JSX.Element {
   ), [handleRoutePress]);
 
   const emptyMessage = popularRoutesLoading
-    ? 'Finding popular routes…'
+    ? t('booking.routes.finding')
     : popularRoutesError
-      ? 'Popular routes are unavailable right now. Please try again later.'
+      ? t('booking.routes.unavailableLater')
       : query.trim()
-        ? 'No popular routes match your search.'
-        : 'Popular routes will appear when they are available for your area.';
+        ? t('booking.routes.noSearchMatches')
+        : t('booking.routes.areaEmpty');
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -115,22 +123,22 @@ export function PopularRoutesScreen(): React.JSX.Element {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.back')}
           onPress={navigation.goBack}
           style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
         >
           <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
         </Pressable>
-        <Text style={styles.headerTitle}>Popular routes</Text>
+        <Text style={styles.headerTitle}>{t('booking.routes.popularTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.searchBox}>
         <MagnifyingGlass size={18} color={theme.colors.textTertiary} weight="bold" />
         <TextInput
-          accessibilityLabel="Search popular routes"
+          accessibilityLabel={t('booking.routes.searchAccessibility')}
           style={styles.searchInput}
-          placeholder="Search by city or province"
+          placeholder={t('booking.routes.searchPlaceholder')}
           placeholderTextColor={theme.colors.textTertiary}
           value={query}
           onChangeText={setQuery}

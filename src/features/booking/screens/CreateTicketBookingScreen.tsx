@@ -11,12 +11,17 @@ import {
   StatusBar,
   BackHandler,
   Text,
-  Animated,
-  Easing,
   Modal,
   ScrollView,
   Alert,
 } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   useFocusEffect,
@@ -32,10 +37,9 @@ import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { motionTokens, useMotion } from '@shared/motion';
 import {
-  getPaymentRedirectErrorMessage,
   openPaymentRedirect,
-  PAYMENT_REDIRECT_ERROR_TITLE,
 } from '@shared/utils/paymentRedirect';
 
 import { useBookingStore } from '../store/useBookingStore';
@@ -87,19 +91,19 @@ const DEFAULT_TRIP_FILTERS: TripFilterState = {
   priceRange: 'all',
 };
 
-const timeSlotOptions: Array<{ label: string; value: TripTimeSlot; helper?: string }> = [
-  { label: 'Any time', value: 'all' },
-  { label: 'Morning', value: 'morning', helper: '05:00 - 11:59' },
-  { label: 'Afternoon', value: 'afternoon', helper: '12:00 - 16:59' },
-  { label: 'Evening', value: 'evening', helper: '17:00 - 21:59' },
-  { label: 'Night', value: 'night', helper: '22:00 - 04:59' },
+const timeSlotOptions: Array<{ labelKey: string; value: TripTimeSlot; helper?: string }> = [
+  { labelKey: 'booking.filters.time.any', value: 'all' },
+  { labelKey: 'booking.filters.time.morning', value: 'morning', helper: '05:00 - 11:59' },
+  { labelKey: 'booking.filters.time.afternoon', value: 'afternoon', helper: '12:00 - 16:59' },
+  { labelKey: 'booking.filters.time.evening', value: 'evening', helper: '17:00 - 21:59' },
+  { labelKey: 'booking.filters.time.night', value: 'night', helper: '22:00 - 04:59' },
 ];
 
-const priceRangeOptions: Array<{ label: string; value: TripPriceRange; helper?: string }> = [
-  { label: 'Any price', value: 'all' },
-  { label: 'Under 350K', value: 'under_350k' },
-  { label: '350K - 450K', value: '350k_450k' },
-  { label: 'Over 450K', value: 'over_450k' },
+const priceRangeOptions: Array<{ labelKey: string; value: TripPriceRange; helper?: string }> = [
+  { labelKey: 'booking.filters.price.any', value: 'all' },
+  { labelKey: 'booking.filters.price.under350k', value: 'under_350k' },
+  { labelKey: 'booking.filters.price.from350To450k', value: '350k_450k' },
+  { labelKey: 'booking.filters.price.over450k', value: 'over_450k' },
 ];
 
 const countActiveTripFilters = (filters: TripFilterState): number => {
@@ -121,18 +125,21 @@ const makeRoundTripRouteLabel = (
 ): string => `${from} ⇄ ${to}`;
 
 const makeHeaderContextLabel = (
-  label: 'One-way' | 'Outbound' | 'Return',
+  label: string,
   dateLabel: string,
+  dateFallback: string,
   departureTime?: string,
 ): string => {
-  return [label, dateLabel || 'Select date', departureTime].filter(Boolean).join(' • ');
+  return [label, dateLabel || dateFallback, departureTime].filter(Boolean).join(' • ');
 };
 
 const makeTravelDateRangeLabel = (
   outboundDate: string,
   returnDate?: string,
+  departureFallback = '',
+  returnFallback = '',
 ): string => {
-  return `${outboundDate || 'Depart date'} ↔ ${returnDate || 'Return date'}`;
+  return `${outboundDate || departureFallback} ↔ ${returnDate || returnFallback}`;
 };
 
 function FilterChip({
@@ -147,6 +154,7 @@ function FilterChip({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => [
@@ -178,6 +186,8 @@ function TripFilterSheet({
   onClose,
   onReset,
 }: TripFilterSheetProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const { reduceMotion } = useMotion();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const [draftFilters, setDraftFilters] = useState<TripFilterState>(filters);
@@ -217,7 +227,7 @@ function TripFilterSheet({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType={reduceMotion ? 'none' : 'fade'}
       statusBarTranslucent
       onRequestClose={onClose}
     >
@@ -228,14 +238,14 @@ function TripFilterSheet({
 
           <View style={styles.filterHeaderRow}>
             <View>
-              <Text style={styles.filterTitle}>Filter trips</Text>
+              <Text style={styles.filterTitle}>{t('booking.filters.title')}</Text>
               <Text style={styles.filterSubtitle}>
-                Choose operator, departure time and fare.
+                {t('booking.filters.subtitle')}
               </Text>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close trip filters"
+              accessibilityLabel={t('booking.filters.closeAccessibility')}
               onPress={onClose}
               style={({ pressed }) => [styles.filterCloseButton, pressed ? styles.headerButtonPressed : null]}
             >
@@ -244,10 +254,10 @@ function TripFilterSheet({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
-            <Text style={styles.filterSectionLabel}>Operator</Text>
+            <Text style={styles.filterSectionLabel}>{t('booking.filters.operator')}</Text>
             <View style={styles.filterChipGrid}>
               <FilterChip
-                label="All operators"
+                label={t('booking.filters.allOperators')}
                 selected={draftFilters.operatorBadge === 'all'}
                 onPress={() => setOperator('all')}
               />
@@ -261,12 +271,12 @@ function TripFilterSheet({
               ))}
             </View>
 
-            <Text style={styles.filterSectionLabel}>Departure time</Text>
+            <Text style={styles.filterSectionLabel}>{t('booking.filters.departureTime')}</Text>
             <View style={styles.filterChipGrid}>
               {timeSlotOptions.map((option) => (
                 <FilterChip
                   key={option.value}
-                  label={option.label}
+                  label={t(option.labelKey)}
                   helper={option.helper}
                   selected={draftFilters.timeSlot === option.value}
                   onPress={() => setTimeSlot(option.value)}
@@ -275,29 +285,29 @@ function TripFilterSheet({
             </View>
 
             <View style={styles.filterSectionHeadingRow}>
-              <Text style={styles.filterSectionLabel}>Vehicle type</Text>
+              <Text style={styles.filterSectionLabel}>{t('booking.filters.vehicleType')}</Text>
               <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonText}>Coming soon</Text>
+                <Text style={styles.comingSoonText}>{t('booking.filters.comingSoon')}</Text>
               </View>
             </View>
             <View
               accessible
-              accessibilityLabel="Vehicle type filter, coming soon"
+              accessibilityLabel={t('booking.filters.vehicleComingSoonAccessibility')}
               accessibilityState={{ disabled: true }}
               style={styles.disabledFilterShell}
             >
-              <Text style={styles.disabledFilterTitle}>More ways to choose your ride</Text>
+              <Text style={styles.disabledFilterTitle}>{t('booking.filters.vehicleDisabledTitle')}</Text>
               <Text style={styles.disabledFilterCopy}>
-                Vehicle type options will appear here when they are available for your route.
+                {t('booking.filters.vehicleDisabledDescription')}
               </Text>
             </View>
 
-            <Text style={styles.filterSectionLabel}>Fare</Text>
+            <Text style={styles.filterSectionLabel}>{t('booking.filters.fare')}</Text>
             <View style={styles.filterChipGrid}>
               {priceRangeOptions.map((option) => (
                 <FilterChip
                   key={option.value}
-                  label={option.label}
+                  label={t(option.labelKey)}
                   helper={option.helper}
                   selected={draftFilters.priceRange === option.value}
                   onPress={() => setPriceRange(option.value)}
@@ -312,7 +322,7 @@ function TripFilterSheet({
               onPress={handleReset}
               style={({ pressed }) => [styles.filterResetButton, pressed ? styles.filterActionPressed : null]}
             >
-              <Text style={styles.filterResetText}>Reset</Text>
+              <Text style={styles.filterResetText}>{t('booking.filters.reset')}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -320,7 +330,9 @@ function TripFilterSheet({
               style={({ pressed }) => [styles.filterApplyButton, pressed ? styles.filterActionPressed : null]}
             >
               <Text style={styles.filterApplyText}>
-                {hasActiveDraftFilters ? 'Apply Filters' : 'Apply'}
+                {hasActiveDraftFilters
+                  ? t('booking.filters.applyFilters')
+                  : t('booking.filters.apply')}
               </Text>
             </Pressable>
           </View>
@@ -335,88 +347,30 @@ function AnimatedRouteHeader({
   secondary,
 }: RouteHeaderSnapshot): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
-  const animation = useRef(new Animated.Value(1)).current;
+  const { reduceMotion } = useMotion();
+  const progress = useSharedValue(1);
   const [visibleSecondary, setVisibleSecondary] = useState<string | undefined>(secondary);
-  const [previousSecondary, setPreviousSecondary] = useState<string | null>(null);
-  const visibleRef = useRef(visibleSecondary);
-  const keyRef = useRef(secondary ?? '');
 
   useEffect(() => {
-    visibleRef.current = visibleSecondary;
-  }, [visibleSecondary]);
-
-  useEffect(() => {
-    const nextKey = secondary ?? '';
-
-    if (nextKey === keyRef.current) {
+    setVisibleSecondary(secondary);
+    if (reduceMotion) {
+      progress.value = 1;
       return;
     }
 
-    setPreviousSecondary(visibleRef.current ?? null);
-    setVisibleSecondary(secondary);
-    keyRef.current = nextKey;
-    animation.setValue(0);
-
-    const transition = Animated.timing(animation, {
-      toValue: 1,
-      duration: 420,
+    progress.value = 0;
+    progress.value = withTiming(1, {
+      duration: motionTokens.duration.emphasis,
       easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
     });
+  }, [progress, reduceMotion, secondary]);
 
-    transition.start(({ finished }) => {
-      if (finished) {
-        setPreviousSecondary(null);
-      }
-    });
-
-    return () => transition.stop();
-  }, [animation, secondary]);
-
-  const incomingStyle = {
-    opacity: animation,
-    transform: [
-      {
-        translateY: animation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [8, 0],
-        }),
-      },
-    ],
-  };
-
-  const outgoingStyle = {
-    opacity: animation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [1, 0],
-    }),
-    transform: [
-      {
-        translateY: animation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, -8],
-        }),
-      },
-    ],
-  };
-
-  const renderSecondary = (value?: string | null) => {
-    if (!value) {
-      return null;
-    }
-
-    return (
-      <Text
-        style={styles.routeSecondary}
-        numberOfLines={1}
-        ellipsizeMode="tail"
-        adjustsFontSizeToFit
-        minimumFontScale={0.86}
-      >
-        {value}
-      </Text>
-    );
-  };
+  const incomingStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{
+      translateY: (1 - progress.value) * motionTokens.distance.standard,
+    }],
+  }));
 
   return (
     <View style={styles.routeHeaderShell}>
@@ -430,13 +384,18 @@ function AnimatedRouteHeader({
         {primary}
       </Text>
       <View style={styles.routeSecondaryShell}>
-        {previousSecondary ? (
-          <Animated.View style={[styles.routeHeaderLayer, outgoingStyle]}>
-            {renderSecondary(previousSecondary)}
-          </Animated.View>
-        ) : null}
         <Animated.View style={[styles.routeHeaderLayer, incomingStyle]}>
-          {renderSecondary(visibleSecondary)}
+          {visibleSecondary ? (
+            <Text
+              style={styles.routeSecondary}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              adjustsFontSizeToFit
+              minimumFontScale={0.86}
+            >
+              {visibleSecondary}
+            </Text>
+          ) : null}
         </Animated.View>
       </View>
     </View>
@@ -444,6 +403,7 @@ function AnimatedRouteHeader({
 }
 
 export function CreateTicketBookingScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<CreateBookingRouteProp>();
   const [step, setStep] = useState(1);
@@ -524,7 +484,12 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
 
       return {
         primary: makeRouteLabel(from, to),
-        secondary: makeHeaderContextLabel('One-way', searchParams.date, trip?.departureTime),
+        secondary: makeHeaderContextLabel(
+          t('booking.header.oneWay'),
+          searchParams.date,
+          t('booking.header.selectDate'),
+          trip?.departureTime,
+        ),
       };
     }
 
@@ -535,21 +500,29 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
       ? selectedTrip ?? returnState?.trip
       : selectedTrip ?? outboundState?.trip;
     const activeDate = stepLeg === 'return'
-      ? searchParams.returnDate || 'Return date'
+      ? searchParams.returnDate || t('booking.header.returnDate')
       : searchParams.date;
 
     if (isCheckoutOrPaymentStep) {
       return {
         primary: makeRoundTripRouteLabel(from, to),
-        secondary: makeTravelDateRangeLabel(searchParams.date, searchParams.returnDate),
+        secondary: makeTravelDateRangeLabel(
+          searchParams.date,
+          searchParams.returnDate,
+          t('booking.header.departureDate'),
+          t('booking.header.returnDate'),
+        ),
       };
     }
 
     return {
       primary: makeRoundTripRouteLabel(from, to),
       secondary: makeHeaderContextLabel(
-        stepLeg === 'return' ? 'Return' : 'Outbound',
+        stepLeg === 'return'
+          ? t('booking.header.return')
+          : t('booking.header.outbound'),
         activeDate,
+        t('booking.header.selectDate'),
         activeTrip?.departureTime,
       ),
     };
@@ -564,6 +537,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     searchParams.to,
     selectedTrip,
     step,
+    t,
   ]);
 
   const navigateToFlowStep = useCallback((targetStep: number) => {
@@ -626,14 +600,14 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
       createBooking: () => useBookingStore.getState().createBooking(),
       showTicket: () => navigation.replace('DigitalTicket', { source: 'checkout' }),
       openPayment: openPaymentRedirect,
-      onPaymentOpenError: (error) => {
+      onPaymentOpenError: () => {
         Alert.alert(
-          PAYMENT_REDIRECT_ERROR_TITLE,
-          getPaymentRedirectErrorMessage(error),
+          t('booking.paymentRedirect.errorTitle'),
+          t('booking.paymentRedirect.errorDescription'),
         );
       },
     }).catch(() => undefined);
-  }, [navigation]);
+  }, [navigation, t]);
 
   const renderStep = () => {
     if (isRoundTrip) {
@@ -698,7 +672,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
           <View style={styles.headerSide}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('common.back')}
               onPress={handleBack}
               style={({ pressed }) => [styles.headerButton, pressed ? styles.headerButtonPressed : null]}
             >
@@ -721,7 +695,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
             {isTripSelectionStep ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Open trip filters"
+                accessibilityLabel={t('booking.filters.openAccessibility')}
                 accessibilityState={{ selected: hasActiveFilters }}
                 onPress={handleOpenFilters}
                 style={({ pressed }) => [
@@ -863,14 +837,14 @@ const createStyles = (theme: AppTheme) => ({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: theme.isDark ? 'rgba(1, 10, 10, 0.64)' : 'rgba(19, 33, 31, 0.38)',
+    backgroundColor: theme.effects.scrim,
   },
   filterSheet: {
-    backgroundColor: theme.isDark ? 'rgba(9, 27, 26, 0.98)' : 'rgba(252, 255, 255, 0.98)',
+    backgroundColor: theme.effects.glassSurfaceStrong,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     borderWidth: 1,
-    borderColor: theme.isDark ? 'rgba(184, 255, 249, 0.28)' : 'rgba(0, 91, 87, 0.14)',
+    borderColor: theme.effects.glassBorderStrong,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,
@@ -907,9 +881,9 @@ const createStyles = (theme: AppTheme) => ({
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
-    backgroundColor: theme.isDark ? 'rgba(22, 51, 49, 0.96)' : 'rgba(245, 251, 251, 0.98)',
+    backgroundColor: theme.effects.glassSurfaceSoft,
     borderWidth: 1,
-    borderColor: theme.isDark ? 'rgba(184, 255, 249, 0.22)' : 'rgba(0, 91, 87, 0.12)',
+    borderColor: theme.effects.glassBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -935,7 +909,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderRadius: borderRadius.full,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.glassSurfaceSoft,
   },
   comingSoonText: {
     fontFamily: fontFamilies.semiBold,
@@ -948,7 +922,7 @@ const createStyles = (theme: AppTheme) => ({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: theme.colors.divider,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.glassSurfaceSoft,
     opacity: 0.8,
   },
   disabledFilterTitle: {
@@ -972,8 +946,8 @@ const createStyles = (theme: AppTheme) => ({
     minHeight: 42,
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: theme.isDark ? 'rgba(184, 255, 249, 0.22)' : 'rgba(0, 91, 87, 0.12)',
-    backgroundColor: theme.isDark ? 'rgba(20, 47, 45, 0.96)' : 'rgba(255, 255, 255, 0.98)',
+    borderColor: theme.effects.glassBorder,
+    backgroundColor: theme.effects.glassSurface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     flexDirection: 'row',
@@ -983,7 +957,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   filterChipActive: {
     borderColor: theme.colors.primary,
-    backgroundColor: theme.isDark ? 'rgba(85, 241, 232, 0.18)' : 'rgba(0, 154, 148, 0.14)',
+    backgroundColor: theme.colors.primaryFaded,
   },
   filterChipPressed: {
     opacity: 0.84,

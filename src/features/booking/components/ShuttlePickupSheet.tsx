@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { CheckCircle, Crosshair, MapPinLine, ShieldCheck, X } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@shared/components/Button';
 import { Input } from '@shared/components/Input';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -31,6 +32,7 @@ import {
   type AppTheme,
 } from '@shared/theme';
 import type { ShuttlePickupDraft } from '../types';
+import { useMotion } from '@shared/motion';
 import {
   SHUTTLE_ADDRESS_MAX_LENGTH,
   validateShuttlePickup,
@@ -55,7 +57,9 @@ export function ShuttlePickupSheet({
   onClose,
   onSave,
 }: ShuttlePickupSheetProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
+  const { reduceMotion } = useMotion();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const requestSequenceRef = useRef(0);
@@ -64,6 +68,10 @@ export function ShuttlePickupSheet({
   const [coordinates, setCoordinates] = useState<GeoCoordinate | null>(null);
   const [resolutionMode, setResolutionMode] = useState<ResolutionMode>(null);
   const [error, setError] = useState<string | null>(null);
+  const sheetInsetStyle = useMemo(
+    () => ({ paddingBottom: Math.max(insets.bottom, spacing.lg) }),
+    [insets.bottom],
+  );
 
   useEffect(() => {
     if (!visible) {
@@ -109,9 +117,9 @@ export function ShuttlePickupSheet({
   const presentSafeError = useCallback((caughtError: unknown, sequence: number): void => {
     if (requestSequenceRef.current !== sequence) return;
     setError(isDeviceLocationError(caughtError)
-      ? caughtError.message
-      : 'Location could not be verified. Please try again.');
-  }, []);
+      ? t(`booking.shuttleSheet.locationErrors.${caughtError.code}`)
+      : t('booking.shuttleSheet.locationErrors.generic'));
+  }, [t]);
 
   const handleUseCurrentLocation = useCallback(async (): Promise<void> => {
     if (isResolving) return;
@@ -141,11 +149,13 @@ export function ShuttlePickupSheet({
     if (isResolving) return;
     const normalizedAddress = address.trim();
     if (!normalizedAddress) {
-      setError('Enter a pickup address.');
+      setError(t('booking.shuttleSheet.errors.addressRequired'));
       return;
     }
     if (normalizedAddress.length > SHUTTLE_ADDRESS_MAX_LENGTH) {
-      setError(`Pickup address must be ${SHUTTLE_ADDRESS_MAX_LENGTH} characters or fewer.`);
+      setError(t('booking.shuttleSheet.errors.addressTooLong', {
+        count: SHUTTLE_ADDRESS_MAX_LENGTH,
+      }));
       return;
     }
 
@@ -163,7 +173,7 @@ export function ShuttlePickupSheet({
     } finally {
       finishRequest(sequence);
     }
-  }, [address, beginRequest, finishRequest, isResolving, presentSafeError]);
+  }, [address, beginRequest, finishRequest, isResolving, presentSafeError, t]);
 
   const handleAddressChange = useCallback((nextAddress: string): void => {
     setAddress(nextAddress);
@@ -175,19 +185,19 @@ export function ShuttlePickupSheet({
 
   const handleSave = useCallback((): void => {
     if (!validation?.value) {
-      setError(validation?.error ?? 'Verify the pickup location before saving.');
+      setError(t('booking.shuttleSheet.errors.verifyBeforeSave'));
       return;
     }
 
     onSave({ stationId, ...validation.value });
     onClose();
-  }, [onClose, onSave, stationId, validation]);
+  }, [onClose, onSave, stationId, t, validation]);
 
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType={reduceMotion ? 'none' : 'slide'}
       statusBarTranslucent
       onRequestClose={onClose}
     >
@@ -195,21 +205,21 @@ export function ShuttlePickupSheet({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.overlay}
       >
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+        <View style={[styles.sheet, sheetInsetStyle]}>
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={styles.headerIcon}>
               <MapPinLine size={22} color={theme.colors.primary} weight="duotone" />
             </View>
             <View style={styles.headerCopy}>
-              <Text style={styles.title}>Set Shuttle pickup</Text>
+              <Text style={styles.title}>{t('booking.shuttleSheet.title')}</Text>
               <Text style={styles.subtitle} numberOfLines={2}>
-                Choose where the Shuttle should collect you before {stationName}.
+                {t('booking.shuttleSheet.subtitle', { station: stationName })}
               </Text>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close Shuttle pickup"
+              accessibilityLabel={t('booking.shuttleSheet.closeAccessibility')}
               onPress={onClose}
               style={({ pressed }) => [styles.closeButton, pressed ? styles.pressed : null]}
             >
@@ -223,8 +233,10 @@ export function ShuttlePickupSheet({
             contentContainerStyle={styles.content}
           >
             <Button
-              title={resolutionMode === 'current' ? 'Finding your location…' : 'Use my current location'}
-              accessibilityLabel="Use current location for Shuttle pickup"
+              title={resolutionMode === 'current'
+                ? t('booking.shuttleSheet.findingLocation')
+                : t('booking.shuttleSheet.useCurrentLocation')}
+              accessibilityLabel={t('booking.shuttleSheet.useCurrentLocationAccessibility')}
               variant="secondary"
               fullWidth
               loading={resolutionMode === 'current'}
@@ -235,27 +247,32 @@ export function ShuttlePickupSheet({
 
             <View style={styles.dividerRow}>
               <View style={styles.divider} />
-              <Text style={styles.dividerText}>or enter an address</Text>
+              <Text style={styles.dividerText}>{t('booking.shuttleSheet.orEnterAddress')}</Text>
               <View style={styles.divider} />
             </View>
 
             <Input
-              label="Pickup address"
+              label={t('booking.shuttle.pickupAddress')}
               required
               value={address}
               onChangeText={handleAddressChange}
-              placeholder="House number, street, ward, city"
+              placeholder={t('booking.shuttleSheet.addressPlaceholder')}
               autoCapitalize="sentences"
               autoCorrect={false}
               multiline
               maxLength={SHUTTLE_ADDRESS_MAX_LENGTH}
               textAlignVertical="top"
-              accessibilityLabel="Shuttle pickup address"
-              hint={`${address.length}/${SHUTTLE_ADDRESS_MAX_LENGTH} characters`}
+              accessibilityLabel={t('booking.shuttleSheet.addressAccessibility')}
+              hint={t('booking.shuttleSheet.characterCount', {
+                current: address.length,
+                max: SHUTTLE_ADDRESS_MAX_LENGTH,
+              })}
             />
 
             <Button
-              title={resolutionMode === 'address' ? 'Verifying address…' : 'Verify this address'}
+              title={resolutionMode === 'address'
+                ? t('booking.shuttleSheet.verifyingAddress')
+                : t('booking.shuttleSheet.verifyAddress')}
               variant="outline"
               fullWidth
               loading={resolutionMode === 'address'}
@@ -266,13 +283,13 @@ export function ShuttlePickupSheet({
             {isLocationVerified ? (
               <View style={styles.verifiedRow}>
                 <CheckCircle size={19} color={theme.colors.success} weight="fill" />
-                <Text style={styles.verifiedText}>Location verified for this booking</Text>
+                <Text style={styles.verifiedText}>{t('booking.shuttleSheet.verified')}</Text>
               </View>
             ) : (
               <View style={styles.verifyHintRow}>
                 <Crosshair size={18} color={theme.colors.textTertiary} weight="duotone" />
                 <Text style={styles.verifyHintText}>
-                  Verify the address so the operator receives valid coordinates.
+                  {t('booking.shuttleSheet.verifyHint')}
                 </Text>
               </View>
             )}
@@ -282,20 +299,20 @@ export function ShuttlePickupSheet({
             <View style={styles.privacyRow}>
               <ShieldCheck size={18} color={theme.colors.primary} weight="duotone" />
               <Text style={styles.privacyText}>
-                Your precise pickup location stays in this booking session and is sent only with your request.
+                {t('booking.shuttleSheet.privacy')}
               </Text>
             </View>
 
             <View style={styles.actions}>
               <Button
-                title="Cancel"
+                title={t('common.cancel')}
                 variant="ghost"
                 onPress={onClose}
                 disabled={isResolving}
                 style={styles.actionButton}
               />
               <Button
-                title="Save pickup"
+                title={t('booking.shuttleSheet.save')}
                 onPress={handleSave}
                 disabled={!validation?.value || isResolving}
                 style={styles.actionButton}

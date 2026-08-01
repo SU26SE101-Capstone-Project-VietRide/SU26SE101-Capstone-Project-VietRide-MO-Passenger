@@ -22,7 +22,7 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import { formatDate } from '@shared/utils/format';
+import { formatDate, toIntlLocale } from '@shared/utils/format';
 
 type StatusTone = 'active' | 'danger' | 'neutral' | 'success' | 'warning';
 
@@ -90,26 +90,24 @@ const RecentParcelCard = memo(function RecentParcelCardItem({
   status,
   tripId,
 }: RecentParcelCardProps): React.JSX.Element {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const intlLocale = toIntlLocale(i18n.resolvedLanguage);
   const handlePress = useCallback(() => {
     onPress?.(parcelId, tripId);
   }, [onPress, parcelId, tripId]);
   const tone = resolveStatusTone(status);
   const createdLabel = useMemo(
-    () => formatDate(createdAt) || createdAt,
-    [createdAt],
+    () => formatDate(createdAt, intlLocale) || createdAt,
+    [createdAt, intlLocale],
   );
   const etaLabel = useMemo(
-    () => eta ? (formatDate(eta) || eta) : t('home.parcels.pending'),
-    [eta, t],
+    () => eta ? (formatDate(eta, intlLocale) || eta) : t('home.parcels.pending'),
+    [eta, intlLocale, t],
   );
   const statusPresentation = getParcelStatusPresentation(status);
-  const statusLabel = t(
-    statusPresentation.labelKey,
-    statusPresentation.fallback,
-  );
+  const statusLabel = t(statusPresentation.labelKey);
 
   return (
     <Pressable
@@ -238,7 +236,7 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
           onPress={handleRetry}
           style={styles.retryButton}
         >
-          <Text style={styles.retryText}>{t('home.parcels.retry')}</Text>
+          <Text style={styles.retryText}>{t('common.retry')}</Text>
         </Pressable>
       </View>
     );

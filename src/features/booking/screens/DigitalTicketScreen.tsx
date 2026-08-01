@@ -37,9 +37,7 @@ import {
 } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
 import {
-  getPaymentRedirectErrorMessage,
   openPaymentRedirect,
-  PAYMENT_REDIRECT_ERROR_TITLE,
 } from '@shared/utils/paymentRedirect';
 import { useBookingPaymentReconciliation } from '../hooks/useBookingPaymentReconciliation';
 import { useBookingStore } from '../store/useBookingStore';
@@ -50,7 +48,10 @@ import {
   type TicketLegViewModel,
   type TicketViewModel,
 } from '../utils/ticketViewModel';
-import { getTicketLifecyclePresentation } from '../utils/ticketPresentation';
+import {
+  getTicketLifecyclePresentation,
+  getTicketStatusPresentation,
+} from '../utils/ticketPresentation';
 
 type DigitalTicketRoute = RouteProp<BookingStackParamList, 'DigitalTicket'>;
 type DigitalTicketNavigation = CompositeNavigationProp<
@@ -99,7 +100,9 @@ function TicketView({
       <View style={styles.navbar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={source === 'history' ? 'Go back' : 'Back to dashboard'}
+          accessibilityLabel={source === 'history'
+            ? t('common.back')
+            : t('booking.ticket.backToDashboard')}
           style={({ pressed }) => [styles.navButton, pressed ? styles.pressed : null]}
           onPress={onBack}
         >
@@ -117,7 +120,7 @@ function TicketView({
         {model.isDemo ? (
           <View style={styles.demoBanner}>
             <Flask size={16} color={theme.colors.warning} />
-            <Text style={styles.demoBannerText}>Demo ticket detail</Text>
+            <Text style={styles.demoBannerText}>{t('booking.ticket.demoDetail')}</Text>
           </View>
         ) : null}
 
@@ -137,9 +140,9 @@ function TicketView({
 
         {model.isPendingPayment && pendingPaymentActions ? (
           <View style={styles.pendingPaymentCard}>
-            <Text style={styles.pendingPaymentTitle}>VNPay confirmation required</Text>
+            <Text style={styles.pendingPaymentTitle}>{t('booking.ticket.vnpayConfirmationTitle')}</Text>
             <Text style={styles.pendingPaymentMessage}>
-              VietRide activates the ticket only after the payment callback reaches the backend.
+              {t('booking.ticket.vnpayConfirmationDescription')}
             </Text>
             {pendingPaymentActions.errorMessage ? (
               <Text style={styles.pendingPaymentError}>{pendingPaymentActions.errorMessage}</Text>
@@ -147,7 +150,7 @@ function TicketView({
             {pendingPaymentActions.onOpenPayment ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Open VNPay payment page"
+                accessibilityLabel={t('booking.ticket.openVnpayAccessibility')}
                 style={({ pressed }) => [
                   styles.primaryAction,
                   pressed ? styles.pressed : null,
@@ -155,12 +158,12 @@ function TicketView({
                 onPress={pendingPaymentActions.onOpenPayment}
               >
                 <Coins size={18} color={theme.colors.textInverse} weight="bold" />
-                <Text style={styles.primaryActionText}>Open VNPAY</Text>
+                <Text style={styles.primaryActionText}>{t('booking.ticket.openVnpay')}</Text>
               </Pressable>
             ) : null}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Check payment status"
+              accessibilityLabel={t('booking.ticket.checkPaymentAccessibility')}
               accessibilityState={{
                 busy: pendingPaymentActions.isChecking,
                 disabled: pendingPaymentActions.isChecking || !pendingPaymentActions.isOnline,
@@ -179,7 +182,9 @@ function TicketView({
                 <ActivityIndicator size="small" color={theme.colors.primary} />
               ) : null}
               <Text style={styles.secondaryActionText}>
-                {pendingPaymentActions.isChecking ? 'Checking payment...' : 'Check payment status'}
+                {pendingPaymentActions.isChecking
+                  ? t('booking.ticket.checkingPayment')
+                  : t('booking.ticket.checkPayment')}
               </Text>
             </Pressable>
           </View>
@@ -196,13 +201,16 @@ function TicketView({
                   </View>
                   <Text style={styles.referenceCaption}>
                     {model.legs.length > 1
-                      ? `${leg.label} booking reference`
-                      : 'Booking reference'}
+                      ? t('booking.ticket.legBookingReference', { leg: leg.label })
+                      : t('booking.ticket.bookingReference')}
                   </Text>
                   <Text style={styles.ticketIdText}>{leg.reference}</Text>
                   {leg.ticketReferences && !leg.ticketEntries?.length ? (
                     <Text style={styles.ticketReferencesText}>
-                      {leg.ticketCount === 1 ? 'Ticket' : 'Tickets'}: {leg.ticketReferences}
+                      {t('booking.ticket.references', {
+                        count: leg.ticketCount,
+                        references: leg.ticketReferences,
+                      })}
                     </Text>
                   ) : null}
                 </View>
@@ -217,8 +225,8 @@ function TicketView({
                     <View style={styles.codeList}>
                       <Text style={styles.codeListTitle}>
                         {leg.ticketEntries.length === 1
-                          ? 'Boarding QR code'
-                          : 'Boarding QR codes'}
+                          ? t('booking.ticket.boardingQrCode')
+                          : t('booking.ticket.boardingQrCodes')}
                       </Text>
                       {leg.ticketEntries.map((ticket) => {
                         const lifecycle = getTicketLifecyclePresentation(ticket.status);
@@ -228,14 +236,10 @@ function TicketView({
                             code={ticket.ticketCode}
                             title={t('history.ticketSeat', {
                               seat: ticket.seatNumber,
-                              defaultValue: `Seat ${ticket.seatNumber}`,
                             })}
                             description={ticket.status
-                              ? t(lifecycle.labelKey, lifecycle.fallback)
-                              : t(
-                                'history.ticketScanHint',
-                                'Show this exact code to the crew when boarding.',
-                              )}
+                              ? t(lifecycle.labelKey)
+                              : t('history.ticketScanHint')}
                             size={156}
                           />
                         );
@@ -246,16 +250,18 @@ function TicketView({
                     <View style={styles.shuttleRequestCard}>
                       <Van size={20} color={theme.colors.primary} weight="duotone" />
                       <View style={styles.shuttleRequestCopy}>
-                        <Text style={styles.shuttleRequestTitle}>Shuttle request sent</Text>
+                        <Text style={styles.shuttleRequestTitle}>{t('booking.ticket.shuttleSent')}</Text>
                         <Text style={styles.shuttleRequestAddress}>{leg.shuttlePickupAddress}</Text>
-                        <Text style={styles.shuttleRequestHint}>Awaiting operator arrangement</Text>
+                        <Text style={styles.shuttleRequestHint}>{t('booking.ticket.shuttleAwaiting')}</Text>
                       </View>
                     </View>
                   ) : null}
                   <View style={styles.routeRow}>
                     <View style={styles.routeItem}>
                       <Text style={styles.routeLabel}>
-                        {leg.boardingTime ? `BOARDING (${leg.boardingTime})` : 'BOARDING'}
+                        {leg.boardingTime
+                          ? t('booking.ticket.boardingWithTime', { time: leg.boardingTime })
+                          : t('booking.ticket.boarding')}
                       </Text>
                       <Text style={styles.routeName}>{leg.boardingName}</Text>
                       {leg.boardingAddress ? (
@@ -264,7 +270,9 @@ function TicketView({
                     </View>
                     <View style={styles.routeItem}>
                       <Text style={[styles.routeLabel, styles.alignRight]}>
-                        {leg.alightingTime ? `ALIGHTING (${leg.alightingTime})` : 'ALIGHTING'}
+                        {leg.alightingTime
+                          ? t('booking.ticket.alightingWithTime', { time: leg.alightingTime })
+                          : t('booking.ticket.alighting')}
                       </Text>
                       <Text style={[styles.routeName, styles.alignRight]}>{leg.alightingName}</Text>
                       {leg.alightingAddress ? (
@@ -278,25 +286,33 @@ function TicketView({
                   <View style={styles.specsGrid}>
                     {leg.busType ? (
                       <View style={styles.gridItem}>
-                        <Text style={styles.specLabel}>BUS TYPE</Text>
-                        <Text style={styles.specValue}>{leg.busType}</Text>
+                        <Text style={styles.specLabel}>{t('booking.ticket.busType')}</Text>
+                        <Text style={styles.specValue}>
+                          {leg.busType.toLowerCase().includes('sleeper')
+                            ? t('booking.busType.sleeper')
+                            : leg.busType.toLowerCase().includes('limousine')
+                              ? t('booking.busType.limousine')
+                              : leg.busType}
+                        </Text>
                       </View>
                     ) : null}
                     <View style={styles.gridItem}>
-                      <Text style={styles.specLabel}>SEATS</Text>
+                      <Text style={styles.specLabel}>{t('booking.ticket.seats')}</Text>
                       <Text style={styles.specValue}>{leg.seatNumbers}</Text>
                     </View>
                     <View style={styles.gridItem}>
-                      <Text style={styles.specLabel}>TICKETS</Text>
+                      <Text style={styles.specLabel}>{t('booking.ticket.tickets')}</Text>
                       <Text style={styles.specValue}>{leg.ticketCount}</Text>
                     </View>
                     {model.paymentMethod ? (
                       <View style={styles.gridItem}>
-                        <Text style={styles.specLabel}>PAYMENT METHOD</Text>
+                        <Text style={styles.specLabel}>{t('booking.ticket.paymentMethod')}</Text>
                         <View style={styles.paymentMethodLabel}>
                           {paymentIcon}
                           <Text style={styles.specValue}>
-                            {model.paymentMethod === 'WALLET' ? 'VietRide Wallet' : 'VNPAY'}
+                            {model.paymentMethod === 'WALLET'
+                              ? t('booking.paymentScreen.walletLabel')
+                              : 'VNPAY'}
                           </Text>
                         </View>
                       </View>
@@ -306,8 +322,10 @@ function TicketView({
                   <View style={styles.totalRow}>
                     <Text style={styles.totalLabel}>
                       {model.legs.length > 1
-                        ? `${leg.label} amount`
-                        : model.isPendingPayment ? 'Amount Due' : 'Total Amount'}
+                        ? t('booking.ticket.legAmount', { leg: leg.label })
+                        : model.isPendingPayment
+                          ? t('booking.ticket.amountDue')
+                          : t('booking.ticket.totalAmount')}
                     </Text>
                     <Text style={styles.totalValue}>
                       {formatVnd(leg.totalAmount, { display: 'code', clampNegative: true })}
@@ -319,12 +337,14 @@ function TicketView({
               {canTrack ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Track ${leg.label.toLowerCase()} trip`}
+                  accessibilityLabel={t('booking.ticket.trackLeg', { leg: leg.label })}
                   style={({ pressed }) => [styles.secondaryAction, pressed ? styles.pressed : null]}
                   onPress={() => onTrack(leg)}
                 >
                   <MapPin size={18} color={theme.colors.primary} weight="bold" />
-                  <Text style={styles.secondaryActionText}>Track {leg.label.toLowerCase()} trip</Text>
+                  <Text style={styles.secondaryActionText}>
+                    {t('booking.ticket.trackLeg', { leg: leg.label })}
+                  </Text>
                 </Pressable>
               ) : null}
             </View>
@@ -334,7 +354,9 @@ function TicketView({
         {model.legs.length > 1 ? (
           <View style={styles.roundTripTotalCard}>
             <Text style={styles.totalLabel}>
-              {model.isPendingPayment ? 'Grand total due' : 'Round-trip total'}
+              {model.isPendingPayment
+                ? t('booking.ticket.grandTotalDue')
+                : t('booking.ticket.roundTripTotal')}
             </Text>
             <Text style={styles.totalValue}>
               {formatVnd(model.totalAmount, { display: 'code', clampNegative: true })}
@@ -345,21 +367,27 @@ function TicketView({
         {source === 'checkout' ? (
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={t('booking.ticket.viewBookings')}
             style={({ pressed }) => [styles.primaryAction, pressed ? styles.pressed : null]}
             onPress={onViewBookings}
           >
             <File size={18} color={theme.colors.textInverse} weight="bold" />
-            <Text style={styles.primaryActionText}>View My Bookings</Text>
+            <Text style={styles.primaryActionText}>{t('booking.ticket.viewBookings')}</Text>
           </Pressable>
         ) : null}
 
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={source === 'history'
+            ? t('common.back')
+            : t('booking.ticket.backToDashboard')}
           style={({ pressed }) => [styles.homeButton, pressed ? styles.pressed : null]}
           onPress={source === 'history' ? onBack : onHome}
         >
           <Text style={styles.homeButtonText}>
-            {source === 'history' ? 'Go Back' : 'Back to Dashboard'}
+            {source === 'history'
+              ? t('common.back')
+              : t('booking.ticket.backToDashboard')}
           </Text>
         </Pressable>
       </ScrollView>
@@ -380,6 +408,7 @@ function UnavailableTicket({
   isLoading = false,
   onBack,
 }: UnavailableTicketProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -388,13 +417,13 @@ function UnavailableTicket({
       <View style={styles.navbar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.back')}
           style={({ pressed }) => [styles.navButton, pressed ? styles.pressed : null]}
           onPress={onBack}
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.navTitle}>Ticket Detail</Text>
+        <Text style={styles.navTitle}>{t('booking.ticket.detailTitle')}</Text>
         <View style={styles.navSpacer} />
       </View>
       <View style={styles.unavailableContainer}>
@@ -408,7 +437,7 @@ function UnavailableTicket({
           style={({ pressed }) => [styles.homeButton, styles.unavailableButton, pressed ? styles.pressed : null]}
           onPress={onBack}
         >
-          <Text style={styles.homeButtonText}>Go Back</Text>
+          <Text style={styles.homeButtonText}>{t('common.back')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -416,6 +445,7 @@ function UnavailableTicket({
 }
 
 function CheckoutTicketContent(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<DigitalTicketNavigation>();
   const paymentRedirectRef = useRef<Promise<void> | null>(null);
   const {
@@ -454,16 +484,19 @@ function CheckoutTicketContent(): React.JSX.Element {
   }, [bookingResult, paymentReconciliation.phase]);
 
   const model = useMemo(
-    () => buildCheckoutTicketViewModel({
-      bookingResult: effectiveBookingResult,
-      paymentMethod: bookingPaymentMethod ?? paymentMethod,
-      selectedTrip: outboundState?.trip ?? selectedTrip,
-      selectedPickUp: outboundState?.pickUp ?? selectedPickUp,
-      selectedDropOff: outboundState?.dropOff ?? selectedDropOff,
-      selectedShuttlePickup: outboundState?.shuttlePickup ?? selectedShuttlePickup,
-      outboundState,
-      returnState,
-    }),
+    () => buildCheckoutTicketViewModel(
+      {
+        bookingResult: effectiveBookingResult,
+        paymentMethod: bookingPaymentMethod ?? paymentMethod,
+        selectedTrip: outboundState?.trip ?? selectedTrip,
+        selectedPickUp: outboundState?.pickUp ?? selectedPickUp,
+        selectedDropOff: outboundState?.dropOff ?? selectedDropOff,
+        selectedShuttlePickup: outboundState?.shuttlePickup ?? selectedShuttlePickup,
+        outboundState,
+        returnState,
+      },
+      t,
+    ),
     [
       effectiveBookingResult,
       bookingPaymentMethod,
@@ -474,6 +507,7 @@ function CheckoutTicketContent(): React.JSX.Element {
       selectedShuttlePickup,
       selectedPickUp,
       selectedTrip,
+      t,
     ],
   );
 
@@ -507,17 +541,17 @@ function CheckoutTicketContent(): React.JSX.Element {
     if (!redirectUrl || paymentRedirectRef.current) return;
 
     const request = openPaymentRedirect(redirectUrl)
-      .catch((error) => {
+      .catch(() => {
         Alert.alert(
-          PAYMENT_REDIRECT_ERROR_TITLE,
-          getPaymentRedirectErrorMessage(error),
+          t('booking.paymentRedirect.errorTitle'),
+          t('booking.paymentRedirect.errorDescription'),
         );
       })
       .finally(() => {
         if (paymentRedirectRef.current === request) paymentRedirectRef.current = null;
       });
     paymentRedirectRef.current = request;
-  }, [bookingResult?.paymentRedirectUrl]);
+  }, [bookingResult?.paymentRedirectUrl, t]);
 
   const pendingPaymentActions = useMemo<PendingPaymentActions | undefined>(() => {
     if (!model?.isPendingPayment) return undefined;
@@ -542,21 +576,23 @@ function CheckoutTicketContent(): React.JSX.Element {
   if (paymentReconciliation.phase === 'expired') {
     return (
       <UnavailableTicket
-        title="Payment not completed"
-        message="The payment window expired before the backend confirmed this booking. No ticket was activated."
+        title={t('booking.ticket.paymentNotCompleted')}
+        message={t('booking.ticket.paymentExpiredDescription')}
         onBack={handleHome}
       />
     );
   }
 
   if (paymentReconciliation.phase === 'inactive') {
-    const status = paymentReconciliation.terminalStatus
-      ?.replaceAll('_', ' ')
-      .toLowerCase();
+    const statusPresentation = getTicketStatusPresentation(
+      paymentReconciliation.terminalStatus,
+    );
     return (
       <UnavailableTicket
-        title="Booking status changed"
-        message={`This booking is now ${status ?? 'inactive'} and is no longer an active checkout ticket.`}
+        title={t('booking.ticket.statusChanged')}
+        message={t('booking.ticket.inactiveDescription', {
+          status: t(statusPresentation.labelKey),
+        })}
         onBack={handleHome}
       />
     );
@@ -565,8 +601,9 @@ function CheckoutTicketContent(): React.JSX.Element {
   if (paymentReconciliation.phase === 'unavailable') {
     return (
       <UnavailableTicket
-        title="Booking status unavailable"
-        message={paymentReconciliation.errorMessage ?? 'VietRide could not safely verify this booking.'}
+        title={t('booking.ticket.statusUnavailable')}
+        message={paymentReconciliation.errorMessage
+          ?? t('booking.ticket.statusUnavailableDescription')}
         onBack={handleHome}
       />
     );
@@ -575,8 +612,8 @@ function CheckoutTicketContent(): React.JSX.Element {
   if (!model) {
     return (
       <UnavailableTicket
-        title="Ticket details unavailable"
-        message="This confirmation is no longer available in the current session. Open booking history for the latest status."
+        title={t('booking.ticket.detailsUnavailable')}
+        message={t('booking.ticket.detailsUnavailableDescription')}
         onBack={handleHome}
       />
     );
@@ -602,14 +639,15 @@ function HistoryTicketContent({
   bookingId: string;
   historyItem?: PassengerTicketHistoryItem;
 }): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<DigitalTicketNavigation>();
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
   const model = useMemo<TicketViewModel | null>(() => {
     if (historyItem?.id === bookingId) {
-      return buildPassengerHistoryTicketViewModel(historyItem);
+      return buildPassengerHistoryTicketViewModel(historyItem, t);
     }
     return null;
-  }, [bookingId, historyItem]);
+  }, [bookingId, historyItem, t]);
 
   const handleTrack = useCallback((leg: TicketLegViewModel) => {
     if (!leg.tripId || !leg.trackingEnabled) return;
@@ -624,8 +662,8 @@ function HistoryTicketContent({
   if (!model) {
     return (
       <UnavailableTicket
-        title="Ticket unavailable"
-        message="Open History again and select this ticket to load its current details."
+        title={t('booking.ticket.unavailable')}
+        message={t('booking.ticket.unavailableDescription')}
         onBack={handleBack}
       />
     );

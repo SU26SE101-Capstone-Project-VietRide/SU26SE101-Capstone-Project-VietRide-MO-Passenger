@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
@@ -21,9 +21,12 @@ import {
 } from 'phosphor-react-native';
 
 import type { ProfileStackParamList } from '@app/navigation/types';
-import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
+import {
+  useFloatingTabBarContentInset,
+  useTabBarScrollBehavior,
+  useThemedStyles,
+} from '@shared/hooks';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
@@ -31,15 +34,13 @@ import { PROFILE_SECURITY_CAPABILITIES } from '../config/securityCapabilities';
 
 type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList>;
 
-const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
-
 export function SecurityScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<ProfileNavProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const insets = useSafeAreaInsets();
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const bottomTabClearance = useFloatingTabBarContentInset();
   const user = useAuthStore((state) => state.user);
   const platformLabel = Platform.select({
     ios: 'iOS',
@@ -60,9 +61,6 @@ export function SecurityScreen(): React.JSX.Element {
         return t('security.status.unknown');
     }
   }, [t, user?.status]);
-  const bottomTabClearance =
-    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
-
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
       <StatusBar
@@ -85,7 +83,10 @@ export function SecurityScreen(): React.JSX.Element {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: bottomTabClearance },
+        ]}
         scrollIndicatorInsets={{ bottom: bottomTabClearance }}
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}
@@ -107,7 +108,7 @@ export function SecurityScreen(): React.JSX.Element {
           <View style={styles.card}>
             <InfoRow
               label={t('security.loginEmail')}
-              value={user?.email || t('security.notAvailable')}
+              value={user?.email || t('common.notAvailable')}
             />
             <View style={styles.rowDivider} />
             <InfoRow label={t('security.accountStatus')} value={accountStatus} />

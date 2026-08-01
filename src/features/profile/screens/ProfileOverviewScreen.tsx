@@ -7,7 +7,7 @@ import {
   Alert,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -27,9 +27,12 @@ import {
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
+import {
+  useFloatingTabBarContentInset,
+  useTabBarScrollBehavior,
+  useThemedStyles,
+} from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import { UserAvatar } from '@shared/components';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type {
@@ -47,18 +50,16 @@ type ProfileNavProp = CompositeNavigationProp<
     NativeStackNavigationProp<RootStackParamList>
   >
 >;
-const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
-
 export function ProfileOverviewScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<ProfileNavProp>();
-  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const logout = useAuthStore((state) => state.logout);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const bottomTabClearance = useFloatingTabBarContentInset();
   const displayName = user?.fullName ?? (
     isGuest
       ? t('profile.guestName')
@@ -70,9 +71,6 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       : t('profile.phoneUnavailable')
   );
   const isVerified = user?.status === 'ACTIVE';
-  const bottomTabClearance =
-    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
-
   const handleRequireAccount = useCallback(() => {
     if (!isGuest) {
       return true;
@@ -87,7 +85,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
           style: 'cancel',
         },
         {
-          text: t('profile.signIn'),
+          text: t('auth.login'),
           onPress: async () => {
             await logout();
           },
@@ -174,7 +172,10 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       {/* Scrollable Container */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: bottomTabClearance },
+        ]}
         contentInsetAdjustmentBehavior="automatic"
         scrollIndicatorInsets={{ bottom: bottomTabClearance }}
         onScroll={handleTabBarScroll}

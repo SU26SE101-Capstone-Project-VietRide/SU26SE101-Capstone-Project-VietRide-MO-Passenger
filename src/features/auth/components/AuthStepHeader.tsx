@@ -7,7 +7,8 @@
  */
 
 import React from 'react';
-import { View, Text, Image, Pressable } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -58,7 +59,12 @@ export const AuthStepHeader = ({
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
       {showMascot ? (
-        <Image source={catMascotImage} style={styles.mascot} resizeMode="contain" />
+        <Image
+          source={catMascotImage}
+          style={styles.mascot}
+          contentFit="contain"
+          transition={0}
+        />
       ) : null}
     </View>
   );
@@ -89,11 +95,7 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
-    shadowColor: theme.colors.textPrimary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: theme.isDark ? 0.18 : 0.08,
-    shadowRadius: 3,
-    elevation: 2,
+    ...theme.effects.cardShadow,
   },
   textWrap: { flex: 1.4 },
   textWrapWithBack: {

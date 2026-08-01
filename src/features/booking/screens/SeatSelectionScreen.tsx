@@ -5,6 +5,7 @@
 
 import React, { useEffect, useCallback } from 'react';
 import { ScrollView, View, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
@@ -20,6 +21,7 @@ interface SeatSelectionStepProps {
 export function SeatSelectionScreen({
   onNext,
 }: SeatSelectionStepProps): React.JSX.Element {
+  const { t } = useTranslation();
   const selectedTrip = useBookingStore(state => state.selectedTrip);
   const seatMap = useBookingStore(state => state.seatMap);
   const selectedSeats = useBookingStore(state => state.selectedSeats);
@@ -56,9 +58,9 @@ export function SeatSelectionScreen({
         <Text style={styles.headerTitle}>
           {isRoundTrip
             ? currentLeg === 'outbound'
-              ? 'Select Outbound Seat'
-              : 'Select Return Seat'
-            : 'Select Seat'}
+              ? t('booking.seats.selectOutbound')
+              : t('booking.seats.selectReturn')
+            : t('booking.seats.select')}
         </Text>
       </View>
 
@@ -95,7 +97,7 @@ export function SeatSelectionScreen({
       <FloatingActionBar
         selectedSeats={selectedSeats}
         totalPrice={getTotalPrice()}
-        ctaLabel="Continue"
+        ctaLabel={t('common.continue')}
         onPress={handleBookNow}
       />
     </View>

@@ -1,8 +1,16 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Animated } from 'react-native';
+import React, { useEffect } from 'react';
+import { View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { spacing, borderRadius } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
-import { useMotion } from '@shared/motion';
+import { motionTokens, useMotion } from '@shared/motion';
 import type { AppTheme } from '@shared/theme';
 
 interface ParcelSkeletonProps {
@@ -13,36 +21,35 @@ interface ParcelSkeletonProps {
 export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonProps): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const { reduceMotion } = useMotion();
-  const fadeAnim = useRef(new Animated.Value(0.4)).current;
+  const opacity = useSharedValue(0.4);
 
   useEffect(() => {
+    cancelAnimation(opacity);
+
     if (reduceMotion) {
-      fadeAnim.stopAnimation();
-      fadeAnim.setValue(0.7);
+      opacity.value = 0.7;
       return;
     }
 
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0.4,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
+    opacity.value = 0.4;
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: motionTokens.duration.emphasis * 2 }),
+        withTiming(0.4, { duration: motionTokens.duration.emphasis * 2 }),
+      ),
+      -1,
+      false,
     );
-    animation.start();
 
-    return () => animation.stop();
-  }, [fadeAnim, reduceMotion]);
+    return () => cancelAnimation(opacity);
+  }, [opacity, reduceMotion]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
   const renderStationSkeleton = (index: number) => (
-    <Animated.View key={`station-${index}`} style={[styles.card, { opacity: fadeAnim }]}>
+    <Animated.View key={`station-${index}`} style={[styles.card, animatedStyle]}>
       <View style={styles.stationIconStub} />
       <View style={styles.stationContentStub}>
         <View style={styles.titleStub} />
@@ -58,7 +65,10 @@ export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonPr
   );
 
   const renderShipmentSkeleton = (index: number) => (
-    <Animated.View key={`shipment-${index}`} style={[styles.shipmentCard, { opacity: fadeAnim }]}>
+    <Animated.View
+      key={`shipment-${index}`}
+      style={[styles.shipmentCard, animatedStyle]}
+    >
       <View style={styles.shipmentIconStub} />
       <View style={styles.shipmentInfo}>
         <View style={styles.shipmentTitleRow}>
@@ -71,7 +81,7 @@ export function ParcelSkeleton({ type = 'station', count = 3 }: ParcelSkeletonPr
   );
 
   const renderSummarySkeleton = () => (
-    <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
+    <Animated.View style={[styles.card, animatedStyle]}>
       <View style={[styles.titleStub, styles.summaryTitleStub]} />
       <View style={styles.routeItemStub}>
         <View style={styles.circleStub} />

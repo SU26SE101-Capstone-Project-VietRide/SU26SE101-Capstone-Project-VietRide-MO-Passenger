@@ -6,7 +6,6 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   Platform,
   StatusBar,
   KeyboardAvoidingView,
@@ -19,9 +18,15 @@ import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
 import { Input, Button } from '@shared/components';
-import { useApiError } from '@shared/hooks';
+import { useApiError, useThemedStyles } from '@shared/hooks';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
 import type { AuthStackParamList } from '@app/navigation/types';
@@ -30,6 +35,7 @@ import { AuthStepHeader } from '../components';
 import {
   apiFieldErrors,
   forgotPasswordSchema,
+  localizeAuthMessage,
   zodFieldErrors,
   type FieldErrorMap,
 } from '../validation/authValidation';
@@ -47,6 +53,7 @@ export function ForgotPasswordScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const isLiquid = theme.variant.startsWith('liquid');
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState<ForgotPasswordFormErrors>({});
@@ -142,7 +149,7 @@ export function ForgotPasswordScreen(): React.JSX.Element {
                   autoCapitalize="none"
                   value={email}
                   required
-                  error={errors.email}
+                  error={localizeAuthMessage(errors.email, t)}
                   onBlur={validateField}
                   onChangeText={(value) => {
                     setEmail(value);
@@ -177,8 +184,8 @@ export function ForgotPasswordScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+const createStyles = (theme: AppTheme) => ({
+  root: { flex: 1, backgroundColor: theme.colors.background },
   gradientContainer: {
     position: 'absolute',
     top: 0,
@@ -205,14 +212,14 @@ const styles = StyleSheet.create({
       paddingBottom: spacing.xxxl,
     },
   formCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.colors.divider,
     borderTopWidth: 3,
-    borderTopColor: colors.primaryLight,
-    ...shadows.md,
+    borderTopColor: theme.colors.primaryLight,
+    ...theme.effects.cardShadow,
     marginBottom: spacing.xxl,
     marginHorizontal: spacing.xl,
   },
@@ -223,7 +230,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.error,
+    color: theme.colors.error,
     marginBottom: spacing.md,
   },
   helperText: {
@@ -247,28 +254,28 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xxl,
     borderWidth: 2,
-    borderColor: colors.primaryLight,
+    borderColor: theme.colors.primaryLight,
   },
   successIcon: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   successTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.sm,
   },
   successSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.lg,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     lineHeight: fontSizes.lg * 1.5,
     textAlign: 'center',
     marginBottom: spacing.xxxl,

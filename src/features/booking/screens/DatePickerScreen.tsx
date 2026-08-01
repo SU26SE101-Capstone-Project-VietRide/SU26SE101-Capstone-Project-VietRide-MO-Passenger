@@ -4,6 +4,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, FlatList, StatusBar } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,7 +30,15 @@ import { formatMonthYear } from '@shared/utils/format';
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'DatePicker'>;
 type DatePickerRouteProp = RouteProp<BookingStackParamList, 'DatePicker'>;
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_KEYS = [
+  'sun',
+  'mon',
+  'tue',
+  'wed',
+  'thu',
+  'fri',
+  'sat',
+] as const;
 
 const resolveDisplayDate = (
   value: string | undefined,
@@ -49,6 +58,7 @@ const resolveDisplayDate = (
 };
 
 export function DatePicker(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<DatePickerRouteProp>();
   const searchParams = useBookingStore((state) => state.searchParams);
@@ -87,6 +97,10 @@ export function DatePicker(): React.JSX.Element {
     isInitialSelectionInRange
       ? initialSelection
       : toLocalDisplayDate(firstSelectableDate),
+  );
+  const dayLabels = useMemo(
+    () => DAY_KEYS.map(key => t(`booking.datePicker.weekdays.${key}`)),
+    [t],
   );
 
   const onConfirm = () => {
@@ -134,14 +148,20 @@ export function DatePicker(): React.JSX.Element {
         {/* Header with back bubble */}
         <View style={styles.header}>
           <Pressable
-            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
+            onPress={navigation.goBack}
             style={({ pressed }) => [styles.backBtn, pressed ? styles.backBtnPressed : null]}
           >
             <View style={styles.backBubble}>
               <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
             </View>
           </Pressable>
-          <Text style={styles.headerTitle}>Select {mode === 'return' ? 'Return Date' : 'Date'}</Text>
+          <Text style={styles.headerTitle}>
+            {mode === 'return'
+              ? t('booking.datePicker.returnTitle')
+              : t('booking.datePicker.departureTitle')}
+          </Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -154,12 +174,17 @@ export function DatePicker(): React.JSX.Element {
             keyExtractor={(date) => toLocalDisplayDate(date)}
             contentContainerStyle={styles.strip}
             renderItem={({ item }) => {
-              const label = DAY_LABELS[item.getDay()];
+              const label = dayLabels[item.getDay()];
               const dateStr = toLocalDisplayDate(item);
               const isToday = dateStr === todayStr;
               const active = dateStr === selected;
               return (
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('booking.datePicker.dateAccessibility', {
+                    date: dateStr,
+                  })}
+                  accessibilityState={{ selected: active }}
                   style={({ pressed }) => [
                     styles.dayItem,
                     active && styles.dayItemActive,
@@ -169,7 +194,11 @@ export function DatePicker(): React.JSX.Element {
                 >
                   <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{label}</Text>
                   <Text style={[styles.dayNum, active && styles.dayNumActive]}>{item.getDate()}</Text>
-                  {isToday ? <Text style={[styles.dayBadge, active && styles.dayBadgeActive]}>Today</Text> : null}
+                  {isToday ? (
+                    <Text style={[styles.dayBadge, active && styles.dayBadgeActive]}>
+                      {t('booking.datePicker.today')}
+                    </Text>
+                  ) : null}
                 </Pressable>
               );
             }}
@@ -178,14 +207,14 @@ export function DatePicker(): React.JSX.Element {
 
         {/* Month label */}
         <Text style={styles.monthLabel}>
-          {formatMonthYear(firstSelectableDate, 'en-US')}
+          {formatMonthYear(firstSelectableDate)}
         </Text>
 
         {/* Calendar grid */}
         <View style={styles.calCard}>
           {/* Weekday header row */}
           <View style={styles.calRow}>
-            {DAY_LABELS.map((d) => (
+            {dayLabels.map((d) => (
               <View key={d} style={styles.calCell}>
                 <Text style={styles.calWeekday}>{d}</Text>
               </View>
@@ -212,6 +241,11 @@ export function DatePicker(): React.JSX.Element {
                   return (
                     <Pressable
                       key={dateStr}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('booking.datePicker.dateAccessibility', {
+                        date: dateStr,
+                      })}
+                      accessibilityState={{ selected: active }}
                       style={({ pressed }) => [
                         styles.calCell,
                         active && styles.calCellActive,
@@ -236,9 +270,16 @@ export function DatePicker(): React.JSX.Element {
 
         {/* Confirm */}
         <View style={styles.footer}>
-          <Pressable style={({ pressed }) => [styles.confirmBtn, pressed ? styles.pressed : null]} onPress={onConfirm}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('booking.datePicker.confirmAccessibility', { date: selected })}
+            style={({ pressed }) => [styles.confirmBtn, pressed ? styles.pressed : null]}
+            onPress={onConfirm}
+          >
             <CalendarBlank size={18} color={theme.colors.textInverse} />
-            <Text style={styles.confirmText}>Confirm - {selected}</Text>
+            <Text style={styles.confirmText}>
+              {t('booking.datePicker.confirm', { date: selected })}
+            </Text>
           </Pressable>
         </View>
       </SafeAreaView>

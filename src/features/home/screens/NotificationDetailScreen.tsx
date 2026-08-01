@@ -62,7 +62,8 @@ export function NotificationDetailScreen(): React.JSX.Element {
       />
       <View style={styles.header}>
         <Pressable
-          accessibilityLabel={t('notification.back')}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
           hitSlop={10}
           onPress={handleBack}
           style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}

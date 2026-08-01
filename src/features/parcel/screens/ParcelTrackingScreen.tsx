@@ -19,7 +19,7 @@ import {
 } from 'phosphor-react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { getApiErrorMessage } from '@shared/api/errors';
+import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -36,6 +36,7 @@ import {
   isParcelRejected,
   isParcelTrackingEligible,
 } from '../utils/parcelTracking';
+import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
 
 type ParcelTrackingRouteProp = RouteProp<ParcelStackParamList, 'ParcelTracking'>;
 type ParcelTrackingNavProp = NativeStackNavigationProp<ParcelStackParamList, 'ParcelTracking'>;
@@ -43,7 +44,8 @@ type ParcelTrackingNavProp = NativeStackNavigationProp<ParcelStackParamList, 'Pa
 export function ParcelTrackingScreen(): React.JSX.Element {
   const route = useRoute<ParcelTrackingRouteProp>();
   const navigation = useNavigation<ParcelTrackingNavProp>();
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { parcelId } = route.params;
@@ -56,8 +58,8 @@ export function ParcelTrackingScreen(): React.JSX.Element {
     refetch,
   } = useParcelDetail(parcelId);
   const milestones = useMemo(
-    () => (parcel ? buildParcelMilestones(parcel) : []),
-    [parcel],
+    () => (parcel ? buildParcelMilestones(parcel, locale) : []),
+    [locale, parcel],
   );
 
   const handleGoBack = useCallback(() => {
@@ -69,14 +71,14 @@ export function ParcelTrackingScreen(): React.JSX.Element {
   const isRejected = parcel ? isParcelRejected(parcel) : false;
   const isTrackingEligible = isParcelTrackingEligible(parcel?.status);
   const isTrackingTerminal = isParcelLocationTrackingTerminal(parcel?.status);
-  const rejectedTime = formatParcelEventTime(parcel?.rejectedAt);
-  const eta = formatParcelEventTime(parcel?.eta);
+  const rejectedTime = formatParcelEventTime(parcel?.rejectedAt, locale);
+  const eta = formatParcelEventTime(parcel?.eta, locale);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.navbar}>
         <Pressable
-          accessibilityLabel={t('parcel.actions.goBack')}
+          accessibilityLabel={t('common.back')}
           accessibilityRole="button"
           hitSlop={8}
           onPress={handleGoBack}
@@ -104,7 +106,11 @@ export function ParcelTrackingScreen(): React.JSX.Element {
         </View>
       ) : isError || !parcel ? (
         <ErrorView
-          message={getApiErrorMessage(error)}
+          message={getLocalizedApiErrorMessage(
+            error,
+            t,
+            PARCEL_ERROR_TRANSLATION_KEYS,
+          )}
           onRetry={handleRefresh}
         />
       ) : (
@@ -193,7 +199,7 @@ export function ParcelTrackingScreen(): React.JSX.Element {
               <View style={styles.routeEndpoint}>
                 <Text style={styles.eyebrow}>{t('parcel.route.origin')}</Text>
                 <Text style={styles.routeName}>
-                  {parcel.originStationName || t('parcel.common.notProvided')}
+                  {parcel.originStationName || t('common.notAvailable')}
                 </Text>
               </View>
               <View style={styles.routeDivider} />
@@ -202,7 +208,7 @@ export function ParcelTrackingScreen(): React.JSX.Element {
                   {t('parcel.route.destination')}
                 </Text>
                 <Text style={styles.routeName}>
-                  {parcel.destinationStationName || t('parcel.common.notProvided')}
+                  {parcel.destinationStationName || t('common.notAvailable')}
                 </Text>
               </View>
             </View>

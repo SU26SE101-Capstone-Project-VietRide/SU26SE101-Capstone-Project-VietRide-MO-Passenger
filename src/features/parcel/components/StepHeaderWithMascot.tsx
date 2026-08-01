@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text } from 'react-native';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
@@ -43,7 +44,7 @@ export const StepHeaderWithMascot = ({ step }: StepHeaderWithMascotProps): React
       <Image
         source={catMascotImage}
         style={styles.mascotHeadingImageInsideNavbar}
-        resizeMode="contain"
+        contentFit="contain"
       />
     </View>
   );

@@ -6,6 +6,7 @@
 
 import React, { memo } from 'react';
 import { View, Text, ViewStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Bus } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -36,6 +37,7 @@ export const RouteProgressRow = memo(function RouteProgressRowComponent({
   busIcon,
   style,
 }: RouteProgressRowProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const centerIcon = busIcon ?? <Bus size={14} weight="fill" color={theme.colors.primary} />;
@@ -57,7 +59,9 @@ export const RouteProgressRow = memo(function RouteProgressRowComponent({
           </View>
         </View>
         {durationHours != null ? (
-          <Text style={styles.routeDuration}>{durationHours}h</Text>
+          <Text style={styles.routeDuration}>
+            {t('booking.tripCard.durationHours', { value: durationHours })}
+          </Text>
         ) : null}
       </View>
 

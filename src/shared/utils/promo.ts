@@ -1,5 +1,3 @@
-import { formatVnd } from './format';
-
 export type PromoDiscount =
   | {
       type: 'fixed';
@@ -22,14 +20,17 @@ export interface PromoOffer {
   minimumSpend?: number;
 }
 
-export const normalizePromoCode = (code: string): string => code.trim().toUpperCase();
+export const normalizePromoCode = (code: string): string =>
+  code.trim().toUpperCase();
 
 export const findPromoByCode = (
   promos: PromoOffer[],
   code: string,
 ): PromoOffer | undefined => {
   const normalizedCode = normalizePromoCode(code);
-  return promos.find((promo) => normalizePromoCode(promo.code) === normalizedCode);
+  return promos.find(
+    promo => normalizePromoCode(promo.code) === normalizedCode,
+  );
 };
 
 export const calculatePromoDiscount = (
@@ -63,22 +64,4 @@ export const isPromoExpired = (
   }
 
   return expiresAt.getTime() < now.getTime();
-};
-
-/** @deprecated Use `formatVnd` from `@shared/utils/format` at display call sites. */
-export const formatCurrency = (amount: number): string =>
-  formatVnd(amount, { clampNegative: true });
-
-export const formatPromoExpiry = (expiresAt: string): string => {
-  const date = new Date(expiresAt);
-
-  if (Number.isNaN(date.getTime())) {
-    return expiresAt;
-  }
-
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-
-  return `${day}/${month}/${year}`;
 };

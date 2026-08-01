@@ -51,6 +51,14 @@ export function SettingsScreen(): React.JSX.Element {
   const handleLanguageChange = useCallback((lang: 'en' | 'vi') => {
     setLocaleStore(lang);
   }, [setLocaleStore]);
+  const handleVietnameseLanguage = useCallback(
+    () => handleLanguageChange('vi'),
+    [handleLanguageChange],
+  );
+  const handleEnglishLanguage = useCallback(
+    () => handleLanguageChange('en'),
+    [handleLanguageChange],
+  );
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
   const handleThemeSettings = useCallback(
     () => navigation.navigate('ThemeSettings'),
@@ -81,7 +89,7 @@ export function SettingsScreen(): React.JSX.Element {
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           onPress={handleBack}
-          style={styles.backButton}
+          style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}
         >
           <ArrowLeft size={24} color={theme.colors.textPrimary} />
         </Pressable>
@@ -104,11 +112,14 @@ export function SettingsScreen(): React.JSX.Element {
 
           <View style={styles.card}>
             <Pressable
+              accessibilityRole="radio"
+              accessibilityLabel={t('settings.language.vietnamese')}
+              accessibilityState={{ checked: localeStore === 'vi' }}
               style={[
                 styles.languageRow,
                 localeStore === 'vi' ? styles.activeLanguageRow : null,
               ]}
-              onPress={() => handleLanguageChange('vi')}
+              onPress={handleVietnameseLanguage}
             >
               <View style={styles.languageTextContainer}>
                 <Text style={styles.languageLabel}>{t('settings.language.vietnamese')}</Text>
@@ -124,11 +135,14 @@ export function SettingsScreen(): React.JSX.Element {
             <View style={styles.rowDivider} />
 
             <Pressable
+              accessibilityRole="radio"
+              accessibilityLabel={t('settings.language.english')}
+              accessibilityState={{ checked: localeStore === 'en' }}
               style={[
                 styles.languageRow,
                 localeStore === 'en' ? styles.activeLanguageRow : null,
               ]}
-              onPress={() => handleLanguageChange('en')}
+              onPress={handleEnglishLanguage}
             >
               <View style={styles.languageTextContainer}>
                 <Text style={styles.languageLabel}>{t('settings.language.english')}</Text>
@@ -152,7 +166,9 @@ export function SettingsScreen(): React.JSX.Element {
 
           <View style={styles.card}>
             <Pressable
-              style={styles.settingRow}
+              accessibilityRole="button"
+              accessibilityLabel={t('settings.appearance.themeTitle')}
+              style={({ pressed }) => [styles.settingRow, pressed ? styles.pressed : null]}
               onPress={handleThemeSettings}
             >
               <View style={styles.settingTextContainer}>
@@ -161,6 +177,7 @@ export function SettingsScreen(): React.JSX.Element {
                   {t('settings.appearance.themeDescription')}
                 </Text>
               </View>
+              <CaretRight size={16} color={theme.colors.textTertiary} weight="bold" />
             </Pressable>
           </View>
         </View>
@@ -174,7 +191,9 @@ export function SettingsScreen(): React.JSX.Element {
 
           <View style={styles.card}>
             <Pressable
-              style={styles.settingRow}
+              accessibilityRole="button"
+              accessibilityLabel={t('settings.security.accountTitle')}
+              style={({ pressed }) => [styles.settingRow, pressed ? styles.pressed : null]}
               onPress={handleSecuritySettings}
             >
               <View style={styles.settingTextContainer}>
@@ -206,6 +225,7 @@ export function SettingsScreen(): React.JSX.Element {
                 </Text>
               </View>
               <Switch
+                accessibilityLabel={t('settings.notifications.tripUpdates')}
                 value={tripNotif}
                 onValueChange={setTripNotif}
                 trackColor={switchTrackColors}
@@ -225,6 +245,7 @@ export function SettingsScreen(): React.JSX.Element {
                 </Text>
               </View>
               <Switch
+                accessibilityLabel={t('settings.notifications.parcelAlerts')}
                 value={parcelNotif}
                 onValueChange={setParcelNotif}
                 trackColor={switchTrackColors}
@@ -244,6 +265,7 @@ export function SettingsScreen(): React.JSX.Element {
                 </Text>
               </View>
               <Switch
+                accessibilityLabel={t('settings.notifications.promotions')}
                 value={promoNotif}
                 onValueChange={setPromoNotif}
                 trackColor={switchTrackColors}
@@ -261,19 +283,19 @@ export function SettingsScreen(): React.JSX.Element {
           </View>
 
           <View style={styles.card}>
-            <Pressable style={styles.legalRow}>
+            <View style={styles.legalRow}>
               <View style={styles.legalTextContainer}>
                 <Text style={styles.settingLabel}>{t('settings.legal.terms')}</Text>
               </View>
-            </Pressable>
+            </View>
 
             <View style={styles.rowDivider} />
 
-            <Pressable style={styles.legalRow}>
+            <View style={styles.legalRow}>
               <View style={styles.legalTextContainer}>
                 <Text style={styles.settingLabel}>{t('settings.legal.privacy')}</Text>
               </View>
-            </Pressable>
+            </View>
           </View>
         </View>
 
@@ -380,11 +402,6 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.primary,
     borderWidth: 2,
     borderColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
-    elevation: 2,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
   },
   rowDivider: {
     height: 1,
@@ -436,5 +453,8 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textTertiary,
     flex: 1,
     lineHeight: 15,
+  },
+  pressed: {
+    opacity: 0.82,
   },
 } as const);

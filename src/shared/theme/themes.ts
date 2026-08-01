@@ -5,8 +5,14 @@ import type { AppTheme, ThemeColors, ThemeComponentTokens, ThemeEffectTokens, Th
 
 const continuous = { borderCurve: 'continuous' } as ViewStyle;
 
-const shadow = (boxShadow: string): ViewStyle =>
-  ({ boxShadow }) as ViewStyle;
+const shadow = (
+  boxShadow: string,
+  legacy: ViewStyle,
+): ViewStyle =>
+  ({
+    ...legacy,
+    boxShadow,
+  }) as ViewStyle;
 
 const liquidLightColors: ThemeColors = {
   ...colors,
@@ -82,8 +88,20 @@ const liquidLightEffects: ThemeEffectTokens = {
   tabBarSurface: 'rgba(255, 255, 255, 0.82)',
   tabActiveSurface: 'rgba(0, 154, 148, 0.12)',
   scrim: 'rgba(19, 33, 31, 0.32)',
-  cardShadow: shadow('0 4px 16px rgba(0, 74, 72, 0.04)'),
-  floatingShadow: shadow('0 14px 30px rgba(0, 106, 103, 0.12)'),
+  cardShadow: shadow('0 4px 16px rgba(0, 74, 72, 0.04)', {
+    shadowColor: '#004A48',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 0,
+  }),
+  floatingShadow: shadow('0 14px 30px rgba(0, 106, 103, 0.12)', {
+    shadowColor: '#006A67',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 22,
+    elevation: 6,
+  }),
 };
 
 const liquidDarkEffects: ThemeEffectTokens = {
@@ -104,8 +122,20 @@ const liquidDarkEffects: ThemeEffectTokens = {
   tabBarSurface: 'rgba(5, 24, 23, 0.94)',
   tabActiveSurface: 'rgba(108, 255, 244, 0.14)',
   scrim: 'rgba(1, 10, 10, 0.78)',
-  cardShadow: shadow('0 18px 46px rgba(0, 0, 0, 0.36)'),
-  floatingShadow: shadow('0 24px 60px rgba(0, 0, 0, 0.48)'),
+  cardShadow: shadow('0 18px 46px rgba(0, 0, 0, 0.36)', {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.36,
+    shadowRadius: 30,
+    elevation: 7,
+  }),
+  floatingShadow: shadow('0 24px 60px rgba(0, 0, 0, 0.48)', {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.48,
+    shadowRadius: 36,
+    elevation: 11,
+  }),
 };
 
 const makeComponents = (

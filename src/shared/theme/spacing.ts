@@ -28,40 +28,5 @@ export const borderRadius = {
   full: 9999,
 } as const;
 
-// ─── Shadows (elevation) — DESIGN.md tonal stacking spec ──────────────────
-// Bento Card: Blur 20px, Y 8px, #212529 at 5% opacity
-// Floating CTA: 10% opacity for physically-lifted feel
-export const shadows = {
-  sm: {
-    shadowColor: '#212529',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  md: {
-    shadowColor: '#212529',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  lg: {
-    shadowColor: '#212529',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 20,
-    elevation: 6,
-  },
-  xl: {
-    shadowColor: '#212529',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.10,
-    shadowRadius: 28,
-    elevation: 10,
-  },
-} as const;
-
 export type SpacingToken = keyof typeof spacing;
 export type BorderRadiusToken = keyof typeof borderRadius;
-export type ShadowToken = keyof typeof shadows;

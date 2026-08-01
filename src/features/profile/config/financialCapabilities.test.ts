@@ -25,17 +25,17 @@ describe('profile financial release gates', () => {
   });
 
   it.each([
-    ['Withdraw', 'Withdraw funds', 'withdrawal or payout contract'],
-    ['SavedPayments', 'Saved payment methods', 'tokenized payment-method management contract'],
-    ['AddPaymentMethod', 'Add payment method', 'PCI-compliant hosted flow'],
+    ['Withdraw', 'financial.withdraw'],
+    ['SavedPayments', 'financial.savedPayments'],
+    ['AddPaymentMethod', 'financial.addPaymentMethod'],
   ] as const)(
-    'provides route-specific fail-closed copy for %s',
-    (routeName, title, reasonFragment) => {
+    'provides route-specific fail-closed translation keys for %s',
+    (routeName, translationPrefix) => {
       const notice = getFinancialUnavailableNotice(routeName);
 
-      expect(notice.title).toBe(title);
-      expect(notice.description).toContain(reasonFragment);
-      expect(notice.safetyNote).toMatch(/does not|No bank account/i);
+      expect(notice.titleKey).toBe(`${translationPrefix}.title`);
+      expect(notice.descriptionKey).toBe(`${translationPrefix}.description`);
+      expect(notice.safetyNoteKey).toBe(`${translationPrefix}.safety`);
     },
   );
 

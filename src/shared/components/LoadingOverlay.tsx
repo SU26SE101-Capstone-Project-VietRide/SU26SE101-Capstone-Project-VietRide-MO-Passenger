@@ -7,10 +7,12 @@
 
 import React from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
+import { MotionFade } from '@shared/motion';
 import type { AppTheme } from '@shared/theme';
 
 interface LoadingOverlayProps {
@@ -22,6 +24,7 @@ export function LoadingOverlay({
   visible,
   message,
 }: LoadingOverlayProps): React.JSX.Element | null {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -30,11 +33,15 @@ export function LoadingOverlay({
   }
 
   return (
-    <View style={styles.overlay}>
-      <View style={styles.content}>
+    <View
+      style={styles.overlay}
+      accessibilityRole="progressbar"
+      accessibilityLabel={message ?? t('common.loading')}
+    >
+      <MotionFade style={styles.content}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
         {message ? <Text style={styles.message}>{message}</Text> : null}
-      </View>
+      </MotionFade>
     </View>
   );
 }

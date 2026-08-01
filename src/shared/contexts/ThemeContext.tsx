@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect } from 'react';
-import { Appearance } from 'react-native';
-import * as NavigationBar from 'expo-navigation-bar';
+import { Appearance, Platform } from 'react-native';
 import { useThemeStore } from '../store/useThemeStore';
 import { themes } from '../theme/themes';
 import type { AppTheme, ThemeVariant } from '../theme/types';
@@ -13,19 +12,35 @@ const resolveTheme = (variant?: ThemeVariant): AppTheme =>
 
 const ThemeContext = createContext<AppTheme | undefined>(FALLBACK_THEME);
 
+let navigationBarModulePromise:
+  | Promise<typeof import('expo-navigation-bar')>
+  | null = null;
+
+const syncAndroidNavigationBarStyle = async (isDark: boolean): Promise<void> => {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+
+  // A JS update can reach a device before its development client/APK has been
+  // rebuilt with this native module. Loading it lazily keeps that older binary
+  // usable; the next native build will pick it up through Expo autolinking.
+  navigationBarModulePromise ??= import('expo-navigation-bar');
+  const navigationBar = await navigationBarModulePromise;
+  await navigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
+};
+
 export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const currentThemeVariant = useThemeStore((state) => state.currentTheme);
   const theme = resolveTheme(currentThemeVariant);
 
   useEffect(() => {
     Appearance.setColorScheme(theme.isDark ? 'dark' : 'light');
-    if (process.env.EXPO_OS === 'android') {
-      void NavigationBar.setButtonStyleAsync(
-        theme.isDark ? 'light' : 'dark',
-      ).catch(() => {
-        console.warn('[Theme] Could not update Android system navigation.');
-      });
-    }
+
+    syncAndroidNavigationBarStyle(theme.isDark).catch(() => {
+      console.warn(
+        '[Theme] Android navigation styling is unavailable in this app build.',
+      );
+    });
   }, [theme.isDark]);
   
   return (

@@ -106,6 +106,7 @@ const TicketFilterChip = memo(function TicketFilterChipComponent({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected }}
       onPress={handlePress}
       style={[styles.filterTab, selected ? styles.activeFilterTab : null]}
@@ -134,8 +135,9 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
   const statusPresentation = getTicketStatusPresentation(item.status);
   const canTrack = statusPresentation.trackingEnabled;
   const seatNumbers = useMemo(
-    () => item.ticket.tickets.map((ticket) => ticket.seatNumber).join(', ') || '—',
-    [item.ticket.tickets],
+    () => item.ticket.tickets.map((ticket) => ticket.seatNumber).join(', ')
+      || t('common.notAvailable'),
+    [item.ticket.tickets, t],
   );
   const handleOpen = useCallback(() => onOpen(item), [item, onOpen]);
   const handleTrack = useCallback(
@@ -163,7 +165,7 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
         style={bodyStyle}
         onPress={handleOpen}
         accessibilityRole="button"
-        accessibilityLabel={t('profile.history.bookingAccessibility', {
+        accessibilityLabel={t('bookingHistory.bookingAccessibility', {
           code: item.code,
         })}
       >
@@ -253,12 +255,12 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
             style={trackStyle}
             onPress={handleTrack}
             accessibilityRole="button"
-            accessibilityLabel={t('profile.history.trackAccessibility', {
+            accessibilityLabel={t('bookingHistory.trackAccessibility', {
               code: item.code,
             })}
           >
             <NavigationArrow size={14} color={theme.colors.textInverse} weight="fill" />
-            <Text style={styles.trackButtonText}>{t('profile.history.track')}</Text>
+            <Text style={styles.trackButtonText}>{t('bookingHistory.track')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -292,7 +294,7 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t('profile.history.parcelAccessibility', {
+      accessibilityLabel={t('bookingHistory.parcelAccessibility', {
         code: item.code,
       })}
       style={cardStyle}
@@ -369,12 +371,12 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
       <View style={styles.emptyContainer} accessibilityRole="summary">
         <Icon size={48} color={theme.colors.textTertiary} weight="thin" />
         <Text style={styles.emptyTitle}>
-          {t('profile.history.signInRequiredTitle')}
+          {t('bookingHistory.signInRequiredTitle')}
         </Text>
         <Text style={styles.emptyText}>
           {kind === 'ticket'
-            ? t('profile.history.signInTicketsDescription')
-            : t('profile.history.signInParcelsDescription')}
+            ? t('bookingHistory.signInTicketsDescription')
+            : t('bookingHistory.signInParcelsDescription')}
         </Text>
       </View>
     );
@@ -384,7 +386,7 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
     return (
       <View style={styles.emptyContainer} accessibilityRole="summary">
         <ActivityIndicator color={theme.colors.primary} />
-        <Text style={styles.emptyText}>{t('profile.history.loading')}</Text>
+        <Text style={styles.emptyText}>{t('bookingHistory.loading')}</Text>
       </View>
     );
   }
@@ -394,13 +396,13 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
       <View style={styles.emptyContainer} accessibilityRole="summary">
         <WarningCircle size={48} color={theme.colors.error} weight="duotone" />
         <Text style={styles.emptyTitle}>
-          {t('profile.history.unavailableTitle')}
+          {t('bookingHistory.unavailableTitle')}
         </Text>
         <Text style={styles.emptyText}>
-          {t('profile.history.unavailableDescription')}
+          {t('bookingHistory.unavailableDescription')}
         </Text>
         <Pressable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>{t('profile.history.retry')}</Text>
+          <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
         </Pressable>
       </View>
     );
@@ -411,13 +413,13 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
       <Icon size={48} color={theme.colors.textTertiary} weight="thin" />
       <Text style={styles.emptyTitle}>
         {kind === 'ticket'
-          ? t('profile.history.emptyTicketsTitle')
-          : t('profile.history.emptyParcelsTitle')}
+          ? t('bookingHistory.emptyTicketsTitle')
+          : t('bookingHistory.emptyParcelsTitle')}
       </Text>
       <Text style={styles.emptyText}>
         {kind === 'ticket'
-          ? t('profile.history.emptyTicketsDescription')
-          : t('profile.history.emptyParcelsDescription')}
+          ? t('bookingHistory.emptyTicketsDescription')
+          : t('bookingHistory.emptyParcelsDescription')}
       </Text>
     </View>
   );
@@ -428,7 +430,6 @@ const PaginationFooter = memo(function PaginationFooterComponent({
 }: {
   loading: boolean;
 }): React.JSX.Element {
-  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   return (
@@ -443,16 +444,22 @@ const HistoryStaleBanner = memo(function HistoryStaleBannerComponent({
 }: {
   onRetry: () => void;
 }): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.staleBanner} accessibilityRole="alert">
       <WarningCircle size={18} color={theme.colors.warning} weight="fill" />
       <Text style={styles.staleBannerText}>
-        {t('profile.history.staleDescription')}
+        {t('bookingHistory.staleDescription')}
       </Text>
-      <Pressable accessibilityRole="button" onPress={onRetry} hitSlop={8}>
-        <Text style={styles.staleRetryText}>{t('profile.history.retry')}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('common.retry')}
+        onPress={onRetry}
+        hitSlop={8}
+      >
+        <Text style={styles.staleRetryText}>{t('common.retry')}</Text>
       </Pressable>
     </View>
   );
@@ -645,6 +652,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
           style={[styles.mainTab, activeTab === 'ticket' ? styles.activeMainTab : null]}
           onPress={showTickets}
           accessibilityRole="tab"
+          accessibilityLabel={t('bookingHistory.ticketsTab')}
           accessibilityState={{ selected: activeTab === 'ticket' }}
         >
           <Ticket
@@ -659,13 +667,14 @@ export function BookingHistoryScreen(): React.JSX.Element {
               activeTab === 'ticket' ? styles.activeMainTabText : null,
             ]}
           >
-            {t('profile.history.ticketsTab')}
+            {t('bookingHistory.ticketsTab')}
           </Text>
         </Pressable>
         <Pressable
           style={[styles.mainTab, activeTab === 'parcel' ? styles.activeMainTab : null]}
           onPress={showParcels}
           accessibilityRole="tab"
+          accessibilityLabel={t('bookingHistory.parcelsTab')}
           accessibilityState={{ selected: activeTab === 'parcel' }}
         >
           <Package
@@ -680,7 +689,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
               activeTab === 'parcel' ? styles.activeMainTabText : null,
             ]}
           >
-            {t('profile.history.parcelsTab')}
+            {t('bookingHistory.parcelsTab')}
           </Text>
         </Pressable>
       </View>
@@ -689,25 +698,25 @@ export function BookingHistoryScreen(): React.JSX.Element {
         <>
           <View style={styles.filterContainer}>
             <TicketFilterChip
-              label={t('profile.history.filters.all')}
+              label={t('bookingHistory.filters.all')}
               value="ALL"
               selected={ticketFilter === 'ALL'}
               onSelect={setTicketFilter}
             />
             <TicketFilterChip
-              label={t('profile.history.filters.confirmed')}
+              label={t('bookingHistory.filters.confirmed')}
               value="CONFIRMED"
               selected={ticketFilter === 'CONFIRMED'}
               onSelect={setTicketFilter}
             />
             <TicketFilterChip
-              label={t('profile.history.filters.completed')}
+              label={t('bookingHistory.filters.completed')}
               value="COMPLETED"
               selected={ticketFilter === 'COMPLETED'}
               onSelect={setTicketFilter}
             />
             <TicketFilterChip
-              label={t('profile.history.filters.cancelled')}
+              label={t('bookingHistory.filters.cancelled')}
               value="CANCELLED"
               selected={ticketFilter === 'CANCELLED'}
               onSelect={setTicketFilter}
@@ -764,8 +773,12 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'space-between' as const,
     paddingHorizontal: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.divider,
-    backgroundColor: theme.colors.surface,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
   },
   backButton: {
     ...theme.components.headerButton,
@@ -784,8 +797,12 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
     padding: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.divider,
-    backgroundColor: theme.colors.surface,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
   },
   mainTab: {
     flex: 1,
@@ -796,9 +813,18 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
   },
-  activeMainTab: { backgroundColor: theme.colors.primary },
+  activeMainTab: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
   mainTabText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
@@ -811,8 +837,12 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.divider,
-    backgroundColor: theme.colors.surface,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
   },
   filterTab: {
     flex: 1,
@@ -897,14 +927,11 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.warning,
   },
   ticketCard: {
+    ...theme.components.card,
     marginBottom: spacing.xl,
     overflow: 'hidden' as const,
     borderRadius: BR.xl,
     borderCurve: 'continuous' as const,
-    borderWidth: 1,
-    borderColor: theme.colors.divider,
-    backgroundColor: theme.colors.surface,
-    ...theme.effects.cardShadow,
   },
   ticketBody: { padding: spacing.lg },
   pressedCard: { opacity: 0.82 },
@@ -1001,7 +1028,9 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.md,
     borderRadius: BR.md,
     borderCurve: 'continuous' as const,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
   },
   detailItem: {
     flexDirection: 'row' as const,
@@ -1062,6 +1091,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textInverse,
   },
   parcelCard: {
+    ...theme.components.card,
     minHeight: 128,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -1070,10 +1100,6 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.md,
     borderRadius: BR.xl,
     borderCurve: 'continuous' as const,
-    borderWidth: 1,
-    borderColor: theme.colors.divider,
-    backgroundColor: theme.colors.surface,
-    ...theme.effects.cardShadow,
   },
   parcelIconContainer: {
     width: 48,
@@ -1082,7 +1108,9 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center' as const,
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
   },
   parcelInfo: { flex: 1, minWidth: 0 },
   parcelHeader: {

@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, Pressable, ScrollView, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, CheckCircle } from 'phosphor-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -8,13 +8,14 @@ import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemeStore } from '@shared/store/useThemeStore';
 import { themes } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
-import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
+import {
+  useFloatingTabBarContentInset,
+  useTabBarScrollBehavior,
+  useThemedStyles,
+} from '@shared/hooks';
 import type { AppTheme, ThemeVariant } from '@shared/theme';
 
 const THEME_OPTIONS = Object.entries(themes) as Array<[ThemeVariant, AppTheme]>;
-const THEME_SCREEN_BOTTOM_GAP = spacing.huge;
-
 const themeTranslationKeys: Record<
   ThemeVariant,
   { caption: string; name: string; tag: string }
@@ -34,15 +35,12 @@ const themeTranslationKeys: Record<
 export function ThemeScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const currentThemeVariant = useThemeStore((state) => state.currentTheme);
   const setTheme = useThemeStore((state) => state.setTheme);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
-  const bottomTabClearance =
-    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + THEME_SCREEN_BOTTOM_GAP;
-
+  const bottomTabClearance = useFloatingTabBarContentInset();
   const renderThemePreview = (themeOption: AppTheme, isSelected: boolean): React.JSX.Element => {
     const previewSurface = themeOption.effects.isLiquid
       ? themeOption.effects.glassSurfaceStrong
@@ -126,7 +124,11 @@ export function ThemeScreen(): React.JSX.Element {
   };
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
+    <SafeAreaView style={styles.safeContainer} edges={['top', 'bottom']}>
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -140,7 +142,10 @@ export function ThemeScreen(): React.JSX.Element {
         <View style={styles.topBarRightPlaceholder} />
       </View>
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: bottomTabClearance },
+        ]}
         contentInsetAdjustmentBehavior="automatic"
         scrollIndicatorInsets={{ bottom: bottomTabClearance }}
         onScroll={handleTabBarScroll}

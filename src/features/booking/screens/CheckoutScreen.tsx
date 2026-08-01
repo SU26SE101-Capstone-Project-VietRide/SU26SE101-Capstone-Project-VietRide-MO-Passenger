@@ -6,6 +6,7 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { MapPinLine, PencilSimple, Van } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
@@ -35,6 +36,7 @@ export function CheckoutScreen({
   onNext,
   onGoToStep,
 }: CheckoutStepProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const {
@@ -79,6 +81,15 @@ export function CheckoutScreen({
     const nextStep = searchParams.isRoundTrip ? 10 : 6; // Payment step
     onNext(nextStep);
   }, [onNext, searchParams.isRoundTrip]);
+  const handleEditOneWay = useCallback(() => onGoToStep(1), [onGoToStep]);
+  const handleEditOutbound = useCallback(() => {
+    restoreLegForEdit('outbound');
+    onGoToStep(1);
+  }, [onGoToStep, restoreLegForEdit]);
+  const handleEditReturn = useCallback(() => {
+    restoreLegForEdit('return');
+    onGoToStep(5);
+  }, [onGoToStep, restoreLegForEdit]);
 
   const renderLegSummary = (
     title: string,
@@ -95,14 +106,29 @@ export function CheckoutScreen({
       <SectionCard>
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>{title}</Text>
-          <Pressable style={({ pressed }) => [styles.editButton, pressed ? styles.editButtonPressed : null]} onPress={onEdit}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('booking.checkout.editLeg', { leg: title })}
+            style={({ pressed }) => [styles.editButton, pressed ? styles.editButtonPressed : null]}
+            onPress={onEdit}
+          >
             <PencilSimple size={14} weight="bold" color={theme.colors.primary} />
           </Pressable>
         </View>
 
-        <InfoRow label="Route" value={`${trip.departureCity || ''} → ${trip.arrivalCity || ''}`} />
-        <InfoRow label="Departure Time" value={trip.departureTime || ''} />
-        <InfoRow label="Seats" value={seats.map((seat) => seat.label || seat.id).join(', ')} showDivider />
+        <InfoRow
+          label={t('booking.checkout.route')}
+          value={`${trip.departureCity || t('common.notAvailable')} → ${trip.arrivalCity || t('common.notAvailable')}`}
+        />
+        <InfoRow
+          label={t('booking.checkout.departureTime')}
+          value={trip.departureTime || t('common.notAvailable')}
+        />
+        <InfoRow
+          label={t('booking.checkout.seats')}
+          value={seats.map((seat) => seat.label || seat.id).join(', ') || t('common.none')}
+          showDivider
+        />
 
         {shuttlePickup ? (
           <View style={styles.shuttleBlock}>
@@ -110,9 +136,9 @@ export function CheckoutScreen({
               <Van size={18} weight="duotone" color={theme.colors.primary} />
             </View>
             <View style={styles.pickupTextWrap}>
-              <Text style={styles.pickupLabel}>SHUTTLE PICKUP REQUEST</Text>
+              <Text style={styles.pickupLabel}>{t('booking.checkout.shuttleRequest')}</Text>
               <Text style={styles.pickupValue}>{shuttlePickup.address}</Text>
-              <Text style={styles.shuttleHint}>Awaiting operator arrangement after payment</Text>
+              <Text style={styles.shuttleHint}>{t('booking.checkout.shuttleAwaiting')}</Text>
             </View>
           </View>
         ) : null}
@@ -123,8 +149,14 @@ export function CheckoutScreen({
               <MapPinLine size={18} weight="duotone" color={theme.colors.primary} />
             </View>
             <View style={styles.pickupTextWrap}>
-              <Text style={styles.pickupLabel}>Boarding at {pickUp?.time || ''}</Text>
-              <Text style={styles.pickupValue}>{pickUp?.name || 'Select pick-up point'}</Text>
+              <Text style={styles.pickupLabel}>
+                {t('booking.checkout.boardingAt', {
+                  time: pickUp?.time || t('common.notAvailable'),
+                })}
+              </Text>
+              <Text style={styles.pickupValue}>
+                {pickUp?.name || t('booking.checkout.selectPickup')}
+              </Text>
             </View>
           </View>
           <Text style={styles.pickupHint}>{pickUp?.address || ''}</Text>
@@ -136,8 +168,14 @@ export function CheckoutScreen({
               <MapPinLine size={18} weight="duotone" color={theme.colors.primary} />
             </View>
             <View style={styles.pickupTextWrap}>
-              <Text style={styles.pickupLabel}>Alighting at {dropOff?.time || ''}</Text>
-              <Text style={styles.pickupValue}>{dropOff?.name || 'Select drop-off point'}</Text>
+              <Text style={styles.pickupLabel}>
+                {t('booking.checkout.alightingAt', {
+                  time: dropOff?.time || t('common.notAvailable'),
+                })}
+              </Text>
+              <Text style={styles.pickupValue}>
+                {dropOff?.name || t('booking.checkout.selectDropoff')}
+              </Text>
             </View>
           </View>
           <Text style={styles.pickupHint}>{dropOff?.address || ''}</Text>
@@ -149,7 +187,7 @@ export function CheckoutScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Checkout</Text>
+        <Text style={styles.headerTitle}>{t('booking.checkout.title')}</Text>
       </View>
 
         <ScrollView
@@ -160,45 +198,39 @@ export function CheckoutScreen({
         >
           {!searchParams.isRoundTrip && (
             renderLegSummary(
-              'Departure Trip',
+              t('booking.checkout.departureTrip'),
               selectedTrip,
               selectedSeats,
               selectedPickUp,
               selectedDropOff,
               selectedShuttlePickup,
-              () => onGoToStep(1)
+              handleEditOneWay
             )
           )}
 
           {/* Outbound Leg */}
           {searchParams.isRoundTrip && outboundState && (
             renderLegSummary(
-              'Departure Trip',
+              t('booking.checkout.departureTrip'),
               outboundState.trip,
               outboundState.seats,
               outboundState.pickUp,
               outboundState.dropOff,
               outboundState.shuttlePickup,
-              () => {
-                restoreLegForEdit('outbound');
-                onGoToStep(1);
-              }
+              handleEditOutbound
             )
           )}
 
           {/* Return Leg */}
           {searchParams.isRoundTrip && returnState && (
             renderLegSummary(
-              'Return Trip',
+              t('booking.checkout.returnTrip'),
               returnState.trip,
               returnState.seats,
               returnState.pickUp,
               returnState.dropOff,
               returnState.shuttlePickup,
-              () => {
-                restoreLegForEdit('return');
-                onGoToStep(5);
-              }
+              handleEditReturn
             )
           )}
         </ScrollView>
@@ -206,7 +238,7 @@ export function CheckoutScreen({
         <FloatingActionBar
           selectedSeats={checkoutSeats}
           totalPrice={totalPrice()}
-          ctaLabel="Next"
+          ctaLabel={t('common.continue')}
           onPress={handleNext}
         />
     </View>

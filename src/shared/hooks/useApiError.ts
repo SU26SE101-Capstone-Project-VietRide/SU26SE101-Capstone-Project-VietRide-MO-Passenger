@@ -1,21 +1,37 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { toApiError, type ApiRequestError } from '@shared/api/errors';
+import {
+  getLocalizedApiErrorMessage,
+  toApiError,
+  type ApiRequestError,
+} from '@shared/api/errors';
 
-export function useApiError(): {
+const EMPTY_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {};
+
+export function useApiError(
+  featureCodeKeys: Readonly<Record<string, string>> = EMPTY_ERROR_TRANSLATION_KEYS,
+): {
   errorMessage: string | null;
   clearError: () => void;
   handleError: (error: unknown) => ApiRequestError;
 } {
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { t } = useTranslation();
+  const [error, setError] = useState<ApiRequestError | null>(null);
+  const errorMessage = useMemo(
+    () => error
+      ? getLocalizedApiErrorMessage(error, t, featureCodeKeys)
+      : null,
+    [error, featureCodeKeys, t],
+  );
 
   const clearError = useCallback(() => {
-    setErrorMessage(null);
+    setError(null);
   }, []);
 
-  const handleError = useCallback((error: unknown) => {
-    const apiError = toApiError(error);
-    setErrorMessage(apiError.message);
+  const handleError = useCallback((caughtError: unknown) => {
+    const apiError = toApiError(caughtError);
+    setError(apiError);
     return apiError;
   }, []);
 

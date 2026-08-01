@@ -81,12 +81,12 @@ describe('authValidation', () => {
     expect(parsed.success).toBe(true);
   });
 
-  it('maps backend field errors to visible form fields', () => {
+  it('maps backend field errors to app-owned copy', () => {
     const errors = apiFieldErrors<'email'>(
       [{ field: 'Email', message: 'Email is invalid.' }],
       { email: 'email' },
     );
 
-    expect(errors.email).toBe('Email is invalid.');
+    expect(errors.email).toBe('auth.validation.fieldInvalid');
   });
 });

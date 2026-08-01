@@ -23,12 +23,9 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import { useMotion } from '@shared/motion';
 import type { AppTheme } from '@shared/theme';
-import { formatVnd } from '@shared/utils/format';
+import { formatDate, formatVnd } from '@shared/utils/format';
 import type { PromoOffer } from '@shared/utils/promo';
-import {
-  formatPromoExpiry,
-  normalizePromoCode,
-} from '@shared/utils/promo';
+import { normalizePromoCode } from '@shared/utils/promo';
 
 export interface PromoCodeInputProps {
   code: string;
@@ -40,6 +37,85 @@ export interface PromoCodeInputProps {
   appliedLabel?: string;
   errorText?: string;
 }
+
+interface PromoOptionProps {
+  promo: PromoOffer;
+  selected: boolean;
+  onSelect: (promo: PromoOffer) => void;
+}
+
+const PromoOption = memo(function PromoOption({
+  promo,
+  selected,
+  onSelect,
+}: PromoOptionProps): React.JSX.Element {
+  const theme = useTheme();
+  const { i18n, t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const expiryDate = useMemo(
+    () => formatDate(promo.expiresAt, locale) || promo.expiresAt,
+    [locale, promo.expiresAt],
+  );
+  const minimumSpendText = promo.minimumSpend
+    ? t('parcel.promos.minimumSpend', {
+        amount: formatVnd(promo.minimumSpend, {
+          clampNegative: true,
+        }),
+      })
+    : t('parcel.promos.noMinimumSpend');
+  const handlePress = useCallback(() => {
+    onSelect(promo);
+  }, [onSelect, promo]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={handlePress}
+      style={({ pressed }) => [
+        styles.promoOption,
+        selected ? styles.promoOptionSelected : null,
+        pressed ? styles.promoOptionPressed : null,
+      ]}
+    >
+      <View style={styles.promoOptionTopRow}>
+        <View style={styles.discountBadge}>
+          <Text style={styles.discountBadgeText}>{promo.discountLabel}</Text>
+        </View>
+        {selected ? (
+          <View style={styles.selectedBadge}>
+            <Check size={12} color={theme.colors.success} weight="bold" />
+            <Text style={styles.selectedBadgeText}>
+              {t('parcel.promos.applied')}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+      <Text style={styles.promoTitle} numberOfLines={1}>
+        {promo.title}
+      </Text>
+      <Text style={styles.promoDescription} numberOfLines={2}>
+        {promo.description}
+      </Text>
+      <View style={styles.promoMetaRow}>
+        <View style={styles.expiryMeta}>
+          <Clock
+            size={13}
+            color={theme.colors.textTertiary}
+            weight="bold"
+          />
+          <Text style={styles.promoMetaText}>
+            {t('parcel.promos.expires', {
+              date: expiryDate,
+            })}
+          </Text>
+        </View>
+        <Text style={styles.promoMetaText}>{minimumSpendText}</Text>
+      </View>
+    </Pressable>
+  );
+});
 
 export const PromoCodeInput = memo(function PromoCodeInputComponent({
   code,
@@ -131,6 +207,7 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('parcel.promos.openAccessibility')}
+        accessibilityState={{ expanded: pickerVisible, selected: applied }}
         onPress={openPicker}
         style={({ pressed }) => [
           styles.promoTrigger,
@@ -165,7 +242,8 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
       <Modal
         visible={pickerVisible}
         transparent
-        animationType={reduceMotion ? 'none' : 'fade'}
+        animationType={reduceMotion ? 'none' : 'slide'}
+        hardwareAccelerated
         statusBarTranslucent
         onRequestClose={closePicker}
       >
@@ -173,8 +251,12 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalRoot}
         >
-          <Pressable style={styles.modalBackdrop} onPress={closePicker} />
-          <View style={styles.promoSheet}>
+          <Pressable
+            accessible={false}
+            style={styles.modalBackdrop}
+            onPress={closePicker}
+          />
+          <View accessibilityViewIsModal style={styles.promoSheet}>
             <View style={styles.sheetHandle} />
 
             <View style={styles.sheetHeader}>
@@ -202,6 +284,9 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
               </Text>
               <View style={styles.manualRow}>
                 <TextInput
+                  accessibilityLabel={t(
+                    'parcel.promos.manualInputAccessibility',
+                  )}
                   style={styles.promoInput}
                   value={draftCode}
                   onChangeText={handleDraftChange}
@@ -214,6 +299,7 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
                 />
                 <Pressable
                   accessibilityRole="button"
+                  accessibilityState={{ disabled: !canApplyDraft }}
                   onPress={handleApplyDraft}
                   disabled={!canApplyDraft}
                   style={({ pressed }) => [
@@ -238,61 +324,18 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.promoListContent}
+              keyboardShouldPersistTaps="handled"
             >
               {hasPromos ? (
                 promos.map((promo) => {
                   const isSelected = normalizedSelectedCode === normalizePromoCode(promo.code);
-                  const minimumSpendText = promo.minimumSpend
-                    ? t('parcel.promos.minimumSpend', {
-                        amount: formatVnd(promo.minimumSpend, {
-                          clampNegative: true,
-                        }),
-                      })
-                    : t('parcel.promos.noMinimumSpend');
-
                   return (
-                    <Pressable
+                    <PromoOption
                       key={promo.id}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: isSelected }}
-                      onPress={() => handleSelectPromo(promo)}
-                      style={({ pressed }) => [
-                        styles.promoOption,
-                        isSelected ? styles.promoOptionSelected : null,
-                        pressed ? styles.promoOptionPressed : null,
-                      ]}
-                    >
-                      <View style={styles.promoOptionTopRow}>
-                        <View style={styles.discountBadge}>
-                          <Text style={styles.discountBadgeText}>{promo.discountLabel}</Text>
-                        </View>
-                        {isSelected ? (
-                          <View style={styles.selectedBadge}>
-                            <Check size={12} color={theme.colors.success} weight="bold" />
-                            <Text style={styles.selectedBadgeText}>
-                              {t('parcel.promos.applied')}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      <Text style={styles.promoTitle} numberOfLines={1}>
-                        {promo.title}
-                      </Text>
-                      <Text style={styles.promoDescription} numberOfLines={2}>
-                        {promo.description}
-                      </Text>
-                      <View style={styles.promoMetaRow}>
-                        <View style={styles.expiryMeta}>
-                          <Clock size={13} color={theme.colors.textTertiary} weight="bold" />
-                          <Text style={styles.promoMetaText}>
-                            {t('parcel.promos.expires', {
-                              date: formatPromoExpiry(promo.expiresAt),
-                            })}
-                          </Text>
-                        </View>
-                        <Text style={styles.promoMetaText}>{minimumSpendText}</Text>
-                      </View>
-                    </Pressable>
+                      onSelect={handleSelectPromo}
+                      promo={promo}
+                      selected={isSelected}
+                    />
                   );
                 })
               ) : (
@@ -367,7 +410,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   promoTriggerApplied: {
     borderColor: theme.colors.success,
-    backgroundColor: theme.isDark ? 'rgba(52, 211, 153, 0.13)' : 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: theme.colors.successLight,
   },
   promoTriggerPressed: {
     opacity: 0.86,
@@ -421,11 +464,11 @@ const createStyles = (theme: AppTheme) => ({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: theme.isDark ? 'rgba(1, 10, 10, 0.66)' : 'rgba(19, 33, 31, 0.42)',
+    backgroundColor: theme.effects.scrim,
   },
   promoSheet: {
     maxHeight: '82%',
-    backgroundColor: theme.isDark ? 'rgba(9, 27, 26, 0.98)' : 'rgba(252, 255, 255, 0.99)',
+    backgroundColor: theme.effects.glassSurfaceStrong,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     borderWidth: 1,
@@ -545,7 +588,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   promoOptionSelected: {
     borderColor: theme.colors.success,
-    backgroundColor: theme.isDark ? 'rgba(52, 211, 153, 0.12)' : 'rgba(16, 185, 129, 0.09)',
+    backgroundColor: theme.colors.successLight,
   },
   promoOptionPressed: {
     opacity: 0.86,
@@ -577,7 +620,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
-    backgroundColor: theme.isDark ? 'rgba(52, 211, 153, 0.16)' : 'rgba(16, 185, 129, 0.12)',
+    backgroundColor: theme.colors.successLight,
   },
   selectedBadgeText: {
     fontFamily: fontFamilies.semiBold,

@@ -5,8 +5,9 @@
  * bus type label, and seats left indicator.
  */
 
-import React from 'react';
+import React, { memo, useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Bus, Van, Bed, Clock } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -21,14 +22,27 @@ interface TripCardProps {
   isSelected?: boolean;
 }
 
-export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): React.JSX.Element {
+export const TripCard = memo(function TripCardComponent({
+  trip,
+  onPress,
+  isSelected = false,
+}: TripCardProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const seatsUrgent = trip.seatsLeft <= 5;
+  const handlePress = useCallback(() => onPress(trip), [onPress, trip]);
 
   return (
     <Pressable
-      onPress={() => onPress(trip)}
+      accessibilityRole="button"
+      accessibilityLabel={t('booking.tripCard.accessibilityLabel', {
+        operator: trip.operatorBadge,
+        departure: trip.departureTime,
+        arrival: trip.arrivalTime,
+      })}
+      accessibilityState={{ selected: isSelected }}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.card,
         isSelected ? styles.cardSelected : null,
@@ -50,7 +64,7 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
           ) : null}
         </View>
         <View style={styles.priceBlock}>
-          <Text style={styles.priceLabel}>From</Text>
+          <Text style={styles.priceLabel}>{t('booking.tripCard.from')}</Text>
           <Text style={styles.price}>
             {formatVnd(trip.price, { clampNegative: true })}
           </Text>
@@ -97,26 +111,28 @@ export function TripCard({ trip, onPress, isSelected = false }: TripCardProps): 
             )}
             <Text style={styles.metaText}>
               {trip.busType === 'sleeper'
-                ? 'Sleeper'
+                ? t('booking.busType.sleeper')
                 : trip.busType === 'limousine'
-                  ? 'Limousine'
-                  : 'Standard'}
+                  ? t('booking.busType.limousine')
+                  : t('booking.busType.standard')}
             </Text>
           </View>
         ) : null}
         <View style={styles.metaChip}>
           <Clock size={15} weight="bold" color={theme.colors.textSecondary} />
-          <Text style={styles.metaText}>{trip.durationHours}h</Text>
+          <Text style={styles.metaText}>
+            {t('booking.tripCard.durationHours', { value: trip.durationHours })}
+          </Text>
         </View>
         <View style={[styles.seatsLeftBadge, seatsUrgent && styles.seatsLeftUrgent]}>
           <Text style={[styles.seatsLeftText, seatsUrgent && styles.seatsLeftTextUrgent]}>
-            {trip.seatsLeft} seats left
+            {t('booking.tripCard.seatsLeft', { count: trip.seatsLeft })}
           </Text>
         </View>
       </View>
     </Pressable>
   );
-}
+});
 
 const createStyles = (theme: AppTheme) => ({
   card: {

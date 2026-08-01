@@ -1,5 +1,6 @@
 {
   "app": {
+    "name": "VietRide",
     "preparing": "Preparing VietRide...",
     "restoringSession": "Restoring your session...",
     "tagline": "Easy journeys, peace of mind",
@@ -26,7 +27,35 @@
     "openSettings": "Open settings",
     "or": "or",
     "searchPlaceholder": "Search...",
-    "understood": "Understood"
+    "understood": "Understood",
+    "none": "None"
+  },
+  "errors": {
+    "api": {
+      "invalidCredentials": "The email or password is incorrect.",
+      "emailNotVerified": "Your email is not verified yet. Check your verification code.",
+      "accountLocked": "This account has been locked.",
+      "emailAlreadyRegistered": "This email is already registered.",
+      "phoneAlreadyRegistered": "This phone number is already registered.",
+      "phoneInvalid": "Enter a valid phone number.",
+      "otpInvalid": "The verification code is incorrect.",
+      "otpExpired": "The verification code has expired.",
+      "otpRateLimit": "Too many verification-code requests. Please try again later.",
+      "passwordResetInvalid": "This password-reset session is invalid. Request a new code.",
+      "passwordResetExpired": "This password-reset session has expired. Request a new code.",
+      "sessionExpired": "Your session has expired. Please sign in again.",
+      "validation": "Some information is invalid. Check the form and try again.",
+      "gatewayUnavailable": "The service is temporarily busy. Wait about {{retryAfter}} seconds and try again.",
+      "notFound": "The requested information could not be found.",
+      "timeout": "The connection timed out. Please try again.",
+      "network": "Could not connect to VietRide. Check your internet connection.",
+      "requestFailed": "The request could not be completed. Please try again.",
+      "forbidden": "You do not have permission to access this information.",
+      "conflict": "This information changed while you were working. Refresh and try again.",
+      "rateLimit": "Too many requests. Please wait and try again.",
+      "serverUnavailable": "VietRide is temporarily unavailable. Please try again shortly.",
+      "unknown": "Something went wrong. Please try again."
+    }
   },
   "auth": {
     "login": "Log In",
@@ -57,6 +86,38 @@
       "newPasswordPlaceholder": "Enter new password",
       "confirmNewPassword": "Confirm new password",
       "confirmNewPasswordPlaceholder": "Confirm new password"
+    },
+    "validation": {
+      "emailRequired": "Email is required.",
+      "emailTooLong": "Email is too long.",
+      "emailInvalid": "Enter a valid email address.",
+      "passwordRequired": "Password is required.",
+      "passwordTooLong": "Password is too long.",
+      "passwordMin": "Password must be at least 8 characters.",
+      "passwordLetter": "Include at least one letter.",
+      "passwordNumber": "Include at least one number.",
+      "fullNameRequired": "Full name is required.",
+      "fullNameTooLong": "Full name is too long.",
+      "phoneRequired": "Phone number is required.",
+      "phoneInvalid": "Enter a valid Vietnam phone number, e.g. +84901234567.",
+      "confirmPasswordRequired": "Confirm your password.",
+      "confirmNewPasswordRequired": "Confirm your new password.",
+      "passwordsMismatch": "Passwords do not match.",
+      "otpLength": "Enter the 6-digit verification code.",
+      "otpDigits": "Verification code must contain digits only.",
+      "fieldInvalid": "Check this value and try again."
+    },
+    "errors": {
+      "sessionClearFailed": "VietRide could not clear the local session completely. Restart the app before signing in again."
+    },
+    "google": {
+      "errors": {
+        "configuration": "Google Sign-In is not available in this app build. Update the app or contact support.",
+        "tokenMissing": "Google did not return a valid sign-in token. Please try again.",
+        "playServicesUnavailable": "Google Play Services is unavailable or needs an update.",
+        "generic": "Could not sign in with Google. Please try again.",
+        "inProgress": "Google Sign-In is already in progress."
+      }
     },
     "completeProfile": {
       "invalidPhone": "Enter a valid Vietnam phone number, e.g. +84901234567.",
@@ -125,6 +186,106 @@
     "scan": "Scan",
     "wallet": "Wallet"
   },
+  "home": {
+    "tabs": {
+      "ticket": "Tickets",
+      "parcel": "Parcels"
+    },
+    "ticket": {
+      "departureLocation": "Departure",
+      "destinationLocation": "Destination",
+      "selectOrigin": "Select departure station",
+      "selectDestination": "Select destination station",
+      "swapLocations": "Swap departure and destination",
+      "selectDepartureDate": "Select departure date",
+      "selectReturnDate": "Select return date",
+      "selectDate": "Select date",
+      "returnDate": "Return date",
+      "roundTrip": "Round trip",
+      "searchBuses": "Search trips"
+    },
+    "parcel": {
+      "from": "Send from",
+      "to": "Send to",
+      "selectOrigin": "Select origin terminal",
+      "selectDestination": "Select destination terminal",
+      "terminalHint": "Choose the terminals where the parcel will be dropped off and collected."
+    },
+    "recentSearch": {
+      "dateUnavailableTitle": "Choose a new travel date",
+      "dateUnavailableDescription": "This saved search uses a past or invalid date. Update the date before searching again."
+    },
+    "wallet": {
+      "open": "Open wallet",
+      "title": "Wallet balance",
+      "balanceUnavailable": "Balance unavailable",
+      "stale": "Showing the last available balance"
+    },
+    "services": {
+      "buyTickets": "Book tickets",
+      "intercityTravel": "Comfortable intercity travel",
+      "sendParcel": "Send a parcel",
+      "fastDelivery": "Reliable terminal-to-terminal delivery"
+    },
+    "promotions": {
+      "title": "Offers for you",
+      "percentOff": "{{value}}% off",
+      "amountOff": "{{value}} off",
+      "cardAccessibility": "Promotion {{name}}, code {{code}}",
+      "validUntil": "Valid until {{date}}",
+      "loadingAccessibility": "Loading promotions",
+      "loading": "Loading offers...",
+      "unavailableTitle": "Offers are unavailable",
+      "unavailableDescription": "We could not load current offers.",
+      "retryAccessibility": "Retry loading promotions",
+      "emptyTitle": "No offers right now",
+      "emptyDescription": "New VietRide offers will appear here."
+    },
+    "parcels": {
+      "title": "Recent parcels",
+      "pending": "Pending",
+      "cardAccessibility": "Parcel {{code}}, status {{status}}",
+      "created": "Created {{date}}",
+      "eta": "ETA {{date}}",
+      "originPending": "Origin pending",
+      "destinationPending": "Destination pending",
+      "signInAccessibility": "Sign in to view recent parcels",
+      "signInTitle": "Sign in to view parcels",
+      "signInDescription": "Your latest parcel shipments will appear here after you sign in.",
+      "loadingAccessibility": "Loading recent parcels",
+      "loading": "Loading parcels...",
+      "unavailableTitle": "Parcels are unavailable",
+      "unavailableDescription": "We could not load your recent parcels.",
+      "retryAccessibility": "Retry loading recent parcels",
+      "emptyTitle": "No parcels yet",
+      "emptyDescription": "Your recent shipments will appear here.",
+      "viewAllAccessibility": "View all parcel history",
+      "viewAll": "View all"
+    }
+  },
+  "notification": {
+    "title": "Notifications",
+    "detailTitle": "Notification details",
+    "loading": "Loading notifications...",
+    "noNotifications": "No notifications yet",
+    "markAllRead": "Mark all notifications as read",
+    "allCaughtUp": "You're all caught up",
+    "unreadCount_one": "{{count}} unread notification",
+    "unreadCount_other": "{{count}} unread notifications",
+    "itemAccessibility": "Open notification: {{title}}",
+    "parcelUpdate": "Parcel update",
+    "vietRideUpdate": "VietRide update",
+    "viewParcelDetails": "View parcel details",
+    "time": {
+      "now": "Now",
+      "minutesCompact_one": "{{count}}m",
+      "minutesCompact_other": "{{count}}m",
+      "hoursCompact_one": "{{count}}h",
+      "hoursCompact_other": "{{count}}h",
+      "daysCompact_one": "{{count}}d",
+      "daysCompact_other": "{{count}}d"
+    }
+  },
   "booking": {
     "searchRoutes": "Search Routes",
     "departure": "Departure",
@@ -136,7 +297,400 @@
     "payment": "Payment",
     "bookNow": "Book Now",
     "totalPrice": "Total Price",
-    "voucher": "Voucher Code"
+    "voucher": "Voucher Code",
+    "steps": {
+      "outboundTrip": "Outbound trip",
+      "outboundSeats": "Outbound seats",
+      "outboundPickup": "Outbound boarding",
+      "outboundDropoff": "Outbound drop-off",
+      "returnTrip": "Return trip",
+      "returnSeats": "Return seats",
+      "returnPickup": "Return boarding",
+      "returnDropoff": "Return drop-off",
+      "trip": "Trip",
+      "seats": "Seats",
+      "pickup": "Boarding point",
+      "dropoff": "Drop-off point",
+      "checkout": "Review",
+      "payment": "Payment",
+      "unknown": "Booking step",
+      "accessibilityLabel": "Step {{current}} of {{total}}: {{label}}"
+    },
+    "states": {
+      "connectionFailed": "Connection interrupted",
+      "connectionFailedDescription": "We could not load the latest booking information. Check your connection and try again.",
+      "findingRoutes": "Finding the best trips",
+      "checkingSeatsAndFares": "Checking live seats and fares..."
+    },
+    "seats": {
+      "available": "Available",
+      "selected": "Selected",
+      "sold": "Sold",
+      "unavailable": "Unavailable",
+      "select": "Select seats",
+      "selectOutbound": "Select outbound seats",
+      "selectReturn": "Select return seats"
+    },
+    "imageUpload": {
+      "addPhotos": "Add photos",
+      "supportedFormats": "JPG, PNG or HEIC"
+    },
+    "passengerCount": {
+      "accessibilityLabel": "Number of passengers"
+    },
+    "routes": {
+      "routeAccessibility": "Route from {{origin}} to {{destination}}",
+      "tapToPlan": "Tap to plan this trip",
+      "popularTitle": "Popular routes",
+      "popularSubtitle": "Plan a frequent route in one tap",
+      "viewAllAccessibility": "View all popular routes",
+      "viewAll": "View all",
+      "loadingAccessibility": "Loading popular routes",
+      "loading": "Loading routes...",
+      "unavailableTitle": "Popular routes are unavailable",
+      "unavailableDescription": "We could not load popular routes right now.",
+      "emptyTitle": "No popular routes yet",
+      "emptyDescription": "Popular routes will appear here when available.",
+      "toDestination": "To {{destination}}",
+      "finding": "Finding popular routes...",
+      "unavailableLater": "Popular routes are unavailable. Please try again later.",
+      "noSearchMatches": "No routes match your search.",
+      "areaEmpty": "No popular routes are available in this area.",
+      "searchAccessibility": "Search popular routes",
+      "searchPlaceholder": "Search by city or province"
+    },
+    "promo": {
+      "title": "Promo code",
+      "minimumSpend": "Minimum spend {{amount}}",
+      "placeholder": "Enter code",
+      "applied": "Applied"
+    },
+    "recentSearches": {
+      "routeAccessibility": "Recent search from {{origin}} to {{destination}} on {{date}}",
+      "meta": "{{date}} · {{count}} passenger(s)",
+      "meta_one": "{{date}} · {{count}} passenger",
+      "meta_other": "{{date}} · {{count}} passengers",
+      "title": "Recent searches",
+      "clearAccessibility": "Clear all recent searches",
+      "clear": "Clear",
+      "loadingAccessibility": "Loading recent searches",
+      "loading": "Loading recent searches...",
+      "storageError": "Recent searches could not be loaded on this device.",
+      "empty": "Your recent searches will appear here.",
+      "expiredDateTitle": "Choose a new travel date",
+      "expiredDateDescription": "This saved search uses a past or invalid date. Update the date before searching again."
+    },
+    "tripCard": {
+      "accessibilityLabel": "{{operator}}, departing {{departure}}, arriving {{arrival}}",
+      "from": "From",
+      "durationHours": "{{value}} hr",
+      "seatsLeft": "{{count}} seat(s) left",
+      "seatsLeft_one": "{{count}} seat left",
+      "seatsLeft_other": "{{count}} seats left"
+    },
+    "searchForm": {
+      "title": "Where are you going?",
+      "departureLabel": "Departure",
+      "selectDeparture": "Select departure location",
+      "locationPlaceholder": "Select a location",
+      "destinationLabel": "Destination",
+      "selectDestination": "Select destination location",
+      "swapLocations": "Swap departure and destination",
+      "selectDate": "Select departure date",
+      "datePlaceholder": "Select date",
+      "searchAction": "Search trips"
+    },
+    "seatMap": {
+      "lowerDeck": "Lower deck",
+      "upperDeck": "Upper deck",
+      "deckName": "Deck {{deck}}",
+      "seatAccessibility": "Seat {{seat}}, {{status}}",
+      "rowCode": "Row {{row}}",
+      "frontOfVehicle": "Front of vehicle",
+      "deckEyebrow": "Deck {{deck}} seat map",
+      "title": "Seat map",
+      "noDeck": "No deck selected",
+      "selectedCount": "Selected ({{count}})",
+      "available": "Available",
+      "rowAxis": "Row",
+      "columnCode": "Column {{column}}",
+      "unavailable": "No seat map is available for this trip."
+    },
+    "shuttleSheet": {
+      "title": "Shuttle pickup",
+      "subtitle": "Request pickup to {{station}}",
+      "closeAccessibility": "Close shuttle pickup form",
+      "findingLocation": "Finding your location...",
+      "useCurrentLocation": "Use current location",
+      "useCurrentLocationAccessibility": "Use current location for shuttle pickup",
+      "orEnterAddress": "or enter an address",
+      "addressPlaceholder": "Enter your pickup address",
+      "addressAccessibility": "Shuttle pickup address",
+      "characterCount": "{{count}}/{{max}} characters",
+      "verifyingAddress": "Verifying address...",
+      "verifyAddress": "Verify address",
+      "verified": "Address verified",
+      "verifyHint": "Verify the address before saving so the operator receives valid coordinates.",
+      "privacy": "Your precise location is used only to arrange this shuttle request.",
+      "save": "Save pickup request",
+      "errors": {
+        "addressRequired": "Enter a pickup address.",
+        "addressTooLong": "The address must be {{max}} characters or fewer.",
+        "verifyBeforeSave": "Verify this address before saving."
+      },
+      "locationErrors": {
+        "permission-denied": "Location access was not granted. You can enter the pickup address manually.",
+        "position-unavailable": "Your current location is unavailable. Please try again.",
+        "invalid-address": "Enter a valid pickup address.",
+        "invalid-coordinates": "The selected coordinates are invalid.",
+        "address-not-found": "No location was found for this address.",
+        "geocoding-unavailable": "Address lookup is unavailable. Please try again.",
+        "generic": "We could not verify this location. Please try again."
+      }
+    },
+    "shuttle": {
+      "title": "Station shuttle",
+      "requestToStation": "Request pickup to {{station}}",
+      "departureStation": "departure station",
+      "requestAccessibility": "Request a station shuttle",
+      "requestHint": "Adds or removes a verified pickup address from this booking",
+      "arrangementNotice": "The operator will confirm the shuttle arrangement separately after booking.",
+      "editAddress": "Edit shuttle pickup address",
+      "pickupAddress": "Pickup address",
+      "savedAwaitingArrangement": "Saved · awaiting operator confirmation",
+      "unavailable": "Shuttle service is not available for this boarding point.",
+      "verificationFailed": "We could not verify shuttle availability.",
+      "retryAvailability": "Retry checking shuttle availability",
+      "reasons": {
+        "selectTripAndBoarding": "Select a trip and boarding point first.",
+        "departureStationOnly": "Shuttle pickup is available only at the trip's departure station.",
+        "tripStatus": "This trip is not accepting shuttle requests.",
+        "tripSchedule": "The trip schedule is not available for shuttle planning.",
+        "cutoff": "The shuttle request cutoff time has passed.",
+        "stationInactive": "This station is not active.",
+        "stationUnsupported": "This station does not support shuttle pickup.",
+        "stationCoordinates": "This station does not have verified map coordinates."
+      }
+    },
+    "stops": {
+      "unnamed": "Unnamed stop",
+      "accessibilityLabel": "{{name}}, {{address}}, {{time}}",
+      "refund": "Refund {{amount}}",
+      "selectPickup": "Select boarding point",
+      "selectOutboundPickup": "Select outbound boarding point",
+      "selectReturnPickup": "Select return boarding point",
+      "selectDropoff": "Select drop-off point",
+      "selectOutboundDropoff": "Select outbound drop-off point",
+      "selectReturnDropoff": "Select return drop-off point"
+    },
+    "busType": {
+      "sleeper": "Sleeper bus",
+      "limousine": "Limousine",
+      "standard": "Standard bus"
+    },
+    "paymentStatus": {
+      "contractMismatch": "VietRide could not verify this booking status. Refresh and try again.",
+      "unavailable": "Payment status is temporarily unavailable. Please try again.",
+      "offline": "You're offline. Connect to the internet to check the payment status."
+    },
+    "home": {
+      "welcome": "Welcome to VietRide",
+      "question": "Where would you like to go today?",
+      "mascotAccessibility": "VietRide travel assistant"
+    },
+    "checkout": {
+      "title": "Review booking",
+      "editLeg": "Edit {{leg}}",
+      "route": "Route",
+      "departureTime": "Departure time",
+      "seats": "Seats",
+      "shuttleRequest": "Shuttle pickup request",
+      "shuttleAwaiting": "Awaiting operator arrangement",
+      "boardingAt": "Boarding · {{time}}",
+      "selectPickup": "Select a boarding point",
+      "alightingAt": "Drop-off · {{time}}",
+      "selectDropoff": "Select a drop-off point",
+      "departureTrip": "Outbound trip",
+      "returnTrip": "Return trip"
+    },
+    "locations": {
+      "municipality": "Municipality",
+      "province": "Province",
+      "locationAccessibility": "{{name}}, {{type}}",
+      "alreadySelected": "Already selected",
+      "typeAndCode": "{{type}} · {{code}}",
+      "loading": "Loading locations...",
+      "loadError": "We could not load locations.",
+      "noMatches": "No locations match your search.",
+      "departureTitle": "Select departure",
+      "destinationTitle": "Select destination",
+      "searchAccessibility": "Search locations",
+      "searchPlaceholder": "Search city or province"
+    },
+    "filters": {
+      "title": "Filter trips",
+      "subtitle": "Narrow the list without changing your route",
+      "closeAccessibility": "Close trip filters",
+      "operator": "Operator",
+      "allOperators": "All operators",
+      "departureTime": "Departure time",
+      "vehicleType": "Vehicle type",
+      "comingSoon": "Coming soon",
+      "vehicleComingSoonAccessibility": "Vehicle type filter is coming soon",
+      "vehicleDisabledTitle": "Vehicle filtering is not available yet",
+      "vehicleDisabledDescription": "The current trip-search response does not provide reliable vehicle metadata.",
+      "fare": "Fare",
+      "reset": "Reset",
+      "applyFilters": "Apply filters",
+      "apply": "Apply",
+      "openAccessibility": "Open trip filters",
+      "clear": "Clear filters",
+      "time": {
+        "any": "Any time",
+        "morning": "Morning",
+        "afternoon": "Afternoon",
+        "evening": "Evening",
+        "night": "Night"
+      },
+      "price": {
+        "any": "Any fare",
+        "under350k": "Under 350,000 VND",
+        "from350To450k": "350,000–450,000 VND",
+        "over450k": "Over 450,000 VND"
+      }
+    },
+    "header": {
+      "oneWay": "One way",
+      "selectDate": "Select date",
+      "returnDate": "Return date",
+      "departureDate": "Departure date",
+      "return": "Return",
+      "outbound": "Outbound",
+      "trip": "Trip"
+    },
+    "paymentRedirect": {
+      "errorTitle": "Could not open VNPay",
+      "errorDescription": "The payment link is invalid or this device could not open it."
+    },
+    "datePicker": {
+      "returnTitle": "Select return date",
+      "departureTitle": "Select departure date",
+      "dateAccessibility": "Select {{date}}",
+      "today": "Today",
+      "confirmAccessibility": "Confirm {{date}}",
+      "confirm": "Confirm {{date}}",
+      "weekdays": {
+        "sun": "Sun",
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat"
+      }
+    },
+    "ticket": {
+      "notReported": "Not reported",
+      "confirmationTitle": "Booking confirmation",
+      "paymentPending": "Payment pending",
+      "bookingCreated": "Booking created",
+      "completePayment": "Complete payment to issue your tickets.",
+      "bookingRecorded": "Your booking was recorded successfully.",
+      "detailTitle": "Ticket details",
+      "confirmed": "Booking confirmed",
+      "statusUpdated": "Booking status updated",
+      "showReferenceWhenBoarding": "Show this reference when boarding.",
+      "latestAvailableStatus": "This is the latest available status for this booking.",
+      "showBookingReferenceWhenBoarding": "Show the booking reference or ticket QR code when boarding.",
+      "latestHistoryStatus": "This is the latest status reported in your booking history.",
+      "backToDashboard": "Back to dashboard",
+      "demoDetail": "Demo ticket detail",
+      "vnpayConfirmationTitle": "Complete payment with VNPay",
+      "vnpayConfirmationDescription": "Your booking is saved. Complete VNPay payment to issue the ticket, or check the status after returning to VietRide.",
+      "openVnpayAccessibility": "Open VNPay payment",
+      "openVnpay": "Open VNPay",
+      "checkPaymentAccessibility": "Check payment status",
+      "checkingPayment": "Checking payment...",
+      "checkPayment": "Check payment",
+      "legBookingReference": "{{leg}} booking reference",
+      "bookingReference": "Booking reference",
+      "references": "{{count}} ticket(s): {{references}}",
+      "references_one": "{{count}} ticket: {{references}}",
+      "references_other": "{{count}} tickets: {{references}}",
+      "boardingQrCode": "Boarding QR code",
+      "boardingQrCodes": "Boarding QR codes",
+      "shuttleSent": "Shuttle request sent",
+      "shuttleAwaiting": "The operator will confirm the pickup arrangement separately.",
+      "boardingWithTime": "Boarding · {{time}}",
+      "boarding": "Boarding",
+      "alightingWithTime": "Drop-off · {{time}}",
+      "alighting": "Drop-off",
+      "busType": "Vehicle",
+      "seats": "Seats",
+      "tickets": "Tickets",
+      "paymentMethod": "Payment method",
+      "legAmount": "{{leg}} amount",
+      "amountDue": "Amount due",
+      "totalAmount": "Total amount",
+      "trackLeg": "Track {{leg}}",
+      "grandTotalDue": "Grand total due",
+      "roundTripTotal": "Round-trip total",
+      "viewBookings": "View bookings",
+      "paymentNotCompleted": "Payment not completed",
+      "paymentExpiredDescription": "The payment window expired before the booking was confirmed.",
+      "statusChanged": "Booking status changed",
+      "inactiveDescription": "This booking is now {{status}} and cannot display an active ticket.",
+      "statusUnavailable": "Status unavailable",
+      "statusUnavailableDescription": "We could not verify the latest booking status.",
+      "detailsUnavailable": "Ticket details unavailable",
+      "detailsUnavailableDescription": "This booking does not include enough information to display a ticket.",
+      "unavailable": "Ticket unavailable",
+      "unavailableDescription": "We could not load this ticket. Return to booking history and try again."
+    },
+    "vouchers": {
+      "percentOff": "{{value}}% off",
+      "amountOff": "{{amount}} off",
+      "estimatedSaving": "Estimated saving {{amount}}",
+      "finalDiscountNotice": "The final discount is calculated when the booking is confirmed.",
+      "selectedUnavailable": "The selected voucher is no longer available.",
+      "refreshFailed": "Could not refresh available vouchers.",
+      "enterCode": "Enter a voucher code.",
+      "notAvailableForSelection": "This voucher is not available for the selected trip.",
+      "appliedCode": "Applied: {{code}}"
+    },
+    "paymentScreen": {
+      "ticketFallback": "Passenger ticket",
+      "title": "Payment",
+      "routeInformation": "Route information",
+      "shuttleAwaiting": "Awaiting operator arrangement",
+      "pickupPoint": "Boarding point",
+      "dropoffPoint": "Drop-off point",
+      "ticketSpecifications": "Ticket details",
+      "seatSummary": "{{busType}} · Seats {{seats}}",
+      "method": "Payment method",
+      "vnpayLabel": "VNPay",
+      "vnpayDescription": "Pay securely in VNPay",
+      "walletLabel": "VietRide Wallet",
+      "walletDescription": "Pay from your available wallet balance",
+      "breakdown": "Price breakdown",
+      "baseFare": "Base fare · {{count}} seat(s)",
+      "baseFare_one": "Base fare · {{count}} seat",
+      "baseFare_other": "Base fare · {{count}} seats",
+      "voucherDiscount": "Voucher discount",
+      "processing": "Processing...",
+      "payWithVnpay": "Pay with VNPay",
+      "confirmBooking": "Confirm booking"
+    },
+    "results": {
+      "noRidesTitle": "No trips found",
+      "noRidesDescription": "Try another date or route.",
+      "noFilterMatchesTitle": "No trips match these filters",
+      "noFilterMatchesDescription": "Clear or adjust the filters to see more trips.",
+      "searchAgain": "Search again",
+      "selectOutbound": "Select outbound trip",
+      "selectReturn": "Select return trip",
+      "selectTrip": "Select a trip"
+    }
   },
   "tracking": {
     "liveTracking": "Live Tracking",
@@ -209,7 +763,355 @@
     "senderInfo": "Sender Information",
     "receiverInfo": "Receiver Information",
     "parcelDetails": "Parcel Details",
-    "otpConfirm": "OTP Confirmation"
+    "otpConfirm": "OTP Confirmation",
+    "actions": {
+      "apply": "Apply",
+      "backToDashboard": "Back to Dashboard",
+      "chooseDestinationTerminal": "Choose a receiving terminal",
+      "chooseOriginTerminal": "Choose a sending terminal",
+      "continueToDestination": "Continue to receiving terminal",
+      "continueToDetails": "Continue to parcel details",
+      "next": "Next",
+      "nextStep": "Next Step",
+      "previous": "Previous",
+      "refresh": "Refresh"
+    },
+    "categories": {
+      "documents": "Documents",
+      "clothing": "Clothing",
+      "electronics": "Electronics",
+      "food": "Food",
+      "others": "Others"
+    },
+    "create": {
+      "title": "Create Parcel",
+      "savedTitle": "Parcel created",
+      "savedPaymentFailed": "Your parcel was saved, but payment could not be started. You can retry securely from its detail screen.\n\n{{error}}"
+    },
+    "date": {
+      "today": "Today",
+      "tomorrow": "Tomorrow"
+    },
+    "detail": {
+      "historyTitle": "Delivery Detail",
+      "ticketTitle": "Delivery Ticket",
+      "loading": "Loading parcel detail...",
+      "photosTitle": "Parcel photos",
+      "photos": {
+        "submitted": "Submitted photo",
+        "checkIn": "Check-in {{index}}",
+        "delivery": "Delivery {{index}}"
+      },
+      "state": {
+        "unavailableTitle": "Parcel request unavailable",
+        "unavailableDescription": "This request can no longer continue. Check its status or create a new parcel request.",
+        "finalPaymentTitle": "Final payment required",
+        "finalPaymentDescription": "The parcel was reweighed. Pay the remaining balance before its deadline so it can be loaded.",
+        "depositTitle": "Deposit required",
+        "depositDescription": "Choose a payment method to reserve cargo capacity for this parcel.",
+        "awaitingReviewTitle": "Awaiting operator review",
+        "awaitingReviewDescription": "The operator must approve this parcel before payment and delivery.",
+        "attentionTitle": "Parcel requires attention",
+        "attentionDescription": "Review the latest parcel status before continuing. The delivery code is temporarily unavailable.",
+        "createdTitle": "Parcel request created",
+        "createdDescription": "Your parcel request is ready for the next delivery step."
+      },
+      "dropoffCode": "Terminal drop-off code",
+      "dropoffCodeHint": "Show this exact code at the terminal drop-off.",
+      "code": {
+        "unavailableRequest": "The delivery code is unavailable for this request.",
+        "afterFinalPayment": "The delivery code unlocks after final payment is verified.",
+        "afterDeposit": "The delivery code unlocks after the deposit is verified.",
+        "afterApproval": "This delivery code activates after operator approval.",
+        "unavailableStatus": "The delivery code is unavailable for the current parcel status.",
+        "showAtDropoff": "Show this parcel code at the terminal drop-off."
+      },
+      "packageSize": "PACKAGE SIZE",
+      "delivery": "DELIVERY",
+      "recipient": "RECIPIENT",
+      "payment": "PAYMENT",
+      "depositAndBalance": "Deposit + balance",
+      "deposit": "Deposit",
+      "description": "DESCRIPTION",
+      "finalTotal": "Final shipment total",
+      "estimatedTotal": "Estimated shipment total",
+      "depositPaid": "Deposit paid",
+      "remainingBalance": "Remaining balance",
+      "refundDue": "Refund due",
+      "voucherDiscount": "Voucher discount"
+    },
+    "dimensions": {
+      "title": "Exact dimensions",
+      "hint": "Used to check trip capacity. The fare tier upgrades automatically when needed.",
+      "length": "Length",
+      "width": "Width",
+      "height": "Height",
+      "inputAccessibility": "{{label}} in centimetres"
+    },
+    "district": {
+      "title": "District delivery",
+      "unavailableTitle": "Not available yet",
+      "unavailableDescription": "Parcel delivery currently supports terminal pickup only. District selection will be enabled when the backend provides service-area data."
+    },
+    "errors": {
+      "loadData": "Failed to load data. Please check your connection.",
+      "missingTripSearchParameters": "Missing parcel trip search parameters.",
+      "missingVoucherParameters": "Missing parcel voucher parameters.",
+      "photoUriEmpty": "Parcel photo URI is empty.",
+      "photoUploadRequiresLogin": "Sign in before uploading a parcel photo.",
+      "sessionChanged": "Your sign-in session changed. Please try again.",
+      "photoUploadTitle": "Could not upload parcel photo",
+      "photoUploadDescription": "The selected photo could not be prepared or uploaded. Try again, or remove it to continue without a photo.",
+      "tripAvailabilityChangedTitle": "Trip availability changed",
+      "tripAvailabilityChangedDescription": "The selected trip or parcel estimate changed while you were confirming. Please choose an available trip again."
+    },
+    "form": {
+      "photoLabel": "parcel photo",
+      "photoTitle": "Parcel photo (optional)",
+      "photoHelper": "The photo is optimized on-device, then uploaded securely when you confirm the parcel.",
+      "estimatedValueLabel": "Estimated Value (Optional)",
+      "estimatedValuePlaceholder": "Enter package value (VND)",
+      "estimatedValueHint": "Used only as parcel description metadata.",
+      "estimatedValueMetadata": "Estimated value: {{value}} VND",
+      "recipientTitle": "Recipient",
+      "fullNameLabel": "Full Name",
+      "fullNamePlaceholder": "Recipient full name",
+      "phoneLabel": "Phone Number",
+      "phonePlaceholder": "Recipient phone number",
+      "emailLabel": "Email (Optional)",
+      "emailPlaceholder": "recipient@example.com"
+    },
+    "locations": {
+      "municipality": "Municipality",
+      "province": "Province",
+      "alreadySelected": "Already selected",
+      "typeAndCode": "{{type}} - {{code}}",
+      "itemAccessibility": "{{name}}. {{details}}",
+      "loading": "Loading locations...",
+      "loadError": "Could not load locations.",
+      "emptySearch": "No matching locations found.",
+      "originTitle": "Origin Province",
+      "destinationTitle": "Destination Province",
+      "searchAccessibility": "Search provinces and cities",
+      "searchPlaceholder": "Search province or city..."
+    },
+    "packageSize": {
+      "title": "Package Size",
+      "options": {
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large"
+      }
+    },
+    "pagination": {
+      "page": "Page {{page}}"
+    },
+    "payment": {
+      "methodTitle": "Payment Method",
+      "wallet": {
+        "label": "VietRide Wallet",
+        "checkingBalance": "Checking balance…",
+        "balanceUnavailable": "Balance unavailable",
+        "balance": "Balance: {{amount}}",
+        "insufficientBalance": "Insufficient balance: {{amount}}"
+      },
+      "vnpay": {
+        "label": "VNPay",
+        "subtitle": "Continue securely on the VNPay payment page"
+      },
+      "redirectErrorTitle": "Unable to open payment page",
+      "redirectErrorDescription": "The payment link is invalid or this device cannot open it.",
+      "startErrorTitle": "Payment could not start",
+      "payRemainingBalance": "Pay remaining balance",
+      "payDeposit": "Pay parcel deposit",
+      "payBefore": "Pay before {{deadline}}",
+      "openVnPayAgain": "Open VNPay again",
+      "verifyingTitle": "Verifying payment",
+      "verifyingDescription": "VietRide is waiting for backend confirmation.",
+      "starting": "Starting payment…",
+      "payWithWallet": "Pay with Wallet",
+      "continueToVnPay": "Continue to VNPay"
+    },
+    "progress": {
+      "origin": "Origin",
+      "destination": "Dest",
+      "item": "Item",
+      "payment": "Pay",
+      "stepAccessibility": "{{label}}, step {{step}} of {{total}}"
+    },
+    "promos": {
+      "title": "Promo Code",
+      "subtitle": "Save with vouchers before payment",
+      "openAccessibility": "Choose or enter promo code",
+      "addCode": "Add promo code",
+      "appliedCode": "{{code}} Applied",
+      "chooseOrEnter": "Choose an available promo or enter a code",
+      "sheetTitle": "Choose Promo",
+      "sheetSubtitle": "Apply an available voucher or enter a code.",
+      "closeAccessibility": "Close promo picker",
+      "manualLabel": "Enter code directly",
+      "manualInputAccessibility": "Promo code input",
+      "placeholder": "PROMO CODE",
+      "availableTitle": "Available vouchers",
+      "minimumSpend": "Min spend {{amount}}",
+      "noMinimumSpend": "No minimum spend",
+      "applied": "Applied",
+      "expires": "Expires {{date}}",
+      "emptyTitle": "No vouchers available",
+      "emptyDescription": "Enter a promo code manually if you received one, or check back later for new offers.",
+      "percentOff": "{{value}}% OFF",
+      "amountOff": "{{amount}} OFF",
+      "saveDeposit": "Save {{amount}} on parcel deposit.",
+      "availableForRoute": "Available for this parcel route.",
+      "noLongerValid": "This voucher is no longer valid for the selected trip or payment method.",
+      "validation": {
+        "enterCode": "Enter a promo code to apply.",
+        "unavailable": "This promo code is not available for this parcel.",
+        "expired": "This promo code has expired.",
+        "minimumDeposit": "Minimum parcel deposit is {{amount}}."
+      }
+    },
+    "route": {
+      "from": "FROM",
+      "to": "TO",
+      "origin": "Origin",
+      "destination": "Destination",
+      "originTerminal": "Origin terminal",
+      "destinationTerminal": "Destination terminal",
+      "selectedOrigin": "Selected origin",
+      "selectedDestination": "selected destination"
+    },
+    "stations": {
+      "originAccessibility": "Sending terminal",
+      "destinationAccessibility": "Receiving terminal",
+      "cardAccessibility": "{{role}}: {{name}}. {{distance}}",
+      "nearYou": "NEAR YOU",
+      "filterAccessibility": "Filter stations",
+      "distanceMeters": "{{distance}} m away",
+      "distanceKilometers": "{{distance}} km away",
+      "calculatingDistance": "Calculating distance...",
+      "chooseRouteFirstTitle": "Choose route first",
+      "chooseRouteFirstDescription": "Go back to Home and select origin and destination before creating a parcel.",
+      "emptyTitle": "No parcel station found",
+      "emptyInLocation": "No station found in {{location}}. Try another province or city for this route.",
+      "emptyDescription": "Try another province or city for this route.",
+      "chooseValidRoute": "Choose a valid route to continue",
+      "loadError": "Could not load terminals",
+      "finding": "Finding terminals…",
+      "availableCount_one": "{{count}} terminal available",
+      "availableCount_other": "{{count}} terminals available",
+      "selected": "Selected: {{name}}"
+    },
+    "steps": {
+      "origin": {
+        "heading": "Choose Sending Station",
+        "description": "Where will you drop off your parcel?"
+      },
+      "destination": {
+        "heading": "Choose Receiving Station",
+        "description": "Where should the recipient pick up?"
+      },
+      "package": {
+        "heading": "Tell us about your package",
+        "description": "Help us find the right vehicle for you."
+      },
+      "summary": {
+        "heading": "Order Summary",
+        "description": "Confirm details and make payment."
+      }
+    },
+    "summary": {
+      "routeInformation": "Route Information",
+      "packageSpecifications": "Package Specifications",
+      "dimensionsAndWeight": "{{dimensions}} · {{weight}} {{unit}}",
+      "paymentDetails": "Payment Details",
+      "estimatedShipmentPrice": "Estimated shipment price",
+      "depositBeforeDiscount": "Deposit before discount",
+      "verifiedVoucherDiscount": "Verified voucher discount",
+      "depositDueNow": "Deposit due now",
+      "serverPricingHint": "Final parcel pricing is confirmed by VietRide's server for the selected trip.",
+      "depositDue": "Deposit Due"
+    },
+    "tracking": {
+      "title": "Shipment status",
+      "loading": "Loading latest shipment status...",
+      "latestStatus": "LATEST RECORDED STATUS",
+      "estimatedArrival": "Estimated arrival: {{time}}",
+      "liveLocationTitle": "Live vehicle location",
+      "liveLocationDescription": "GPS updates are shared securely and visible only to the parcel owner.",
+      "transportComplete": "Parcel transport is complete. Automatic location updates are stopped.",
+      "mapUnavailableTitle": "Live map not active yet",
+      "mapUnavailableDescription": "Live vehicle tracking starts after your parcel is loaded.",
+      "rejectedTitle": "Shipment was rejected",
+      "rejectedAt": "Recorded at {{time}}. Contact support for further details.",
+      "rejectedContactSupport": "Contact support for further details.",
+      "timelineTitle": "Recorded timeline",
+      "timelineDescription": "Times appear only when the service has returned a recorded event.",
+      "openStatus": "Track Shipment Status",
+      "startsAfterLoading": "Tracking starts after loading",
+      "timeline": {
+        "created": {
+          "title": "Shipment created",
+          "description": "The shipment request was registered."
+        },
+        "loaded": {
+          "title": "Load at origin",
+          "description": "Origin-terminal loading checkpoint."
+        },
+        "inTransit": {
+          "title": "In transit",
+          "description": "Travel checkpoint between the origin and destination terminals."
+        },
+        "unloaded": {
+          "title": "Unload at destination",
+          "description": "Destination-terminal unloading checkpoint."
+        },
+        "confirmed": {
+          "title": "Pickup confirmation",
+          "description": "Recipient pickup-confirmation checkpoint."
+        }
+      }
+    },
+    "trips": {
+      "operatorUnavailable": "Operator unavailable",
+      "priceSummary": "Deposit {{deposit}} / Est. {{estimated}}",
+      "departureDate": "Departure Date",
+      "availableTitle": "Available Trips",
+      "emptyTitle": "No parcel-enabled trip found",
+      "emptyRouteDate": "{{origin}} → {{destination}} on {{date}}.",
+      "emptyDescription": "Parcel service requires a scheduled trip with cargo capacity and a parcel fare for this exact terminal pair. Try another date or choose different terminals.",
+      "changeTerminals": "Change terminals",
+      "checkMore": "Check more trips",
+      "tryNextDay": "Try next day",
+      "operatorDeparture": "{{operator}} · {{departure}}",
+      "availableCount_one": "{{count}} trip available",
+      "availableCount_other": "{{count}} trips available"
+    },
+    "units": {
+      "cm": "cm",
+      "kg": "kg",
+      "lb": "lb"
+    },
+    "validation": {
+      "dimensionsPositive": "Enter a value greater than 0 for every dimension.",
+      "dimensionsTooLarge": "This parcel is larger than the supported 60 × 45 × 35 cm tier.",
+      "chooseLargerSize": "Choose a larger size tier for these dimensions.",
+      "selectOriginStation": "Please select an origin station.",
+      "selectDestinationStation": "Please select a destination station.",
+      "recipientRequired": "Recipient name and phone number are required.",
+      "invalidVietnamPhone": "Enter a valid Vietnam phone number.",
+      "invalidRecipientEmail": "Enter a valid recipient email address.",
+      "invalidMeasurements": "Enter a valid package weight and dimensions.",
+      "selectAvailableTrip": "Please select an available trip for this parcel.",
+      "selectTripBeforeCreate": "Please select a trip before creating parcel."
+    },
+    "weight": {
+      "title": "Weight",
+      "inputAccessibility": "Parcel weight in {{unit}}",
+      "sliderAccessibility": "Parcel weight",
+      "valueAccessibility": "{{value}} {{unit}}",
+      "sliderMaximum": "{{value}} {{unit}} slider range"
+    }
   },
   "profile": {
     "myProfile": "My Profile",
@@ -219,10 +1121,183 @@
     "language": "Language",
     "notifications": "Notifications",
     "helpSupport": "Help & Support",
-    "walletAndPayments": "Wallet & payments",
-    "financialUnavailableTitle": "Wallet & payments unavailable",
-    "financialUnavailableDescription": "Wallet balance, top-up, withdrawal, and saved payment management are not enabled in this app yet.",
-    "financialUnavailableSafety": "VietRide does not collect card numbers or CVV on this screen."
+    "title": "Profile",
+    "guestName": "Guest passenger",
+    "passengerName": "VietRide passenger",
+    "signInToSaveTrips": "Sign in to save your trips",
+    "phoneUnavailable": "Phone number unavailable",
+    "signInRequiredTitle": "Sign in required",
+    "signInRequiredDescription": "Sign in to use this account feature.",
+    "logoutConfirm": "Are you sure you want to sign out?",
+    "wallet": "Wallet",
+    "verifyAccount": "Verify account",
+    "signInRegister": "Sign in or register",
+    "appVersion": "VietRide version {{version}}",
+    "avatar": {
+      "change": "Change profile photo",
+      "pendingSave": "New photo ready to save",
+      "permissionTitle": "Photo access required",
+      "permissionDescription": "Allow photo access to choose a profile image.",
+      "unavailableTitle": "Photo picker unavailable",
+      "unavailableDescription": "This device cannot open the photo picker. Try again on a supported device.",
+      "invalidTitle": "Photo not supported",
+      "pickerErrorTitle": "Could not open photos",
+      "pickerErrorDescription": "Please try choosing the photo again.",
+      "errors": {
+        "invalidAsset": "Choose a valid image file.",
+        "dimensionsUnavailable": "We could not read this image's dimensions.",
+        "authRequired": "Sign in again before changing your profile photo.",
+        "sessionChanged": "Your session changed during upload. Please choose the photo again.",
+        "accountMismatch": "The uploaded photo does not belong to the current account. Please sign in again."
+      }
+    },
+    "edit": {
+      "title": "Edit profile",
+      "errorTitle": "Could not update profile",
+      "fullName": "Full name",
+      "fullNameReadOnlyHint": "Your verified name cannot be changed here.",
+      "email": "Email",
+      "emailUnavailable": "Email unavailable",
+      "emailReadOnlyHint": "Your sign-in email cannot be changed here.",
+      "phone": "Phone number",
+      "phoneCompleteHint": "Add your Vietnam phone number to complete your profile.",
+      "phoneReadOnlyHint": "Your verified phone number cannot be changed here.",
+      "save": "Save changes",
+      "errors": {
+        "sessionRefresh": "Your profile was updated, but the secure session could not be refreshed. Please sign in again."
+      }
+    },
+    "validation": {
+      "fullNameRequired": "Enter your full name.",
+      "fullNameTooLong": "Full name is too long.",
+      "phoneInvalid": "Enter a valid Vietnam phone number."
+    }
+  },
+  "bookingHistory": {
+    "bookingAccessibility": "Open booking {{code}}",
+    "parcelAccessibility": "Open parcel {{code}}",
+    "trackAccessibility": "Track booking {{code}}",
+    "track": "Track trip",
+    "signInRequiredTitle": "Sign in to view history",
+    "signInTicketsDescription": "Your ticket bookings will appear here after you sign in.",
+    "signInParcelsDescription": "Your parcel bookings will appear here after you sign in.",
+    "loading": "Loading history...",
+    "unavailableTitle": "History is unavailable",
+    "unavailableDescription": "We could not load your booking history.",
+    "emptyTicketsTitle": "No ticket bookings yet",
+    "emptyTicketsDescription": "Trips you book will appear here.",
+    "emptyParcelsTitle": "No parcel bookings yet",
+    "emptyParcelsDescription": "Parcels you send will appear here.",
+    "staleDescription": "Showing saved results because the latest update failed.",
+    "ticketsTab": "Tickets",
+    "parcelsTab": "Parcels",
+    "filters": {
+      "all": "All",
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "security": {
+    "title": "Account security",
+    "accountSecurity": "Account security",
+    "heroTitle": "Your account is protected",
+    "heroDescription": "Review your account status and the security capabilities available in this release.",
+    "accountSection": "Account",
+    "loginEmail": "Sign-in email",
+    "accountStatus": "Account status",
+    "mobilePlatform": "Mobile",
+    "currentDeviceSection": "Current device",
+    "deviceName": "VietRide on {{platform}}",
+    "currentSession": "This device",
+    "active": "Active",
+    "signedInDevicesSection": "Signed-in devices",
+    "sessionsUnavailableTitle": "Device management unavailable",
+    "sessionsUnavailableDescription": "The backend does not provide a passenger session-management endpoint yet.",
+    "recentLoginsSection": "Recent sign-ins",
+    "activityUnavailableTitle": "Sign-in history unavailable",
+    "activityUnavailableDescription": "Recent account activity will appear here when the backend supports it.",
+    "unavailable": "Unavailable",
+    "unavailableTitle": "Security feature unavailable",
+    "unavailableDescription": "This security capability is not supported by the current backend contract.",
+    "status": {
+      "active": "Active",
+      "pendingEmailVerification": "Email verification required",
+      "pendingInitialPassword": "Password setup required",
+      "locked": "Locked",
+      "unknown": "Status unavailable"
+    },
+    "changePassword": {
+      "title": "Change password",
+      "unavailableDescription": "Password changes are not enabled for this account yet.",
+      "protectTitle": "Choose a strong password",
+      "protectDescription": "Use a password you do not reuse on other services.",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "submit": "Update password",
+      "successTitle": "Password updated",
+      "successDescription": "Your password has been changed successfully.",
+      "errorTitle": "Could not change password",
+      "backendNote": "Your password is sent only through the authenticated secure API and is never stored in app state."
+    },
+    "validation": {
+      "currentPasswordRequired": "Enter your current password.",
+      "passwordMin": "Password must contain at least 8 characters.",
+      "passwordMax": "Password is too long.",
+      "passwordLetter": "Password must contain at least one letter.",
+      "passwordNumber": "Password must contain at least one number.",
+      "passwordMustDiffer": "New password must be different from the current password.",
+      "confirmPasswordRequired": "Confirm your new password.",
+      "passwordsMismatch": "The passwords do not match."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "securityNote": "Some preferences depend on backend and device support.",
+    "language": {
+      "title": "Language",
+      "vietnamese": "Tiếng Việt",
+      "vietnameseDescription": "Use Vietnamese throughout the app",
+      "english": "English",
+      "englishDescription": "Use English throughout the app"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "themeTitle": "App theme",
+      "themeDescription": "Choose the Liquid Glass style you prefer.",
+      "themes": {
+        "light": {
+          "name": "Liquid Glass Light",
+          "caption": "Airy glass surfaces with calm teal accents.",
+          "tag": "Light"
+        },
+        "dark": {
+          "name": "Liquid Glass Dark",
+          "caption": "Deep glass surfaces tuned for low-light use.",
+          "tag": "Dark"
+        }
+      }
+    },
+    "security": {
+      "title": "Security",
+      "accountTitle": "Account security",
+      "accountDescription": "Review your account and current device"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "tripUpdates": "Trip updates",
+      "tripUpdatesDescription": "Boarding, departure, and trip status alerts",
+      "parcelAlerts": "Parcel alerts",
+      "parcelAlertsDescription": "Shipment and pickup status alerts",
+      "promotions": "Offers and news",
+      "promotionsDescription": "Occasional VietRide promotions"
+    },
+    "legal": {
+      "title": "Privacy and legal",
+      "terms": "Terms of service",
+      "privacy": "Privacy policy"
+    }
   },
   "history": {
     "routeUnavailable": "Route unavailable",
@@ -299,6 +1374,100 @@
         "expired": "Expired",
         "unknown": "Status unavailable"
       }
+    }
+  },
+  "financial": {
+    "comingSoon": "Coming soon",
+    "comingSoonAccessibility": "{{title}}, coming soon",
+    "comingSoonHint": "Opens information about this unavailable feature",
+    "generic": {
+      "title": "Payments are protected",
+      "description": "This financial feature is not available in this release.",
+      "safety": "VietRide never collects raw card numbers or CVV in app-owned fields."
+    },
+    "walletUnavailable": {
+      "title": "Wallet unavailable",
+      "description": "The current backend does not provide the wallet contract required by this screen.",
+      "safety": "No payment credentials are collected while wallet access is unavailable."
+    },
+    "topUpUnavailable": {
+      "title": "Top-up unavailable",
+      "description": "The current backend does not provide a supported wallet top-up flow.",
+      "safety": "No payment is created until a supported backend flow is available."
+    },
+    "withdraw": {
+      "title": "Withdraw funds",
+      "description": "Withdrawal is waiting for a supported payout contract from the backend.",
+      "safety": "No bank account or payout credentials are collected on this screen."
+    },
+    "savedPayments": {
+      "title": "Saved payment methods",
+      "description": "Saved payments require a supported tokenized payment-method contract.",
+      "safety": "VietRide never stores raw card numbers or CVV."
+    },
+    "addPaymentMethod": {
+      "title": "Add payment method",
+      "description": "Adding a payment method requires a PCI-compliant hosted flow or native provider SDK.",
+      "safety": "Card details must be collected only by the certified payment provider."
+    }
+  },
+  "wallet": {
+    "title": "Wallet",
+    "balance": "Available balance",
+    "topUp": "Top up",
+    "moreTools": "More wallet tools",
+    "recentTransactions": "Recent transactions",
+    "staleBalance": "Showing the last available balance",
+    "staleTransactions": "Some transactions may be out of date.",
+    "loadTransactionsFailed": "Could not load transactions",
+    "noTransactions": "No transactions yet",
+    "retryMore": "Retry loading more",
+    "transactions": {
+      "topUp": "Wallet top-up",
+      "bookingPayment": "Ticket payment",
+      "bookingRefund": "Ticket refund",
+      "parcelPayment": "Parcel payment",
+      "parcelRefund": "Parcel refund",
+      "parcelAdditionalPayment": "Additional parcel payment",
+      "manualAdjustment": "Wallet adjustment",
+      "generic": "Wallet transaction",
+      "balanceAfter": "Balance {{amount}}"
+    }
+  },
+  "topUp": {
+    "title": "Top up wallet",
+    "amount": "Top-up amount",
+    "quickSelect": "Quick amounts",
+    "customAmount": "Custom amount",
+    "customAmountAccessibility": "Enter a custom top-up amount",
+    "customPlaceholder": "Enter amount",
+    "presetAccessibility": "Select {{amount}}",
+    "minimumHint": "Minimum top-up is {{amount}}",
+    "confirm": "Continue with VNPay",
+    "awaitingReturn": "Waiting for payment",
+    "openAgain": "Open payment again",
+    "pendingTitle": "Payment in progress",
+    "pendingDescription": "Complete or close VNPay, then return to VietRide. Your wallet refreshes only after the app returns to the foreground.",
+    "requestId": "Request {{id}}",
+    "returnNotice": "Wallet refreshed after returning from payment.",
+    "returnRefreshFailed": "Payment returned, but the wallet could not be refreshed. Pull to refresh in Wallet.",
+    "statusTitle": "Top-up status",
+    "unexpectedStatus": "The request returned status: {{status}}.",
+    "redirectErrorTitle": "Could not open VNPay",
+    "redirectErrorDescription": "The payment link is invalid or this device cannot open it.",
+    "ambiguousRetryHint": "The result is uncertain. Do not submit a new top-up yet; reopen the existing payment request or check your wallet first.",
+    "errorTitle": "Could not start top-up",
+    "vnpayNote": "Payment is completed securely in VNPay. VietRide does not collect your bank-card details.",
+    "errors": {
+      "reconciliationRequired": "This top-up needs reconciliation. Check your wallet before trying again.",
+      "sessionChanged": "Your sign-in session changed. Please sign in again before continuing.",
+      "authRequired": "Sign in to top up your wallet."
+    },
+    "status": {
+      "pending": "Pending",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "expired": "Expired"
     }
   },
   "shared": {

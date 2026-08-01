@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -18,7 +19,8 @@ interface LoadingStateProps {
 
 const skeletonCards = [0, 1, 2] as const;
 
-export const LoadingState = ({ text = 'Finding the best routes…' }: LoadingStateProps): React.JSX.Element => {
+export const LoadingState = ({ text }: LoadingStateProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -27,8 +29,8 @@ export const LoadingState = ({ text = 'Finding the best routes…' }: LoadingSta
       <View style={styles.headerRow}>
         <ActivityIndicator size="small" color={theme.colors.primary} />
         <View style={styles.copyBlock}>
-          <Text style={styles.title}>{text}</Text>
-          <Text style={styles.subtitle}>Checking live seats and fares.</Text>
+          <Text style={styles.title}>{text ?? t('booking.states.findingRoutes')}</Text>
+          <Text style={styles.subtitle}>{t('booking.states.checkingSeatsAndFares')}</Text>
         </View>
       </View>
 

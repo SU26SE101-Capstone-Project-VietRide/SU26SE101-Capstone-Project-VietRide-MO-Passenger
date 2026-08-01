@@ -33,7 +33,7 @@ export function DistrictPicker(): React.JSX.Element {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('parcel.actions.goBack')}
+          accessibilityLabel={t('common.back')}
           hitSlop={8}
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [

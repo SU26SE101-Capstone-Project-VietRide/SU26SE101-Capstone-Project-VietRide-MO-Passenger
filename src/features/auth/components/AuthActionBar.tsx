@@ -7,9 +7,17 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { ArrowLeft } from 'phosphor-react-native';
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
 
 export interface AuthActionBarProps {
   label: string;
@@ -25,35 +33,45 @@ export const AuthActionBar = ({
   disabled = false,
   summary,
   bottomInset,
-}: AuthActionBarProps): React.JSX.Element => (
-  <View style={[styles.root, { paddingBottom: Math.max(bottomInset ?? 0, spacing.md) }]}>
-    {summary ? (
-      <View style={styles.summaryRow}>
-        <Text style={styles.summaryLabel}>{summary.label}</Text>
-        <Text style={styles.summaryValue}>{summary.value}</Text>
-      </View>
-    ) : null}
-    <TouchableOpacity
-      accessibilityLabel={label}
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      style={[styles.cta, disabled && styles.ctaDisabled]}
-      onPress={onPress}
-      activeOpacity={0.85}
-      disabled={disabled}
-    >
-      <Text style={styles.ctaLabel}>{label}</Text>
-      <ArrowLeft
-        size={18}
-        color={colors.textInverse}
-        weight="bold"
-        style={{ transform: [{ rotate: '180deg' }] }}
-      />
-    </TouchableOpacity>
-  </View>
-);
+}: AuthActionBarProps): React.JSX.Element => {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
 
-const styles = StyleSheet.create({
+  return (
+    <View
+      style={[
+        styles.root,
+        { paddingBottom: Math.max(bottomInset ?? 0, spacing.md) },
+      ]}
+    >
+      {summary ? (
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>{summary.label}</Text>
+          <Text style={styles.summaryValue}>{summary.value}</Text>
+        </View>
+      ) : null}
+      <TouchableOpacity
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        style={[styles.cta, disabled ? styles.ctaDisabled : null]}
+        onPress={onPress}
+        activeOpacity={0.85}
+        disabled={disabled}
+      >
+        <Text style={styles.ctaLabel}>{label}</Text>
+        <ArrowLeft
+          size={18}
+          color={theme.colors.textInverse}
+          weight="bold"
+          style={styles.arrow}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const createStyles = (theme: AppTheme) => ({
   root: {
     position: 'absolute',
     left: 0,
@@ -61,10 +79,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    ...shadows.lg,
+    ...theme.components.actionBar,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -75,27 +90,30 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   summaryValue: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     borderRadius: borderRadius.md,
     height: 52,
     gap: spacing.sm,
-    ...shadows.sm,
+    ...theme.effects.floatingShadow,
   },
-  ctaDisabled: { backgroundColor: colors.divider },
+  ctaDisabled: { backgroundColor: theme.colors.textDisabled },
   ctaLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
-    color: colors.textInverse,
+    color: theme.colors.textInverse,
+  },
+  arrow: {
+    transform: [{ rotate: '180deg' }],
   },
 });

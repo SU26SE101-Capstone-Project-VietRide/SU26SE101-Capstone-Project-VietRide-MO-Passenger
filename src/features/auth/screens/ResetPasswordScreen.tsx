@@ -6,7 +6,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
@@ -20,9 +19,15 @@ import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
 import { Input, Button } from '@shared/components';
-import { useApiError } from '@shared/hooks';
+import { useApiError, useThemedStyles } from '@shared/hooks';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
 import { formatCountdown } from '@shared/utils/format';
@@ -32,6 +37,7 @@ import { AuthStepHeader } from '../components';
 import {
   AUTH_CODE_LENGTH,
   apiFieldErrors,
+  localizeAuthMessage,
   otpSchema,
   resetPasswordSchema,
   zodFieldErrors,
@@ -57,6 +63,7 @@ export function ResetPasswordScreen(): React.JSX.Element {
   const route = useRoute<ScreenRouteProp>();
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const isLiquid = theme.variant.startsWith('liquid');
 
   const { email, otpTtlMinutes = 5 } = route.params;
@@ -243,7 +250,7 @@ export function ResetPasswordScreen(): React.JSX.Element {
                     maxLength={AUTH_CODE_LENGTH}
                     value={code}
                     required
-                    error={errors.code}
+                    error={localizeAuthMessage(errors.code, t)}
                     hint={
                       isExpired
                         ? t('auth.resetPassword.codeExpired')
@@ -268,7 +275,7 @@ export function ResetPasswordScreen(): React.JSX.Element {
                     autoComplete="password-new"
                     value={password}
                     required
-                    error={errors.password}
+                    error={localizeAuthMessage(errors.password, t)}
                     hint={t('auth.fields.passwordRequirements')}
                     onBlur={() => validateField('password')}
                     onChangeText={(value) => {
@@ -287,7 +294,7 @@ export function ResetPasswordScreen(): React.JSX.Element {
                     autoComplete="password-new"
                     value={confirmPassword}
                     required
-                    error={errors.confirmPassword}
+                    error={localizeAuthMessage(errors.confirmPassword, t)}
                     onBlur={() => validateField('confirmPassword')}
                     onChangeText={(value) => {
                       setConfirmPassword(value);
@@ -319,8 +326,8 @@ export function ResetPasswordScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+const createStyles = (theme: AppTheme) => ({
+  root: { flex: 1, backgroundColor: theme.colors.background },
   gradientContainer: {
     position: 'absolute',
     top: 0,
@@ -347,14 +354,14 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxxl,
   },
   formCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.colors.divider,
     borderTopWidth: 3,
-    borderTopColor: colors.primaryLight,
-    ...shadows.md,
+    borderTopColor: theme.colors.primaryLight,
+    ...theme.effects.cardShadow,
     marginBottom: spacing.xxl,
     marginHorizontal: spacing.xl,
   },
@@ -365,7 +372,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.error,
+    color: theme.colors.error,
     marginBottom: spacing.md,
   },
   successScroll: {
@@ -383,28 +390,28 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: colors.primaryFaded,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xxl,
     borderWidth: 2,
-    borderColor: colors.primaryLight,
+    borderColor: theme.colors.primaryLight,
   },
   successIcon: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   successTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: theme.colors.textPrimary,
     marginBottom: spacing.sm,
   },
   successSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.lg,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     lineHeight: fontSizes.lg * 1.5,
     textAlign: 'center',
     marginBottom: spacing.xxxl,

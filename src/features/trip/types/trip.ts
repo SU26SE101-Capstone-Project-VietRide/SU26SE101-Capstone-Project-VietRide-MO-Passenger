@@ -265,7 +265,9 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
 
       return {
         id: stop.stopId ?? stop.id ?? '',
-        name: stop.name ?? `Route stop ${stop.orderIndex ?? ''}`.trim(),
+        // Presentation owns the localized fallback; the transport mapper must
+        // not manufacture English copy or persist it as server data.
+        name: stop.name?.trim() ?? '',
         address: stop.address ?? null,
         latitude: hasValidCoordinates ? latitude : null,
         longitude: hasValidCoordinates ? longitude : null,

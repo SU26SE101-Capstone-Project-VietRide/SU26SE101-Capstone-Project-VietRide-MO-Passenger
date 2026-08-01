@@ -1,6 +1,7 @@
 import type { TripLifecycleStatus } from '@features/trip/types';
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { formatDateTime } from '@shared/utils/format';
+import i18n from '@shared/i18n';
 import type {
   BookingResult,
   BookingTicketResult,
@@ -15,7 +16,7 @@ import type { BookingHistoryTicketDetail } from '../data/bookingHistoryFixture';
 import { getBookingReference } from './bookingReference';
 
 export interface TicketLegViewModel {
-  label: 'Outbound' | 'Return' | 'Trip';
+  label: string;
   reference: string;
   ticketReferences?: string;
   ticketEntries?: readonly TicketCodeViewModel[];
@@ -79,7 +80,12 @@ interface BuildLegInput extends BookingLegDraft {
   tickets: readonly BookingTicketResult[];
   totalAmount: number;
   trackingEnabled: boolean;
+  translate: Translate;
 }
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+const defaultTranslate: Translate = (key, options) => i18n.t(key, options);
 
 const buildLeg = ({
   label,
@@ -88,6 +94,7 @@ const buildLeg = ({
   tickets,
   totalAmount,
   trackingEnabled,
+  translate,
   trip,
   pickUp,
   dropOff,
@@ -105,17 +112,17 @@ const buildLeg = ({
       seatNumber: ticket.seatNumber.trim(),
     }))
     .filter((ticket) => ticket.ticketCode.length > 0),
-  boardingName: pickUp?.name || '—',
+  boardingName: pickUp?.name || translate('common.notAvailable'),
   boardingAddress: pickUp?.address || '',
-  boardingTime: pickUp?.time || '—',
-  alightingName: dropOff?.name || '—',
+  boardingTime: pickUp?.time || undefined,
+  alightingName: dropOff?.name || translate('common.notAvailable'),
   alightingAddress: dropOff?.address || '',
-  alightingTime: dropOff?.time || '—',
-  busType: trip?.busType || 'Not reported',
+  alightingTime: dropOff?.time || undefined,
+  busType: trip?.busType || translate('booking.ticket.notReported'),
   seatNumbers: tickets
     .map((ticket) => ticket.seatNumber.trim())
     .filter(Boolean)
-    .join(', ') || '—',
+    .join(', ') || translate('common.none'),
   ticketCount: tickets.length,
   totalAmount,
   tripId: trip?.id,
@@ -137,18 +144,20 @@ export const buildCheckoutTicketViewModel = ({
   selectedShuttlePickup,
   outboundState,
   returnState,
-}: CheckoutTicketViewModelInput): TicketViewModel | null => {
+}: CheckoutTicketViewModelInput, translate: Translate = defaultTranslate): TicketViewModel | null => {
   if (!bookingResult || !getBookingReference(bookingResult)) return null;
 
   const isPendingPayment = bookingResult.status === 'PENDING_PAYMENT';
   const trackingEnabled = bookingResult.status === 'CONFIRMED';
   const normalizedPaymentMethod = paymentMethod === 'wallet' ? 'WALLET' : 'VNPAY';
   const shared = {
-    title: 'Booking Confirmation',
-    statusTitle: isPendingPayment ? 'Payment Pending' : 'Booking Created',
+    title: translate('booking.ticket.confirmationTitle'),
+    statusTitle: isPendingPayment
+      ? translate('booking.ticket.paymentPending')
+      : translate('booking.ticket.bookingCreated'),
     statusMessage: isPendingPayment
-      ? 'Complete payment to activate your ticket.'
-      : 'Your booking has been recorded successfully.',
+      ? translate('booking.ticket.completePayment')
+      : translate('booking.ticket.bookingRecorded'),
     isPendingPayment,
     isDemo: false,
     paymentMethod: normalizedPaymentMethod,
@@ -160,24 +169,26 @@ export const buildCheckoutTicketViewModel = ({
       totalAmount: bookingResult.grandTotal,
       legs: [
         buildLeg({
-          label: 'Outbound',
+          label: translate('booking.header.outbound'),
           reference: bookingResult.outbound.bookingCode,
           bookingId: bookingResult.outbound.bookingId,
           tickets: bookingResult.outbound.tickets,
           totalAmount: bookingResult.outbound.totalAmount,
           trackingEnabled,
+          translate,
           trip: outboundState?.trip ?? null,
           pickUp: outboundState?.pickUp ?? null,
           dropOff: outboundState?.dropOff ?? null,
           shuttlePickup: outboundState?.shuttlePickup ?? null,
         }),
         buildLeg({
-          label: 'Return',
+          label: translate('booking.header.return'),
           reference: bookingResult.return.bookingCode,
           bookingId: bookingResult.return.bookingId,
           tickets: bookingResult.return.tickets,
           totalAmount: bookingResult.return.totalAmount,
           trackingEnabled,
+          translate,
           trip: returnState?.trip ?? null,
           pickUp: returnState?.pickUp ?? null,
           dropOff: returnState?.dropOff ?? null,
@@ -191,12 +202,13 @@ export const buildCheckoutTicketViewModel = ({
     ...shared,
     totalAmount: bookingResult.totalAmount,
     legs: [buildLeg({
-      label: 'Trip',
+      label: translate('booking.header.trip'),
       reference: bookingResult.bookingCode,
       bookingId: bookingResult.bookingId,
       tickets: bookingResult.tickets,
       totalAmount: bookingResult.totalAmount,
       trackingEnabled,
+      translate,
       trip: selectedTrip,
       pickUp: selectedPickUp,
       dropOff: selectedDropOff,
@@ -208,20 +220,21 @@ export const buildCheckoutTicketViewModel = ({
 export const buildHistoryTicketViewModel = (
   source: 'remote' | 'demo',
   detail: BookingHistoryTicketDetail,
+  translate: Translate = defaultTranslate,
 ): TicketViewModel => ({
-  title: 'Ticket Detail',
+  title: translate('booking.ticket.detailTitle'),
   statusTitle: detail.status === 'CONFIRMED'
-    ? 'Ticket confirmed'
-    : 'Ticket status updated',
+    ? translate('booking.ticket.confirmed')
+    : translate('booking.ticket.statusUpdated'),
   statusMessage: detail.status === 'CONFIRMED'
-    ? 'Show this ticket reference when boarding.'
-    : 'This is the latest available ticket status.',
+    ? translate('booking.ticket.showReferenceWhenBoarding')
+    : translate('booking.ticket.latestAvailableStatus'),
   isPendingPayment: detail.status === 'PENDING_PAYMENT',
   isDemo: source === 'demo',
   paymentMethod: detail.paymentMethod,
   totalAmount: detail.totalAmount,
   legs: [{
-    label: 'Trip',
+    label: translate('booking.header.trip'),
     reference: detail.ticketCode,
     ticketReferences: detail.ticketCode,
     ticketEntries: [{ ticketCode: detail.ticketCode, seatNumber: detail.seatNumbers.join(', ') }],
@@ -256,23 +269,24 @@ const REMOTE_TRACKABLE_BOOKING_STATUSES = new Set<PassengerTicketHistoryItem['st
  */
 export const buildPassengerHistoryTicketViewModel = (
   item: PassengerTicketHistoryItem,
+  translate: Translate = defaultTranslate,
 ): TicketViewModel => ({
-  title: 'Ticket Detail',
+  title: translate('booking.ticket.detailTitle'),
   statusTitle: item.status === 'CONFIRMED'
-    ? 'Ticket confirmed'
-    : 'Ticket status updated',
+    ? translate('booking.ticket.confirmed')
+    : translate('booking.ticket.statusUpdated'),
   statusMessage: item.status === 'CONFIRMED'
-    ? 'Show the booking or ticket reference when boarding.'
-    : 'This is the latest status recorded in your booking history.',
+    ? translate('booking.ticket.showBookingReferenceWhenBoarding')
+    : translate('booking.ticket.latestHistoryStatus'),
   isPendingPayment: item.status === 'PENDING_PAYMENT',
   isDemo: false,
   totalAmount: item.totalAmount,
   legs: [{
     label: item.ticket.tripDirection === 'OUTBOUND'
-      ? 'Outbound'
+      ? translate('booking.header.outbound')
       : item.ticket.tripDirection === 'RETURN'
-        ? 'Return'
-        : 'Trip',
+        ? translate('booking.header.return')
+        : translate('booking.header.trip'),
     reference: item.code,
     ticketReferences: item.ticket.tickets
       .map((ticket) => ticket.ticketCode)
@@ -282,14 +296,14 @@ export const buildPassengerHistoryTicketViewModel = (
       seatNumber: ticket.seatNumber,
       status: ticket.status,
     })),
-    boardingName: item.originName ?? 'Origin unavailable',
+    boardingName: item.originName ?? translate('history.originUnavailable'),
     boardingTime: item.departureDateTime
       ? formatDateTime(item.departureDateTime)
       : undefined,
-    alightingName: item.destinationName ?? 'Destination unavailable',
+    alightingName: item.destinationName ?? translate('history.destinationUnavailable'),
     seatNumbers: item.ticket.tickets
       .map((ticket) => ticket.seatNumber)
-      .join(', ') || '—',
+      .join(', ') || translate('common.none'),
     ticketCount: item.ticket.tickets.length,
     totalAmount: item.totalAmount,
     tripId: item.tripId,

@@ -27,8 +27,7 @@ import {
 import type { ProfileStackParamList } from '@app/navigation/types';
 import {
   ApiRequestError,
-  getApiErrorMessage,
-  toApiError,
+  getLocalizedApiErrorMessage,
 } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -40,7 +39,6 @@ import {
 } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
 import {
-  getPaymentRedirectErrorMessage,
   openPaymentRedirect,
 } from '@shared/utils/paymentRedirect';
 import { formatVnd } from '@shared/utils/format';
@@ -64,19 +62,18 @@ const PRESET_AMOUNTS = [
   1_000_000,
 ] as const;
 
-const getTopUpErrorMessage = (error: unknown, t: TFunction): string => {
-  const apiError = toApiError(error);
+const TOP_UP_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
+  TOP_UP_RECONCILIATION_REQUIRED: 'topUp.errors.reconciliationRequired',
+  SESSION_INVALIDATED: 'topUp.errors.sessionChanged',
+  AUTH_REQUIRED: 'topUp.errors.authRequired',
+};
 
-  switch (apiError.code) {
-    case 'TOP_UP_RECONCILIATION_REQUIRED':
-      return t('topUp.errors.reconciliationRequired');
-    case 'SESSION_INVALIDATED':
-      return t('topUp.errors.sessionChanged');
-    case 'AUTH_REQUIRED':
-      return t('topUp.errors.authRequired');
-    default:
-      return getApiErrorMessage(apiError);
-  }
+const getTopUpErrorMessage = (error: unknown, t: TFunction): string => {
+  return getLocalizedApiErrorMessage(
+    error,
+    t,
+    TOP_UP_ERROR_TRANSLATION_KEYS,
+  );
 };
 
 interface PresetAmountButtonProps {
@@ -94,11 +91,15 @@ const PresetAmountButton = memo(function PresetAmountButtonComponent({
   onSelect,
   styles,
 }: PresetAmountButtonProps): React.JSX.Element {
+  const { t } = useTranslation();
   const handlePress = useCallback(() => onSelect(amount), [amount, onSelect]);
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={t('topUp.presetAccessibility', {
+        amount: formatVnd(amount),
+      })}
       accessibilityState={{ disabled: isDisabled, selected: isSelected }}
       disabled={isDisabled}
       onPress={handlePress}
@@ -213,11 +214,11 @@ export function TopUpScreen(): React.JSX.Element {
 
       try {
         await openPaymentRedirect(result.paymentRedirectUrl);
-      } catch (error: unknown) {
+      } catch {
         cancelPaymentReturn();
         Alert.alert(
           t('topUp.redirectErrorTitle'),
-          getPaymentRedirectErrorMessage(error),
+          t('topUp.redirectErrorDescription'),
         );
       }
     } catch (error: unknown) {
@@ -325,7 +326,7 @@ export function TopUpScreen(): React.JSX.Element {
                 amount > 0 && !isAmountValid ? styles.amountValueError : null,
               ]}
             >
-              {amount > 0 ? formatVnd(amount) : '—'}
+              {amount > 0 ? formatVnd(amount) : t('common.notAvailable')}
             </Text>
             {amount > 0 && !isAmountValid ? (
               <Text style={styles.amountHint}>

@@ -1,5 +1,6 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { ActivityIndicator, Pressable, Switch, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { MapPinLine, PencilSimple, Van } from 'phosphor-react-native';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -38,10 +39,18 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
   onEdit,
   onRetry,
 }: ShuttleServiceCardProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const isAvailable = status === 'available';
   const isEnabled = Boolean(value);
+  const switchTrackColors = useMemo(
+    () => ({
+      false: theme.colors.divider,
+      true: theme.colors.primaryFaded,
+    }),
+    [theme.colors.divider, theme.colors.primaryFaded],
+  );
 
   return (
     <SectionCard testID="shuttle-service-card" style={styles.card}>
@@ -50,24 +59,23 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
           <Van size={22} color={theme.colors.primary} weight="duotone" />
         </View>
         <View style={styles.headingCopy}>
-          <Text style={styles.title}>Shuttle pickup</Text>
+          <Text style={styles.title}>{t('booking.shuttle.title')}</Text>
           <Text style={styles.subtitle}>
-            Request a ride to {stationName || 'the departure station'}
+            {t('booking.shuttle.requestToStation', {
+              station: stationName || t('booking.shuttle.departureStation'),
+            })}
           </Text>
         </View>
         {status === 'loading' ? (
           <ActivityIndicator color={theme.colors.primary} />
         ) : (
           <Switch
-            accessibilityLabel="Request Shuttle pickup"
-            accessibilityHint="Adds an optional pickup request for this trip"
+            accessibilityLabel={t('booking.shuttle.requestAccessibility')}
+            accessibilityHint={t('booking.shuttle.requestHint')}
             value={isEnabled}
             disabled={!isAvailable}
             onValueChange={onToggle}
-            trackColor={{
-              false: theme.colors.divider,
-              true: theme.colors.primaryFaded,
-            }}
+            trackColor={switchTrackColors}
             thumbColor={isEnabled ? theme.colors.primary : theme.colors.textTertiary}
             ios_backgroundColor={theme.colors.divider}
           />
@@ -77,7 +85,7 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
       {isAvailable ? (
         <View style={styles.notice}>
           <Text style={styles.noticeText}>
-            This sends a request only. The operator will arrange and confirm the Shuttle later.
+            {t('booking.shuttle.arrangementNotice')}
           </Text>
         </View>
       ) : null}
@@ -85,7 +93,7 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
       {isEnabled && value ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Edit Shuttle pickup address"
+          accessibilityLabel={t('booking.shuttle.editAddress')}
           onPress={onEdit}
           style={({ pressed }) => [
             styles.addressRow,
@@ -94,9 +102,9 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
         >
           <MapPinLine size={20} color={theme.colors.primary} weight="duotone" />
           <View style={styles.addressCopy}>
-            <Text style={styles.addressLabel}>Pickup address</Text>
+            <Text style={styles.addressLabel}>{t('booking.shuttle.pickupAddress')}</Text>
             <Text style={styles.addressText} numberOfLines={3}>{value.address}</Text>
-            <Text style={styles.addressStatus}>Request saved · awaiting arrangement</Text>
+            <Text style={styles.addressStatus}>{t('booking.shuttle.savedAwaitingArrangement')}</Text>
           </View>
           <View style={styles.editIcon}>
             <PencilSimple size={15} color={theme.colors.primary} weight="bold" />
@@ -106,23 +114,23 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
 
       {status === 'unavailable' ? (
         <Text style={styles.unavailableText}>
-          {unavailableReason || 'Shuttle pickup is unavailable for this boarding point.'}
+          {unavailableReason || t('booking.shuttle.unavailable')}
         </Text>
       ) : null}
 
       {status === 'error' ? (
         <View style={styles.errorRow}>
           <Text style={styles.unavailableText}>
-            Shuttle availability could not be verified. You can still board normally.
+            {t('booking.shuttle.verificationFailed')}
           </Text>
           {onRetry ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Retry Shuttle availability"
+              accessibilityLabel={t('booking.shuttle.retryAvailability')}
               onPress={onRetry}
               hitSlop={8}
             >
-              <Text style={styles.retryText}>Retry</Text>
+              <Text style={styles.retryText}>{t('common.retry')}</Text>
             </Pressable>
           ) : null}
         </View>

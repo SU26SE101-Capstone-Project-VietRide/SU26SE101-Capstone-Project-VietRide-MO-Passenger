@@ -18,7 +18,6 @@ interface ThemeState {
   currentTheme: ThemeVariant;
   hasHydrated: boolean;
   setTheme: (variant: ThemeVariant) => void;
-  setHasHydrated: (hasHydrated: boolean) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -27,7 +26,6 @@ export const useThemeStore = create<ThemeState>()(
       currentTheme: DEFAULT_THEME_VARIANT,
       hasHydrated: false,
       setTheme: variant => set({ currentTheme: variant }),
-      setHasHydrated: hasHydrated => set({ hasHydrated }),
     }),
     {
       name: 'vietride-theme-preference',

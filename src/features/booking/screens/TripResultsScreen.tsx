@@ -5,6 +5,7 @@
 
 import React, { useEffect, useCallback, useMemo } from 'react';
 import { View, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { FlashList } from '@shopify/flash-list';
 import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
@@ -93,6 +94,7 @@ export function TripResultsScreen({
   filters = defaultFilters,
   onClearFilters,
 }: TripResultsStepProps): React.JSX.Element {
+  const { t } = useTranslation();
   const {
     tripResultsStatus,
     trips,
@@ -155,9 +157,9 @@ export function TripResultsScreen({
     if (tripResultsStatus === 'empty') {
       return (
         <EmptyState
-          title="No rides found today"
-          subtitle="Try adjusting your filters or checking a different date."
-          actionLabel="Clear Filters"
+          title={t('booking.results.noRidesTitle')}
+          subtitle={t('booking.results.noRidesDescription')}
+          actionLabel={t('booking.filters.clear')}
           onAction={handleRetry}
         />
       );
@@ -165,11 +167,15 @@ export function TripResultsScreen({
     if (visibleTrips.length === 0) {
       return (
         <EmptyState
-          title={hasActiveFilters ? 'No trips match your filters' : 'No rides found today'}
+          title={hasActiveFilters
+            ? t('booking.results.noFilterMatchesTitle')
+            : t('booking.results.noRidesTitle')}
           subtitle={hasActiveFilters
-            ? 'Try another operator, time window, or fare range.'
-            : 'Try adjusting your filters or checking a different date.'}
-          actionLabel={hasActiveFilters ? 'Clear Filters' : 'Search Again'}
+            ? t('booking.results.noFilterMatchesDescription')
+            : t('booking.results.noRidesDescription')}
+          actionLabel={hasActiveFilters
+            ? t('booking.filters.clear')
+            : t('booking.results.searchAgain')}
           onAction={hasActiveFilters && onClearFilters ? onClearFilters : handleRetry}
         />
       );
@@ -192,8 +198,10 @@ export function TripResultsScreen({
       <View style={styles.legTitleContainer}>
         <Text style={styles.legTitle}>
           {searchParams.isRoundTrip
-            ? (currentLeg === 'outbound' ? 'Select Outbound Trip' : 'Select Return Trip')
-            : 'Select Trip'}
+            ? (currentLeg === 'outbound'
+              ? t('booking.results.selectOutbound')
+              : t('booking.results.selectReturn'))
+            : t('booking.results.selectTrip')}
         </Text>
       </View>
 

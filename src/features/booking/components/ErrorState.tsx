@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { WifiSlash, ArrowClockwise } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -18,6 +19,7 @@ interface ErrorStateProps {
 }
 
 export const ErrorState = ({ onRetry }: ErrorStateProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -27,9 +29,9 @@ export const ErrorState = ({ onRetry }: ErrorStateProps): React.JSX.Element => {
         <View style={styles.iconWrap}>
           <WifiSlash size={30} weight="duotone" color={theme.colors.primary} />
         </View>
-        <Text style={styles.title}>Connection failed</Text>
+        <Text style={styles.title}>{t('booking.states.connectionFailed')}</Text>
         <Text style={styles.subtitle}>
-          We could not refresh live trip data. Check your connection and try again.
+          {t('booking.states.connectionFailedDescription')}
         </Text>
         {onRetry != null && (
           <Pressable
@@ -37,7 +39,7 @@ export const ErrorState = ({ onRetry }: ErrorStateProps): React.JSX.Element => {
             style={({ pressed }) => [styles.retryButton, pressed ? styles.retryButtonPressed : null]}
           >
             <ArrowClockwise size={15} weight="bold" color={theme.colors.textInverse} style={styles.retryIconSpacing} />
-            <Text style={styles.retryText}>Try Again</Text>
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
           </Pressable>
         )}
       </View>

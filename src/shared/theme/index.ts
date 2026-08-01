@@ -17,8 +17,8 @@ export {
 } from './typography';
 export type { FontSize, FontFamily } from './typography';
 
-export { spacing, borderRadius, shadows } from './spacing';
-export type { SpacingToken, BorderRadiusToken, ShadowToken } from './spacing';
+export { spacing, borderRadius } from './spacing';
+export type { SpacingToken, BorderRadiusToken } from './spacing';
 
 export * from './types';
 export { themes } from './themes';

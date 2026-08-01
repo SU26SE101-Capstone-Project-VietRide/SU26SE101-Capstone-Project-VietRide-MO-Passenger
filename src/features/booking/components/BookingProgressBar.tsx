@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Check } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
@@ -18,30 +19,30 @@ interface BookingProgressBarProps {
   onStepPress?: (step: number) => void;
 }
 
-const getStepLabel = (step: number, isRoundTrip: boolean): string => {
+const getStepLabelKey = (step: number, isRoundTrip: boolean): string => {
   if (isRoundTrip) {
     switch (step) {
-      case 1: return 'Outbound Trip Selection';
-      case 2: return 'Outbound Seat Selection';
-      case 3: return 'Outbound Pick-up';
-      case 4: return 'Outbound Drop-off';
-      case 5: return 'Return Trip Selection';
-      case 6: return 'Return Seat Selection';
-      case 7: return 'Return Pick-up';
-      case 8: return 'Return Drop-off';
-      case 9: return 'Checkout';
-      case 10: return 'Payment';
-      default: return '';
+      case 1: return 'booking.steps.outboundTrip';
+      case 2: return 'booking.steps.outboundSeats';
+      case 3: return 'booking.steps.outboundPickup';
+      case 4: return 'booking.steps.outboundDropoff';
+      case 5: return 'booking.steps.returnTrip';
+      case 6: return 'booking.steps.returnSeats';
+      case 7: return 'booking.steps.returnPickup';
+      case 8: return 'booking.steps.returnDropoff';
+      case 9: return 'booking.steps.checkout';
+      case 10: return 'booking.steps.payment';
+      default: return 'booking.steps.unknown';
     }
   } else {
     switch (step) {
-      case 1: return 'Trip Selection';
-      case 2: return 'Seat Selection';
-      case 3: return 'Pick-up';
-      case 4: return 'Drop-off';
-      case 5: return 'Checkout';
-      case 6: return 'Payment';
-      default: return '';
+      case 1: return 'booking.steps.trip';
+      case 2: return 'booking.steps.seats';
+      case 3: return 'booking.steps.pickup';
+      case 4: return 'booking.steps.dropoff';
+      case 5: return 'booking.steps.checkout';
+      case 6: return 'booking.steps.payment';
+      default: return 'booking.steps.unknown';
     }
   }
 };
@@ -51,6 +52,7 @@ export const BookingProgressBar = ({
   totalSteps: propTotalSteps,
   onStepPress
 }: BookingProgressBarProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const { isRoundTrip, highestStepReached } = useBookingStore(useShallow((state) => ({
     isRoundTrip: state.searchParams.isRoundTrip ?? false,
     highestStepReached: state.highestStepReached,
@@ -62,7 +64,7 @@ export const BookingProgressBar = ({
   const { checkoutStep, paymentStep } = stepConfiguration;
 
   const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
-  const stepLabel = getStepLabel(step, isRoundTrip);
+  const stepLabel = t(getStepLabelKey(step, isRoundTrip));
 
   // Determine leg for visual styling
   const isReturnStep = (s: number) => isRoundTrip && s > OUTBOUND_STEPS && s < checkoutStep;
@@ -95,12 +97,22 @@ export const BookingProgressBar = ({
             return (
               <Pressable
                 key={`step-${s}`}
+                accessibilityRole="button"
+                accessibilityLabel={t('booking.steps.accessibilityLabel', {
+                  current: s,
+                  total: totalSteps,
+                  label: t(getStepLabelKey(s, isRoundTrip)),
+                })}
+                accessibilityState={{
+                  selected: isActive,
+                  disabled: !onStepPress || s > highestStepReached,
+                }}
                 style={({ pressed }) => [
                   styles.stepBubbleContainer,
                   pressed && s <= highestStepReached ? styles.stepBubblePressed : null,
                 ]}
                 disabled={!onStepPress || s > highestStepReached}
-                onPress={() => onStepPress && onStepPress(s)}
+                onPress={() => onStepPress?.(s)}
               >
                 <View
                   style={[
@@ -203,11 +215,7 @@ const createStyles = (theme: AppTheme) => ({
   stepBubbleActive: {
     backgroundColor: theme.colors.primary,
     borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.primaryFaded,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 5,
+    ...theme.effects.cardShadow,
   },
   stepBubbleCompleted: {
     backgroundColor: theme.colors.primary,

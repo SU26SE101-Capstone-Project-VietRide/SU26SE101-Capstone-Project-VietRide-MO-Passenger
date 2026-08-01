@@ -9,17 +9,20 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
 import { ArrowLeft, LockKey, ShieldCheck } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Button, Input } from '@shared/components';
-import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
-import { getApiErrorMessage, toApiError } from '@shared/api/errors';
+import { getLocalizedApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
+import {
+  useFloatingTabBarContentInset,
+  useTabBarScrollBehavior,
+  useThemedStyles,
+} from '@shared/hooks';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
 import { changePassword } from '../api/profileApi';
@@ -31,22 +34,17 @@ import {
   type ChangePasswordField,
 } from '../validation/profileValidation';
 
-const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
-
 export function ChangePasswordScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const insets = useSafeAreaInsets();
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const bottomTabClearance = useFloatingTabBarContentInset();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<Partial<Record<ChangePasswordField, string>>>({});
-
-  const bottomTabClearance =
-    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -88,7 +86,7 @@ export function ChangePasswordScreen(): React.JSX.Element {
 
       Alert.alert(
         t('security.changePassword.errorTitle'),
-        getApiErrorMessage(apiError),
+        getLocalizedApiErrorMessage(apiError, t),
       );
     },
   });
@@ -120,7 +118,10 @@ export function ChangePasswordScreen(): React.JSX.Element {
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: bottomTabClearance },
+          ]}
           scrollIndicatorInsets={{ bottom: bottomTabClearance }}
           onScroll={handleTabBarScroll}
           scrollEventThrottle={16}

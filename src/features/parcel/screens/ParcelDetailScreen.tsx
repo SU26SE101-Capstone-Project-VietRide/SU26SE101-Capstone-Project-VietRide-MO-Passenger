@@ -29,7 +29,7 @@ import { ScannableCodeCard, StatusChip } from '@shared/components';
 import { useThemedStyles } from '@shared/hooks';
 import { useMotion } from '@shared/motion';
 import type { AppTheme } from '@shared/theme';
-import { getApiErrorMessage } from '@shared/api/errors';
+import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { formatDateTime, formatVnd } from '@shared/utils/format';
 import {
   toBackendPaymentMethod,
@@ -67,6 +67,7 @@ import {
   getParcelDeliveryMethodPresentation,
   getParcelSizePresentation,
   getParcelStatusPresentation,
+  PARCEL_ERROR_TRANSLATION_KEYS,
 } from '../utils/parcelPresentation';
 
 type ParcelDetailRouteProp = RouteProp<ParcelStackParamList, 'ParcelDetail'>;
@@ -340,7 +341,11 @@ export function ParcelDetailScreen(): React.JSX.Element {
     } catch (error) {
       Alert.alert(
         t('parcel.payment.startErrorTitle'),
-        getApiErrorMessage(error),
+        getLocalizedApiErrorMessage(
+          error,
+          t,
+          PARCEL_ERROR_TRANSLATION_KEYS,
+        ),
       );
     }
   }, [
@@ -360,7 +365,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
       <View style={styles.navbar}>
         <Pressable
           accessibilityLabel={fromHistory
-            ? t('parcel.actions.goBack')
+            ? t('common.back')
             : t('parcel.actions.backToDashboard')}
           accessibilityRole="button"
           style={styles.navButton}
@@ -387,7 +392,11 @@ export function ParcelDetailScreen(): React.JSX.Element {
         <View style={styles.errorWrap}>
           <ErrorView onRetry={handleRefreshPayment} />
           <Text style={styles.errorText}>
-            {getApiErrorMessage(detailQuery.error)}
+            {getLocalizedApiErrorMessage(
+              detailQuery.error,
+              t,
+              PARCEL_ERROR_TRANSLATION_KEYS,
+            )}
           </Text>
         </View>
       ) : (
@@ -478,7 +487,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 </Text>
               )}
               <StatusChip
-                label={t(statusPresentation.labelKey, statusPresentation.fallback)}
+                label={t(statusPresentation.labelKey)}
                 tone={statusPresentation.tone}
               />
             </View>
@@ -516,7 +525,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
                     {t('parcel.detail.packageSize')}
                   </Text>
                   <Text style={styles.specValue}>
-                    {t(sizePresentation.labelKey, sizePresentation.fallback)}
+                    {t(sizePresentation.labelKey)}
                   </Text>
                 </View>
                 <View style={styles.gridItem}>
@@ -533,7 +542,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
                     {t('parcel.detail.delivery')}
                   </Text>
                   <Text style={styles.specValue}>
-                    {t(deliveryPresentation.labelKey, deliveryPresentation.fallback)}
+                    {t(deliveryPresentation.labelKey)}
                   </Text>
                 </View>
                 {isSender ? (
@@ -788,7 +797,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
           {fromHistory ? (
             <Pressable style={styles.homeButton} onPress={handleBack}>
               <Text style={styles.homeButtonText}>
-                {t('parcel.actions.goBack')}
+                {t('common.back')}
               </Text>
             </Pressable>
           ) : (

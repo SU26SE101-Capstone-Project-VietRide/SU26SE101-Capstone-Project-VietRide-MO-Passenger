@@ -17,6 +17,7 @@
 
 import React, { memo } from 'react';
 import { Text, Pressable, ViewStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Camera } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -40,27 +41,30 @@ interface ImageUploadSlotProps {
 
 export const ImageUploadSlot = memo(function ImageUploadSlotComponent({
   onPress,
-  label = 'Add parcel photos',
-  helperText = 'Support JPG, PNG up to 5MB',
+  label,
+  helperText,
   compact = false,
   style,
   accessibilityHint,
 }: ImageUploadSlotProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const resolvedLabel = label ?? t('booking.imageUpload.addPhotos');
+  const resolvedHelper = helperText ?? t('booking.imageUpload.supportedFormats');
 
   return (
     <Pressable
       onPress={onPress}
       style={[compact ? styles.slotCompact : styles.slot, style]}
       accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityHint={accessibilityHint ?? helperText}
+      accessibilityLabel={resolvedLabel}
+      accessibilityHint={accessibilityHint ?? resolvedHelper}
     >
       <Camera size={compact ? 24 : 32} color={theme.colors.textTertiary} weight="light" />
-      <Text style={compact ? styles.labelCompact : styles.label}>{label}</Text>
+      <Text style={compact ? styles.labelCompact : styles.label}>{resolvedLabel}</Text>
       {!compact ? (
-        <Text style={styles.helper}>{helperText}</Text>
+        <Text style={styles.helper}>{resolvedHelper}</Text>
       ) : null}
     </Pressable>
   );

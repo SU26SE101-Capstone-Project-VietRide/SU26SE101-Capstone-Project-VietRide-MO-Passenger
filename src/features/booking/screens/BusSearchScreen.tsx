@@ -5,6 +5,7 @@
 
 import React, { useCallback, useEffect } from 'react';
 import { Alert, View, Text, ScrollView, StatusBar } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
@@ -32,6 +33,7 @@ type SearchRouteProp = RouteProp<BookingStackParamList, 'SearchRoutes'>;
 const catMascotImage = require('@assets/images/image 1.png');
 
 export function BusSearchScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<SearchRouteProp>();
   const user = useAuthStore((state) => state.user);
@@ -96,11 +98,11 @@ export function BusSearchScreen(): React.JSX.Element {
 
     if (result === 'past_date' || result === 'invalid_date') {
       Alert.alert(
-        'Choose a new departure date',
-        'That saved travel date is no longer available. Select a new date to continue.',
+        t('booking.recentSearches.expiredDateTitle'),
+        t('booking.recentSearches.expiredDateDescription'),
       );
     }
-  }, [applyRecentSearch, entryIntent, navigation]);
+  }, [applyRecentSearch, entryIntent, navigation, t]);
 
   const handleViewAllPopularRoutes = useCallback(() => {
     navigation.navigate('PopularRoutes', { intent: entryIntent });
@@ -158,18 +160,23 @@ export function BusSearchScreen(): React.JSX.Element {
           {/* Profile Header */}
           <ProfileHeader
             userName={user?.fullName}
-            greeting="Xin chào,"
+            greeting={t('shared.profileHeader.greeting')}
             onNotificationPress={() => {}}
           />
 
           {/* Welcome section with mascot */}
           <View style={styles.welcomeSection}>
             <View style={styles.welcomeTextColumn}>
-              <Text style={styles.welcomeTitle}>Hello!</Text>
-              <Text style={styles.welcomeSubtitle}>Where are we going today?</Text>
+              <Text style={styles.welcomeTitle}>{t('booking.home.welcome')}</Text>
+              <Text style={styles.welcomeSubtitle}>{t('booking.home.question')}</Text>
             </View>
             <View style={styles.mascotContainer}>
-              <Image source={catMascotImage} style={styles.mascotImage} contentFit="contain" />
+              <Image
+                accessibilityLabel={t('booking.home.mascotAccessibility')}
+                source={catMascotImage}
+                style={styles.mascotImage}
+                contentFit="contain"
+              />
             </View>
           </View>
 

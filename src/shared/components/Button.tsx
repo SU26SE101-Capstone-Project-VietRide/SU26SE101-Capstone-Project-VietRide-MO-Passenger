@@ -124,11 +124,6 @@ const createStyles = (theme: AppTheme) => ({
 // ─── Variant Styles ───────────────────────────────────────
 
 const flatButtonSurface = {
-  shadowColor: 'transparent',
-  shadowOffset: { width: 0, height: 0 },
-  shadowOpacity: 0,
-  shadowRadius: 0,
-  elevation: 0,
   boxShadow: 'none',
 } as ViewStyle;
 

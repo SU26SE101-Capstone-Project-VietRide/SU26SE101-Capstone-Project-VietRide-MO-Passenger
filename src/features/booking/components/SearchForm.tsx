@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   MapPin,
   ArrowsDownUp,
@@ -44,41 +45,66 @@ export const SearchForm = ({
   onSearchPress,
   searchDisabled = false,
 }: SearchFormProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>Book a Trip</Text>
+      <Text style={styles.cardTitle}>{t('booking.searchForm.title')}</Text>
 
     {/* From */}
-      <Text style={styles.fieldLabel}>Departure location</Text>
-      <Pressable style={styles.selectorField} onPress={onFromPress}>
+      <Text style={styles.fieldLabel}>{t('booking.searchForm.departureLabel')}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('booking.searchForm.selectDeparture')}
+        style={styles.selectorField}
+        onPress={onFromPress}
+      >
         <MapPin size={20} color={theme.colors.primary} weight="bold" />
         <Text style={from ? styles.selectorText : styles.selectorPlaceholder}>
-          {from || 'Select province or station'}
+          {from || t('booking.searchForm.locationPlaceholder')}
         </Text>
       </Pressable>
 
     {/* To + Swap */}
-      <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>Destination location</Text>
+      <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>
+        {t('booking.searchForm.destinationLabel')}
+      </Text>
       <View style={styles.toRow}>
-        <Pressable style={[styles.selectorField, styles.selectorFieldGrow]} onPress={onToPress}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('booking.searchForm.selectDestination')}
+          style={[styles.selectorField, styles.selectorFieldGrow]}
+          onPress={onToPress}
+        >
           <MapPin size={18} color={theme.colors.primary} weight="bold" />
           <Text style={to ? styles.selectorText : styles.selectorPlaceholder} numberOfLines={1}>
-            {to || 'Select province or station'}
+            {to || t('booking.searchForm.locationPlaceholder')}
           </Text>
         </Pressable>
-        <Pressable onPress={onSwapPress} style={styles.swapBtn}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('booking.searchForm.swapLocations')}
+          onPress={onSwapPress}
+          style={styles.swapBtn}
+        >
           <ArrowsDownUp size={18} color={theme.colors.primary} weight="bold" />
         </Pressable>
       </View>
 
     {/* Date & Passengers */}
       <View style={styles.metaRow}>
-        <Pressable style={styles.metaField} onPress={onDatePress}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('booking.searchForm.selectDate')}
+          style={styles.metaField}
+          onPress={onDatePress}
+        >
           <CalendarBlank size={16} color={theme.colors.primary} weight="fill" />
-          <Text style={styles.metaText} numberOfLines={1}>{date || 'Select date'}</Text>
+          <Text style={styles.metaText} numberOfLines={1}>
+            {date || t('booking.searchForm.datePlaceholder')}
+          </Text>
         </Pressable>
         <PassengerCountInput value={passengers} onChange={onPassengersChange} />
       </View>
@@ -95,7 +121,7 @@ export const SearchForm = ({
           pressed && !searchDisabled ? styles.pressed : null,
         ]}
       >
-        <Text style={styles.searchButtonText}>Search Buses</Text>
+        <Text style={styles.searchButtonText}>{t('booking.searchForm.searchAction')}</Text>
         <MagnifyingGlass size={18} color={theme.colors.textInverse} weight="bold" />
       </Pressable>
     </View>

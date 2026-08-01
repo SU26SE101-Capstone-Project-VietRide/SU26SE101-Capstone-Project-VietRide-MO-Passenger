@@ -4,8 +4,9 @@
  * DESIGN.md alignment: rounded chip (12px), high-contrast text.
  */
 
-import React, { memo, useState } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import { View, Text, TextInput, ViewStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -23,15 +24,16 @@ export const PromoRow = memo(function PromoRowComponent({
   applied = false,
   style,
 }: PromoRowProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const [code, setCode] = useState('');
 
-  const handleApply = () => {
+  const handleApply = useCallback(() => {
     if (!applied && code.trim()) {
       onApply?.(code.trim());
     }
-  };
+  }, [applied, code, onApply]);
 
   return (
     <View style={[styles.card, style]}>
@@ -39,9 +41,11 @@ export const PromoRow = memo(function PromoRowComponent({
         <Text style={styles.iconEmoji}>🎟️</Text>
       </View>
       <View style={styles.textBlock}>
-        <Text style={styles.title}>ENTER PROMO CODE</Text>
+        <Text style={styles.title}>{t('booking.promo.title')}</Text>
         <Text style={styles.hint}>
-          Min Spend {formatVnd(300_000, { clampNegative: true })} required
+          {t('booking.promo.minimumSpend', {
+            amount: formatVnd(300_000, { clampNegative: true }),
+          })}
         </Text>
       </View>
       {!applied ? (
@@ -49,14 +53,14 @@ export const PromoRow = memo(function PromoRowComponent({
           style={styles.input}
           value={code}
           onChangeText={setCode}
-          placeholder="Enter code"
+          placeholder={t('booking.promo.placeholder')}
           placeholderTextColor={theme.colors.textTertiary}
           onSubmitEditing={handleApply}
           returnKeyType="done"
         />
       ) : (
         <View style={styles.appliedBadge}>
-          <Text style={styles.appliedText}>Applied ✓</Text>
+          <Text style={styles.appliedText}>{t('booking.promo.applied')}</Text>
         </View>
       )}
     </View>

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { ArrowRight, MapPin } from 'phosphor-react-native';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -39,6 +40,7 @@ const PopularRouteCard = memo(function PopularRouteCardComponent({
   destinationName,
   onPress,
 }: PopularRouteCardProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handlePress = useCallback(() => {
@@ -48,7 +50,10 @@ const PopularRouteCard = memo(function PopularRouteCardComponent({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${originName} to ${destinationName}`}
+      accessibilityLabel={t('booking.routes.routeAccessibility', {
+        origin: originName,
+        destination: destinationName,
+      })}
       onPress={handlePress}
       style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
     >
@@ -60,7 +65,7 @@ const PopularRouteCard = memo(function PopularRouteCardComponent({
         <ArrowRight size={15} color={theme.colors.textTertiary} weight="bold" />
         <Text style={styles.city} numberOfLines={1}>{destinationName}</Text>
       </View>
-      <Text style={styles.helper}>Tap to plan this trip</Text>
+      <Text style={styles.helper}>{t('booking.routes.tapToPlan')}</Text>
     </Pressable>
   );
 });
@@ -74,6 +79,7 @@ export const PopularRoutesSection = memo(function PopularRoutesSectionComponent(
   onRoutePress,
   onViewAll,
 }: PopularRoutesSectionProps): React.JSX.Element | null {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { fontScale } = useWindowDimensions();
@@ -96,36 +102,39 @@ export const PopularRoutesSection = memo(function PopularRoutesSectionComponent(
     <View style={styles.section}>
       <View style={styles.headerRow}>
         <View style={styles.headingBlock}>
-          <Text style={styles.sectionTitle}>Popular routes</Text>
-          <Text style={styles.sectionSubtitle}>Quick ideas for your next trip</Text>
+          <Text style={styles.sectionTitle}>{t('booking.routes.popularTitle')}</Text>
+          <Text style={styles.sectionSubtitle}>{t('booking.routes.popularSubtitle')}</Text>
         </View>
         {onViewAll ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="View all popular routes"
+            accessibilityLabel={t('booking.routes.viewAllAccessibility')}
             onPress={onViewAll}
             hitSlop={8}
             style={({ pressed }) => [styles.viewAllButton, pressed ? styles.pressed : null]}
           >
-            <Text style={styles.viewAllText}>View all</Text>
+            <Text style={styles.viewAllText}>{t('booking.routes.viewAll')}</Text>
             <ArrowRight size={14} color={theme.colors.primary} weight="bold" />
           </Pressable>
         ) : null}
       </View>
       {isLoading ? (
-        <View style={[styles.stateBox, listFrameStyle]} accessibilityLabel="Loading popular routes">
+        <View
+          style={[styles.stateBox, listFrameStyle]}
+          accessibilityLabel={t('booking.routes.loadingAccessibility')}
+        >
           <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.stateText}>Loading current route shortcuts…</Text>
+          <Text style={styles.stateText}>{t('booking.routes.loading')}</Text>
         </View>
       ) : hasError ? (
         <View style={[styles.stateBox, listFrameStyle]}>
-          <Text style={styles.stateTitle}>Popular routes unavailable</Text>
-          <Text style={styles.stateText}>Choose your departure and destination manually for now.</Text>
+          <Text style={styles.stateTitle}>{t('booking.routes.unavailableTitle')}</Text>
+          <Text style={styles.stateText}>{t('booking.routes.unavailableDescription')}</Text>
         </View>
       ) : routes.length === 0 ? (
         <View style={[styles.stateBox, listFrameStyle]}>
-          <Text style={styles.stateTitle}>No route shortcuts yet</Text>
-          <Text style={styles.stateText}>Shortcuts appear only when both places exist in the live catalog.</Text>
+          <Text style={styles.stateTitle}>{t('booking.routes.emptyTitle')}</Text>
+          <Text style={styles.stateText}>{t('booking.routes.emptyDescription')}</Text>
         </View>
       ) : (
         <View style={[styles.listFrame, listFrameStyle]}>

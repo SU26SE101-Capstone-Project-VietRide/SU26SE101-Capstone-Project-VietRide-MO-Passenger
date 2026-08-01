@@ -101,7 +101,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   disabledButton: {
     backgroundColor: theme.colors.border,
-    shadowOpacity: 0,
+    boxShadow: 'none',
   },
   pressed: {
     opacity: 0.82,

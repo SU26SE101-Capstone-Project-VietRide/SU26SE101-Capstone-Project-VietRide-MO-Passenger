@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Pressable, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -15,6 +15,7 @@ export function SecurityFeatureUnavailableScreen(): React.JSX.Element {
   const navigation = useNavigation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handleBack = useCallback(() => navigation.goBack(), [navigation]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -27,7 +28,7 @@ export function SecurityFeatureUnavailableScreen(): React.JSX.Element {
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           hitSlop={8}
-          onPress={() => navigation.goBack()}
+          onPress={handleBack}
           style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} weight="bold" />

@@ -9,7 +9,7 @@ import {
   StatusBar,
   Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
 import { Camera, ArrowLeft, CheckCircle } from 'phosphor-react-native';
@@ -17,14 +17,17 @@ import { useTranslation } from 'react-i18next';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
+import {
+  useFloatingTabBarContentInset,
+  useTabBarScrollBehavior,
+  useThemedStyles,
+} from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { Button, Input, UserAvatar } from '@shared/components';
-import { CUSTOM_TAB_BAR_BASE_HEIGHT } from '@shared/components/CustomTabBar';
 import {
   ApiRequestError,
-  getApiErrorMessage,
+  getLocalizedApiErrorMessage,
   toApiError,
 } from '@shared/api/errors';
 import { pickLocalImages } from '@shared/services/localImagePicker';
@@ -49,7 +52,14 @@ interface SelectedAvatar {
   asset: AvatarPickerAsset;
 }
 
-const PROFILE_BOTTOM_CONTENT_GAP = spacing.huge;
+const PROFILE_EDIT_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
+  PROFILE_SESSION_REFRESH_FAILED: 'profile.edit.errors.sessionRefresh',
+  AVATAR_AUTH_REQUIRED: 'profile.avatar.errors.authRequired',
+  AVATAR_INVALID_ASSET: 'profile.avatar.errors.invalidAsset',
+  AVATAR_DIMENSIONS_UNAVAILABLE: 'profile.avatar.errors.dimensionsUnavailable',
+  AVATAR_SESSION_CHANGED: 'profile.avatar.errors.sessionChanged',
+  AVATAR_ACCOUNT_MISMATCH: 'profile.avatar.errors.accountMismatch',
+};
 
 export function EditProfileScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -57,7 +67,7 @@ export function EditProfileScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
-  const insets = useSafeAreaInsets();
+  const bottomTabClearance = useFloatingTabBarContentInset();
   const user = useAuthStore((state) => state.user);
   const refreshSession = useAuthStore((state) => state.refreshSession);
   const { uploadAvatar, isUploading } = useUpdateAvatar();
@@ -66,8 +76,6 @@ export function EditProfileScreen(): React.JSX.Element {
   const [selectedAvatar, setSelectedAvatar] = useState<SelectedAvatar | null>(null);
   const [errors, setErrors] = useState<Partial<Record<EditProfileField, string>>>({});
 
-  const bottomTabClearance =
-    CUSTOM_TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, spacing.sm) + PROFILE_BOTTOM_CONTENT_GAP;
   const avatarUri = selectedAvatar?.uri || user?.avatarUrl;
   const canCompletePhone = !user?.phone;
 
@@ -98,8 +106,14 @@ export function EditProfileScreen(): React.JSX.Element {
       if (selectedAvatar) {
         await uploadAvatar(selectedAvatar.asset);
       }
+
+      return true;
     },
-    onSuccess: () => {
+    onSuccess: (didSave) => {
+      if (!didSave) {
+        return;
+      }
+
       navigation.goBack();
     },
     onError: (error) => {
@@ -109,12 +123,14 @@ export function EditProfileScreen(): React.JSX.Element {
         setErrors(apiProfileFieldErrors<EditProfileField>(apiError.fields));
       }
 
-      const errorMessage = getApiErrorMessage(apiError);
+      const errorMessage = getLocalizedApiErrorMessage(
+        apiError,
+        t,
+        PROFILE_EDIT_ERROR_TRANSLATION_KEYS,
+      );
       Alert.alert(
         t('profile.edit.errorTitle'),
-        errorMessage.startsWith('profile.')
-          ? t(errorMessage)
-          : errorMessage,
+        errorMessage,
       );
     },
   });
@@ -144,11 +160,26 @@ export function EditProfileScreen(): React.JSX.Element {
         return;
       }
 
+      if (result.status === 'unavailable') {
+        Alert.alert(
+          t('profile.avatar.unavailableTitle'),
+          t('profile.avatar.unavailableDescription'),
+        );
+        return;
+      }
+
       if (result.status !== 'selected') {
         return;
       }
 
       const asset = result.assets[0];
+      if (!asset) {
+        Alert.alert(
+          t('profile.avatar.invalidTitle'),
+          t('profile.avatar.errors.invalidAsset'),
+        );
+        return;
+      }
       const validation = validateAvatarAsset(asset);
 
       if (!validation.success) {
@@ -197,7 +228,10 @@ export function EditProfileScreen(): React.JSX.Element {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: bottomTabClearance },
+          ]}
           scrollIndicatorInsets={{ bottom: bottomTabClearance }}
           onScroll={handleTabBarScroll}
           scrollEventThrottle={16}

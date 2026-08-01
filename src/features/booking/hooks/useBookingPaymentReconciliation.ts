@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { ApiRequestError, getApiErrorMessage } from '@shared/api/errors';
+import { ApiRequestError, getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { useIsAppActive, useNetworkStatus } from '@shared/hooks';
 import { bookingKeys, getBookingStatus } from '../api/bookingApi';
 import type { BookingResult, BookingStatus, RoundTripResult } from '../types';
@@ -15,6 +16,10 @@ import {
 } from '../utils/bookingPayment';
 
 const BOOKING_STATUS_GC_TIME_MS = 10 * 60 * 1000;
+const BOOKING_PAYMENT_ERROR_KEYS: Readonly<Record<string, string>> = {
+  BOOKING_STATUS_CONTRACT_MISMATCH: 'booking.paymentStatus.contractMismatch',
+  BOOKING_STATUS_UNAVAILABLE: 'booking.paymentStatus.unavailable',
+};
 
 export interface BookingPaymentReconciliationState {
   phase: 'idle' | 'pending' | 'confirmed' | 'expired' | 'inactive' | 'unavailable';
@@ -28,6 +33,7 @@ export interface BookingPaymentReconciliationState {
 export function useBookingPaymentReconciliation(
   bookingResult: BookingResult | RoundTripResult | null,
 ): BookingPaymentReconciliationState {
+  const { t } = useTranslation();
   const userId = useAuthStore((state) => state.user?.id);
   const isFocused = useIsFocused();
   const isOnline = useNetworkStatus();
@@ -142,9 +148,13 @@ export function useBookingPaymentReconciliation(
   }, [canReconcile, cancelReconciliation, checkNow, resolution.phase]);
 
   const errorMessage = !isOnline
-    ? 'Không có kết nối mạng. Trạng thái sẽ được kiểm tra khi thiết bị online.'
+    ? t('booking.paymentStatus.offline')
     : statusQuery.error
-      ? getApiErrorMessage(statusQuery.error)
+      ? getLocalizedApiErrorMessage(
+        statusQuery.error,
+        t,
+        BOOKING_PAYMENT_ERROR_KEYS,
+      )
       : undefined;
 
   return {

@@ -34,6 +34,9 @@ export const RadioOption = memo(function RadioOptionComponent({
 
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: selected, disabled }}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [

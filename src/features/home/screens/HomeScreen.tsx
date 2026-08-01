@@ -550,7 +550,7 @@ export function HomeScreen(): React.JSX.Element {
                   <Pressable
                     disabled={!canStartParcel}
                     accessibilityRole="button"
-                    accessibilityLabel={t('home.parcel.next')}
+                    accessibilityLabel={t('common.continue')}
                     accessibilityState={{ disabled: !canStartParcel }}
                     style={({ pressed }) => [
                       styles.nextButton,
@@ -559,7 +559,7 @@ export function HomeScreen(): React.JSX.Element {
                     ]}
                     onPress={handleStartShipment}
                   >
-                    <Text style={styles.searchButtonText}>{t('home.parcel.next')}</Text>
+                    <Text style={styles.searchButtonText}>{t('common.continue')}</Text>
                     <ArrowRight
                       size={18}
                       color={theme.colors.textInverse}
@@ -700,8 +700,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   activeTabButton: {
     ...theme.components.primaryButton,
-    shadowOpacity: 0,
-    elevation: 0,
+    boxShadow: 'none',
   },
   tabText: {
     fontFamily: fontFamilies.bold,
@@ -823,11 +822,7 @@ const createStyles = (theme: AppTheme) => ({
     height: 18,
     borderRadius: 9,
     backgroundColor: theme.colors.surfaceElevated,
-    elevation: 1,
-    shadowColor: theme.colors.textPrimary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
+    ...theme.effects.cardShadow,
   },
   switchThumbActive: {
     transform: [{ translateX: 18 }],

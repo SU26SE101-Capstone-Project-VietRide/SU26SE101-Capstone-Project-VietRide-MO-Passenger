@@ -2,11 +2,10 @@
  * LoginScreen - Primary entry point for returning users.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
@@ -22,18 +21,27 @@ import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { GoogleLogo } from 'phosphor-react-native';
 
-import { colors, fontFamilies, fontSizes, spacing, borderRadius, shadows } from '@shared/theme';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
 import { Input, Button } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { getCardStyle } from '@shared/theme/helpers';
-import { useApiError } from '@shared/hooks';
+import { useApiError, useThemedStyles } from '@shared/hooks';
+import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { login } from '../api/authApi';
+import { AUTH_ERROR_TRANSLATION_KEYS } from '../authErrorKeys';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGoogleLogin } from '../hooks/useGoogleLogin';
 import { AuthFooter, AuthStepHeader } from '../components';
 import {
   apiFieldErrors,
+  localizeAuthMessage,
   loginSchema,
   zodFieldErrors,
   type FieldErrorMap,
@@ -53,6 +61,7 @@ export function LoginScreen(): React.JSX.Element {
   const authError = useAuthStore((state) => state.authError);
   const clearAuthError = useAuthStore((state) => state.clearAuthError);
   const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
   const isLiquid = theme.variant.startsWith('liquid');
   const { errorMessage, clearError, handleError } = useApiError();
   const {
@@ -65,6 +74,12 @@ export function LoginScreen(): React.JSX.Element {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<LoginFormErrors>({});
   const [isGuestPending, setIsGuestPending] = useState(false);
+  const authErrorMessage = useMemo(
+    () => authError
+      ? getLocalizedApiErrorMessage(authError, t, AUTH_ERROR_TRANSLATION_KEYS)
+      : null,
+    [authError, t],
+  );
 
   const loginMutation = useMutation({
     mutationFn: login,
@@ -181,7 +196,7 @@ export function LoginScreen(): React.JSX.Element {
                   autoCapitalize="none"
                   value={email}
                   required
-                  error={errors.email}
+                  error={localizeAuthMessage(errors.email, t)}
                   onBlur={() => validateField('email')}
                   onChangeText={(value) => {
                     setEmail(value);
@@ -198,7 +213,7 @@ export function LoginScreen(): React.JSX.Element {
                   autoComplete="password"
                   value={password}
                   required
-                  error={errors.password}
+                  error={localizeAuthMessage(errors.password, t)}
                   onBlur={() => validateField('password')}
                   onChangeText={(value) => {
                     setPassword(value);
@@ -212,9 +227,9 @@ export function LoginScreen(): React.JSX.Element {
                   {t('auth.loginFlow.emailVerified')}
                 </Text>
               ) : null}
-              {errorMessage || authError || googleLoginError ? (
+              {errorMessage || authErrorMessage || googleLoginError ? (
                 <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                  {errorMessage ?? authError ?? googleLoginError}
+                  {errorMessage ?? authErrorMessage ?? googleLoginError}
                 </Text>
               ) : null}
 
@@ -292,8 +307,8 @@ export function LoginScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+const createStyles = (theme: AppTheme) => ({
+  root: { flex: 1, backgroundColor: theme.colors.background },
   gradientContainer: {
     position: 'absolute',
     top: 0,
@@ -320,14 +335,14 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   formCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: theme.colors.divider,
     borderTopWidth: 3,
-    borderTopColor: colors.primaryLight,
-    ...shadows.md,
+    borderTopColor: theme.colors.primaryLight,
+    ...theme.effects.cardShadow,
     marginBottom: spacing.lg,
   },
   inputWrapper: {
@@ -338,13 +353,13 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.error,
+    color: theme.colors.error,
     marginBottom: spacing.sm,
   },
   successText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.success,
+    color: theme.colors.success,
     marginBottom: spacing.sm,
   },
   forgotButton: {
@@ -355,7 +370,7 @@ const styles = StyleSheet.create({
   forgotText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   googleButton: {
     alignItems: 'center',
@@ -383,12 +398,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.divider,
+    backgroundColor: theme.colors.divider,
   },
   guestDividerText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: colors.textTertiary,
+    color: theme.colors.textTertiary,
     marginHorizontal: spacing.sm,
     textTransform: 'uppercase',
   },

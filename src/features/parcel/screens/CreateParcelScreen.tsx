@@ -34,7 +34,10 @@ import { FlashList } from '@shopify/flash-list';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Input, PhotoPicker } from '@shared/components';
-import { toApiError } from '@shared/api/errors';
+import {
+  getLocalizedApiErrorMessage,
+  toApiError,
+} from '@shared/api/errors';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import {
   isValidEmail,
@@ -107,6 +110,7 @@ import {
   type ParcelDimensions,
 } from '../config/parcelPackage';
 import { buildCreateParcelPayload } from '../utils/createParcelPayload';
+import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
 
 type CreateParcelNavProp = NativeStackNavigationProp<
   ParcelStackParamList,
@@ -120,6 +124,51 @@ const formatTripTime = (dateLike: string): string => {
   return formatDateTime(dateLike) || dateLike;
 };
 
+const DepartureDateChip = React.memo(function DepartureDateChip({
+  active,
+  label,
+  offset,
+  onSelect,
+}: {
+  active: boolean;
+  label: string;
+  offset: number;
+  onSelect: (offset: number) => void;
+}): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const handlePress = useCallback(() => {
+    onSelect(offset);
+  }, [offset, onSelect]);
+
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: active }}
+      onPress={handlePress}
+      style={({ pressed }) => [
+        styles.dateChip,
+        active ? styles.dateChipActive : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <CalendarBlank
+        size={14}
+        color={active ? theme.colors.textInverse : theme.colors.primary}
+        weight="bold"
+      />
+      <Text
+        style={[
+          styles.dateChipText,
+          active ? styles.dateChipTextActive : null,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+});
+
 const TripOptionCard = React.memo(function TripOptionCard({
   trip,
   selected,
@@ -132,12 +181,15 @@ const TripOptionCard = React.memo(function TripOptionCard({
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const handlePress = useCallback(() => {
+    onPress(trip.tripId);
+  }, [onPress, trip.tripId]);
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      onPress={() => onPress(trip.tripId)}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.tripCard,
         selected ? styles.tripCardActive : null,
@@ -180,8 +232,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const navigation = useNavigation<CreateParcelNavProp>();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { t, i18n } = useTranslation();
-  const language = i18n.resolvedLanguage;
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const queryClient = useQueryClient();
   const user = useAuthStore(state => state.user);
@@ -449,8 +500,11 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   const vouchersQuery = useAvailableParcelVouchers(voucherParams, step === 4);
   const availablePromos = useMemo(
-    () => (vouchersQuery.data ?? []).map(mapParcelVoucherToPromo),
-    [language, vouchersQuery.data],
+    () =>
+      (vouchersQuery.data ?? []).map(voucher =>
+        mapParcelVoucherToPromo(voucher, t),
+      ),
+    [t, vouchersQuery.data],
   );
 
   const selectedVoucher = useMemo(() => {
@@ -655,19 +709,23 @@ export function CreateParcelScreen(): React.JSX.Element {
     );
   }, []);
 
+  const handleDepartureOffsetSelect = useCallback((offset: number) => {
+    setDepartureOffset(offset);
+  }, []);
+
   const validateCurrentStep = useCallback(() => {
     const validateWholeDraft = step === 4;
 
     if ((step === 1 || validateWholeDraft) && !receivingStation) {
       Alert.alert(
-        t('parcel.common.appName'),
+        t('app.name'),
         t('parcel.validation.selectOriginStation'),
       );
       return false;
     }
     if ((step === 2 || validateWholeDraft) && !dropoffStation) {
       Alert.alert(
-        t('parcel.common.appName'),
+        t('app.name'),
         t('parcel.validation.selectDestinationStation'),
       );
       return false;
@@ -675,28 +733,28 @@ export function CreateParcelScreen(): React.JSX.Element {
     if (step === 3 || validateWholeDraft) {
       if (!recipientName.trim() || !recipientPhone.trim()) {
         Alert.alert(
-          t('parcel.common.appName'),
+          t('app.name'),
           t('parcel.validation.recipientRequired'),
         );
         return false;
       }
       if (!isValidVietnamPhone(recipientPhone)) {
         Alert.alert(
-          t('parcel.common.appName'),
+          t('app.name'),
           t('parcel.validation.invalidVietnamPhone'),
         );
         return false;
       }
       if (recipientEmail.trim() && !isValidEmail(recipientEmail)) {
         Alert.alert(
-          t('parcel.common.appName'),
+          t('app.name'),
           t('parcel.validation.invalidRecipientEmail'),
         );
         return false;
       }
       if (!packageMeasurementsValid) {
         Alert.alert(
-          t('parcel.common.appName'),
+          t('app.name'),
           dimensionsErrorMessage ??
             t('parcel.validation.invalidMeasurements'),
         );
@@ -705,7 +763,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     }
     if (step === 4 && !selectedTrip) {
       Alert.alert(
-        t('parcel.common.appName'),
+        t('app.name'),
         t('parcel.validation.selectAvailableTrip'),
       );
       return false;
@@ -836,7 +894,11 @@ export function CreateParcelScreen(): React.JSX.Element {
             t('parcel.errors.photoUploadTitle'),
             apiError.code === 'UNKNOWN_ERROR'
               ? t('parcel.errors.photoUploadDescription')
-              : apiError.message,
+              : getLocalizedApiErrorMessage(
+                  apiError,
+                  t,
+                  PARCEL_ERROR_TRANSLATION_KEYS,
+                ),
           );
           return;
         }
@@ -864,7 +926,14 @@ export function CreateParcelScreen(): React.JSX.Element {
           );
           return;
         }
-        Alert.alert(t('parcel.common.appName'), apiError.message);
+        Alert.alert(
+          t('app.name'),
+          getLocalizedApiErrorMessage(
+            apiError,
+            t,
+            PARCEL_ERROR_TRANSLATION_KEYS,
+          ),
+        );
         return;
       }
 
@@ -893,7 +962,11 @@ export function CreateParcelScreen(): React.JSX.Element {
           Alert.alert(
             t('parcel.create.savedTitle'),
             t('parcel.create.savedPaymentFailed', {
-              error: apiError.message,
+              error: getLocalizedApiErrorMessage(
+                apiError,
+                t,
+                PARCEL_ERROR_TRANSLATION_KEYS,
+              ),
             }),
           );
           return;
@@ -1001,6 +1074,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const isStationSelectionStep = step === 1 || step === 2;
   const stationStepQuery =
     step === 1 ? originStationsQuery : destinationStationsQuery;
+  const refetchStationStep = stationStepQuery.refetch;
   const stationStepStations = useMemo(
     () =>
       step === 1
@@ -1017,6 +1091,12 @@ export function CreateParcelScreen(): React.JSX.Element {
   const stationSelectionRole = step === 1 ? 'origin' : 'destination';
   const handleStationSelect =
     step === 1 ? handleSelectReceivingStation : handleSelectDropoffStation;
+  const handleRetryStationStep = useCallback(() => {
+    refetchStationStep().catch(() => undefined);
+  }, [refetchStationStep]);
+  const handleRetryAvailableTrips = useCallback(() => {
+    refetchAvailableTrips().catch(() => undefined);
+  }, [refetchAvailableTrips]);
   const isStationListReady =
     isStationSelectionStep &&
     !missingLocation &&
@@ -1059,14 +1139,14 @@ export function CreateParcelScreen(): React.JSX.Element {
 
     if (stationStepQuery.isLoading) {
       return (
-        <View style={{ padding: spacing.xl }}>
+        <View style={styles.stationLoadingContent}>
           <ParcelSkeleton type="station" count={3} />
         </View>
       );
     }
 
     if (stationStepQuery.isError) {
-      return <ErrorView onRetry={() => stationStepQuery.refetch()} />;
+      return <ErrorView onRetry={handleRetryStationStep} />;
     }
 
     if (stationStepStations.length === 0) {
@@ -1114,29 +1194,13 @@ export function CreateParcelScreen(): React.JSX.Element {
               ? t('parcel.date.tomorrow')
               : formatShortDate(date);
           return (
-            <Pressable
+            <DepartureDateChip
+              active={active}
               key={offset}
-              onPress={() => setDepartureOffset(offset)}
-              style={({ pressed }) => [
-                styles.dateChip,
-                active ? styles.dateChipActive : null,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <CalendarBlank
-                size={14}
-                color={active ? theme.colors.textInverse : theme.colors.primary}
-                weight="bold"
-              />
-              <Text
-                style={[
-                  styles.dateChipText,
-                  active ? styles.dateChipTextActive : null,
-                ]}
-              >
-                {label}
-              </Text>
-            </Pressable>
+              label={label}
+              offset={offset}
+              onSelect={handleDepartureOffsetSelect}
+            />
           );
         })}
       </ScrollView>
@@ -1153,7 +1217,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       {availableTripsQuery.isLoading ? (
         <ParcelSkeleton type="summary" count={2} />
       ) : availableTripsQuery.isError ? (
-        <ErrorView onRetry={() => availableTripsQuery.refetch()} />
+        <ErrorView onRetry={handleRetryAvailableTrips} />
       ) : visibleTrips.length === 0 ? (
         <View style={styles.stateBoxCompact}>
           <Clock size={24} color={theme.colors.textTertiary} weight="duotone" />
@@ -1421,7 +1485,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         ? t('parcel.actions.continueToDetails')
         : t('parcel.actions.chooseDestinationTerminal')
       : step === 4
-      ? t('parcel.actions.confirm')
+      ? t('common.confirm')
       : t('parcel.actions.nextStep');
   const routeTitle = selectedTrip
     ? `${selectedTrip.originStation.name} → ${selectedTrip.destinationStation.name}`
@@ -1452,6 +1516,22 @@ export function CreateParcelScreen(): React.JSX.Element {
       : t('parcel.trips.availableCount', {
           count: availableTrips.length,
         });
+  const contentBottomPadding = 96 + Math.max(insets.bottom, spacing.md);
+  const stationListContentStyle = useMemo(
+    () => [styles.stationListContent, { paddingBottom: contentBottomPadding }],
+    [contentBottomPadding, styles.stationListContent],
+  );
+  const scrollContentStyle = useMemo(
+    () => [styles.scrollContent, { paddingBottom: contentBottomPadding }],
+    [contentBottomPadding, styles.scrollContent],
+  );
+  const actionBarStyle = useMemo(
+    () => [
+      styles.actionBar,
+      { paddingBottom: Math.max(insets.bottom, spacing.md) },
+    ],
+    [insets.bottom, styles.actionBar],
+  );
 
   return (
     <View style={styles.root}>
@@ -1497,20 +1577,14 @@ export function CreateParcelScreen(): React.JSX.Element {
             renderItem={renderStation}
             keyExtractor={stationKeyExtractor}
             style={styles.scrollContainer}
-            contentContainerStyle={[
-              styles.stationListContent,
-              { paddingBottom: 96 + Math.max(insets.bottom, spacing.md) },
-            ]}
+            contentContainerStyle={stationListContentStyle}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           />
         ) : (
           <ScrollView
             style={styles.scrollContainer}
-            contentContainerStyle={[
-              styles.scrollContent,
-              { paddingBottom: 96 + Math.max(insets.bottom, spacing.md) },
-            ]}
+            contentContainerStyle={scrollContentStyle}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -1518,12 +1592,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           </ScrollView>
         )}
 
-        <View
-          style={[
-            styles.actionBar,
-            { paddingBottom: Math.max(insets.bottom, spacing.md) },
-          ]}
-        >
+        <View style={actionBarStyle}>
           {step === 4 ? (
             <View style={styles.priceSummaryBox}>
               <Text style={styles.totalPriceLabel}>
@@ -1587,6 +1656,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   container: { flex: 1, backgroundColor: 'transparent' },
   scrollContainer: { flex: 1 },
+  stationLoadingContent: {
+    padding: spacing.xl,
+  },
   scrollContent: { paddingHorizontal: spacing.xl, paddingTop: 0 },
   stationListContent: {
     paddingHorizontal: spacing.xl,

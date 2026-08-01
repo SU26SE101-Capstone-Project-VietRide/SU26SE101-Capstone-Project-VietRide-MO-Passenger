@@ -1,5 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { QrCode, CreditCard, Wallet, Van } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
@@ -10,6 +12,7 @@ import type { PromoOffer } from '@shared/utils/promo';
 import { normalizePromoCode } from '@shared/utils/promo';
 import { formatVnd } from '@shared/utils/format';
 import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
+import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { FloatingActionBar } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
@@ -20,35 +23,40 @@ interface PaymentStepProps {
   onNext: () => void | Promise<void>;
 }
 
-const getVoucherLabel = (voucher: AvailableVoucherItem): string => {
+const getVoucherLabel = (voucher: AvailableVoucherItem, t: TFunction): string => {
   if (voucher.type === 'PERCENT_OFF') {
-    return `${voucher.value}% OFF`;
+    return t('booking.vouchers.percentOff', { value: voucher.value });
   }
 
-  return `${formatVnd(voucher.discountAmount || voucher.value, {
-    display: 'code',
-    clampNegative: true,
-  })} OFF`;
+  return t('booking.vouchers.amountOff', {
+    amount: formatVnd(voucher.discountAmount || voucher.value, {
+      display: 'code',
+      clampNegative: true,
+    }),
+  });
 };
 
-const toPromoOffer = (voucher: AvailableVoucherItem): PromoOffer => ({
+const toPromoOffer = (voucher: AvailableVoucherItem, t: TFunction): PromoOffer => ({
   id: voucher.id,
   code: voucher.code,
   title: voucher.name,
   description:
     voucher.discountAmount > 0
-      ? `Estimated saving ${formatVnd(voucher.discountAmount, {
-        display: 'code',
-        clampNegative: true,
-      })} for this booking.`
-      : 'Final discount is checked again at checkout.',
-  discountLabel: getVoucherLabel(voucher),
+      ? t('booking.vouchers.estimatedSaving', {
+        amount: formatVnd(voucher.discountAmount, {
+          display: 'code',
+          clampNegative: true,
+        }),
+      })
+      : t('booking.vouchers.finalDiscountNotice'),
+  discountLabel: getVoucherLabel(voucher, t),
   expiresAt: voucher.validUntil,
   minimumSpend: voucher.minOrderAmount,
   discount: { type: 'fixed', amount: voucher.discountAmount },
 });
 
 export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const {
@@ -162,8 +170,8 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
   });
 
   const voucherPromos = useMemo(
-    () => availableVouchers.map(toPromoOffer),
-    [availableVouchers],
+    () => availableVouchers.map(voucher => toPromoOffer(voucher, t)),
+    [availableVouchers, t],
   );
 
   useEffect(() => {
@@ -188,7 +196,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
       setAppliedVoucher(null);
       setPromoCode('');
       clearVoucher();
-      setPromoError('Selected voucher is not available for this booking.');
+      setPromoError(t('booking.vouchers.selectedUnavailable'));
     }
   }, [
     availableVouchers,
@@ -197,6 +205,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     voucherCode,
     voucherDiscountPreview,
     vouchersFetching,
+    t,
   ]);
 
   const trip = displayLeg?.trip;
@@ -208,7 +217,19 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
   const finalPrice = Math.max(baseFare - promoDiscount, 0);
   const isSubmitting = bookingStatus === 'loading';
   const promoInputError = promoError
-    ?? (vouchersFailed ? 'Could not refresh vouchers. You can continue without one.' : undefined);
+    ?? (vouchersFailed ? t('booking.vouchers.refreshFailed') : undefined);
+  const bookingErrorMessage = useMemo(
+    () => bookingError ? getLocalizedApiErrorMessage(bookingError, t) : null,
+    [bookingError, t],
+  );
+  const busTypeLabel = useMemo(() => {
+    switch (trip?.busType) {
+      case 'sleeper': return t('booking.busType.sleeper');
+      case 'limousine': return t('booking.busType.limousine');
+      case 'standard': return t('booking.busType.standard');
+      default: return t('booking.paymentScreen.ticketFallback');
+    }
+  }, [t, trip?.busType]);
 
   const handlePayNow = useCallback(() => {
     if (!isSubmitting) {
@@ -237,7 +258,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     if (!normalizedCode) {
       setAppliedVoucher(null);
       clearVoucher();
-      setPromoError('Enter a promo code to apply.');
+      setPromoError(t('booking.vouchers.enterCode'));
       return false;
     }
 
@@ -248,7 +269,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     if (!voucher) {
       setAppliedVoucher(null);
       clearVoucher();
-      setPromoError('This voucher is not available for the selected trip and payment method.');
+      setPromoError(t('booking.vouchers.notAvailableForSelection'));
       return false;
     }
 
@@ -256,12 +277,15 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     setVoucherCode(voucher.code, voucher.discountAmount);
     setPromoError(undefined);
     return true;
-  }, [availableVouchers, clearVoucher, setVoucherCode]);
+  }, [availableVouchers, clearVoucher, setVoucherCode, t]);
+
+  const selectVnpay = useCallback(() => setPaymentMethod('vnpay'), [setPaymentMethod]);
+  const selectWallet = useCallback(() => setPaymentMethod('wallet'), [setPaymentMethod]);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Payment Details</Text>
+        <Text style={styles.headerTitle}>{t('booking.paymentScreen.title')}</Text>
       </View>
 
       <ScrollView
@@ -272,16 +296,16 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
       >
         <View style={styles.bentoSummaryCard}>
           <View style={styles.bentoAccent} />
-          <Text style={styles.bentoCardHeading}>Route Information</Text>
+          <Text style={styles.bentoCardHeading}>{t('booking.paymentScreen.routeInformation')}</Text>
           {shuttlePickup ? (
             <View style={styles.shuttleSummary}>
               <View style={styles.specIcon}>
                 <Van size={21} color={theme.colors.primary} weight="duotone" />
               </View>
               <View style={styles.specDetails}>
-                <Text style={styles.routeLabelText}>SHUTTLE PICKUP REQUEST</Text>
+                <Text style={styles.routeLabelText}>{t('booking.checkout.shuttleRequest')}</Text>
                 <Text style={styles.routeStationName}>{shuttlePickup.address}</Text>
-                <Text style={styles.routeStationCity}>Awaiting operator arrangement</Text>
+                <Text style={styles.routeStationCity}>{t('booking.paymentScreen.shuttleAwaiting')}</Text>
               </View>
             </View>
           ) : null}
@@ -293,13 +317,25 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
             </View>
             <View style={styles.routeDetailsText}>
               <View style={styles.routeStationSection}>
-                <Text style={styles.routeLabelText}>BOARDING AT {pickUp?.time ?? ''}</Text>
-                <Text style={styles.routeStationName}>{pickUp?.name ?? 'Pick-up Point'}</Text>
+                <Text style={styles.routeLabelText}>
+                  {t('booking.checkout.boardingAt', {
+                    time: pickUp?.time ?? t('common.notAvailable'),
+                  })}
+                </Text>
+                <Text style={styles.routeStationName}>
+                  {pickUp?.name ?? t('booking.paymentScreen.pickupPoint')}
+                </Text>
                 <Text style={styles.routeStationCity}>{pickUp?.address ?? ''}</Text>
               </View>
               <View style={styles.routeStationSection}>
-                <Text style={styles.routeLabelText}>ALIGHTING AT {dropOff?.time ?? ''}</Text>
-                <Text style={styles.routeStationName}>{dropOff?.name ?? 'Drop-off Point'}</Text>
+                <Text style={styles.routeLabelText}>
+                  {t('booking.checkout.alightingAt', {
+                    time: dropOff?.time ?? t('common.notAvailable'),
+                  })}
+                </Text>
+                <Text style={styles.routeStationName}>
+                  {dropOff?.name ?? t('booking.paymentScreen.dropoffPoint')}
+                </Text>
                 <Text style={styles.routeStationCity}>{dropOff?.address ?? ''}</Text>
               </View>
             </View>
@@ -307,37 +343,40 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
         </View>
 
         <View style={styles.bentoSummaryCard}>
-          <Text style={styles.bentoCardHeading}>Ticket Specifications</Text>
+          <Text style={styles.bentoCardHeading}>{t('booking.paymentScreen.ticketSpecifications')}</Text>
           <View style={styles.specCardRow}>
             <View style={styles.specIcon}>
               <CreditCard size={22} color={theme.colors.primary} weight="duotone" />
             </View>
             <View style={styles.specDetails}>
-              <Text style={styles.specTitle}>{trip?.busType ?? 'Bus Ticket'}</Text>
+              <Text style={styles.specTitle}>{busTypeLabel}</Text>
               <Text style={styles.specMeta}>
-                Seats: {seats.map((seat) => seat.label).join(', ')} - Qty: {seats.length}
+                {t('booking.paymentScreen.seatSummary', {
+                  seats: seats.map((seat) => seat.label).join(', ') || t('common.none'),
+                  count: seats.length,
+                })}
               </Text>
             </View>
           </View>
         </View>
 
         <View style={styles.bentoSummaryCard}>
-          <Text style={styles.bentoCardHeading}>Payment Method</Text>
+          <Text style={styles.bentoCardHeading}>{t('booking.paymentScreen.method')}</Text>
           <PaymentOption
             selected={paymentMethod === 'vnpay'}
-            label="VNPAY / Momo QR"
-            sub="Pay by secure redirect"
+            label={t('booking.paymentScreen.vnpayLabel')}
+            sub={t('booking.paymentScreen.vnpayDescription')}
             Icon={QrCode}
             iconColor={theme.colors.accentDark}
-            onSelect={() => setPaymentMethod('vnpay')}
+            onSelect={selectVnpay}
           />
           <PaymentOption
             selected={paymentMethod === 'wallet'}
-            label="VietRide Wallet"
-            sub="Use wallet balance"
+            label={t('booking.paymentScreen.walletLabel')}
+            sub={t('booking.paymentScreen.walletDescription')}
             Icon={Wallet}
             iconColor={theme.colors.success}
-            onSelect={() => setPaymentMethod('wallet')}
+            onSelect={selectWallet}
           />
         </View>
 
@@ -348,21 +387,25 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
           onApplyCode={handlePromoApply}
           promos={voucherPromos}
           selectedPromoCode={appliedVoucher?.code}
-          appliedLabel={appliedVoucher ? `${appliedVoucher.code} Applied` : undefined}
+          appliedLabel={appliedVoucher
+            ? t('booking.vouchers.appliedCode', { code: appliedVoucher.code })
+            : undefined}
           errorText={promoInputError}
         />
 
         <View style={styles.bentoSummaryCard}>
-          <Text style={styles.bentoCardHeading}>Payment Breakdown</Text>
+          <Text style={styles.bentoCardHeading}>{t('booking.paymentScreen.breakdown')}</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Base Ticket Fare ({allSelectedSeats.length}x)</Text>
+            <Text style={styles.priceLabel}>
+              {t('booking.paymentScreen.baseFare', { count: allSelectedSeats.length })}
+            </Text>
             <Text style={styles.priceValue}>
               {formatVnd(baseFare, { display: 'code', clampNegative: true })}
             </Text>
           </View>
           {appliedVoucher ? (
             <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Voucher Discount</Text>
+              <Text style={styles.priceLabel}>{t('booking.paymentScreen.voucherDiscount')}</Text>
               <Text style={[styles.priceValue, styles.discountValue]}>
                 -{formatVnd(promoDiscount, { display: 'code', clampNegative: true })}
               </Text>
@@ -370,13 +413,13 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
           ) : null}
           <View style={styles.summaryDivider} />
           <View style={[styles.priceRow, styles.totalRowSpacing]}>
-            <Text style={styles.totalLabel}>Total Price</Text>
+            <Text style={styles.totalLabel}>{t('booking.totalPrice')}</Text>
             <Text style={styles.totalValue}>
               {formatVnd(finalPrice, { display: 'code', clampNegative: true })}
             </Text>
           </View>
-          {bookingError ? (
-            <Text style={styles.submitErrorText}>{bookingError}</Text>
+          {bookingErrorMessage ? (
+            <Text style={styles.submitErrorText}>{bookingErrorMessage}</Text>
           ) : null}
         </View>
       </ScrollView>
@@ -384,7 +427,11 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
       <FloatingActionBar
         selectedSeats={allSelectedSeats}
         totalPrice={finalPrice}
-        ctaLabel={isSubmitting ? 'Processing...' : paymentMethod === 'vnpay' ? 'Pay with VNPAY' : 'Confirm Booking'}
+        ctaLabel={isSubmitting
+          ? t('booking.paymentScreen.processing')
+          : paymentMethod === 'vnpay'
+            ? t('booking.paymentScreen.payWithVnpay')
+            : t('booking.paymentScreen.confirmBooking')}
         onPress={handlePayNow}
         disabled={isSubmitting || baseFare <= 0}
       />
@@ -401,11 +448,21 @@ interface PaymentOptionProps {
   onSelect: () => void;
 }
 
-const PaymentOption = ({ selected, label, sub, Icon, iconColor, onSelect }: PaymentOptionProps) => {
+const PaymentOption = memo(function PaymentOptionComponent({
+  selected,
+  label,
+  sub,
+  Icon,
+  iconColor,
+  onSelect,
+}: PaymentOptionProps): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
 
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: selected }}
       style={({ pressed }) => [
         styles.paymentOption,
         selected ? styles.paymentOptionActive : null,
@@ -423,7 +480,7 @@ const PaymentOption = ({ selected, label, sub, Icon, iconColor, onSelect }: Paym
       </View>
     </Pressable>
   );
-};
+});
 
 const createStyles = (theme: AppTheme) => ({
   container: {

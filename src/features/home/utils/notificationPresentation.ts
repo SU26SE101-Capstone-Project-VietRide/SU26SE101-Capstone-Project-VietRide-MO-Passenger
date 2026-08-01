@@ -17,6 +17,7 @@ export const getNotificationKind = (type: string): NotificationKind => {
 export const formatNotificationRelativeTime = (
   dateLike: string,
   t: TFunction,
+  locale?: string,
 ): string => {
   const date = new Date(dateLike);
   const diffMs = Date.now() - date.getTime();
@@ -37,5 +38,5 @@ export const formatNotificationRelativeTime = (
   const days = Math.floor(hours / 24);
   return days < 7
     ? t('notification.time.daysCompact', { count: days })
-    : formatShortDate(date);
+    : formatShortDate(date, locale);
 };

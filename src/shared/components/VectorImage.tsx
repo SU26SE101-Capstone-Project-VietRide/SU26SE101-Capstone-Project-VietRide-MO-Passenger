@@ -6,8 +6,8 @@
  */
 
 import React from 'react';
-import { Image } from 'react-native';
 import type { ImageStyle, StyleProp, ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { SvgUri } from 'react-native-svg';
 import { useTheme } from '@shared/contexts/ThemeContext';
 
@@ -45,9 +45,11 @@ export function VectorImage({
 
   return (
     <Image
-      source={{ uri: source }}
+      source={source}
       style={[{ width, height }, style]}
-      resizeMode="contain"
+      contentFit="contain"
+      cachePolicy="memory-disk"
+      transition={0}
     />
   );
 }

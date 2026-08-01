@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -10,17 +11,18 @@ interface SeatLegendProps {
 }
 
 export const SeatLegend = ({ items }: SeatLegendProps): React.JSX.Element => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const legendItems = items ?? [
     {
-      label: 'Available',
+      label: t('booking.seats.available'),
       color: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
       borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.border,
     },
-    { label: 'Selected', color: theme.colors.primary, borderColor: theme.colors.primary },
+    { label: t('booking.seats.selected'), color: theme.colors.primary, borderColor: theme.colors.primary },
     {
-      label: 'Sold',
+      label: t('booking.seats.sold'),
       color: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
       borderColor: theme.colors.divider,
     },

@@ -25,11 +25,11 @@ export function ErrorView({
     <View style={styles.container}>
       <View style={styles.card}>
         <WarningCircle size={40} color={theme.colors.error} weight="fill" />
-        <Text style={styles.title}>{t('parcel.errors.title')}</Text>
+        <Text style={styles.title}>{t('common.error')}</Text>
         <Text style={styles.message}>{displayedMessage}</Text>
         {onRetry ? (
           <Pressable style={styles.button} onPress={onRetry}>
-            <Text style={styles.buttonText}>{t('parcel.actions.tryAgain')}</Text>
+            <Text style={styles.buttonText}>{t('common.retry')}</Text>
           </Pressable>
         ) : null}
       </View>

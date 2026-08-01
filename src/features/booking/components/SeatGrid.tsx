@@ -7,6 +7,7 @@
 
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SteeringWheel } from 'phosphor-react-native';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -60,13 +61,6 @@ const getDeckLetter = (deck: number): string => {
 
   return deck.toString();
 };
-
-const getDeckName = (deck: number): string =>
-  deck === 1
-    ? 'Lower deck'
-    : deck === 2
-    ? 'Upper deck'
-    : `Deck ${getDeckLetter(deck)}`;
 
 const getAisleAfterColumn = (columns: number[]): number | null => {
   if (columns.length <= 1) {
@@ -208,12 +202,18 @@ const DeckButton = memo(function DeckButtonComponent({
   onSelect,
   styles,
 }: DeckButtonProps): React.JSX.Element {
+  const { t } = useTranslation();
   const handlePress = useCallback(() => onSelect(deck), [deck, onSelect]);
+  const deckName = deck === 1
+    ? t('booking.seatMap.lowerDeck')
+    : deck === 2
+      ? t('booking.seatMap.upperDeck')
+      : t('booking.seatMap.deckName', { deck: getDeckLetter(deck) });
 
   return (
     <Pressable
       accessibilityRole="tab"
-      accessibilityLabel={getDeckName(deck)}
+      accessibilityLabel={deckName}
       accessibilityState={{ selected: isActive }}
       onPress={handlePress}
       style={({ pressed }) => [
@@ -253,14 +253,21 @@ const SeatButton = memo(function SeatButtonComponent({
   onPress,
   styles,
 }: SeatButtonProps): React.JSX.Element {
+  const { t } = useTranslation();
   const handlePress = useCallback(() => onPress(id), [id, onPress]);
+  const seatStatus = isSold
+    ? t('booking.seats.unavailable')
+    : isSelected
+      ? t('booking.seats.selected')
+      : t('booking.seats.available');
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${label} ${
-        isSold ? 'unavailable' : isSelected ? 'selected' : 'available'
-      }`}
+      accessibilityLabel={t('booking.seatMap.seatAccessibility', {
+        seat: label,
+        status: seatStatus,
+      })}
       accessibilityState={{ disabled: isSold, selected: isSelected }}
       disabled={isSold}
       hitSlop={6}
@@ -338,6 +345,7 @@ const SeatRowView = memo(
     onSeatPress,
     styles,
   }: SeatRowViewProps): React.JSX.Element {
+    const { t } = useTranslation();
     return (
       <View style={styles.seatRow}>
         <View style={[styles.rowBadge, { height: seatSize }]}>
@@ -347,7 +355,7 @@ const SeatRowView = memo(
             numberOfLines={1}
             style={styles.rowBadgeText}
           >
-            R{row.label}
+            {t('booking.seatMap.rowCode', { row: row.label })}
           </Text>
         </View>
 
@@ -413,6 +421,7 @@ export function SeatGrid({
   selectedSeats,
   onSeatPress,
 }: SeatGridProps): React.JSX.Element {
+  const { t } = useTranslation();
   const theme = useTheme();
   const styles = useSeatGridStyles();
   const { width } = useWindowDimensions();
@@ -473,7 +482,7 @@ export function SeatGrid({
         <View style={styles.deckIdentity}>
           <View
             accessible
-            accessibilityLabel="Front of vehicle"
+            accessibilityLabel={t('booking.seatMap.frontOfVehicle')}
             style={styles.frontIcon}
           >
             <SteeringWheel
@@ -485,13 +494,21 @@ export function SeatGrid({
           <View style={styles.deckCopy}>
             <Text style={styles.deckEyebrow}>
               {activeGroup
-                ? `DECK ${getDeckLetter(activeGroup.deck)}`
-                : 'SEAT MAP'}
+                ? t('booking.seatMap.deckEyebrow', {
+                  deck: getDeckLetter(activeGroup.deck),
+                })
+                : t('booking.seatMap.title')}
             </Text>
             <Text numberOfLines={1} style={styles.deckTitle}>
               {activeGroup
-                ? getDeckName(activeGroup.deck)
-                : 'No deck available'}
+                ? (activeGroup.deck === 1
+                  ? t('booking.seatMap.lowerDeck')
+                  : activeGroup.deck === 2
+                    ? t('booking.seatMap.upperDeck')
+                    : t('booking.seatMap.deckName', {
+                      deck: getDeckLetter(activeGroup.deck),
+                    }))
+                : t('booking.seatMap.noDeck')}
             </Text>
           </View>
         </View>
@@ -514,7 +531,7 @@ export function SeatGrid({
       <View style={styles.statsRow}>
         <View style={styles.selectedStat}>
           <Text style={styles.statLabel}>
-            SELECTED ({selectedSeats.length})
+            {t('booking.seatMap.selectedCount', { count: selectedSeats.length })}
           </Text>
           <Text
             adjustsFontSizeToFit
@@ -524,12 +541,12 @@ export function SeatGrid({
               selectedSeatLabel ? styles.statValue : styles.statPlaceholder
             }
           >
-            {selectedSeatLabel || 'None'}
+            {selectedSeatLabel || t('common.none')}
           </Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.availableStat}>
-          <Text style={styles.statLabel}>AVAILABLE</Text>
+          <Text style={styles.statLabel}>{t('booking.seatMap.available')}</Text>
           <Text style={styles.availableValue}>{availableCount}</Text>
         </View>
       </View>
@@ -538,12 +555,14 @@ export function SeatGrid({
         <View style={[styles.matrix, { width: matrixWidth }]}>
           <View style={styles.axisRow}>
             <View style={styles.rowAxisSlot}>
-              <Text style={styles.axisLabel}>ROW</Text>
+              <Text style={styles.axisLabel}>{t('booking.seatMap.rowAxis')}</Text>
             </View>
             {columns.map(column => (
               <React.Fragment key={`axis-${column}`}>
                 <View style={[styles.columnAxisSlot, { width: seatSize }]}>
-                  <Text style={styles.axisLabel}>C{column}</Text>
+                  <Text style={styles.axisLabel}>
+                    {t('booking.seatMap.columnCode', { column })}
+                  </Text>
                 </View>
                 {column === aisleAfterColumn ? (
                   <AisleSlot
@@ -574,7 +593,7 @@ export function SeatGrid({
         </View>
       ) : (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>Seat map is unavailable.</Text>
+          <Text style={styles.emptyStateText}>{t('booking.seatMap.unavailable')}</Text>
         </View>
       )}
     </View>
@@ -826,7 +845,7 @@ const createStyles = (theme: AppTheme) => ({
     borderCurve: 'continuous',
   },
   seatPillowSelected: {
-    backgroundColor: 'rgba(255, 255, 255, 0.46)',
+    backgroundColor: theme.effects.glassHighlight,
   },
   seatPillowSold: {
     backgroundColor: theme.colors.divider,

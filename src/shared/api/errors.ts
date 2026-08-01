@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import type { TFunction } from 'i18next';
 
 export interface ApiMeta {
   traceId: string;
@@ -242,4 +243,58 @@ export const toApiError = (error: unknown): ApiRequestError => {
   });
 };
 
-export const getApiErrorMessage = (error: unknown): string => toApiError(error).message;
+const DEFAULT_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
+  AUTH_INVALID_CREDENTIALS: 'errors.api.invalidCredentials',
+  AUTH_EMAIL_NOT_VERIFIED: 'errors.api.emailNotVerified',
+  AUTH_ACCOUNT_LOCKED: 'errors.api.accountLocked',
+  AUTH_EMAIL_ALREADY_REGISTERED: 'errors.api.emailAlreadyRegistered',
+  AUTH_PHONE_ALREADY_REGISTERED: 'errors.api.phoneAlreadyRegistered',
+  AUTH_PHONE_INVALID_FORMAT: 'errors.api.phoneInvalid',
+  AUTH_OTP_INVALID: 'errors.api.otpInvalid',
+  AUTH_OTP_EXPIRED: 'errors.api.otpExpired',
+  AUTH_OTP_RATE_LIMIT_EXCEEDED: 'errors.api.otpRateLimit',
+  AUTH_PASSWORD_RESET_TOKEN_INVALID: 'errors.api.passwordResetInvalid',
+  AUTH_PASSWORD_RESET_TOKEN_EXPIRED: 'errors.api.passwordResetExpired',
+  AUTH_TOKEN_INVALID: 'errors.api.sessionExpired',
+  VALIDATION_ERROR: 'errors.api.validation',
+  GATEWAY_ORIGIN_UNAVAILABLE: 'errors.api.gatewayUnavailable',
+  RESOURCE_NOT_FOUND: 'errors.api.notFound',
+  REQUEST_TIMEOUT: 'errors.api.timeout',
+  NETWORK_ERROR: 'errors.api.network',
+  API_ERROR: 'errors.api.requestFailed',
+  UNKNOWN_ERROR: 'errors.api.unknown',
+};
+
+const getStatusTranslationKey = (error: ApiRequestError): string => {
+  if (error.isNetworkError) return 'errors.api.network';
+  if (error.statusCode === 401) return 'errors.api.sessionExpired';
+  if (error.statusCode === 403) return 'errors.api.forbidden';
+  if (error.statusCode === 404) return 'errors.api.notFound';
+  if (error.statusCode === 409) return 'errors.api.conflict';
+  if (error.statusCode === 422) return 'errors.api.validation';
+  if (error.statusCode === 429) return 'errors.api.rateLimit';
+  if (error.statusCode && error.statusCode >= 500) {
+    return 'errors.api.serverUnavailable';
+  }
+  return 'errors.api.unknown';
+};
+
+/**
+ * Converts transport/backend errors into app-owned copy. Feature code maps may
+ * override specific business codes while network/auth/status fallbacks remain
+ * centralized and safe for every locale.
+ */
+export const getLocalizedApiErrorMessage = (
+  error: unknown,
+  t: TFunction,
+  featureCodeKeys: Readonly<Record<string, string>> = {},
+): string => {
+  const apiError = toApiError(error);
+  const translationKey = featureCodeKeys[apiError.code]
+    ?? DEFAULT_ERROR_TRANSLATION_KEYS[apiError.code]
+    ?? getStatusTranslationKey(apiError);
+
+  return t(translationKey, {
+    retryAfter: apiError.retryAfterSeconds ?? 60,
+  });
+};

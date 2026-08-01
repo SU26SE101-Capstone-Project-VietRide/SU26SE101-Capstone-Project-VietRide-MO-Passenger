@@ -31,7 +31,6 @@ interface AppState {
   setOnline: (status: boolean) => void;
   setLocale: (locale: Locale) => void;
   setGlobalLoading: (loading: boolean) => void;
-  setHasHydrated: (hasHydrated: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -45,7 +44,6 @@ export const useAppStore = create<AppState>()(
       setOnline: status => set({ isOnline: status }),
       setLocale: locale => set({ locale }),
       setGlobalLoading: loading => set({ isGlobalLoading: loading }),
-      setHasHydrated: hasHydrated => set({ hasHydrated }),
     }),
     {
       name: 'vietride-app-preferences',

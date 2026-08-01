@@ -23,7 +23,7 @@ import {
 } from 'phosphor-react-native';
 
 import type { ProfileStackParamList } from '@app/navigation/types';
-import { getApiErrorMessage } from '@shared/api/errors';
+import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -313,10 +313,11 @@ export function WalletScreen(): React.JSX.Element {
         ) : isBalanceError && !balanceData ? (
           <View style={styles.balanceErrorGroup}>
             <Text style={styles.balanceErrorText}>
-              {getApiErrorMessage(balanceError)}
+              {getLocalizedApiErrorMessage(balanceError, t)}
             </Text>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={t('common.retry')}
               onPress={handleRetryBalance}
               style={styles.retryBalanceButton}
             >
@@ -415,10 +416,11 @@ export function WalletScreen(): React.JSX.Element {
             {t('wallet.loadTransactionsFailed')}
           </Text>
           <Text style={styles.errorMessage}>
-            {getApiErrorMessage(transactionsError)}
+            {getLocalizedApiErrorMessage(transactionsError, t)}
           </Text>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={t('common.retry')}
             onPress={handleRetryTransactions}
             style={styles.retryButton}
           >
@@ -463,6 +465,7 @@ export function WalletScreen(): React.JSX.Element {
       return (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={t('wallet.retryMore')}
           onPress={handleRetryNextPage}
           style={styles.footerRetry}
         >
@@ -485,7 +488,10 @@ export function WalletScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
 
       <View style={styles.header}>
         <Pressable
@@ -495,7 +501,7 @@ export function WalletScreen(): React.JSX.Element {
           onPress={handleBack}
           style={styles.backButton}
         >
-          <ArrowLeft size={24} color={theme.colors.textInverse} weight="bold" />
+          <ArrowLeft size={24} color={theme.colors.textPrimary} weight="bold" />
         </Pressable>
         <Text style={styles.headerTitle}>{t('wallet.title')}</Text>
         <View style={styles.headerSpacer} />
@@ -532,7 +538,13 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     paddingHorizontal: spacing.md,
-    backgroundColor: theme.colors.primary,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
   },
   backButton: {
     width: 40,
@@ -546,7 +558,7 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: theme.colors.textInverse,
+    color: theme.colors.textPrimary,
     textAlign: 'center' as const,
   },
   headerSpacer: {
@@ -570,7 +582,8 @@ const createStyles = (theme: AppTheme) => ({
   balanceLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: `${theme.colors.textInverse}bb`,
+    color: theme.colors.textInverse,
+    opacity: 0.76,
   },
   balanceLoader: {
     marginVertical: spacing.md,
@@ -608,7 +621,8 @@ const createStyles = (theme: AppTheme) => ({
   staleDataText: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: `${theme.colors.textInverse}cc`,
+    color: theme.colors.textInverse,
+    opacity: 0.82,
   },
   topUpButton: {
     flexDirection: 'row' as const,
@@ -645,7 +659,13 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.sm,
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
   },
   comingSoonIcon: {
     width: 32,
@@ -689,7 +709,8 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     lineHeight: 18,
-    color: `${theme.colors.textInverse}cc`,
+    color: theme.colors.textInverse,
+    opacity: 0.82,
   },
   transactionRow: {
     minHeight: 76,
@@ -698,8 +719,12 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.divider,
-    backgroundColor: theme.colors.background,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.background,
   },
   transactionIcon: {
     width: 44,

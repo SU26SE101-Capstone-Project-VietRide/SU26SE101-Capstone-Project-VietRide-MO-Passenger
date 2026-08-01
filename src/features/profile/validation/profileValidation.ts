@@ -85,19 +85,21 @@ export const apiProfileFieldErrors = <Field extends string>(
   fields: Parameters<typeof apiFieldErrors<Field>>[0],
 ): FieldErrorMap<Field> => apiFieldErrors<Field>(fields);
 
-const LOCAL_VALIDATION_KEY_PREFIXES = [
-  'profile.validation.',
-  'security.validation.',
+const LOCAL_PROFILE_KEY_PREFIXES = [
+  'profile.',
+  'security.',
 ] as const;
 
-/** Translate local schema keys while preserving backend-provided field copy. */
-export const localizeProfileFieldError = (
+/** Translate app-owned keys and keep backend field copy out of the UI. */
+export const localizeProfileMessage = (
   message: string | undefined,
   t: TFunction,
 ): string | undefined => {
   if (!message) return undefined;
 
-  return LOCAL_VALIDATION_KEY_PREFIXES.some((prefix) => message.startsWith(prefix))
+  return LOCAL_PROFILE_KEY_PREFIXES.some((prefix) => message.startsWith(prefix))
     ? t(message)
-    : message;
+    : t('errors.api.validation');
 };
+
+export const localizeProfileFieldError = localizeProfileMessage;

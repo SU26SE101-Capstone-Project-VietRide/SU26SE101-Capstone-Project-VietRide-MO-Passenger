@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
@@ -29,6 +30,7 @@ export function FloatingActionBar({
   onPress,
   disabled = false,
 }: FloatingActionBarProps): React.JSX.Element {
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
 
@@ -42,20 +44,20 @@ export function FloatingActionBar({
       {/* Summary row */}
       <View style={styles.summaryRow}>
         <View style={styles.seatsInfo}>
-          <Text style={styles.seatsLabel}>Selected Seats</Text>
+          <Text style={styles.seatsLabel}>{t('booking.seats.selected')}</Text>
           <View style={styles.seatBadges}>
             {selectedSeats.map((seat) => (
               <View key={seat.id} style={styles.seatBadge}>
                 <Text style={styles.seatBadgeText}>{seat.label}</Text>
               </View>
             ))}
-            {selectedSeats.length === 0 && (
-              <Text style={styles.noSeatsText}>None</Text>
-            )}
+            {selectedSeats.length === 0 ? (
+              <Text style={styles.noSeatsText}>{t('common.none')}</Text>
+            ) : null}
           </View>
         </View>
         <View style={styles.priceInfo}>
-          <Text style={styles.priceLabel}>Total Price</Text>
+          <Text style={styles.priceLabel}>{t('booking.totalPrice')}</Text>
           <Text style={styles.priceValue}>
             {formatVnd(totalPrice, { clampNegative: true })}
           </Text>

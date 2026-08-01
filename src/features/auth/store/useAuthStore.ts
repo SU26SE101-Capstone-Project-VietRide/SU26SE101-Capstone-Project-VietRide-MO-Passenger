@@ -8,7 +8,7 @@
 import { create } from 'zustand';
 
 import { queryClient } from '@shared/api/queryClient';
-import { toApiError } from '@shared/api/errors';
+import { ApiRequestError, toApiError } from '@shared/api/errors';
 import { clearSessionBoundState } from '@shared/session/cleanup';
 import {
   isTokenExpired,
@@ -34,7 +34,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isGuest: boolean;
   isAuthLoading: boolean;
-  authError: string | null;
+  authError: ApiRequestError | null;
 
   setSession: (session: AuthSession) => Promise<void>;
   setUser: (user: User, expectedSessionEpoch: number) => boolean;
@@ -123,11 +123,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (isTokenSessionEpochCurrent(sessionEpoch)) {
         await clearToken();
       }
-      throw new Error('Không thể lưu phiên đăng nhập an toàn trên thiết bị.');
+      throw new Error('Unable to persist the authenticated session securely.');
     }
 
     if (!isTokenSessionEpochCurrent(sessionEpoch)) {
-      throw new Error('Phiên đăng nhập đã được thay thế bởi một phiên mới hơn.');
+      throw new Error('The authentication session was superseded by a newer session.');
     }
 
     clearSessionData();
@@ -181,7 +181,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     if (!cleared) {
-      throw new Error('Không thể xóa phiên đăng nhập cũ khỏi thiết bị. Vui lòng thử lại.');
+      throw new Error('Unable to clear the previous local authentication session.');
     }
 
     clearSessionData();
@@ -231,7 +231,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         clearSessionData();
         set({
           ...unauthenticatedState,
-          authError: 'PhiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng xÃ¡c thá»±c email rá»“i Ä‘Äƒng nháº­p láº¡i.',
+          authError: new ApiRequestError({
+            code: 'AUTH_EMAIL_NOT_VERIFIED',
+            message: 'The stored session requires email verification.',
+          }),
         });
         return;
       }
@@ -262,7 +265,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           clearSessionData();
           set({
             ...unauthenticatedState,
-            authError: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+            authError: new ApiRequestError({
+              code: 'AUTH_TOKEN_INVALID',
+              message: 'The stored authentication session has expired.',
+            }),
           });
           return;
         }
@@ -296,7 +302,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAuthenticated: true,
           isGuest: false,
           isAuthLoading: false,
-          authError: error instanceof Error ? error.message : 'Không thể đồng bộ hồ sơ lúc này.',
+          authError: toApiError(error),
         });
         return;
       }
@@ -333,7 +339,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         set({
           ...unauthenticatedState,
-          authError: error instanceof Error ? error.message : 'Phiên đăng nhập không hợp lệ.',
+          authError: toApiError(error),
         });
         return;
       }
@@ -345,7 +351,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
         isGuest: false,
         isAuthLoading: false,
-        authError: error instanceof Error ? error.message : 'Không thể đồng bộ hồ sơ lúc này.',
+        authError: toApiError(error),
       });
     }
   },
@@ -400,7 +406,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (shouldKeepLocalSession(error)) {
         set({
           isAuthLoading: false,
-          authError: error instanceof Error ? error.message : 'Không thể đồng bộ hồ sơ lúc này.',
+          authError: toApiError(error),
         });
         return null;
       }
@@ -414,7 +420,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       clearSessionData();
       set({
         ...unauthenticatedState,
-        authError: error instanceof Error ? error.message : 'Không thể làm mới phiên đăng nhập.',
+        authError: toApiError(error),
       });
       return null;
     }
@@ -442,7 +448,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         ...unauthenticatedState,
         authError: cleared
           ? null
-          : 'Không thể xóa hoàn toàn phiên đăng nhập khỏi thiết bị. Vui lòng khởi động lại ứng dụng.',
+          : new ApiRequestError({
+            code: 'AUTH_LOCAL_SESSION_CLEAR_FAILED',
+            message: 'The local authentication session could not be cleared completely.',
+          }),
       });
     }
 

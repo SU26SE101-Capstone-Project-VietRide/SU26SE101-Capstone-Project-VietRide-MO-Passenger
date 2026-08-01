@@ -4,25 +4,38 @@
  * Floating modern bottom tabs with an elevated center Chatbot action.
  */
 
-import React, { useEffect, useMemo, useRef } from 'react';
-import { View, Pressable, Image, Animated, Easing } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Pressable } from 'react-native';
+import { Image } from 'expo-image';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native';
 
 import { spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
-import { motionTokens, useMotion } from '@shared/motion';
+import { useMotion } from '@shared/motion';
 import { useTabBarStore } from '@shared/store/useTabBarStore';
 import type { AppTheme } from '@shared/theme';
 import { APP_LOGO } from '@shared/constants/assets';
+import { FLOATING_TAB_BAR_HEIGHT } from '@shared/constants/layout';
 
-export const CUSTOM_TAB_BAR_BASE_HEIGHT = 76;
+export const CUSTOM_TAB_BAR_BASE_HEIGHT = FLOATING_TAB_BAR_HEIGHT;
+const TAB_BAR_COLLAPSE_DURATION_MS = 320;
+const TAB_BAR_EXPAND_DURATION_MS = 360;
 
-export function CustomTabBar({ state, descriptors: _descriptors, navigation }: BottomTabBarProps): React.JSX.Element {
-  const insets = useSafeAreaInsets();
+export function CustomTabBar({
+  state,
+  descriptors: _descriptors,
+  navigation,
+  insets,
+}: BottomTabBarProps): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
   const { reduceMotion } = useMotion();
@@ -30,40 +43,37 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: B
   const isCompact = useTabBarStore((tabBarState) => tabBarState.isCompact);
   const setCompact = useTabBarStore((tabBarState) => tabBarState.setCompact);
   const bottomInset = Math.max(insets.bottom, spacing.sm);
-  const compactProgress = useRef(new Animated.Value(isCompact ? 1 : 0)).current;
+  const compactProgress = useSharedValue(isCompact ? 1 : 0);
 
   useEffect(() => {
-    const animation = Animated.timing(compactProgress, {
-      toValue: isCompact ? 1 : 0,
-      duration: reduceMotion ? 0 : motionTokens.duration.emphasis,
+    const target = isCompact ? 1 : 0;
+    if (reduceMotion) {
+      compactProgress.value = target;
+      return;
+    }
+
+    compactProgress.value = withTiming(target, {
+      duration: isCompact
+        ? TAB_BAR_COLLAPSE_DURATION_MS
+        : TAB_BAR_EXPAND_DURATION_MS,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
     });
-
-    animation.start();
-
-    return () => {
-      animation.stop();
-    };
   }, [compactProgress, isCompact, reduceMotion]);
 
-  const animatedTabBarStyle = useMemo(
-    () => ({
-      opacity: compactProgress.interpolate({
-        inputRange: [0, 1],
-        outputRange: [1, 0.96],
-      }),
-      transform: [
-        {
-          translateY: compactProgress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0, 8],
-          }),
-        },
-      ],
-    }),
-    [compactProgress],
-  );
+  const animatedTabBarStyle = useAnimatedStyle(() => ({
+    opacity: 1 - compactProgress.value * 0.04,
+    transform: [
+      {
+        translateY: compactProgress.value * 8,
+      },
+      {
+        scaleX: 1 - compactProgress.value * 0.12,
+      },
+      {
+        scaleY: 1 - compactProgress.value * 0.18,
+      },
+    ],
+  }));
 
   return (
     <View
@@ -114,7 +124,8 @@ export function CustomTabBar({ state, descriptors: _descriptors, navigation }: B
                   <Image
                     source={APP_LOGO}
                     style={styles.fabImage}
-                    resizeMode="cover"
+                    contentFit="cover"
+                    transition={0}
                   />
                 </Pressable>
               </View>
@@ -196,7 +207,11 @@ const createStyles = (theme: AppTheme) => ({
     bottom: -3,
     left: -3,
     borderRadius: 42,
-    backgroundColor: theme.effects.ambientGlow,
+    backgroundColor: theme.isDark
+      ? 'rgba(85, 241, 232, 0.09)'
+      : theme.effects.isLiquid
+        ? 'rgba(0, 125, 120, 0.14)'
+        : 'rgba(0, 106, 103, 0.10)',
   },
   tabBarShadowWide: {
     position: 'absolute',
@@ -205,7 +220,11 @@ const createStyles = (theme: AppTheme) => ({
     bottom: -13,
     height: 48,
     borderRadius: 999,
-    backgroundColor: theme.colors.overlayLight,
+    backgroundColor: theme.isDark
+      ? 'rgba(0, 0, 0, 0.48)'
+      : theme.effects.isLiquid
+        ? 'rgba(0, 106, 103, 0.22)'
+        : 'rgba(0, 74, 72, 0.20)',
   },
   tabBarShadowTight: {
     position: 'absolute',
@@ -214,7 +233,11 @@ const createStyles = (theme: AppTheme) => ({
     bottom: -6,
     height: 30,
     borderRadius: 999,
-    backgroundColor: theme.colors.overlay,
+    backgroundColor: theme.isDark
+      ? 'rgba(0, 0, 0, 0.58)'
+      : theme.effects.isLiquid
+        ? 'rgba(0, 106, 103, 0.28)'
+        : 'rgba(0, 74, 72, 0.24)',
   },
   tabBarSurface: {
     position: 'absolute',
@@ -223,13 +246,17 @@ const createStyles = (theme: AppTheme) => ({
     bottom: 0,
     left: 0,
     borderRadius: 38,
-    backgroundColor: theme.effects.isLiquid
+    backgroundColor: theme.isDark
       ? theme.effects.tabBarSurface
-      : theme.colors.surface,
+      : theme.effects.isLiquid
+        ? 'rgba(255, 255, 255, 0.96)'
+        : '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: theme.effects.isLiquid
+    borderColor: theme.isDark
       ? theme.effects.glassBorderStrong
-      : theme.colors.divider,
+      : theme.effects.isLiquid
+        ? 'rgba(0, 106, 103, 0.24)'
+        : 'rgba(0, 106, 103, 0.18)',
   },
   tabBarSheen: {
     position: 'absolute',

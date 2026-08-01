@@ -1,10 +1,10 @@
 import { apiClient } from '@shared/api/axiosInstance';
+import type { TFunction } from 'i18next';
 import { normalizeIdempotencyKey } from '@shared/api/idempotency';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import type { PromoOffer } from '@shared/utils/promo';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 import { formatVnd } from '@shared/utils/format';
-import i18n from '@shared/i18n';
 import type {
   AvailableParcelTrip,
   AvailableParcelTripsParams,
@@ -157,12 +157,13 @@ export async function getReceivedParcels(
 
 export function mapParcelVoucherToPromo(
   voucher: ParcelAvailableVoucher,
+  t: TFunction,
 ): PromoOffer {
   const normalizedType = voucher.type.toUpperCase();
   const isPercent = normalizedType.includes('PERCENT');
   const discountLabel = isPercent
-    ? i18n.t('parcel.promos.percentOff', { value: voucher.value })
-    : i18n.t('parcel.promos.amountOff', {
+    ? t('parcel.promos.percentOff', { value: voucher.value })
+    : t('parcel.promos.amountOff', {
         amount: formatVnd(voucher.discountAmount || voucher.value, {
           display: 'code',
           clampNegative: true,
@@ -175,12 +176,12 @@ export function mapParcelVoucherToPromo(
     title: voucher.name,
     description:
       voucher.discountAmount > 0
-        ? i18n.t('parcel.promos.saveDeposit', {
+        ? t('parcel.promos.saveDeposit', {
             amount: formatVnd(voucher.discountAmount, {
               display: 'code',
             }),
           })
-        : i18n.t('parcel.promos.availableForRoute'),
+        : t('parcel.promos.availableForRoute'),
     discountLabel,
     expiresAt: voucher.validUntil,
     minimumSpend: voucher.minOrderAmount,

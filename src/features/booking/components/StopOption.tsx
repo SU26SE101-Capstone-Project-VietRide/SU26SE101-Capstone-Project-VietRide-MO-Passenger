@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { memo, useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Coins, MapPinLine, WarningCircle } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -16,11 +17,12 @@ interface StopOptionProps {
   refundAmount?: number;
   disabledReason?: string;
   isSelected: boolean;
-  onPress: () => void;
+  onPress: (id: string) => void;
   icon?: string;
 }
 
-export function StopOption({
+export const StopOption = memo(function StopOptionComponent({
+  id,
   name,
   address,
   time,
@@ -30,14 +32,27 @@ export function StopOption({
   isSelected,
   onPress,
 }: StopOptionProps): React.JSX.Element {
+  const { t } = useTranslation();
   const isDisabled = status === 'disabled';
+  const displayName = name.trim() || t('booking.stops.unnamed');
+  const displayAddress = address.trim() || t('common.notAvailable');
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const handlePress = useCallback(() => {
+    if (!isDisabled) {
+      onPress(id);
+    }
+  }, [id, isDisabled, onPress]);
 
   return (
     <Pressable
-      onPress={() => !isDisabled && onPress()}
+      onPress={handlePress}
       accessibilityRole="button"
+      accessibilityLabel={t('booking.stops.accessibilityLabel', {
+        name: displayName,
+        address: displayAddress,
+        time,
+      })}
       accessibilityState={{ selected: isSelected, disabled: isDisabled }}
       style={({ pressed }) => [
         styles.pointCard,
@@ -69,9 +84,9 @@ export function StopOption({
             isDisabled && styles.pointNameDisabled,
           ]}
         >
-          {name}
+          {displayName}
         </Text>
-        <Text style={styles.pointAddress}>{address}</Text>
+        <Text style={styles.pointAddress}>{displayAddress}</Text>
         {time ? (
           <View style={styles.timePill}>
             <Text style={styles.pointTime}>{time}</Text>
@@ -81,10 +96,11 @@ export function StopOption({
           <View style={styles.refundRow}>
             <Coins size={14} weight="bold" color={theme.colors.success} />
             <Text style={styles.refundText}>
-              Refund:{' '}
-              {formatVnd(refundAmount, {
-                display: 'code',
-                clampNegative: true,
+              {t('booking.stops.refund', {
+                amount: formatVnd(refundAmount, {
+                  display: 'code',
+                  clampNegative: true,
+                }),
               })}
             </Text>
           </View>
@@ -97,7 +113,7 @@ export function StopOption({
       </View>
 
       {/* Radio */}
-      {!isDisabled && (
+      {!isDisabled ? (
         <View
           style={[
             styles.radio,
@@ -106,10 +122,10 @@ export function StopOption({
         >
           {isSelected ? <View style={styles.radioDot} /> : null}
         </View>
-      )}
+      ) : null}
     </Pressable>
   );
-}
+});
 
 const createStyles = (theme: AppTheme) => ({
   pointCard: {

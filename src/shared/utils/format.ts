@@ -62,9 +62,6 @@ export function formatVnd(
   return formatter.format(normalizedAmount);
 }
 
-/** @deprecated Prefer the consistently-cased `formatVnd`. */
-export const formatVND = formatVnd;
-
 /**
  * Format a date string to a human-readable format.
  * Example: "2025-06-15T08:00:00Z" → "15/06/2025"
@@ -208,21 +205,6 @@ export function formatTime(
   return formatter.format(date);
 }
 
-/** Converts an API enum-like value such as `PENDING_PAYMENT` into a UI label. */
-export function formatStatusLabel(
-  status: string | null | undefined,
-  fallback = 'Unknown',
-  locale = getActiveIntlLocale(),
-): string {
-  const normalized = status?.trim();
-  if (!normalized) return fallback;
-
-  return normalized
-    .replace(/_/g, ' ')
-    .toLocaleLowerCase(locale)
-    .replace(/\b\w/g, character => character.toLocaleUpperCase(locale));
-}
-
 /** Format a non-negative duration as `mm:ss` for OTP/session countdowns. */
 export function formatCountdown(seconds: number): string {
   const normalizedSeconds = Number.isFinite(seconds)
@@ -231,56 +213,4 @@ export function formatCountdown(seconds: number): string {
   const minutes = Math.floor(normalizedSeconds / 60).toString().padStart(2, '0');
   const remainingSeconds = (normalizedSeconds % 60).toString().padStart(2, '0');
   return `${minutes}:${remainingSeconds}`;
-}
-
-/**
- * Format a phone number to Vietnamese format.
- * Example: "0912345678" → "091 234 5678"
- */
-export function formatPhoneNumber(phone: string): string {
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 10) {
-    return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
-  }
-  return phone;
-}
-
-/**
- * Truncate text with ellipsis.
- */
-export function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) {
-    return text;
-  }
-  return `${text.slice(0, maxLength - 3)}...`;
-}
-
-/**
- * Calculate estimated time of arrival in minutes.
- */
-export function formatETA(
-  minutes: number,
-  locale = getActiveIntlLocale(),
-): string {
-  const language = normalizeAppLocale(locale);
-  if (minutes < 60) {
-    return language === 'vi'
-      ? `${minutes} phút`
-      : `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  if (language === 'vi') {
-    return remainingMinutes > 0
-      ? `${hours} giờ ${remainingMinutes} phút`
-      : `${hours} giờ`;
-  }
-
-  const hourLabel = hours === 1 ? 'hour' : 'hours';
-  if (remainingMinutes === 0) {
-    return `${hours} ${hourLabel}`;
-  }
-
-  const minuteLabel = remainingMinutes === 1 ? 'minute' : 'minutes';
-  return `${hours} ${hourLabel} ${remainingMinutes} ${minuteLabel}`;
 }

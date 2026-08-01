@@ -42,7 +42,7 @@ function StepProgressBarComponent({
       <View style={styles.navHeaderRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('parcel.actions.goBack')}
+          accessibilityLabel={t('common.back')}
           hitSlop={8}
           style={({ pressed }) => [
             styles.navButtonLeft,
@@ -260,11 +260,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   stepBubbleActive: {
     backgroundColor: theme.colors.primary,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 5,
+    ...theme.effects.cardShadow,
   },
   stepBubbleCompleted: {
     backgroundColor: theme.colors.primary,

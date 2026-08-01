@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { Location } from '@features/location/types/location';
 import { searchStations, stationKeys } from '@features/trip/api/stationApi';
 import type { StationSearchResult } from '@features/trip/types';
@@ -32,18 +33,21 @@ const getStationDistanceKm = (
   });
 };
 
-const formatDistance = (distanceKm: number | null): string | null => {
+const formatDistance = (
+  distanceKm: number | null,
+  t: TFunction,
+): string | null => {
   if (distanceKm == null) {
     return null;
   }
 
   if (distanceKm < 1) {
-    return i18n.t('parcel.stations.distanceMeters', {
+    return t('parcel.stations.distanceMeters', {
       distance: Math.round(distanceKm * 1000),
     });
   }
 
-  return i18n.t('parcel.stations.distanceKilometers', {
+  return t('parcel.stations.distanceKilometers', {
     distance: distanceKm.toFixed(distanceKm < 10 ? 1 : 0),
   });
 };
@@ -54,6 +58,7 @@ export const mapParcelStation = (
   currentCoordinates: CurrentCoordinates | null = null,
   isResolvingCurrentLocation = false,
   precomputedDistanceKm?: number | null,
+  t: TFunction = i18n.t,
 ): Station => {
   const distanceKm =
     precomputedDistanceKm === undefined
@@ -65,11 +70,11 @@ export const mapParcelStation = (
     name: station.name,
     address: stationAddress(station) || station.name,
     distance:
-      formatDistance(distanceKm) ??
+      formatDistance(distanceKm, t) ??
       (isResolvingCurrentLocation &&
       station.latitude != null &&
       station.longitude != null
-        ? i18n.t('parcel.stations.calculatingDistance')
+        ? t('parcel.stations.calculatingDistance')
         : null),
     isClosest: index === 0 && distanceKm != null,
     city: station.city || station.province || '',
@@ -82,8 +87,7 @@ export function useParcelStations(
   currentCoordinates: CurrentCoordinates | null = null,
   isResolvingCurrentLocation = false,
 ) {
-  const { i18n: i18nInstance } = useTranslation();
-  const language = i18nInstance.resolvedLanguage;
+  const { t } = useTranslation();
   const locationId = location?.id.trim() ?? '';
 
   const query = useQuery({
@@ -132,9 +136,10 @@ export function useParcelStations(
           currentCoordinates,
           isResolvingCurrentLocation,
           distanceKm,
+          t,
         ),
       );
-  }, [currentCoordinates, isResolvingCurrentLocation, language, query.data]);
+  }, [currentCoordinates, isResolvingCurrentLocation, query.data, t]);
 
   return {
     ...query,
