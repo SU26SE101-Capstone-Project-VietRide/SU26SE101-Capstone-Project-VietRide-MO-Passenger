@@ -100,3 +100,5 @@ ios_backup/
 
 # Internal docs not for public repo
 DESIGN.md
+ANDROID_BUILD_GUIDE.md
+PLAN.md
