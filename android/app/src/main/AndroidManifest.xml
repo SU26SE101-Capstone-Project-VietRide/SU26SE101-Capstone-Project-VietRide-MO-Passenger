@@ -36,7 +36,6 @@
       <intent-filter data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
         <data android:scheme="vietride" android:host="payments" android:path="/return"/>
-        <data android:scheme="exp+viet-ride-passenger"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
       </intent-filter>

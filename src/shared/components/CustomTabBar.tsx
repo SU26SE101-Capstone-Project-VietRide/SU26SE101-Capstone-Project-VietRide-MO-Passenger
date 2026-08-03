@@ -246,11 +246,9 @@ const createStyles = (theme: AppTheme) => ({
     bottom: 0,
     left: 0,
     borderRadius: 38,
-    backgroundColor: theme.isDark
+    backgroundColor: theme.effects.isLiquid
       ? theme.effects.tabBarSurface
-      : theme.effects.isLiquid
-        ? 'rgba(255, 255, 255, 0.96)'
-        : '#FFFFFF',
+      : '#FFFFFF',
     borderWidth: 1.5,
     borderColor: theme.isDark
       ? theme.effects.glassBorderStrong

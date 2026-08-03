@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useLocations } from '@features/location/hooks/useLocations';
 import { toApiError } from '@shared/api/errors';
+import { IdempotencyKeyTracker } from '@shared/api/idempotency';
 import { useAppStore } from '@shared/store';
 import { streamChat, submitChatFeedback } from '../api/chatbotApi';
 import type {
@@ -69,6 +70,7 @@ export function useChatSession() {
   const bookingDraftRef = useRef<ChatBookingDraft | undefined>(undefined);
   const feedbackSequenceRef = useRef(0);
   const pendingFeedbackIdRef = useRef<string | undefined>(undefined);
+  const chatIdempotencyRef = useRef(new IdempotencyKeyTracker('rag-chat'));
 
   const updateMessage = useCallback(
     (id: string, update: (message: ChatMessage) => ChatMessage) => {
@@ -211,13 +213,15 @@ export function useChatSession() {
     const controller = new AbortController();
     controllerRef.current = controller;
     startStreamTimeouts(sequence);
+    const request = {
+      message,
+      ...(conversationId ? { conversationId } : {}),
+    };
+    const idempotencyKey = chatIdempotencyRef.current.getOrCreate(request);
 
     try {
       const done = await streamChat(
-        {
-          message,
-          ...(conversationId ? { conversationId } : {}),
-        },
+        request,
         {
           onActivity: () => {
             if (sequence !== requestSequence.current || !mountedRef.current) return;
@@ -230,9 +234,11 @@ export function useChatSession() {
           },
         },
         controller.signal,
+        idempotencyKey,
       );
 
       if (sequence !== requestSequence.current || !mountedRef.current) return false;
+      chatIdempotencyRef.current.reset();
       flushPendingTokens();
       setConversationId(done.conversationId);
       updateMessage(assistantId, (current) => ({
@@ -246,6 +252,9 @@ export function useChatSession() {
       if (sequence !== requestSequence.current || !mountedRef.current) return false;
 
       const apiError = toApiError(error);
+      if (!apiError.isNetworkError && apiError.statusCode && apiError.statusCode < 500) {
+        chatIdempotencyRef.current.reset();
+      }
       if (apiError.code === 'RAG_CONVERSATION_NOT_FOUND') {
         setConversationId(undefined);
       }
@@ -294,6 +303,7 @@ export function useChatSession() {
     controllerRef.current = undefined;
     clearStreamTimers();
     pendingTokenTextRef.current = '';
+    chatIdempotencyRef.current.reset();
     bookingDraftRef.current = undefined;
     activeAssistantIdRef.current = undefined;
     isStreamingRef.current = false;

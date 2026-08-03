@@ -25,6 +25,8 @@ const IOS_PODFILE_TAG = 'vietride-react-native-google-maps';
 const IOS_IMPORT_TAG = 'vietride-google-maps-import';
 const IOS_INIT_TAG = 'vietride-google-maps-init';
 const ANDROID_DEPENDENCY_TAG = 'vietride-google-maps-sdk';
+const ANDROID_API_KEY_ENV_TAG = 'vietride-google-maps-api-key-env';
+const ANDROID_API_KEY_PLACEHOLDER_TAG = 'vietride-google-maps-api-key-placeholder';
 const ANDROID_IMPORT_TAG = 'vietride-google-maps-import';
 const ANDROID_INIT_TAG = 'vietride-google-maps-init';
 const IOS_APP_DELEGATE_INIT = /\bsuper\.application\(\w+?, didFinishLaunchingWithOptions: \w+?\)/g;
@@ -32,6 +34,27 @@ const GOOGLE_MAPS_API_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
 const GOOGLE_MAPS_ANDROID_SDK_VERSION = '19.2.0';
 const GOOGLE_MAPS_USAGE_ATTRIBUTION_ID = 'gmp_git_agentskills_v1';
 const GOOGLE_MAPS_IOS_URL_SCHEMES = ['googlechromes', 'comgooglemaps'];
+const LEGACY_ANDROID_MANIFEST_PLACEHOLDER = /^\s*manifestPlaceholders = \[GOOGLE_MAPS_ANDROID_API_KEY: googleMapsApiKey \?: ''\]\r?\n/m;
+const LEGACY_ANDROID_API_KEY_SETUP_START = '\ndef localProperties = new Properties()';
+const LEGACY_ANDROID_API_KEY_SETUP_END = ')?.trim()';
+
+const removeLegacyAndroidApiKeySetup = (contents) => {
+  const startIndex = contents.indexOf(LEGACY_ANDROID_API_KEY_SETUP_START);
+  const endIndex = contents.indexOf(
+    LEGACY_ANDROID_API_KEY_SETUP_END,
+    startIndex + LEGACY_ANDROID_API_KEY_SETUP_START.length,
+  );
+  const candidate = startIndex >= 0 && endIndex >= 0
+    ? contents.slice(startIndex, endIndex)
+    : '';
+  const withoutLegacySetup = candidate.includes('def googleMapsApiKey = (')
+    ? contents.slice(0, startIndex) + contents.slice(
+      endIndex + LEGACY_ANDROID_API_KEY_SETUP_END.length,
+    )
+    : contents;
+
+  return withoutLegacySetup.replace(LEGACY_ANDROID_MANIFEST_PLACEHOLDER, '');
+};
 
 const assertValidApiKey = (apiKey, platform) => {
   if (apiKey && !GOOGLE_MAPS_API_KEY_PATTERN.test(apiKey)) {
@@ -66,9 +89,22 @@ const withGoogleMapsAndroid = (config, apiKey) => withAndroidManifest(
 const withGoogleMapsAndroidDependency = (config, enabled) => withAppBuildGradle(
   config,
   (buildGradleConfig) => {
-    const contents = removeContents({
+    // One-time migration for native projects generated before this plugin
+    // became the single owner of Maps key injection.
+    const migratedContents = removeLegacyAndroidApiKeySetup(
+      buildGradleConfig.modResults.contents,
+    );
+    let contents = removeContents({
       tag: ANDROID_DEPENDENCY_TAG,
-      src: buildGradleConfig.modResults.contents,
+      src: migratedContents,
+    }).contents;
+    contents = removeContents({
+      tag: ANDROID_API_KEY_ENV_TAG,
+      src: contents,
+    }).contents;
+    contents = removeContents({
+      tag: ANDROID_API_KEY_PLACEHOLDER_TAG,
+      src: contents,
     }).contents;
 
     if (!enabled) {
@@ -76,16 +112,37 @@ const withGoogleMapsAndroidDependency = (config, enabled) => withAppBuildGradle(
       return buildGradleConfig;
     }
 
-    const result = mergeContents({
-      tag: ANDROID_DEPENDENCY_TAG,
+    const apiKeyEnvironmentResult = mergeContents({
+      tag: ANDROID_API_KEY_ENV_TAG,
       src: contents,
+      newSrc: [
+        'def googleMapsAndroidApiKey = (System.getenv("GOOGLE_MAPS_ANDROID_API_KEY") ?: findProperty("GOOGLE_MAPS_ANDROID_API_KEY"))?.toString()?.trim()',
+        'if (!googleMapsAndroidApiKey) {',
+        '    throw new GradleException("GOOGLE_MAPS_ANDROID_API_KEY is required for this Maps-enabled build.")',
+        '}',
+      ].join('\n'),
+      anchor: /android\s*\{/,
+      offset: 0,
+      comment: '//',
+    });
+    const apiKeyPlaceholderResult = mergeContents({
+      tag: ANDROID_API_KEY_PLACEHOLDER_TAG,
+      src: apiKeyEnvironmentResult.contents,
+      newSrc: '        manifestPlaceholders["GOOGLE_MAPS_ANDROID_API_KEY"] = googleMapsAndroidApiKey',
+      anchor: /defaultConfig\s*\{/,
+      offset: 1,
+      comment: '//',
+    });
+    const dependencyResult = mergeContents({
+      tag: ANDROID_DEPENDENCY_TAG,
+      src: apiKeyPlaceholderResult.contents,
       newSrc: `    implementation "com.google.android.gms:play-services-maps:${GOOGLE_MAPS_ANDROID_SDK_VERSION}"`,
       anchor: /dependencies\s*\{/,
       offset: 1,
       comment: '//',
     });
 
-    buildGradleConfig.modResults.contents = result.contents;
+    buildGradleConfig.modResults.contents = dependencyResult.contents;
     return buildGradleConfig;
   },
 );

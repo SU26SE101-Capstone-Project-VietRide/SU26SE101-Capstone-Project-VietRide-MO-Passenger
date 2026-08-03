@@ -44,10 +44,10 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
-    // @generated begin vietride-google-maps-init - expo prebuild (DO NOT MODIFY) sync-3ff0f0bbcc1e307d0fc9272170c13439c5c8c13b
+// @generated begin vietride-google-maps-init - expo prebuild (DO NOT MODIFY) sync-3ff0f0bbcc1e307d0fc9272170c13439c5c8c13b
     MapsApiSettings.addInternalUsageAttributionId(applicationContext, "gmp_git_agentskills_v1")
     MapsInitializer.initialize(applicationContext, MapsInitializer.Renderer.LATEST, null)
-    // @generated end vietride-google-maps-init
+// @generated end vietride-google-maps-init
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {

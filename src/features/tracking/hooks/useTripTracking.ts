@@ -37,10 +37,12 @@ import {
   type TrackingRealtimeStatus,
   type TripTrackingConnection,
 } from '../api/trackingRealtime';
+import { useTrackingMapContext } from './useTrackingMapContext';
 
 export const TRACKING_LATEST_POLL_MS = 5_000;
 export const TRACKING_ETA_POLL_MS = 60_000;
 export const TRACKING_TRAIL_REFRESH_MS = 5 * 60_000;
+export const TRACKING_SOCKET_GPS_STALE_MS = 15_000;
 export const MAX_TRACKING_TRAIL_POINTS = 300;
 
 export type TrackingTripStatus = TripLifecycleStatus;
@@ -57,6 +59,7 @@ interface UseMainTripTrackingOptions {
 interface UseShuttleTrackingOptions {
   source: 'shuttle';
   shuttleTripId: string;
+  bookingId?: string;
 }
 
 export type UseTripTrackingOptions =
@@ -84,9 +87,19 @@ interface ScopedRealtimeState {
   status: TrackingRealtimeStatus;
 }
 
+interface ScopedRealtimeGpsState {
+  scopeKey: string;
+  isFresh: boolean;
+}
+
 interface ScopedEtaState {
   scopeKey: string;
   eta: LiveTrackingEta;
+}
+
+interface ScopedTargetEtaState {
+  scopeKey: string;
+  eta: TrackingEta;
 }
 
 interface ScopedDelayState {
@@ -161,16 +174,6 @@ export const getTrackingRefetchInterval = (
 const pointKey = (point: TrackingPoint): string =>
   `${point.recordedAt}:${point.latitude}:${point.longitude}`;
 
-const areTrackingPointsEqual = (
-  left: TrackingPoint,
-  right: TrackingPoint,
-): boolean => left.tripId === right.tripId
-  && left.latitude === right.latitude
-  && left.longitude === right.longitude
-  && left.speedKmh === right.speedKmh
-  && left.headingDeg === right.headingDeg
-  && left.recordedAt === right.recordedAt;
-
 export function mergeTrackingPoints(
   persistedPoints: readonly TrackingPoint[],
   livePoints: readonly TrackingPoint[],
@@ -187,6 +190,75 @@ export function mergeTrackingPoints(
     .sort((left, right) => Date.parse(left.recordedAt) - Date.parse(right.recordedAt))
     .slice(-limit);
 }
+
+const appendChronologicalTrackingPoint = (
+  points: TrackingPoint[],
+  point: TrackingPoint,
+  limit = MAX_TRACKING_TRAIL_POINTS,
+): TrackingPoint[] => {
+  if (limit <= 0) return [];
+
+  const pointTimestamp = Date.parse(point.recordedAt);
+  const latestTimestamp = Date.parse(points[points.length - 1]?.recordedAt ?? '');
+  if (Number.isFinite(latestTimestamp) && pointTimestamp <= latestTimestamp) {
+    return points;
+  }
+
+  const retainedStart = Math.max(0, points.length - limit + 1);
+  return [...points.slice(retainedStart), point];
+};
+
+const mergeChronologicalTrackingPoints = (
+  persistedPoints: readonly TrackingPoint[],
+  livePoints: readonly TrackingPoint[],
+  limit = MAX_TRACKING_TRAIL_POINTS,
+): TrackingPoint[] => {
+  if (limit <= 0) return [];
+
+  const merged: TrackingPoint[] = [];
+  let persistedIndex = 0;
+  let liveIndex = 0;
+  const push = (point: TrackingPoint): void => {
+    const previous = merged[merged.length - 1];
+    if (
+      previous
+      && Date.parse(previous.recordedAt) === Date.parse(point.recordedAt)
+    ) {
+      merged[merged.length - 1] = point;
+      return;
+    }
+    merged.push(point);
+  };
+
+  while (
+    persistedIndex < persistedPoints.length
+    && liveIndex < livePoints.length
+  ) {
+    const persisted = persistedPoints[persistedIndex] as TrackingPoint;
+    const live = livePoints[liveIndex] as TrackingPoint;
+    const persistedTimestamp = Date.parse(persisted.recordedAt);
+    const liveTimestamp = Date.parse(live.recordedAt);
+    if (persistedTimestamp < liveTimestamp) {
+      push(persisted);
+      persistedIndex += 1;
+    } else {
+      push(live);
+      liveIndex += 1;
+      if (persistedTimestamp === liveTimestamp) persistedIndex += 1;
+    }
+  }
+
+  while (persistedIndex < persistedPoints.length) {
+    push(persistedPoints[persistedIndex] as TrackingPoint);
+    persistedIndex += 1;
+  }
+  while (liveIndex < livePoints.length) {
+    push(livePoints[liveIndex] as TrackingPoint);
+    liveIndex += 1;
+  }
+
+  return merged.slice(-limit);
+};
 
 export function getNewestTrackingPoint(
   points: ReadonlyArray<TrackingPoint | null | undefined>,
@@ -212,17 +284,9 @@ const appendScopedTrackingPoint = (
   point: TrackingPoint,
 ): ScopedLiveTrailState => {
   const currentPoints = current.scopeKey === scopeKey ? current.points : [];
-  const nextPoints = mergeTrackingPoints(
-    currentPoints,
-    [point],
-    MAX_TRACKING_TRAIL_POINTS,
-  );
-  const hasChanged = nextPoints.length !== currentPoints.length
-    || nextPoints.some((nextPoint, index) => (
-      !areTrackingPointsEqual(nextPoint, currentPoints[index])
-    ));
+  const nextPoints = appendChronologicalTrackingPoint(currentPoints, point);
 
-  return current.scopeKey === scopeKey && !hasChanged
+  return current.scopeKey === scopeKey && nextPoints === currentPoints
     ? current
     : { scopeKey, points: nextPoints };
 };
@@ -260,6 +324,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
   const trackingId = options.source === 'shuttle'
     ? options.shuttleTripId
     : options.tripId;
+  const bookingId = options.source === 'shuttle' ? options.bookingId : undefined;
   const stopId = options.source === 'shuttle' ? undefined : options.stopId;
   const tripStatus = options.source === 'shuttle' ? undefined : options.tripStatus;
   const sourceTerminal = options.source === 'shuttle'
@@ -280,7 +345,12 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     scopeKey: '',
     status: 'idle',
   });
-  const [liveEtaState, setLiveEtaState] = useState<ScopedEtaState | null>(null);
+  const [realtimeGpsState, setRealtimeGpsState] = useState<ScopedRealtimeGpsState>({
+    scopeKey: '',
+    isFresh: false,
+  });
+  const [nextEtaState, setNextEtaState] = useState<ScopedEtaState | null>(null);
+  const [targetEtaState, setTargetEtaState] = useState<ScopedTargetEtaState | null>(null);
   const [delayState, setDelayState] = useState<ScopedDelayState | null>(null);
 
   const hasValidTrackingId = isUuid(trackingId);
@@ -289,7 +359,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
   const queryTrackingId = hasValidTrackingId ? trackingId : 'invalid';
   const queryStopId = stopId && hasValidStopId ? stopId : 'none';
   const scopeKey = `${queryUserId}:${source}:${queryTrackingId}`;
-  const etaScopeKey = `${scopeKey}:${queryStopId}`;
+  const targetEtaScopeKey = `${scopeKey}:${queryStopId}`;
   const activeFatalError = fatalState?.scopeKey === scopeKey
     ? fatalState.error
     : null;
@@ -318,6 +388,26 @@ export function useTripTracking(options: UseTripTrackingOptions) {
         ? 'inactive'
         : activeRealtimeStatus;
   const isRealtimeConnected = realtimeStatus === 'connected';
+  const hasFreshRealtimeGps = realtimeGpsState.scopeKey === scopeKey
+    && realtimeGpsState.isFresh;
+
+  const trackingRootKey = useMemo(
+    () => isShuttle
+      ? trackingKeys.shuttle(queryUserId, queryTrackingId)
+      : trackingKeys.trip(queryUserId, queryTrackingId),
+    [isShuttle, queryTrackingId, queryUserId],
+  );
+
+  const trackingContext = useTrackingMapContext({
+    source,
+    userId: queryUserId,
+    trackingId: queryTrackingId,
+    ...(bookingId ? { bookingId } : {}),
+    enabled: queryEnabled,
+    pollingEnabled,
+    retainSensitiveContext: isFocused && isAppActive,
+    isFatalError: isFatalTrackingError,
+  });
 
   const latestKey = useMemo(
     () => isShuttle
@@ -349,7 +439,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     retry: shouldRetryTracking,
     refetchOnReconnect: false,
     refetchInterval: (query) => getTrackingRefetchInterval(
-      pollingEnabled && !isRealtimeConnected,
+      pollingEnabled && (!isRealtimeConnected || !hasFreshRealtimeGps),
       query.state.error,
       TRACKING_LATEST_POLL_MS,
     ),
@@ -394,13 +484,40 @@ export function useTripTracking(options: UseTripTrackingOptions) {
       latestQuery.error,
       trailQuery.error,
       etaQuery.error,
+      trackingContext.contextQuery.error,
     ]);
     if (!fatalError) return;
 
     setFatalState((current) => current?.scopeKey === scopeKey
       ? current
       : { scopeKey, error: fatalError });
-  }, [etaQuery.error, latestQuery.error, scopeKey, trailQuery.error]);
+  }, [
+    etaQuery.error,
+    latestQuery.error,
+    scopeKey,
+    trackingContext.contextQuery.error,
+    trailQuery.error,
+  ]);
+
+  useEffect(() => {
+    if (!activeFatalError) return;
+
+    queryClient.removeQueries({ queryKey: trackingRootKey });
+    setLiveTrail((current) => current.scopeKey === scopeKey
+      ? { scopeKey, points: [] }
+      : current);
+    setNextEtaState((current) => current?.scopeKey === scopeKey ? null : current);
+    setTargetEtaState((current) => current?.scopeKey === targetEtaScopeKey
+      ? null
+      : current);
+    setDelayState((current) => current?.scopeKey === scopeKey ? null : current);
+  }, [
+    activeFatalError,
+    queryClient,
+    scopeKey,
+    targetEtaScopeKey,
+    trackingRootKey,
+  ]);
 
   const rawLatest = latestQuery.data?.latest ?? null;
 
@@ -426,24 +543,75 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     let disposed = false;
     let connection: TripTrackingConnection | null = null;
     let didRetryUnauthorized = false;
+    let pendingLivePoint: TrackingPoint | null = null;
+    let livePointFlushTimer: ReturnType<typeof setTimeout> | undefined;
+    let gpsFreshnessTimer: ReturnType<typeof setInterval> | undefined;
+    let lastLivePointFlushAt = 0;
+    let lastValidRealtimeGpsAt = 0;
+    let isRealtimeGpsFresh = false;
+
+    const setScopedGpsFresh = (isFresh: boolean): void => {
+      if (disposed || isRealtimeGpsFresh === isFresh) return;
+      isRealtimeGpsFresh = isFresh;
+      setRealtimeGpsState({ scopeKey, isFresh });
+    };
 
     const setScopedStatus = (status: TrackingRealtimeStatus): void => {
       if (disposed) return;
       if (status === 'connected') didRetryUnauthorized = false;
+      else setScopedGpsFresh(false);
       setRealtimeState({ scopeKey, status });
     };
 
-    const appendLivePoint = (point: TrackingPoint): void => {
-      if (disposed) return;
+    const flushLivePoint = (): void => {
+      livePointFlushTimer = undefined;
+      if (disposed || !pendingLivePoint) return;
+
+      const point = pendingLivePoint;
+      pendingLivePoint = null;
+      lastLivePointFlushAt = Date.now();
       setLiveTrail((current) => appendScopedTrackingPoint(
         current,
         scopeKey,
         point,
       ));
-      queryClient.setQueryData<LiveTrackingLatestResponse>(latestKey, (current) => ({
-        latest: getNewestTrackingPoint([current?.latest, point]),
-      }));
+      queryClient.setQueryData<LiveTrackingLatestResponse>(latestKey, (current) => {
+        const latest = getNewestTrackingPoint([current?.latest, point]);
+        return latest === current?.latest ? current : { latest };
+      });
     };
+
+    const appendLivePoint = (point: TrackingPoint): void => {
+      if (disposed) return;
+      lastValidRealtimeGpsAt = Date.now();
+      setScopedGpsFresh(true);
+      if (
+        pendingLivePoint
+        && Date.parse(point.recordedAt) <= Date.parse(pendingLivePoint.recordedAt)
+      ) {
+        return;
+      }
+
+      pendingLivePoint = point;
+      if (livePointFlushTimer !== undefined) return;
+
+      const elapsed = Date.now() - lastLivePointFlushAt;
+      const delayMs = Math.max(0, 1_000 - elapsed);
+      if (delayMs === 0) {
+        flushLivePoint();
+        return;
+      }
+      livePointFlushTimer = setTimeout(flushLivePoint, delayMs);
+    };
+
+    gpsFreshnessTimer = setInterval(() => {
+      if (
+        isRealtimeGpsFresh
+        && Date.now() - lastValidRealtimeGpsAt >= TRACKING_SOCKET_GPS_STALE_MS
+      ) {
+        setScopedGpsFresh(false);
+      }
+    }, TRACKING_LATEST_POLL_MS);
 
     const startConnection = (accessToken: string): void => {
       if (disposed) return;
@@ -485,7 +653,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
           onGpsUpdate: appendLivePoint,
           onEtaUpdate: (eta) => {
             if (disposed) return;
-            setLiveEtaState({ scopeKey: etaScopeKey, eta });
+            setNextEtaState({ scopeKey, eta });
             queryClient.setQueryData<ShuttleTrackingEtaResponse>(
               etaKey,
               (current) => ({ eta: getNewestEta(current?.eta, eta) }),
@@ -499,13 +667,12 @@ export function useTripTracking(options: UseTripTrackingOptions) {
 
       connection = createTripTrackingConnection({
         tripId: trackingId,
-        ...(stopId && hasValidStopId ? { stopId } : {}),
         accessToken,
         onStatusChange: setScopedStatus,
         onGpsUpdate: appendLivePoint,
         onEtaUpdate: (eta) => {
-          if (disposed || !stopId || !hasValidStopId) return;
-          setLiveEtaState({ scopeKey: etaScopeKey, eta });
+          if (disposed) return;
+          setNextEtaState({ scopeKey, eta });
           setDelayState((current) => {
             if (eta.delayed && eta.delayMinutes !== undefined) {
               return {
@@ -522,7 +689,8 @@ export function useTripTracking(options: UseTripTrackingOptions) {
 
             return current?.scopeKey === scopeKey ? null : current;
           });
-          if (eta.stopId === stopId) {
+          if (stopId && hasValidStopId && eta.stopId === stopId) {
+            setTargetEtaState({ scopeKey: targetEtaScopeKey, eta });
             queryClient.setQueryData<TrackingEtaResponse>(etaKey, (current) => ({
               eta: getNewestEta(current?.eta, eta),
             }));
@@ -547,12 +715,14 @@ export function useTripTracking(options: UseTripTrackingOptions) {
 
     return () => {
       disposed = true;
+      if (livePointFlushTimer !== undefined) clearTimeout(livePointFlushTimer);
+      if (gpsFreshnessTimer !== undefined) clearInterval(gpsFreshnessTimer);
+      pendingLivePoint = null;
       connection?.disconnect();
     };
   }, [
     activeFatalError,
     etaKey,
-    etaScopeKey,
     hasValidStopId,
     isInactive,
     isShuttle,
@@ -561,19 +731,27 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     queryClient,
     scopeKey,
     stopId,
+    targetEtaScopeKey,
     trackingId,
     userId,
   ]);
 
+  const persistedTrailPoints = useMemo(
+    () => mergeTrackingPoints(trailQuery.data?.items ?? [], []),
+    [trailQuery.data?.items],
+  );
   const trailPoints = useMemo(() => {
-    const currentLivePoints = liveTrail.scopeKey === scopeKey
+    const currentLivePoints: TrackingPoint[] = liveTrail.scopeKey === scopeKey
       ? liveTrail.points
       : [];
-    return mergeTrackingPoints(
-      trailQuery.data?.items ?? [],
-      [...currentLivePoints, ...(rawLatest ? [rawLatest] : [])],
+    const livePointsWithLatest = rawLatest
+      ? appendChronologicalTrackingPoint(currentLivePoints, rawLatest)
+      : currentLivePoints;
+    return mergeChronologicalTrackingPoints(
+      persistedTrailPoints,
+      livePointsWithLatest,
     );
-  }, [liveTrail, rawLatest, scopeKey, trailQuery.data?.items]);
+  }, [liveTrail, persistedTrailPoints, rawLatest, scopeKey]);
 
   const latest = useMemo(
     () => getNewestTrackingPoint([
@@ -582,17 +760,41 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     ]),
     [rawLatest, trailPoints],
   );
-  const liveEta = liveEtaState?.scopeKey === etaScopeKey ? liveEtaState.eta : null;
-  const eta = getNewestEta(etaQuery.data?.eta, liveEta);
+  const scopedNextEta = nextEtaState?.scopeKey === scopeKey
+    ? nextEtaState.eta
+    : null;
+  const scopedTargetEta = targetEtaState?.scopeKey === targetEtaScopeKey
+    ? targetEtaState.eta
+    : null;
+  const nextEta: LiveTrackingEta | null = isShuttle
+    ? getNewestEta(
+        (etaQuery.data as ShuttleTrackingEtaResponse | undefined)?.eta,
+        scopedNextEta && 'shuttleTripId' in scopedNextEta
+          ? scopedNextEta
+          : null,
+      )
+    : scopedNextEta && 'stopId' in scopedNextEta
+      ? scopedNextEta
+      : null;
+  const targetEta: TrackingEta | null = isShuttle
+    ? null
+    : getNewestEta(
+        (etaQuery.data as TrackingEtaResponse | undefined)?.eta,
+        scopedTargetEta,
+      );
+  // Keep the existing field until every presentation caller migrates to the
+  // explicit operational/booking-target ETA fields.
+  const eta = isShuttle ? nextEta : targetEta;
   const delay = delayState?.scopeKey === scopeKey ? delayState.delay : null;
 
   const refetchLatest = latestQuery.refetch;
   const refetchTrail = trailQuery.refetch;
   const refetchEta = etaQuery.refetch;
+  const refetchContext = trackingContext.contextQuery.refetch;
   const refetchAll = useCallback(async (): Promise<void> => {
     if (!queryEnabled) return;
 
-    const requests: Array<Promise<unknown>> = [refetchLatest()];
+    const requests: Array<Promise<unknown>> = [refetchLatest(), refetchContext()];
     if (!isShuttle) requests.push(refetchTrail());
     if (isShuttle || (stopId && hasValidStopId)) requests.push(refetchEta());
     await Promise.all(requests);
@@ -600,6 +802,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     hasValidStopId,
     isShuttle,
     queryEnabled,
+    refetchContext,
     refetchEta,
     refetchLatest,
     refetchTrail,
@@ -610,6 +813,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     latestQuery.error,
     trailQuery.error,
     etaQuery.error,
+    trackingContext.contextQuery.error,
   ]);
   const fatalError = activeFatalError ?? queryFatalError;
 
@@ -617,13 +821,21 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     latest,
     trailPoints,
     eta,
+    nextEta,
+    targetEta,
     delay,
     latestQuery,
     trailQuery,
     etaQuery,
+    contextQuery: trackingContext.contextQuery,
+    mapContext: trackingContext.mapContext,
+    routeContext: trackingContext.routeContext,
+    shuttleContext: trackingContext.shuttleContext,
+    selectedShuttlePickup: trackingContext.selectedShuttlePickup,
     fatalError,
     realtimeStatus,
     isRealtimeConnected,
+    hasFreshRealtimeGps,
     hasAuthenticatedUser: Boolean(userId),
     hasValidTripId: hasValidTrackingId,
     hasValidTrackingId,

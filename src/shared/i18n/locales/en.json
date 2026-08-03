@@ -715,7 +715,12 @@
       "offline": "Offline. Showing the last location saved on this device.",
       "connected": "Realtime connected. Vehicle updates arrive as the driver publishes GPS.",
       "connecting": "Connecting to realtime tracking...",
-      "fallback": "Realtime is reconnecting. Location polling remains active."
+      "fallback": "Realtime is reconnecting. Location polling remains active.",
+      "liveLabel": "Live",
+      "connectingLabel": "Connecting",
+      "staleLabel": "Update delayed",
+      "offlineLabel": "Offline",
+      "terminalLabel": "Journey ended"
     },
     "states": {
       "unavailableTitle": "Tracking unavailable",
@@ -754,18 +759,34 @@
     },
     "map": {
       "unavailableTitle": "Map unavailable",
-      "unavailableProduction": "Live map is not available in this build. Verified trip coordinates remain visible below.",
-      "unavailableDevelopment": "Live coordinates remain available below. Configure an eligible native map build to enable the map.",
+      "unavailableProduction": "Live map is not available in this build.",
+      "unavailableDevelopment": "Configure an eligible native map build to enable the map.",
       "waitingTitle": "Waiting for location",
       "waitingMessage": "The driver has not published a GPS point for this trip yet.",
       "waitingShuttleMessage": "The shuttle driver has not published a GPS point yet.",
+      "waitingGpsOverlay": "Waiting for vehicle GPS",
       "loadingTitle": "Loading map",
       "loadingMessage": "Preparing the native trip map...",
       "accessibilityLabel": "Live trip map",
       "accessibilityHint": "Drag or pinch to explore the trip. Use Follow vehicle to resume live tracking.",
       "latestVehicle": "Latest vehicle location",
       "followAccessibility": "Follow the live vehicle location",
-      "followVehicle": "Follow vehicle"
+      "followVehicle": "Follow vehicle",
+      "viewRoute": "View route",
+      "viewRouteAccessibility": "Show the full planned route",
+      "routeStopMarker": "Route stop",
+      "nextStopMarker": "Next stop",
+      "targetStopMarker": "Your stop",
+      "ownPickupMarker": "Your pickup",
+      "stationMarker": "Transfer station"
+    },
+    "progress": {
+      "title": "Journey progress",
+      "upcomingStops": "Upcoming stops",
+      "stopsBeforePickup_one": "{{count}} stop before your pickup",
+      "stopsBeforePickup_other": "{{count}} stops before your pickup",
+      "pickedUp": "You have been picked up",
+      "routeUnavailable": "Planned route is not available yet"
     }
   },
   "parcel": {

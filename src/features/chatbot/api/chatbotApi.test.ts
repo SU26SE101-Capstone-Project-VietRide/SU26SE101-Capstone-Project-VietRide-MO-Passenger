@@ -89,6 +89,11 @@ describe('chatbotApi', () => {
     expect(stream.releaseLock).toHaveBeenCalledTimes(1);
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith('/rag/chat', expect.objectContaining({
       method: 'POST',
+      headers: expect.objectContaining({
+        'Idempotency-Key': expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        ),
+      }),
       body: JSON.stringify({
         message: '  chính sách vé  ',
         conversationId: CONVERSATION_ID,
@@ -219,6 +224,13 @@ describe('chatbotApi', () => {
     expect(mockPost).toHaveBeenCalledWith(
       `/rag/messages/${ASSISTANT_MESSAGE_ID}/feedback`,
       { rating: 1 },
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Idempotency-Key': expect.stringMatching(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+          ),
+        }),
+      }),
     );
   });
 

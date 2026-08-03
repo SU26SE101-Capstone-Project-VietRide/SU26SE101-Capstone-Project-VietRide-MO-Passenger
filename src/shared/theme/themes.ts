@@ -85,7 +85,7 @@ const liquidLightEffects: ThemeEffectTokens = {
   glassTint: 'rgba(234, 255, 253, 0.18)',
   fieldSurface: 'rgba(252, 255, 255, 0.72)',
   fieldBorder: 'rgba(0, 91, 87, 0.12)',
-  tabBarSurface: 'rgba(255, 255, 255, 0.82)',
+  tabBarSurface: 'rgba(255, 255, 255, 0.96)',
   tabActiveSurface: 'rgba(0, 154, 148, 0.12)',
   scrim: 'rgba(19, 33, 31, 0.32)',
   cardShadow: shadow('0 4px 16px rgba(0, 74, 72, 0.04)', {

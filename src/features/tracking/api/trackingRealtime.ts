@@ -36,6 +36,7 @@ export type TrackingJoinFailure =
   | 'SHUTTLE_TRIP_NOT_FOUND'
   | 'TRACKING_TRIP_NOT_ACTIVE'
   | 'TRACKING_AUTH_UNAVAILABLE'
+  | 'TRACKING_CONTEXT_UNAVAILABLE'
   | 'UNAUTHORIZED'
   | 'VALIDATION_ERROR'
   | 'INVALID_ACK';
@@ -84,6 +85,7 @@ interface CreateTripTrackingConnectionOptions
   extends CreateTrackingConnectionBaseOptions {
   source?: 'trip';
   tripId: string;
+  /** @deprecated ETA filtering belongs to the tracking orchestration hook. */
   stopId?: string;
   onEtaUpdate: (eta: TrackingEtaUpdate) => void;
   onDelayUpdate: (delay: TrackingDelayUpdate) => void;
@@ -132,6 +134,7 @@ const joinFailureSchema = z.object({
     'SHUTTLE_TRIP_NOT_FOUND',
     'TRACKING_TRIP_NOT_ACTIVE',
     'TRACKING_AUTH_UNAVAILABLE',
+    'TRACKING_CONTEXT_UNAVAILABLE',
     'UNAUTHORIZED',
     'VALIDATION_ERROR',
   ]),
@@ -167,7 +170,6 @@ export function createTripTrackingConnection(
 ): TripTrackingConnection {
   const isShuttle = options.source === 'shuttle';
   const trackingId = isShuttle ? options.shuttleTripId : options.tripId;
-  const stopId = isShuttle ? undefined : options.stopId;
   const {
     accessToken,
     onStatusChange,
@@ -182,9 +184,6 @@ export function createTripTrackingConnection(
         ? 'Invalid shuttleTripId for realtime tracking.'
         : 'Invalid tripId for realtime tracking.',
     );
-  }
-  if (stopId !== undefined && !isUuid(stopId)) {
-    throw new Error('Invalid stopId for realtime tracking.');
   }
   if (accessToken.trim().length === 0) {
     throw new Error('Missing access token for realtime tracking.');
@@ -280,6 +279,7 @@ export function createTripTrackingConnection(
       }
       if (
         failure === 'TRACKING_AUTH_UNAVAILABLE'
+        || failure === 'TRACKING_CONTEXT_UNAVAILABLE'
         || failure === 'VALIDATION_ERROR'
       ) {
         scheduleJoinRetry(requestJoin);
@@ -356,7 +356,6 @@ export function createTripTrackingConnection(
     socket.on('eta:update', (value) => {
       const parsed = trackingEtaUpdateSchema.safeParse(value);
       if (!parsed.success || parsed.data.tripId !== trackingId) return;
-      if (stopId !== undefined && parsed.data.stopId !== stopId) return;
       options.onEtaUpdate(parsed.data);
     });
 

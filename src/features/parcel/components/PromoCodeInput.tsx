@@ -468,11 +468,13 @@ const createStyles = (theme: AppTheme) => ({
   },
   promoSheet: {
     maxHeight: '82%',
-    backgroundColor: theme.effects.glassSurfaceStrong,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.tabBarSurface
+      : theme.colors.surfaceElevated,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,

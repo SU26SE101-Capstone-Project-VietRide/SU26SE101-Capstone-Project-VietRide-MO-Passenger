@@ -11,7 +11,6 @@ export type Environment = 'development' | 'staging' | 'production';
 
 interface AppConfig {
   readonly apiBaseUrl: string;
-  readonly wsUrl: string;
   readonly nativeGoogleMapsEnabled: Readonly<{
     android: boolean;
     ios: boolean;
@@ -78,7 +77,6 @@ const requireServiceUrl = (
 
 // Expo replaces public variables only when accessed through static dot notation.
 const apiBaseUrlValue = process.env.EXPO_PUBLIC_API_BASE_URL;
-const wsUrlValue = process.env.EXPO_PUBLIC_WS_URL;
 const secureTransportRequired = env !== 'development';
 
 const isExplicitlyEnabled = (value: string | undefined): boolean => value === 'true';
@@ -88,11 +86,6 @@ export const appConfig: AppConfig = {
     'EXPO_PUBLIC_API_BASE_URL',
     apiBaseUrlValue,
     secureTransportRequired ? ['https:'] : ['http:', 'https:'],
-  ),
-  wsUrl: requireServiceUrl(
-    'EXPO_PUBLIC_WS_URL',
-    wsUrlValue,
-    secureTransportRequired ? ['wss:'] : ['ws:', 'wss:'],
   ),
   nativeGoogleMapsEnabled: {
     android: isExplicitlyEnabled(

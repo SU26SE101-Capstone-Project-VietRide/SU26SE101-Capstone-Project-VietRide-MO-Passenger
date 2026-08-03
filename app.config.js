@@ -5,6 +5,7 @@ const { resolveGoogleMapsNativeConfig } = require('./config/googleMapsConfig');
 const baseConfig = {
   name: 'VietRide',
   slug: 'viet-ride-passenger',
+  owner: 'vitoomac116s-team',
   version: '0.0.1',
   scheme: 'vietride',
   orientation: 'portrait',
@@ -212,6 +213,11 @@ if (isProduction && buildPlatform === 'ios' && !hasIosFirebaseConfig) {
 
 module.exports = {
   ...baseConfig,
+  extra: {
+    eas: {
+      projectId: 'dd7171b6-f140-4564-ba91-0ee0567d00a1',
+    },
+  },
   ios: {
     ...baseConfig.ios,
     ...(configuredIosFirebaseFile

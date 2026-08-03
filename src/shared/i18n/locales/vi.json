@@ -715,7 +715,12 @@
       "offline": "Đang ngoại tuyến. Hiển thị vị trí gần nhất đã lưu trên thiết bị.",
       "connected": "Đã kết nối thời gian thực. Vị trí xe sẽ cập nhật khi tài xế gửi GPS.",
       "connecting": "Đang kết nối theo dõi thời gian thực...",
-      "fallback": "Kết nối thời gian thực đang phục hồi. Cơ chế cập nhật vị trí dự phòng vẫn hoạt động."
+      "fallback": "Kết nối thời gian thực đang phục hồi. Cơ chế cập nhật vị trí dự phòng vẫn hoạt động.",
+      "liveLabel": "Trực tiếp",
+      "connectingLabel": "Đang kết nối",
+      "staleLabel": "Chậm cập nhật",
+      "offlineLabel": "Ngoại tuyến",
+      "terminalLabel": "Đã kết thúc"
     },
     "states": {
       "unavailableTitle": "Chưa thể theo dõi",
@@ -754,18 +759,34 @@
     },
     "map": {
       "unavailableTitle": "Bản đồ chưa khả dụng",
-      "unavailableProduction": "Bản đồ trực tiếp chưa khả dụng trong bản dựng này. Tọa độ chuyến đã xác minh vẫn hiển thị bên dưới.",
-      "unavailableDevelopment": "Tọa độ trực tiếp vẫn hiển thị bên dưới. Hãy cấu hình bản dựng bản đồ native hợp lệ để bật bản đồ.",
+      "unavailableProduction": "Bản đồ trực tiếp chưa khả dụng trong bản dựng này.",
+      "unavailableDevelopment": "Hãy cấu hình bản dựng bản đồ native hợp lệ để bật bản đồ.",
       "waitingTitle": "Đang chờ vị trí",
       "waitingMessage": "Tài xế chưa gửi điểm GPS cho chuyến đi này.",
       "waitingShuttleMessage": "Tài xế trung chuyển chưa gửi điểm GPS.",
+      "waitingGpsOverlay": "Đang chờ GPS của xe",
       "loadingTitle": "Đang tải bản đồ",
       "loadingMessage": "Đang chuẩn bị bản đồ chuyến đi...",
       "accessibilityLabel": "Bản đồ chuyến đi trực tiếp",
       "accessibilityHint": "Kéo hoặc chụm để khám phá hành trình. Dùng Theo xe để tiếp tục theo dõi trực tiếp.",
       "latestVehicle": "Vị trí xe mới nhất",
       "followAccessibility": "Theo dõi vị trí trực tiếp của xe",
-      "followVehicle": "Theo xe"
+      "followVehicle": "Theo xe",
+      "viewRoute": "Xem toàn tuyến",
+      "viewRouteAccessibility": "Hiển thị toàn bộ lộ trình dự kiến",
+      "routeStopMarker": "Điểm dừng",
+      "nextStopMarker": "Điểm kế tiếp",
+      "targetStopMarker": "Điểm của bạn",
+      "ownPickupMarker": "Điểm đón của bạn",
+      "stationMarker": "Bến trung chuyển"
+    },
+    "progress": {
+      "title": "Tiến độ hành trình",
+      "upcomingStops": "Các điểm tiếp theo",
+      "stopsBeforePickup_one": "{{count}} điểm trước khi đón bạn",
+      "stopsBeforePickup_other": "{{count}} điểm trước khi đón bạn",
+      "pickedUp": "Xe đã đón bạn",
+      "routeUnavailable": "Lộ trình dự kiến chưa khả dụng"
     }
   },
   "parcel": {

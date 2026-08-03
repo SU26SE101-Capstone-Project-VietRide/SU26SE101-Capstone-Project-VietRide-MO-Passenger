@@ -1,6 +1,10 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import { authenticatedFetch } from '@shared/api/authenticatedFetch';
 import {
+  createIdempotencyKey,
+  normalizeIdempotencyKey,
+} from '@shared/api/idempotency';
+import {
   ApiRequestError,
   parseApiErrorResponse,
   unwrapApiResponse,
@@ -56,12 +60,16 @@ export async function streamChat(
   request: CreateChatRequest,
   callbacks: ChatStreamCallbacks,
   signal: AbortSignal,
+  idempotencyKey = createIdempotencyKey('rag-chat'),
 ): Promise<RagChatDoneData> {
   let response: Awaited<ReturnType<typeof authenticatedFetch>>;
 
   try {
     response = await authenticatedFetch('/rag/chat', {
       method: 'POST',
+      headers: {
+        'Idempotency-Key': normalizeIdempotencyKey(idempotencyKey),
+      },
       body: JSON.stringify(request),
       signal,
     });
@@ -189,6 +197,11 @@ export async function submitChatFeedback(
   const response = await apiClient.post<ApiEnvelope<ChatFeedbackResponse>>(
     `/rag/messages/${safeMessageId}/feedback`,
     { rating },
+    {
+      headers: {
+        'Idempotency-Key': createIdempotencyKey('rag-feedback'),
+      },
+    },
   );
 
   return unwrapApiResponse(response.data);

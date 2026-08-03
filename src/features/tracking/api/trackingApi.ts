@@ -1,5 +1,9 @@
 import { apiClient } from '@shared/api/axiosInstance';
-import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import {
+  ApiRequestError,
+  unwrapApiResponse,
+  type ApiEnvelope,
+} from '@shared/api/errors';
 import { isValidGeoCoordinate } from '@shared/utils/geo';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 import { z } from 'zod';
@@ -15,13 +19,13 @@ const trackingPointShape = {
   recordedAt: trackingDateTimeSchema,
 } as const;
 
-const trackingPointSchema = z.object(trackingPointShape)
+const trackingPointSchema = z.object(trackingPointShape).strict()
   .refine(isValidGeoCoordinate, 'Invalid GPS coordinate.');
 
 const trackingTrailPointSchema = z.object({
   ...trackingPointShape,
   id: z.string().uuid(),
-}).refine(isValidGeoCoordinate, 'Invalid GPS coordinate.');
+}).strict().refine(isValidGeoCoordinate, 'Invalid GPS coordinate.');
 
 export const trackingEtaSchema = z.object({
   tripId: z.string().uuid(),
@@ -30,11 +34,11 @@ export const trackingEtaSchema = z.object({
   estimatedArrivalTime: trackingDateTimeSchema,
   distanceMeters: z.number().int().nonnegative(),
   updatedAt: trackingDateTimeSchema,
-});
+}).strict();
 
 const trackingLatestResponseSchema = z.object({
   latest: trackingPointSchema.nullable(),
-});
+}).strict();
 
 const trackingTrailResponseSchema = z.object({
   items: z.array(trackingTrailPointSchema),
@@ -44,11 +48,64 @@ const trackingTrailResponseSchema = z.object({
   totalPages: z.number().int().nonnegative(),
   hasNextPage: z.boolean(),
   hasPreviousPage: z.boolean(),
-});
+}).strict();
 
 const trackingEtaResponseSchema = z.object({
   eta: trackingEtaSchema.nullable(),
-});
+}).strict();
+
+const trackingGeoCoordinateShape = {
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
+} as const;
+
+const trackingRoutePointSchema = z.object(trackingGeoCoordinateShape).strict();
+
+const trackingRouteStationSchema = z.object({
+  stationId: z.string().uuid(),
+  name: z.string(),
+  ...trackingGeoCoordinateShape,
+}).strict();
+
+const trackingRouteIntermediateStopSchema = z.object({
+  stopId: z.string().uuid(),
+  name: z.string(),
+  sequence: z.number().int(),
+  ...trackingGeoCoordinateShape,
+}).strict();
+
+const tripRouteContextSchema = z.object({
+  tripId: z.string().uuid(),
+  geometry: z.object({
+    source: z.literal('ROUTE_POLYLINE'),
+    points: z.array(trackingRoutePointSchema).min(2).max(1_000),
+  }).strict().nullable(),
+  originStation: trackingRouteStationSchema.nullable(),
+  intermediateStops: z.array(trackingRouteIntermediateStopSchema),
+  destinationStation: trackingRouteStationSchema.nullable(),
+}).strict();
+
+const shuttlePassengerPickupSchema = z.object({
+  bookingId: z.string().uuid(),
+  pickupOrder: z.number().int().positive(),
+  ...trackingGeoCoordinateShape,
+  status: z.enum(['PENDING', 'PICKED_UP']),
+  stopsBeforePickup: z.number().int().nonnegative(),
+}).strict();
+
+const shuttlePassengerStationSchema = z.object({
+  stationId: z.string().uuid(),
+  name: z.string(),
+  ...trackingGeoCoordinateShape,
+  pickupOrder: z.number().int().positive(),
+}).strict();
+
+const shuttlePassengerContextSchema = z.object({
+  shuttleTripId: z.string().uuid(),
+  mainTripId: z.string().uuid(),
+  ownPickups: z.array(shuttlePassengerPickupSchema),
+  station: shuttlePassengerStationSchema.nullable(),
+}).strict();
 
 const shuttleTrackingPointSchema = z.object({
   shuttleTripId: z.string().uuid(),
@@ -81,6 +138,27 @@ export type TrackingEta = z.infer<typeof trackingEtaSchema>;
 export type TrackingEtaResponse = z.infer<typeof trackingEtaResponseSchema>;
 
 export type ShuttleTrackingEta = z.infer<typeof shuttleTrackingEtaSchema>;
+
+export type TrackingGeoCoordinate = z.infer<typeof trackingRoutePointSchema>;
+
+export type TrackingRouteStation = z.infer<typeof trackingRouteStationSchema>;
+
+export type TrackingRouteIntermediateStop = z.infer<
+  typeof trackingRouteIntermediateStopSchema
+>;
+
+export type TripRouteContext = z.infer<typeof tripRouteContextSchema>;
+
+export interface TripRouteContextCache {
+  data: TripRouteContext;
+  etag: string | null;
+}
+
+export type ShuttlePassengerPickup = z.infer<typeof shuttlePassengerPickupSchema>;
+
+export type ShuttlePassengerStation = z.infer<typeof shuttlePassengerStationSchema>;
+
+export type ShuttlePassengerContext = z.infer<typeof shuttlePassengerContextSchema>;
 
 export interface ShuttleTrackingLatestResponse {
   latest: TrackingPoint | null;
@@ -184,6 +262,26 @@ export const parseTrackingEtaResponse = (
   return parsed;
 };
 
+export const parseTripRouteContext = (
+  value: unknown,
+  expectedTripId: string,
+): TripRouteContext => {
+  const parsed = tripRouteContextSchema.parse(value);
+  assertExpectedTrip(expectedTripId, [parsed.tripId]);
+  return parsed;
+};
+
+export const parseShuttlePassengerContext = (
+  value: unknown,
+  expectedShuttleTripId: string,
+): ShuttlePassengerContext => {
+  const parsed = shuttlePassengerContextSchema.parse(value);
+  if (parsed.shuttleTripId !== expectedShuttleTripId) {
+    throw new Error('Shuttle passenger context does not match the requested trip.');
+  }
+  return parsed;
+};
+
 export const trackingKeys = {
   all: ['tracking'] as const,
   trip: (userId: string, tripId: string) =>
@@ -194,18 +292,58 @@ export const trackingKeys = {
     [...trackingKeys.trip(userId, tripId), 'trail'] as const,
   eta: (userId: string, tripId: string, stopId: string) =>
     [...trackingKeys.trip(userId, tripId), 'eta', stopId] as const,
+  routeContext: (userId: string, tripId: string) =>
+    [...trackingKeys.trip(userId, tripId), 'route-context'] as const,
   shuttle: (userId: string, shuttleTripId: string) =>
     [...trackingKeys.all, userId, 'shuttle', shuttleTripId] as const,
   shuttleLatest: (userId: string, shuttleTripId: string) =>
     [...trackingKeys.shuttle(userId, shuttleTripId), 'latest'] as const,
   shuttleEta: (userId: string, shuttleTripId: string) =>
     [...trackingKeys.shuttle(userId, shuttleTripId), 'eta'] as const,
+  shuttlePassengerContext: (userId: string, shuttleTripId: string) =>
+    [...trackingKeys.shuttle(userId, shuttleTripId), 'passenger-context'] as const,
 };
 
 const trackingTripPath = (tripId: string): string => {
   const tripIdSegment = encodeUuidPathSegment(tripId, 'tripId');
   return `/tracking/trips/${tripIdSegment}`;
 };
+
+const readEtagHeader = (headers: Record<string, unknown>): string | null => {
+  const value = headers.etag ?? headers.ETag;
+  return typeof value === 'string' && value.length > 0 ? value : null;
+};
+
+export async function getTripRouteContext(
+  tripId: string,
+  previous?: TripRouteContextCache,
+  signal?: AbortSignal,
+): Promise<TripRouteContextCache> {
+  const response = await apiClient.get<ApiEnvelope<unknown>>(
+    `${trackingTripPath(tripId)}/route-geometry`,
+    {
+      ...(previous?.etag
+        ? { headers: { 'If-None-Match': previous.etag } }
+        : {}),
+      ...(signal ? { signal } : {}),
+      validateStatus: (status) => status === 200 || status === 304,
+    },
+  );
+
+  if (response.status === 304) {
+    if (previous?.data.tripId === tripId) return previous;
+    throw new ApiRequestError({
+      code: 'TRACKING_ROUTE_CONTEXT_CACHE_MISS',
+      message: 'The tracking route cache could not satisfy a not-modified response.',
+      statusCode: 304,
+    });
+  }
+
+  return {
+    data: parseTripRouteContext(unwrapApiResponse(response.data), tripId),
+    etag: readEtagHeader(response.headers as Record<string, unknown>),
+  };
+}
 
 export async function getTrackingLatest(
   tripId: string,
@@ -266,6 +404,20 @@ const trackingShuttlePath = (shuttleTripId: string): string => {
   );
   return `/tracking/shuttle-trips/${shuttleTripIdSegment}`;
 };
+
+export async function getShuttlePassengerContext(
+  shuttleTripId: string,
+  signal?: AbortSignal,
+): Promise<ShuttlePassengerContext> {
+  const response = await apiClient.get<ApiEnvelope<unknown>>(
+    `${trackingShuttlePath(shuttleTripId)}/passenger-context`,
+    signal ? { signal } : undefined,
+  );
+  return parseShuttlePassengerContext(
+    unwrapApiResponse(response.data),
+    shuttleTripId,
+  );
+}
 
 export async function getShuttleTrackingLatest(
   shuttleTripId: string,

@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -11,7 +10,6 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import {
-  ArrowLeft,
   CheckCircle,
   Package,
   Truck,
@@ -25,7 +23,7 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import type { ParcelStackParamList } from '@app/navigation/types';
-import { LiveTripTrackingPanel } from '@features/tracking';
+import { LiveTripTrackingPanel, TrackingHeader } from '@features/tracking';
 import { ErrorView } from '../components';
 import { useParcelDetail } from '../hooks/useParcelQueries';
 import {
@@ -74,28 +72,151 @@ export function ParcelTrackingScreen(): React.JSX.Element {
   const rejectedTime = formatParcelEventTime(parcel?.rejectedAt, locale);
   const eta = formatParcelEventTime(parcel?.eta, locale);
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.navbar}>
-        <Pressable
-          accessibilityLabel={t('common.back')}
-          accessibilityRole="button"
-          hitSlop={8}
-          onPress={handleGoBack}
-          style={styles.navButton}
-        >
-          <ArrowLeft size={22} color={theme.colors.textPrimary} />
-        </Pressable>
-        <View style={styles.titleBlock}>
-          <Text style={styles.navTitle}>
-            {t('parcel.tracking.title')}
+  const detailsContent = parcel ? (
+    <>
+      <View style={styles.statusCard}>
+        <View style={styles.statusIconBackground}>
+          {isRejected ? (
+            <WarningCircle size={30} color={theme.colors.error} weight="fill" />
+          ) : (
+            <Package size={30} color={theme.colors.primary} weight="fill" />
+          )}
+        </View>
+        <View style={styles.statusMeta}>
+          <Text style={styles.eyebrow}>
+            {t('parcel.tracking.latestStatus')}
           </Text>
-          <Text numberOfLines={1} style={styles.navSubtitle}>
-            {parcel?.parcelCode || parcelId}
+          <Text style={[styles.statusValue, isRejected ? styles.rejectedText : null]}>
+            {formatParcelStatusLabel(parcel.status)}
+          </Text>
+          {eta ? (
+            <Text style={styles.etaText}>
+              {t('parcel.tracking.estimatedArrival', { time: eta })}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+
+      {!isTrackingEligible ? (
+        <View style={styles.trackingUnavailable} accessibilityRole="summary">
+          <Truck size={28} color={theme.colors.textTertiary} weight="duotone" />
+          <Text style={styles.trackingUnavailableTitle}>
+            {t('parcel.tracking.mapUnavailableTitle')}
+          </Text>
+          <Text style={styles.trackingUnavailableText}>
+            {t('parcel.tracking.mapUnavailableDescription')}
           </Text>
         </View>
-        <View style={styles.navSpacer} />
+      ) : null}
+
+      {isRejected ? (
+        <View style={styles.rejectedNotice}>
+          <WarningCircle size={20} color={theme.colors.error} weight="fill" />
+          <View style={styles.noticeContent}>
+            <Text style={styles.noticeTitle}>
+              {t('parcel.tracking.rejectedTitle')}
+            </Text>
+            <Text style={styles.noticeText}>
+              {rejectedTime
+                ? t('parcel.tracking.rejectedAt', { time: rejectedTime })
+                : t('parcel.tracking.rejectedContactSupport')}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      {(parcel.originStationName || parcel.destinationStationName) ? (
+        <View style={styles.routeCard}>
+          <View style={styles.routeEndpoint}>
+            <Text style={styles.eyebrow}>{t('parcel.route.origin')}</Text>
+            <Text style={styles.routeName}>
+              {parcel.originStationName || t('common.notAvailable')}
+            </Text>
+          </View>
+          <View style={styles.routeDivider} />
+          <View style={styles.routeEndpoint}>
+            <Text style={styles.eyebrow}>
+              {t('parcel.route.destination')}
+            </Text>
+            <Text style={styles.routeName}>
+              {parcel.destinationStationName || t('common.notAvailable')}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      <View style={styles.timelineCard}>
+        <Text style={styles.cardHeading}>
+          {t('parcel.tracking.timelineTitle')}
+        </Text>
+        <Text style={styles.cardDescription}>
+          {t('parcel.tracking.timelineDescription')}
+        </Text>
+
+        <View style={styles.timelineContainer}>
+          {milestones.map((item, index) => {
+            const isLast = index === milestones.length - 1;
+            const isCompleted = item.status === 'completed';
+            const isActive = item.status === 'active';
+
+            return (
+              <View key={item.id} style={styles.timelineRow}>
+                <View style={styles.nodeColumn}>
+                  <View
+                    style={[
+                      styles.nodeCircle,
+                      isCompleted ? styles.nodeCompleted : null,
+                      isActive ? styles.nodeActive : null,
+                    ]}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle size={19} color={theme.colors.success} weight="fill" />
+                    ) : isActive ? (
+                      <Truck size={13} color={theme.colors.textInverse} weight="fill" />
+                    ) : (
+                      <View style={styles.nodePendingDot} />
+                    )}
+                  </View>
+                  {!isLast ? (
+                    <View
+                      style={[
+                        styles.timelineLine,
+                        isCompleted ? styles.timelineLineCompleted : null,
+                      ]}
+                    />
+                  ) : null}
+                </View>
+
+                <View style={styles.timelineContent}>
+                  <Text
+                    style={[
+                      styles.timelineTitle,
+                      isActive ? styles.timelineTitleActive : null,
+                      item.status === 'pending' ? styles.timelineTitlePending : null,
+                    ]}
+                  >
+                    {t(item.titleKey)}
+                  </Text>
+                  <Text style={styles.timelineDescription}>
+                    {t(item.descriptionKey)}
+                  </Text>
+                  {item.time ? <Text style={styles.timelineTime}>{item.time}</Text> : null}
+                </View>
+              </View>
+            );
+          })}
+        </View>
       </View>
+    </>
+  ) : null;
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <TrackingHeader
+        title={t('parcel.tracking.title')}
+        subtitle={parcel?.parcelCode || parcelId}
+        onBack={handleGoBack}
+      />
 
       {isLoading ? (
         <View style={styles.stateContainer}>
@@ -113,6 +234,17 @@ export function ParcelTrackingScreen(): React.JSX.Element {
           )}
           onRetry={handleRefresh}
         />
+      ) : isTrackingEligible ? (
+        <LiveTripTrackingPanel
+          source="trip"
+          tripId={parcel.tripId}
+          stopId={parcel.dropoffStopId ?? undefined}
+          sourceTerminal={isTrackingTerminal}
+          terminalMessage={t('parcel.tracking.transportComplete')}
+          refreshing={isRefetching}
+          onRefresh={handleRefresh}
+          detailsFooter={detailsContent}
+        />
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -126,156 +258,7 @@ export function ParcelTrackingScreen(): React.JSX.Element {
           )}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.statusCard}>
-            <View style={styles.statusIconBackground}>
-              {isRejected ? (
-                <WarningCircle size={30} color={theme.colors.error} weight="fill" />
-              ) : (
-                <Package size={30} color={theme.colors.primary} weight="fill" />
-              )}
-            </View>
-            <View style={styles.statusMeta}>
-              <Text style={styles.eyebrow}>
-                {t('parcel.tracking.latestStatus')}
-              </Text>
-              <Text style={[styles.statusValue, isRejected ? styles.rejectedText : null]}>
-                {formatParcelStatusLabel(parcel.status)}
-              </Text>
-              {eta ? (
-                <Text style={styles.etaText}>
-                  {t('parcel.tracking.estimatedArrival', { time: eta })}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-
-          <View style={styles.trackingSection}>
-            <Text style={styles.cardHeading}>
-              {t('parcel.tracking.liveLocationTitle')}
-            </Text>
-            <Text style={styles.cardDescription}>
-              {t('parcel.tracking.liveLocationDescription')}
-            </Text>
-            <View style={styles.trackingContent}>
-              {isTrackingEligible ? (
-                <LiveTripTrackingPanel
-                  tripId={parcel.tripId}
-                  stopId={parcel.dropoffStopId ?? undefined}
-                  sourceTerminal={isTrackingTerminal}
-                  terminalMessage={t('parcel.tracking.transportComplete')}
-                />
-              ) : (
-                <View style={styles.trackingUnavailable} accessibilityRole="summary">
-                  <Truck size={28} color={theme.colors.textTertiary} weight="duotone" />
-                  <Text style={styles.trackingUnavailableTitle}>
-                    {t('parcel.tracking.mapUnavailableTitle')}
-                  </Text>
-                  <Text style={styles.trackingUnavailableText}>
-                    {t('parcel.tracking.mapUnavailableDescription')}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {isRejected ? (
-            <View style={styles.rejectedNotice}>
-              <WarningCircle size={20} color={theme.colors.error} weight="fill" />
-              <View style={styles.noticeContent}>
-                <Text style={styles.noticeTitle}>
-                  {t('parcel.tracking.rejectedTitle')}
-                </Text>
-                <Text style={styles.noticeText}>
-                  {rejectedTime
-                    ? t('parcel.tracking.rejectedAt', { time: rejectedTime })
-                    : t('parcel.tracking.rejectedContactSupport')}
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
-          {(parcel.originStationName || parcel.destinationStationName) ? (
-            <View style={styles.routeCard}>
-              <View style={styles.routeEndpoint}>
-                <Text style={styles.eyebrow}>{t('parcel.route.origin')}</Text>
-                <Text style={styles.routeName}>
-                  {parcel.originStationName || t('common.notAvailable')}
-                </Text>
-              </View>
-              <View style={styles.routeDivider} />
-              <View style={styles.routeEndpoint}>
-                <Text style={styles.eyebrow}>
-                  {t('parcel.route.destination')}
-                </Text>
-                <Text style={styles.routeName}>
-                  {parcel.destinationStationName || t('common.notAvailable')}
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
-          <View style={styles.timelineCard}>
-            <Text style={styles.cardHeading}>
-              {t('parcel.tracking.timelineTitle')}
-            </Text>
-            <Text style={styles.cardDescription}>
-              {t('parcel.tracking.timelineDescription')}
-            </Text>
-
-            <View style={styles.timelineContainer}>
-              {milestones.map((item, index) => {
-                const isLast = index === milestones.length - 1;
-                const isCompleted = item.status === 'completed';
-                const isActive = item.status === 'active';
-
-                return (
-                  <View key={item.id} style={styles.timelineRow}>
-                    <View style={styles.nodeColumn}>
-                      <View
-                        style={[
-                          styles.nodeCircle,
-                          isCompleted ? styles.nodeCompleted : null,
-                          isActive ? styles.nodeActive : null,
-                        ]}
-                      >
-                        {isCompleted ? (
-                          <CheckCircle size={19} color={theme.colors.success} weight="fill" />
-                        ) : isActive ? (
-                          <Truck size={13} color={theme.colors.textInverse} weight="fill" />
-                        ) : (
-                          <View style={styles.nodePendingDot} />
-                        )}
-                      </View>
-                      {!isLast ? (
-                        <View
-                          style={[
-                            styles.timelineLine,
-                            isCompleted ? styles.timelineLineCompleted : null,
-                          ]}
-                        />
-                      ) : null}
-                    </View>
-
-                    <View style={styles.timelineContent}>
-                      <Text
-                        style={[
-                          styles.timelineTitle,
-                          isActive ? styles.timelineTitleActive : null,
-                          item.status === 'pending' ? styles.timelineTitlePending : null,
-                        ]}
-                      >
-                        {t(item.titleKey)}
-                      </Text>
-                      <Text style={styles.timelineDescription}>
-                        {t(item.descriptionKey)}
-                      </Text>
-                      {item.time ? <Text style={styles.timelineTime}>{item.time}</Text> : null}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
+          {detailsContent}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -286,45 +269,6 @@ const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-  },
-  navbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
-      : theme.colors.divider,
-  },
-  navButton: {
-    ...theme.components.headerButton,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  titleBlock: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-  },
-  navTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: theme.colors.textPrimary,
-  },
-  navSubtitle: {
-    maxWidth: '100%',
-    marginTop: 2,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-  },
-  navSpacer: {
-    width: 40,
   },
   stateContainer: {
     flex: 1,
@@ -400,27 +344,13 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.errorLight,
     borderRadius: borderRadius.lg,
   },
-  trackingSection: {
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorderStrong
-      : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
-  },
-  trackingContent: {
-    marginTop: spacing.lg,
-  },
   trackingUnavailable: {
     minHeight: 180,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
     padding: spacing.lg,
+    marginBottom: spacing.md,
     borderRadius: borderRadius.lg,
     backgroundColor: theme.colors.surfaceAlt,
   },
