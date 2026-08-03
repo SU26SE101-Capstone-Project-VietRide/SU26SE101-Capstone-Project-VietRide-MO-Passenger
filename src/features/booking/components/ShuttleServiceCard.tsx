@@ -191,13 +191,9 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.md,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
-      : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.contentSurfaceSoft,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
-      : theme.colors.divider,
+    borderColor: theme.effects.contentBorder,
   },
   addressCopy: {
     flex: 1,

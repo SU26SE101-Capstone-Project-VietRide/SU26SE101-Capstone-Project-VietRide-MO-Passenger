@@ -36,7 +36,6 @@ import { Button } from '@shared/components';
 import { useApiError, useThemedStyles } from '@shared/hooks';
 import { getTokenSessionEpoch } from '@shared/utils/storage';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { getCardStyle } from '@shared/theme/helpers';
 import { formatCountdown } from '@shared/utils/format';
 import type { AuthStackParamList, ProfileStackParamList } from '@app/navigation/types';
 import { verifyEmail, resendVerificationEmail } from '../api/authApi';
@@ -69,7 +68,6 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const isLiquid = theme.variant.startsWith('liquid');
   const setUser = useAuthStore((state) => state.setUser);
   const currentUser = useAuthStore((state) => state.user);
 
@@ -253,7 +251,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
               subtitle={headerSubtitle}
             />
 
-            <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
+            <View style={styles.formCard}>
               <View style={styles.otpContainer}>
                 {code.map((digit, index) => (
                   <TextInput
@@ -383,14 +381,11 @@ const createStyles = (theme: AppTheme) => ({
     paddingBottom: spacing.xxl,
   },
   formCard: {
-    backgroundColor: theme.colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.divider,
     borderTopWidth: 3,
     borderTopColor: theme.colors.primaryLight,
-    ...theme.effects.cardShadow,
     marginBottom: spacing.xxl,
   },
   otpContainer: {
@@ -404,7 +399,7 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.lg,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.effects.fieldSurface,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
     color: theme.colors.textPrimary,

@@ -154,7 +154,12 @@ const createStyles = (theme: AppTheme) => ({
   container: { flex: 1, backgroundColor: theme.colors.background },
   header: {
     alignItems: 'center',
-    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surface,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.contentBorderStrong
+      : theme.colors.divider,
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -206,10 +211,7 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.sm,
   },
   messageCard: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surface,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
+    ...theme.components.card,
     marginTop: spacing.xl,
     padding: spacing.lg,
   },

@@ -426,10 +426,10 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorderStrong
       : theme.colors.divider,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
+      ? theme.effects.contentSurfaceElevated
       : theme.colors.surface,
   },
   backButton: {
@@ -505,19 +505,11 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   amountCard: {
+    ...theme.components.elevatedCard,
     alignItems: 'center' as const,
     gap: spacing.sm,
     marginBottom: spacing.xl,
     padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorderStrong
-      : theme.colors.divider,
-    borderRadius: BR.xl,
-    borderCurve: 'continuous' as const,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
   },
   amountLabel: {
     fontFamily: fontFamilies.medium,

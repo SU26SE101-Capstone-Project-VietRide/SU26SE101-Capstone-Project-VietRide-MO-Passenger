@@ -782,7 +782,9 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.md,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.divider,
+    borderTopColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
   },
   progressDot: {
     width: 10,
@@ -790,7 +792,9 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: 6,
     borderRadius: borderRadius.full,
     borderWidth: 2,
-    borderColor: theme.colors.surfaceElevated,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surfaceElevated,
     backgroundColor: theme.colors.primary,
   },
   progressRowContent: {
@@ -822,7 +826,9 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.divider,
+    borderTopColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
   },
   metadataItem: {
     minWidth: 140,
@@ -872,10 +878,10 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   diagnosticsCard: {
+    ...theme.components.surface,
     gap: spacing.xs,
     padding: spacing.sm,
     borderRadius: borderRadius.md,
-    backgroundColor: theme.colors.surfaceAlt,
   },
   diagnosticsText: {
     fontFamily: fontFamilies.regular,
@@ -886,15 +892,12 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.md,
   },
   inlineState: {
+    ...theme.components.card,
     minHeight: 280,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     gap: spacing.sm,
     padding: spacing.xl,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.divider,
-    backgroundColor: theme.colors.surface,
   },
   inlineStateTitle: {
     fontFamily: fontFamilies.bold,

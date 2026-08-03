@@ -17,6 +17,13 @@ export type ThemeEffectTokens = {
   glassBorderStrong: string;
   glassSheen: string;
   glassTint: string;
+  contentSurface: string;
+  contentSurfaceSoft: string;
+  contentSurfaceElevated: string;
+  contentBorder: string;
+  contentBorderStrong: string;
+  onPrimarySurface: string;
+  onPrimaryBorder: string;
   fieldSurface: string;
   fieldBorder: string;
   tabBarSurface: string;

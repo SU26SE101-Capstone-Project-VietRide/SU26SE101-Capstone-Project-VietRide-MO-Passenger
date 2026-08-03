@@ -247,7 +247,7 @@ const createStyles = (theme: AppTheme) => ({
   unitToggleRow: {
     flexDirection: 'row',
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     borderRadius: borderRadius.full,
     padding: 3,

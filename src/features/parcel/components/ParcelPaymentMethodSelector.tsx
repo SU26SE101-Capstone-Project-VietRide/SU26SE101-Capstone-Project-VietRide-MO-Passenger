@@ -149,12 +149,12 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     borderRadius: borderRadius.lg,
     borderWidth: 1.2,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
     padding: spacing.md,
     marginBottom: spacing.sm,

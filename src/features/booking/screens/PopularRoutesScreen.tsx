@@ -219,9 +219,9 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.md,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: theme.effects.glassBorder,
+    borderColor: theme.effects.contentBorderStrong,
     borderRadius: borderRadius.xl,
-    backgroundColor: theme.effects.glassSurfaceStrong,
+    backgroundColor: theme.effects.contentSurfaceElevated,
   },
   routeIcon: {
     width: 42,

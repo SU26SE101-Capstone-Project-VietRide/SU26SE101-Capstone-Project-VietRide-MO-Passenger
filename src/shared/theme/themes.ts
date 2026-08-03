@@ -5,6 +5,14 @@ import type { AppTheme, ThemeColors, ThemeComponentTokens, ThemeEffectTokens, Th
 
 const continuous = { borderCurve: 'continuous' } as ViewStyle;
 
+// Content cards do not mount a native blur view. These semantic surfaces stay
+// opaque so nested content cannot create white/grey alpha bands on Android;
+// true glass tokens remain available for floating chrome and overlays.
+const LIGHT_CONTENT_SURFACE = '#F9FCFC';
+const LIGHT_CONTENT_SURFACE_SOFT = '#F3F8F8';
+const DARK_CONTENT_SURFACE = '#102423';
+const DARK_CONTENT_SURFACE_SOFT = '#172E2C';
+
 const shadow = (
   boxShadow: string,
   legacy: ViewStyle,
@@ -83,6 +91,13 @@ const liquidLightEffects: ThemeEffectTokens = {
   glassBorderStrong: 'rgba(255, 255, 255, 0.9)',
   glassSheen: 'rgba(255, 255, 255, 0.34)',
   glassTint: 'rgba(234, 255, 253, 0.18)',
+  contentSurface: LIGHT_CONTENT_SURFACE,
+  contentSurfaceSoft: LIGHT_CONTENT_SURFACE_SOFT,
+  contentSurfaceElevated: '#FFFFFF',
+  contentBorder: 'rgba(0, 91, 87, 0.10)',
+  contentBorderStrong: 'rgba(0, 91, 87, 0.16)',
+  onPrimarySurface: 'rgba(255, 255, 255, 0.14)',
+  onPrimaryBorder: 'rgba(255, 255, 255, 0.22)',
   fieldSurface: 'rgba(252, 255, 255, 0.72)',
   fieldBorder: 'rgba(0, 91, 87, 0.12)',
   tabBarSurface: 'rgba(255, 255, 255, 0.96)',
@@ -117,6 +132,13 @@ const liquidDarkEffects: ThemeEffectTokens = {
   glassBorderStrong: 'rgba(184, 255, 249, 0.34)',
   glassSheen: 'rgba(184, 255, 249, 0.12)',
   glassTint: 'rgba(108, 255, 244, 0.1)',
+  contentSurface: DARK_CONTENT_SURFACE,
+  contentSurfaceSoft: DARK_CONTENT_SURFACE_SOFT,
+  contentSurfaceElevated: '#132A28',
+  contentBorder: 'rgba(184, 255, 249, 0.14)',
+  contentBorderStrong: 'rgba(184, 255, 249, 0.24)',
+  onPrimarySurface: 'rgba(3, 19, 18, 0.10)',
+  onPrimaryBorder: 'rgba(3, 19, 18, 0.16)',
   fieldSurface: 'rgba(235, 255, 252, 0.1)',
   fieldBorder: 'rgba(184, 255, 249, 0.18)',
   tabBarSurface: 'rgba(5, 24, 23, 0.94)',
@@ -147,25 +169,25 @@ const makeComponents = (
     backgroundColor: palette.background,
   },
   card: {
-    backgroundColor: effects.isLiquid ? effects.glassSurface : palette.surface,
+    backgroundColor: effects.isLiquid ? effects.contentSurface : palette.surface,
     borderWidth: 1,
-    borderColor: effects.isLiquid ? effects.glassBorder : palette.divider,
+    borderColor: effects.isLiquid ? effects.contentBorder : palette.divider,
     borderRadius: borderRadius.xl,
     ...continuous,
     ...effects.cardShadow,
   },
   elevatedCard: {
-    backgroundColor: effects.isLiquid ? effects.glassSurfaceStrong : palette.surfaceElevated,
+    backgroundColor: effects.isLiquid ? effects.contentSurfaceElevated : palette.surfaceElevated,
     borderWidth: 1,
-    borderColor: effects.isLiquid ? effects.glassBorderStrong : palette.divider,
+    borderColor: effects.isLiquid ? effects.contentBorderStrong : palette.divider,
     borderRadius: borderRadius.xl,
     ...continuous,
     ...effects.floatingShadow,
   },
   surface: {
-    backgroundColor: effects.isLiquid ? effects.glassSurfaceSoft : palette.surfaceAlt,
+    backgroundColor: effects.isLiquid ? effects.contentSurfaceSoft : palette.surfaceAlt,
     borderWidth: 1,
-    borderColor: effects.isLiquid ? effects.glassBorder : palette.divider,
+    borderColor: effects.isLiquid ? effects.contentBorder : palette.divider,
     borderRadius: borderRadius.lg,
     ...continuous,
   },
@@ -207,9 +229,9 @@ const makeComponents = (
     ...continuous,
   },
   actionBar: {
-    backgroundColor: effects.isLiquid ? palette.surfaceElevated : palette.surface,
+    backgroundColor: effects.isLiquid ? effects.contentSurfaceElevated : palette.surface,
     borderTopWidth: 1,
-    borderTopColor: effects.isLiquid ? effects.glassStroke : palette.divider,
+    borderTopColor: effects.isLiquid ? effects.contentBorderStrong : palette.divider,
     ...effects.floatingShadow,
   },
   primaryButton: {
@@ -223,12 +245,12 @@ const makeComponents = (
   secondaryButton: {
     backgroundColor: palette.primaryFaded,
     borderWidth: 1,
-    borderColor: effects.isLiquid ? effects.glassBorder : palette.primaryFaded,
+    borderColor: effects.isLiquid ? effects.contentBorderStrong : palette.primaryFaded,
     borderRadius: borderRadius.lg,
     ...continuous,
   },
   dangerButton: {
-    backgroundColor: effects.isLiquid ? effects.glassSurfaceStrong : palette.surface,
+    backgroundColor: effects.isLiquid ? effects.contentSurfaceElevated : palette.surface,
     borderWidth: 1.5,
     borderColor: palette.error,
     borderRadius: borderRadius.lg,

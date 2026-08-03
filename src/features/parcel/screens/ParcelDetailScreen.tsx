@@ -827,11 +827,11 @@ const createStyles = (theme: AppTheme) => ({
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
+      ? theme.effects.contentSurfaceElevated
       : theme.colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorderStrong
       : theme.colors.divider,
   },
   navButton: {
@@ -894,15 +894,7 @@ const createStyles = (theme: AppTheme) => ({
     textAlign: 'center',
   },
   ticketCard: {
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
-    borderRadius: borderRadius.xl,
-    ...theme.effects.floatingShadow,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorderStrong
-      : theme.colors.divider,
+    ...theme.components.elevatedCard,
     overflow: 'visible',
     marginBottom: spacing.xxl,
   },
@@ -944,13 +936,13 @@ const createStyles = (theme: AppTheme) => ({
   qrContainer: {
     padding: spacing.md,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
   },
   qrCaption: {
@@ -983,7 +975,7 @@ const createStyles = (theme: AppTheme) => ({
     height: 2,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
     borderStyle: 'dashed',
     position: 'relative',
@@ -999,7 +991,7 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.background,
     borderRightWidth: 1,
     borderRightColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
   },
   sideCutoutRight: {
@@ -1012,7 +1004,7 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.background,
     borderLeftWidth: 1,
     borderLeftColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
   },
   detailsSection: {
@@ -1070,7 +1062,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
   },
   noteText: {
@@ -1085,7 +1077,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
   },
   totalLabel: {

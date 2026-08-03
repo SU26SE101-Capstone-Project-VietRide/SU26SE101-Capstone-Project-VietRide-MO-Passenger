@@ -131,10 +131,10 @@ const createStyles = (theme: AppTheme) => ({
   pointCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
+    backgroundColor: theme.effects.contentSurface,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.border,
+    borderColor: theme.effects.contentBorder,
     padding: spacing.md,
     marginBottom: spacing.md,
   },
@@ -162,7 +162,7 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.primary,
   },
   pointIconDisabled: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.contentSurfaceSoft,
   },
   pointInfo: {
     flex: 1,
@@ -186,10 +186,10 @@ const createStyles = (theme: AppTheme) => ({
   },
   timePill: {
     alignSelf: 'flex-start',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.contentSurfaceSoft,
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.contentBorder,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     marginTop: spacing.sm,
@@ -222,7 +222,7 @@ const createStyles = (theme: AppTheme) => ({
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.border,
+    borderColor: theme.effects.contentBorderStrong,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.sm,

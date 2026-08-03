@@ -67,10 +67,10 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
+      ? theme.effects.contentSurfaceElevated
       : theme.colors.surface,
   },
   backButton: {

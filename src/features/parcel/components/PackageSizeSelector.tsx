@@ -112,11 +112,11 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.lg,
     borderRadius: borderRadius.lg,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     borderWidth: 1.5,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
     position: 'relative',
     minWidth: 0,

@@ -3,15 +3,15 @@ import type { AppTheme } from './types';
 
 export const getCardStyle = (theme: AppTheme, baseStyle: ViewStyle = {}): ViewStyle => {
   return {
-    ...baseStyle,
     ...theme.components.card,
+    ...baseStyle,
   };
 };
 
 export const getSurfaceStyle = (theme: AppTheme, baseStyle: ViewStyle = {}): ViewStyle => {
   return {
-    ...baseStyle,
     ...theme.components.surface,
+    ...baseStyle,
   };
 };
 

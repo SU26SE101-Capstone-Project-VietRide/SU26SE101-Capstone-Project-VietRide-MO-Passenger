@@ -73,15 +73,13 @@ export const ChatComposer = React.memo(function ChatComposerComponent({
 
 const createStyles = (theme: AppTheme) => ({
   container: {
+    ...theme.components.actionBar,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
-    backgroundColor: theme.effects.glassSurfaceStrong,
-    borderTopWidth: 1,
-    borderTopColor: theme.effects.glassBorder,
   },
   inputContainer: {
     flex: 1,

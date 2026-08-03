@@ -131,8 +131,6 @@ export const SearchForm = ({
 const createStyles = (theme: AppTheme) => ({
   card: {
     ...theme.components.elevatedCard,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.divider,
     borderRadius: 28,
     padding: spacing.xl,
     marginBottom: spacing.xxl,
@@ -187,8 +185,8 @@ const createStyles = (theme: AppTheme) => ({
     height: 36,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surfaceElevated,
+    borderColor: theme.effects.contentBorderStrong,
+    backgroundColor: theme.effects.contentSurface,
     alignItems: 'center',
     justifyContent: 'center',
     ...theme.effects.cardShadow,

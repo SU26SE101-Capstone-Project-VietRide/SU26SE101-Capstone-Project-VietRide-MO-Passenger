@@ -440,8 +440,10 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+    borderBottomColor: theme.effects.isLiquid ? theme.effects.contentBorder : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surface,
   },
   backButton: {
     width: 40,
@@ -480,11 +482,8 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   card: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.lg,
-    ...theme.effects.cardShadow,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
     overflow: 'hidden',
   },
   languageRow: {
@@ -518,11 +517,11 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.full,
     backgroundColor: theme.colors.primary,
     borderWidth: 2,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+    borderColor: theme.effects.isLiquid ? theme.effects.contentSurface : theme.colors.surface,
   },
   rowDivider: {
     height: 1,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.contentBorder : theme.colors.divider,
   },
   settingRow: {
     flexDirection: 'row',

@@ -121,7 +121,7 @@ const NotificationRow = memo(function NotificationRowView({
               backgroundColor: isUnread
                 ? meta.bg
                 : theme.effects.isLiquid
-                  ? theme.effects.glassSurfaceSoft
+                  ? theme.effects.contentSurfaceSoft
                   : theme.colors.surfaceAlt,
             },
           ]}
@@ -355,8 +355,12 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.contentBorderStrong
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surface,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -389,7 +393,9 @@ const createStyles = (theme: AppTheme) => ({
     marginLeft: spacing.sm,
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
   },
   actionButtonDisabled: {
     opacity: 0.45,

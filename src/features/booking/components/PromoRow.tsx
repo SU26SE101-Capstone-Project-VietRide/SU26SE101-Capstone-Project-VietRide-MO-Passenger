@@ -69,14 +69,11 @@ export const PromoRow = memo(function PromoRowComponent({
 
 const createStyles = (theme: AppTheme) => ({
   card: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.lg,
     padding: spacing.xxl,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-    ...theme.effects.cardShadow,
   },
   iconBox: {
     width: 40,

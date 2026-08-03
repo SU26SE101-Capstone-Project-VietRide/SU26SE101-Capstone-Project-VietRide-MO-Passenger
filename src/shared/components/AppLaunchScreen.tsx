@@ -104,12 +104,12 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
   },
   logoFrame: {
+    ...theme.components.elevatedCard,
     width: 184,
     height: 184,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
-    ...theme.components.elevatedCard,
   },
   logo: {
     width: 168,

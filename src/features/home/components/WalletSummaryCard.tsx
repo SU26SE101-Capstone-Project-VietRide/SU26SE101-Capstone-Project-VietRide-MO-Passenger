@@ -65,17 +65,15 @@ export const WalletSummaryCard = memo(function WalletSummaryCardComponent({
 
 const createStyles = (theme: AppTheme) => ({
   card: {
+    ...theme.components.card,
     minHeight: 82,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     marginTop: spacing.md,
     padding: spacing.md,
-    borderWidth: 1,
-    borderColor: theme.effects.glassBorderStrong,
     borderRadius: borderRadius.xl,
     borderCurve: 'continuous' as const,
-    backgroundColor: theme.effects.glassSurfaceStrong,
   },
   iconBadge: {
     width: 46,

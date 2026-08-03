@@ -25,9 +25,6 @@ export function GlassCarouselSection({
 
   return (
     <View style={[styles.section, style]}>
-      <View style={styles.sectionTint} pointerEvents="none" />
-      <View style={styles.sectionRim} pointerEvents="none" />
-
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
         {actionLabel && onActionPress ? (
@@ -51,32 +48,17 @@ const createStyles = (theme: AppTheme) => ({
     position: 'relative',
     borderRadius: 28,
     borderWidth: theme.effects.isLiquid ? 1 : 0,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : 'transparent',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : 'transparent',
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : 'transparent',
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceSoft
+      : 'transparent',
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
     overflow: 'visible',
-  },
-  sectionTint: {
-    position: 'absolute',
-    top: 1,
-    left: 1,
-    right: 1,
-    bottom: 1,
-    borderRadius: 27,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassTint : 'transparent',
-  },
-  sectionRim: {
-    position: 'absolute',
-    top: 1,
-    left: 1,
-    right: 1,
-    height: 44,
-    borderTopLeftRadius: 27,
-    borderTopRightRadius: 27,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSheen : 'transparent',
   },
   header: {
     flexDirection: 'row',

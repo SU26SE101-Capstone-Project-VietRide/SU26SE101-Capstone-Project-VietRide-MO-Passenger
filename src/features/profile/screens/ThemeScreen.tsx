@@ -43,13 +43,13 @@ export function ThemeScreen(): React.JSX.Element {
   const bottomTabClearance = useFloatingTabBarContentInset();
   const renderThemePreview = (themeOption: AppTheme, isSelected: boolean): React.JSX.Element => {
     const previewSurface = themeOption.effects.isLiquid
-      ? themeOption.effects.glassSurfaceStrong
+      ? themeOption.effects.contentSurfaceElevated
       : themeOption.colors.surfaceElevated;
     const previewSoftSurface = themeOption.effects.isLiquid
-      ? themeOption.effects.glassSurfaceSoft
+      ? themeOption.effects.contentSurfaceSoft
       : themeOption.colors.surfaceAlt;
     const previewBorder = themeOption.effects.isLiquid
-      ? themeOption.effects.glassBorderStrong
+      ? themeOption.effects.contentBorderStrong
       : themeOption.colors.divider;
 
     return (
@@ -387,9 +387,9 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 7,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.contentSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.contentBorder : theme.colors.divider,
   },
   themeTagActive: {
     backgroundColor: theme.colors.primaryFaded,

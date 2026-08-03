@@ -1,14 +1,14 @@
 /**
- * AuthProgressBar — Step indicator for auth flow
- *
- * Mirrors Parcel's StepProgressBar layout (back button | title | cancel)
- * plus a compact 3-step bubble tracker underneath.
+ * Compact step indicator shared by the multi-step authentication flows.
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { ArrowLeft, X } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
+
+import { useTheme } from '@shared/contexts/ThemeContext';
+import { useThemedStyles } from '@shared/hooks';
 import {
   borderRadius,
   fontFamilies,
@@ -16,8 +16,6 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
 
 export interface AuthProgressBarProps {
   step: number;
@@ -39,77 +37,81 @@ export const AuthProgressBar = ({
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const progress = totalSteps > 1
+    ? Math.min(Math.max((step - 1) / (totalSteps - 1), 0), 1) * 100
+    : 100;
 
   return (
     <View style={styles.root}>
-    {/* Row 1: controls */}
-    <View style={styles.controlsRow}>
-      {onBack ? (
-        <TouchableOpacity
-          accessibilityLabel={t('common.back')}
-          accessibilityRole="button"
-          onPress={onBack}
-          activeOpacity={0.7}
-          style={styles.iconBtn}
-        >
-          <ArrowLeft size={18} color={theme.colors.primary} />
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.iconBtn} />
-      )}
+      <View style={styles.controlsRow}>
+        {onBack ? (
+          <TouchableOpacity
+            accessibilityLabel={t('common.back')}
+            accessibilityRole="button"
+            activeOpacity={0.7}
+            onPress={onBack}
+            style={styles.iconBtn}
+          >
+            <ArrowLeft size={18} color={theme.colors.primary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconBtn} />
+        )}
 
-      <View style={styles.titleWrap}>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        {title ? <Text style={styles.title}>{title}</Text> : null}
+        <View style={styles.titleWrap}>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          {title ? <Text style={styles.title}>{title}</Text> : null}
+        </View>
+
+        {onCancel ? (
+          <TouchableOpacity
+            accessibilityLabel={t('common.cancel')}
+            accessibilityRole="button"
+            activeOpacity={0.7}
+            onPress={onCancel}
+            style={styles.iconBtn}
+          >
+            <X size={18} color={theme.colors.primary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconBtn} />
+        )}
       </View>
 
-      {onCancel ? (
-        <TouchableOpacity
-          accessibilityLabel={t('common.cancel')}
-          accessibilityRole="button"
-          onPress={onCancel}
-          activeOpacity={0.7}
-          style={styles.iconBtn}
-        >
-          <X size={18} color={theme.colors.primary} />
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.iconBtn} />
-      )}
-    </View>
+      <View style={styles.progressRow}>
+        <View style={styles.trackBg}>
+          <View style={[styles.trackFill, { width: `${progress}%` }]} />
+        </View>
+        <View style={styles.bubblesRow}>
+          {Array.from({ length: totalSteps }, (_, index) => index + 1).map(
+            (stepNumber) => {
+              const isActive = stepNumber === step;
+              const isDone = stepNumber < step;
 
-    {/* Row 2: step bubbles + progress track */}
-    <View style={styles.progressRow}>
-      <View style={styles.trackBg}>
-        <View style={[styles.trackFill, { width: `${((step - 1) / (totalSteps - 1)) * 100}%` }]} />
+              return (
+                <View key={stepNumber} style={styles.bubbleWrap}>
+                  <View
+                    style={[
+                      styles.bubble,
+                      isActive ? styles.bubbleActive : null,
+                      isDone ? styles.bubbleDone : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.bubbleLabel,
+                        isActive || isDone ? styles.bubbleLabelInverse : null,
+                      ]}
+                    >
+                      {isDone ? '\u2713' : stepNumber}
+                    </Text>
+                  </View>
+                </View>
+              );
+            },
+          )}
+        </View>
       </View>
-      <View style={styles.bubblesRow}>
-        {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => {
-          const isActive = s === step;
-          const isDone = s < step;
-          return (
-            <View key={s} style={styles.bubbleWrap}>
-              <View
-                style={[
-                  styles.bubble,
-                  isActive && styles.bubbleActive,
-                  isDone && styles.bubbleDone,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.bubbleLabel,
-                    (isActive || isDone) && styles.bubbleLabelInverse,
-                  ]}
-                >
-                  {isDone ? '✓' : s}
-                </Text>
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    </View>
     </View>
   );
 };
@@ -119,63 +121,70 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
-    backgroundColor: 'transparent',
+    backgroundColor: theme.colors.transparent,
     zIndex: 10,
   },
   controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
     marginBottom: spacing.md,
   },
   iconBtn: {
     width: 36,
     height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     borderRadius: borderRadius.full,
     backgroundColor: theme.colors.primaryFaded,
   },
-  titleWrap: { alignItems: 'center', flex: 1 },
+  titleWrap: {
+    flex: 1,
+    alignItems: 'center' as const,
+  },
   title: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
   },
   subtitle: {
+    marginBottom: 2,
     fontFamily: fontFamilies.medium,
     fontSize: 10,
     color: theme.colors.primary,
-    marginBottom: 2,
   },
-  progressRow: { marginTop: spacing.xs },
+  progressRow: {
+    marginTop: spacing.xs,
+  },
   trackBg: {
     height: 3,
-    borderRadius: 1.5,
-    backgroundColor: theme.colors.surfaceAlt,
-    overflow: 'hidden',
     marginBottom: spacing.sm,
+    overflow: 'hidden' as const,
+    borderRadius: 1.5,
+    backgroundColor: theme.effects.contentSurfaceSoft,
   },
   trackFill: {
-    height: '100%',
+    height: '100%' as const,
     borderRadius: 1.5,
     backgroundColor: theme.colors.primary,
   },
   bubblesRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
   },
-  bubbleWrap: { alignItems: 'center' },
+  bubbleWrap: {
+    alignItems: 'center' as const,
+  },
   bubble: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-    backgroundColor: theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     borderWidth: 1.5,
     borderColor: theme.colors.primary,
+    borderRadius: 12,
+    backgroundColor: theme.effects.contentSurface,
   },
   bubbleActive: {
     backgroundColor: theme.colors.primary,
@@ -191,5 +200,7 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.primary,
   },
-  bubbleLabelInverse: { color: theme.colors.textInverse },
+  bubbleLabelInverse: {
+    color: theme.colors.textInverse,
+  },
 });

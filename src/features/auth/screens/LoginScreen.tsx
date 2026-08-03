@@ -30,7 +30,6 @@ import {
 } from '@shared/theme';
 import { Input, Button } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { getCardStyle } from '@shared/theme/helpers';
 import { useApiError, useThemedStyles } from '@shared/hooks';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import type { AuthStackParamList } from '@app/navigation/types';
@@ -62,7 +61,6 @@ export function LoginScreen(): React.JSX.Element {
   const clearAuthError = useAuthStore((state) => state.clearAuthError);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const isLiquid = theme.variant.startsWith('liquid');
   const { errorMessage, clearError, handleError } = useApiError();
   const {
     signInWithGoogle,
@@ -149,7 +147,7 @@ export function LoginScreen(): React.JSX.Element {
     !email.trim() || !password || loginMutation.isPending || isGuestPending || isGoogleLoginPending;
 
   return (
-    <View style={[styles.root, isLiquid && { backgroundColor: theme.colors.background }]}>
+    <View style={styles.root}>
       <View style={styles.gradientContainer} pointerEvents="none">
         <Svg height="520" width="100%">
           <Defs>
@@ -185,7 +183,7 @@ export function LoginScreen(): React.JSX.Element {
               subtitle={t('auth.loginFlow.description')}
             />
 
-            <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
+            <View style={styles.formCard}>
               <View style={styles.inputWrapper}>
                 <Input
                   label={t('auth.fields.email')}
@@ -262,7 +260,6 @@ export function LoginScreen(): React.JSX.Element {
                 onPress={handleGoogleLogin}
                 style={({ pressed }) => [
                   styles.googleButton,
-                  { borderColor: theme.colors.divider, backgroundColor: theme.colors.surface },
                   pressed && !(loginMutation.isPending || isGuestPending || isGoogleLoginPending) ? styles.pressed : null,
                   isGoogleLoginPending ? styles.disabledGoogleButton : null,
                 ]}
@@ -335,14 +332,11 @@ const createStyles = (theme: AppTheme) => ({
     paddingBottom: spacing.xl,
   },
   formCard: {
-    backgroundColor: theme.colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
     padding: spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.divider,
     borderTopWidth: 3,
     borderTopColor: theme.colors.primaryLight,
-    ...theme.effects.cardShadow,
     marginBottom: spacing.lg,
   },
   inputWrapper: {
@@ -381,6 +375,8 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.md,
     minHeight: 48,
     paddingHorizontal: spacing.xl,
+    backgroundColor: theme.effects.contentSurfaceSoft,
+    borderColor: theme.effects.contentBorder,
   },
   googleButtonText: {
     fontFamily: fontFamilies.semiBold,

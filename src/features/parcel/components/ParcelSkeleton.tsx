@@ -119,7 +119,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   card: {
     alignItems: 'flex-start',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurface
+      : theme.colors.surface,
     borderRadius: borderRadius.lg,
     flexDirection: 'row',
     gap: spacing.md,
@@ -127,7 +129,9 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -191,12 +195,16 @@ const createStyles = (theme: AppTheme) => ({
   shipmentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurface
+      : theme.colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
   },
   shipmentIconStub: {
     width: 48,

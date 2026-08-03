@@ -206,8 +206,12 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.xl,
     borderCurve: 'continuous' as const,
     borderWidth: 1,
-    borderColor: theme.effects.glassBorderStrong,
-    backgroundColor: theme.colors.surfaceAlt,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.contentBorderStrong
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceSoft
+      : theme.colors.surfaceAlt,
   },
   connectionChip: {
     position: 'absolute' as const,
@@ -225,7 +229,9 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center' as const,
     gap: spacing.sm,
     padding: spacing.xl,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceSoft
+      : theme.colors.surfaceAlt,
   },
   unavailableTitle: {
     fontFamily: fontFamilies.bold,

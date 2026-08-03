@@ -65,8 +65,12 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.xs,
     gap: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: theme.effects.glassBorderStrong,
-    backgroundColor: theme.effects.glassSurfaceStrong,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.contentBorderStrong
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surface,
   },
   backButton: {
     ...theme.components.headerButton,

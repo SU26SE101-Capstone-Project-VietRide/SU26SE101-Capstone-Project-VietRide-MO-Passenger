@@ -523,9 +523,9 @@ const createStyles = (theme: AppTheme) => ({
   manualCard: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.contentSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.contentBorder : theme.colors.divider,
     marginBottom: spacing.lg,
   },
   manualLabel: {
@@ -584,9 +584,9 @@ const createStyles = (theme: AppTheme) => ({
   promoOption: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.contentSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.contentBorder : theme.colors.divider,
   },
   promoOptionSelected: {
     borderColor: theme.colors.success,
@@ -663,9 +663,9 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xl,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.contentSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.isLiquid ? theme.effects.contentBorder : theme.colors.divider,
     alignItems: 'center',
     gap: spacing.sm,
   },

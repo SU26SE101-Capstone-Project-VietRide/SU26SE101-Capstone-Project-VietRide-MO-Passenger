@@ -348,8 +348,12 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: theme.effects.glassBorder,
-    backgroundColor: theme.effects.glassSurfaceStrong,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.contentBorderStrong
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surface,
   },
   headerButton: {
     ...theme.components.headerButton,
@@ -421,8 +425,12 @@ const createStyles = (theme: AppTheme) => ({
   },
   quickActionsContainer: {
     borderTopWidth: 1,
-    borderTopColor: theme.effects.glassBorder,
-    backgroundColor: theme.effects.glassSurfaceStrong,
+    borderTopColor: theme.effects.isLiquid
+      ? theme.effects.contentBorderStrong
+      : theme.colors.divider,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surface,
     paddingVertical: spacing.sm,
   },
   quickActionsContent: {

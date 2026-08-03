@@ -1700,11 +1700,11 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
   },
   dateChipActive: {
@@ -1732,11 +1732,11 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.md,
     marginBottom: spacing.sm,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
   },
   tripCardActive: {
@@ -1828,7 +1828,7 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
   },
   stateTitle: {

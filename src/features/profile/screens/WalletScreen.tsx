@@ -80,13 +80,13 @@ const ComingSoonAction = memo(function ComingSoonActionItem({
       ]}
     >
       <View style={styles.comingSoonIcon}>
-        <Icon size={18} color={theme.colors.primary} weight="duotone" />
+        <Icon size={18} color={theme.colors.textInverse} weight="duotone" />
       </View>
       <Text style={styles.comingSoonTitle} numberOfLines={2}>{title}</Text>
       <View style={styles.comingSoonBadge}>
         <Text style={styles.comingSoonBadgeText}>{t('financial.comingSoon')}</Text>
       </View>
-      <CaretRight size={16} color={theme.colors.textTertiary} weight="bold" />
+      <CaretRight size={16} color={theme.colors.textInverse} weight="bold" />
     </Pressable>
   );
 });
@@ -489,8 +489,8 @@ export function WalletScreen(): React.JSX.Element {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar
-        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={theme.colors.background}
+        barStyle={theme.isDark ? 'dark-content' : 'light-content'}
+        backgroundColor={theme.colors.primary}
       />
 
       <View style={styles.header}>
@@ -501,7 +501,7 @@ export function WalletScreen(): React.JSX.Element {
           onPress={handleBack}
           style={styles.backButton}
         >
-          <ArrowLeft size={24} color={theme.colors.textPrimary} weight="bold" />
+          <ArrowLeft size={24} color={theme.colors.textInverse} weight="bold" />
         </Pressable>
         <Text style={styles.headerTitle}>{t('wallet.title')}</Text>
         <View style={styles.headerSpacer} />
@@ -538,13 +538,7 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     paddingHorizontal: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
-      : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
+    backgroundColor: theme.colors.primary,
   },
   backButton: {
     width: 40,
@@ -558,7 +552,7 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: theme.colors.textPrimary,
+    color: theme.colors.textInverse,
     textAlign: 'center' as const,
   },
   headerSpacer: {
@@ -659,13 +653,9 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.sm,
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
+    backgroundColor: theme.effects.onPrimarySurface,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
-      : theme.colors.divider,
+    borderColor: theme.effects.onPrimaryBorder,
   },
   comingSoonIcon: {
     width: 32,
@@ -674,25 +664,25 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center' as const,
     borderRadius: BR.md,
     borderCurve: 'continuous' as const,
-    backgroundColor: theme.colors.primaryFaded,
+    backgroundColor: theme.effects.onPrimarySurface,
   },
   comingSoonTitle: {
     flex: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
+    color: theme.colors.textInverse,
   },
   comingSoonBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderRadius: BR.full,
     borderCurve: 'continuous' as const,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.onPrimarySurface,
   },
   comingSoonBadgeText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.xs,
-    color: theme.colors.textTertiary,
+    color: theme.colors.textInverse,
   },
   pressed: {
     opacity: 0.82,
@@ -720,10 +710,10 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurface
       : theme.colors.background,
   },
   transactionIcon: {

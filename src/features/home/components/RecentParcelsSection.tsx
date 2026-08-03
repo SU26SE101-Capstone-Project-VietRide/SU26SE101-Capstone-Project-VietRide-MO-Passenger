@@ -396,11 +396,11 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
   },
   stateTitle: {

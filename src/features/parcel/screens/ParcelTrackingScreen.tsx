@@ -288,19 +288,11 @@ const createStyles = (theme: AppTheme) => ({
     paddingBottom: spacing.huge,
   },
   statusCard: {
+    ...theme.components.card,
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.lg,
     marginBottom: spacing.md,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorderStrong
-      : theme.colors.divider,
-    borderRadius: borderRadius.xl,
-    ...theme.effects.cardShadow,
   },
   statusIconBackground: {
     width: 52,
@@ -384,17 +376,10 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   routeCard: {
+    ...theme.components.surface,
     flexDirection: 'row',
     padding: spacing.lg,
     marginBottom: spacing.md,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
-      : theme.colors.surfaceAlt,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
-      : theme.colors.divider,
   },
   routeEndpoint: {
     flex: 1,
@@ -412,15 +397,8 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
   },
   timelineCard: {
+    ...theme.components.card,
     padding: spacing.lg,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorderStrong
-      : theme.colors.divider,
   },
   cardHeading: {
     fontFamily: fontFamilies.bold,

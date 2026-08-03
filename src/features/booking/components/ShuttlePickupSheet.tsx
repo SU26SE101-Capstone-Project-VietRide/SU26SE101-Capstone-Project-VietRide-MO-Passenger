@@ -385,9 +385,7 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
-      : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.contentSurfaceSoft,
   },
   content: {
     paddingBottom: spacing.sm,

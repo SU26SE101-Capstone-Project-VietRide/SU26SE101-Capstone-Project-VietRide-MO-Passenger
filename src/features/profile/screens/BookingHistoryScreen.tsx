@@ -848,68 +848,74 @@ export function BookingHistoryScreen(): React.JSX.Element {
         barStyle={theme.isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.colors.background}
       />
-      <View style={styles.topBar}>
-        <Pressable
-          accessibilityLabel={t('common.back')}
-          accessibilityRole="button"
-          onPress={handleGoBack}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color={theme.colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.topBarTitle}>{t('profile.history')}</Text>
-        <View style={styles.topBarRightPlaceholder} />
-      </View>
-
-      <View style={styles.mainTabs} accessibilityRole="tablist">
-        <Pressable
-          style={[styles.mainTab, activeTab === 'ticket' ? styles.activeMainTab : null]}
-          onPress={showTickets}
-          accessibilityRole="tab"
-          accessibilityLabel={t('bookingHistory.ticketsTab')}
-          accessibilityState={{ selected: activeTab === 'ticket' }}
-        >
-          <Ticket
-            size={18}
-            color={activeTab === 'ticket'
-              ? theme.colors.textInverse
-              : theme.colors.textSecondary}
-          />
-          <Text
-            style={[
-              styles.mainTabText,
-              activeTab === 'ticket' ? styles.activeMainTabText : null,
-            ]}
+      <View style={styles.headerGroup}>
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityLabel={t('common.back')}
+            accessibilityRole="button"
+            onPress={handleGoBack}
+            style={styles.backButton}
           >
-            {t('bookingHistory.ticketsTab')}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.mainTab, activeTab === 'parcel' ? styles.activeMainTab : null]}
-          onPress={showParcels}
-          accessibilityRole="tab"
-          accessibilityLabel={t('bookingHistory.parcelsTab')}
-          accessibilityState={{ selected: activeTab === 'parcel' }}
-        >
-          <Package
-            size={18}
-            color={activeTab === 'parcel'
-              ? theme.colors.textInverse
-              : theme.colors.textSecondary}
-          />
-          <Text
-            style={[
-              styles.mainTabText,
-              activeTab === 'parcel' ? styles.activeMainTabText : null,
-            ]}
-          >
-            {t('bookingHistory.parcelsTab')}
-          </Text>
-        </Pressable>
-      </View>
+            <ArrowLeft size={24} color={theme.colors.textPrimary} />
+          </Pressable>
+          <Text style={styles.topBarTitle}>{t('profile.history')}</Text>
+          <View style={styles.topBarRightPlaceholder} />
+        </View>
 
-      {activeTab === 'ticket' ? (
-        <>
+        <View style={styles.mainTabs} accessibilityRole="tablist">
+          <Pressable
+            style={[
+              styles.mainTab,
+              activeTab === 'ticket' ? styles.activeMainTab : null,
+            ]}
+            onPress={showTickets}
+            accessibilityRole="tab"
+            accessibilityLabel={t('bookingHistory.ticketsTab')}
+            accessibilityState={{ selected: activeTab === 'ticket' }}
+          >
+            <Ticket
+              size={18}
+              color={activeTab === 'ticket'
+                ? theme.colors.textInverse
+                : theme.colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.mainTabText,
+                activeTab === 'ticket' ? styles.activeMainTabText : null,
+              ]}
+            >
+              {t('bookingHistory.ticketsTab')}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.mainTab,
+              activeTab === 'parcel' ? styles.activeMainTab : null,
+            ]}
+            onPress={showParcels}
+            accessibilityRole="tab"
+            accessibilityLabel={t('bookingHistory.parcelsTab')}
+            accessibilityState={{ selected: activeTab === 'parcel' }}
+          >
+            <Package
+              size={18}
+              color={activeTab === 'parcel'
+                ? theme.colors.textInverse
+                : theme.colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.mainTabText,
+                activeTab === 'parcel' ? styles.activeMainTabText : null,
+              ]}
+            >
+              {t('bookingHistory.parcelsTab')}
+            </Text>
+          </Pressable>
+        </View>
+
+        {activeTab === 'ticket' ? (
           <View style={styles.filterContainer}>
             <TicketFilterChip
               label={t('bookingHistory.filters.all')}
@@ -936,6 +942,10 @@ export function BookingHistoryScreen(): React.JSX.Element {
               onSelect={setTicketFilter}
             />
           </View>
+        ) : null}
+      </View>
+
+      {activeTab === 'ticket' ? (
           <FlashList
             data={ticketItems}
             renderItem={renderTicket}
@@ -952,7 +962,6 @@ export function BookingHistoryScreen(): React.JSX.Element {
             onScroll={handleTabBarScroll}
             scrollEventThrottle={16}
           />
-        </>
       ) : (
         <FlashList
           data={parcelItems}
@@ -980,19 +989,23 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  headerGroup: {
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.contentBorderStrong
+      : theme.colors.divider,
+    ...theme.effects.cardShadow,
+  },
   topBar: {
     height: 56,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
     paddingHorizontal: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
-      : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
+    backgroundColor: theme.colors.transparent,
   },
   backButton: {
     ...theme.components.headerButton,
@@ -1010,13 +1023,7 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row' as const,
     gap: spacing.sm,
     padding: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
-      : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
+    backgroundColor: theme.colors.transparent,
   },
   mainTab: {
     flex: 1,
@@ -1028,11 +1035,11 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
   },
   activeMainTab: {
@@ -1050,13 +1057,7 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
-      : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
+    backgroundColor: theme.colors.transparent,
   },
   filterTab: {
     flex: 1,
@@ -1243,7 +1244,7 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: BR.md,
     borderCurve: 'continuous' as const,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
   },
   detailItem: {
@@ -1333,7 +1334,7 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
   },
   parcelInfo: { flex: 1, minWidth: 0 },

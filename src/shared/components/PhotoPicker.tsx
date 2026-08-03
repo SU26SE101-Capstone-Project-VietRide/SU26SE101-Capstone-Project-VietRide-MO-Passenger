@@ -401,11 +401,11 @@ const createStyles = (theme: AppTheme) => ({
     borderWidth: 1.5,
     borderStyle: 'dashed' as const,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.border,
     borderRadius: borderRadius.lg,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
   },
   emptyTitle: {
@@ -429,9 +429,11 @@ const createStyles = (theme: AppTheme) => ({
     overflow: 'hidden' as const,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceSoft
+      : theme.colors.surfaceAlt,
   },
   previewImage: {
     width: '100%' as const,

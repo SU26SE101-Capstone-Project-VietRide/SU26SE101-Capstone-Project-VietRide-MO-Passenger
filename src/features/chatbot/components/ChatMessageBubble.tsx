@@ -229,9 +229,13 @@ const createStyles = (theme: AppTheme) => ({
     borderBottomRightRadius: 4,
   },
   assistantBubble: {
-    backgroundColor: theme.effects.glassSurfaceStrong,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurface
+      : theme.colors.surface,
     borderWidth: 1,
-    borderColor: theme.effects.glassBorder,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
     borderBottomLeftRadius: 4,
     ...theme.effects.cardShadow,
   },
@@ -294,7 +298,9 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.full,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    backgroundColor: theme.effects.glassSurfaceStrong,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surfaceElevated,
   },
   bookingTextBlock: {
     flex: 1,

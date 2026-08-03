@@ -657,13 +657,9 @@ const createStyles = (theme: AppTheme) => ({
     flexShrink: 0,
     gap: spacing.xs,
     padding: spacing.xs,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
-      : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.contentSurfaceSoft,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
-      : theme.colors.divider,
+    borderColor: theme.effects.contentBorder,
     borderRadius: borderRadius.md,
     borderCurve: 'continuous',
   },
@@ -697,14 +693,10 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
-      : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.contentSurfaceSoft,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
-      : theme.colors.divider,
+    borderColor: theme.effects.contentBorder,
   },
   selectedStat: {
     minWidth: 0,
@@ -812,21 +804,15 @@ const createStyles = (theme: AppTheme) => ({
     borderCurve: 'continuous',
   },
   seatAvailable: {
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorderStrong
-      : theme.colors.border,
+    backgroundColor: theme.effects.contentSurfaceElevated,
+    borderColor: theme.effects.contentBorderStrong,
   },
   seatSelected: {
     backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
   },
   seatSold: {
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
-      : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.contentSurfaceSoft,
     borderColor: theme.colors.divider,
     opacity: 0.58,
   },

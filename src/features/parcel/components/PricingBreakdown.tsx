@@ -313,7 +313,7 @@ const createStyles = (theme: AppTheme) => ({
     height: 42,
     borderRadius: borderRadius.md,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',

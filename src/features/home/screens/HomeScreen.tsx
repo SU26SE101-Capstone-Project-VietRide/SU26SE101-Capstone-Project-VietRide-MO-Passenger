@@ -243,7 +243,6 @@ export function HomeScreen(): React.JSX.Element {
       <View style={styles.backgroundLayer} pointerEvents="none">
         <View style={styles.ambientGlow} />
         <View style={styles.secondaryGlow} />
-        <View style={styles.contentShield} />
       </View>
 
       {/* Header - TopAppBar */}
@@ -647,17 +646,6 @@ const createStyles = (theme: AppTheme) => ({
     opacity: theme.effects.isLiquid ? (theme.isDark ? 0.9 : 0.72) : 0,
     transform: [{ scaleX: 0.78 }, { scaleY: 1.18 }, { rotate: '18deg' }],
   },
-  contentShield: {
-    position: 'absolute',
-    top: 132,
-    left: -28,
-    right: -28,
-    height: 444,
-    borderRadius: 48,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassOverlay
-      : theme.colors.transparent,
-  },
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xs,
@@ -666,12 +654,6 @@ const createStyles = (theme: AppTheme) => ({
   },
   formContainer: {
     ...theme.components.elevatedCard,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorderStrong
-      : theme.colors.divider,
     borderRadius: 28,
     padding: spacing.xl,
     marginVertical: spacing.md,
@@ -679,11 +661,11 @@ const createStyles = (theme: AppTheme) => ({
   tabHeader: {
     flexDirection: 'row',
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
+      ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.fieldBorder
+      ? theme.effects.contentBorder
       : theme.colors.divider,
     borderRadius: 16,
     padding: 4,
@@ -821,7 +803,7 @@ const createStyles = (theme: AppTheme) => ({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: theme.colors.surfaceElevated,
+    backgroundColor: theme.effects.contentSurfaceElevated,
     ...theme.effects.cardShadow,
   },
   switchThumbActive: {

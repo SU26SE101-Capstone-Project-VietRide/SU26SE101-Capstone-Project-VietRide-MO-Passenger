@@ -29,7 +29,6 @@ import {
 import { Input, Button } from '@shared/components';
 import { useApiError, useThemedStyles } from '@shared/hooks';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { getCardStyle } from '@shared/theme/helpers';
 import { formatCountdown } from '@shared/utils/format';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { resetPassword } from '../api/authApi';
@@ -64,7 +63,6 @@ export function ResetPasswordScreen(): React.JSX.Element {
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const isLiquid = theme.variant.startsWith('liquid');
 
   const { email, otpTtlMinutes = 5 } = route.params;
   const [code, setCode] = useState('');
@@ -239,7 +237,7 @@ export function ResetPasswordScreen(): React.JSX.Element {
                 showMascot={false}
               />
 
-              <View style={[styles.formCard, isLiquid && getCardStyle(theme, styles.formCard)]}>
+              <View style={styles.formCard}>
                 <View style={styles.inputWrapper}>
                   <Input
                     label={t('auth.fields.resetCode')}
@@ -354,14 +352,11 @@ const createStyles = (theme: AppTheme) => ({
     paddingBottom: spacing.xxxl,
   },
   formCard: {
-    backgroundColor: theme.colors.surface,
+    ...theme.components.card,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.divider,
     borderTopWidth: 3,
     borderTopColor: theme.colors.primaryLight,
-    ...theme.effects.cardShadow,
     marginBottom: spacing.xxl,
     marginHorizontal: spacing.xl,
   },

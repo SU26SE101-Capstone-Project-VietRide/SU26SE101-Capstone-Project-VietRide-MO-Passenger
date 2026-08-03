@@ -17,13 +17,13 @@ export const SeatLegend = ({ items }: SeatLegendProps): React.JSX.Element => {
   const legendItems = items ?? [
     {
       label: t('booking.seats.available'),
-      color: theme.effects.isLiquid ? theme.effects.glassSurfaceStrong : theme.colors.surface,
-      borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.border,
+      color: theme.effects.contentSurfaceElevated,
+      borderColor: theme.effects.contentBorderStrong,
     },
     { label: t('booking.seats.selected'), color: theme.colors.primary, borderColor: theme.colors.primary },
     {
       label: t('booking.seats.sold'),
-      color: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+      color: theme.effects.contentSurfaceSoft,
       borderColor: theme.colors.divider,
     },
   ];
@@ -52,10 +52,10 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     alignSelf: 'center',
     gap: spacing.md,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.contentSurfaceSoft,
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.contentBorder,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginBottom: spacing.md,

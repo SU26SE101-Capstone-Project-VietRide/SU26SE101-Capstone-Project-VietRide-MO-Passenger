@@ -178,7 +178,7 @@ const createStyles = (theme: AppTheme) => ({
   progressBarBg: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.contentSurfaceSoft,
     overflow: 'hidden',
     marginBottom: spacing.sm,
   },
@@ -206,11 +206,11 @@ const createStyles = (theme: AppTheme) => ({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.contentSurfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    borderColor: theme.effects.contentBorder,
   },
   stepBubbleActive: {
     backgroundColor: theme.colors.primary,
@@ -223,8 +223,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   // Return leg steps (5-8) - muted styling
   stepBubbleReturn: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    backgroundColor: theme.effects.contentSurface,
+    borderColor: theme.effects.contentBorder,
   },
   stepBubbleActiveReturn: {
     backgroundColor: theme.colors.primary,
@@ -236,8 +236,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   // Checkout step (9)
   stepBubbleCheckout: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    backgroundColor: theme.effects.contentSurface,
+    borderColor: theme.effects.contentBorder,
   },
   stepBubbleActiveCheckout: {
     backgroundColor: theme.colors.primary,
@@ -245,8 +245,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   // Payment step (10)
   stepBubblePayment: {
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
+    backgroundColor: theme.effects.contentSurface,
+    borderColor: theme.effects.contentBorder,
   },
   stepBubbleActivePayment: {
     backgroundColor: theme.colors.primary,

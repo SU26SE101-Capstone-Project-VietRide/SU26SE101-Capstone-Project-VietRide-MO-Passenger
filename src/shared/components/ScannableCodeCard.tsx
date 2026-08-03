@@ -68,7 +68,15 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     gap: spacing.sm,
     padding: spacing.lg,
-    ...theme.components.card,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
+    borderRadius: borderRadius.lg,
+    borderCurve: 'continuous',
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceSoft
+      : theme.colors.surfaceAlt,
   },
   title: {
     alignSelf: 'stretch',

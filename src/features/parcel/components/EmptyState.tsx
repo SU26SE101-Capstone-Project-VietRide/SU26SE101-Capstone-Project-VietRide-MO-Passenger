@@ -52,7 +52,7 @@ const createStyles = (theme: AppTheme) => ({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
+    backgroundColor: theme.effects.isLiquid ? theme.effects.contentSurfaceSoft : theme.colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
