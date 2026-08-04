@@ -14,6 +14,7 @@ import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import { FloatingActionBar, StopOption } from '../components';
 import type { DropOffPoint } from '../types';
+import { buildSeatBadgeItems } from '../utils/seatPresentation';
 
 interface DropOffStepProps {
   onNext: (step: number) => void;
@@ -26,6 +27,7 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
     selectedDropOff,
     selectDropOff,
     selectedSeats,
+    selectedTrip,
     totalPrice,
     currentLeg,
     isRoundTrip,
@@ -38,6 +40,7 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
     selectedDropOff: state.selectedDropOff,
     selectDropOff: state.selectDropOff,
     selectedSeats: state.selectedSeats,
+    selectedTrip: state.selectedTrip,
     totalPrice: state.totalPrice,
     currentLeg: state.currentLeg,
     isRoundTrip: state.searchParams.isRoundTrip ?? false,
@@ -46,6 +49,13 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
     saveOneWayLeg: state.saveOneWayLeg,
     setHighestStep: state.setHighestStep,
   })));
+  const seatBadges = useMemo(
+    () => buildSeatBadgeItems(selectedSeats, {
+      scope: isRoundTrip ? currentLeg : 'trip',
+      tripId: selectedTrip?.id,
+    }),
+    [currentLeg, isRoundTrip, selectedSeats, selectedTrip?.id],
+  );
   const styles = useThemedStyles(createStyles);
 
   React.useEffect(() => {
@@ -123,7 +133,7 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
         />
 
         <FloatingActionBar
-          selectedSeats={selectedSeats}
+          seatBadges={seatBadges}
           totalPrice={totalPrice()}
           ctaLabel={t('common.continue')}
           onPress={handleNext}

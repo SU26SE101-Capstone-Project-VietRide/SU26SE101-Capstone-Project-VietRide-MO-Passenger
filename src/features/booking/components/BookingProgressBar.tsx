@@ -62,6 +62,10 @@ export const BookingProgressBar = ({
   const stepConfiguration = getBookingStepConfiguration(isRoundTrip);
   const totalSteps = propTotalSteps ?? stepConfiguration.totalSteps;
   const { checkoutStep, paymentStep } = stepConfiguration;
+  const maxAccessibleStep = Math.min(step, highestStepReached);
+  const progressPercent = totalSteps > 1
+    ? ((step - 1) / (totalSteps - 1)) * 100
+    : 100;
 
   const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
   const stepLabel = t(getStepLabelKey(step, isRoundTrip));
@@ -83,7 +87,7 @@ export const BookingProgressBar = ({
           <View
             style={[
               styles.progressBarActive,
-              { width: `${((step - 1) / (totalSteps - 1)) * 100}%` },
+              { width: `${progressPercent}%` },
             ]}
           />
         </View>
@@ -94,6 +98,8 @@ export const BookingProgressBar = ({
             const isReturn = isReturnStep(s);
             const isCheckout = isCheckoutStep(s);
             const isPayment = isPaymentStep(s);
+            const isPending = !isActive && !isCompleted;
+            const isDisabled = !onStepPress || s > maxAccessibleStep;
             return (
               <Pressable
                 key={`step-${s}`}
@@ -105,27 +111,23 @@ export const BookingProgressBar = ({
                 })}
                 accessibilityState={{
                   selected: isActive,
-                  disabled: !onStepPress || s > highestStepReached,
+                  disabled: isDisabled,
                 }}
                 style={({ pressed }) => [
                   styles.stepBubbleContainer,
-                  pressed && s <= highestStepReached ? styles.stepBubblePressed : null,
+                  pressed && !isDisabled ? styles.stepBubblePressed : null,
                 ]}
-                disabled={!onStepPress || s > highestStepReached}
+                disabled={isDisabled}
                 onPress={() => onStepPress?.(s)}
               >
                 <View
                   style={[
                     styles.stepBubble,
-                    isActive && styles.stepBubbleActive,
+                    isPending && isReturn && styles.stepBubbleReturn,
+                    isPending && isCheckout && styles.stepBubbleCheckout,
+                    isPending && isPayment && styles.stepBubblePayment,
                     isCompleted && styles.stepBubbleCompleted,
-                    isReturn && styles.stepBubbleReturn,
-                    isActive && isReturn && styles.stepBubbleActiveReturn,
-                    isCompleted && isReturn && styles.stepBubbleCompletedReturn,
-                    isCheckout && styles.stepBubbleCheckout,
-                    isActive && isCheckout && styles.stepBubbleActiveCheckout,
-                    isPayment && styles.stepBubblePayment,
-                    isActive && isPayment && styles.stepBubbleActivePayment,
+                    isActive && styles.stepBubbleActive,
                   ]}
                 >
                   {isCompleted ? (
@@ -134,11 +136,10 @@ export const BookingProgressBar = ({
                     <Text
                       style={[
                         styles.stepText,
+                        isPending && isReturn && styles.stepTextReturn,
+                        isPending && isCheckout && styles.stepTextCheckout,
+                        isPending && isPayment && styles.stepTextPayment,
                         isActive && styles.stepTextActive,
-                        isCompleted && styles.stepTextCompleted,
-                        isReturn && styles.stepTextReturn,
-                        isCheckout && styles.stepTextCheckout,
-                        isPayment && styles.stepTextPayment,
                       ]}
                     >
                       {s}
@@ -226,31 +227,15 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.effects.contentSurface,
     borderColor: theme.effects.contentBorder,
   },
-  stepBubbleActiveReturn: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primaryFaded,
-  },
-  stepBubbleCompletedReturn: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primaryFaded,
-  },
   // Checkout step (9)
   stepBubbleCheckout: {
     backgroundColor: theme.effects.contentSurface,
     borderColor: theme.effects.contentBorder,
   },
-  stepBubbleActiveCheckout: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primaryFaded,
-  },
   // Payment step (10)
   stepBubblePayment: {
     backgroundColor: theme.effects.contentSurface,
     borderColor: theme.effects.contentBorder,
-  },
-  stepBubbleActivePayment: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primaryFaded,
   },
   stepText: {
     fontFamily: fontFamilies.bold,
@@ -258,9 +243,6 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   stepTextActive: {
-    color: theme.colors.textInverse,
-  },
-  stepTextCompleted: {
     color: theme.colors.textInverse,
   },
   stepTextReturn: {

@@ -13,10 +13,12 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
-import type { Seat } from '../types';
+import type { SeatBadgeItem } from '../utils/seatPresentation';
+
+const MAX_VISIBLE_SEAT_BADGES = 4;
 
 interface FloatingActionBarProps {
-  selectedSeats: Seat[];
+  seatBadges: readonly SeatBadgeItem[];
   totalPrice: number;
   ctaLabel: string;
   onPress: () => void;
@@ -24,7 +26,7 @@ interface FloatingActionBarProps {
 }
 
 export function FloatingActionBar({
-  selectedSeats,
+  seatBadges,
   totalPrice,
   ctaLabel,
   onPress,
@@ -33,6 +35,8 @@ export function FloatingActionBar({
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
+  const visibleSeatBadges = seatBadges.slice(0, MAX_VISIBLE_SEAT_BADGES);
+  const hiddenSeatCount = seatBadges.length - visibleSeatBadges.length;
 
   return (
     <View
@@ -46,12 +50,17 @@ export function FloatingActionBar({
         <View style={styles.seatsInfo}>
           <Text style={styles.seatsLabel}>{t('booking.seats.selected')}</Text>
           <View style={styles.seatBadges}>
-            {selectedSeats.map((seat) => (
-              <View key={seat.id} style={styles.seatBadge}>
+            {visibleSeatBadges.map((seat) => (
+              <View key={seat.key} style={styles.seatBadge}>
                 <Text style={styles.seatBadgeText}>{seat.label}</Text>
               </View>
             ))}
-            {selectedSeats.length === 0 ? (
+            {hiddenSeatCount > 0 ? (
+              <View style={styles.seatBadge}>
+                <Text style={styles.seatBadgeText}>+{hiddenSeatCount}</Text>
+              </View>
+            ) : null}
+            {seatBadges.length === 0 ? (
               <Text style={styles.noSeatsText}>{t('common.none')}</Text>
             ) : null}
           </View>
@@ -67,11 +76,11 @@ export function FloatingActionBar({
       {/* CTA Button */}
       <Pressable
         onPress={onPress}
-        disabled={disabled || selectedSeats.length === 0}
+        disabled={disabled || seatBadges.length === 0}
         style={({ pressed }) => [
           styles.ctaButton,
-          (disabled || selectedSeats.length === 0) && styles.ctaDisabled,
-          pressed && !(disabled || selectedSeats.length === 0) ? styles.ctaPressed : null,
+          (disabled || seatBadges.length === 0) && styles.ctaDisabled,
+          pressed && !(disabled || seatBadges.length === 0) ? styles.ctaPressed : null,
         ]}
       >
         <Text style={styles.ctaText}>{ctaLabel}</Text>

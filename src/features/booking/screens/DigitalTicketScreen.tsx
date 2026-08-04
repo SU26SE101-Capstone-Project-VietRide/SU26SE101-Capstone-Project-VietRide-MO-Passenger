@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   useNavigation,
@@ -28,6 +28,7 @@ import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { ScannableCodeCard } from '@shared/components';
 import { useThemedStyles } from '@shared/hooks';
+import { MotionFade } from '@shared/motion';
 import {
   borderRadius as BR,
   fontFamilies,
@@ -45,7 +46,9 @@ import type { BookingResult, RoundTripResult } from '../types';
 import {
   buildCheckoutTicketViewModel,
   buildPassengerHistoryTicketViewModel,
+  buildTicketPages,
   type TicketLegViewModel,
+  type TicketPageViewModel,
   type TicketViewModel,
 } from '../utils/ticketViewModel';
 import {
@@ -77,6 +80,77 @@ interface PendingPaymentActions {
   onOpenPayment?: () => void;
 }
 
+interface TicketSelectorProps {
+  pages: readonly TicketPageViewModel[];
+  selectedKey: string;
+  onSelect: (key: string) => void;
+}
+
+const TicketSelector = memo(function TicketSelectorComponent({
+  pages,
+  selectedKey,
+  onSelect,
+}: TicketSelectorProps): React.JSX.Element | null {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+
+  if (pages.length <= 1) return null;
+
+  return (
+    <View style={styles.ticketSelector}>
+      <Text style={styles.ticketSelectorLabel}>{t('booking.ticket.selectTicket')}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.ticketSelectorContent}
+      >
+        {pages.map((page) => {
+          const selected = page.key === selectedKey;
+          const seat = page.ticket?.seatNumber || page.leg.seatNumbers;
+          return (
+            <Pressable
+              key={page.key}
+              accessibilityRole="tab"
+              accessibilityLabel={t('booking.ticket.ticketAccessibility', {
+                index: page.index,
+                total: pages.length,
+                leg: page.leg.label,
+                seat,
+              })}
+              accessibilityState={{ selected }}
+              style={({ pressed }) => [
+                styles.ticketSelectorItem,
+                selected ? styles.ticketSelectorItemSelected : null,
+                pressed ? styles.pressed : null,
+              ]}
+              onPress={() => onSelect(page.key)}
+            >
+              <Text style={[
+                styles.ticketSelectorNumber,
+                selected ? styles.ticketSelectorNumberSelected : null,
+              ]}>
+                {t('booking.ticket.ticketNumber', { index: page.index })}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.ticketSelectorMeta,
+                  selected ? styles.ticketSelectorMetaSelected : null,
+                ]}
+              >
+                {t('booking.ticket.ticketSelectorMeta', {
+                  leg: page.leg.label,
+                  seat,
+                })}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+});
+
 function TicketView({
   model,
   source,
@@ -89,6 +163,20 @@ function TicketView({
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const pages = useMemo(() => buildTicketPages(model), [model]);
+  const [requestedTicketKey, setRequestedTicketKey] = useState<string | null>(
+    pages[0]?.key ?? null,
+  );
+  const activePage = useMemo(
+    () => pages.find((page) => page.key === requestedTicketKey) ?? pages[0],
+    [pages, requestedTicketKey],
+  );
+  const handleSelectTicket = useCallback((key: string) => {
+    setRequestedTicketKey(key);
+  }, []);
+  const activeLeg = activePage?.leg;
+  const activeTicket = activePage?.ticket;
+  const canTrackActiveLeg = Boolean(activeLeg?.tripId) && activeLeg?.trackingEnabled === true;
   const paymentIcon = model.paymentMethod
     ? model.paymentMethod === 'WALLET'
       ? <Wallet size={12} color={theme.colors.primary} weight="bold" />
@@ -190,10 +278,16 @@ function TicketView({
           </View>
         ) : null}
 
-        {model.legs.map((leg) => {
-          const canTrack = Boolean(leg.tripId) && leg.trackingEnabled;
-          return (
-            <View key={`${leg.label}:${leg.bookingId ?? leg.reference}`} style={styles.legBlock}>
+        {activePage ? (
+          <TicketSelector
+            pages={pages}
+            selectedKey={activePage.key}
+            onSelect={handleSelectTicket}
+          />
+        ) : null}
+
+        {activePage && activeLeg ? (
+            <MotionFade key={activePage.key} style={styles.legBlock}>
               <View style={styles.ticketCard}>
                 <View style={styles.referenceSection}>
                   <View style={styles.referenceIconContainer}>
@@ -201,15 +295,15 @@ function TicketView({
                   </View>
                   <Text style={styles.referenceCaption}>
                     {model.legs.length > 1
-                      ? t('booking.ticket.legBookingReference', { leg: leg.label })
+                      ? t('booking.ticket.legBookingReference', { leg: activeLeg.label })
                       : t('booking.ticket.bookingReference')}
                   </Text>
-                  <Text style={styles.ticketIdText}>{leg.reference}</Text>
-                  {leg.ticketReferences && !leg.ticketEntries?.length ? (
+                  <Text style={styles.ticketIdText}>{activeLeg.reference}</Text>
+                  {activeLeg.ticketReferences && !activeTicket ? (
                     <Text style={styles.ticketReferencesText}>
                       {t('booking.ticket.references', {
-                        count: leg.ticketCount,
-                        references: leg.ticketReferences,
+                        count: activeLeg.ticketCount,
+                        references: activeLeg.ticketReferences,
                       })}
                     </Text>
                   ) : null}
@@ -221,37 +315,29 @@ function TicketView({
                 </View>
 
                 <View style={styles.detailsSection}>
-                  {!model.isPendingPayment && leg.ticketEntries?.length ? (
+                  {!model.isPendingPayment && activeTicket ? (
                     <View style={styles.codeList}>
                       <Text style={styles.codeListTitle}>
-                        {leg.ticketEntries.length === 1
-                          ? t('booking.ticket.boardingQrCode')
-                          : t('booking.ticket.boardingQrCodes')}
+                        {t('booking.ticket.boardingQrCode')}
                       </Text>
-                      {leg.ticketEntries.map((ticket) => {
-                        const lifecycle = getTicketLifecyclePresentation(ticket.status);
-                        return (
-                          <ScannableCodeCard
-                            key={ticket.ticketCode}
-                            code={ticket.ticketCode}
-                            title={t('history.ticketSeat', {
-                              seat: ticket.seatNumber,
-                            })}
-                            description={ticket.status
-                              ? t(lifecycle.labelKey)
-                              : t('history.ticketScanHint')}
-                            size={156}
-                          />
-                        );
-                      })}
+                      <ScannableCodeCard
+                        code={activeTicket.ticketCode}
+                        title={t('history.ticketSeat', {
+                          seat: activeTicket.seatNumber,
+                        })}
+                        description={activeTicket.status
+                          ? t(getTicketLifecyclePresentation(activeTicket.status).labelKey)
+                          : t('history.ticketScanHint')}
+                        size={156}
+                      />
                     </View>
                   ) : null}
-                  {leg.shuttlePickupAddress ? (
+                  {activeLeg.shuttlePickupAddress ? (
                     <View style={styles.shuttleRequestCard}>
                       <Van size={20} color={theme.colors.primary} weight="duotone" />
                       <View style={styles.shuttleRequestCopy}>
                         <Text style={styles.shuttleRequestTitle}>{t('booking.ticket.shuttleSent')}</Text>
-                        <Text style={styles.shuttleRequestAddress}>{leg.shuttlePickupAddress}</Text>
+                        <Text style={styles.shuttleRequestAddress}>{activeLeg.shuttlePickupAddress}</Text>
                         <Text style={styles.shuttleRequestHint}>{t('booking.ticket.shuttleAwaiting')}</Text>
                       </View>
                     </View>
@@ -259,50 +345,59 @@ function TicketView({
                   <View style={styles.routeRow}>
                     <View style={styles.routeItem}>
                       <Text style={styles.routeLabel}>
-                        {leg.boardingTime
-                          ? t('booking.ticket.boardingWithTime', { time: leg.boardingTime })
+                        {activeLeg.boardingTime
+                          ? t('booking.ticket.boardingWithTime', { time: activeLeg.boardingTime })
                           : t('booking.ticket.boarding')}
                       </Text>
-                      <Text style={styles.routeName}>{leg.boardingName}</Text>
-                      {leg.boardingAddress ? (
-                        <Text style={styles.routeCity}>{leg.boardingAddress}</Text>
+                      <Text style={styles.routeName}>{activeLeg.boardingName}</Text>
+                      {activeLeg.boardingAddress ? (
+                        <Text style={styles.routeCity}>{activeLeg.boardingAddress}</Text>
                       ) : null}
                     </View>
                     <View style={styles.routeItem}>
                       <Text style={[styles.routeLabel, styles.alignRight]}>
-                        {leg.alightingTime
-                          ? t('booking.ticket.alightingWithTime', { time: leg.alightingTime })
+                        {activeLeg.alightingTime
+                          ? t('booking.ticket.alightingWithTime', { time: activeLeg.alightingTime })
                           : t('booking.ticket.alighting')}
                       </Text>
-                      <Text style={[styles.routeName, styles.alignRight]}>{leg.alightingName}</Text>
-                      {leg.alightingAddress ? (
+                      <Text style={[styles.routeName, styles.alignRight]}>{activeLeg.alightingName}</Text>
+                      {activeLeg.alightingAddress ? (
                         <Text style={[styles.routeCity, styles.alignRight]}>
-                          {leg.alightingAddress}
+                          {activeLeg.alightingAddress}
                         </Text>
                       ) : null}
                     </View>
                   </View>
 
                   <View style={styles.specsGrid}>
-                    {leg.busType ? (
+                    {activeLeg.busType ? (
                       <View style={styles.gridItem}>
                         <Text style={styles.specLabel}>{t('booking.ticket.busType')}</Text>
                         <Text style={styles.specValue}>
-                          {leg.busType.toLowerCase().includes('sleeper')
+                          {activeLeg.busType.toLowerCase().includes('sleeper')
                             ? t('booking.busType.sleeper')
-                            : leg.busType.toLowerCase().includes('limousine')
+                            : activeLeg.busType.toLowerCase().includes('limousine')
                               ? t('booking.busType.limousine')
-                              : leg.busType}
+                              : activeLeg.busType}
                         </Text>
                       </View>
                     ) : null}
                     <View style={styles.gridItem}>
                       <Text style={styles.specLabel}>{t('booking.ticket.seats')}</Text>
-                      <Text style={styles.specValue}>{leg.seatNumbers}</Text>
+                      <Text style={styles.specValue}>
+                        {activeTicket?.seatNumber ?? activeLeg.seatNumbers}
+                      </Text>
                     </View>
                     <View style={styles.gridItem}>
                       <Text style={styles.specLabel}>{t('booking.ticket.tickets')}</Text>
-                      <Text style={styles.specValue}>{leg.ticketCount}</Text>
+                      <Text style={styles.specValue}>
+                        {pages.length > 1
+                          ? t('booking.ticket.ticketPosition', {
+                            current: activePage.index,
+                            total: pages.length,
+                          })
+                          : activeLeg.ticketCount}
+                      </Text>
                     </View>
                     {model.paymentMethod ? (
                       <View style={styles.gridItem}>
@@ -322,34 +417,33 @@ function TicketView({
                   <View style={styles.totalRow}>
                     <Text style={styles.totalLabel}>
                       {model.legs.length > 1
-                        ? t('booking.ticket.legAmount', { leg: leg.label })
+                        ? t('booking.ticket.legAmount', { leg: activeLeg.label })
                         : model.isPendingPayment
                           ? t('booking.ticket.amountDue')
                           : t('booking.ticket.totalAmount')}
                     </Text>
                     <Text style={styles.totalValue}>
-                      {formatVnd(leg.totalAmount, { display: 'code', clampNegative: true })}
+                      {formatVnd(activeLeg.totalAmount, { display: 'code', clampNegative: true })}
                     </Text>
                   </View>
                 </View>
               </View>
 
-              {canTrack ? (
+              {canTrackActiveLeg ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={t('booking.ticket.trackLeg', { leg: leg.label })}
+                  accessibilityLabel={t('booking.ticket.trackLeg', { leg: activeLeg.label })}
                   style={({ pressed }) => [styles.secondaryAction, pressed ? styles.pressed : null]}
-                  onPress={() => onTrack(leg)}
+                  onPress={() => onTrack(activeLeg)}
                 >
                   <MapPin size={18} color={theme.colors.primary} weight="bold" />
                   <Text style={styles.secondaryActionText}>
-                    {t('booking.ticket.trackLeg', { leg: leg.label })}
+                    {t('booking.ticket.trackLeg', { leg: activeLeg.label })}
                   </Text>
                 </Pressable>
               ) : null}
-            </View>
-          );
-        })}
+            </MotionFade>
+        ) : null}
 
         {model.legs.length > 1 ? (
           <View style={styles.roundTripTotalCard}>
@@ -789,6 +883,51 @@ const createStyles = (theme: AppTheme) => ({
   },
   legBlock: {
     gap: spacing.sm,
+  },
+  ticketSelector: {
+    gap: spacing.sm,
+  },
+  ticketSelectorLabel: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+  },
+  ticketSelectorContent: {
+    gap: spacing.sm,
+    paddingRight: spacing.xl,
+  },
+  ticketSelectorItem: {
+    minWidth: 116,
+    minHeight: 56,
+    justifyContent: 'center' as const,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.effects.contentBorder,
+    borderRadius: BR.lg,
+    borderCurve: 'continuous' as const,
+    backgroundColor: theme.effects.contentSurfaceSoft,
+  },
+  ticketSelectorItemSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary,
+  },
+  ticketSelectorNumber: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+  },
+  ticketSelectorNumberSelected: {
+    color: theme.colors.textInverse,
+  },
+  ticketSelectorMeta: {
+    marginTop: 2,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  ticketSelectorMetaSelected: {
+    color: theme.colors.textInverse,
   },
   ticketCard: {
     ...theme.components.elevatedCard,

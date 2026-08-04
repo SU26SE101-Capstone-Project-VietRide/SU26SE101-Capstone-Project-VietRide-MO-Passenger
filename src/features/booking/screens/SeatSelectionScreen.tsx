@@ -3,7 +3,7 @@
  * Visual style: matches Parcel flow (gradient bg, mint palette, card surfaces)
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { ScrollView, View, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
@@ -13,6 +13,7 @@ import { FloatingActionBar, RouteProgressRow, SeatLegend } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { SeatGrid } from '../components/SeatGrid';
 import { useStationDetail } from '@features/trip/hooks';
+import { buildSeatBadgeItems } from '../utils/seatPresentation';
 
 interface SeatSelectionStepProps {
   onNext: (step: number) => void;
@@ -51,6 +52,13 @@ export function SeatSelectionScreen({
   }, [onNext, currentLeg]);
 
   const trip = selectedTrip;
+  const seatBadges = useMemo(
+    () => buildSeatBadgeItems(selectedSeats, {
+      scope: isRoundTrip ? currentLeg : 'trip',
+      tripId: selectedTrip?.id,
+    }),
+    [currentLeg, isRoundTrip, selectedSeats, selectedTrip?.id],
+  );
 
   return (
     <View style={styles.container}>
@@ -95,7 +103,7 @@ export function SeatSelectionScreen({
       </ScrollView>
 
       <FloatingActionBar
-        selectedSeats={selectedSeats}
+        seatBadges={seatBadges}
         totalPrice={getTotalPrice()}
         ctaLabel={t('common.continue')}
         onPress={handleBookNow}

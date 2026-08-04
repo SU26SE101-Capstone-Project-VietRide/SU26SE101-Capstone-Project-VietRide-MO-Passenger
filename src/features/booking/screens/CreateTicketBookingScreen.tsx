@@ -574,10 +574,16 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
   }, [handleBack]));
 
   const handleStepPress = useCallback((targetStep: number) => {
-    if (!isBookingInteractionLocked() && targetStep <= highestStepReached) {
+    // Only completed/current steps are interactive. Once a user edits an
+    // earlier leg they must walk its dependent steps again, which guarantees
+    // saveOutboundLeg/saveReturnLeg refresh the payload snapshot before pay.
+    if (
+      !isBookingInteractionLocked()
+      && targetStep <= Math.min(step, highestStepReached)
+    ) {
       navigateToFlowStep(targetStep);
     }
-  }, [highestStepReached, isBookingInteractionLocked, navigateToFlowStep]);
+  }, [highestStepReached, isBookingInteractionLocked, navigateToFlowStep, step]);
 
   const handleOpenFilters = useCallback(() => {
     setFilterVisible(true);

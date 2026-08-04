@@ -68,6 +68,12 @@ export interface BusTrip {
   /** ISO timestamps from BE. Keep these for deadline-sensitive booking rules. */
   departureDateTime?: string;
   estimatedArrivalDateTime?: string;
+  /**
+   * Present after `GET /trips/{tripId}`. Search results intentionally omit it.
+   * Round-trip booking uses this server-owned route identity to constrain the
+   * return leg instead of guessing from station names.
+   */
+  returnRouteId?: string | null;
   price: number;
   seatsLeft: number;
   allowPickup: boolean;
@@ -84,6 +90,7 @@ export interface BusTrip {
 export interface TripDetail extends BusTrip {
   status: TripLifecycleStatus;
   destinationArrivedAt: string | null;
+  returnRouteId: string | null;
   stops: TripStop[];
 }
 
@@ -243,6 +250,7 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     arrivalTime: formatTime(dto.estimatedArrivalTime),
     departureDateTime: dto.departureDateTime,
     estimatedArrivalDateTime: dto.estimatedArrivalTime,
+    returnRouteId: dto.returnRouteId ?? null,
     price: dto.baseFare,
     seatsLeft: dto.seatSummary.availableSeats,
     allowPickup: dto.stops.some((stop) => Boolean(stop.allowPickup)),

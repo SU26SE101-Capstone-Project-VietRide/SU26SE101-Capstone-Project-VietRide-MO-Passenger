@@ -21,6 +21,7 @@ import {
   StopOption,
 } from '../components';
 import { getShuttleEligibility } from '../utils/shuttle';
+import { buildSeatBadgeItems } from '../utils/seatPresentation';
 import type { PickUpPoint } from '../types';
 
 interface PickUpStepProps {
@@ -54,6 +55,13 @@ export function PickUpScreen({ onNext }: PickUpStepProps): React.JSX.Element {
     selectedShuttlePickup: state.selectedShuttlePickup,
     setSelectedShuttlePickup: state.setSelectedShuttlePickup,
   })));
+  const seatBadges = useMemo(
+    () => buildSeatBadgeItems(selectedSeats, {
+      scope: searchParams.isRoundTrip ? currentLeg : 'trip',
+      tripId: selectedTrip?.id,
+    }),
+    [currentLeg, searchParams.isRoundTrip, selectedSeats, selectedTrip?.id],
+  );
   const styles = useThemedStyles(createStyles);
   const [isShuttleSheetVisible, setIsShuttleSheetVisible] = useState(false);
   const stationQuery = useStationDetail(
@@ -201,7 +209,7 @@ export function PickUpScreen({ onNext }: PickUpStepProps): React.JSX.Element {
         />
 
         <FloatingActionBar
-          selectedSeats={selectedSeats}
+          seatBadges={seatBadges}
           totalPrice={totalPrice()}
           ctaLabel={t('common.continue')}
           onPress={handleNext}

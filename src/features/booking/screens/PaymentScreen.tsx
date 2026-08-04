@@ -2,7 +2,7 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { QrCode, CreditCard, Wallet, Van } from 'phosphor-react-native';
+import { QrCode, Wallet } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -13,11 +13,12 @@ import { normalizePromoCode } from '@shared/utils/promo';
 import { formatVnd } from '@shared/utils/format';
 import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
-import { FloatingActionBar } from '../components';
+import { BookingLegSummaryCard, FloatingActionBar } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
 import { useAvailableBookingVouchers } from '../hooks/useAvailableBookingVouchers';
 import type { AvailableVoucherItem } from '../types';
+import { buildBookingSeatBadges } from '../utils/seatPresentation';
 
 interface PaymentStepProps {
   onNext: () => void | Promise<void>;
@@ -111,36 +112,35 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
   const baseFare = totalPrice();
   const paymentMethodForApi = useMemo(() => toBackendPaymentMethod(paymentMethod), [paymentMethod]);
 
-  const displayLeg = useMemo(() => {
-    if (searchParams.isRoundTrip) {
-      return returnState ?? outboundState;
-    }
+  const oneWayLeg = useMemo(() => ({
+    trip: selectedTrip,
+    seats: selectedSeats,
+    pickUp: selectedPickUp,
+    dropOff: selectedDropOff,
+    shuttlePickup: selectedShuttlePickup,
+  }), [selectedDropOff, selectedPickUp, selectedSeats, selectedShuttlePickup, selectedTrip]);
 
-    return {
-      trip: selectedTrip,
-      seats: selectedSeats,
-      pickUp: selectedPickUp,
-      dropOff: selectedDropOff,
-      shuttlePickup: selectedShuttlePickup,
-    };
+  const seatBadges = useMemo(() => {
+    return buildBookingSeatBadges({
+      isRoundTrip: Boolean(searchParams.isRoundTrip),
+      oneWay: { seats: selectedSeats, tripId: selectedTrip?.id },
+      outbound: outboundState
+        ? { seats: outboundState.seats, tripId: outboundState.trip?.id }
+        : undefined,
+      returnLeg: returnState
+        ? { seats: returnState.seats, tripId: returnState.trip?.id }
+        : undefined,
+      outboundLabel: t('booking.header.outbound'),
+      returnLabel: t('booking.header.return'),
+    });
   }, [
     outboundState,
     returnState,
     searchParams.isRoundTrip,
-    selectedDropOff,
-    selectedPickUp,
     selectedSeats,
-    selectedShuttlePickup,
-    selectedTrip,
+    selectedTrip?.id,
+    t,
   ]);
-
-  const allSelectedSeats = useMemo(() => {
-    if (!searchParams.isRoundTrip) {
-      return selectedSeats;
-    }
-
-    return [...(outboundState?.seats ?? []), ...(returnState?.seats ?? [])];
-  }, [outboundState?.seats, returnState?.seats, searchParams.isRoundTrip, selectedSeats]);
 
   const voucherLegs = useMemo(() => {
     if (searchParams.isRoundTrip) {
@@ -208,11 +208,6 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     t,
   ]);
 
-  const trip = displayLeg?.trip;
-  const seats = displayLeg?.seats ?? [];
-  const pickUp = displayLeg?.pickUp;
-  const dropOff = displayLeg?.dropOff;
-  const shuttlePickup = displayLeg?.shuttlePickup;
   const promoDiscount = appliedVoucher?.discountAmount ?? voucherDiscountPreview;
   const finalPrice = Math.max(baseFare - promoDiscount, 0);
   const isSubmitting = bookingStatus === 'loading';
@@ -222,15 +217,6 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     () => bookingError ? getLocalizedApiErrorMessage(bookingError, t) : null,
     [bookingError, t],
   );
-  const busTypeLabel = useMemo(() => {
-    switch (trip?.busType) {
-      case 'sleeper': return t('booking.busType.sleeper');
-      case 'limousine': return t('booking.busType.limousine');
-      case 'standard': return t('booking.busType.standard');
-      default: return t('booking.paymentScreen.ticketFallback');
-    }
-  }, [t, trip?.busType]);
-
   const handlePayNow = useCallback(() => {
     if (!isSubmitting) {
       onNext();
@@ -294,71 +280,37 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
         contentContainerStyle={styles.scrollContent}
         contentInsetAdjustmentBehavior="automatic"
       >
-        <View style={styles.bentoSummaryCard}>
-          <View style={styles.bentoAccent} />
-          <Text style={styles.bentoCardHeading}>{t('booking.paymentScreen.routeInformation')}</Text>
-          {shuttlePickup ? (
-            <View style={styles.shuttleSummary}>
-              <View style={styles.specIcon}>
-                <Van size={21} color={theme.colors.primary} weight="duotone" />
-              </View>
-              <View style={styles.specDetails}>
-                <Text style={styles.routeLabelText}>{t('booking.checkout.shuttleRequest')}</Text>
-                <Text style={styles.routeStationName}>{shuttlePickup.address}</Text>
-                <Text style={styles.routeStationCity}>{t('booking.paymentScreen.shuttleAwaiting')}</Text>
-              </View>
-            </View>
+        <View style={styles.journeyHeading}>
+          <Text style={styles.journeyTitle}>
+            {searchParams.isRoundTrip
+              ? t('booking.paymentScreen.roundTripJourney')
+              : t('booking.paymentScreen.routeInformation')}
+          </Text>
+          {searchParams.isRoundTrip ? (
+            <Text style={styles.journeySubtitle}>
+              {t('booking.paymentScreen.roundTripPaymentNotice')}
+            </Text>
           ) : null}
-          <View style={styles.summaryRoute}>
-            <View style={styles.routeTrack}>
-              <View style={styles.dotStart} />
-              <View style={styles.dottedDivider} />
-              <View style={styles.dotEnd} />
-            </View>
-            <View style={styles.routeDetailsText}>
-              <View style={styles.routeStationSection}>
-                <Text style={styles.routeLabelText}>
-                  {t('booking.checkout.boardingAt', {
-                    time: pickUp?.time ?? t('common.notAvailable'),
-                  })}
-                </Text>
-                <Text style={styles.routeStationName}>
-                  {pickUp?.name ?? t('booking.paymentScreen.pickupPoint')}
-                </Text>
-                <Text style={styles.routeStationCity}>{pickUp?.address ?? ''}</Text>
-              </View>
-              <View style={styles.routeStationSection}>
-                <Text style={styles.routeLabelText}>
-                  {t('booking.checkout.alightingAt', {
-                    time: dropOff?.time ?? t('common.notAvailable'),
-                  })}
-                </Text>
-                <Text style={styles.routeStationName}>
-                  {dropOff?.name ?? t('booking.paymentScreen.dropoffPoint')}
-                </Text>
-                <Text style={styles.routeStationCity}>{dropOff?.address ?? ''}</Text>
-              </View>
-            </View>
-          </View>
         </View>
 
-        <View style={styles.bentoSummaryCard}>
-          <Text style={styles.bentoCardHeading}>{t('booking.paymentScreen.ticketSpecifications')}</Text>
-          <View style={styles.specCardRow}>
-            <View style={styles.specIcon}>
-              <CreditCard size={22} color={theme.colors.primary} weight="duotone" />
-            </View>
-            <View style={styles.specDetails}>
-              <Text style={styles.specTitle}>{busTypeLabel}</Text>
-              <Text style={styles.specMeta}>
-                {t('booking.paymentScreen.seatSummary', {
-                  seats: seats.map((seat) => seat.label).join(', ') || t('common.none'),
-                  count: seats.length,
-                })}
-              </Text>
-            </View>
-          </View>
-        </View>
+        {!searchParams.isRoundTrip ? (
+          <BookingLegSummaryCard
+            title={t('booking.checkout.departureTrip')}
+            leg={oneWayLeg}
+          />
+        ) : null}
+        {searchParams.isRoundTrip && outboundState ? (
+          <BookingLegSummaryCard
+            title={t('booking.checkout.departureTrip')}
+            leg={outboundState}
+          />
+        ) : null}
+        {searchParams.isRoundTrip && returnState ? (
+          <BookingLegSummaryCard
+            title={t('booking.checkout.returnTrip')}
+            leg={returnState}
+          />
+        ) : null}
 
         <View style={styles.bentoSummaryCard}>
           <Text style={styles.bentoCardHeading}>{t('booking.paymentScreen.method')}</Text>
@@ -397,7 +349,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
           <Text style={styles.bentoCardHeading}>{t('booking.paymentScreen.breakdown')}</Text>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>
-              {t('booking.paymentScreen.baseFare', { count: allSelectedSeats.length })}
+              {t('booking.paymentScreen.baseFare', { count: seatBadges.length })}
             </Text>
             <Text style={styles.priceValue}>
               {formatVnd(baseFare, { display: 'code', clampNegative: true })}
@@ -425,7 +377,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
       </ScrollView>
 
       <FloatingActionBar
-        selectedSeats={allSelectedSeats}
+        seatBadges={seatBadges}
         totalPrice={finalPrice}
         ctaLabel={isSubmitting
           ? t('booking.paymentScreen.processing')
@@ -511,109 +463,26 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
-  bentoAccent: {
-    position: 'absolute',
-    top: 14,
-    left: 0,
-    width: 3.5,
-    height: 18,
-    borderRadius: 2,
-    backgroundColor: theme.colors.primary,
+  journeyHeading: {
+    marginBottom: spacing.sm,
+  },
+  journeyTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: theme.colors.textPrimary,
+  },
+  journeySubtitle: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
+    color: theme.colors.textSecondary,
   },
   bentoCardHeading: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
     marginBottom: spacing.md,
-  },
-  summaryRoute: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  shuttleSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: theme.colors.primaryFaded,
-  },
-  routeTrack: {
-    width: 18,
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  dotStart: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: theme.colors.primary,
-    marginTop: 6,
-  },
-  dottedDivider: {
-    flex: 1,
-    width: 2,
-    borderStyle: 'dashed',
-    borderLeftWidth: 1.5,
-    borderLeftColor: theme.colors.divider,
-    marginVertical: 4,
-  },
-  dotEnd: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: theme.colors.textSecondary,
-    marginBottom: 4,
-  },
-  routeDetailsText: {
-    flex: 1,
-  },
-  routeStationSection: {
-    marginBottom: spacing.md,
-  },
-  routeLabelText: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: 9,
-    color: theme.colors.textTertiary,
-    marginBottom: 2,
-  },
-  routeStationName: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
-  },
-  routeStationCity: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-  },
-  specCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  specIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.lg,
-    backgroundColor: theme.effects.contentSurfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  specDetails: {
-    flex: 1,
-  },
-  specTitle: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
-  },
-  specMeta: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
   },
   paymentOption: {
     flexDirection: 'row',

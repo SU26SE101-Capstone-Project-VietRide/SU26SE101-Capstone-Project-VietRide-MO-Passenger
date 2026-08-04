@@ -41,6 +41,7 @@ import {
   OUTBOUND_STEPS,
   RETURN_STEPS,
 } from '../utils/bookingSteps';
+import { isEligibleReturnTrip } from '../utils/roundTripEligibility';
 
 export {
   CHECKOUT_STEP,
@@ -146,6 +147,27 @@ const shouldRetainBookingIdempotencyKey = (error: ApiRequestError): boolean =>
   || error.statusCode === 408
   || Boolean(error.statusCode && error.statusCode >= 500);
 
+const reconcileSelectedSeats = (
+  seatRows: SeatRow[],
+  selectedSeats: Seat[],
+): Seat[] => {
+  if (selectedSeats.length === 0) return selectedSeats;
+
+  const availableSeats = new Map<string, Seat>();
+  for (const row of seatRows) {
+    for (const seat of [...row.leftSeats, ...row.rightSeats]) {
+      if (seat.status !== 'sold') availableSeats.set(seat.id, seat);
+    }
+  }
+
+  return selectedSeats.flatMap((selectedSeat) => {
+    const refreshedSeat = availableSeats.get(selectedSeat.id);
+    return refreshedSeat
+      ? [{ ...refreshedSeat, status: 'selected' as const }]
+      : [];
+  });
+};
+
 export type OutboundState = BookingLegDraft;
 type ReturnState = BookingLegDraft;
 
@@ -170,7 +192,6 @@ interface BookingStore {
 
   // ─── Computed ────────────────────────────────────────
   totalSteps: () => number;
-  isStepAccessible: (step: number) => boolean;
   totalPrice: () => number;
 
   // ─── Trip Results ────────────────────────────────────
@@ -376,7 +397,6 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
   // ─── Computed ────────────────────────────────────────
   totalSteps: () => getTotalSteps(get().searchParams.isRoundTrip ?? false),
-  isStepAccessible: (step) => step <= get().highestStepReached,
 
   // ─── Trip Results ────────────────────────────────────
   tripResultsStatus: 'loading',
@@ -411,7 +431,48 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       }
       const passengerCount = normalizeBookingSeatCount(searchParams.passengers);
 
-      const trips = await searchTrips({
+      let outboundConstraint = isReturnLeg ? get().outboundState?.trip ?? null : null;
+      if (isReturnLeg) {
+        if (!outboundConstraint) {
+          throw new BookingSearchValidationError('Complete the outbound trip before selecting a return trip.');
+        }
+
+        // Search responses omit ReturnRouteId. Normally the outbound detail has
+        // already enriched the snapshot while choosing seats; this guarded fetch
+        // closes the fast-tap race without adding a second request in the common path.
+        if (outboundConstraint.returnRouteId === undefined) {
+          const detail = await getTripDetail(outboundConstraint.id);
+          if (generation !== bookingGeneration || requestId !== searchRequestSequence) {
+            return;
+          }
+
+          const latestOutboundState = get().outboundState;
+          if (!latestOutboundState?.trip || latestOutboundState.trip.id !== outboundConstraint.id) {
+            return;
+          }
+
+          outboundConstraint = {
+            ...outboundConstraint,
+            ...detail,
+            operatorBadge: outboundConstraint.operatorBadge || detail.operatorBadge,
+            busLabel: outboundConstraint.busLabel || detail.busLabel,
+            busType: detail.busType || outboundConstraint.busType,
+          };
+          set({
+            outboundState: {
+              ...latestOutboundState,
+              trip: outboundConstraint,
+            },
+          });
+        }
+
+        if (!outboundConstraint.returnRouteId?.trim()) {
+          set({ tripResultsStatus: 'empty', trips: [] });
+          return;
+        }
+      }
+
+      const discoveredTrips = await searchTrips({
         originLocationCode,
         destinationLocationCode,
         departureDate,
@@ -422,7 +483,14 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       if (generation !== bookingGeneration || requestId !== searchRequestSequence) {
         return;
       }
-      set({ tripResultsStatus: trips.length === 0 ? 'empty' : 'success', trips });
+      const eligibleTrips = isReturnLeg && outboundConstraint
+        ? discoveredTrips.filter((trip) => isEligibleReturnTrip(trip, outboundConstraint))
+        : discoveredTrips;
+
+      set({
+        tripResultsStatus: eligibleTrips.length === 0 ? 'empty' : 'success',
+        trips: eligibleTrips,
+      });
     } catch (error) {
       if (generation !== bookingGeneration || requestId !== searchRequestSequence) {
         return;
@@ -538,7 +606,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       ) {
         return;
       }
-      set({ seatMap: seatRows, selectedSeats: [] });
+      set((state) => ({
+        seatMap: seatRows,
+        selectedSeats: reconcileSelectedSeats(seatRows, state.selectedSeats),
+      }));
     } catch (error) {
       if (
         __DEV__
@@ -766,20 +837,20 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     const selectedLegAmount = selectedTrip
       ? selectedTrip.price * selectedSeats.length
       : 0;
-    const outboundAmount = outboundState?.trip
-      ? outboundState.trip.price * outboundState.seats.length
-      : currentLeg === 'outbound'
-        ? selectedLegAmount
+    const outboundAmount = currentLeg === 'outbound' && selectedTrip
+      ? selectedLegAmount
+      : outboundState?.trip
+        ? outboundState.trip.price * outboundState.seats.length
         : 0;
 
     if (!searchParams.isRoundTrip) {
       return outboundAmount;
     }
 
-    const returnAmount = returnState?.trip
-      ? returnState.trip.price * returnState.seats.length
-      : currentLeg === 'return'
-        ? selectedLegAmount
+    const returnAmount = currentLeg === 'return' && selectedTrip
+      ? selectedLegAmount
+      : returnState?.trip
+        ? returnState.trip.price * returnState.seats.length
         : 0;
 
     return outboundAmount + returnAmount;

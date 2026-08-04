@@ -39,6 +39,7 @@ export interface TicketLegViewModel {
 }
 
 export interface TicketCodeViewModel {
+  ticketId?: string;
   ticketCode: string;
   seatNumber: string;
   status?: string;
@@ -53,6 +54,13 @@ export interface TicketViewModel {
   paymentMethod?: 'WALLET' | 'VNPAY';
   totalAmount: number;
   legs: TicketLegViewModel[];
+}
+
+export interface TicketPageViewModel {
+  key: string;
+  index: number;
+  leg: TicketLegViewModel;
+  ticket?: TicketCodeViewModel;
 }
 
 interface BookingLegDraft {
@@ -108,8 +116,10 @@ const buildLeg = ({
     .join(', ') || undefined,
   ticketEntries: tickets
     .map((ticket) => ({
+      ticketId: ticket.ticketId,
       ticketCode: ticket.ticketCode.trim(),
       seatNumber: ticket.seatNumber.trim(),
+      status: ticket.status,
     }))
     .filter((ticket) => ticket.ticketCode.length > 0),
   boardingName: pickUp?.name || translate('common.notAvailable'),
@@ -255,6 +265,37 @@ export const buildHistoryTicketViewModel = (
   }],
 });
 
+/**
+ * Flattens legs only for presentation. The domain model remains leg-scoped and
+ * ticketId is the canonical identity, so equal seat labels on separate trips
+ * never collide.
+ */
+export const buildTicketPages = (model: TicketViewModel): TicketPageViewModel[] => {
+  const pages: TicketPageViewModel[] = [];
+
+  model.legs.forEach((leg, legIndex) => {
+    const entries = leg.ticketEntries?.length ? leg.ticketEntries : [undefined];
+    entries.forEach((ticket, ticketIndex) => {
+      const bookingIdentity = leg.bookingId?.trim()
+        || leg.reference.trim()
+        || `leg-${legIndex}`;
+      const ticketIdentity = ticket?.ticketId?.trim();
+      const fallbackIdentity = ticket?.ticketCode.trim() || `summary-${ticketIndex}`;
+
+      pages.push({
+        key: ticketIdentity
+          ? `${bookingIdentity}:${ticketIdentity}`
+          : `${bookingIdentity}:${fallbackIdentity}:${ticketIndex}`,
+        index: pages.length + 1,
+        leg,
+        ...(ticket ? { ticket } : {}),
+      });
+    });
+  });
+
+  return pages;
+};
+
 const REMOTE_TRACKABLE_BOOKING_STATUSES = new Set<PassengerTicketHistoryItem['status']>([
   'CONFIRMED',
   'COMPLETED',
@@ -292,6 +333,7 @@ export const buildPassengerHistoryTicketViewModel = (
       .map((ticket) => ticket.ticketCode)
       .join(', ') || undefined,
     ticketEntries: item.ticket.tickets.map((ticket) => ({
+      ticketId: ticket.ticketId,
       ticketCode: ticket.ticketCode,
       seatNumber: ticket.seatNumber,
       status: ticket.status,

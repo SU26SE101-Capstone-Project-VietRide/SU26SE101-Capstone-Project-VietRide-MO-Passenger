@@ -18,6 +18,7 @@ export { RouteProgressRow } from './RouteProgressRow';
 export { StatusChip } from './StatusChip';
 export { StopOption } from './StopOption';
 export { BookingProgressBar } from './BookingProgressBar';
+export { BookingLegSummaryCard } from './BookingLegSummaryCard';
 export { RadioOption } from './RadioOption';
 export { ShuttleServiceCard, type ShuttleServiceStatus } from './ShuttleServiceCard';
 export { ShuttlePickupSheet } from './ShuttlePickupSheet';
