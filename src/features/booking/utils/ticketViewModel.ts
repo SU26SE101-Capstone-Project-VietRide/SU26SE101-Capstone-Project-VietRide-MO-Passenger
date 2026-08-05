@@ -14,6 +14,7 @@ import type {
 } from '../types';
 import type { BookingHistoryTicketDetail } from '../data/bookingHistoryFixture';
 import { getBookingReference } from './bookingReference';
+import { getTicketStatusPresentation } from './ticketPresentation';
 
 export interface TicketLegViewModel {
   label: string;
@@ -296,13 +297,6 @@ export const buildTicketPages = (model: TicketViewModel): TicketPageViewModel[] 
   return pages;
 };
 
-const REMOTE_TRACKABLE_BOOKING_STATUSES = new Set<PassengerTicketHistoryItem['status']>([
-  'CONFIRMED',
-  'COMPLETED',
-  'PARTIAL_NO_SHOW',
-  'DISRUPTED',
-]);
-
 /**
  * Builds only from fields returned by GET /passenger/history. Values that the
  * facade does not own (payment method, bus type, stop address/id) stay absent
@@ -350,6 +344,6 @@ export const buildPassengerHistoryTicketViewModel = (
     totalAmount: item.totalAmount,
     tripId: item.tripId,
     bookingId: item.id,
-    trackingEnabled: REMOTE_TRACKABLE_BOOKING_STATUSES.has(item.status),
+    trackingEnabled: getTicketStatusPresentation(item.status).trackingEnabled,
   }],
 });

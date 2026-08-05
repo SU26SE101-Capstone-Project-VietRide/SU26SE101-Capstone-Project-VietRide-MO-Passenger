@@ -25,7 +25,7 @@ const getPalette = (
   const palettes: Record<StatusChipTone, { backgroundColor: string; color: string }> = {
     success: { backgroundColor: theme.colors.successLight, color: theme.colors.success },
     error: { backgroundColor: theme.colors.errorLight, color: theme.colors.error },
-    warning: { backgroundColor: theme.colors.warningLight, color: theme.colors.warning },
+    warning: { backgroundColor: theme.colors.warningLight, color: theme.colors.textPrimary },
     info: { backgroundColor: theme.colors.infoLight, color: theme.colors.primary },
     neutral: { backgroundColor: theme.colors.surfaceAlt, color: theme.colors.textSecondary },
   };

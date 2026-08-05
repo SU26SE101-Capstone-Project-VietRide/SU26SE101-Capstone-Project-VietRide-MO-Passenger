@@ -16,6 +16,13 @@ const resources = {
   vi: { translation: vi },
 };
 
+const handleMissingInterpolation = (text: string, value: unknown): string => {
+  if (__DEV__) {
+    console.warn(`[i18n] Missing interpolation value "${String(value)}" in: ${text}`);
+  }
+  return '';
+};
+
 i18n.use(initReactI18next).init({
   resources,
   lng: 'vi',
@@ -30,6 +37,7 @@ i18n.use(initReactI18next).init({
       console.warn(`[i18n] Missing translation key: ${key}`);
     }
   },
+  missingInterpolationHandler: handleMissingInterpolation,
   interpolation: {
     escapeValue: false, // React already escapes
   },

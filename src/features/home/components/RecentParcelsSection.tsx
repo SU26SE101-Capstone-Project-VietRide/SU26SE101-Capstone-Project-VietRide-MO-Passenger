@@ -13,6 +13,7 @@ import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useReceivedParcels } from '@features/parcel/hooks/useParcelQueries';
 import type { ReceivedParcel } from '@features/parcel/types';
 import { getParcelStatusPresentation } from '@features/parcel/utils/parcelPresentation';
+import { StatusChip } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -24,47 +25,11 @@ import {
 } from '@shared/theme';
 import { formatDate, toIntlLocale } from '@shared/utils/format';
 
-type StatusTone = 'active' | 'danger' | 'neutral' | 'success' | 'warning';
-
-const ACTIVE_STATUSES = new Set([
-  'RESERVED',
-  'CHECKED_IN',
-  'READY_TO_LOAD',
-  'LOADED',
-  'IN_TRANSIT',
-  'PENDING_TRANSFER_CONFIRM',
-]);
-const DANGER_STATUSES = new Set([
-  'CANCELLED',
-  'DELIVERY_REJECTED',
-  'EXPIRED',
-  'REJECTED',
-  'RETURNED',
-]);
-const SUCCESS_STATUSES = new Set(['DELIVERED_PENDING_CONFIRM', 'DELIVERY_CONFIRMED']);
-const WARNING_STATUSES = new Set([
-  'PENDING',
-  'PENDING_ADDITIONAL_PAYMENT',
-  'PENDING_FINAL_PAYMENT',
-  'PENDING_OPERATOR_ACTION',
-  'PENDING_OPERATOR_REVIEW',
-  'PENDING_PAYMENT',
-]);
-
 const parcelKeyExtractor = (item: ReceivedParcel): string => item.parcelId;
 
 const normalizePageSize = (pageSize: number): number => {
   if (!Number.isFinite(pageSize)) return 5;
   return Math.min(10, Math.max(1, Math.floor(pageSize)));
-};
-
-const resolveStatusTone = (status: string): StatusTone => {
-  const normalizedStatus = status.trim().toUpperCase();
-  if (SUCCESS_STATUSES.has(normalizedStatus)) return 'success';
-  if (DANGER_STATUSES.has(normalizedStatus)) return 'danger';
-  if (ACTIVE_STATUSES.has(normalizedStatus)) return 'active';
-  if (WARNING_STATUSES.has(normalizedStatus)) return 'warning';
-  return 'neutral';
 };
 
 interface RecentParcelCardProps {
@@ -97,7 +62,6 @@ const RecentParcelCard = memo(function RecentParcelCardItem({
   const handlePress = useCallback(() => {
     onPress?.(parcelId, tripId);
   }, [onPress, parcelId, tripId]);
-  const tone = resolveStatusTone(status);
   const createdLabel = useMemo(
     () => formatDate(createdAt, intlLocale) || createdAt,
     [createdAt, intlLocale],
@@ -127,17 +91,11 @@ const RecentParcelCard = memo(function RecentParcelCardItem({
         <View style={styles.iconBox}>
           <Package size={22} color={theme.colors.primary} weight="duotone" />
         </View>
-        <View style={[
-          styles.statusBadge,
-          tone === 'active' ? styles.statusActive : null,
-          tone === 'danger' ? styles.statusDanger : null,
-          tone === 'success' ? styles.statusSuccess : null,
-          tone === 'warning' ? styles.statusWarning : null,
-        ]}>
-          <Text style={styles.statusText} numberOfLines={1}>
-            {statusLabel}
-          </Text>
-        </View>
+        <StatusChip
+          label={statusLabel}
+          tone={statusPresentation.tone}
+          style={styles.statusBadge}
+        />
       </View>
 
       <Text style={styles.parcelCode}>#{parcelCode}</Text>
@@ -338,27 +296,6 @@ const createStyles = (theme: AppTheme) => ({
   },
   statusBadge: {
     maxWidth: 168,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  statusActive: {
-    backgroundColor: theme.colors.primaryFaded,
-  },
-  statusDanger: {
-    backgroundColor: theme.colors.errorLight,
-  },
-  statusSuccess: {
-    backgroundColor: theme.colors.successLight,
-  },
-  statusWarning: {
-    backgroundColor: theme.colors.warningLight,
-  },
-  statusText: {
-    color: theme.colors.textSecondary,
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
   },
   parcelCode: {
     color: theme.colors.textPrimary,

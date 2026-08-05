@@ -43,6 +43,7 @@ import type {
   ShuttlePassengerPickup,
   ShuttleTrackingEta,
   TrackingEta,
+  TrackingPoint,
   TripRouteContext,
 } from '../api/trackingApi';
 import type { GeoCoordinate } from '@shared/types/common';
@@ -50,11 +51,14 @@ import { isTerminalTrackingStatus, useTripTracking } from '../hooks/useTripTrack
 import {
   TrackingMap,
   type TrackingMapConnectionState,
+  type TrackingMapJourneySummary,
   type TrackingMapMarker,
 } from './TrackingMap';
+import type { TrackingHeaderRoute } from './TrackingHeader';
 
 interface TrackingLayoutSlots {
   detailsFooter?: ReactNode;
+  onRouteHeaderChange?: (route: TrackingHeaderRoute | undefined) => void;
   refreshing?: boolean;
   onRefresh?: () => Promise<unknown> | unknown;
 }
@@ -196,6 +200,45 @@ function InlineState({
   );
 }
 
+const TrackingMetadata = React.memo(function TrackingMetadata({
+  latest,
+  withDivider = false,
+}: {
+  latest: TrackingPoint | null;
+  withDivider?: boolean;
+}): React.JSX.Element {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={[styles.metadataRow, withDivider ? null : styles.metadataRowStandalone]}>
+      <View style={styles.metadataItem}>
+        <Broadcast size={18} color={theme.colors.primary} weight="duotone" />
+        <View style={styles.metadataText}>
+          <Text style={styles.metadataLabel}>{t('tracking.metrics.lastUpdate')}</Text>
+          <Text style={styles.metadataValue}>
+            {latest
+              ? formatDateTime(latest.recordedAt)
+              : t('tracking.metrics.waitingGps')}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.metadataItem}>
+        <NavigationArrow size={18} color={theme.colors.primary} weight="duotone" />
+        <View style={styles.metadataText}>
+          <Text style={styles.metadataLabel}>{t('tracking.metrics.speed')}</Text>
+          <Text style={styles.metadataValue}>
+            {latest?.speedKmh !== undefined
+              ? `${Math.round(latest.speedKmh)} km/h`
+              : t('tracking.metrics.notReported')}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+});
+
 export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelComponent(
   props: LiveTripTrackingPanelProps,
 ): React.JSX.Element {
@@ -211,6 +254,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     ? undefined
     : props.terminalMessage;
   const detailsFooter = props.detailsFooter;
+  const onRouteHeaderChange = props.onRouteHeaderChange;
   const externalRefreshing = props.refreshing ?? false;
   const externalRefresh = props.onRefresh;
   const theme = useTheme();
@@ -304,6 +348,22 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     ],
   );
   const plannedRoute = routeContext?.geometry?.points ?? EMPTY_PLANNED_ROUTE;
+  const routeHeader = useMemo<TrackingHeaderRoute | undefined>(() => {
+    if (isShuttle || !routeContext) return undefined;
+
+    return {
+      ...(routeContext.originStation
+        ? { originName: routeContext.originStation.name }
+        : {}),
+      ...(routeContext.destinationStation
+        ? { destinationName: routeContext.destinationStation.name }
+        : {}),
+    };
+  }, [isShuttle, routeContext]);
+
+  useEffect(() => {
+    onRouteHeaderChange?.(routeHeader);
+  }, [onRouteHeaderChange, routeHeader]);
   const requestErrors = useMemo(
     () => [
       tracking.latestQuery.error,
@@ -378,12 +438,50 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const nextStopIndex = nextStopId
     ? intermediateStops.findIndex((stop) => stop.stopId === nextStopId)
     : -1;
+  const nextStop = nextStopIndex >= 0
+    ? intermediateStops[nextStopIndex]
+    : undefined;
+  const targetStop = stopId
+    ? intermediateStops.find((stop) => stop.stopId === stopId)
+    : undefined;
   const upcomingStops = useMemo(
     () => (nextStopIndex >= 0
       ? intermediateStops.slice(nextStopIndex, nextStopIndex + 3)
       : []),
     [intermediateStops, nextStopIndex],
   );
+  const journeySummary = useMemo<TrackingMapJourneySummary | undefined>(() => {
+    if (isShuttle || !routeContext) return undefined;
+
+    const nextStopEta = nextStop && isMainTripEta(nextEta)
+      && nextEta.stopId === nextStop.stopId
+      ? formatEta(nextEta)
+      : undefined;
+    const targetStopEta = targetStop
+      ? formatEta(targetEta ?? (
+        isMainTripEta(nextEta) && nextEta.stopId === targetStop.stopId
+          ? nextEta
+          : null
+      ))
+      : undefined;
+
+    return {
+      ...(nextStop
+        ? { nextStop: { name: nextStop.name, ...(nextStopEta ? { etaLabel: nextStopEta } : {}) } }
+        : {}),
+      ...(targetStop && targetStop.stopId !== nextStop?.stopId
+        ? { targetStop: { name: targetStop.name, ...(targetStopEta ? { etaLabel: targetStopEta } : {}) } }
+        : {}),
+    };
+  }, [
+    formatEta,
+    isShuttle,
+    nextEta,
+    nextStop,
+    routeContext,
+    targetEta,
+    targetStop,
+  ]);
   const progressItems = useMemo<ProgressItem[]>(() => {
     if (isShuttle) {
       if (!selectedShuttlePickup) {
@@ -426,13 +524,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     }
 
     const items: ProgressItem[] = [];
-    const nextStop = nextStopId
-      ? intermediateStops.find((stop) => stop.stopId === nextStopId)
-      : undefined;
-    const targetStop = stopId
-      ? intermediateStops.find((stop) => stop.stopId === stopId)
-      : undefined;
-
     if (nextStop && nextStop.stopId !== targetStop?.stopId) {
       items.push({
         id: `next:${nextStop.stopId}`,
@@ -464,16 +555,15 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     return items;
   }, [
     formatEta,
-    intermediateStops,
     isShuttle,
     nextEta,
-    nextStopId,
+    nextStop,
     routeContext?.destinationStation,
     selectedShuttlePickup,
     shuttleContext?.station,
-    stopId,
     t,
     targetEta,
+    targetStop,
   ]);
 
   let hero: ReactNode;
@@ -516,6 +606,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         markers={markers}
         vehicleKind={isShuttle ? 'shuttle' : 'bus'}
         connectionState={connectionState}
+        journeySummary={journeySummary}
       />
     );
   }
@@ -584,7 +675,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           </View>
         ) : null}
 
-        {progressItems.length > 0 || tracking.latest ? (
+        {isShuttle && (progressItems.length > 0 || tracking.latest) ? (
           <View style={styles.progressCard}>
             <View style={styles.progressHeading}>
               <NavigationArrow size={22} color={theme.colors.primary} weight="duotone" />
@@ -606,34 +697,13 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
               </View>
             ))}
 
-            <View style={styles.metadataRow}>
-              <View style={styles.metadataItem}>
-                <Broadcast size={18} color={theme.colors.primary} weight="duotone" />
-                <View style={styles.metadataText}>
-                  <Text style={styles.metadataLabel}>
-                    {t('tracking.metrics.lastUpdate')}
-                  </Text>
-                  <Text style={styles.metadataValue}>
-                    {tracking.latest
-                      ? formatDateTime(tracking.latest.recordedAt)
-                      : t('tracking.metrics.waitingGps')}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.metadataItem}>
-                <NavigationArrow size={18} color={theme.colors.primary} weight="duotone" />
-                <View style={styles.metadataText}>
-                  <Text style={styles.metadataLabel}>
-                    {t('tracking.metrics.speed')}
-                  </Text>
-                  <Text style={styles.metadataValue}>
-                    {tracking.latest?.speedKmh !== undefined
-                      ? `${Math.round(tracking.latest.speedKmh)} km/h`
-                      : t('tracking.metrics.notReported')}
-                  </Text>
-                </View>
-              </View>
-            </View>
+            <TrackingMetadata latest={tracking.latest} withDivider />
+          </View>
+        ) : null}
+
+        {!isShuttle && tracking.latest ? (
+          <View style={styles.metadataCard}>
+            <TrackingMetadata latest={tracking.latest} />
           </View>
         ) : null}
 
@@ -820,6 +890,10 @@ const createStyles = (theme: AppTheme) => ({
     lineHeight: 20,
     color: theme.colors.textSecondary,
   },
+  metadataCard: {
+    ...theme.components.card,
+    padding: spacing.lg,
+  },
   metadataRow: {
     flexDirection: 'row' as const,
     flexWrap: 'wrap' as const,
@@ -829,6 +903,10 @@ const createStyles = (theme: AppTheme) => ({
     borderTopColor: theme.effects.isLiquid
       ? theme.effects.contentBorder
       : theme.colors.divider,
+  },
+  metadataRowStandalone: {
+    paddingTop: 0,
+    borderTopWidth: 0,
   },
   metadataItem: {
     minWidth: 140,

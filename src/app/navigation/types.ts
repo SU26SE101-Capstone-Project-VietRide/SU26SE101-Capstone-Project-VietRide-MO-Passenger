@@ -32,7 +32,6 @@ export type AuthStackParamList = {
 
 // ─── Booking Stack (nested inside Main) ───────────────────
 export type BookingStackParamList = {
-  SearchRoutes: { intent?: BookingEntryIntent } | undefined;
   PopularRoutes: { intent?: BookingEntryIntent } | undefined;
   CityPicker: { mode: 'from' | 'to' };
   DatePicker: { mode?: 'departure' | 'return' } | undefined;

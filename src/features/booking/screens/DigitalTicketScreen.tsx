@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   useNavigation,
@@ -28,7 +28,6 @@ import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { ScannableCodeCard } from '@shared/components';
 import { useThemedStyles } from '@shared/hooks';
-import { MotionFade } from '@shared/motion';
 import {
   borderRadius as BR,
   fontFamilies,
@@ -167,12 +166,19 @@ function TicketView({
   const [requestedTicketKey, setRequestedTicketKey] = useState<string | null>(
     pages[0]?.key ?? null,
   );
+  useEffect(() => {
+    setRequestedTicketKey((current) => (
+      current && pages.some((page) => page.key === current)
+        ? current
+        : pages[0]?.key ?? null
+    ));
+  }, [pages]);
   const activePage = useMemo(
     () => pages.find((page) => page.key === requestedTicketKey) ?? pages[0],
     [pages, requestedTicketKey],
   );
   const handleSelectTicket = useCallback((key: string) => {
-    setRequestedTicketKey(key);
+    setRequestedTicketKey((current) => (current === key ? current : key));
   }, []);
   const activeLeg = activePage?.leg;
   const activeTicket = activePage?.ticket;
@@ -199,6 +205,16 @@ function TicketView({
         <Text style={styles.navTitle}>{model.title}</Text>
         <View style={styles.navSpacer} />
       </View>
+
+      {pages.length > 1 && activePage ? (
+        <View style={styles.ticketSelectorHeader}>
+          <TicketSelector
+            pages={pages}
+            selectedKey={activePage.key}
+            onSelect={handleSelectTicket}
+          />
+        </View>
+      ) : null}
 
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
@@ -278,16 +294,8 @@ function TicketView({
           </View>
         ) : null}
 
-        {activePage ? (
-          <TicketSelector
-            pages={pages}
-            selectedKey={activePage.key}
-            onSelect={handleSelectTicket}
-          />
-        ) : null}
-
         {activePage && activeLeg ? (
-            <MotionFade key={activePage.key} style={styles.legBlock}>
+            <View style={styles.legBlock}>
               <View style={styles.ticketCard}>
                 <View style={styles.referenceSection}>
                   <View style={styles.referenceIconContainer}>
@@ -388,17 +396,6 @@ function TicketView({
                         {activeTicket?.seatNumber ?? activeLeg.seatNumbers}
                       </Text>
                     </View>
-                    <View style={styles.gridItem}>
-                      <Text style={styles.specLabel}>{t('booking.ticket.tickets')}</Text>
-                      <Text style={styles.specValue}>
-                        {pages.length > 1
-                          ? t('booking.ticket.ticketPosition', {
-                            current: activePage.index,
-                            total: pages.length,
-                          })
-                          : activeLeg.ticketCount}
-                      </Text>
-                    </View>
                     {model.paymentMethod ? (
                       <View style={styles.gridItem}>
                         <Text style={styles.specLabel}>{t('booking.ticket.paymentMethod')}</Text>
@@ -433,16 +430,16 @@ function TicketView({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t('booking.ticket.trackLeg', { leg: activeLeg.label })}
-                  style={({ pressed }) => [styles.secondaryAction, pressed ? styles.pressed : null]}
+                  style={({ pressed }) => [styles.primaryAction, pressed ? styles.pressed : null]}
                   onPress={() => onTrack(activeLeg)}
                 >
-                  <MapPin size={18} color={theme.colors.primary} weight="bold" />
-                  <Text style={styles.secondaryActionText}>
+                  <MapPin size={18} color={theme.colors.textInverse} weight="bold" />
+                  <Text style={styles.primaryActionText}>
                     {t('booking.ticket.trackLeg', { leg: activeLeg.label })}
                   </Text>
                 </Pressable>
               ) : null}
-            </MotionFade>
+            </View>
         ) : null}
 
         {model.legs.length > 1 ? (
@@ -886,6 +883,13 @@ const createStyles = (theme: AppTheme) => ({
   },
   ticketSelector: {
     gap: spacing.sm,
+  },
+  ticketSelectorHeader: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.effects.contentBorder,
+    backgroundColor: theme.effects.contentSurface,
   },
   ticketSelectorLabel: {
     fontFamily: fontFamilies.semiBold,

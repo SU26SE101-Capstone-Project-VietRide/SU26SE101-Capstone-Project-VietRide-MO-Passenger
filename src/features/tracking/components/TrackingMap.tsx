@@ -1,6 +1,6 @@
 import React, { Suspense, useMemo } from 'react';
 import { Platform, Text, useWindowDimensions, View } from 'react-native';
-import { MapPin } from 'phosphor-react-native';
+import { MapPin, NavigationArrow } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { StatusChip, type StatusChipTone } from '@shared/components';
@@ -32,6 +32,17 @@ export type TrackingMapConnectionState =
   | 'terminal'
   | 'waiting';
 
+export interface TrackingMapJourneySummary {
+  nextStop?: {
+    etaLabel?: string;
+    name: string;
+  };
+  targetStop?: {
+    etaLabel?: string;
+    name: string;
+  };
+}
+
 interface TrackingMapProps {
   latest: TrackingPoint | null;
   trail?: readonly TrackingPoint[];
@@ -39,6 +50,7 @@ interface TrackingMapProps {
   markers?: readonly TrackingMapMarker[];
   vehicleKind?: 'bus' | 'shuttle';
   connectionState?: TrackingMapConnectionState;
+  journeySummary?: TrackingMapJourneySummary;
   /** @deprecated Compatibility aliases while callers migrate. */
   points?: readonly TrackingPoint[];
   /** @deprecated Compatibility aliases while callers migrate. */
@@ -102,10 +114,12 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
   markers,
   vehicleKind = 'bus',
   connectionState = 'waiting',
+  journeySummary,
   points,
   stops = EMPTY_STOPS,
 }: TrackingMapProps): React.JSX.Element {
   const { t } = useTranslation();
+  const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { height: viewportHeight } = useWindowDimensions();
   const inputTrail = trail ?? points ?? EMPTY_POINTS;
@@ -142,6 +156,9 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     && connectionState !== 'terminal';
   const effectiveConnectionState = shouldWaitForGps ? 'waiting' : connectionState;
   const connectionPresentation = CONNECTION_PRESENTATION[effectiveConnectionState];
+  const hasJourneySummary = Boolean(
+    journeySummary?.nextStop || journeySummary?.targetStop,
+  );
 
   let content: React.ReactNode;
   let showConnectionChip = false;
@@ -190,11 +207,72 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     <View style={[styles.mapFrame, frameStyle]}>
       {content}
       {showConnectionChip ? (
-        <StatusChip
-          label={t(connectionPresentation.key)}
-          tone={connectionPresentation.tone}
-          style={styles.connectionChip}
-        />
+        <View pointerEvents="none" style={styles.connectionOverlay}>
+          <StatusChip
+            label={t(connectionPresentation.key)}
+            tone={connectionPresentation.tone}
+            style={styles.connectionChip}
+          />
+        </View>
+      ) : null}
+      {hasJourneySummary ? (
+        <View pointerEvents="none" style={styles.journeyOverlay}>
+          <View style={styles.journeyCard} accessibilityRole="summary">
+            <View style={styles.journeyHeading}>
+              <NavigationArrow
+                size={16}
+                color={theme.colors.primary}
+                weight="fill"
+              />
+              <Text style={styles.journeyTitle}>{t('tracking.progress.title')}</Text>
+            </View>
+            {journeySummary?.nextStop ? (
+              <View style={styles.milestoneRow}>
+                <NavigationArrow
+                  size={18}
+                  color={theme.colors.primary}
+                  weight="fill"
+                />
+                <View style={styles.milestoneCopy}>
+                  <Text style={styles.milestoneLabel}>
+                    {t('tracking.map.nextStopMarker')}
+                  </Text>
+                  <Text style={styles.milestoneName} numberOfLines={2}>
+                    {journeySummary.nextStop.name}
+                  </Text>
+                </View>
+                {journeySummary.nextStop.etaLabel ? (
+                  <Text style={styles.milestoneEta} numberOfLines={2}>
+                    {journeySummary.nextStop.etaLabel}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            {journeySummary?.targetStop ? (
+              <View style={styles.milestoneRow}>
+                <MapPin
+                  size={18}
+                  color={theme.colors.accentDark}
+                  weight="fill"
+                />
+                <View style={styles.milestoneCopy}>
+                  <Text style={styles.milestoneLabel}>
+                    {t('tracking.map.targetStopMarker')}
+                  </Text>
+                  <Text style={styles.milestoneName} numberOfLines={2}>
+                    {journeySummary.targetStop.name}
+                  </Text>
+                </View>
+                {journeySummary.targetStop.etaLabel ? (
+                  <Text style={styles.milestoneEta} numberOfLines={2}>
+                    {journeySummary.targetStop.etaLabel}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+        </View>
       ) : null}
     </View>
   );
@@ -213,15 +291,79 @@ const createStyles = (theme: AppTheme) => ({
       ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
   },
-  connectionChip: {
+  connectionOverlay: {
     position: 'absolute' as const,
     top: spacing.md,
     left: spacing.md,
     zIndex: 30,
-    maxWidth: '62%' as const,
+    alignItems: 'flex-start' as const,
+  },
+  journeyOverlay: {
+    position: 'absolute' as const,
+    top: 52,
+    right: spacing.md,
+    zIndex: 30,
+    width: '68%' as const,
+  },
+  connectionChip: {
     borderWidth: 1,
     borderColor: theme.effects.glassBorderStrong,
     ...theme.effects.cardShadow,
+  },
+  journeyCard: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
+    borderWidth: 1,
+    borderColor: theme.effects.glassBorderStrong,
+    backgroundColor: theme.colors.surfaceElevated,
+    ...theme.effects.cardShadow,
+  },
+  journeyHeading: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+  },
+  journeyTitle: {
+    flex: 1,
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+  },
+  milestoneRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
+  },
+  milestoneCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  milestoneLabel: {
+    fontFamily: fontFamilies.bold,
+    fontSize: 10,
+    color: theme.colors.primary,
+  },
+  milestoneName: {
+    marginTop: 1,
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    lineHeight: 19,
+    color: theme.colors.textPrimary,
+  },
+  milestoneEta: {
+    maxWidth: '34%' as const,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    lineHeight: 17,
+    color: theme.colors.textSecondary,
+    textAlign: 'right' as const,
   },
   unavailableMap: {
     flex: 1,

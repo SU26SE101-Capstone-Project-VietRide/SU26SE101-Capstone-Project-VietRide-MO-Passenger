@@ -33,7 +33,7 @@ const PRESENTATION_BY_STATUS: Record<string, TicketStatusPresentation> = {
     labelKey: 'history.status.ticket.completed',
     fallback: 'Completed',
     tone: 'success',
-    trackingEnabled: true,
+    trackingEnabled: false,
     pendingPayment: false,
   },
   PARTIAL_NO_SHOW: {

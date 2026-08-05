@@ -110,7 +110,7 @@ export function formatParcelDimensions({
   widthCm,
   heightCm,
 }: ParcelDimensions): string {
-  return `${lengthCm} × ${widthCm} × ${heightCm} ${i18n.t(
+  return `${lengthCm} × ${widthCm} × ${heightCm}\u00A0${i18n.t(
     'parcel.units.cm',
   )}`;
 }

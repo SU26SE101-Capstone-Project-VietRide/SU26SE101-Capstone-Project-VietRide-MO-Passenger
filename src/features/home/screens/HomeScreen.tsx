@@ -163,7 +163,7 @@ export function HomeScreen(): React.JSX.Element {
     (voucherId: string, code: string) => {
       if (!voucherId || !code) return;
       navigation.navigate('Booking', {
-        screen: 'SearchRoutes',
+        screen: 'CreateTicketBooking',
         params: {
           intent: {
             type: 'promotion',

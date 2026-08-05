@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { StatusBar, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,7 +11,10 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { LiveTripTrackingPanel } from '../components/LiveTripTrackingPanel';
-import { TrackingHeader } from '../components/TrackingHeader';
+import {
+  TrackingHeader,
+  type TrackingHeaderRoute,
+} from '../components/TrackingHeader';
 
 type TrackingRoute = RouteProp<RootStackParamList, 'Tracking'>;
 type TrackingNavigation = NativeStackNavigationProp<RootStackParamList, 'Tracking'>;
@@ -34,12 +37,21 @@ export function TrackingScreen(): React.JSX.Element {
   const bookingId = route.params.bookingId;
   const tripStatus = isShuttle ? undefined : route.params.tripStatus;
   const terminalMessageKey = terminalMessageKeyForStatus(tripStatus);
+  const [routeHeader, setRouteHeader] = useState<TrackingHeaderRoute>();
   const headerSubtitleKey = bookingId
     ? 'tracking.bookingReference'
     : isShuttle
       ? 'tracking.shuttleReference'
       : 'tracking.tripReference';
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleRouteHeaderChange = useCallback((next: TrackingHeaderRoute | undefined) => {
+    setRouteHeader((current) => (
+      current?.originName === next?.originName
+      && current?.destinationName === next?.destinationName
+        ? current
+        : next
+    ));
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -53,6 +65,7 @@ export function TrackingScreen(): React.JSX.Element {
           : 'tracking.liveTracking')}
         subtitle={t(headerSubtitleKey)}
         onBack={handleBack}
+        route={routeHeader}
       />
 
       <View style={styles.body}>
@@ -69,6 +82,7 @@ export function TrackingScreen(): React.JSX.Element {
             stopId={route.params.stopId}
             tripStatus={tripStatus}
             terminalMessage={terminalMessageKey ? t(terminalMessageKey) : undefined}
+            onRouteHeaderChange={handleRouteHeaderChange}
           />
         )}
       </View>

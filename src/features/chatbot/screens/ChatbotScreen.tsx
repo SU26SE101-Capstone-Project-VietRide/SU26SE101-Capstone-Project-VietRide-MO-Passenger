@@ -142,7 +142,7 @@ export function ChatbotScreen(): React.JSX.Element {
 
     applySearchPrefill(params);
     navigation.navigate('Booking', {
-      screen: draft.isReadyToSearch ? 'CreateTicketBooking' : 'SearchRoutes',
+      screen: 'CreateTicketBooking',
     });
   }, [applySearchPrefill, navigation]);
 

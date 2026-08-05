@@ -19,7 +19,6 @@ import {
   CreditCard,
   MagnifyingGlass,
   WarningCircle,
-  Wallet,
 } from 'phosphor-react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -56,6 +55,7 @@ import {
   ParcelPaymentMethodSelector,
 } from '../components';
 import { parcelKeys } from '../api/parcelApi';
+import { formatParcelDimensions } from '../config/parcelPackage';
 import {
   getParcelCheckoutState,
   getParcelPaymentStage,
@@ -65,7 +65,6 @@ import {
 } from '../utils/parcelTracking';
 import {
   getParcelDeliveryMethodPresentation,
-  getParcelSizePresentation,
   getParcelStatusPresentation,
   PARCEL_ERROR_TRANSLATION_KEYS,
 } from '../utils/parcelPresentation';
@@ -82,6 +81,41 @@ interface ParcelPhotoItem {
   label: string;
   uri: string;
 }
+
+interface ParcelDetailFieldProps {
+  compact?: boolean;
+  label: string;
+  value: string;
+  variant?: 'default' | 'route';
+}
+
+const ParcelDetailField = React.memo(function ParcelDetailField({
+  compact = false,
+  label,
+  value,
+  variant = 'default',
+}: ParcelDetailFieldProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={[styles.detailField, compact ? styles.detailFieldCompact : null]}>
+      <Text
+        numberOfLines={compact ? 1 : undefined}
+        ellipsizeMode="tail"
+        style={styles.detailFieldLabel}
+      >
+        {label}
+      </Text>
+      <Text
+        selectable
+        numberOfLines={compact ? 2 : undefined}
+        style={variant === 'route' ? styles.routeName : styles.detailFieldValue}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+});
 
 const ParcelPhotoGallery = React.memo(function ParcelPhotoGallery({
   photos,
@@ -165,11 +199,21 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const trackingAvailable = isParcelTrackingEligible(parcel?.status);
   const isSender = Boolean(userId && parcel?.senderUserId === userId);
   const statusPresentation = getParcelStatusPresentation(parcel?.status);
-  const sizePresentation = getParcelSizePresentation(
-    parcel?.actualSizeCategory
-      ?? parcel?.estimatedSizeCategory
-      ?? parcel?.sizeCategory,
-  );
+  const packageDimensions = parcel
+    ? parcel.actualLengthCm !== null
+      && parcel.actualWidthCm !== null
+      && parcel.actualHeightCm !== null
+      ? formatParcelDimensions({
+          lengthCm: parcel.actualLengthCm,
+          widthCm: parcel.actualWidthCm,
+          heightCm: parcel.actualHeightCm,
+        })
+      : formatParcelDimensions({
+          lengthCm: parcel.estimatedLengthCm,
+          widthCm: parcel.estimatedWidthCm,
+          heightCm: parcel.estimatedHeightCm,
+        })
+    : '-';
   const deliveryPresentation = getParcelDeliveryMethodPresentation(parcel?.deliveryMethod);
   const paymentAmount = paymentStage === 'deposit'
     ? Math.max(
@@ -374,7 +418,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.navTitle}>
+        <Text numberOfLines={1} style={styles.navTitle}>
           {fromHistory
             ? t('parcel.detail.historyTitle')
             : t('parcel.detail.ticketTitle')}
@@ -490,6 +534,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
               <StatusChip
                 label={t(statusPresentation.labelKey)}
                 tone={statusPresentation.tone}
+                style={styles.centeredStatusChip}
               />
             </View>
 
@@ -499,87 +544,66 @@ export function ParcelDetailScreen(): React.JSX.Element {
             </View>
 
             <View style={styles.detailsSection}>
-              <View style={styles.routeRow}>
-                <View style={styles.routeItem}>
-                  <Text style={styles.routeLabel}>
-                    {t('parcel.route.from')}
-                  </Text>
-                  <Text style={styles.routeName}>
-                    {parcel?.originStationName ||
-                      t('parcel.route.originTerminal')}
-                  </Text>
-                </View>
-                <View style={styles.routeItem}>
-                  <Text style={[styles.routeLabel, styles.textRight]}>
-                    {t('parcel.route.to')}
-                  </Text>
-                  <Text style={[styles.routeName, styles.textRight]}>
-                    {parcel?.destinationStationName ||
-                      t('parcel.route.destinationTerminal')}
-                  </Text>
-                </View>
+              <View style={styles.routeList}>
+                <ParcelDetailField
+                  label={t('parcel.route.from')}
+                  value={parcel?.originStationName || t('parcel.route.originTerminal')}
+                  variant="route"
+                />
+                <ParcelDetailField
+                  label={t('parcel.route.to')}
+                  value={parcel?.destinationStationName || t('parcel.route.destinationTerminal')}
+                  variant="route"
+                />
               </View>
 
-              <View style={styles.specsGrid}>
-                <View style={styles.gridItem}>
-                  <Text style={styles.specLabel}>
-                    {t('parcel.detail.packageSize')}
-                  </Text>
-                  <Text style={styles.specValue}>
-                    {t(sizePresentation.labelKey)}
-                  </Text>
-                </View>
-                <View style={styles.gridItem}>
-                  <Text style={styles.specLabel}>
-                    {t('parcel.weight.title')}
-                  </Text>
-                  <Text style={styles.specValue}>
-                    {parcel?.actualWeightKg ?? parcel?.estimatedWeightKg ?? '-'}{' '}
-                    {t('parcel.units.kg')}
-                  </Text>
-                </View>
-                <View style={styles.gridItem}>
-                  <Text style={styles.specLabel}>
-                    {t('parcel.detail.delivery')}
-                  </Text>
-                  <Text style={styles.specValue}>
-                    {t(deliveryPresentation.labelKey)}
-                  </Text>
+              <View style={styles.detailsDivider} />
+
+              <View style={styles.detailList}>
+                <View style={styles.detailFieldRow}>
+                  <ParcelDetailField
+                    compact
+                    label={t('parcel.detail.packageSize')}
+                    value={packageDimensions}
+                  />
+                  <ParcelDetailField
+                    compact
+                    label={t('parcel.weight.title')}
+                    value={`${parcel?.actualWeightKg ?? parcel?.estimatedWeightKg ?? '-'} ${t('parcel.units.kg')}`}
+                  />
                 </View>
                 {isSender ? (
-                  <View style={styles.gridItem}>
-                    <Text style={styles.specLabel}>
-                      {t('parcel.detail.recipient')}
-                    </Text>
-                    <Text style={styles.specValue}>
-                      {parcel?.recipientName || '-'}
-                    </Text>
+                  <View style={styles.detailFieldRow}>
+                    <ParcelDetailField
+                      compact
+                      label={t('parcel.detail.delivery')}
+                      value={t(deliveryPresentation.labelKey)}
+                    />
+                    <ParcelDetailField
+                      compact
+                      label={t('parcel.detail.recipient')}
+                      value={parcel?.recipientName || '-'}
+                    />
                   </View>
-                ) : null}
+                ) : (
+                  <ParcelDetailField
+                    label={t('parcel.detail.delivery')}
+                    value={t(deliveryPresentation.labelKey)}
+                  />
+                )}
                 {isSender ? (
-                  <View style={styles.gridItem}>
-                    <Text style={styles.specLabel}>
-                      {t('parcel.detail.payment')}
-                    </Text>
-                    <View style={styles.paymentMethodLabel}>
-                      <Wallet
-                        size={12}
-                        color={theme.colors.primary}
-                        weight="bold"
-                      />
-                      <Text style={styles.specValue}>
-                        {(parcel?.balanceRequiredVnd ?? 0) > 0
-                          ? t('parcel.detail.depositAndBalance')
-                          : t('parcel.detail.deposit')}
-                      </Text>
-                    </View>
-                  </View>
+                  <ParcelDetailField
+                    label={t('parcel.detail.payment')}
+                    value={(parcel?.balanceRequiredVnd ?? 0) > 0
+                      ? t('parcel.detail.depositAndBalance')
+                      : t('parcel.detail.deposit')}
+                  />
                 ) : null}
               </View>
 
               {parcel?.description ? (
                 <View style={styles.noteBox}>
-                  <Text style={styles.specLabel}>
+                  <Text style={styles.detailFieldLabel}>
                     {t('parcel.detail.description')}
                   </Text>
                   <Text style={styles.noteText}>{parcel.description}</Text>
@@ -844,9 +868,11 @@ const createStyles = (theme: AppTheme) => ({
     width: 36,
   },
   navTitle: {
+    flex: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
+    textAlign: 'center',
   },
   stateContainer: {
     flex: 1,
@@ -881,13 +907,16 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.xxl,
   },
   successTitle: {
+    alignSelf: 'stretch',
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
     color: theme.colors.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   successSubtitle: {
+    alignSelf: 'stretch',
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
@@ -933,6 +962,9 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     padding: spacing.xl,
   },
+  centeredStatusChip: {
+    alignSelf: 'center' as const,
+  },
   qrContainer: {
     padding: spacing.md,
     backgroundColor: theme.effects.isLiquid
@@ -946,10 +978,12 @@ const createStyles = (theme: AppTheme) => ({
       : theme.colors.divider,
   },
   qrCaption: {
+    alignSelf: 'stretch',
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
     marginBottom: 4,
+    textAlign: 'center',
   },
   ticketIdText: {
     fontFamily: fontFamilies.bold,
@@ -1010,53 +1044,48 @@ const createStyles = (theme: AppTheme) => ({
   detailsSection: {
     padding: spacing.xl,
   },
-  routeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  routeList: {
     gap: spacing.md,
-    marginBottom: spacing.xl,
   },
-  routeItem: {
+  detailsDivider: {
+    height: 1,
+    marginVertical: spacing.lg,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
+  },
+  detailList: {
+    gap: spacing.md,
+  },
+  detailFieldRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: spacing.md,
+  },
+  detailField: {
+    minWidth: 0,
+    gap: 4,
+  },
+  detailFieldCompact: {
     flex: 1,
+    minWidth: 0,
   },
-  routeLabel: {
+  detailFieldLabel: {
     fontFamily: fontFamilies.bold,
-    fontSize: 9,
+    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
-    marginBottom: 4,
   },
   routeName: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
+    lineHeight: 20,
     color: theme.colors.textPrimary,
   },
-  textRight: {
-    textAlign: 'right',
-  },
-  specsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: spacing.lg,
-  },
-  gridItem: {
-    width: '50%',
-    marginBottom: spacing.md,
-  },
-  specLabel: {
-    fontFamily: fontFamilies.bold,
-    fontSize: 9,
-    color: theme.colors.textTertiary,
-    marginBottom: 4,
-  },
-  specValue: {
+  detailFieldValue: {
     fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
     color: theme.colors.textPrimary,
-  },
-  paymentMethodLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
   },
   noteBox: {
     paddingVertical: spacing.md,
@@ -1081,11 +1110,14 @@ const createStyles = (theme: AppTheme) => ({
       : theme.colors.divider,
   },
   totalLabel: {
+    flex: 1,
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },
   totalValue: {
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.primary,
@@ -1104,12 +1136,14 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   settlementValue: {
+    flexShrink: 1,
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.xs,
     color: theme.colors.textPrimary,
     textAlign: 'right',
   },
   refundValue: {
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
     color: theme.colors.success,
@@ -1121,11 +1155,14 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.sm,
   },
   discountLabel: {
+    flex: 1,
+    flexShrink: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
   },
   discountValue: {
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
     color: theme.colors.success,
