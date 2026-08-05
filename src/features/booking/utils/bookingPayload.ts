@@ -7,16 +7,20 @@ import type {
   DropOffPoint,
   PickUpPoint,
   Seat,
-  ShuttlePickupDraft,
+  ShuttleServiceDraft,
 } from '../types';
-import { toShuttlePickupPayload } from './shuttle';
+import {
+  toShuttleDropoffPayload,
+  toShuttlePickupPayload,
+} from './shuttle';
 
 export interface BookingLegDraft {
   trip: BusTrip | null;
   seats: Seat[];
   pickUp: PickUpPoint | null;
   dropOff: DropOffPoint | null;
-  shuttlePickup?: ShuttlePickupDraft | null;
+  shuttlePickup?: ShuttleServiceDraft | null;
+  shuttleDropoff?: ShuttleServiceDraft | null;
 }
 
 export type BookingLegPayload = Omit<
@@ -85,12 +89,18 @@ export const buildBookingLegPayload = (
     leg.trip,
     leg.pickUp,
   );
+  const shuttleDropoff = toShuttleDropoffPayload(
+    leg.shuttleDropoff ?? null,
+    leg.trip,
+    leg.dropOff,
+  );
 
   return {
     tripId: leg.trip.id,
     pickup,
     dropoff,
     ...(shuttlePickup ? { shuttlePickup } : {}),
+    ...(shuttleDropoff ? { shuttleDropoff } : {}),
     seats: makeSeatRequests(leg.seats),
   };
 };

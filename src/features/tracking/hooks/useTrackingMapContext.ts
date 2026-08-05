@@ -49,12 +49,23 @@ export const selectShuttlePassengerPickup = (
     return context.ownPickups.find((pickup) => pickup.bookingId === bookingId) ?? null;
   }
 
-  let selected: ShuttlePassengerPickup | null = null;
+  let pending: ShuttlePassengerPickup | null = null;
+  let pickedUp: ShuttlePassengerPickup | null = null;
   for (const pickup of context.ownPickups) {
-    if (pickup.status !== 'PENDING') continue;
-    if (!selected || pickup.pickupOrder < selected.pickupOrder) selected = pickup;
+    if (
+      pickup.status === 'PENDING'
+      && (!pending || pickup.pickupOrder < pending.pickupOrder)
+    ) {
+      pending = pickup;
+    }
+    if (
+      pickup.status === 'PICKED_UP'
+      && (!pickedUp || pickup.pickupOrder < pickedUp.pickupOrder)
+    ) {
+      pickedUp = pickup;
+    }
   }
-  return selected;
+  return pending ?? pickedUp;
 };
 
 export function useTrackingMapContext({

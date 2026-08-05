@@ -35,6 +35,7 @@ export function CheckoutScreen({
     selectedPickUp,
     selectedDropOff,
     selectedShuttlePickup,
+    selectedShuttleDropoff,
     totalPrice,
     searchParams,
     outboundState,
@@ -47,6 +48,7 @@ export function CheckoutScreen({
     selectedPickUp: state.selectedPickUp,
     selectedDropOff: state.selectedDropOff,
     selectedShuttlePickup: state.selectedShuttlePickup,
+    selectedShuttleDropoff: state.selectedShuttleDropoff,
     totalPrice: state.totalPrice,
     searchParams: state.searchParams,
     outboundState: state.outboundState,
@@ -60,7 +62,15 @@ export function CheckoutScreen({
     pickUp: selectedPickUp,
     dropOff: selectedDropOff,
     shuttlePickup: selectedShuttlePickup,
-  }), [selectedDropOff, selectedPickUp, selectedSeats, selectedShuttlePickup, selectedTrip]);
+    shuttleDropoff: selectedShuttleDropoff,
+  }), [
+    selectedDropOff,
+    selectedPickUp,
+    selectedSeats,
+    selectedShuttleDropoff,
+    selectedShuttlePickup,
+    selectedTrip,
+  ]);
 
   const checkoutSeatBadges = useMemo(() => {
     return buildBookingSeatBadges({

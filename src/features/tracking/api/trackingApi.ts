@@ -30,10 +30,14 @@ const trackingTrailPointSchema = z.object({
 export const trackingEtaSchema = z.object({
   tripId: z.string().uuid(),
   stopId: z.string().uuid(),
+  stopName: z.string().nullable().optional(),
   etaMinutes: z.number().int().positive(),
   estimatedArrivalTime: trackingDateTimeSchema,
   distanceMeters: z.number().int().nonnegative(),
   updatedAt: trackingDateTimeSchema,
+  delayed: z.boolean().nullable(),
+  delayStatus: z.enum(['DELAYED', 'ON_TIME', 'UNKNOWN']),
+  delayMinutes: z.number().int().nonnegative().nullable(),
 }).strict();
 
 const trackingLatestResponseSchema = z.object({
@@ -85,9 +89,17 @@ const tripRouteContextSchema = z.object({
   destinationStation: trackingRouteStationSchema.nullable(),
 }).strict();
 
+export const shuttleDirectionSchema = z.enum([
+  'INBOUND_TO_STATION',
+  'OUTBOUND_FROM_STATION',
+]);
+
 const shuttlePassengerPickupSchema = z.object({
   bookingId: z.string().uuid(),
   pickupOrder: z.number().int().positive(),
+  serviceAddress: z.string().trim().min(1).optional(),
+  serviceOrder: z.number().int().positive().optional(),
+  roadDistanceMeters: z.number().int().nonnegative().optional(),
   ...trackingGeoCoordinateShape,
   status: z.enum(['PENDING', 'PICKED_UP']),
   stopsBeforePickup: z.number().int().nonnegative(),
@@ -103,6 +115,7 @@ const shuttlePassengerStationSchema = z.object({
 const shuttlePassengerContextSchema = z.object({
   shuttleTripId: z.string().uuid(),
   mainTripId: z.string().uuid(),
+  direction: shuttleDirectionSchema,
   ownPickups: z.array(shuttlePassengerPickupSchema),
   station: shuttlePassengerStationSchema.nullable(),
 }).strict();
@@ -138,6 +151,8 @@ export type TrackingEta = z.infer<typeof trackingEtaSchema>;
 export type TrackingEtaResponse = z.infer<typeof trackingEtaResponseSchema>;
 
 export type ShuttleTrackingEta = z.infer<typeof shuttleTrackingEtaSchema>;
+
+export type ShuttleDirection = z.infer<typeof shuttleDirectionSchema>;
 
 export type TrackingGeoCoordinate = z.infer<typeof trackingRoutePointSchema>;
 

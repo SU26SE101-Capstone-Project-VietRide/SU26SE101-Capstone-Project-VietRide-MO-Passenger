@@ -25,7 +25,7 @@ export interface StationSearchResult {
   id: string;
   name: string;
   city: string;
-  province: string;
+  ward: string | null;
   locationId?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -41,7 +41,7 @@ export interface StationDetail {
   addressStreet: string | null;
   locationId: string | null;
   city: string;
-  province: string;
+  ward: string | null;
   latitude: number | null;
   longitude: number | null;
   contactPhone: string | null;

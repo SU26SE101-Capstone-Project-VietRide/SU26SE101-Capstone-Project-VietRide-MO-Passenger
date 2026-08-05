@@ -12,7 +12,7 @@ const station: StationSearchResult = {
   id: 'station-1',
   name: 'Bến xe Miền Đông',
   city: 'Thành phố Hồ Chí Minh',
-  province: 'Thành phố Hồ Chí Minh',
+  ward: 'Phường Long Bình',
   addressStreet: '501 Hoàng Hữu Nam',
   latitude: 10.877,
   longitude: 106.814,
@@ -24,7 +24,7 @@ describe('mapParcelStation', () => {
     expect(mapParcelStation(station, 0)).toEqual({
       id: 'station-1',
       name: 'Bến xe Miền Đông',
-      address: '501 Hoàng Hữu Nam, Thành phố Hồ Chí Minh, Thành phố Hồ Chí Minh',
+      address: '501 Hoàng Hữu Nam, Phường Long Bình, Thành phố Hồ Chí Minh',
       distance: null,
       isClosest: false,
       city: 'Thành phố Hồ Chí Minh',

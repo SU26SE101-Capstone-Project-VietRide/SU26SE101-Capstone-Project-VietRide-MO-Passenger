@@ -28,7 +28,7 @@ const stationDetail: StationDetail = {
   addressStreet: '395 Kinh Dương Vương',
   locationId: null,
   city: 'Hồ Chí Minh',
-  province: 'Hồ Chí Minh',
+  ward: 'Phường An Lạc',
   latitude: 10.741,
   longitude: 106.619,
   contactPhone: null,

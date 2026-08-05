@@ -11,18 +11,16 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import type { ShuttlePickupDraft } from '../types';
+import type { ShuttleServiceDirection, ShuttleServiceDraft } from '../types';
+import type { ShuttleServiceStatus } from '../utils/shuttle';
 import { SectionCard } from './SectionCard';
 
-export type ShuttleServiceStatus =
-  | 'loading'
-  | 'available'
-  | 'unavailable'
-  | 'error';
+export type { ShuttleServiceStatus } from '../utils/shuttle';
 
 interface ShuttleServiceCardProps {
+  direction?: ShuttleServiceDirection;
   status: ShuttleServiceStatus;
-  value: ShuttlePickupDraft | null;
+  value: ShuttleServiceDraft | null;
   stationName?: string;
   unavailableReason?: string;
   onToggle: (enabled: boolean) => void;
@@ -31,6 +29,7 @@ interface ShuttleServiceCardProps {
 }
 
 export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
+  direction = 'pickup',
   status,
   value,
   stationName,
@@ -44,6 +43,7 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
   const styles = useThemedStyles(createStyles);
   const isAvailable = status === 'available';
   const isEnabled = Boolean(value);
+  const isDropoff = direction === 'dropoff';
   const switchTrackColors = useMemo(
     () => ({
       false: theme.colors.divider,
@@ -56,27 +56,39 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
     <SectionCard testID="shuttle-service-card" style={styles.card}>
       <View style={styles.headerRow}>
         <View style={styles.iconBox}>
-          <Van size={22} color={theme.colors.primary} weight="duotone" />
+          <Van size={22} color={theme.accents.assistant.foreground} weight="duotone" />
         </View>
         <View style={styles.headingCopy}>
-          <Text style={styles.title}>{t('booking.shuttle.title')}</Text>
+          <Text style={styles.title}>
+            {t(isDropoff ? 'booking.shuttle.dropoffTitle' : 'booking.shuttle.title')}
+          </Text>
           <Text style={styles.subtitle}>
-            {t('booking.shuttle.requestToStation', {
-              station: stationName || t('booking.shuttle.departureStation'),
+            {t(isDropoff
+              ? 'booking.shuttle.requestFromStation'
+              : 'booking.shuttle.requestToStation', {
+              station: stationName || t(isDropoff
+                ? 'booking.shuttle.destinationStation'
+                : 'booking.shuttle.departureStation'),
             })}
           </Text>
         </View>
         {status === 'loading' ? (
-          <ActivityIndicator color={theme.colors.primary} />
+          <ActivityIndicator color={theme.accents.assistant.foreground} />
         ) : (
           <Switch
-            accessibilityLabel={t('booking.shuttle.requestAccessibility')}
-            accessibilityHint={t('booking.shuttle.requestHint')}
+            accessibilityLabel={t(isDropoff
+              ? 'booking.shuttle.dropoffRequestAccessibility'
+              : 'booking.shuttle.requestAccessibility')}
+            accessibilityHint={t(isDropoff
+              ? 'booking.shuttle.dropoffRequestHint'
+              : 'booking.shuttle.requestHint')}
             value={isEnabled}
             disabled={!isAvailable}
             onValueChange={onToggle}
             trackColor={switchTrackColors}
-            thumbColor={isEnabled ? theme.colors.primary : theme.colors.textTertiary}
+            thumbColor={isEnabled
+              ? theme.colors.primary
+              : theme.colors.textTertiary}
             ios_backgroundColor={theme.colors.divider}
           />
         )}
@@ -93,28 +105,42 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
       {isEnabled && value ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('booking.shuttle.editAddress')}
+          accessibilityLabel={t(isDropoff
+            ? 'booking.shuttle.editDropoffAddress'
+            : 'booking.shuttle.editAddress')}
           onPress={onEdit}
           style={({ pressed }) => [
             styles.addressRow,
             pressed ? styles.pressed : null,
           ]}
         >
-          <MapPinLine size={20} color={theme.colors.primary} weight="duotone" />
+          <MapPinLine
+            size={20}
+            color={theme.accents.assistant.foreground}
+            weight="duotone"
+          />
           <View style={styles.addressCopy}>
-            <Text style={styles.addressLabel}>{t('booking.shuttle.pickupAddress')}</Text>
+            <Text style={styles.addressLabel}>
+              {t(isDropoff ? 'booking.shuttle.dropoffAddress' : 'booking.shuttle.pickupAddress')}
+            </Text>
             <Text style={styles.addressText} numberOfLines={3}>{value.address}</Text>
             <Text style={styles.addressStatus}>{t('booking.shuttle.savedAwaitingArrangement')}</Text>
           </View>
           <View style={styles.editIcon}>
-            <PencilSimple size={15} color={theme.colors.primary} weight="bold" />
+            <PencilSimple
+              size={15}
+              color={theme.accents.assistant.foreground}
+              weight="bold"
+            />
           </View>
         </Pressable>
       ) : null}
 
       {status === 'unavailable' ? (
         <Text style={styles.unavailableText}>
-          {unavailableReason || t('booking.shuttle.unavailable')}
+          {unavailableReason || t(isDropoff
+            ? 'booking.shuttle.unavailableDropoff'
+            : 'booking.shuttle.unavailable')}
         </Text>
       ) : null}
 
@@ -152,7 +178,9 @@ const createStyles = (theme: AppTheme) => ({
     width: 44,
     height: 44,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.colors.primaryFaded,
+    backgroundColor: theme.accents.assistant.soft,
+    borderWidth: 1,
+    borderColor: theme.accents.assistant.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -176,7 +204,9 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.md,
     padding: spacing.md,
     borderRadius: borderRadius.md,
-    backgroundColor: theme.colors.primaryFaded,
+    backgroundColor: theme.accents.assistant.soft,
+    borderWidth: 1,
+    borderColor: theme.accents.assistant.border,
   },
   noticeText: {
     fontFamily: fontFamilies.regular,
@@ -215,13 +245,13 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.xs,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: theme.colors.primary,
+    color: theme.accents.assistant.foreground,
   },
   editIcon: {
     width: 30,
     height: 30,
     borderRadius: borderRadius.full,
-    backgroundColor: theme.colors.primaryFaded,
+    backgroundColor: theme.accents.assistant.soft,
     alignItems: 'center',
     justifyContent: 'center',
   },

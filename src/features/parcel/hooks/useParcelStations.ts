@@ -14,7 +14,7 @@ const STATION_STALE_TIME_MS = 10 * 60 * 1000;
 const STATION_GC_TIME_MS = 30 * 60 * 1000;
 
 const stationAddress = (station: StationSearchResult): string => {
-  return [station.addressStreet, station.city, station.province]
+  return [station.addressStreet, station.ward, station.city]
     .filter(Boolean)
     .join(', ');
 };
@@ -77,7 +77,7 @@ export const mapParcelStation = (
         ? t('parcel.stations.calculatingDistance')
         : null),
     isClosest: index === 0 && distanceKm != null,
-    city: station.city || station.province || '',
+    city: station.city || station.ward || '',
   };
 };
 

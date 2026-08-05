@@ -4,6 +4,24 @@ import type { colors } from './colors';
 export type ThemeVariant = 'liquid_light' | 'liquid_dark';
 export type ThemeColors = Record<keyof typeof colors, string>;
 
+export type ThemeAccentRole =
+  | 'ticket'
+  | 'parcel'
+  | 'promotion'
+  | 'finance'
+  | 'assistant'
+  | 'tracking';
+
+export type ThemeAccentToken = {
+  foreground: string;
+  soft: string;
+  border: string;
+  strong: string;
+  onStrong: string;
+};
+
+export type ThemeAccentTokens = Record<ThemeAccentRole, ThemeAccentToken>;
+
 export type ThemeEffectTokens = {
   isLiquid: boolean;
   ambientGlow: string;
@@ -54,6 +72,7 @@ export type AppTheme = {
   name: string;
   isDark: boolean;
   colors: ThemeColors;
+  accents: ThemeAccentTokens;
   
   // Liquid Glass specific tokens
   glassOverlay: string;

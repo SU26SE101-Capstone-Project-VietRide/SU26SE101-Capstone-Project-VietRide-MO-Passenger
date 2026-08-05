@@ -1,7 +1,14 @@
 import type { ViewStyle } from 'react-native';
 import { colors } from './colors';
 import { borderRadius } from './spacing';
-import type { AppTheme, ThemeColors, ThemeComponentTokens, ThemeEffectTokens, ThemeVariant } from './types';
+import type {
+  AppTheme,
+  ThemeAccentTokens,
+  ThemeColors,
+  ThemeComponentTokens,
+  ThemeEffectTokens,
+  ThemeVariant,
+} from './types';
 
 const continuous = { borderCurve: 'continuous' } as ViewStyle;
 
@@ -76,6 +83,96 @@ const liquidDarkColors: ThemeColors = {
   overlayLight: 'rgba(3, 10, 10, 0.48)',
   skeleton: 'rgba(255, 255, 255, 0.08)',
   skeletonHighlight: 'rgba(255, 255, 255, 0.16)',
+};
+
+const liquidLightAccents: ThemeAccentTokens = {
+  ticket: {
+    foreground: '#007D78',
+    soft: 'rgba(0, 125, 120, 0.08)',
+    border: 'rgba(0, 125, 120, 0.18)',
+    strong: '#007D78',
+    onStrong: '#FFFFFF',
+  },
+  parcel: {
+    foreground: '#147A68',
+    soft: 'rgba(20, 122, 104, 0.08)',
+    border: 'rgba(20, 122, 104, 0.18)',
+    strong: '#007D78',
+    onStrong: '#FFFFFF',
+  },
+  promotion: {
+    foreground: '#8A6500',
+    soft: 'rgba(235, 195, 0, 0.10)',
+    border: 'rgba(138, 101, 0, 0.18)',
+    strong: '#007D78',
+    onStrong: '#FFFFFF',
+  },
+  finance: {
+    foreground: '#176F8F',
+    soft: 'rgba(23, 111, 143, 0.08)',
+    border: 'rgba(23, 111, 143, 0.18)',
+    strong: '#007D78',
+    onStrong: '#FFFFFF',
+  },
+  assistant: {
+    foreground: '#087A86',
+    soft: 'rgba(8, 122, 134, 0.08)',
+    border: 'rgba(8, 122, 134, 0.18)',
+    strong: '#007D78',
+    onStrong: '#FFFFFF',
+  },
+  tracking: {
+    foreground: '#1677A6',
+    soft: 'rgba(22, 119, 166, 0.08)',
+    border: 'rgba(22, 119, 166, 0.18)',
+    strong: '#007D78',
+    onStrong: '#FFFFFF',
+  },
+};
+
+const liquidDarkAccents: ThemeAccentTokens = {
+  ticket: {
+    foreground: '#55F1E8',
+    soft: 'rgba(85, 241, 232, 0.12)',
+    border: 'rgba(85, 241, 232, 0.24)',
+    strong: '#55F1E8',
+    onStrong: '#031312',
+  },
+  parcel: {
+    foreground: '#72E4C7',
+    soft: 'rgba(66, 200, 166, 0.12)',
+    border: 'rgba(114, 228, 199, 0.24)',
+    strong: '#55F1E8',
+    onStrong: '#031312',
+  },
+  promotion: {
+    foreground: '#FFE177',
+    soft: 'rgba(235, 195, 0, 0.12)',
+    border: 'rgba(255, 225, 119, 0.24)',
+    strong: '#55F1E8',
+    onStrong: '#031312',
+  },
+  finance: {
+    foreground: '#74C7E5',
+    soft: 'rgba(70, 170, 205, 0.12)',
+    border: 'rgba(116, 199, 229, 0.24)',
+    strong: '#55F1E8',
+    onStrong: '#031312',
+  },
+  assistant: {
+    foreground: '#6ED8DB',
+    soft: 'rgba(60, 190, 196, 0.12)',
+    border: 'rgba(110, 216, 219, 0.24)',
+    strong: '#55F1E8',
+    onStrong: '#031312',
+  },
+  tracking: {
+    foreground: '#79CFFF',
+    soft: 'rgba(65, 170, 220, 0.12)',
+    border: 'rgba(121, 207, 255, 0.24)',
+    strong: '#55F1E8',
+    onStrong: '#031312',
+  },
 };
 
 const liquidLightEffects: ThemeEffectTokens = {
@@ -263,6 +360,7 @@ const createTheme = (
   name: string,
   isDark: boolean,
   palette: ThemeColors,
+  accents: ThemeAccentTokens,
   effects: ThemeEffectTokens,
   blurType: AppTheme['blurType'],
   blurAmount: number,
@@ -274,6 +372,7 @@ const createTheme = (
     name,
     isDark,
     colors: palette,
+    accents,
     glassOverlay: effects.glassOverlay,
     blurType,
     blurAmount,
@@ -290,6 +389,7 @@ export const themes: Record<ThemeVariant, AppTheme> = {
     'Liquid Glass Light',
     false,
     liquidLightColors,
+    liquidLightAccents,
     liquidLightEffects,
     'thickMaterial',
     28,
@@ -299,6 +399,7 @@ export const themes: Record<ThemeVariant, AppTheme> = {
     'Liquid Glass Dark',
     true,
     liquidDarkColors,
+    liquidDarkAccents,
     liquidDarkEffects,
     'thickMaterial',
     28,

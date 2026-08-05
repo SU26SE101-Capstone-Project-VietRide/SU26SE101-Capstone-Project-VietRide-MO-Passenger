@@ -62,7 +62,10 @@ export const getNotificationDataString = (
   return typeof value === 'string' ? value : undefined;
 };
 
-const SHUTTLE_TRACKING_NOTIFICATION_TYPES = new Set(['SHUTTLE_ASSIGNED']);
+const SHUTTLE_TRACKING_NOTIFICATION_TYPES = new Set([
+  'SHUTTLE_ASSIGNED',
+  'SHUTTLE_PICKED_UP',
+]);
 
 const shuttleTrackingIntentSchema = z.object({
   shuttleTripId: z.string().uuid(),

@@ -340,12 +340,31 @@ function TicketView({
                       />
                     </View>
                   ) : null}
-                  {activeLeg.shuttlePickupAddress ? (
+                  {activeLeg.shuttlePickupAddress || activeLeg.shuttleDropoffAddress ? (
                     <View style={styles.shuttleRequestCard}>
                       <Van size={20} color={theme.colors.primary} weight="duotone" />
                       <View style={styles.shuttleRequestCopy}>
                         <Text style={styles.shuttleRequestTitle}>{t('booking.ticket.shuttleSent')}</Text>
-                        <Text style={styles.shuttleRequestAddress}>{activeLeg.shuttlePickupAddress}</Text>
+                        {activeLeg.shuttlePickupAddress ? (
+                          <View style={styles.shuttleRequestItem}>
+                            <Text style={styles.shuttleRequestLabel}>
+                              {t('booking.checkout.shuttleRequest')}
+                            </Text>
+                            <Text style={styles.shuttleRequestAddress}>
+                              {activeLeg.shuttlePickupAddress}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {activeLeg.shuttleDropoffAddress ? (
+                          <View style={styles.shuttleRequestItem}>
+                            <Text style={styles.shuttleRequestLabel}>
+                              {t('booking.checkout.shuttleDropoffRequest')}
+                            </Text>
+                            <Text style={styles.shuttleRequestAddress}>
+                              {activeLeg.shuttleDropoffAddress}
+                            </Text>
+                          </View>
+                        ) : null}
                         <Text style={styles.shuttleRequestHint}>{t('booking.ticket.shuttleAwaiting')}</Text>
                       </View>
                     </View>
@@ -549,6 +568,7 @@ function CheckoutTicketContent(): React.JSX.Element {
     selectedPickUp,
     selectedDropOff,
     selectedShuttlePickup,
+    selectedShuttleDropoff,
     outboundState,
     returnState,
     bookingResult,
@@ -559,6 +579,7 @@ function CheckoutTicketContent(): React.JSX.Element {
     selectedPickUp: state.selectedPickUp,
     selectedDropOff: state.selectedDropOff,
     selectedShuttlePickup: state.selectedShuttlePickup,
+    selectedShuttleDropoff: state.selectedShuttleDropoff,
     outboundState: state.outboundState,
     returnState: state.returnState,
     bookingResult: state.bookingResult,
@@ -586,6 +607,7 @@ function CheckoutTicketContent(): React.JSX.Element {
         selectedPickUp: outboundState?.pickUp ?? selectedPickUp,
         selectedDropOff: outboundState?.dropOff ?? selectedDropOff,
         selectedShuttlePickup: outboundState?.shuttlePickup ?? selectedShuttlePickup,
+        selectedShuttleDropoff: outboundState?.shuttleDropoff ?? selectedShuttleDropoff,
         outboundState,
         returnState,
       },
@@ -599,6 +621,7 @@ function CheckoutTicketContent(): React.JSX.Element {
       returnState,
       selectedDropOff,
       selectedShuttlePickup,
+      selectedShuttleDropoff,
       selectedPickUp,
       selectedTrip,
       t,
@@ -1008,8 +1031,16 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
     color: theme.colors.primary,
   },
+  shuttleRequestItem: {
+    marginTop: spacing.sm,
+    gap: 2,
+  },
+  shuttleRequestLabel: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
   shuttleRequestAddress: {
-    marginTop: spacing.xs,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     lineHeight: 18,

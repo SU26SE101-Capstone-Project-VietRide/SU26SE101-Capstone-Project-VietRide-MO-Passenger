@@ -3,7 +3,7 @@
  * Visual style: matches Parcel flow (clean lists, vivid selection states)
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
@@ -12,9 +12,15 @@ import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
-import { FloatingActionBar, StopOption } from '../components';
+import {
+  FloatingActionBar,
+  ShuttlePickupSheet,
+  ShuttleServiceCard,
+  StopOption,
+} from '../components';
 import type { DropOffPoint } from '../types';
 import { buildSeatBadgeItems } from '../utils/seatPresentation';
+import { useShuttleServiceAvailability } from '../hooks/useShuttleServiceAvailability';
 
 interface DropOffStepProps {
   onNext: (step: number) => void;
@@ -28,6 +34,8 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
     selectDropOff,
     selectedSeats,
     selectedTrip,
+    selectedShuttleDropoff,
+    setSelectedShuttleDropoff,
     totalPrice,
     currentLeg,
     isRoundTrip,
@@ -41,6 +49,8 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
     selectDropOff: state.selectDropOff,
     selectedSeats: state.selectedSeats,
     selectedTrip: state.selectedTrip,
+    selectedShuttleDropoff: state.selectedShuttleDropoff,
+    setSelectedShuttleDropoff: state.setSelectedShuttleDropoff,
     totalPrice: state.totalPrice,
     currentLeg: state.currentLeg,
     isRoundTrip: state.searchParams.isRoundTrip ?? false,
@@ -57,6 +67,13 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
     [currentLeg, isRoundTrip, selectedSeats, selectedTrip?.id],
   );
   const styles = useThemedStyles(createStyles);
+  const [isShuttleSheetVisible, setIsShuttleSheetVisible] = useState(false);
+  const shuttleAvailability = useShuttleServiceAvailability({
+    direction: 'dropoff',
+    trip: selectedTrip,
+    point: selectedDropOff,
+  });
+  const refetchStation = shuttleAvailability.refetch;
 
   React.useEffect(() => {
     if (isRoundTrip) {
@@ -65,6 +82,34 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
       setHighestStep(4); // One-way always outbound
     }
   }, [setHighestStep, currentLeg, isRoundTrip]);
+
+  useEffect(() => {
+    if (selectedShuttleDropoff && shuttleAvailability.status === 'unavailable') {
+      setSelectedShuttleDropoff(null);
+      setIsShuttleSheetVisible(false);
+    }
+  }, [
+    selectedShuttleDropoff,
+    setSelectedShuttleDropoff,
+    shuttleAvailability.status,
+  ]);
+
+  const handleShuttleToggle = useCallback((enabled: boolean) => {
+    if (!enabled) {
+      setSelectedShuttleDropoff(null);
+      setIsShuttleSheetVisible(false);
+      return;
+    }
+
+    if (shuttleAvailability.status === 'available') {
+      setIsShuttleSheetVisible(true);
+    }
+  }, [setSelectedShuttleDropoff, shuttleAvailability.status]);
+  const openShuttleSheet = useCallback(() => setIsShuttleSheetVisible(true), []);
+  const closeShuttleSheet = useCallback(() => setIsShuttleSheetVisible(false), []);
+  const retryShuttleAvailability = useCallback(() => {
+    refetchStation().catch(() => undefined);
+  }, [refetchStation]);
 
   const handleNext = useCallback(() => {
     if (isRoundTrip) {
@@ -130,6 +175,17 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          ListFooterComponent={<ShuttleServiceCard
+            direction="dropoff"
+            status={shuttleAvailability.status}
+            value={selectedShuttleDropoff}
+            stationName={selectedTrip?.arrivalStation}
+            unavailableReason={shuttleAvailability.reason}
+            onToggle={handleShuttleToggle}
+            onEdit={openShuttleSheet}
+            onRetry={retryShuttleAvailability}
+          />}
         />
 
         <FloatingActionBar
@@ -137,7 +193,23 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
           totalPrice={totalPrice()}
           ctaLabel={t('common.continue')}
           onPress={handleNext}
+          disabled={Boolean(
+            selectedShuttleDropoff
+            && shuttleAvailability.status !== 'available',
+          )}
         />
+
+        {selectedTrip ? (
+          <ShuttlePickupSheet
+            direction="dropoff"
+            visible={isShuttleSheetVisible}
+            stationId={selectedTrip.destinationStationId}
+            stationName={selectedTrip.arrivalStation}
+            initialValue={selectedShuttleDropoff}
+            onClose={closeShuttleSheet}
+            onSave={setSelectedShuttleDropoff}
+          />
+        ) : null}
     </View>
   );
 }

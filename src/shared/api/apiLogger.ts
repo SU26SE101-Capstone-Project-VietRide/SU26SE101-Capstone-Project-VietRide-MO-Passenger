@@ -54,6 +54,7 @@ const SENSITIVE_KEYS = new Set([
   'setcookie',
   'session',
   'sessionid',
+  'shareurl',
   'idempotencykey',
   'contact',
   'contactinfo',
@@ -125,6 +126,7 @@ const sanitizeText = (text: string): string => {
   return truncated
     .replace(/Bearer\s+[^\s,;]+/gi, `Bearer ${REDACTED}`)
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, REDACTED)
+    .replace(/(https?:\/\/[^\s"'<>#]+)#token=[^\s"'<>]+/gi, '$1#[REDACTED_FRAGMENT]')
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, REDACTED)
     .replace(/(?:https?:\/\/|\/)[^\s"'<>?]+\?[^\s"'<>]+/gi, match => {
       const queryIndex = match.indexOf('?');

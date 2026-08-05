@@ -12,15 +12,13 @@ import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
-import { useStationDetail } from '@features/trip/hooks';
 import {
   FloatingActionBar,
   ShuttlePickupSheet,
   ShuttleServiceCard,
-  type ShuttleServiceStatus,
   StopOption,
 } from '../components';
-import { getShuttleEligibility } from '../utils/shuttle';
+import { useShuttleServiceAvailability } from '../hooks/useShuttleServiceAvailability';
 import { buildSeatBadgeItems } from '../utils/seatPresentation';
 import type { PickUpPoint } from '../types';
 
@@ -64,59 +62,16 @@ export function PickUpScreen({ onNext }: PickUpStepProps): React.JSX.Element {
   );
   const styles = useThemedStyles(createStyles);
   const [isShuttleSheetVisible, setIsShuttleSheetVisible] = useState(false);
-  const stationQuery = useStationDetail(
-    selectedTrip?.originStationId,
-    Boolean(selectedTrip?.originStationId),
-  );
-  const refetchStation = stationQuery.refetch;
+  const shuttleAvailability = useShuttleServiceAvailability({
+    direction: 'pickup',
+    trip: selectedTrip,
+    point: selectedPickUp,
+  });
+  const refetchStation = shuttleAvailability.refetch;
 
   React.useEffect(() => {
     setHighestStep(currentLeg === 'outbound' ? 3 : 7);
   }, [setHighestStep, currentLeg]);
-
-  const shuttleAvailability = useMemo<{
-    status: ShuttleServiceStatus;
-    reason?: string;
-  }>(() => {
-    if (!selectedTrip || !selectedPickUp) {
-      return {
-        status: 'unavailable',
-        reason: t('booking.shuttle.reasons.selectTripAndBoarding'),
-      };
-    }
-
-    if (
-      selectedPickUp.stationId !== selectedTrip.originStationId
-      || selectedPickUp.stopId
-    ) {
-      return {
-        status: 'unavailable',
-        reason: t('booking.shuttle.reasons.departureStationOnly'),
-      };
-    }
-
-    if (stationQuery.isPending) return { status: 'loading' };
-    if (stationQuery.isError || !stationQuery.data) return { status: 'error' };
-
-    const eligibility = getShuttleEligibility(
-      selectedTrip,
-      selectedPickUp,
-      stationQuery.data,
-    );
-    if (eligibility.eligible) return { status: 'available' };
-
-    const reasons: Record<Exclude<typeof eligibility.reason, null>, string> = {
-      BOARDING_POINT: t('booking.shuttle.reasons.departureStationOnly'),
-      TRIP_STATUS: t('booking.shuttle.reasons.tripStatus'),
-      TRIP_SCHEDULE: t('booking.shuttle.reasons.tripSchedule'),
-      CUTOFF: t('booking.shuttle.reasons.cutoff'),
-      STATION_INACTIVE: t('booking.shuttle.reasons.stationInactive'),
-      STATION_UNSUPPORTED: t('booking.shuttle.reasons.stationUnsupported'),
-      STATION_COORDINATES: t('booking.shuttle.reasons.stationCoordinates'),
-    };
-
-    return { status: 'unavailable', reason: reasons[eligibility.reason] };
-  }, [selectedPickUp, selectedTrip, stationQuery.data, stationQuery.isError, stationQuery.isPending, t]);
 
   useEffect(() => {
     if (selectedShuttlePickup && shuttleAvailability.status === 'unavailable') {

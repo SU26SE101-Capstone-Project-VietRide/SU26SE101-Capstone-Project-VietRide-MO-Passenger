@@ -43,16 +43,23 @@ export type TrackingJoinFailure =
 
 export interface TrackingEtaUpdate extends TrackingEta {
   delayed: boolean;
-  delayMinutes?: number;
 }
 
-export interface TrackingDelayUpdate {
-  tripId: string;
-  stopId: string;
-  status: 'DELAYED';
-  delayMinutes: number;
-  updatedAt: string;
-}
+export type TrackingDelayUpdate =
+  | {
+      tripId: string;
+      stopId: string;
+      status: 'DELAYED';
+      delayMinutes: number;
+      updatedAt: string;
+    }
+  | {
+      tripId: string;
+      stopId: string;
+      status: 'DELAY_CLEARED';
+      delayMinutes: number | null;
+      updatedAt: string;
+    };
 
 interface TrackingServerEvents {
   'gps:update': (payload: unknown) => void;
@@ -108,16 +115,24 @@ export interface TripTrackingConnection {
 
 const trackingEtaUpdateSchema = trackingEtaSchema.extend({
   delayed: z.boolean(),
-  delayMinutes: z.number().int().positive().optional(),
 });
 
-const trackingDelayUpdateSchema = z.object({
-  tripId: z.string().uuid(),
-  stopId: z.string().uuid(),
-  status: z.literal('DELAYED'),
-  delayMinutes: z.number().int().positive(),
-  updatedAt: trackingDateTimeSchema,
-});
+const trackingDelayUpdateSchema = z.discriminatedUnion('status', [
+  z.object({
+    tripId: z.string().uuid(),
+    stopId: z.string().uuid(),
+    status: z.literal('DELAYED'),
+    delayMinutes: z.number().int().nonnegative(),
+    updatedAt: trackingDateTimeSchema,
+  }).strict(),
+  z.object({
+    tripId: z.string().uuid(),
+    stopId: z.string().uuid(),
+    status: z.literal('DELAY_CLEARED'),
+    delayMinutes: z.number().int().nonnegative().nullable(),
+    updatedAt: trackingDateTimeSchema,
+  }).strict(),
+]);
 
 const joinSuccessSchema = z.object({
   success: z.literal(true),

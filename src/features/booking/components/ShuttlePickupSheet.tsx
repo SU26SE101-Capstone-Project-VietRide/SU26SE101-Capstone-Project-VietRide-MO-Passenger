@@ -31,25 +31,27 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import type { ShuttlePickupDraft } from '../types';
+import type { ShuttleServiceDirection, ShuttleServiceDraft } from '../types';
 import { useMotion } from '@shared/motion';
 import {
   SHUTTLE_ADDRESS_MAX_LENGTH,
-  validateShuttlePickup,
+  validateShuttleService,
 } from '../utils/shuttle';
 
 interface ShuttlePickupSheetProps {
+  direction?: ShuttleServiceDirection;
   visible: boolean;
   stationId: string;
   stationName: string;
-  initialValue: ShuttlePickupDraft | null;
+  initialValue: ShuttleServiceDraft | null;
   onClose: () => void;
-  onSave: (value: ShuttlePickupDraft) => void;
+  onSave: (value: ShuttleServiceDraft) => void;
 }
 
 type ResolutionMode = 'current' | 'address' | null;
 
 export function ShuttlePickupSheet({
+  direction = 'pickup',
   visible,
   stationId,
   stationName,
@@ -63,6 +65,7 @@ export function ShuttlePickupSheet({
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const requestSequenceRef = useRef(0);
+  const isDropoff = direction === 'dropoff';
   const [address, setAddress] = useState('');
   const [resolvedAddress, setResolvedAddress] = useState('');
   const [coordinates, setCoordinates] = useState<GeoCoordinate | null>(null);
@@ -97,7 +100,7 @@ export function ShuttlePickupSheet({
 
   const validation = useMemo(() => {
     if (!coordinates || !isLocationVerified) return null;
-    return validateShuttlePickup({ address, ...coordinates });
+    return validateShuttleService({ address, ...coordinates });
   }, [address, coordinates, isLocationVerified]);
 
   const beginRequest = useCallback((mode: Exclude<ResolutionMode, null>): number => {
@@ -149,7 +152,9 @@ export function ShuttlePickupSheet({
     if (isResolving) return;
     const normalizedAddress = address.trim();
     if (!normalizedAddress) {
-      setError(t('booking.shuttleSheet.errors.addressRequired'));
+      setError(t(isDropoff
+        ? 'booking.shuttleSheet.errors.dropoffAddressRequired'
+        : 'booking.shuttleSheet.errors.addressRequired'));
       return;
     }
     if (normalizedAddress.length > SHUTTLE_ADDRESS_MAX_LENGTH) {
@@ -173,7 +178,7 @@ export function ShuttlePickupSheet({
     } finally {
       finishRequest(sequence);
     }
-  }, [address, beginRequest, finishRequest, isResolving, presentSafeError, t]);
+  }, [address, beginRequest, finishRequest, isDropoff, isResolving, presentSafeError, t]);
 
   const handleAddressChange = useCallback((nextAddress: string): void => {
     setAddress(nextAddress);
@@ -209,17 +214,29 @@ export function ShuttlePickupSheet({
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={styles.headerIcon}>
-              <MapPinLine size={22} color={theme.colors.primary} weight="duotone" />
+              <MapPinLine
+                size={22}
+                color={theme.accents.assistant.foreground}
+                weight="duotone"
+              />
             </View>
             <View style={styles.headerCopy}>
-              <Text style={styles.title}>{t('booking.shuttleSheet.title')}</Text>
+              <Text style={styles.title}>
+                {t(isDropoff
+                  ? 'booking.shuttleSheet.dropoffTitle'
+                  : 'booking.shuttleSheet.title')}
+              </Text>
               <Text style={styles.subtitle} numberOfLines={2}>
-                {t('booking.shuttleSheet.subtitle', { station: stationName })}
+                {t(isDropoff
+                  ? 'booking.shuttleSheet.dropoffSubtitle'
+                  : 'booking.shuttleSheet.subtitle', { station: stationName })}
               </Text>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t('booking.shuttleSheet.closeAccessibility')}
+              accessibilityLabel={t(isDropoff
+                ? 'booking.shuttleSheet.closeDropoffAccessibility'
+                : 'booking.shuttleSheet.closeAccessibility')}
               onPress={onClose}
               style={({ pressed }) => [styles.closeButton, pressed ? styles.pressed : null]}
             >
@@ -236,13 +253,16 @@ export function ShuttlePickupSheet({
               title={resolutionMode === 'current'
                 ? t('booking.shuttleSheet.findingLocation')
                 : t('booking.shuttleSheet.useCurrentLocation')}
-              accessibilityLabel={t('booking.shuttleSheet.useCurrentLocationAccessibility')}
+              accessibilityLabel={t(isDropoff
+                ? 'booking.shuttleSheet.useCurrentLocationDropoffAccessibility'
+                : 'booking.shuttleSheet.useCurrentLocationAccessibility')}
               variant="secondary"
               fullWidth
               loading={resolutionMode === 'current'}
               disabled={isResolving}
               onPress={handleUseCurrentLocation}
               style={styles.locationButton}
+              textStyle={styles.locationButtonText}
             />
 
             <View style={styles.dividerRow}>
@@ -252,17 +272,23 @@ export function ShuttlePickupSheet({
             </View>
 
             <Input
-              label={t('booking.shuttle.pickupAddress')}
+              label={t(isDropoff
+                ? 'booking.shuttle.dropoffAddress'
+                : 'booking.shuttle.pickupAddress')}
               required
               value={address}
               onChangeText={handleAddressChange}
-              placeholder={t('booking.shuttleSheet.addressPlaceholder')}
+              placeholder={t(isDropoff
+                ? 'booking.shuttleSheet.dropoffAddressPlaceholder'
+                : 'booking.shuttleSheet.addressPlaceholder')}
               autoCapitalize="sentences"
               autoCorrect={false}
               multiline
               maxLength={SHUTTLE_ADDRESS_MAX_LENGTH}
               textAlignVertical="top"
-              accessibilityLabel={t('booking.shuttleSheet.addressAccessibility')}
+              accessibilityLabel={t(isDropoff
+                ? 'booking.shuttleSheet.dropoffAddressAccessibility'
+                : 'booking.shuttleSheet.addressAccessibility')}
               hint={t('booking.shuttleSheet.characterCount', {
                 current: address.length,
                 max: SHUTTLE_ADDRESS_MAX_LENGTH,
@@ -278,6 +304,8 @@ export function ShuttlePickupSheet({
               loading={resolutionMode === 'address'}
               disabled={isResolving || !address.trim()}
               onPress={handleResolveAddress}
+              style={styles.verifyButton}
+              textStyle={styles.verifyButtonText}
             />
 
             {isLocationVerified ? (
@@ -297,7 +325,11 @@ export function ShuttlePickupSheet({
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <View style={styles.privacyRow}>
-              <ShieldCheck size={18} color={theme.colors.primary} weight="duotone" />
+              <ShieldCheck
+                size={18}
+                color={theme.accents.assistant.foreground}
+                weight="duotone"
+              />
               <Text style={styles.privacyText}>
                 {t('booking.shuttleSheet.privacy')}
               </Text>
@@ -312,7 +344,9 @@ export function ShuttlePickupSheet({
                 style={styles.actionButton}
               />
               <Button
-                title={t('booking.shuttleSheet.save')}
+                title={t(isDropoff
+                  ? 'booking.shuttleSheet.saveDropoff'
+                  : 'booking.shuttleSheet.save')}
                 onPress={handleSave}
                 disabled={!validation?.value || isResolving}
                 style={styles.actionButton}
@@ -361,7 +395,9 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.primaryFaded,
+    backgroundColor: theme.accents.assistant.soft,
+    borderWidth: 1,
+    borderColor: theme.accents.assistant.border,
   },
   headerCopy: {
     flex: 1,
@@ -392,6 +428,17 @@ const createStyles = (theme: AppTheme) => ({
   },
   locationButton: {
     marginBottom: spacing.lg,
+    backgroundColor: theme.colors.primaryFaded,
+    borderColor: theme.colors.primary,
+  },
+  locationButtonText: {
+    color: theme.colors.primary,
+  },
+  verifyButton: {
+    borderColor: theme.colors.primary,
+  },
+  verifyButtonText: {
+    color: theme.colors.primary,
   },
   dividerRow: {
     flexDirection: 'row',
@@ -448,7 +495,9 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.lg,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.colors.primaryFaded,
+    backgroundColor: theme.accents.assistant.soft,
+    borderWidth: 1,
+    borderColor: theme.accents.assistant.border,
   },
   privacyText: {
     flex: 1,

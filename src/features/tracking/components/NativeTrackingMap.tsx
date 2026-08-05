@@ -6,7 +6,16 @@ import React, {
   useState,
 } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Bus, Crosshair, MapPin, Van } from 'phosphor-react-native';
+import {
+  Bus,
+  Crosshair,
+  FlagCheckered,
+  MapPin,
+  NavigationArrow,
+  Signpost,
+  Target,
+  Van,
+} from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 import MapView, {
   AnimatedRegion,
@@ -37,6 +46,7 @@ import {
   type TrackingMapStop,
 } from './trackingMapModel';
 import {
+  getTrackingMapPalette,
   LIQUID_DARK_MAP_STYLE,
   LIQUID_LIGHT_MAP_STYLE,
 } from './trackingMapStyles';
@@ -64,11 +74,9 @@ const MIN_ZOOM_LEVEL = 5;
 const MAX_ZOOM_LEVEL = 19;
 const FOLLOW_DISTANCE_KM = 0.01;
 const MARKER_CONTRAST = '#FFFFFF';
-const LIGHT_TRAIL_HALO = 'rgba(255, 255, 255, 0.94)';
-const DARK_TRAIL_HALO = 'rgba(5, 19, 18, 0.94)';
-const LIGHT_PLANNED_ROUTE = 'rgba(0, 91, 87, 0.42)';
-const DARK_PLANNED_ROUTE = 'rgba(159, 255, 248, 0.48)';
 const EMPTY_TRACKING_POINTS: readonly TrackingPoint[] = [];
+const EMPTY_ROUTE: readonly GeoCoordinate[] = [];
+const EMPTY_STOPS: readonly TrackingMapStop[] = [];
 
 const MARKER_LABEL_KEYS: Record<TrackingMapMarkerKind, string> = {
   origin: 'tracking.boardingPoint',
@@ -77,6 +85,7 @@ const MARKER_LABEL_KEYS: Record<TrackingMapMarkerKind, string> = {
   target: 'tracking.map.targetStopMarker',
   destination: 'tracking.dropOff',
   shuttlePickup: 'tracking.map.ownPickupMarker',
+  shuttleDropoff: 'tracking.map.ownDropoffMarker',
   shuttleStation: 'tracking.map.stationMarker',
 };
 
@@ -87,6 +96,7 @@ const MARKER_Z_INDEX: Record<TrackingMapMarkerKind, number> = {
   next: 5,
   target: 6,
   shuttlePickup: 6,
+  shuttleDropoff: 6,
   shuttleStation: 5,
 };
 
@@ -108,7 +118,6 @@ const markerStyleForKind = (
 ): object => {
   switch (kind) {
     case 'origin':
-    case 'shuttleStation':
       return styles.markerOrigin;
     case 'destination':
       return styles.markerDestination;
@@ -116,11 +125,79 @@ const markerStyleForKind = (
       return styles.markerNext;
     case 'target':
     case 'shuttlePickup':
+    case 'shuttleDropoff':
       return styles.markerTarget;
+    case 'shuttleStation':
+      return styles.markerStation;
     default:
       return styles.markerIntermediate;
   }
 };
+
+function MarkerGlyph({
+  kind,
+  size,
+}: {
+  kind: TrackingMapMarkerKind;
+  size: number;
+}): React.JSX.Element {
+  const commonProps = {
+    size,
+    color: MARKER_CONTRAST,
+    weight: 'fill' as const,
+  };
+
+  switch (kind) {
+    case 'destination':
+      return <FlagCheckered {...commonProps} />;
+    case 'next':
+      return <NavigationArrow {...commonProps} />;
+    case 'target':
+    case 'shuttlePickup':
+    case 'shuttleDropoff':
+      return <Target {...commonProps} />;
+    case 'shuttleStation':
+      return <Signpost {...commonProps} />;
+    default:
+      return <MapPin {...commonProps} />;
+  }
+}
+
+const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
+  coordinate,
+  description,
+  marker,
+  styles,
+}: {
+  coordinate: LatLng;
+  description: string;
+  marker: TrackingMapMarker;
+  styles: ReturnType<typeof createStyles>;
+}): React.JSX.Element {
+  const emphasized = marker.kind !== 'intermediate';
+
+  return (
+    <Marker
+      coordinate={coordinate}
+      title={marker.name}
+      description={description}
+      anchor={STOP_MARKER_ANCHOR}
+      tracksViewChanges={false}
+      zIndex={MARKER_Z_INDEX[marker.kind]}
+    >
+      <View
+        collapsable={false}
+        style={[
+          styles.stopMarker,
+          emphasized ? styles.stopMarkerEmphasized : null,
+          markerStyleForKind(marker.kind, styles),
+        ]}
+      >
+        <MarkerGlyph kind={marker.kind} size={emphasized ? 19 : 15} />
+      </View>
+    </Marker>
+  );
+});
 
 function AnimatedVehicleMarker({
   coordinate,
@@ -133,7 +210,6 @@ function AnimatedVehicleMarker({
   vehicleKind: 'bus' | 'shuttle';
   reduceMotion: boolean;
 }): React.JSX.Element {
-  const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const animatedCoordinate = useRef(new AnimatedRegion({
@@ -167,7 +243,6 @@ function AnimatedVehicleMarker({
 
   return (
     <MarkerAnimated
-      key={`vehicle-${theme.variant}`}
       coordinate={animatedCoordinate}
       title={t('tracking.map.latestVehicle')}
       rotation={heading}
@@ -176,12 +251,14 @@ function AnimatedVehicleMarker({
       tracksViewChanges={false}
       zIndex={20}
     >
-      <View collapsable={false} style={styles.vehicleMarker}>
-        {vehicleKind === 'shuttle' ? (
-          <Van size={20} color={MARKER_CONTRAST} weight="fill" />
-        ) : (
-          <Bus size={20} color={MARKER_CONTRAST} weight="fill" />
-        )}
+      <View collapsable={false} style={styles.vehicleHalo}>
+        <View style={styles.vehicleMarker}>
+          {vehicleKind === 'shuttle' ? (
+            <Van size={20} color={MARKER_CONTRAST} weight="fill" />
+          ) : (
+            <Bus size={20} color={MARKER_CONTRAST} weight="fill" />
+          )}
+        </View>
       </View>
     </MarkerAnimated>
   );
@@ -190,7 +267,7 @@ function AnimatedVehicleMarker({
 export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent({
   latest,
   trail,
-  plannedRoute = [],
+  plannedRoute = EMPTY_ROUTE,
   markers,
   vehicleKind = 'bus',
   points,
@@ -205,8 +282,13 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
   const { t } = useTranslation();
   const { reduceMotion } = useMotion();
   const styles = useThemedStyles(createStyles);
+  const mapPalette = getTrackingMapPalette(theme.isDark);
   const trailPoints = trail ?? points ?? EMPTY_TRACKING_POINTS;
-  const mapMarkers = markers ?? legacyStopsToMarkers(stops ?? []);
+  const legacyMarkers = useMemo(
+    () => legacyStopsToMarkers(stops ?? EMPTY_STOPS),
+    [stops],
+  );
+  const mapMarkers = markers ?? legacyMarkers;
   const trailCoordinates = useMemo(
     () => trailPoints.map(toCoordinate),
     [trailPoints],
@@ -250,6 +332,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
       marker.kind === 'target'
       || marker.kind === 'next'
       || marker.kind === 'shuttlePickup'
+      || marker.kind === 'shuttleDropoff'
     ))?.coordinate
     ?? markerCoordinates.find(({ marker }) => marker.kind === 'origin')?.coordinate
     ?? markerCoordinates[0]?.coordinate
@@ -366,7 +449,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
         maxZoomLevel={MAX_ZOOM_LEVEL}
         loadingEnabled
         loadingBackgroundColor={theme.colors.surfaceAlt}
-        loadingIndicatorColor={theme.colors.primary}
+        loadingIndicatorColor={mapPalette.shuttleStation}
         moveOnMarkerPress={false}
         pitchEnabled={false}
         rotateEnabled={false}
@@ -388,68 +471,56 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
         accessibilityHint={t('tracking.map.accessibilityHint')}
       >
         {plannedRouteCoordinates.length > 1 ? (
-          <Polyline
-            coordinates={plannedRouteCoordinates}
-            strokeColor={theme.isDark
-              ? DARK_PLANNED_ROUTE
-              : LIGHT_PLANNED_ROUTE}
-            strokeWidth={6}
-            lineCap="round"
-            lineJoin="round"
-            zIndex={1}
-          />
+          <>
+            <Polyline
+              coordinates={plannedRouteCoordinates}
+              strokeColor={mapPalette.plannedRouteHalo}
+              strokeWidth={10}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={1}
+            />
+            <Polyline
+              coordinates={plannedRouteCoordinates}
+              strokeColor={mapPalette.plannedRoute}
+              strokeWidth={6}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={2}
+            />
+          </>
         ) : null}
 
         {trailCoordinates.length > 1 ? (
           <>
             <Polyline
               coordinates={trailCoordinates}
-              strokeColor={theme.isDark ? DARK_TRAIL_HALO : LIGHT_TRAIL_HALO}
-              strokeWidth={8}
-              lineCap="round"
-              lineJoin="round"
-              zIndex={2}
-            />
-            <Polyline
-              coordinates={trailCoordinates}
-              strokeColor={theme.colors.primary}
-              strokeWidth={4}
+              strokeColor={mapPalette.trailHalo}
+              strokeWidth={9}
               lineCap="round"
               lineJoin="round"
               zIndex={3}
             />
+            <Polyline
+              coordinates={trailCoordinates}
+              strokeColor={mapPalette.trail}
+              strokeWidth={5}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={4}
+            />
           </>
         ) : null}
 
-        {markerCoordinates.map(({ marker, coordinate }) => {
-          const emphasized = marker.kind !== 'intermediate';
-          return (
-            <Marker
-              key={`${marker.kind}-${marker.id}-${theme.variant}`}
-              coordinate={coordinate}
-              title={marker.name}
-              description={t(MARKER_LABEL_KEYS[marker.kind])}
-              anchor={STOP_MARKER_ANCHOR}
-              tracksViewChanges={false}
-              zIndex={MARKER_Z_INDEX[marker.kind]}
-            >
-              <View
-                collapsable={false}
-                style={[
-                  styles.stopMarker,
-                  emphasized ? styles.stopMarkerEmphasized : null,
-                  markerStyleForKind(marker.kind, styles),
-                ]}
-              >
-                <MapPin
-                  size={emphasized ? 19 : 15}
-                  color={MARKER_CONTRAST}
-                  weight="fill"
-                />
-              </View>
-            </Marker>
-          );
-        })}
+        {markerCoordinates.map(({ marker, coordinate }) => (
+          <SemanticStopMarker
+            key={`${marker.kind}-${marker.id}`}
+            coordinate={coordinate}
+            description={t(MARKER_LABEL_KEYS[marker.kind])}
+            marker={marker}
+            styles={styles}
+          />
+        ))}
 
         {latestCoordinate ? (
           <AnimatedVehicleMarker
@@ -473,7 +544,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             ]}
             hitSlop={4}
           >
-            <Crosshair size={18} color={theme.colors.primary} weight="bold" />
+            <Crosshair size={18} color={mapPalette.shuttleStation} weight="bold" />
             <Text style={styles.cameraButtonLabel} numberOfLines={1}>
               {t('tracking.map.followVehicle')}
             </Text>
@@ -491,7 +562,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             ]}
             hitSlop={4}
           >
-            <MapPin size={18} color={theme.colors.primary} weight="bold" />
+            <MapPin size={18} color={mapPalette.shuttleStation} weight="bold" />
             <Text style={styles.cameraButtonLabel} numberOfLines={1}>
               {t('tracking.map.viewRoute')}
             </Text>
@@ -509,16 +580,23 @@ const createStyles = (theme: AppTheme) => ({
   map: {
     flex: 1,
   },
+  vehicleHalo: {
+    width: 52,
+    height: 52,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    borderRadius: borderRadius.full,
+    backgroundColor: getTrackingMapPalette(theme.isDark).vehicleHalo,
+  },
   vehicleMarker: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     borderRadius: borderRadius.full,
     borderWidth: 3,
     borderColor: MARKER_CONTRAST,
-    backgroundColor: theme.colors.primary,
-    ...theme.effects.floatingShadow,
+    backgroundColor: getTrackingMapPalette(theme.isDark).vehicle,
   },
   stopMarker: {
     width: 26,
@@ -534,19 +612,22 @@ const createStyles = (theme: AppTheme) => ({
     height: 34,
   },
   markerOrigin: {
-    backgroundColor: theme.colors.success,
+    backgroundColor: getTrackingMapPalette(theme.isDark).origin,
   },
   markerDestination: {
-    backgroundColor: theme.colors.error,
+    backgroundColor: getTrackingMapPalette(theme.isDark).destination,
   },
   markerIntermediate: {
-    backgroundColor: theme.colors.textSecondary,
+    backgroundColor: getTrackingMapPalette(theme.isDark).intermediate,
   },
   markerNext: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: getTrackingMapPalette(theme.isDark).next,
   },
   markerTarget: {
-    backgroundColor: theme.colors.accentDark,
+    backgroundColor: getTrackingMapPalette(theme.isDark).target,
+  },
+  markerStation: {
+    backgroundColor: getTrackingMapPalette(theme.isDark).shuttleStation,
   },
   cameraControls: {
     position: 'absolute' as const,
@@ -565,7 +646,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: theme.effects.glassBorderStrong,
+    borderColor: getTrackingMapPalette(theme.isDark).frameBorder,
     backgroundColor: theme.colors.surfaceElevated,
     ...theme.effects.floatingShadow,
   },

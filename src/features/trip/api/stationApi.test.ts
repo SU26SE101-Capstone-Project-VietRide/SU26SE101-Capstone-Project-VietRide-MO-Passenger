@@ -19,7 +19,7 @@ const stationDetail: StationDetail = {
   addressStreet: '395 Kinh Dương Vương',
   locationId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
   city: 'Hồ Chí Minh',
-  province: 'Hồ Chí Minh',
+  ward: 'Phường An Lạc',
   latitude: 10.741,
   longitude: 106.619,
   contactPhone: null,
@@ -54,12 +54,12 @@ describe('searchStations', () => {
     });
   });
 
-  it('returns station items when the response data is paged-like', async () => {
+  it('returns station items from the array response', async () => {
     const station = {
       id: 'station-1',
       name: 'Ben xe Mien Tay',
       city: 'Ho Chi Minh City',
-      province: 'Ho Chi Minh',
+      ward: 'An Lac Ward',
       locationId: 'location-123',
       latitude: null,
       longitude: null,
@@ -70,9 +70,7 @@ describe('searchStations', () => {
       data: {
         success: true,
         statusCode: 200,
-        data: {
-          items: [station],
-        },
+        data: [station],
       },
     });
 

@@ -174,7 +174,9 @@ export type BookingLocationPayload =
   | { stationId: string; stopId?: never }
   | { stationId?: never; stopId: string };
 
-export interface ShuttlePickupPayload {
+export type ShuttleServiceDirection = 'pickup' | 'dropoff';
+
+export interface ShuttleServicePayload {
   address: string;
   latitude: number;
   longitude: number;
@@ -182,11 +184,15 @@ export interface ShuttlePickupPayload {
 
 /**
  * Memory-only Shuttle draft. `stationId` binds sensitive coordinates to the
- * exact origin station and is deliberately stripped from the network payload.
+ * exact service station and is deliberately stripped from the network payload.
  */
-export interface ShuttlePickupDraft extends ShuttlePickupPayload {
+export interface ShuttleServiceDraft extends ShuttleServicePayload {
   stationId: string;
 }
+
+/** Backwards-compatible aliases for existing inbound Shuttle callers. */
+export type ShuttlePickupPayload = ShuttleServicePayload;
+export type ShuttlePickupDraft = ShuttleServiceDraft;
 
 export interface SeatBookingPayload {
   seatNumber: string;
@@ -196,7 +202,8 @@ export interface CreateBookingPayload {
   tripId: string;
   pickup: BookingLocationPayload;
   dropoff?: BookingLocationPayload;
-  shuttlePickup?: ShuttlePickupPayload;
+  shuttlePickup?: ShuttleServicePayload;
+  shuttleDropoff?: ShuttleServicePayload;
   seats: SeatBookingPayload[];
   voucherCode?: string;
   paymentMethod: 'WALLET' | 'VNPAY';

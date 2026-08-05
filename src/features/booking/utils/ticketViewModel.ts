@@ -10,7 +10,7 @@ import type {
   PaymentMethod,
   PickUpPoint,
   RoundTripResult,
-  ShuttlePickupDraft,
+  ShuttleServiceDraft,
 } from '../types';
 import type { BookingHistoryTicketDetail } from '../data/bookingHistoryFixture';
 import { getBookingReference } from './bookingReference';
@@ -37,6 +37,7 @@ export interface TicketLegViewModel {
   tripStatus?: TripLifecycleStatus;
   trackingEnabled: boolean;
   shuttlePickupAddress?: string;
+  shuttleDropoffAddress?: string;
 }
 
 export interface TicketCodeViewModel {
@@ -68,7 +69,8 @@ interface BookingLegDraft {
   trip: BusTrip | null;
   pickUp: PickUpPoint | null;
   dropOff: DropOffPoint | null;
-  shuttlePickup?: ShuttlePickupDraft | null;
+  shuttlePickup?: ShuttleServiceDraft | null;
+  shuttleDropoff?: ShuttleServiceDraft | null;
 }
 
 interface CheckoutTicketViewModelInput {
@@ -77,7 +79,8 @@ interface CheckoutTicketViewModelInput {
   selectedTrip: BusTrip | null;
   selectedPickUp: PickUpPoint | null;
   selectedDropOff: DropOffPoint | null;
-  selectedShuttlePickup?: ShuttlePickupDraft | null;
+  selectedShuttlePickup?: ShuttleServiceDraft | null;
+  selectedShuttleDropoff?: ShuttleServiceDraft | null;
   outboundState: BookingLegDraft | null;
   returnState: BookingLegDraft | null;
 }
@@ -108,6 +111,7 @@ const buildLeg = ({
   pickUp,
   dropOff,
   shuttlePickup,
+  shuttleDropoff,
 }: BuildLegInput): TicketLegViewModel => ({
   label,
   reference,
@@ -144,6 +148,9 @@ const buildLeg = ({
   ...(shuttlePickup?.address
     ? { shuttlePickupAddress: shuttlePickup.address }
     : {}),
+  ...(shuttleDropoff?.address
+    ? { shuttleDropoffAddress: shuttleDropoff.address }
+    : {}),
 });
 
 export const buildCheckoutTicketViewModel = ({
@@ -153,6 +160,7 @@ export const buildCheckoutTicketViewModel = ({
   selectedPickUp,
   selectedDropOff,
   selectedShuttlePickup,
+  selectedShuttleDropoff,
   outboundState,
   returnState,
 }: CheckoutTicketViewModelInput, translate: Translate = defaultTranslate): TicketViewModel | null => {
@@ -191,6 +199,7 @@ export const buildCheckoutTicketViewModel = ({
           pickUp: outboundState?.pickUp ?? null,
           dropOff: outboundState?.dropOff ?? null,
           shuttlePickup: outboundState?.shuttlePickup ?? null,
+          shuttleDropoff: outboundState?.shuttleDropoff ?? null,
         }),
         buildLeg({
           label: translate('booking.header.return'),
@@ -204,6 +213,7 @@ export const buildCheckoutTicketViewModel = ({
           pickUp: returnState?.pickUp ?? null,
           dropOff: returnState?.dropOff ?? null,
           shuttlePickup: returnState?.shuttlePickup ?? null,
+          shuttleDropoff: returnState?.shuttleDropoff ?? null,
         }),
       ],
     };
@@ -224,6 +234,7 @@ export const buildCheckoutTicketViewModel = ({
       pickUp: selectedPickUp,
       dropOff: selectedDropOff,
       shuttlePickup: selectedShuttlePickup ?? null,
+      shuttleDropoff: selectedShuttleDropoff ?? null,
     })],
   };
 };

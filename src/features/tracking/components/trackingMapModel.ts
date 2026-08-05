@@ -14,6 +14,7 @@ export type TrackingMapMarkerKind =
   | 'target'
   | 'destination'
   | 'shuttlePickup'
+  | 'shuttleDropoff'
   | 'shuttleStation';
 
 export interface TrackingMapMarker extends GeoCoordinate {

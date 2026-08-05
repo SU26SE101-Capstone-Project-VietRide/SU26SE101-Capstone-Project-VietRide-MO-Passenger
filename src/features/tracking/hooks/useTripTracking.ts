@@ -102,9 +102,11 @@ interface ScopedTargetEtaState {
   eta: TrackingEta;
 }
 
+type ActiveTrackingDelay = Extract<TrackingDelayUpdate, { status: 'DELAYED' }>;
+
 interface ScopedDelayState {
   scopeKey: string;
-  delay: TrackingDelayUpdate;
+  delay: ActiveTrackingDelay;
 }
 
 const TERMINAL_TRIP_STATUSES = new Set<TrackingTripStatus>([
@@ -674,7 +676,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
           if (disposed) return;
           setNextEtaState({ scopeKey, eta });
           setDelayState((current) => {
-            if (eta.delayed && eta.delayMinutes !== undefined) {
+            if (eta.delayStatus === 'DELAYED' && eta.delayMinutes !== null) {
               return {
                 scopeKey,
                 delay: {
@@ -697,7 +699,16 @@ export function useTripTracking(options: UseTripTrackingOptions) {
           }
         },
         onDelayUpdate: (delay) => {
-          if (!disposed) setDelayState({ scopeKey, delay });
+          if (disposed) return;
+          setDelayState((current) => {
+            if (delay.status === 'DELAY_CLEARED') {
+              return current?.scopeKey === scopeKey
+                && current.delay.stopId === delay.stopId
+                ? null
+                : current;
+            }
+            return { scopeKey, delay };
+          });
         },
         onJoinRejected: handleJoinRejected,
         onUnauthorized: handleUnauthorized,

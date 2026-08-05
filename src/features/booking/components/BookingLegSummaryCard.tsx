@@ -22,6 +22,34 @@ interface BookingLegSummaryCardProps {
   onEdit?: () => void;
 }
 
+interface ShuttleRequestSummaryProps {
+  address: string;
+  label: string;
+  hint: string;
+}
+
+const ShuttleRequestSummary = memo(function ShuttleRequestSummaryComponent({
+  address,
+  label,
+  hint,
+}: ShuttleRequestSummaryProps): React.JSX.Element {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.shuttleBlock}>
+      <View style={[styles.locationIconBox, styles.shuttleIconBox]}>
+        <Van size={18} weight="duotone" color={theme.accents.assistant.foreground} />
+      </View>
+      <View style={styles.locationCopy}>
+        <Text style={styles.locationLabel}>{label}</Text>
+        <Text style={styles.locationValue}>{address}</Text>
+        <Text style={styles.locationHint}>{hint}</Text>
+      </View>
+    </View>
+  );
+});
+
 export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponent({
   title,
   leg,
@@ -30,7 +58,7 @@ export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponen
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { trip, seats, pickUp, dropOff, shuttlePickup } = leg;
+  const { trip, seats, pickUp, dropOff, shuttlePickup, shuttleDropoff } = leg;
 
   if (!trip) return null;
 
@@ -49,7 +77,11 @@ export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponen
             ]}
             onPress={onEdit}
           >
-            <PencilSimple size={14} weight="bold" color={theme.colors.primary} />
+            <PencilSimple
+              size={14}
+              weight="bold"
+              color={theme.accents.ticket.foreground}
+            />
           </Pressable>
         ) : null}
       </View>
@@ -69,22 +101,17 @@ export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponen
       />
 
       {shuttlePickup ? (
-        <View style={styles.shuttleBlock}>
-          <View style={styles.locationIconBox}>
-            <Van size={18} weight="duotone" color={theme.colors.primary} />
-          </View>
-          <View style={styles.locationCopy}>
-            <Text style={styles.locationLabel}>{t('booking.checkout.shuttleRequest')}</Text>
-            <Text style={styles.locationValue}>{shuttlePickup.address}</Text>
-            <Text style={styles.locationHint}>{t('booking.checkout.shuttleAwaiting')}</Text>
-          </View>
-        </View>
+        <ShuttleRequestSummary
+          address={shuttlePickup.address}
+          label={t('booking.checkout.shuttleRequest')}
+          hint={t('booking.checkout.shuttleAwaiting')}
+        />
       ) : null}
 
       <View style={styles.locationBlock}>
         <View style={styles.locationSurface}>
           <View style={styles.locationIconBox}>
-            <MapPinLine size={18} weight="duotone" color={theme.colors.primary} />
+            <MapPinLine size={18} weight="duotone" color={theme.accents.ticket.foreground} />
           </View>
           <View style={styles.locationCopy}>
             <Text style={styles.locationLabel}>
@@ -103,7 +130,7 @@ export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponen
       <View style={styles.locationBlockLarge}>
         <View style={styles.locationSurface}>
           <View style={styles.locationIconBox}>
-            <MapPinLine size={18} weight="duotone" color={theme.colors.primary} />
+            <MapPinLine size={18} weight="duotone" color={theme.accents.ticket.foreground} />
           </View>
           <View style={styles.locationCopy}>
             <Text style={styles.locationLabel}>
@@ -118,6 +145,14 @@ export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponen
         </View>
         {dropOff?.address ? <Text style={styles.address}>{dropOff.address}</Text> : null}
       </View>
+
+      {shuttleDropoff ? (
+        <ShuttleRequestSummary
+          address={shuttleDropoff.address}
+          label={t('booking.checkout.shuttleDropoffRequest')}
+          hint={t('booking.checkout.shuttleAwaiting')}
+        />
+      ) : null}
     </SectionCard>
   );
 });
@@ -140,7 +175,9 @@ const createStyles = (theme: AppTheme) => ({
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
-    backgroundColor: theme.colors.primaryFaded,
+    backgroundColor: theme.accents.ticket.soft,
+    borderWidth: 1,
+    borderColor: theme.accents.ticket.border,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
@@ -171,15 +208,20 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.md,
     marginTop: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.colors.primaryFaded,
+    backgroundColor: theme.accents.assistant.soft,
+    borderWidth: 1,
+    borderColor: theme.accents.assistant.border,
   },
   locationIconBox: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: theme.colors.primaryFaded,
+    backgroundColor: theme.accents.ticket.soft,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
+  },
+  shuttleIconBox: {
+    backgroundColor: theme.accents.assistant.soft,
   },
   locationCopy: {
     flex: 1,

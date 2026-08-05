@@ -7,13 +7,6 @@ import {
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 import type { StationDetail, StationSearchResult } from '../types';
 
-type StationSearchPayload =
-  | StationSearchResult[]
-  | {
-      items?: StationSearchResult[];
-      data?: StationSearchResult[];
-    };
-
 export const stationKeys = {
   all: ['stations'] as const,
   search: (locationId: string) =>
@@ -23,28 +16,23 @@ export const stationKeys = {
 };
 
 const normalizeStationSearchResult = (
-  payload: StationSearchPayload,
+  payload: unknown,
 ): StationSearchResult[] => {
-  if (Array.isArray(payload)) {
-    return payload;
+  if (!Array.isArray(payload)) {
+    throw new ApiRequestError({
+      message: 'Station search returned an invalid response.',
+      code: 'INVALID_API_RESPONSE',
+    });
   }
 
-  if (Array.isArray(payload.items)) {
-    return payload.items;
-  }
-
-  if (Array.isArray(payload.data)) {
-    return payload.data;
-  }
-
-  return [];
+  return payload as StationSearchResult[];
 };
 
 export async function searchStations(
   locationId: string,
   signal?: AbortSignal,
 ): Promise<StationSearchResult[]> {
-  const response = await apiClient.get<ApiEnvelope<StationSearchPayload>>(
+  const response = await apiClient.get<ApiEnvelope<unknown>>(
     '/stations/search',
     {
       params: {

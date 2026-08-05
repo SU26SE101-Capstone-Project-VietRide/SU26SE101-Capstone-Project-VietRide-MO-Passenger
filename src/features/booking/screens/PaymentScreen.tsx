@@ -19,6 +19,7 @@ import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
 import { useAvailableBookingVouchers } from '../hooks/useAvailableBookingVouchers';
 import type { AvailableVoucherItem } from '../types';
 import { buildBookingSeatBadges } from '../utils/seatPresentation';
+import { SHUTTLE_ERROR_TRANSLATION_KEYS } from '../utils/shuttle';
 
 interface PaymentStepProps {
   onNext: () => void | Promise<void>;
@@ -72,6 +73,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     selectedPickUp,
     selectedDropOff,
     selectedShuttlePickup,
+    selectedShuttleDropoff,
     searchParams,
     voucherCode,
     voucherDiscountPreview,
@@ -91,6 +93,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     selectedPickUp: state.selectedPickUp,
     selectedDropOff: state.selectedDropOff,
     selectedShuttlePickup: state.selectedShuttlePickup,
+    selectedShuttleDropoff: state.selectedShuttleDropoff,
     searchParams: state.searchParams,
     voucherCode: state.voucherCode,
     voucherDiscountPreview: state.voucherDiscountPreview,
@@ -118,7 +121,15 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
     pickUp: selectedPickUp,
     dropOff: selectedDropOff,
     shuttlePickup: selectedShuttlePickup,
-  }), [selectedDropOff, selectedPickUp, selectedSeats, selectedShuttlePickup, selectedTrip]);
+    shuttleDropoff: selectedShuttleDropoff,
+  }), [
+    selectedDropOff,
+    selectedPickUp,
+    selectedSeats,
+    selectedShuttleDropoff,
+    selectedShuttlePickup,
+    selectedTrip,
+  ]);
 
   const seatBadges = useMemo(() => {
     return buildBookingSeatBadges({
@@ -214,7 +225,9 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
   const promoInputError = promoError
     ?? (vouchersFailed ? t('booking.vouchers.refreshFailed') : undefined);
   const bookingErrorMessage = useMemo(
-    () => bookingError ? getLocalizedApiErrorMessage(bookingError, t) : null,
+    () => bookingError
+      ? getLocalizedApiErrorMessage(bookingError, t, SHUTTLE_ERROR_TRANSLATION_KEYS)
+      : null,
     [bookingError, t],
   );
   const handlePayNow = useCallback(() => {
@@ -319,7 +332,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
             label={t('booking.paymentScreen.vnpayLabel')}
             sub={t('booking.paymentScreen.vnpayDescription')}
             Icon={QrCode}
-            iconColor={theme.colors.accentDark}
+            iconColor={theme.accents.finance.foreground}
             onSelect={selectVnpay}
           />
           <PaymentOption
@@ -327,7 +340,7 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
             label={t('booking.paymentScreen.walletLabel')}
             sub={t('booking.paymentScreen.walletDescription')}
             Icon={Wallet}
-            iconColor={theme.colors.success}
+            iconColor={theme.accents.finance.foreground}
             onSelect={selectWallet}
           />
         </View>
@@ -422,7 +435,12 @@ const PaymentOption = memo(function PaymentOptionComponent({
       ]}
       onPress={onSelect}
     >
-      <View style={styles.paymentRadio}>{selected ? <View style={styles.paymentRadioDot} /> : null}</View>
+      <View style={[
+        styles.paymentRadio,
+        selected ? styles.paymentRadioActive : null,
+      ]}>
+        {selected ? <View style={styles.paymentRadioDot} /> : null}
+      </View>
       <View style={styles.paymentIconBackground}>
         <Icon size={20} color={iconColor} weight="bold" />
       </View>
@@ -459,6 +477,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   bentoSummaryCard: {
     ...theme.components.card,
+    borderColor: theme.accents.finance.border,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
@@ -519,11 +538,16 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 5,
     backgroundColor: theme.colors.primary,
   },
+  paymentRadioActive: {
+    borderColor: theme.colors.primary,
+  },
   paymentIconBackground: {
     width: 36,
     height: 36,
     borderRadius: borderRadius.md,
-    backgroundColor: theme.effects.contentSurface,
+    backgroundColor: theme.accents.finance.soft,
+    borderWidth: 1,
+    borderColor: theme.accents.finance.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
@@ -580,7 +604,7 @@ const createStyles = (theme: AppTheme) => ({
   totalValue: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: theme.colors.primary,
+    color: theme.accents.finance.foreground,
   },
   submitErrorText: {
     marginTop: spacing.md,

@@ -6,6 +6,8 @@ import React, {
   type ReactNode,
 } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -15,8 +17,10 @@ import {
 import {
   Broadcast,
   Clock,
+  LinkBreak,
   MapPin,
   NavigationArrow,
+  ShareNetwork,
   WarningCircle,
   WifiSlash,
 } from 'phosphor-react-native';
@@ -43,22 +47,21 @@ import type {
   ShuttlePassengerPickup,
   ShuttleTrackingEta,
   TrackingEta,
-  TrackingPoint,
   TripRouteContext,
 } from '../api/trackingApi';
 import type { GeoCoordinate } from '@shared/types/common';
 import { isTerminalTrackingStatus, useTripTracking } from '../hooks/useTripTracking';
+import { useTripSharing } from '../hooks/useTripSharing';
 import {
   TrackingMap,
   type TrackingMapConnectionState,
-  type TrackingMapJourneySummary,
   type TrackingMapMarker,
 } from './TrackingMap';
 import type { TrackingHeaderRoute } from './TrackingHeader';
+import { getTrackingMapPalette } from './trackingMapStyles';
 
 interface TrackingLayoutSlots {
   detailsFooter?: ReactNode;
-  onRouteHeaderChange?: (route: TrackingHeaderRoute | undefined) => void;
   refreshing?: boolean;
   onRefresh?: () => Promise<unknown> | unknown;
 }
@@ -70,6 +73,7 @@ interface LiveMainTripTrackingPanelProps extends TrackingLayoutSlots {
   tripStatus?: TripLifecycleStatus;
   sourceTerminal?: boolean;
   terminalMessage?: string;
+  onRouteHeaderChange?: (route: TrackingHeaderRoute | undefined) => void;
 }
 
 interface LiveShuttleTrackingPanelProps extends TrackingLayoutSlots {
@@ -82,11 +86,14 @@ type LiveTripTrackingPanelProps =
   | LiveMainTripTrackingPanelProps
   | LiveShuttleTrackingPanelProps;
 
+type ProgressTone = 'next' | 'target' | 'station' | 'destination';
+
 interface ProgressItem {
   id: string;
   label: string;
   name: string;
   detail?: string;
+  tone: ProgressTone;
 }
 
 const TRIP_STATUS_REFRESH_MS = 60_000;
@@ -102,6 +109,38 @@ const isMainTripEta = (
 const isShuttleEta = (
   eta: TrackingEta | ShuttleTrackingEta | null,
 ): eta is ShuttleTrackingEta => Boolean(eta && 'nextPickupOrder' in eta);
+
+const progressDotStyleForTone = (
+  tone: ProgressTone,
+  styles: ReturnType<typeof createStyles>,
+): object => {
+  switch (tone) {
+    case 'target':
+      return styles.progressDotTarget;
+    case 'station':
+      return styles.progressDotStation;
+    case 'destination':
+      return styles.progressDotDestination;
+    default:
+      return styles.progressDotNext;
+  }
+};
+
+const progressLabelStyleForTone = (
+  tone: ProgressTone,
+  styles: ReturnType<typeof createStyles>,
+): object => {
+  switch (tone) {
+    case 'target':
+      return styles.progressLabelTarget;
+    case 'station':
+      return styles.progressLabelStation;
+    case 'destination':
+      return styles.progressLabelDestination;
+    default:
+      return styles.progressLabelNext;
+  }
+};
 
 const buildTripMarkers = (
   context: TripRouteContext | null,
@@ -154,18 +193,20 @@ const buildShuttleMarkers = (
   context: ShuttlePassengerContext | null,
   selectedPickup: ShuttlePassengerPickup | null,
   pickupName: string,
+  dropoffName: string,
 ): TrackingMapMarker[] => {
   if (!context) return [];
 
   const markers: TrackingMapMarker[] = [];
   if (selectedPickup) {
+    const isOutbound = context.direction === 'OUTBOUND_FROM_STATION';
     markers.push({
-      id: `pickup:${selectedPickup.bookingId}`,
-      name: pickupName,
+      id: `service:${selectedPickup.bookingId}`,
+      name: selectedPickup.serviceAddress ?? (isOutbound ? dropoffName : pickupName),
       sequence: selectedPickup.pickupOrder,
       latitude: selectedPickup.latitude,
       longitude: selectedPickup.longitude,
-      kind: 'shuttlePickup',
+      kind: isOutbound ? 'shuttleDropoff' : 'shuttlePickup',
     });
   }
   if (context.station) {
@@ -178,7 +219,9 @@ const buildShuttleMarkers = (
       kind: 'shuttleStation',
     });
   }
-  return markers;
+  return markers.sort(
+    (left, right) => (left.sequence ?? 0) - (right.sequence ?? 0),
+  );
 };
 
 function InlineState({
@@ -200,45 +243,6 @@ function InlineState({
   );
 }
 
-const TrackingMetadata = React.memo(function TrackingMetadata({
-  latest,
-  withDivider = false,
-}: {
-  latest: TrackingPoint | null;
-  withDivider?: boolean;
-}): React.JSX.Element {
-  const { t } = useTranslation();
-  const theme = useTheme();
-  const styles = useThemedStyles(createStyles);
-
-  return (
-    <View style={[styles.metadataRow, withDivider ? null : styles.metadataRowStandalone]}>
-      <View style={styles.metadataItem}>
-        <Broadcast size={18} color={theme.colors.primary} weight="duotone" />
-        <View style={styles.metadataText}>
-          <Text style={styles.metadataLabel}>{t('tracking.metrics.lastUpdate')}</Text>
-          <Text style={styles.metadataValue}>
-            {latest
-              ? formatDateTime(latest.recordedAt)
-              : t('tracking.metrics.waitingGps')}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.metadataItem}>
-        <NavigationArrow size={18} color={theme.colors.primary} weight="duotone" />
-        <View style={styles.metadataText}>
-          <Text style={styles.metadataLabel}>{t('tracking.metrics.speed')}</Text>
-          <Text style={styles.metadataValue}>
-            {latest?.speedKmh !== undefined
-              ? `${Math.round(latest.speedKmh)} km/h`
-              : t('tracking.metrics.notReported')}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-});
-
 export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelComponent(
   props: LiveTripTrackingPanelProps,
 ): React.JSX.Element {
@@ -253,11 +257,14 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const terminalMessage = props.source === 'shuttle'
     ? undefined
     : props.terminalMessage;
+  const onRouteHeaderChange = props.source === 'trip'
+    ? props.onRouteHeaderChange
+    : undefined;
   const detailsFooter = props.detailsFooter;
-  const onRouteHeaderChange = props.onRouteHeaderChange;
   const externalRefreshing = props.refreshing ?? false;
   const externalRefresh = props.onRefresh;
   const theme = useTheme();
+  const mapPalette = getTrackingMapPalette(theme.isDark);
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const userId = useAuthStore((state) => state.user?.id);
@@ -306,6 +313,12 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         tripStatus: effectiveTripStatus,
         sourceTerminal,
       });
+  const {
+    shareTrip,
+    revokeTripShare,
+    isSharing,
+    isRevoking,
+  } = useTripSharing();
   const refetchAll = tracking.refetchAll;
   const hasLatestLocation = Boolean(tracking.latest);
 
@@ -335,6 +348,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           shuttleContext,
           selectedShuttlePickup,
           t('tracking.map.ownPickupMarker'),
+          t('tracking.map.ownDropoffMarker'),
         )
       : buildTripMarkers(routeContext, nextStopId, stopId)),
     [
@@ -349,7 +363,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   );
   const plannedRoute = routeContext?.geometry?.points ?? EMPTY_PLANNED_ROUTE;
   const routeHeader = useMemo<TrackingHeaderRoute | undefined>(() => {
-    if (isShuttle || !routeContext) return undefined;
+    if (!routeContext?.originStation && !routeContext?.destinationStation) {
+      return undefined;
+    }
 
     return {
       ...(routeContext.originStation
@@ -359,8 +375,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         ? { destinationName: routeContext.destinationStation.name }
         : {}),
     };
-  }, [isShuttle, routeContext]);
-
+  }, [routeContext?.destinationStation, routeContext?.originStation]);
   useEffect(() => {
     onRouteHeaderChange?.(routeHeader);
   }, [onRouteHeaderChange, routeHeader]);
@@ -403,6 +418,15 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     || tracking.etaQuery.isRefetching
     || tracking.contextQuery.isRefetching,
   );
+  const canManageTripSharing = Boolean(
+    !isShuttle
+    && effectiveTripStatus === 'IN_PROGRESS'
+    && tracking.hasValidTrackingId
+    && tracking.hasAuthenticatedUser
+    && !tracking.fatalError
+    && !tracking.isTerminal
+  );
+  const isShareOperationPending = isSharing || isRevoking;
 
   const handleRetry = useCallback(() => {
     refetchAll().catch(() => undefined);
@@ -412,6 +436,65 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     if (externalRefresh) requests.push(Promise.resolve(externalRefresh()));
     Promise.allSettled(requests).catch(() => undefined);
   }, [externalRefresh, refetchAll]);
+  const handleShareTrip = useCallback(() => {
+    if (!canManageTripSharing || !tracking.isOnline || isShareOperationPending) return;
+
+    shareTrip({
+      tripId,
+      message: t('tracking.share.message'),
+    }).catch(() => {
+      Alert.alert(
+        t('tracking.share.errorTitle'),
+        t('tracking.share.errorDescription'),
+      );
+    });
+  }, [
+    canManageTripSharing,
+    isShareOperationPending,
+    shareTrip,
+    t,
+    tracking.isOnline,
+    tripId,
+  ]);
+  const handleRevokeTripShare = useCallback(() => {
+    if (!canManageTripSharing || !tracking.isOnline || isShareOperationPending) return;
+
+    Alert.alert(
+      t('tracking.share.revokeConfirmTitle'),
+      t('tracking.share.revokeConfirmDescription'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('tracking.share.revokeAction'),
+          style: 'destructive',
+          onPress: () => {
+            revokeTripShare({ tripId })
+              .then((outcome) => {
+                if (outcome === 'revoked') {
+                  Alert.alert(
+                    t('tracking.share.revokedTitle'),
+                    t('tracking.share.revokedDescription'),
+                  );
+                }
+              })
+              .catch(() => {
+                Alert.alert(
+                  t('tracking.share.errorTitle'),
+                  t('tracking.share.revokeErrorDescription'),
+                );
+              });
+          },
+        },
+      ],
+    );
+  }, [
+    canManageTripSharing,
+    isShareOperationPending,
+    revokeTripShare,
+    t,
+    tracking.isOnline,
+    tripId,
+  ]);
   const formatDistance = useCallback(
     (distanceMeters: number): string => (
       distanceMeters >= 1_000
@@ -438,50 +521,12 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const nextStopIndex = nextStopId
     ? intermediateStops.findIndex((stop) => stop.stopId === nextStopId)
     : -1;
-  const nextStop = nextStopIndex >= 0
-    ? intermediateStops[nextStopIndex]
-    : undefined;
-  const targetStop = stopId
-    ? intermediateStops.find((stop) => stop.stopId === stopId)
-    : undefined;
   const upcomingStops = useMemo(
     () => (nextStopIndex >= 0
       ? intermediateStops.slice(nextStopIndex, nextStopIndex + 3)
       : []),
     [intermediateStops, nextStopIndex],
   );
-  const journeySummary = useMemo<TrackingMapJourneySummary | undefined>(() => {
-    if (isShuttle || !routeContext) return undefined;
-
-    const nextStopEta = nextStop && isMainTripEta(nextEta)
-      && nextEta.stopId === nextStop.stopId
-      ? formatEta(nextEta)
-      : undefined;
-    const targetStopEta = targetStop
-      ? formatEta(targetEta ?? (
-        isMainTripEta(nextEta) && nextEta.stopId === targetStop.stopId
-          ? nextEta
-          : null
-      ))
-      : undefined;
-
-    return {
-      ...(nextStop
-        ? { nextStop: { name: nextStop.name, ...(nextStopEta ? { etaLabel: nextStopEta } : {}) } }
-        : {}),
-      ...(targetStop && targetStop.stopId !== nextStop?.stopId
-        ? { targetStop: { name: targetStop.name, ...(targetStopEta ? { etaLabel: targetStopEta } : {}) } }
-        : {}),
-    };
-  }, [
-    formatEta,
-    isShuttle,
-    nextEta,
-    nextStop,
-    routeContext,
-    targetEta,
-    targetStop,
-  ]);
   const progressItems = useMemo<ProgressItem[]>(() => {
     if (isShuttle) {
       if (!selectedShuttlePickup) {
@@ -491,8 +536,48 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
               label: t('tracking.map.stationMarker'),
               name: shuttleContext.station.name,
               detail: t('tracking.details.waitingEta'),
+              tone: 'station',
             }]
           : [];
+      }
+
+      const isOutbound = shuttleContext?.direction === 'OUTBOUND_FROM_STATION';
+      const serviceAddress = selectedShuttlePickup.serviceAddress
+        ?? t(isOutbound
+          ? 'tracking.map.ownDropoffMarker'
+          : 'tracking.map.ownPickupMarker');
+      const etaToOwnService = isShuttleEta(nextEta)
+        && nextEta.nextPickupOrder === selectedShuttlePickup.pickupOrder
+        ? nextEta
+        : null;
+
+      if (isOutbound) {
+        const outboundItems: ProgressItem[] = [];
+        if (selectedShuttlePickup.status === 'PENDING' && shuttleContext?.station) {
+          const etaToStation = isShuttleEta(nextEta)
+            && nextEta.nextPickupOrder === shuttleContext.station.pickupOrder
+            ? nextEta
+            : null;
+          outboundItems.push({
+            id: 'outbound-station',
+            label: t('tracking.map.stationMarker'),
+            name: shuttleContext.station.name,
+            detail: etaToStation ? formatEta(etaToStation) : t('tracking.details.waitingEta'),
+            tone: 'station',
+          });
+        }
+        outboundItems.push({
+          id: `own-dropoff:${selectedShuttlePickup.bookingId}`,
+          label: t('tracking.map.ownDropoffMarker'),
+          name: serviceAddress,
+          detail: etaToOwnService
+            ? formatEta(etaToOwnService)
+            : t('tracking.progress.stopsBeforeDropoff', {
+                count: selectedShuttlePickup.stopsBeforePickup,
+              }),
+          tone: 'target',
+        });
+        return outboundItems;
       }
 
       if (selectedShuttlePickup.status === 'PICKED_UP') {
@@ -506,30 +591,38 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           label: t('tracking.progress.pickedUp'),
           name: shuttleContext?.station?.name ?? t('common.notAvailable'),
           detail: etaToStation ? formatEta(etaToStation) : undefined,
+          tone: 'station',
         }];
       }
 
-      const etaToOwnPickup = isShuttleEta(nextEta)
-        && nextEta.nextPickupOrder === selectedShuttlePickup.pickupOrder
-        ? nextEta
-        : null;
       return [{
-        id: 'own-pickup',
+        id: `own-pickup:${selectedShuttlePickup.bookingId}`,
         label: t('tracking.map.ownPickupMarker'),
-        name: t('tracking.progress.stopsBeforePickup', {
-          count: selectedShuttlePickup.stopsBeforePickup,
-        }),
-        detail: etaToOwnPickup ? formatEta(etaToOwnPickup) : undefined,
+        name: serviceAddress,
+        detail: etaToOwnService
+          ? formatEta(etaToOwnService)
+          : t('tracking.progress.stopsBeforePickup', {
+              count: selectedShuttlePickup.stopsBeforePickup,
+            }),
+        tone: 'target',
       }];
     }
 
     const items: ProgressItem[] = [];
+    const nextStop = nextStopId
+      ? intermediateStops.find((stop) => stop.stopId === nextStopId)
+      : undefined;
+    const targetStop = stopId
+      ? intermediateStops.find((stop) => stop.stopId === stopId)
+      : undefined;
+
     if (nextStop && nextStop.stopId !== targetStop?.stopId) {
       items.push({
         id: `next:${nextStop.stopId}`,
         label: t('tracking.map.nextStopMarker'),
         name: nextStop.name,
         detail: isMainTripEta(nextEta) ? formatEta(nextEta) : undefined,
+        tone: 'next',
       });
     }
     if (targetStop) {
@@ -542,6 +635,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
             ? nextEta
             : null
         )),
+        tone: 'target',
       });
     }
     if (items.length === 0 && routeContext?.destinationStation) {
@@ -550,20 +644,23 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         label: t('tracking.dropOff'),
         name: routeContext.destinationStation.name,
         detail: t('tracking.details.waitingEta'),
+        tone: 'destination',
       });
     }
     return items;
   }, [
     formatEta,
+    intermediateStops,
     isShuttle,
     nextEta,
-    nextStop,
+    nextStopId,
     routeContext?.destinationStation,
     selectedShuttlePickup,
+    shuttleContext?.direction,
     shuttleContext?.station,
+    stopId,
     t,
     targetEta,
-    targetStop,
   ]);
 
   let hero: ReactNode;
@@ -606,7 +703,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         markers={markers}
         vehicleKind={isShuttle ? 'shuttle' : 'bus'}
         connectionState={connectionState}
-        journeySummary={journeySummary}
       />
     );
   }
@@ -675,10 +771,87 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           </View>
         ) : null}
 
-        {isShuttle && (progressItems.length > 0 || tracking.latest) ? (
+        {canManageTripSharing ? (
+          <View style={styles.shareCard}>
+            <View style={styles.shareHeading}>
+              <View style={styles.shareIcon}>
+                <ShareNetwork
+                  size={22}
+                  color={mapPalette.target}
+                  weight="duotone"
+                />
+              </View>
+              <View style={styles.shareCopy}>
+                <Text style={styles.shareTitle}>{t('tracking.share.title')}</Text>
+                <Text style={styles.shareDescription}>
+                  {t('tracking.share.description')}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.shareActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('tracking.share.action')}
+                accessibilityHint={t('tracking.share.actionHint')}
+                accessibilityState={{
+                  busy: isSharing,
+                  disabled: !tracking.isOnline || isShareOperationPending,
+                }}
+                disabled={!tracking.isOnline || isShareOperationPending}
+                onPress={handleShareTrip}
+                style={({ pressed }) => [
+                  styles.sharePrimaryButton,
+                  !tracking.isOnline || isShareOperationPending
+                    ? styles.shareButtonDisabled
+                    : null,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                {isSharing ? (
+                  <ActivityIndicator size="small" color={theme.colors.textInverse} />
+                ) : (
+                  <ShareNetwork size={18} color={theme.colors.textInverse} weight="bold" />
+                )}
+                <Text style={styles.sharePrimaryText}>
+                  {isSharing ? t('tracking.share.sharing') : t('tracking.share.action')}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('tracking.share.revokeAction')}
+                accessibilityState={{
+                  busy: isRevoking,
+                  disabled: !tracking.isOnline || isShareOperationPending,
+                }}
+                disabled={!tracking.isOnline || isShareOperationPending}
+                onPress={handleRevokeTripShare}
+                style={({ pressed }) => [
+                  styles.shareRevokeButton,
+                  !tracking.isOnline || isShareOperationPending
+                    ? styles.shareButtonDisabled
+                    : null,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                {isRevoking ? (
+                  <ActivityIndicator size="small" color={theme.colors.error} />
+                ) : (
+                  <LinkBreak size={18} color={theme.colors.error} weight="bold" />
+                )}
+                <Text style={styles.shareRevokeText}>
+                  {isRevoking
+                    ? t('tracking.share.revoking')
+                    : t('tracking.share.revokeAction')}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {progressItems.length > 0 || tracking.latest ? (
           <View style={styles.progressCard}>
             <View style={styles.progressHeading}>
-              <NavigationArrow size={22} color={theme.colors.primary} weight="duotone" />
+              <NavigationArrow size={22} color={mapPalette.plannedRoute} weight="duotone" />
               <Text style={styles.progressTitle}>
                 {t('tracking.progress.title')}
               </Text>
@@ -686,9 +859,21 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
 
             {progressItems.map((item) => (
               <View key={item.id} style={styles.progressRow}>
-                <View style={styles.progressDot} />
+                <View
+                  style={[
+                    styles.progressDot,
+                    progressDotStyleForTone(item.tone, styles),
+                  ]}
+                />
                 <View style={styles.progressRowContent}>
-                  <Text style={styles.progressLabel}>{item.label}</Text>
+                  <Text
+                    style={[
+                      styles.progressLabel,
+                      progressLabelStyleForTone(item.tone, styles),
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
                   <Text style={styles.progressName}>{item.name}</Text>
                   {item.detail ? (
                     <Text style={styles.progressDetail}>{item.detail}</Text>
@@ -697,13 +882,34 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
               </View>
             ))}
 
-            <TrackingMetadata latest={tracking.latest} withDivider />
-          </View>
-        ) : null}
-
-        {!isShuttle && tracking.latest ? (
-          <View style={styles.metadataCard}>
-            <TrackingMetadata latest={tracking.latest} />
+            <View style={styles.metadataRow}>
+              <View style={[styles.metadataItem, styles.metadataLive]}>
+                <Broadcast size={18} color={mapPalette.trail} weight="duotone" />
+                <View style={styles.metadataText}>
+                  <Text style={styles.metadataLabel}>
+                    {t('tracking.metrics.lastUpdate')}
+                  </Text>
+                  <Text style={styles.metadataValue}>
+                    {tracking.latest
+                      ? formatDateTime(tracking.latest.recordedAt)
+                      : t('tracking.metrics.waitingGps')}
+                  </Text>
+                </View>
+              </View>
+              <View style={[styles.metadataItem, styles.metadataSpeed]}>
+                <NavigationArrow size={18} color={mapPalette.vehicle} weight="duotone" />
+                <View style={styles.metadataText}>
+                  <Text style={styles.metadataLabel}>
+                    {t('tracking.metrics.speed')}
+                  </Text>
+                  <Text style={styles.metadataValue}>
+                    {tracking.latest?.speedKmh !== undefined
+                      ? `${Math.round(tracking.latest.speedKmh)} km/h`
+                      : t('tracking.metrics.notReported')}
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
         ) : null}
 
@@ -714,7 +920,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
             </Text>
             {upcomingStops.map((stop) => (
               <View key={stop.stopId} style={styles.upcomingRow}>
-                <MapPin size={17} color={theme.colors.primary} weight="duotone" />
+                <MapPin size={17} color={mapPalette.next} weight="duotone" />
                 <Text style={styles.upcomingName} numberOfLines={2}>
                   {stop.name}
                 </Text>
@@ -830,15 +1036,112 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.textInverse,
   },
+  shareCard: {
+    ...theme.components.card,
+    gap: spacing.lg,
+    padding: spacing.lg,
+    borderColor: getTrackingMapPalette(theme.isDark).frameBorder,
+  },
+  shareHeading: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: spacing.md,
+  },
+  shareIcon: {
+    width: 42,
+    height: 42,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    borderRadius: borderRadius.full,
+    backgroundColor: getTrackingMapPalette(theme.isDark).progressSurface,
+  },
+  shareCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  shareTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: theme.colors.textPrimary,
+  },
+  shareDescription: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
+    color: theme.colors.textSecondary,
+  },
+  shareActions: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: spacing.sm,
+  },
+  sharePrimaryButton: {
+    minWidth: 170,
+    minHeight: 48,
+    flexGrow: 1,
+    flexBasis: 0,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
+    backgroundColor: theme.colors.primary,
+  },
+  sharePrimaryText: {
+    flexShrink: 1,
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
+    color: theme.colors.textInverse,
+    textAlign: 'center' as const,
+  },
+  shareRevokeButton: {
+    minWidth: 150,
+    minHeight: 48,
+    flexGrow: 1,
+    flexBasis: 0,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+    borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
+    backgroundColor: theme.colors.errorLight,
+  },
+  shareRevokeText: {
+    flexShrink: 1,
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
+    color: theme.colors.error,
+    textAlign: 'center' as const,
+  },
+  shareButtonDisabled: {
+    opacity: 0.5,
+  },
   progressCard: {
     ...theme.components.elevatedCard,
     gap: spacing.md,
     padding: spacing.lg,
+    borderColor: getTrackingMapPalette(theme.isDark).frameBorder,
   },
   progressHeading: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
+    backgroundColor: getTrackingMapPalette(theme.isDark).progressSurface,
   },
   progressTitle: {
     flex: 1,
@@ -865,7 +1168,18 @@ const createStyles = (theme: AppTheme) => ({
     borderColor: theme.effects.isLiquid
       ? theme.effects.contentSurfaceElevated
       : theme.colors.surfaceElevated,
-    backgroundColor: theme.colors.primary,
+  },
+  progressDotNext: {
+    backgroundColor: getTrackingMapPalette(theme.isDark).next,
+  },
+  progressDotTarget: {
+    backgroundColor: getTrackingMapPalette(theme.isDark).target,
+  },
+  progressDotStation: {
+    backgroundColor: getTrackingMapPalette(theme.isDark).shuttleStation,
+  },
+  progressDotDestination: {
+    backgroundColor: getTrackingMapPalette(theme.isDark).destination,
   },
   progressRowContent: {
     flex: 1,
@@ -874,7 +1188,18 @@ const createStyles = (theme: AppTheme) => ({
   progressLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: theme.colors.primary,
+  },
+  progressLabelNext: {
+    color: getTrackingMapPalette(theme.isDark).next,
+  },
+  progressLabelTarget: {
+    color: getTrackingMapPalette(theme.isDark).target,
+  },
+  progressLabelStation: {
+    color: getTrackingMapPalette(theme.isDark).shuttleStation,
+  },
+  progressLabelDestination: {
+    color: getTrackingMapPalette(theme.isDark).destination,
   },
   progressName: {
     marginTop: 2,
@@ -890,10 +1215,6 @@ const createStyles = (theme: AppTheme) => ({
     lineHeight: 20,
     color: theme.colors.textSecondary,
   },
-  metadataCard: {
-    ...theme.components.card,
-    padding: spacing.lg,
-  },
   metadataRow: {
     flexDirection: 'row' as const,
     flexWrap: 'wrap' as const,
@@ -904,10 +1225,6 @@ const createStyles = (theme: AppTheme) => ({
       ? theme.effects.contentBorder
       : theme.colors.divider,
   },
-  metadataRowStandalone: {
-    paddingTop: 0,
-    borderTopWidth: 0,
-  },
   metadataItem: {
     minWidth: 140,
     flexGrow: 1,
@@ -915,6 +1232,18 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row' as const,
     alignItems: 'flex-start' as const,
     gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
+  },
+  metadataLive: {
+    borderColor: getTrackingMapPalette(theme.isDark).trail,
+    backgroundColor: getTrackingMapPalette(theme.isDark).trailSurface,
+  },
+  metadataSpeed: {
+    borderColor: getTrackingMapPalette(theme.isDark).vehicleHalo,
+    backgroundColor: getTrackingMapPalette(theme.isDark).vehicleSurface,
   },
   metadataText: {
     flex: 1,
@@ -936,6 +1265,7 @@ const createStyles = (theme: AppTheme) => ({
     ...theme.components.card,
     gap: spacing.sm,
     padding: spacing.lg,
+    borderColor: getTrackingMapPalette(theme.isDark).frameBorder,
   },
   upcomingTitle: {
     fontFamily: fontFamilies.bold,
