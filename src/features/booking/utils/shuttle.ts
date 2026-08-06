@@ -264,3 +264,29 @@ export const SHUTTLE_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = 
   SHUTTLE_PICKUP_INVALID: 'booking.shuttle.apiErrors.addressInvalid',
   SHUTTLE_DROPOFF_INVALID: 'booking.shuttle.apiErrors.addressInvalid',
 };
+
+/** Errors that keep the Shuttle draft so the user can edit the address. */
+export const SHUTTLE_DRAFT_PRESERVING_ERROR_CODES = new Set([
+  'SHUTTLE_DISTANCE_EXCEEDED',
+  'SHUTTLE_DISTANCE_UNAVAILABLE',
+  'SHUTTLE_PICKUP_INVALID',
+  'SHUTTLE_DROPOFF_INVALID',
+]);
+
+export const getShuttleChangeAddressDirection = (
+  errorCode: string | null | undefined,
+): ShuttleServiceDirection | 'both' | null => {
+  if (!errorCode) {
+    return null;
+  }
+  if (errorCode === 'SHUTTLE_DROPOFF_INVALID' || errorCode === 'SHUTTLE_DROPOFF_STALE') {
+    return 'dropoff';
+  }
+  if (errorCode === 'SHUTTLE_PICKUP_INVALID' || errorCode === 'SHUTTLE_PICKUP_STALE') {
+    return 'pickup';
+  }
+  if (SHUTTLE_DRAFT_PRESERVING_ERROR_CODES.has(errorCode)) {
+    return 'both';
+  }
+  return null;
+};

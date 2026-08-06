@@ -5,15 +5,24 @@ Cloud project: `vietride-204c0`
 ## Architecture and product scope
 
 Ticket and Parcel tracking reuse one React Native map component. Google Maps is
-used only as the native basemap through these products:
+used as the native basemap through these products:
 
 - Maps SDK for Android.
 - Maps SDK for iOS.
 
+Shuttle address selection additionally uses:
+
+- Places SDK for Android (Autocomplete New + place details).
+- Places SDK for iOS (Autocomplete New + place details).
+
+Places is only available in a custom development client or release binary. Expo
+Go is unsupported. The app never calls Places REST from JavaScript and never
+exposes native Maps/Places keys through `EXPO_PUBLIC_*`.
+
 The travelled trail, current vehicle position, stops and ETA come from VietRide's
 authenticated Tracking REST/Socket.IO contracts. The passenger app does not call
-Routes, Directions, Places, Geocoding, Traffic, Roads, Fleet Engine or the
-Consumer SDK. It also does not request the passenger's location for live trip
+Routes, Directions, Geocoding, Traffic, Roads, Fleet Engine or the Consumer SDK
+for tracking. It also does not request the passenger's location for live trip
 tracking. A Map ID and Cloud-based map style are intentionally not required.
 
 ## Regional production gate
@@ -47,7 +56,9 @@ Only after the regional gate is cleared:
 1. Confirm billing is linked to the project.
 2. Enable [Maps SDK for Android](https://console.cloud.google.com/apis/library/maps-android-backend.googleapis.com?project=vietride-204c0).
 3. Enable [Maps SDK for iOS](https://console.cloud.google.com/apis/library/maps-ios-backend.googleapis.com?project=vietride-204c0).
-4. Create separate platform keys in [Credentials](https://console.cloud.google.com/apis/credentials?project=vietride-204c0).
+4. Enable [Places API (New)](https://console.cloud.google.com/apis/library/places.googleapis.com?project=vietride-204c0) for Shuttle address autocomplete.
+5. Create separate platform keys in [Credentials](https://console.cloud.google.com/apis/credentials?project=vietride-204c0).
+6. Configure quota alerts for Maps and Places usage.
 
 Restrict the Android key to:
 
@@ -56,12 +67,15 @@ Restrict the Android key to:
   debug certificate SHA-1 is
   `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`; never use it
   as the production signing identity.
-- API restriction: Maps SDK for Android only.
+- API restriction: Maps SDK for Android and Places API (New) / Places SDK for Android only.
 
 Restrict the iOS key to:
 
 - Bundle identifier `com.vietride.passenger`.
-- API restriction: Maps SDK for iOS only.
+- API restriction: Maps SDK for iOS and Places API (New) / Places SDK for iOS only.
+
+After enabling Places or rotating keys, rebuild the custom development client or
+release APK/IPA. Do not rely on Expo Go for Shuttle address search.
 
 The release SHA-1 must come from the actual EAS/Play signing certificate. Do not
 substitute the App Links SHA-256 fingerprint. Follow Google's
@@ -74,18 +88,13 @@ Never put an Android Maps key in `AndroidManifest.xml`, `app.config.js`, or any
 tracked file. The manifest contains only the Gradle placeholder
 `${GOOGLE_MAPS_ANDROID_API_KEY}`.
 
-For a local Android build, put the rotated key in the ignored
-`android/local.properties` file:
-
-```text
-GOOGLE_MAPS_ANDROID_API_KEY=...
-```
-
-CI may instead provide the same value as a protected environment variable or a
-Gradle `-PGOOGLE_MAPS_ANDROID_API_KEY=...` property. Expo prebuild still needs a
-key-enabled build environment to retain the native Maps integration; do not
-commit that environment file. Keep the remaining build flags in that protected
-environment:
+For a local Android build, provide the rotated key as a protected environment
+variable or a Gradle `-PGOOGLE_MAPS_ANDROID_API_KEY=...` property. Do not put
+custom Maps properties in `android/local.properties`: that file is reserved for
+Android SDK location metadata and is not a reliable Gradle project-property
+source. Expo prebuild still needs a key-enabled build environment to retain the
+native Maps integration; do not commit that environment file. Keep the
+remaining build flags in that protected environment:
 
 ```text
 GOOGLE_MAPS_ANDROID_API_KEY=...
@@ -103,6 +112,9 @@ The Expo config plugin:
 - Adds Maps SDK for Android `19.2.0`, selects the latest renderer and registers
   internal usage attribution `gmp_git_agentskills_v1` only for a key-enabled
   Android build.
+- Leaves the Places SDK dependency and client lifecycle to the local
+  `VietRidePlaces` Expo module (`5.1.1` on Android), avoiding duplicate
+  dependency owners on both platforms and duplicate Android initialization.
 - Adds the `react-native-google-maps` pod, initializes `GMSServices`, registers
   the same usage attribution and declares the SDK's documented iOS URL schemes
   only for a key-enabled iOS build.

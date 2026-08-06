@@ -18,13 +18,15 @@ const {
 } = require('../config/googleMapsConfig');
 
 const PLUGIN_NAME = 'with-vietride-google-maps';
-const PLUGIN_VERSION = '1.0.0';
+const PLUGIN_VERSION = '1.1.0';
 const ANDROID_API_KEY_META_DATA = 'com.google.android.geo.API_KEY';
 const ANDROID_API_KEY_PLACEHOLDER = '${GOOGLE_MAPS_ANDROID_API_KEY}';
 const IOS_PODFILE_TAG = 'vietride-react-native-google-maps';
+const IOS_PLACES_PODFILE_TAG = 'vietride-google-places';
 const IOS_IMPORT_TAG = 'vietride-google-maps-import';
 const IOS_INIT_TAG = 'vietride-google-maps-init';
 const ANDROID_DEPENDENCY_TAG = 'vietride-google-maps-sdk';
+const ANDROID_PLACES_DEPENDENCY_TAG = 'vietride-google-places-sdk';
 const ANDROID_API_KEY_ENV_TAG = 'vietride-google-maps-api-key-env';
 const ANDROID_API_KEY_PLACEHOLDER_TAG = 'vietride-google-maps-api-key-placeholder';
 const ANDROID_IMPORT_TAG = 'vietride-google-maps-import';
@@ -99,6 +101,10 @@ const withGoogleMapsAndroidDependency = (config, enabled) => withAppBuildGradle(
       src: migratedContents,
     }).contents;
     contents = removeContents({
+      tag: ANDROID_PLACES_DEPENDENCY_TAG,
+      src: contents,
+    }).contents;
+    contents = removeContents({
       tag: ANDROID_API_KEY_ENV_TAG,
       src: contents,
     }).contents;
@@ -141,7 +147,8 @@ const withGoogleMapsAndroidDependency = (config, enabled) => withAppBuildGradle(
       offset: 1,
       comment: '//',
     });
-
+    // The local VietRidePlaces Expo module owns its native Places dependency.
+    // Keeping it out of the app module avoids two competing dependency owners.
     buildGradleConfig.modResults.contents = dependencyResult.contents;
     return buildGradleConfig;
   },
@@ -206,17 +213,23 @@ const withGoogleMapsMainApplication = (config, enabled) => withMainApplication(
 const withGoogleMapsPod = (config, enabled) => withPodfile(
   config,
   (podfileConfig) => {
+    let contents = removeContents({
+      tag: IOS_PODFILE_TAG,
+      src: podfileConfig.modResults.contents,
+    }).contents;
+    contents = removeContents({
+      tag: IOS_PLACES_PODFILE_TAG,
+      src: contents,
+    }).contents;
+
     if (!enabled) {
-      podfileConfig.modResults.contents = removeContents({
-        tag: IOS_PODFILE_TAG,
-        src: podfileConfig.modResults.contents,
-      }).contents;
+      podfileConfig.modResults.contents = contents;
       return podfileConfig;
     }
 
-    const result = mergeContents({
+    const mapsPodResult = mergeContents({
       tag: IOS_PODFILE_TAG,
-      src: podfileConfig.modResults.contents,
+      src: contents,
       newSrc: [
         '  rn_maps_path = File.dirname(`node --print "require.resolve(\'react-native-maps/package.json\')"`)',
         "  pod 'react-native-google-maps', :path => rn_maps_path",
@@ -225,8 +238,9 @@ const withGoogleMapsPod = (config, enabled) => withPodfile(
       offset: 0,
       comment: '#',
     });
-
-    podfileConfig.modResults.contents = result.contents;
+    // The local VietRidePlaces podspec owns GooglePlaces. This plugin only
+    // owns the native map pod and removes legacy duplicate Places entries.
+    podfileConfig.modResults.contents = mapsPodResult.contents;
     return podfileConfig;
   },
 );
@@ -260,7 +274,14 @@ const withGoogleMapsAppDelegate = (config, apiKey) => withAppDelegate(
     const importResult = mergeContents({
       tag: IOS_IMPORT_TAG,
       src: appDelegateConfig.modResults.contents,
-      newSrc: ['#if canImport(GoogleMaps)', 'import GoogleMaps', '#endif'].join('\n'),
+      newSrc: [
+        '#if canImport(GoogleMaps)',
+        'import GoogleMaps',
+        '#endif',
+        '#if canImport(GooglePlaces)',
+        'import GooglePlaces',
+        '#endif',
+      ].join('\n'),
       anchor: /(@main|@UIApplicationMain)/,
       offset: 0,
       comment: '//',
@@ -272,6 +293,10 @@ const withGoogleMapsAppDelegate = (config, apiKey) => withAppDelegate(
         '#if canImport(GoogleMaps)',
         `GMSServices.addInternalUsageAttributionID("${GOOGLE_MAPS_USAGE_ATTRIBUTION_ID}")`,
         `GMSServices.provideAPIKey("${apiKey}")`,
+        '#endif',
+        '#if canImport(GooglePlaces)',
+        `GMSPlacesClient.addInternalUsageAttributionID("${GOOGLE_MAPS_USAGE_ATTRIBUTION_ID}")`,
+        `GMSPlacesClient.provideAPIKey("${apiKey}")`,
         '#endif',
       ].join('\n'),
       anchor: IOS_APP_DELEGATE_INIT,

@@ -37,6 +37,18 @@ export type BookingStackParamList = {
   DatePicker: { mode?: 'departure' | 'return' } | undefined;
   CreateTicketBooking: { intent: BookingEntryIntent } | undefined;
   /**
+   * Map-first Shuttle address picker. Params are strictly serializable —
+   * no navigation callbacks. `stationId` is local draft metadata only.
+   */
+  ShuttleAddressPicker: {
+    leg: 'outbound' | 'return';
+    direction: 'pickup' | 'dropoff';
+    stationId: string;
+    stationName: string;
+    stationLatitude: number;
+    stationLongitude: number;
+  };
+  /**
    * source='checkout' → show data from booking store (just completed)
    * source='history'  → render the serializable facade snapshot selected in History.
    * The snapshot is optional only for backward-compatible/demo callers because

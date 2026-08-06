@@ -13,6 +13,7 @@ import { CityPickerScreen } from './screens/CityPickerScreen';
 import { DatePicker } from './screens/DatePickerScreen';
 import { CreateTicketBookingScreen } from './screens/CreateTicketBookingScreen';
 import { DigitalTicketScreen } from './screens/DigitalTicketScreen';
+import { ShuttleAddressPickerScreen } from './screens/ShuttleAddressPickerScreen';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { createNativeStackOptions, useMotion } from '@shared/motion';
 
@@ -35,6 +36,15 @@ export function BookingNavigator(): React.JSX.Element {
         name="CreateTicketBooking"
         component={CreateTicketBookingScreen}
         options={{ gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="ShuttleAddressPicker"
+        component={ShuttleAddressPickerScreen}
+        options={{
+          headerShown: false,
+          animation: reduceMotion ? 'none' : 'slide_from_bottom',
+          presentation: 'card',
+        }}
       />
       <Stack.Screen
         name="DigitalTicket"

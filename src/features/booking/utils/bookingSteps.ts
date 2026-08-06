@@ -1,5 +1,9 @@
 export const OUTBOUND_STEPS = 4;
 export const RETURN_STEPS = 4;
+export const OUTBOUND_PICKUP_STEP = 3;
+export const OUTBOUND_DROPOFF_STEP = 4;
+export const RETURN_PICKUP_STEP = OUTBOUND_STEPS + 3;
+export const RETURN_DROPOFF_STEP = OUTBOUND_STEPS + 4;
 
 export const CHECKOUT_STEP = OUTBOUND_STEPS + RETURN_STEPS + 1;
 export const PAYMENT_STEP = CHECKOUT_STEP + 1;

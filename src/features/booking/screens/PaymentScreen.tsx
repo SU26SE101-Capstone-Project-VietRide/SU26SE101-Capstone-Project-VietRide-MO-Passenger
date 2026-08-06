@@ -19,11 +19,27 @@ import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
 import { useAvailableBookingVouchers } from '../hooks/useAvailableBookingVouchers';
 import type { AvailableVoucherItem } from '../types';
 import { buildBookingSeatBadges } from '../utils/seatPresentation';
-import { SHUTTLE_ERROR_TRANSLATION_KEYS } from '../utils/shuttle';
+import {
+  getShuttleChangeAddressDirection,
+  SHUTTLE_ERROR_TRANSLATION_KEYS,
+} from '../utils/shuttle';
+import {
+  OUTBOUND_DROPOFF_STEP,
+  OUTBOUND_PICKUP_STEP,
+  RETURN_DROPOFF_STEP,
+  RETURN_PICKUP_STEP,
+} from '../utils/bookingSteps';
 
 interface PaymentStepProps {
   onNext: () => void | Promise<void>;
+  onGoToStep?: (step: number) => void;
 }
+
+type ShuttleEditAction = {
+  key: string;
+  label: string;
+  onPress: () => void;
+};
 
 const getVoucherLabel = (voucher: AvailableVoucherItem, t: TFunction): string => {
   if (voucher.type === 'PERCENT_OFF') {
@@ -57,7 +73,7 @@ const toPromoOffer = (voucher: AvailableVoucherItem, t: TFunction): PromoOffer =
   discount: { type: 'fixed', amount: voucher.discountAmount },
 });
 
-export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
+export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -230,6 +246,82 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
       : null,
     [bookingError, t],
   );
+  const shuttleChangeDirection = useMemo(
+    () => getShuttleChangeAddressDirection(bookingError?.code),
+    [bookingError?.code],
+  );
+  const isRoundTrip = Boolean(searchParams.isRoundTrip);
+  const shuttleEditActions = useMemo<ShuttleEditAction[]>(() => {
+    if (!shuttleChangeDirection || !onGoToStep) {
+      return [];
+    }
+
+    const actions: ShuttleEditAction[] = [];
+    const canEditPickup = shuttleChangeDirection === 'pickup'
+      || shuttleChangeDirection === 'both';
+    const canEditDropoff = shuttleChangeDirection === 'dropoff'
+      || shuttleChangeDirection === 'both';
+
+    if (!isRoundTrip) {
+      if (canEditPickup && selectedShuttlePickup) {
+        actions.push({
+          key: 'pickup',
+          label: t('booking.shuttlePicker.changePickupAddress'),
+          onPress: () => onGoToStep(OUTBOUND_PICKUP_STEP),
+        });
+      }
+      if (canEditDropoff && selectedShuttleDropoff) {
+        actions.push({
+          key: 'dropoff',
+          label: t('booking.shuttlePicker.changeDropoffAddress'),
+          onPress: () => onGoToStep(OUTBOUND_DROPOFF_STEP),
+        });
+      }
+      return actions;
+    }
+
+    if (canEditPickup && outboundState?.shuttlePickup) {
+      actions.push({
+        key: 'outbound-pickup',
+        label: t('booking.shuttlePicker.changeOutboundPickupAddress'),
+        onPress: () => onGoToStep(OUTBOUND_PICKUP_STEP),
+      });
+    }
+    if (canEditDropoff && outboundState?.shuttleDropoff) {
+      actions.push({
+        key: 'outbound-dropoff',
+        label: t('booking.shuttlePicker.changeOutboundDropoffAddress'),
+        onPress: () => onGoToStep(OUTBOUND_DROPOFF_STEP),
+      });
+    }
+    if (canEditPickup && returnState?.shuttlePickup) {
+      actions.push({
+        key: 'return-pickup',
+        label: t('booking.shuttlePicker.changeReturnPickupAddress'),
+        onPress: () => onGoToStep(RETURN_PICKUP_STEP),
+      });
+    }
+    if (canEditDropoff && returnState?.shuttleDropoff) {
+      actions.push({
+        key: 'return-dropoff',
+        label: t('booking.shuttlePicker.changeReturnDropoffAddress'),
+        onPress: () => onGoToStep(RETURN_DROPOFF_STEP),
+      });
+    }
+
+    return actions;
+  }, [
+    isRoundTrip,
+    onGoToStep,
+    outboundState?.shuttleDropoff,
+    outboundState?.shuttlePickup,
+    returnState?.shuttleDropoff,
+    returnState?.shuttlePickup,
+    selectedShuttleDropoff,
+    selectedShuttlePickup,
+    shuttleChangeDirection,
+    t,
+  ]);
   const handlePayNow = useCallback(() => {
     if (!isSubmitting) {
       onNext();
@@ -384,7 +476,26 @@ export function PaymentScreen({ onNext }: PaymentStepProps): React.JSX.Element {
             </Text>
           </View>
           {bookingErrorMessage ? (
-            <Text style={styles.submitErrorText}>{bookingErrorMessage}</Text>
+            <View style={styles.shuttleErrorBlock}>
+              <Text style={styles.submitErrorText}>{bookingErrorMessage}</Text>
+              {shuttleEditActions.length > 0 ? (
+                <View style={styles.shuttleErrorActions}>
+                  {shuttleEditActions.map((action) => (
+                    <Pressable
+                      key={action.key}
+                      accessibilityRole="button"
+                      onPress={action.onPress}
+                      style={({ pressed }) => [
+                        styles.changeAddressButton,
+                        pressed ? styles.changeAddressPressed : null,
+                      ]}
+                    >
+                      <Text style={styles.changeAddressText}>{action.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           ) : null}
         </View>
       </ScrollView>
@@ -612,5 +723,33 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.error,
     lineHeight: 18,
+  },
+  shuttleErrorBlock: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  shuttleErrorActions: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: spacing.sm,
+  },
+  changeAddressButton: {
+    alignSelf: 'flex-start' as const,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.colors.primaryFaded,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    minHeight: 44,
+    justifyContent: 'center' as const,
+  },
+  changeAddressPressed: {
+    opacity: 0.82,
+  },
+  changeAddressText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
   },
 });

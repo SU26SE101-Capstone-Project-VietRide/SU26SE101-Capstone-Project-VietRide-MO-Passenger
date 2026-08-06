@@ -176,12 +176,13 @@ export function PickUpScreen({ onNext }: PickUpStepProps): React.JSX.Element {
 
         {selectedTrip ? (
           <ShuttlePickupSheet
+            direction="pickup"
             visible={isShuttleSheetVisible}
             stationId={selectedTrip.originStationId}
             stationName={selectedTrip.departureStation}
-            initialValue={selectedShuttlePickup}
+            stationLatitude={shuttleAvailability.stationLatitude}
+            stationLongitude={shuttleAvailability.stationLongitude}
             onClose={closeShuttleSheet}
-            onSave={setSelectedShuttlePickup}
           />
         ) : null}
     </View>

@@ -205,9 +205,9 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
             visible={isShuttleSheetVisible}
             stationId={selectedTrip.destinationStationId}
             stationName={selectedTrip.arrivalStation}
-            initialValue={selectedShuttleDropoff}
+            stationLatitude={shuttleAvailability.stationLatitude}
+            stationLongitude={shuttleAvailability.stationLongitude}
             onClose={closeShuttleSheet}
-            onSave={setSelectedShuttleDropoff}
           />
         ) : null}
     </View>

@@ -630,8 +630,10 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
         case 2: case 6: return <SeatSelectionStep onNext={setStep} />;
         case 3: case 7: return <PickUpStep onNext={setStep} />;
         case 4: case 8: return <DropOffStep onNext={setStep} />;
-        case 9: return <CheckoutStep onNext={setStep} onGoToStep={setStep} />;
-        case 10: return <PaymentStep onNext={handleFinishBooking} />;
+        case 9: return <CheckoutStep onNext={setStep} onGoToStep={navigateToFlowStep} />;
+        case 10: return (
+          <PaymentStep onNext={handleFinishBooking} onGoToStep={navigateToFlowStep} />
+        );
         default: return null;
       }
     } else {
@@ -648,8 +650,10 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
         case 2: return <SeatSelectionStep onNext={setStep} />;
         case 3: return <PickUpStep onNext={setStep} />;
         case 4: return <DropOffStep onNext={setStep} />;
-        case 5: return <CheckoutStep onNext={setStep} onGoToStep={setStep} />;
-        case 6: return <PaymentStep onNext={handleFinishBooking} />;
+        case 5: return <CheckoutStep onNext={setStep} onGoToStep={navigateToFlowStep} />;
+        case 6: return (
+          <PaymentStep onNext={handleFinishBooking} onGoToStep={navigateToFlowStep} />
+        );
         default: return null;
       }
     }

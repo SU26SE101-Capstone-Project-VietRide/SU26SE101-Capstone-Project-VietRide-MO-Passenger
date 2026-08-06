@@ -102,6 +102,9 @@ export const useShuttleServiceAvailability = ({
 
   return {
     ...availability,
+    station: stationQuery.data ?? null,
+    stationLatitude: stationQuery.data?.latitude ?? null,
+    stationLongitude: stationQuery.data?.longitude ?? null,
     refetch: stationQuery.refetch,
   };
 };
