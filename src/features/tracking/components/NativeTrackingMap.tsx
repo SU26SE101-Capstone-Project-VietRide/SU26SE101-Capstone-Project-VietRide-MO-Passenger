@@ -65,8 +65,8 @@ interface NativeTrackingMapProps {
 
 type CameraMode = 'follow' | 'overview';
 
-const MAP_PADDING = { top: 56, right: 16, bottom: 72, left: 16 } as const;
-const OVERVIEW_PADDING = { top: 52, right: 36, bottom: 88, left: 36 } as const;
+const MAP_PADDING = { top: 52, right: 16, bottom: 56, left: 16 } as const;
+const OVERVIEW_PADDING = { top: 48, right: 32, bottom: 72, left: 32 } as const;
 const VEHICLE_MARKER_ANCHOR = { x: 0.5, y: 0.5 } as const;
 const STOP_MARKER_ANCHOR = { x: 0.5, y: 1 } as const;
 const DEFAULT_FOLLOW_ZOOM = 15;
@@ -92,13 +92,16 @@ const MARKER_LABEL_KEYS: Record<TrackingMapMarkerKind, string> = {
 const MARKER_Z_INDEX: Record<TrackingMapMarkerKind, number> = {
   intermediate: 2,
   origin: 3,
-  destination: 3,
-  next: 5,
-  target: 6,
-  shuttlePickup: 6,
-  shuttleDropoff: 6,
-  shuttleStation: 5,
+  destination: 4,
+  next: 7,
+  target: 8,
+  shuttlePickup: 8,
+  shuttleDropoff: 8,
+  shuttleStation: 6,
 };
+
+const isEmphasizedKind = (kind: TrackingMapMarkerKind): boolean =>
+  kind !== 'intermediate';
 
 const toCoordinate = (point: GeoCoordinate): LatLng => ({
   latitude: point.latitude,
@@ -137,13 +140,15 @@ const markerStyleForKind = (
 function MarkerGlyph({
   kind,
   size,
+  color = MARKER_CONTRAST,
 }: {
   kind: TrackingMapMarkerKind;
   size: number;
+  color?: string;
 }): React.JSX.Element {
   const commonProps = {
     size,
-    color: MARKER_CONTRAST,
+    color,
     weight: 'fill' as const,
   };
 
@@ -158,6 +163,8 @@ function MarkerGlyph({
       return <Target {...commonProps} />;
     case 'shuttleStation':
       return <Signpost {...commonProps} />;
+    case 'origin':
+      return <MapPin {...commonProps} />;
     default:
       return <MapPin {...commonProps} />;
   }
@@ -168,32 +175,77 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
   description,
   marker,
   styles,
+  palette,
 }: {
   coordinate: LatLng;
   description: string;
   marker: TrackingMapMarker;
   styles: ReturnType<typeof createStyles>;
+  palette: ReturnType<typeof getTrackingMapPalette>;
 }): React.JSX.Element {
-  const emphasized = marker.kind !== 'intermediate';
+  const emphasized = isEmphasizedKind(marker.kind);
+  const sequenceLabel = marker.sequence != null && marker.sequence > 0
+    ? String(marker.sequence)
+    : null;
+  const title = sequenceLabel
+    ? `${sequenceLabel}. ${marker.name}`
+    : marker.name;
 
+  // Intermediate: numbered chip so order along the route is readable at a glance.
+  if (marker.kind === 'intermediate') {
+    return (
+      <Marker
+        coordinate={coordinate}
+        title={title}
+        description={description}
+        anchor={{ x: 0.5, y: 0.5 }}
+        tracksViewChanges={false}
+        zIndex={MARKER_Z_INDEX[marker.kind]}
+      >
+        <View collapsable={false} style={styles.intermediateWrap}>
+          <View style={[styles.intermediateChip, markerStyleForKind(marker.kind, styles)]}>
+            <Text style={[styles.intermediateNumber, { color: palette.sequenceText }]}>
+              {sequenceLabel ?? '·'}
+            </Text>
+          </View>
+        </View>
+      </Marker>
+    );
+  }
+
+  // Names live in the map journey dock — keep pins compact so the map stays readable.
   return (
     <Marker
       coordinate={coordinate}
-      title={marker.name}
+      title={title}
       description={description}
       anchor={STOP_MARKER_ANCHOR}
       tracksViewChanges={false}
       zIndex={MARKER_Z_INDEX[marker.kind]}
     >
-      <View
-        collapsable={false}
-        style={[
-          styles.stopMarker,
-          emphasized ? styles.stopMarkerEmphasized : null,
-          markerStyleForKind(marker.kind, styles),
-        ]}
-      >
-        <MarkerGlyph kind={marker.kind} size={emphasized ? 19 : 15} />
+      <View collapsable={false} style={styles.emphasizedWrap}>
+        {(marker.kind === 'next' || marker.kind === 'target') ? (
+          <View
+            style={[
+              styles.emphasizedHalo,
+              {
+                backgroundColor: marker.kind === 'next'
+                  ? palette.nextHalo
+                  : palette.targetHalo,
+              },
+            ]}
+          />
+        ) : null}
+        <View
+          style={[
+            styles.stopMarker,
+            emphasized ? styles.stopMarkerEmphasized : null,
+            markerStyleForKind(marker.kind, styles),
+          ]}
+        >
+          <MarkerGlyph kind={marker.kind} size={emphasized ? 18 : 14} />
+        </View>
+        <View style={styles.markerStem} />
       </View>
     </Marker>
   );
@@ -519,6 +571,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             description={t(MARKER_LABEL_KEYS[marker.kind])}
             marker={marker}
             styles={styles}
+            palette={mapPalette}
           />
         ))}
 
@@ -532,6 +585,46 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
         ) : null}
       </MapView>
 
+      <View
+        pointerEvents="none"
+        style={styles.mapLegend}
+        accessibilityRole="summary"
+        accessibilityLabel={t('tracking.map.legendAccessibility')}
+      >
+        <View style={styles.legendRow}>
+          <View style={[styles.legendSwatch, { backgroundColor: mapPalette.plannedRoute }]} />
+          <Text style={styles.legendLabel} numberOfLines={1}>
+            {t('tracking.map.legendPlannedRoute')}
+          </Text>
+        </View>
+        <View style={styles.legendRow}>
+          <View style={[styles.legendSwatch, { backgroundColor: mapPalette.trail }]} />
+          <Text style={styles.legendLabel} numberOfLines={1}>
+            {t('tracking.map.legendTrail')}
+          </Text>
+        </View>
+        <View style={styles.legendRow}>
+          <View style={[styles.legendSwatchRing, { borderColor: mapPalette.intermediateBorder }]}>
+            <Text style={[styles.legendMiniNumber, { color: mapPalette.sequenceText }]}>2</Text>
+          </View>
+          <Text style={styles.legendLabel} numberOfLines={1}>
+            {t('tracking.map.legendStopOrder')}
+          </Text>
+        </View>
+        <View style={styles.legendRow}>
+          <View style={[styles.legendSwatch, { backgroundColor: mapPalette.next }]} />
+          <Text style={styles.legendLabel} numberOfLines={1}>
+            {t('tracking.map.nextStopMarker')}
+          </Text>
+        </View>
+        <View style={styles.legendRow}>
+          <View style={[styles.legendSwatch, { backgroundColor: mapPalette.target }]} />
+          <Text style={styles.legendLabel} numberOfLines={1}>
+            {t('tracking.map.targetStopMarker')}
+          </Text>
+        </View>
+      </View>
+
       <View style={styles.cameraControls} pointerEvents="box-none">
         {cameraMode === 'overview' && latestCoordinate ? (
           <Pressable
@@ -544,7 +637,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             ]}
             hitSlop={4}
           >
-            <Crosshair size={18} color={mapPalette.shuttleStation} weight="bold" />
+            <Crosshair size={18} color={mapPalette.target} weight="bold" />
             <Text style={styles.cameraButtonLabel} numberOfLines={1}>
               {t('tracking.map.followVehicle')}
             </Text>
@@ -562,7 +655,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             ]}
             hitSlop={4}
           >
-            <MapPin size={18} color={mapPalette.shuttleStation} weight="bold" />
+            <MapPin size={18} color={mapPalette.target} weight="bold" />
             <Text style={styles.cameraButtonLabel} numberOfLines={1}>
               {t('tracking.map.viewRoute')}
             </Text>
@@ -573,91 +666,181 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
   );
 });
 
-const createStyles = (theme: AppTheme) => ({
-  mapContainer: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-  vehicleHalo: {
-    width: 52,
-    height: 52,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    borderRadius: borderRadius.full,
-    backgroundColor: getTrackingMapPalette(theme.isDark).vehicleHalo,
-  },
-  vehicleMarker: {
-    width: 42,
-    height: 42,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    borderRadius: borderRadius.full,
-    borderWidth: 3,
-    borderColor: MARKER_CONTRAST,
-    backgroundColor: getTrackingMapPalette(theme.isDark).vehicle,
-  },
-  stopMarker: {
-    width: 26,
-    height: 26,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    borderRadius: borderRadius.full,
-    borderWidth: 2,
-    borderColor: MARKER_CONTRAST,
-  },
-  stopMarkerEmphasized: {
-    width: 34,
-    height: 34,
-  },
-  markerOrigin: {
-    backgroundColor: getTrackingMapPalette(theme.isDark).origin,
-  },
-  markerDestination: {
-    backgroundColor: getTrackingMapPalette(theme.isDark).destination,
-  },
-  markerIntermediate: {
-    backgroundColor: getTrackingMapPalette(theme.isDark).intermediate,
-  },
-  markerNext: {
-    backgroundColor: getTrackingMapPalette(theme.isDark).next,
-  },
-  markerTarget: {
-    backgroundColor: getTrackingMapPalette(theme.isDark).target,
-  },
-  markerStation: {
-    backgroundColor: getTrackingMapPalette(theme.isDark).shuttleStation,
-  },
-  cameraControls: {
-    position: 'absolute' as const,
-    right: spacing.md,
-    bottom: spacing.massive,
-    maxWidth: '72%' as const,
-    alignItems: 'flex-end' as const,
-  },
-  cameraButton: {
-    minHeight: 48,
-    maxWidth: '100%' as const,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: getTrackingMapPalette(theme.isDark).frameBorder,
-    backgroundColor: theme.colors.surfaceElevated,
-    ...theme.effects.floatingShadow,
-  },
-  cameraButtonPressed: {
-    opacity: 0.84,
-    transform: [{ scale: 0.98 }],
-  },
-  cameraButtonLabel: {
-    flexShrink: 1,
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
-  },
-});
+const createStyles = (theme: AppTheme) => {
+  const palette = getTrackingMapPalette(theme.isDark);
+  const liquid = theme.effects.isLiquid;
+
+  return {
+    mapContainer: {
+      flex: 1,
+    },
+    map: {
+      flex: 1,
+    },
+    vehicleHalo: {
+      width: 52,
+      height: 52,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: borderRadius.full,
+      backgroundColor: palette.vehicleHalo,
+    },
+    vehicleMarker: {
+      width: 42,
+      height: 42,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: borderRadius.full,
+      borderWidth: 3,
+      borderColor: MARKER_CONTRAST,
+      backgroundColor: palette.vehicle,
+    },
+    intermediateWrap: {
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    intermediateChip: {
+      minWidth: 28,
+      height: 28,
+      paddingHorizontal: 6,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: borderRadius.full,
+      borderWidth: 2,
+      borderColor: palette.intermediateBorder,
+      backgroundColor: palette.intermediate,
+    },
+    intermediateNumber: {
+      fontFamily: fontFamilies.bold,
+      fontSize: 12,
+      lineHeight: 14,
+    },
+    emphasizedWrap: {
+      alignItems: 'center' as const,
+    },
+    emphasizedHalo: {
+      position: 'absolute' as const,
+      top: -6,
+      width: 52,
+      height: 52,
+      borderRadius: borderRadius.full,
+    },
+    stopMarker: {
+      width: 28,
+      height: 28,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: borderRadius.full,
+      borderWidth: 2.5,
+      borderColor: MARKER_CONTRAST,
+    },
+    stopMarkerEmphasized: {
+      width: 38,
+      height: 38,
+    },
+    markerStem: {
+      width: 3,
+      height: 8,
+      marginTop: -1,
+      borderRadius: 2,
+      backgroundColor: MARKER_CONTRAST,
+      opacity: 0.92,
+    },
+    markerOrigin: {
+      backgroundColor: palette.origin,
+    },
+    markerDestination: {
+      backgroundColor: palette.destination,
+    },
+    markerIntermediate: {
+      backgroundColor: palette.intermediate,
+    },
+    markerNext: {
+      backgroundColor: palette.next,
+    },
+    markerTarget: {
+      backgroundColor: palette.target,
+    },
+    markerStation: {
+      backgroundColor: palette.shuttleStation,
+    },
+    mapLegend: {
+      position: 'absolute' as const,
+      left: spacing.sm,
+      bottom: spacing.sm,
+      maxWidth: 148,
+      gap: 3,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      borderRadius: borderRadius.md,
+      borderCurve: 'continuous' as const,
+      borderWidth: 1,
+      borderColor: liquid ? theme.effects.glassBorderStrong : palette.legendBorder,
+      backgroundColor: liquid ? theme.effects.glassSurfaceStrong : palette.legendSurface,
+      ...theme.effects.cardShadow,
+    },
+    legendRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 6,
+    },
+    legendSwatch: {
+      width: 12,
+      height: 12,
+      borderRadius: 3,
+    },
+    legendSwatchRing: {
+      width: 16,
+      height: 16,
+      borderRadius: borderRadius.full,
+      borderWidth: 1.5,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: palette.intermediate,
+    },
+    legendMiniNumber: {
+      fontFamily: fontFamilies.bold,
+      fontSize: 8,
+      lineHeight: 9,
+    },
+    legendLabel: {
+      flexShrink: 1,
+      fontFamily: fontFamilies.medium,
+      fontSize: 10,
+      lineHeight: 13,
+      color: theme.colors.textSecondary,
+    },
+    cameraControls: {
+      position: 'absolute' as const,
+      right: spacing.sm,
+      bottom: spacing.sm,
+      maxWidth: '44%' as const,
+      alignItems: 'flex-end' as const,
+      gap: spacing.sm,
+    },
+    cameraButton: {
+      minHeight: 44,
+      maxWidth: '100%' as const,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: borderRadius.full,
+      borderWidth: 1,
+      borderColor: liquid ? theme.effects.glassBorderStrong : palette.frameBorder,
+      backgroundColor: liquid ? theme.effects.glassSurfaceStrong : theme.colors.surfaceElevated,
+      ...theme.effects.floatingShadow,
+    },
+    cameraButtonPressed: {
+      opacity: 0.84,
+      transform: [{ scale: 0.98 }],
+    },
+    cameraButtonLabel: {
+      flexShrink: 1,
+      fontFamily: fontFamilies.semiBold,
+      fontSize: fontSizes.sm,
+      color: theme.colors.textPrimary,
+    },
+  };
+};

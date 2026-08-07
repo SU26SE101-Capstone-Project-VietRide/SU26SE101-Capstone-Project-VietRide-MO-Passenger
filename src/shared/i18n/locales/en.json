@@ -876,7 +876,11 @@
       "targetStopMarker": "Your stop",
       "ownPickupMarker": "Your pickup",
       "ownDropoffMarker": "Your drop-off",
-      "stationMarker": "Transfer station"
+      "stationMarker": "Transfer station",
+      "legendAccessibility": "Map legend for route, trail, and stops",
+      "legendPlannedRoute": "Planned route",
+      "legendTrail": "Driven path",
+      "legendStopOrder": "Stop order"
     },
     "progress": {
       "title": "Journey progress",

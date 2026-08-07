@@ -8,6 +8,7 @@ export { ParcelDimensionsInput } from './ParcelDimensionsInput';
 export { ParcelPaymentMethodSelector } from './ParcelPaymentMethodSelector';
 export { PricingBreakdown } from './PricingBreakdown';
 export { PromoCodeInput } from './PromoCodeInput';
+export { ParcelTrackingTimeline } from './ParcelTrackingTimeline';
 export { StepHeaderWithMascot } from './StepHeaderWithMascot';
 export { StepProgressBar } from './StepProgressBar';
 export { WeightSlider } from './WeightSlider';

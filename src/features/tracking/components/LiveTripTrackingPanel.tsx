@@ -142,6 +142,89 @@ const progressLabelStyleForTone = (
   }
 };
 
+/** Primitive props for stable memo under live ETA ticks (vercel RN list/memo skill). */
+const JourneyDockRow = React.memo(function JourneyDockRowComponent({
+  label,
+  name,
+  detail,
+  tone,
+  styles,
+}: {
+  label: string;
+  name: string;
+  detail?: string;
+  tone: ProgressTone;
+  styles: ReturnType<typeof createStyles>;
+}): React.JSX.Element {
+  return (
+    <View style={styles.dockRow}>
+      <View style={[styles.progressDot, progressDotStyleForTone(tone, styles)]} />
+      <View style={styles.dockRowCopy}>
+        <Text style={[styles.progressLabel, progressLabelStyleForTone(tone, styles)]}>
+          {label}
+        </Text>
+        <Text style={styles.dockName} numberOfLines={1}>{name}</Text>
+        {detail ? (
+          <Text style={styles.dockDetail} numberOfLines={1}>{detail}</Text>
+        ) : null}
+      </View>
+    </View>
+  );
+});
+
+const MapJourneyDock = React.memo(function MapJourneyDockComponent({
+  items,
+  lastUpdateLabel,
+  lastUpdateValue,
+  speedLabel,
+  speedValue,
+  title,
+  styles,
+}: {
+  items: readonly ProgressItem[];
+  lastUpdateLabel: string;
+  lastUpdateValue: string;
+  speedLabel: string;
+  speedValue: string;
+  title: string;
+  styles: ReturnType<typeof createStyles>;
+}): React.JSX.Element {
+  return (
+    <View style={styles.dockBody}>
+      <View style={styles.dockHeading}>
+        <NavigationArrow size={16} color={styles.dockAccent.color} weight="fill" />
+        <Text style={styles.dockTitle}>{title}</Text>
+      </View>
+      {items.map((item) => (
+        <JourneyDockRow
+          key={item.id}
+          label={item.label}
+          name={item.name}
+          detail={item.detail}
+          tone={item.tone}
+          styles={styles}
+        />
+      ))}
+      <View style={styles.dockMetrics}>
+        <View style={styles.dockMetric}>
+          <Broadcast size={14} color={styles.dockTrail.color} weight="fill" />
+          <View style={styles.dockMetricCopy}>
+            <Text style={styles.dockMetricLabel}>{lastUpdateLabel}</Text>
+            <Text style={styles.dockMetricValue} numberOfLines={1}>{lastUpdateValue}</Text>
+          </View>
+        </View>
+        <View style={styles.dockMetric}>
+          <NavigationArrow size={14} color={styles.dockVehicle.color} weight="fill" />
+          <View style={styles.dockMetricCopy}>
+            <Text style={styles.dockMetricLabel}>{speedLabel}</Text>
+            <Text style={styles.dockMetricValue} numberOfLines={1}>{speedValue}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+});
+
 const buildTripMarkers = (
   context: TripRouteContext | null,
   nextStopId: string | undefined,
@@ -267,6 +350,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const mapPalette = getTrackingMapPalette(theme.isDark);
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const hasDetailsFooter = Boolean(detailsFooter);
   const userId = useAuthStore((state) => state.user?.id);
   const isFocused = useIsFocused();
   const isAppActive = useIsAppActive();
@@ -702,6 +786,25 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       />
     );
   } else {
+    const lastUpdateValue = tracking.latest
+      ? formatDateTime(tracking.latest.recordedAt)
+      : t('tracking.metrics.waitingGps');
+    const speedValue = tracking.latest?.speedKmh !== undefined
+      ? `${Math.round(tracking.latest.speedKmh)} km/h`
+      : t('tracking.metrics.notReported');
+    const journeyDock = progressItems.length > 0 || tracking.latest
+      ? (
+        <MapJourneyDock
+          items={progressItems}
+          lastUpdateLabel={t('tracking.metrics.lastUpdate')}
+          lastUpdateValue={lastUpdateValue}
+          speedLabel={t('tracking.metrics.speed')}
+          speedValue={speedValue}
+          title={t('tracking.progress.title')}
+          styles={styles}
+        />
+      )
+      : null;
     hero = (
       <TrackingMap
         latest={tracking.latest}
@@ -710,19 +813,32 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         markers={markers}
         vehicleKind={isShuttle ? 'shuttle' : 'bus'}
         connectionState={connectionState}
+        bottomDock={journeyDock}
       />
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.mapHero}>{hero}</View>
+      <View
+        style={[
+          styles.mapHero,
+          hasDetailsFooter ? styles.mapHeroWithSheet : null,
+        ]}
+      >
+        {hero}
+      </View>
 
       <ScrollView
-        style={styles.detailsScroll}
+        style={[
+          styles.detailsScroll,
+          hasDetailsFooter ? styles.detailsScrollWithFooter : null,
+        ]}
         contentContainerStyle={styles.detailsContent}
         contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={hasDetailsFooter}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
         refreshControl={(
           <RefreshControl
             colors={[theme.colors.primary]}
@@ -855,71 +971,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           </View>
         ) : null}
 
-        {progressItems.length > 0 || tracking.latest ? (
-          <View style={styles.progressCard}>
-            <View style={styles.progressHeading}>
-              <NavigationArrow size={22} color={mapPalette.plannedRoute} weight="duotone" />
-              <Text style={styles.progressTitle}>
-                {t('tracking.progress.title')}
-              </Text>
-            </View>
-
-            {progressItems.map((item) => (
-              <View key={item.id} style={styles.progressRow}>
-                <View
-                  style={[
-                    styles.progressDot,
-                    progressDotStyleForTone(item.tone, styles),
-                  ]}
-                />
-                <View style={styles.progressRowContent}>
-                  <Text
-                    style={[
-                      styles.progressLabel,
-                      progressLabelStyleForTone(item.tone, styles),
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                  <Text style={styles.progressName}>{item.name}</Text>
-                  {item.detail ? (
-                    <Text style={styles.progressDetail}>{item.detail}</Text>
-                  ) : null}
-                </View>
-              </View>
-            ))}
-
-            <View style={styles.metadataRow}>
-              <View style={[styles.metadataItem, styles.metadataLive]}>
-                <Broadcast size={18} color={mapPalette.trail} weight="duotone" />
-                <View style={styles.metadataText}>
-                  <Text style={styles.metadataLabel}>
-                    {t('tracking.metrics.lastUpdate')}
-                  </Text>
-                  <Text style={styles.metadataValue}>
-                    {tracking.latest
-                      ? formatDateTime(tracking.latest.recordedAt)
-                      : t('tracking.metrics.waitingGps')}
-                  </Text>
-                </View>
-              </View>
-              <View style={[styles.metadataItem, styles.metadataSpeed]}>
-                <NavigationArrow size={18} color={mapPalette.vehicle} weight="duotone" />
-                <View style={styles.metadataText}>
-                  <Text style={styles.metadataLabel}>
-                    {t('tracking.metrics.speed')}
-                  </Text>
-                  <Text style={styles.metadataValue}>
-                    {tracking.latest?.speedKmh !== undefined
-                      ? `${Math.round(tracking.latest.speedKmh)} km/h`
-                      : t('tracking.metrics.notReported')}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
         {!isShuttle && upcomingStops.length > 0 ? (
           <View style={styles.upcomingCard}>
             <Text style={styles.upcomingTitle}>
@@ -964,23 +1015,121 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   );
 });
 
-const createStyles = (theme: AppTheme) => ({
+const createStyles = (theme: AppTheme) => {
+  const palette = getTrackingMapPalette(theme.isDark);
+  return {
   container: {
     flex: 1,
     minHeight: 0,
+    overflow: 'hidden' as const,
   },
+  /**
+   * Map-first: always flex:1. With a details footer (Parcel), map keeps a
+   * slightly larger flex share so the sheet scrolls instead of covering the map.
+   */
   mapHero: {
-    paddingTop: spacing.md,
+    flex: 1,
+    minHeight: 0,
+    paddingTop: spacing.sm,
     paddingHorizontal: spacing.md,
   },
+  mapHeroWithSheet: {
+    flex: 1.35,
+  },
   detailsScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+    minHeight: 0,
+  },
+  /** Bounded flex sibling so heavy footers scroll inside the sheet. */
+  detailsScrollWithFooter: {
     flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
   },
   detailsContent: {
-    flexGrow: 1,
-    gap: spacing.lg,
-    padding: spacing.xl,
-    paddingBottom: spacing.huge,
+    flexGrow: 0,
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+  dockBody: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  dockHeading: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+  },
+  dockTitle: {
+    flex: 1,
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+  },
+  dockAccent: {
+    color: theme.colors.primary,
+  },
+  dockTrail: {
+    color: palette.trail,
+  },
+  dockVehicle: {
+    color: palette.vehicle,
+  },
+  dockRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: spacing.sm,
+  },
+  dockRowCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  dockName: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+  },
+  dockDetail: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  dockMetrics: {
+    flexDirection: 'row' as const,
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
+  },
+  dockMetric: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    minWidth: 0,
+  },
+  dockMetricCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  dockMetricLabel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: 10,
+    color: theme.colors.textTertiary,
+  },
+  dockMetricValue: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textPrimary,
   },
   pressed: {
     opacity: 0.78,
@@ -1047,7 +1196,7 @@ const createStyles = (theme: AppTheme) => ({
     ...theme.components.card,
     gap: spacing.lg,
     padding: spacing.lg,
-    borderColor: getTrackingMapPalette(theme.isDark).frameBorder,
+    borderColor: palette.frameBorder,
   },
   shareHeading: {
     flexDirection: 'row' as const,
@@ -1060,7 +1209,7 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     borderRadius: borderRadius.full,
-    backgroundColor: getTrackingMapPalette(theme.isDark).progressSurface,
+    backgroundColor: palette.progressSurface,
   },
   shareCopy: {
     flex: 1,
@@ -1134,42 +1283,10 @@ const createStyles = (theme: AppTheme) => ({
   shareButtonDisabled: {
     opacity: 0.5,
   },
-  progressCard: {
-    ...theme.components.elevatedCard,
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderColor: getTrackingMapPalette(theme.isDark).frameBorder,
-  },
-  progressHeading: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderCurve: 'continuous' as const,
-    backgroundColor: getTrackingMapPalette(theme.isDark).progressSurface,
-  },
-  progressTitle: {
-    flex: 1,
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: theme.colors.textPrimary,
-  },
-  progressRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
-    gap: spacing.md,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.effects.isLiquid
-      ? theme.effects.contentBorder
-      : theme.colors.divider,
-  },
   progressDot: {
     width: 10,
     height: 10,
-    marginTop: 6,
+    marginTop: 5,
     borderRadius: borderRadius.full,
     borderWidth: 2,
     borderColor: theme.effects.isLiquid
@@ -1177,102 +1294,40 @@ const createStyles = (theme: AppTheme) => ({
       : theme.colors.surfaceElevated,
   },
   progressDotNext: {
-    backgroundColor: getTrackingMapPalette(theme.isDark).next,
+    backgroundColor: palette.next,
   },
   progressDotTarget: {
-    backgroundColor: getTrackingMapPalette(theme.isDark).target,
+    backgroundColor: palette.target,
   },
   progressDotStation: {
-    backgroundColor: getTrackingMapPalette(theme.isDark).shuttleStation,
+    backgroundColor: palette.shuttleStation,
   },
   progressDotDestination: {
-    backgroundColor: getTrackingMapPalette(theme.isDark).destination,
-  },
-  progressRowContent: {
-    flex: 1,
-    minWidth: 0,
+    backgroundColor: palette.destination,
   },
   progressLabel: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs,
+    fontSize: 10,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase' as const,
   },
   progressLabelNext: {
-    color: getTrackingMapPalette(theme.isDark).next,
+    color: palette.next,
   },
   progressLabelTarget: {
-    color: getTrackingMapPalette(theme.isDark).target,
+    color: palette.target,
   },
   progressLabelStation: {
-    color: getTrackingMapPalette(theme.isDark).shuttleStation,
+    color: palette.shuttleStation,
   },
   progressLabelDestination: {
-    color: getTrackingMapPalette(theme.isDark).destination,
-  },
-  progressName: {
-    marginTop: 2,
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    lineHeight: 22,
-    color: theme.colors.textPrimary,
-  },
-  progressDetail: {
-    marginTop: spacing.xs,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    lineHeight: 20,
-    color: theme.colors.textSecondary,
-  },
-  metadataRow: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: spacing.sm,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: theme.effects.isLiquid
-      ? theme.effects.contentBorder
-      : theme.colors.divider,
-  },
-  metadataItem: {
-    minWidth: 140,
-    flexGrow: 1,
-    flexBasis: 0,
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderRadius: borderRadius.lg,
-    borderCurve: 'continuous' as const,
-  },
-  metadataLive: {
-    borderColor: getTrackingMapPalette(theme.isDark).trail,
-    backgroundColor: getTrackingMapPalette(theme.isDark).trailSurface,
-  },
-  metadataSpeed: {
-    borderColor: getTrackingMapPalette(theme.isDark).vehicleHalo,
-    backgroundColor: getTrackingMapPalette(theme.isDark).vehicleSurface,
-  },
-  metadataText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  metadataLabel: {
-    fontFamily: fontFamilies.bold,
-    fontSize: 10,
-    color: theme.colors.textTertiary,
-  },
-  metadataValue: {
-    marginTop: 2,
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    lineHeight: 20,
-    color: theme.colors.textPrimary,
+    color: palette.destination,
   },
   upcomingCard: {
     ...theme.components.card,
     gap: spacing.sm,
     padding: spacing.lg,
-    borderColor: getTrackingMapPalette(theme.isDark).frameBorder,
+    borderColor: palette.frameBorder,
   },
   upcomingTitle: {
     fontFamily: fontFamilies.bold,
@@ -1328,4 +1383,5 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
     textAlign: 'center' as const,
   },
-});
+  };
+};

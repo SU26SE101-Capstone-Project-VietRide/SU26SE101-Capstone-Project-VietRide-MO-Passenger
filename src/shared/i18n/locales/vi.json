@@ -876,7 +876,11 @@
       "targetStopMarker": "Điểm của bạn",
       "ownPickupMarker": "Điểm đón của bạn",
       "ownDropoffMarker": "Điểm trả của bạn",
-      "stationMarker": "Bến trung chuyển"
+      "stationMarker": "Bến trung chuyển",
+      "legendAccessibility": "Chú thích bản đồ: lộ trình, đường đã đi và điểm dừng",
+      "legendPlannedRoute": "Lộ trình dự kiến",
+      "legendTrail": "Đường xe đã đi",
+      "legendStopOrder": "Thứ tự bến"
     },
     "progress": {
       "title": "Tiến độ hành trình",

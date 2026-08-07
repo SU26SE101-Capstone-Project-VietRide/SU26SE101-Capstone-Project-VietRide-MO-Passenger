@@ -168,7 +168,32 @@ const prepareMarkers = (
   markers.filter((marker) => marker.kind !== 'intermediate').forEach(append);
   markers.filter((marker) => marker.kind === 'intermediate').forEach(append);
 
-  return [...essentials, ...intermediates.slice(0, MAX_INTERMEDIATE_MARKERS)];
+  intermediates.sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0));
+
+  // Prefer stops at/after the operational "next" sequence so the map shows
+  // "where we stop next" rather than only early origin-side stops.
+  const nextSequence = essentials.find((marker) => marker.kind === 'next')?.sequence;
+  let cappedIntermediates = intermediates;
+  if (intermediates.length > MAX_INTERMEDIATE_MARKERS) {
+    if (nextSequence != null && Number.isFinite(nextSequence)) {
+      const upcoming = intermediates.filter(
+        (marker) => (marker.sequence ?? 0) >= nextSequence,
+      );
+      const prior = intermediates.filter(
+        (marker) => (marker.sequence ?? 0) < nextSequence,
+      );
+      cappedIntermediates = [
+        ...upcoming.slice(0, MAX_INTERMEDIATE_MARKERS),
+        ...prior.slice(-(Math.max(0, MAX_INTERMEDIATE_MARKERS - upcoming.length))),
+      ]
+        .sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0))
+        .slice(0, MAX_INTERMEDIATE_MARKERS);
+    } else {
+      cappedIntermediates = intermediates.slice(0, MAX_INTERMEDIATE_MARKERS);
+    }
+  }
+
+  return [...essentials, ...cappedIntermediates];
 };
 
 const legacyStopsToMarkers = (

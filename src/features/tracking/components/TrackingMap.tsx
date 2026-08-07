@@ -1,6 +1,6 @@
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useMemo, type ReactNode } from 'react';
 import { Platform, Text, useWindowDimensions, View } from 'react-native';
-import { MapPin, NavigationArrow } from 'phosphor-react-native';
+import { MapPin } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { StatusChip, type StatusChipTone } from '@shared/components';
@@ -32,17 +32,6 @@ export type TrackingMapConnectionState =
   | 'terminal'
   | 'waiting';
 
-export interface TrackingMapJourneySummary {
-  nextStop?: {
-    etaLabel?: string;
-    name: string;
-  };
-  targetStop?: {
-    etaLabel?: string;
-    name: string;
-  };
-}
-
 interface TrackingMapProps {
   latest: TrackingPoint | null;
   trail?: readonly TrackingPoint[];
@@ -50,7 +39,11 @@ interface TrackingMapProps {
   markers?: readonly TrackingMapMarker[];
   vehicleKind?: 'bus' | 'shuttle';
   connectionState?: TrackingMapConnectionState;
-  journeySummary?: TrackingMapJourneySummary;
+  /**
+   * Chrome docked under the map canvas (journey progress, live metrics).
+   * Renders inside the map frame — not an overlay on top of the map.
+   */
+  bottomDock?: ReactNode;
   /** @deprecated Compatibility aliases while callers migrate. */
   points?: readonly TrackingPoint[];
   /** @deprecated Compatibility aliases while callers migrate. */
@@ -66,6 +59,11 @@ const EMPTY_POINTS: readonly TrackingPoint[] = [];
 const EMPTY_ROUTE: readonly GeoCoordinate[] = [];
 const EMPTY_MARKERS: readonly TrackingMapMarker[] = [];
 const EMPTY_STOPS: readonly TrackingMapStop[] = [];
+
+/** Map-first: ~58% viewport, clamped for small/tall phones. */
+const MAP_HEIGHT_RATIO = 0.58;
+const MAP_HEIGHT_MIN = 320;
+const MAP_HEIGHT_MAX = 560;
 
 const CONNECTION_PRESENTATION: Record<
   TrackingMapConnectionState,
@@ -114,12 +112,11 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
   markers,
   vehicleKind = 'bus',
   connectionState = 'waiting',
-  journeySummary,
+  bottomDock,
   points,
   stops = EMPTY_STOPS,
 }: TrackingMapProps): React.JSX.Element {
   const { t } = useTranslation();
-  const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { height: viewportHeight } = useWindowDimensions();
   const inputTrail = trail ?? points ?? EMPTY_POINTS;
@@ -144,8 +141,15 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     }),
     [inputTrail, latest],
   );
+  // Prefer filling parent (map-first layout). Fallback min height for short parents.
   const frameStyle = useMemo(
-    () => ({ height: Math.min(420, Math.max(280, viewportHeight * 0.44)) }),
+    () => ({
+      flex: 1,
+      minHeight: Math.min(
+        MAP_HEIGHT_MAX,
+        Math.max(MAP_HEIGHT_MIN, viewportHeight * MAP_HEIGHT_RATIO),
+      ),
+    }),
     [viewportHeight],
   );
   const hasMapContext = staticMapData.plannedRoute.length > 0
@@ -156,15 +160,12 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     && connectionState !== 'terminal';
   const effectiveConnectionState = shouldWaitForGps ? 'waiting' : connectionState;
   const connectionPresentation = CONNECTION_PRESENTATION[effectiveConnectionState];
-  const hasJourneySummary = Boolean(
-    journeySummary?.nextStop || journeySummary?.targetStop,
-  );
 
-  let content: React.ReactNode;
+  let mapCanvas: React.ReactNode;
   let showConnectionChip = false;
 
   if (!isNativeTrackingMapConfigured()) {
-    content = (
+    mapCanvas = (
       <MapPlaceholder
         title={t('tracking.map.unavailableTitle')}
         message={appConfig.isProd
@@ -173,7 +174,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
       />
     );
   } else if (!liveMapData.latest && !hasMapContext) {
-    content = (
+    mapCanvas = (
       <MapPlaceholder
         title={t('tracking.map.waitingTitle')}
         message={t(vehicleKind === 'shuttle'
@@ -183,7 +184,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     );
   } else {
     showConnectionChip = true;
-    content = (
+    mapCanvas = (
       <Suspense
         fallback={(
           <MapPlaceholder
@@ -205,73 +206,21 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
 
   return (
     <View style={[styles.mapFrame, frameStyle]}>
-      {content}
-      {showConnectionChip ? (
-        <View pointerEvents="none" style={styles.connectionOverlay}>
-          <StatusChip
-            label={t(connectionPresentation.key)}
-            tone={connectionPresentation.tone}
-            style={styles.connectionChip}
-          />
-        </View>
-      ) : null}
-      {hasJourneySummary ? (
-        <View pointerEvents="none" style={styles.journeyOverlay}>
-          <View style={styles.journeyCard} accessibilityRole="summary">
-            <View style={styles.journeyHeading}>
-              <NavigationArrow
-                size={16}
-                color={theme.colors.primary}
-                weight="fill"
-              />
-              <Text style={styles.journeyTitle}>{t('tracking.progress.title')}</Text>
-            </View>
-            {journeySummary?.nextStop ? (
-              <View style={styles.milestoneRow}>
-                <NavigationArrow
-                  size={18}
-                  color={theme.colors.primary}
-                  weight="fill"
-                />
-                <View style={styles.milestoneCopy}>
-                  <Text style={styles.milestoneLabel}>
-                    {t('tracking.map.nextStopMarker')}
-                  </Text>
-                  <Text style={styles.milestoneName} numberOfLines={2}>
-                    {journeySummary.nextStop.name}
-                  </Text>
-                </View>
-                {journeySummary.nextStop.etaLabel ? (
-                  <Text style={styles.milestoneEta} numberOfLines={2}>
-                    {journeySummary.nextStop.etaLabel}
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
-
-            {journeySummary?.targetStop ? (
-              <View style={styles.milestoneRow}>
-                <MapPin
-                  size={18}
-                  color={theme.colors.accentDark}
-                  weight="fill"
-                />
-                <View style={styles.milestoneCopy}>
-                  <Text style={styles.milestoneLabel}>
-                    {t('tracking.map.targetStopMarker')}
-                  </Text>
-                  <Text style={styles.milestoneName} numberOfLines={2}>
-                    {journeySummary.targetStop.name}
-                  </Text>
-                </View>
-                {journeySummary.targetStop.etaLabel ? (
-                  <Text style={styles.milestoneEta} numberOfLines={2}>
-                    {journeySummary.targetStop.etaLabel}
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
+      <View style={styles.mapCanvas}>
+        {mapCanvas}
+        {showConnectionChip ? (
+          <View pointerEvents="none" style={styles.connectionOverlay}>
+            <StatusChip
+              label={t(connectionPresentation.key)}
+              tone={connectionPresentation.tone}
+              style={styles.connectionChip}
+            />
           </View>
+        ) : null}
+      </View>
+      {bottomDock ? (
+        <View style={styles.bottomDock} accessibilityRole="summary">
+          {bottomDock}
         </View>
       ) : null}
     </View>
@@ -291,6 +240,10 @@ const createStyles = (theme: AppTheme) => ({
       ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
   },
+  mapCanvas: {
+    flex: 1,
+    minHeight: 240,
+  },
   connectionOverlay: {
     position: 'absolute' as const,
     top: spacing.md,
@@ -298,72 +251,21 @@ const createStyles = (theme: AppTheme) => ({
     zIndex: 30,
     alignItems: 'flex-start' as const,
   },
-  journeyOverlay: {
-    position: 'absolute' as const,
-    top: 52,
-    right: spacing.md,
-    zIndex: 30,
-    width: '68%' as const,
-  },
   connectionChip: {
     borderWidth: 1,
-    borderColor: theme.effects.glassBorderStrong,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorderStrong
+      : theme.colors.divider,
     ...theme.effects.cardShadow,
   },
-  journeyCard: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderCurve: 'continuous' as const,
-    borderWidth: 1,
-    borderColor: theme.effects.glassBorderStrong,
-    backgroundColor: theme.colors.surfaceElevated,
-    ...theme.effects.cardShadow,
-  },
-  journeyHeading: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.sm,
-  },
-  journeyTitle: {
-    flex: 1,
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
-  },
-  milestoneRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
+  bottomDock: {
     borderTopWidth: 1,
     borderTopColor: theme.effects.isLiquid
-      ? theme.effects.contentBorder
+      ? theme.effects.glassBorder
       : theme.colors.divider,
-  },
-  milestoneCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  milestoneLabel: {
-    fontFamily: fontFamilies.bold,
-    fontSize: 10,
-    color: theme.colors.primary,
-  },
-  milestoneName: {
-    marginTop: 1,
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    lineHeight: 19,
-    color: theme.colors.textPrimary,
-  },
-  milestoneEta: {
-    maxWidth: '34%' as const,
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
-    lineHeight: 17,
-    color: theme.colors.textSecondary,
-    textAlign: 'right' as const,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surfaceElevated,
   },
   unavailableMap: {
     flex: 1,

@@ -143,13 +143,9 @@ describe('LiveTripTrackingPanel', () => {
     expect(tripQueryOptions.getRefetchInterval({ status: 'COMPLETED' })).toBe(false);
     expect(mockTrackingMap).toHaveBeenCalledWith(expect.objectContaining({
       latest,
-      points: [latest],
-      stops: [{
-        id: stopId,
-        name: 'Destination stop',
-        latitude: 10.77,
-        longitude: 106.69,
-      }],
+      trail: [latest],
+      vehicleKind: 'bus',
+      bottomDock: expect.anything(),
     }));
 
     await act(async () => renderer!.unmount());
