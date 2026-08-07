@@ -11,6 +11,9 @@ export type TripLifecycleStatus =
   | 'DISRUPTED';
 export type TripStopLifecycleStatus = 'PENDING' | 'ARRIVED' | 'SKIPPED';
 
+export type NetworkSeatStatus = 'AVAILABLE' | 'HELD' | 'BOOKED' | 'UNAVAILABLE';
+export type SeatPresentationStatus = 'available' | 'selected' | 'sold' | 'unavailable';
+
 export interface TripSearchParams {
   originStationId?: string;
   destinationStationId?: string;
@@ -74,7 +77,17 @@ export interface BusTrip {
    * return leg instead of guessing from station names.
    */
   returnRouteId?: string | null;
-  price: number;
+  /** Original trip base fare from BE (pre-surcharge). */
+  baseFare: number;
+  /**
+   * Authoritative amount charged before voucher. Prefer this for display and
+   * previews. Normalized to baseFare only when BE omits or returns invalid data.
+   */
+  effectiveFare: number;
+  surchargePercent?: number;
+  surchargeAmount?: number;
+  surchargePeriodId?: string | null;
+  surchargePeriodName?: string | null;
   seatsLeft: number;
   allowPickup: boolean;
   allowDropoff: boolean;
@@ -110,6 +123,10 @@ export interface TripStop {
   allowDropoff?: boolean;
   fareFromThisStop?: number | null;
   effectiveFare?: number | null;
+  surchargePercent?: number;
+  surchargeAmount?: number;
+  surchargePeriodId?: string | null;
+  surchargePeriodName?: string | null;
 }
 
 export interface SeatRow {
@@ -124,12 +141,13 @@ export interface SeatRow {
 export interface Seat {
   id: string;
   label: string;
-  status: 'available' | 'selected' | 'sold';
+  status: SeatPresentationStatus;
   row?: number;
   col?: number;
   deck?: number;
   type?: string;
   price?: number;
+  disabledReason?: string | null;
 }
 
 export interface TripSearchDto {
@@ -142,6 +160,11 @@ export interface TripSearchDto {
   departureDateTime: string;
   estimatedArrivalTime: string;
   baseFare: number;
+  effectiveFare?: number | null;
+  surchargePercent?: number;
+  surchargeAmount?: number;
+  surchargePeriodId?: string | null;
+  surchargePeriodName?: string | null;
   availableSeats: number;
   allowAlongRoutePickup: boolean;
   allowAlongRouteDropoff: boolean;
@@ -157,13 +180,32 @@ export interface TripDetailDto {
   estimatedArrivalTime: string;
   destinationArrivedAt?: string | null;
   baseFare: number;
+  effectiveFare?: number | null;
+  surchargePercent?: number;
+  surchargeAmount?: number;
+  surchargePeriodId?: string | null;
+  surchargePeriodName?: string | null;
   originStation: { id: string; name: string };
   destinationStation: { id: string; name: string };
   seatSummary: { totalSeats: number; availableSeats: number };
   returnRouteId?: string | null;
   fareBreakdown?: {
     baseFare: number;
-    stops: Array<{ stopId: string; fare: number }>;
+    effectiveBaseFare?: number | null;
+    surchargePercent?: number;
+    surchargeAmount?: number;
+    surchargePeriodId?: string | null;
+    surchargePeriodName?: string | null;
+    stops: Array<{
+      stopId: string;
+      fare?: number | null;
+      fareFromThisStop?: number | null;
+      effectiveFareFromThisStop?: number | null;
+      surchargePercent?: number;
+      surchargeAmount?: number;
+      surchargePeriodId?: string | null;
+      surchargePeriodName?: string | null;
+    }>;
   };
   stops: Array<{
     id?: string;
@@ -183,16 +225,21 @@ export interface TripDetailDto {
     allowDropoff?: boolean;
     fareFromThisStop?: number | null;
     effectiveFare?: number | null;
+    surchargePercent?: number;
+    surchargeAmount?: number;
+    surchargePeriodId?: string | null;
+    surchargePeriodName?: string | null;
   }>;
 }
 
 export interface SeatDto {
   seatNumber: string;
-  status: 'AVAILABLE' | 'HELD' | 'BOOKED';
+  status: NetworkSeatStatus | string;
   type?: string;
   row: number;
   col: number;
   deck?: number;
+  disabledReason?: string | null;
 }
 
 const durationHoursBetween = (start: string, end: string): number => {
@@ -204,7 +251,37 @@ const durationHoursBetween = (start: string, end: string): number => {
 const stationCityLabel = (stationName: string): string =>
   stationName.replace('Ben xe ', '').replace('Bến xe ', '');
 
+/** Accept non-negative finite numbers only; never invent surcharge math. */
+export const normalizeMoneyAmount = (value: unknown): number | null => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+  return value;
+};
+
+/**
+ * Prefer BE effectiveFare. Fall back to baseFare only when effective is missing
+ * or invalid. Do not recompute surcharge client-side.
+ */
+export const resolveEffectiveFare = (
+  baseFare: number,
+  effectiveFare?: number | null,
+): number => {
+  const normalizedBase = normalizeMoneyAmount(baseFare) ?? 0;
+  const normalizedEffective = normalizeMoneyAmount(effectiveFare);
+  return normalizedEffective ?? normalizedBase;
+};
+
+export function mapNetworkSeatStatus(
+  status: NetworkSeatStatus | string,
+): SeatPresentationStatus {
+  if (status === 'AVAILABLE') return 'available';
+  if (status === 'HELD' || status === 'BOOKED') return 'sold';
+  return 'unavailable';
+}
+
 export function mapBusTrip(dto: TripSearchDto): BusTrip {
+  const baseFare = normalizeMoneyAmount(dto.baseFare) ?? 0;
   return {
     id: dto.tripId,
     operatorId: dto.operatorId,
@@ -218,7 +295,12 @@ export function mapBusTrip(dto: TripSearchDto): BusTrip {
     arrivalTime: formatTime(dto.estimatedArrivalTime),
     departureDateTime: dto.departureDateTime,
     estimatedArrivalDateTime: dto.estimatedArrivalTime,
-    price: dto.baseFare,
+    baseFare,
+    effectiveFare: resolveEffectiveFare(baseFare, dto.effectiveFare),
+    surchargePercent: dto.surchargePercent,
+    surchargeAmount: normalizeMoneyAmount(dto.surchargeAmount) ?? undefined,
+    surchargePeriodId: dto.surchargePeriodId ?? null,
+    surchargePeriodName: dto.surchargePeriodName ?? null,
     seatsLeft: dto.availableSeats,
     allowPickup: dto.allowAlongRoutePickup,
     allowDropoff: dto.allowAlongRouteDropoff,
@@ -233,6 +315,7 @@ export function mapBusTrip(dto: TripSearchDto): BusTrip {
 }
 
 export function mapTripDetail(dto: TripDetailDto): TripDetail {
+  const baseFare = normalizeMoneyAmount(dto.baseFare) ?? 0;
   return {
     id: dto.tripId,
     operatorId: dto.operatorId,
@@ -251,7 +334,12 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     departureDateTime: dto.departureDateTime,
     estimatedArrivalDateTime: dto.estimatedArrivalTime,
     returnRouteId: dto.returnRouteId ?? null,
-    price: dto.baseFare,
+    baseFare,
+    effectiveFare: resolveEffectiveFare(baseFare, dto.effectiveFare),
+    surchargePercent: dto.surchargePercent,
+    surchargeAmount: normalizeMoneyAmount(dto.surchargeAmount) ?? undefined,
+    surchargePeriodId: dto.surchargePeriodId ?? null,
+    surchargePeriodName: dto.surchargePeriodName ?? null,
     seatsLeft: dto.seatSummary.availableSeats,
     allowPickup: dto.stops.some((stop) => Boolean(stop.allowPickup)),
     allowDropoff: dto.stops.some((stop) => Boolean(stop.allowDropoff)),
@@ -289,6 +377,10 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
         allowDropoff: stop.allowDropoff,
         fareFromThisStop: stop.fareFromThisStop,
         effectiveFare: stop.effectiveFare,
+        surchargePercent: stop.surchargePercent,
+        surchargeAmount: normalizeMoneyAmount(stop.surchargeAmount) ?? undefined,
+        surchargePeriodId: stop.surchargePeriodId ?? null,
+        surchargePeriodName: stop.surchargePeriodName ?? null,
       };
     }),
   };
@@ -314,11 +406,12 @@ export function mapSeatMap(dtos: SeatDto[]): SeatRow[] {
     const seat: Seat = {
       id: dto.seatNumber,
       label: dto.seatNumber,
-      status: dto.status === 'AVAILABLE' ? 'available' : 'sold',
+      status: mapNetworkSeatStatus(dto.status),
       row: dto.row,
       col: dto.col,
       deck,
       type: dto.type,
+      disabledReason: dto.disabledReason ?? null,
     };
 
     row.seats.push(seat);

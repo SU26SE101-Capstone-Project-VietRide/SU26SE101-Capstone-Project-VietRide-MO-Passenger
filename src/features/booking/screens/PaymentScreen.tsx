@@ -23,11 +23,14 @@ import {
   getShuttleChangeAddressDirection,
   SHUTTLE_ERROR_TRANSLATION_KEYS,
 } from '../utils/shuttle';
+import { getLegFareTotal } from '../utils/bookingPricing';
 import {
   OUTBOUND_DROPOFF_STEP,
   OUTBOUND_PICKUP_STEP,
+  OUTBOUND_SEAT_STEP,
   RETURN_DROPOFF_STEP,
   RETURN_PICKUP_STEP,
+  RETURN_SEAT_STEP,
 } from '../utils/bookingSteps';
 
 interface PaymentStepProps {
@@ -97,6 +100,8 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
     clearVoucher,
     bookingStatus,
     bookingError,
+    seatConflictLegs,
+    restoreLegForEdit,
   } = useBookingStore(useShallow((state) => ({
     totalPrice: state.totalPrice,
     paymentMethod: state.paymentMethod,
@@ -117,6 +122,8 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
     clearVoucher: state.clearVoucher,
     bookingStatus: state.bookingStatus,
     bookingError: state.bookingError,
+    seatConflictLegs: state.seatConflictLegs,
+    restoreLegForEdit: state.restoreLegForEdit,
   })));
 
   useEffect(() => {
@@ -175,7 +182,7 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
         .filter((leg): leg is NonNullable<typeof leg> => Boolean(leg?.trip && leg.seats.length > 0))
         .map((leg) => ({
           tripId: leg.trip!.id,
-          orderAmount: leg.trip!.price * leg.seats.length,
+          orderAmount: getLegFareTotal(leg.trip, leg.seats, leg.pickUp),
         }));
     }
 
@@ -183,8 +190,18 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
       return [];
     }
 
-    return [{ tripId: selectedTrip.id, orderAmount: selectedTrip.price * selectedSeats.length }];
-  }, [outboundState, returnState, searchParams.isRoundTrip, selectedSeats.length, selectedTrip]);
+    return [{
+      tripId: selectedTrip.id,
+      orderAmount: getLegFareTotal(selectedTrip, selectedSeats, selectedPickUp),
+    }];
+  }, [
+    outboundState,
+    returnState,
+    searchParams.isRoundTrip,
+    selectedPickUp,
+    selectedSeats,
+    selectedTrip,
+  ]);
 
   const {
     data: availableVouchers = [],
@@ -322,6 +339,55 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
     shuttleChangeDirection,
     t,
   ]);
+
+  const isSeatConflict = bookingError?.code === 'BOOKING_SEAT_UNAVAILABLE';
+  const seatConflictActions = useMemo<ShuttleEditAction[]>(() => {
+    if (!isSeatConflict || !onGoToStep || seatConflictLegs.length === 0) {
+      return [];
+    }
+
+    if (!isRoundTrip) {
+      return [{
+        key: 'reselect-seats',
+        label: t('booking.paymentScreen.reselectSeats'),
+        onPress: () => {
+          restoreLegForEdit('outbound');
+          onGoToStep(OUTBOUND_SEAT_STEP);
+        },
+      }];
+    }
+
+    const actions: ShuttleEditAction[] = [];
+    if (seatConflictLegs.includes('outbound')) {
+      actions.push({
+        key: 'reselect-outbound-seats',
+        label: t('booking.paymentScreen.reselectOutboundSeats'),
+        onPress: () => {
+          restoreLegForEdit('outbound');
+          onGoToStep(OUTBOUND_SEAT_STEP);
+        },
+      });
+    }
+    if (seatConflictLegs.includes('return')) {
+      actions.push({
+        key: 'reselect-return-seats',
+        label: t('booking.paymentScreen.reselectReturnSeats'),
+        onPress: () => {
+          restoreLegForEdit('return');
+          onGoToStep(RETURN_SEAT_STEP);
+        },
+      });
+    }
+    return actions;
+  }, [
+    isRoundTrip,
+    isSeatConflict,
+    onGoToStep,
+    restoreLegForEdit,
+    seatConflictLegs,
+    t,
+  ]);
+
   const handlePayNow = useCallback(() => {
     if (!isSubmitting) {
       onNext();
@@ -478,9 +544,9 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
           {bookingErrorMessage ? (
             <View style={styles.shuttleErrorBlock}>
               <Text style={styles.submitErrorText}>{bookingErrorMessage}</Text>
-              {shuttleEditActions.length > 0 ? (
+              {(shuttleEditActions.length > 0 || seatConflictActions.length > 0) ? (
                 <View style={styles.shuttleErrorActions}>
-                  {shuttleEditActions.map((action) => (
+                  {[...shuttleEditActions, ...seatConflictActions].map((action) => (
                     <Pressable
                       key={action.key}
                       accessibilityRole="button"

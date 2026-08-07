@@ -41,13 +41,16 @@ import {
   OUTBOUND_STEPS,
   RETURN_STEPS,
 } from '../utils/bookingSteps';
+import { getLegFareTotal } from '../utils/bookingPricing';
 import { isEligibleReturnTrip } from '../utils/roundTripEligibility';
 
 export {
   CHECKOUT_STEP,
   getTotalSteps,
+  OUTBOUND_SEAT_STEP,
   OUTBOUND_STEPS,
   PAYMENT_STEP,
+  RETURN_SEAT_STEP,
   RETURN_STEPS,
 } from '../utils/bookingSteps';
 
@@ -85,6 +88,8 @@ const buildTerminalPickUp = (trip: BusTrip): PickUpPoint => ({
   time: trip.departureTime,
   status: 'current',
   orderIndex: 0,
+  // Station boarding uses trip.effectiveFare via bookingPricing (not stop fare).
+  effectiveFare: trip.effectiveFare,
 });
 
 const buildTerminalDropOff = (trip: BusTrip): DropOffPoint => ({
@@ -112,6 +117,8 @@ const buildPickUpPoints = (trip: TripDetail): PickUpPoint[] => [
       time: stop.time,
       status: 'available' as const,
       orderIndex: stop.orderIndex,
+      // Copy by stop id identity — never match by stop name.
+      effectiveFare: stop.effectiveFare ?? null,
     })),
 ];
 
@@ -164,10 +171,11 @@ const reconcileSelectedSeats = (
 ): Seat[] => {
   if (selectedSeats.length === 0) return selectedSeats;
 
+  // Allow-list only: never treat unavailable/unknown as selectable via !== 'sold'.
   const availableSeats = new Map<string, Seat>();
   for (const row of seatRows) {
     for (const seat of [...row.leftSeats, ...row.rightSeats]) {
-      if (seat.status !== 'sold') availableSeats.set(seat.id, seat);
+      if (seat.status === 'available') availableSeats.set(seat.id, seat);
     }
   }
 
@@ -177,6 +185,22 @@ const reconcileSelectedSeats = (
       ? [{ ...refreshedSeat, status: 'selected' as const }]
       : [];
   });
+};
+
+export type BookingSeatConflictLeg = 'outbound' | 'return';
+
+const uniqueConflictLegs = (
+  legs: readonly BookingSeatConflictLeg[],
+): BookingSeatConflictLeg[] => {
+  const seen = new Set<BookingSeatConflictLeg>();
+  const result: BookingSeatConflictLeg[] = [];
+  for (const leg of legs) {
+    if (!seen.has(leg)) {
+      seen.add(leg);
+      result.push(leg);
+    }
+  }
+  return result;
 };
 
 export type OutboundState = BookingLegDraft;
@@ -200,6 +224,16 @@ interface BookingStore {
   restoreLegForEdit: (leg: 'outbound' | 'return') => void;
   highestStepReached: number;
   setHighestStep: (step: number) => void;
+
+  /** Legs that still need seat re-selection after BOOKING_SEAT_UNAVAILABLE. */
+  seatConflictLegs: BookingSeatConflictLeg[];
+  clearSeatConflictLeg: (leg: BookingSeatConflictLeg) => void;
+  clearAllSeatConflicts: () => void;
+  /**
+   * After a definitive seat conflict: refresh seat maps for affected trip(s),
+   * reconcile selection per tripId+seatNumber, never auto-retry booking.
+   */
+  handleSeatUnavailableConflict: () => Promise<void>;
 
   // ─── Computed ────────────────────────────────────────
   totalSteps: () => number;
@@ -356,6 +390,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       shuttleDropoff: state.selectedShuttleDropoff,
     },
     currentLeg: 'return',
+    // Clear seat map before switching legs to avoid layout flash.
+    seatMap: [],
     selectedTrip: null,
     selectedSeats: [],
     selectedPickUp: null,
@@ -364,6 +400,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     selectedShuttleDropoff: null,
     pickUpPoints: [],
     dropOffPoints: [],
+    seatConflictLegs: state.seatConflictLegs.filter((leg) => leg !== 'outbound'),
     highestStepReached: OUTBOUND_STEPS + 1, // After outbound (steps 1-4), unlock step 5 (return TripResults)
   })),
   saveReturnLeg: () => set((state) => ({
@@ -375,6 +412,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       shuttlePickup: state.selectedShuttlePickup,
       shuttleDropoff: state.selectedShuttleDropoff,
     },
+    seatConflictLegs: state.seatConflictLegs.filter((leg) => leg !== 'return'),
     highestStepReached: OUTBOUND_STEPS + RETURN_STEPS + 1, // After return (steps 5-8), unlock step 9 (Checkout)
   })),
   saveOneWayLeg: () => set((state) => ({
@@ -387,11 +425,12 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       shuttleDropoff: state.selectedShuttleDropoff,
     },
     currentLeg: 'outbound',
+    seatConflictLegs: state.seatConflictLegs.filter((leg) => leg !== 'outbound'),
     highestStepReached: Math.max(state.highestStepReached, 5),
   })),
   restoreLegForEdit: (leg) => set((state) => {
     const snapshot = leg === 'outbound' ? state.outboundState : state.returnState;
-    if (!snapshot?.trip) return { currentLeg: leg };
+    if (!snapshot?.trip) return { currentLeg: leg, seatMap: [] };
 
     const pickUpPoints = snapshot.trip === state.selectedTrip
       ? state.pickUpPoints
@@ -402,6 +441,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
     return {
       currentLeg: leg,
+      // Clear prior seat map so the next initSeatMap does not flash another trip.
+      seatMap: [],
       selectedTrip: snapshot.trip,
       selectedSeats: snapshot.seats,
       selectedPickUp: snapshot.pickUp,
@@ -412,6 +453,123 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       dropOffPoints,
     };
   }),
+  seatConflictLegs: [],
+  clearSeatConflictLeg: (leg) => set((state) => ({
+    seatConflictLegs: state.seatConflictLegs.filter((item) => item !== leg),
+  })),
+  clearAllSeatConflicts: () => set({ seatConflictLegs: [] }),
+  handleSeatUnavailableConflict: async () => {
+    const generation = bookingGeneration;
+    const state = get();
+    const isRoundTrip = Boolean(state.searchParams.isRoundTrip);
+
+    // Without structured per-leg fields from BE (BOOK-BE-002), mark both legs
+    // conservatively for round-trip; one-way is always the active outbound path.
+    const conflictLegs: BookingSeatConflictLeg[] = isRoundTrip
+      ? uniqueConflictLegs(['outbound', 'return'])
+      : ['outbound'];
+
+    set({ seatConflictLegs: conflictLegs });
+
+    type RefreshTarget = {
+      leg: BookingSeatConflictLeg;
+      tripId: string;
+      seats: Seat[];
+    };
+
+    const targets: RefreshTarget[] = [];
+    if (isRoundTrip) {
+      if (state.outboundState?.trip?.id) {
+        targets.push({
+          leg: 'outbound',
+          tripId: state.outboundState.trip.id,
+          seats: state.outboundState.seats,
+        });
+      }
+      if (state.returnState?.trip?.id) {
+        targets.push({
+          leg: 'return',
+          tripId: state.returnState.trip.id,
+          seats: state.returnState.seats,
+        });
+      }
+    } else if (state.selectedTrip?.id) {
+      targets.push({
+        leg: 'outbound',
+        tripId: state.selectedTrip.id,
+        seats: state.selectedSeats,
+      });
+    } else if (state.outboundState?.trip?.id) {
+      targets.push({
+        leg: 'outbound',
+        tripId: state.outboundState.trip.id,
+        seats: state.outboundState.seats,
+      });
+    }
+
+    // Dedupe network fetches by trip id while keeping leg-scoped reconcile.
+    const uniqueTripIds = [...new Set(targets.map((target) => target.tripId))];
+    const seatMapByTripId = new Map<string, SeatRow[] | null>();
+
+    await Promise.all(uniqueTripIds.map(async (tripId) => {
+      try {
+        const seatRows = await getSeatMap(tripId);
+        seatMapByTripId.set(tripId, seatRows);
+      } catch {
+        seatMapByTripId.set(tripId, null);
+      }
+    }));
+
+    if (generation !== bookingGeneration) {
+      return;
+    }
+
+    const refreshFailed = uniqueTripIds.some((tripId) => seatMapByTripId.get(tripId) == null);
+    // If any refresh fails or BE cannot attribute legs, keep both RT legs conflicted.
+    const nextConflictLegs = isRoundTrip && refreshFailed
+      ? uniqueConflictLegs(['outbound', 'return'])
+      : conflictLegs;
+
+    set((current) => {
+      if (generation !== bookingGeneration) {
+        return current;
+      }
+
+      let nextOutbound = current.outboundState;
+      let nextReturn = current.returnState;
+      let nextSelectedSeats = current.selectedSeats;
+      let nextSeatMap = current.seatMap;
+
+      for (const target of targets) {
+        const seatRows = seatMapByTripId.get(target.tripId);
+        if (!seatRows) {
+          continue;
+        }
+
+        // Reconcile by tripId + seatNumber (seat.id); never merge same labels across legs.
+        const reconciled = reconcileSelectedSeats(seatRows, target.seats);
+
+        if (target.leg === 'outbound' && nextOutbound?.trip?.id === target.tripId) {
+          nextOutbound = { ...nextOutbound, seats: reconciled };
+        }
+        if (target.leg === 'return' && nextReturn?.trip?.id === target.tripId) {
+          nextReturn = { ...nextReturn, seats: reconciled };
+        }
+        if (current.selectedTrip?.id === target.tripId) {
+          nextSelectedSeats = reconciled;
+          nextSeatMap = seatRows;
+        }
+      }
+
+      return {
+        outboundState: nextOutbound,
+        returnState: nextReturn,
+        selectedSeats: nextSelectedSeats,
+        seatMap: nextSeatMap,
+        seatConflictLegs: nextConflictLegs,
+      };
+    });
+  },
 
   // ─── Computed ────────────────────────────────────────
   totalSteps: () => getTotalSteps(get().searchParams.isRoundTrip ?? false),
@@ -662,7 +820,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         if (targetSeat) break;
       }
 
-      if (!targetSeat || targetSeat.status === 'sold') {
+      // Allow-list only: unavailable/sold/unknown must not enter selection.
+      if (!targetSeat || targetSeat.status !== 'available') {
         return state;
       }
 
@@ -784,6 +943,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
             bookingStatus: 'success',
             bookingResult: result,
             bookingPaymentMethod: state.paymentMethod,
+            seatConflictLegs: [],
           });
           return result;
         }
@@ -812,6 +972,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           bookingStatus: 'success',
           bookingResult: result,
           bookingPaymentMethod: state.paymentMethod,
+          seatConflictLegs: [],
         });
         return result;
       } catch (error: unknown) {
@@ -852,6 +1013,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
             bookingStatus: 'error',
             bookingError: apiError,
           });
+          // Definitive 409 seat conflict: refresh maps, never auto-retry submit.
+          if (apiError.code === 'BOOKING_SEAT_UNAVAILABLE') {
+            get().handleSeatUnavailableConflict().catch(() => undefined);
+          }
         }
         throw apiError;
       }
@@ -874,16 +1039,21 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       currentLeg,
       selectedTrip,
       selectedSeats,
+      selectedPickUp,
       outboundState,
       returnState,
     } = get();
     const selectedLegAmount = selectedTrip
-      ? selectedTrip.price * selectedSeats.length
+      ? getLegFareTotal(selectedTrip, selectedSeats, selectedPickUp)
       : 0;
     const outboundAmount = currentLeg === 'outbound' && selectedTrip
       ? selectedLegAmount
       : outboundState?.trip
-        ? outboundState.trip.price * outboundState.seats.length
+        ? getLegFareTotal(
+          outboundState.trip,
+          outboundState.seats,
+          outboundState.pickUp,
+        )
         : 0;
 
     if (!searchParams.isRoundTrip) {
@@ -893,7 +1063,11 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     const returnAmount = currentLeg === 'return' && selectedTrip
       ? selectedLegAmount
       : returnState?.trip
-        ? returnState.trip.price * returnState.seats.length
+        ? getLegFareTotal(
+          returnState.trip,
+          returnState.seats,
+          returnState.pickUp,
+        )
         : 0;
 
     return outboundAmount + returnAmount;
@@ -922,6 +1096,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       bookingResult: null,
       bookingPaymentMethod: null,
       bookingError: null,
+      seatConflictLegs: [],
       highestStepReached: 1,
       tripResultsStatus: 'loading',
       trips: [],
@@ -952,6 +1127,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       selectedTrip: null,
       seatMap: [],
       selectedSeats: [],
+      seatConflictLegs: [],
       pickUpPoints: [],
       dropOffPoints: [],
       selectedPickUp: null,

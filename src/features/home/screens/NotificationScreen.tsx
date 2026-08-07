@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { Bell, Check, Package, Tag, Ticket, Van } from 'phosphor-react-native';
+import { Bell, Package, Tag, Ticket, Van } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -27,7 +27,9 @@ import type { RootStackParamList } from '@app/navigation/types';
 import type { NotificationItemDto } from '../api/notificationApi';
 import {
   DEFAULT_NOTIFICATION_LIST_PARAMS,
+  flattenNotificationPages,
   useMarkNotificationRead,
+  useNotificationUnreadCount,
   useNotifications,
 } from '../hooks/useNotifications';
 import {
@@ -174,6 +176,7 @@ export function NotificationScreen(): React.JSX.Element {
   const handleTabBarScroll = useTabBarScrollBehavior();
   const bottomTabClearance = useFloatingTabBarContentInset();
   const notificationsQuery = useNotifications(DEFAULT_NOTIFICATION_LIST_PARAMS);
+  const unreadCountQuery = useNotificationUnreadCount();
   const markReadMutation = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const {
     data: notificationsData,
@@ -181,29 +184,38 @@ export function NotificationScreen(): React.JSX.Element {
     isError: isNotificationsError,
     isLoading: isNotificationsLoading,
     isRefetching: isNotificationsRefetching,
+    isFetchingNextPage,
+    hasNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
     refetch: refetchNotifications,
   } = notificationsQuery;
-  const {
-    isPending: isMarkReadPending,
-    mutate: markRead,
-  } = markReadMutation;
+  const { mutate: markRead } = markReadMutation;
 
   const notifications = useMemo(
-    () => notificationsData?.items ?? [],
-    [notificationsData?.items],
+    () => flattenNotificationPages(notificationsData),
+    [notificationsData],
   );
-  const unreadItems = useMemo(
-    () => notifications.filter((item) => !item.readAt),
-    [notifications],
-  );
-  const unreadCount = unreadItems.length;
-  const handleMarkAllRead = useCallback(() => {
-    markRead(unreadItems.map((item) => item.id));
-  }, [markRead, unreadItems]);
+  const unreadCount = unreadCountQuery.data ?? 0;
+  const isInitialLoading = isNotificationsLoading && notifications.length === 0;
+  const isRefreshing = isNotificationsRefetching && !isFetchingNextPage;
 
   const handleRefresh = useCallback(() => {
+    // Pull-to-refresh restarts from page 1 (invalidate infinite query root).
     refetchNotifications().catch(() => undefined);
-  }, [refetchNotifications]);
+    unreadCountQuery.refetch().catch(() => undefined);
+  }, [refetchNotifications, unreadCountQuery]);
+
+  const handleEndReached = useCallback(() => {
+    if (!hasNextPage || isFetchingNextPage || isFetchNextPageError) {
+      return;
+    }
+    fetchNextPage().catch(() => undefined);
+  }, [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage]);
+
+  const handleRetryNextPage = useCallback(() => {
+    fetchNextPage().catch(() => undefined);
+  }, [fetchNextPage]);
 
   const handleNotificationPress = useCallback((id: string) => {
     const item = notifications.find((notification) => notification.id === id);
@@ -211,8 +223,13 @@ export function NotificationScreen(): React.JSX.Element {
       return;
     }
 
+    // Mark-read accepts exactly one id (no multi-id Promise.all).
+    if (!item.readAt) {
+      markRead(item.id);
+    }
+
     navigation.navigate('NotificationDetail', { notification: item });
-  }, [navigation, notifications]);
+  }, [markRead, navigation, notifications]);
 
   const renderNotificationItem = useCallback(
     ({ item }: { item: NotificationItemDto }) => (
@@ -230,7 +247,7 @@ export function NotificationScreen(): React.JSX.Element {
   );
 
   const renderEmptyState = useCallback(() => {
-    if (isNotificationsLoading) {
+    if (isInitialLoading) {
       return (
         <View style={styles.emptyContainer}>
           <ActivityIndicator color={theme.colors.primary} />
@@ -239,7 +256,7 @@ export function NotificationScreen(): React.JSX.Element {
       );
     }
 
-    if (isNotificationsError) {
+    if (isNotificationsError && notifications.length === 0) {
       return (
         <View style={styles.emptyContainer}>
           <Bell size={48} color={theme.colors.textTertiary} weight="thin" />
@@ -265,10 +282,11 @@ export function NotificationScreen(): React.JSX.Element {
       </View>
     );
   }, [
-    isNotificationsError,
-    isNotificationsLoading,
-    notificationsError,
     handleRefresh,
+    isInitialLoading,
+    isNotificationsError,
+    notifications.length,
+    notificationsError,
     styles.emptyContainer,
     styles.emptyText,
     styles.pressedRow,
@@ -277,6 +295,54 @@ export function NotificationScreen(): React.JSX.Element {
     t,
     theme.colors.primary,
     theme.colors.textTertiary,
+  ]);
+
+  const renderFooter = useCallback(() => {
+    if (notifications.length === 0) {
+      return null;
+    }
+
+    if (isFetchingNextPage) {
+      return (
+        <View style={styles.footerContainer}>
+          <ActivityIndicator color={theme.colors.primary} />
+        </View>
+      );
+    }
+
+    if (isFetchNextPageError && hasNextPage) {
+      return (
+        <View style={styles.footerContainer}>
+          <Text style={styles.footerErrorText}>
+            {t('notification.loadMoreFailed')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.retry')}
+            onPress={handleRetryNextPage}
+            style={({ pressed }) => [styles.retryButton, pressed ? styles.pressedRow : null]}
+          >
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return <View style={styles.footerSpacer} />;
+  }, [
+    handleRetryNextPage,
+    hasNextPage,
+    isFetchNextPageError,
+    isFetchingNextPage,
+    notifications.length,
+    styles.footerContainer,
+    styles.footerErrorText,
+    styles.footerSpacer,
+    styles.pressedRow,
+    styles.retryButton,
+    styles.retryText,
+    t,
+    theme.colors.primary,
   ]);
 
   const keyExtractor = useCallback((item: NotificationItemDto) => item.id, []);
@@ -300,27 +366,7 @@ export function NotificationScreen(): React.JSX.Element {
             </Text>
           </View>
         </View>
-
-        {notifications.length > 0 ? (
-          <View style={styles.headerActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('notification.markAllRead')}
-              onPress={handleMarkAllRead}
-              disabled={unreadCount === 0 || isMarkReadPending}
-              style={[
-                styles.actionButton,
-                unreadCount === 0 ? styles.actionButtonDisabled : null,
-              ]}
-            >
-              {isMarkReadPending ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              ) : (
-                <Check size={18} color={unreadCount === 0 ? theme.colors.textDisabled : theme.colors.primary} />
-              )}
-            </Pressable>
-          </View>
-        ) : null}
+        {/* Mark-all is fully hidden until BE ships atomic read-all (NOTIF-BE-001). */}
       </View>
 
       <FlashList
@@ -328,6 +374,7 @@ export function NotificationScreen(): React.JSX.Element {
         keyExtractor={keyExtractor}
         renderItem={renderNotificationItem}
         ListEmptyComponent={renderEmptyState}
+        ListFooterComponent={renderFooter}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.listContent,
@@ -335,7 +382,9 @@ export function NotificationScreen(): React.JSX.Element {
           { paddingBottom: bottomTabClearance },
         ]}
         onRefresh={handleRefresh}
-        refreshing={isNotificationsRefetching}
+        refreshing={isRefreshing}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.4}
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}
       />
@@ -349,151 +398,127 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.contentBorderStrong
-      : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.contentSurfaceElevated
-      : theme.colors.surface,
+    borderBottomColor: theme.effects.contentBorder,
   },
   headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     flex: 1,
+    gap: spacing.md,
   },
   headerIcon: {
-    marginRight: spacing.sm,
+    marginTop: 2,
   },
   headerTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xxl,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
   },
   headerSubtitle: {
-    fontFamily: fontFamilies.medium,
+    fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: theme.colors.textTertiary,
-    marginTop: spacing.xxs,
-  },
-  headerActions: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: spacing.sm,
-    backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.contentBorder
-      : theme.colors.divider,
-  },
-  actionButtonDisabled: {
-    opacity: 0.45,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   listContent: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
   },
   emptyListContent: {
     flexGrow: 1,
   },
   emptyContainer: {
     flex: 1,
-    paddingVertical: 96,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
+    gap: spacing.md,
   },
   emptyText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.md,
-    color: theme.colors.textTertiary,
-    marginTop: spacing.md,
-    textAlign: 'center',
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
+    textAlign: 'center' as const,
   },
   retryButton: {
-    marginTop: spacing.md,
-    minWidth: 112,
-    height: 40,
+    marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.primaryFaded,
   },
   retryText: {
-    fontFamily: fontFamilies.bold,
+    fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
-    color: theme.colors.textInverse,
+    color: theme.colors.primary,
+  },
+  footerContainer: {
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  footerErrorText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+    textAlign: 'center' as const,
+  },
+  footerSpacer: {
+    height: spacing.md,
   },
   notificationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 82,
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: spacing.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.xs,
-    borderWidth: 1,
-    borderColor: theme.colors.transparent,
-    backgroundColor: theme.colors.transparent,
   },
   unreadRow: {
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassTint
-      : theme.colors.primaryFaded,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorderStrong : theme.colors.primaryFaded,
+    backgroundColor: theme.effects.contentSurfaceSoft,
   },
   pressedRow: {
-    opacity: 0.82,
-    transform: [{ scale: 0.99 }],
+    opacity: 0.85,
   },
   avatarColumn: {
-    width: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
+    paddingTop: 2,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid ? theme.effects.glassBorder : theme.colors.divider,
-    flexShrink: 0,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   messageContent: {
     flex: 1,
     minWidth: 0,
+    gap: 4,
   },
   messageTopLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xxs,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     gap: spacing.sm,
   },
   cardTitle: {
-    fontSize: fontSizes.md,
     flex: 1,
-  },
-  cardTitleRead: {
     fontFamily: fontFamilies.semiBold,
-    color: theme.colors.textSecondary,
+    fontSize: fontSizes.sm,
   },
   cardTitleUnread: {
-    fontFamily: fontFamilies.bold,
     color: theme.colors.textPrimary,
+  },
+  cardTitleRead: {
+    color: theme.colors.textSecondary,
   },
   cardTime: {
     fontFamily: fontFamilies.regular,
@@ -501,30 +526,26 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textTertiary,
   },
   cardTimeUnread: {
-    fontFamily: fontFamilies.bold,
     color: theme.colors.primary,
   },
   cardBody: {
-    fontSize: fontSizes.sm,
-    lineHeight: 18,
-  },
-  cardBodyRead: {
     fontFamily: fontFamilies.regular,
-    color: theme.colors.textTertiary,
+    fontSize: fontSizes.sm,
   },
   cardBodyUnread: {
-    fontFamily: fontFamilies.medium,
     color: theme.colors.textSecondary,
   },
+  cardBodyRead: {
+    color: theme.colors.textTertiary,
+  },
   trailingColumn: {
-    width: 18,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    marginLeft: spacing.sm,
+    width: 12,
+    alignItems: 'center' as const,
+    paddingTop: 8,
   },
   unreadDot: {
-    width: 10,
-    height: 10,
+    width: 8,
+    height: 8,
     borderRadius: borderRadius.full,
   },
 });

@@ -66,7 +66,7 @@ export const TripCard = memo(function TripCardComponent({
         <View style={styles.priceBlock}>
           <Text style={styles.priceLabel}>{t('booking.tripCard.from')}</Text>
           <Text style={styles.price}>
-            {formatVnd(trip.price, { clampNegative: true })}
+            {formatVnd(trip.effectiveFare, { clampNegative: true })}
           </Text>
         </View>
       </View>

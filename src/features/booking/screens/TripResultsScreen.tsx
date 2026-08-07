@@ -68,11 +68,11 @@ const matchesTimeSlot = (trip: BusTrip, timeSlot: TripTimeSlot): boolean => {
 const matchesPriceRange = (trip: BusTrip, priceRange: TripPriceRange): boolean => {
   switch (priceRange) {
     case 'under_350k':
-      return trip.price < 350000;
+      return trip.effectiveFare < 350000;
     case '350k_450k':
-      return trip.price >= 350000 && trip.price <= 450000;
+      return trip.effectiveFare >= 350000 && trip.effectiveFare <= 450000;
     case 'over_450k':
-      return trip.price > 450000;
+      return trip.effectiveFare > 450000;
     default:
       return true;
   }

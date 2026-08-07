@@ -36,11 +36,16 @@ export interface ListNotificationsParams {
   sortDir?: NotificationSortDir;
 }
 
+export type NotificationListKeyFilters = Omit<ListNotificationsParams, 'page'>;
+
 export const notificationKeys = {
   all: ['notifications'] as const,
   user: (userId: string) => [...notificationKeys.all, userId] as const,
-  list: (userId: string, params: ListNotificationsParams) =>
-    [...notificationKeys.user(userId), 'list', params] as const,
+  /** Infinite list key: userId + normalized filters, never includes page. */
+  list: (userId: string, filters: NotificationListKeyFilters) =>
+    [...notificationKeys.user(userId), 'list', filters] as const,
+  unreadCount: (userId: string) =>
+    [...notificationKeys.user(userId), 'unread-count'] as const,
 };
 
 const notificationItemSchema = z.object({

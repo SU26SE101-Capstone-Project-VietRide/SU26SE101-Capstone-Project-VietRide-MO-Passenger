@@ -1,7 +1,9 @@
 export const OUTBOUND_STEPS = 4;
 export const RETURN_STEPS = 4;
+export const OUTBOUND_SEAT_STEP = 2;
 export const OUTBOUND_PICKUP_STEP = 3;
 export const OUTBOUND_DROPOFF_STEP = 4;
+export const RETURN_SEAT_STEP = OUTBOUND_STEPS + 2;
 export const RETURN_PICKUP_STEP = OUTBOUND_STEPS + 3;
 export const RETURN_DROPOFF_STEP = OUTBOUND_STEPS + 4;
 

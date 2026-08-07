@@ -335,10 +335,8 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const routeContext = tracking.routeContext ?? null;
   const shuttleContext = tracking.shuttleContext ?? null;
   const selectedShuttlePickup = tracking.selectedShuttlePickup ?? null;
-  const nextEta = tracking.nextEta ?? (isShuttle ? tracking.eta : null);
-  const targetEta = tracking.targetEta ?? (!isShuttle && isMainTripEta(tracking.eta)
-    ? tracking.eta
-    : null);
+  const nextEta = tracking.nextEta ?? null;
+  const targetEta = tracking.targetEta ?? null;
   const nextStopId = !isShuttle && isMainTripEta(nextEta)
     ? nextEta.stopId
     : undefined;
@@ -383,13 +381,15 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     () => [
       tracking.latestQuery.error,
       tracking.trailQuery.error,
-      tracking.etaQuery.error,
+      tracking.nextEtaQuery.error,
+      tracking.targetEtaQuery.error,
       tracking.contextQuery.error,
     ].filter((error): error is NonNullable<typeof error> => Boolean(error)),
     [
       tracking.contextQuery.error,
-      tracking.etaQuery.error,
       tracking.latestQuery.error,
+      tracking.nextEtaQuery.error,
+      tracking.targetEtaQuery.error,
       tracking.trailQuery.error,
     ],
   );
@@ -415,7 +415,8 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const trackingRefreshing = Boolean(
     tracking.latestQuery.isRefetching
     || tracking.trailQuery.isRefetching
-    || tracking.etaQuery.isRefetching
+    || tracking.nextEtaQuery.isRefetching
+    || tracking.targetEtaQuery.isRefetching
     || tracking.contextQuery.isRefetching,
   );
   const canManageTripSharing = Boolean(
@@ -616,35 +617,42 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       ? intermediateStops.find((stop) => stop.stopId === stopId)
       : undefined;
 
+    // Same stop → single target row reusing ETA; different stops → two clear rows.
     if (nextStop && nextStop.stopId !== targetStop?.stopId) {
       items.push({
         id: `next:${nextStop.stopId}`,
         label: t('tracking.map.nextStopMarker'),
         name: nextStop.name,
-        detail: isMainTripEta(nextEta) ? formatEta(nextEta) : undefined,
+        detail: isMainTripEta(nextEta)
+          ? formatEta(nextEta)
+          : t('tracking.details.waitingEta'),
         tone: 'next',
       });
     }
     if (targetStop) {
+      const sharedEta = targetEta ?? (
+        isMainTripEta(nextEta) && nextEta.stopId === targetStop.stopId
+          ? nextEta
+          : null
+      );
       items.push({
         id: `target:${targetStop.stopId}`,
         label: t('tracking.map.targetStopMarker'),
         name: targetStop.name,
-        detail: formatEta(targetEta ?? (
-          isMainTripEta(nextEta) && nextEta.stopId === targetStop.stopId
-            ? nextEta
-            : null
-        )),
+        detail: sharedEta
+          ? formatEta(sharedEta)
+          : t('tracking.details.waitingEta'),
         tone: 'target',
       });
     }
-    if (items.length === 0 && routeContext?.destinationStation) {
+    // nextEta:null must show waiting — never invent destination or Haversine ETA.
+    if (items.length === 0) {
       items.push({
-        id: 'destination',
-        label: t('tracking.dropOff'),
-        name: routeContext.destinationStation.name,
-        detail: t('tracking.details.waitingEta'),
-        tone: 'destination',
+        id: 'waiting-next',
+        label: t('tracking.map.nextStopMarker'),
+        name: t('tracking.details.waitingEta'),
+        detail: undefined,
+        tone: 'next',
       });
     }
     return items;
@@ -654,7 +662,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     isShuttle,
     nextEta,
     nextStopId,
-    routeContext?.destinationStation,
     selectedShuttlePickup,
     shuttleContext?.direction,
     shuttleContext?.station,

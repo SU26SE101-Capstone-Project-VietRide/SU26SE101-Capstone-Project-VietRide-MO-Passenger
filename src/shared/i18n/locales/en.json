@@ -270,6 +270,7 @@
     "noNotifications": "No notifications yet",
     "markAllRead": "Mark all notifications as read",
     "allCaughtUp": "You're all caught up",
+    "loadMoreFailed": "Could not load more notifications.",
     "unreadCount_one": "{{count}} unread notification",
     "unreadCount_other": "{{count}} unread notifications",
     "itemAccessibility": "Open notification: {{title}}",
@@ -751,13 +752,16 @@
       "walletLabel": "VietRide Wallet",
       "walletDescription": "Pay from your available wallet balance",
       "breakdown": "Price breakdown",
-      "baseFare": "Base fare · {{count}} seat(s)",
-      "baseFare_one": "Base fare · {{count}} seat",
-      "baseFare_other": "Base fare · {{count}} seats",
+      "baseFare": "Estimated ticket fare · {{count}} seat(s)",
+      "baseFare_one": "Estimated ticket fare · {{count}} seat",
+      "baseFare_other": "Estimated ticket fare · {{count}} seats",
       "voucherDiscount": "Voucher discount",
       "processing": "Processing...",
       "payWithVnpay": "Pay with VNPay",
-      "confirmBooking": "Confirm booking"
+      "confirmBooking": "Confirm booking",
+      "reselectSeats": "Reselect seats",
+      "reselectOutboundSeats": "Reselect outbound seats",
+      "reselectReturnSeats": "Reselect return seats"
     },
     "results": {
       "noRidesTitle": "No trips found",

@@ -169,7 +169,8 @@ const buildDeckGroups = (seatMap: SeatRow[]): DeckGroup[] => {
     normalized.columns.forEach(column => group.columns.add(column));
     normalized.seats.forEach(seat => {
       group.seatIds.add(seat.id);
-      if (seat.status !== 'sold') {
+      // Allow-list only — unavailable must never inflate available counts.
+      if (seat.status === 'available') {
         group.availableCount += 1;
       }
     });
@@ -238,7 +239,8 @@ interface SeatButtonProps {
   id: string;
   label: string;
   isSelected: boolean;
-  isSold: boolean;
+  presentation: 'available' | 'selected' | 'sold' | 'unavailable';
+  disabledReason?: string | null;
   size: number;
   onPress: (seatId: string) => void;
   styles: SeatGridStyles;
@@ -248,37 +250,45 @@ const SeatButton = memo(function SeatButtonComponent({
   id,
   label,
   isSelected,
-  isSold,
+  presentation,
+  disabledReason,
   size,
   onPress,
   styles,
 }: SeatButtonProps): React.JSX.Element {
   const { t } = useTranslation();
   const handlePress = useCallback(() => onPress(id), [id, onPress]);
-  const seatStatus = isSold
+  const isSold = presentation === 'sold';
+  const isUnavailable = presentation === 'unavailable';
+  const isDisabled = isSold || isUnavailable;
+  const seatStatus = isUnavailable
     ? t('booking.seats.unavailable')
-    : isSelected
-      ? t('booking.seats.selected')
-      : t('booking.seats.available');
+    : isSold
+      ? t('booking.seats.sold')
+      : isSelected
+        ? t('booking.seats.selected')
+        : t('booking.seats.available');
+  const accessibilityLabel = disabledReason
+    ? `${t('booking.seatMap.seatAccessibility', { seat: label, status: seatStatus })}. ${disabledReason}`
+    : t('booking.seatMap.seatAccessibility', { seat: label, status: seatStatus });
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t('booking.seatMap.seatAccessibility', {
-        seat: label,
-        status: seatStatus,
-      })}
-      accessibilityState={{ disabled: isSold, selected: isSelected }}
-      disabled={isSold}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={disabledReason ?? undefined}
+      accessibilityState={{ disabled: isDisabled, selected: isSelected }}
+      disabled={isDisabled}
       hitSlop={6}
       onPress={handlePress}
       style={({ pressed }) => [
         styles.seat,
         { width: size, height: size },
-        !isSelected && !isSold ? styles.seatAvailable : null,
+        presentation === 'available' && !isSelected ? styles.seatAvailable : null,
         isSelected ? styles.seatSelected : null,
         isSold ? styles.seatSold : null,
-        pressed && !isSold ? styles.seatPressed : null,
+        isUnavailable ? styles.seatUnavailable : null,
+        pressed && !isDisabled ? styles.seatPressed : null,
       ]}
     >
       <View
@@ -286,6 +296,7 @@ const SeatButton = memo(function SeatButtonComponent({
           styles.seatPillow,
           isSelected ? styles.seatPillowSelected : null,
           isSold ? styles.seatPillowSold : null,
+          isUnavailable ? styles.seatPillowUnavailable : null,
         ]}
       />
       <Text
@@ -297,6 +308,7 @@ const SeatButton = memo(function SeatButtonComponent({
           size < 40 ? styles.seatLabelCompact : null,
           isSelected ? styles.seatLabelSelected : null,
           isSold ? styles.seatLabelSold : null,
+          isUnavailable ? styles.seatLabelUnavailable : null,
         ]}
       >
         {label}
@@ -368,7 +380,16 @@ const SeatRowView = memo(
                 <SeatButton
                   id={seat.id}
                   isSelected={selectedSeatIds.has(seat.id)}
-                  isSold={seat.status === 'sold'}
+                  presentation={
+                    selectedSeatIds.has(seat.id)
+                      ? 'selected'
+                      : seat.status === 'available'
+                        ? 'available'
+                        : seat.status === 'sold'
+                          ? 'sold'
+                          : 'unavailable'
+                  }
+                  disabledReason={seat.disabledReason}
                   label={seat.label}
                   onPress={onSeatPress}
                   size={seatSize}
@@ -816,6 +837,11 @@ const createStyles = (theme: AppTheme) => ({
     borderColor: theme.colors.divider,
     opacity: 0.58,
   },
+  seatUnavailable: {
+    backgroundColor: theme.colors.errorLight,
+    borderColor: theme.colors.error,
+    opacity: 0.72,
+  },
   seatPressed: {
     opacity: 0.76,
     transform: [{ scale: 0.97 }],
@@ -836,6 +862,10 @@ const createStyles = (theme: AppTheme) => ({
   seatPillowSold: {
     backgroundColor: theme.colors.divider,
   },
+  seatPillowUnavailable: {
+    backgroundColor: theme.colors.error,
+    opacity: 0.45,
+  },
   seatLabel: {
     maxWidth: '90%',
     marginTop: spacing.sm,
@@ -851,6 +881,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   seatLabelSold: {
     color: theme.colors.textDisabled,
+  },
+  seatLabelUnavailable: {
+    color: theme.colors.error,
   },
   emptySlot: {
     flexShrink: 0,

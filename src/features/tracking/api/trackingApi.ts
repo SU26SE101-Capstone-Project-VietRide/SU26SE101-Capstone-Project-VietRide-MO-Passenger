@@ -267,11 +267,16 @@ export const parseTrackingTrailResponse = (
 export const parseTrackingEtaResponse = (
   value: unknown,
   expectedTripId: string,
-  expectedStopId: string,
+  expectedStopId?: string,
 ): TrackingEtaResponse => {
   const parsed = trackingEtaResponseSchema.parse(value);
   assertExpectedTrip(expectedTripId, parsed.eta ? [parsed.eta.tripId] : []);
-  if (parsed.eta && parsed.eta.stopId !== expectedStopId) {
+  // Only enforce exact stop match when the caller requested a target stop.
+  if (
+    expectedStopId
+    && parsed.eta
+    && parsed.eta.stopId !== expectedStopId
+  ) {
     throw new Error('Tracking ETA response does not match the requested stop.');
   }
   return parsed;
@@ -305,8 +310,22 @@ export const trackingKeys = {
     [...trackingKeys.trip(userId, tripId), 'latest'] as const,
   trail: (userId: string, tripId: string) =>
     [...trackingKeys.trip(userId, tripId), 'trail'] as const,
+  /** Root for all ETA query keys under a trip (next + target). */
+  etaRoot: (userId: string, tripId: string) =>
+    [...trackingKeys.trip(userId, tripId), 'eta'] as const,
+  /** Operational next-stop ETA (no stopId on the wire). */
+  nextEta: (userId: string, tripId: string) =>
+    [...trackingKeys.etaRoot(userId, tripId), 'next'] as const,
+  /** Passenger target ETA for a canonical stop UUID. */
+  targetEta: (userId: string, tripId: string, stopId: string) =>
+    [...trackingKeys.etaRoot(userId, tripId), 'target', stopId] as const,
+  /**
+   * @deprecated Prefer nextEta / targetEta. Kept for any residual callers during migration.
+   */
   eta: (userId: string, tripId: string, stopId: string) =>
-    [...trackingKeys.trip(userId, tripId), 'eta', stopId] as const,
+    stopId === 'none'
+      ? trackingKeys.nextEta(userId, tripId)
+      : trackingKeys.targetEta(userId, tripId, stopId),
   routeContext: (userId: string, tripId: string) =>
     [...trackingKeys.trip(userId, tripId), 'route-context'] as const,
   shuttle: (userId: string, shuttleTripId: string) =>
@@ -392,16 +411,28 @@ export async function getTrackingTrail(
   return parseTrackingTrailResponse(unwrapApiResponse(response.data), tripId);
 }
 
+export interface GetTrackingEtaOptions {
+  stopId?: string;
+  signal?: AbortSignal;
+}
+
+/**
+ * Single ETA helper. Omit stopId for operational next-stop; pass a UUID stopId
+ * for passenger target ETA.
+ */
 export async function getTrackingEta(
   tripId: string,
-  stopId: string,
-  signal?: AbortSignal,
+  options: GetTrackingEtaOptions = {},
 ): Promise<TrackingEtaResponse> {
-  const stopIdParam = encodeUuidPathSegment(stopId, 'stopId');
+  const { stopId, signal } = options;
+  const params: Record<string, string> = {};
+  if (stopId) {
+    params.stopId = encodeUuidPathSegment(stopId, 'stopId');
+  }
   const response = await apiClient.get<ApiEnvelope<TrackingEtaResponse>>(
     `${trackingTripPath(tripId)}/eta`,
     {
-      params: { stopId: stopIdParam },
+      ...(Object.keys(params).length > 0 ? { params } : {}),
       ...(signal ? { signal } : {}),
     },
   );

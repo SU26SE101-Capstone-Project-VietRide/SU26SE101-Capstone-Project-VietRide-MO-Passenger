@@ -19,7 +19,7 @@ export interface TripFilterState {
 }
 
 // ─── Seats ────────────────────────────────────────────────
-export type SeatStatus = 'available' | 'selected' | 'sold';
+export type SeatStatus = 'available' | 'selected' | 'sold' | 'unavailable';
 
 export interface Seat {
   id: string;
@@ -29,6 +29,7 @@ export interface Seat {
   col?: number;
   deck?: number;
   type?: string;
+  disabledReason?: string | null;
 }
 
 export interface SeatRow {
@@ -67,6 +68,8 @@ export interface PickUpPoint {
   orderIndex?: number;
   refundAmount?: number;
   disabledReason?: string;
+  /** Copied from TripStop.effectiveFare by stop id — never name-matched. */
+  effectiveFare?: number | null;
 }
 
 // ─── Contact Info ─────────────────────────────────────────

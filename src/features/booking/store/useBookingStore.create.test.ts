@@ -29,7 +29,8 @@ const trip: BusTrip = {
   arrivalTime: '12:00',
   departureDateTime: '2099-01-01T08:00:00+07:00',
   estimatedArrivalDateTime: '2099-01-01T12:00:00+07:00',
-  price: 250_000,
+  baseFare: 250_000,
+  effectiveFare: 250_000,
   seatsLeft: 10,
   allowPickup: false,
   allowDropoff: false,
@@ -47,7 +48,8 @@ const returnTrip: BusTrip = {
   id: '99999999-9999-4999-8999-999999999999',
   originStationId: trip.destinationStationId,
   destinationStationId: trip.originStationId,
-  price: 300_000,
+  baseFare: 300_000,
+  effectiveFare: 300_000,
 };
 
 const result: BookingResult = {

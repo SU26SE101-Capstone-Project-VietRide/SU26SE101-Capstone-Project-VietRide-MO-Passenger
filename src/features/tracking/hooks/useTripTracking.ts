@@ -67,7 +67,6 @@ export type UseTripTrackingOptions =
   | UseShuttleTrackingOptions;
 
 type LiveTrackingEta = TrackingEta | ShuttleTrackingEta;
-type LiveTrackingEtaResponse = TrackingEtaResponse | ShuttleTrackingEtaResponse;
 type LiveTrackingLatestResponse =
   | TrackingLatestResponse
   | ShuttleTrackingLatestResponse;
@@ -90,16 +89,6 @@ interface ScopedRealtimeState {
 interface ScopedRealtimeGpsState {
   scopeKey: string;
   isFresh: boolean;
-}
-
-interface ScopedEtaState {
-  scopeKey: string;
-  eta: LiveTrackingEta;
-}
-
-interface ScopedTargetEtaState {
-  scopeKey: string;
-  eta: TrackingEta;
 }
 
 type ActiveTrackingDelay = Extract<TrackingDelayUpdate, { status: 'DELAYED' }>;
@@ -351,17 +340,14 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     scopeKey: '',
     isFresh: false,
   });
-  const [nextEtaState, setNextEtaState] = useState<ScopedEtaState | null>(null);
-  const [targetEtaState, setTargetEtaState] = useState<ScopedTargetEtaState | null>(null);
   const [delayState, setDelayState] = useState<ScopedDelayState | null>(null);
 
   const hasValidTrackingId = isUuid(trackingId);
-  const hasValidStopId = stopId === undefined || isUuid(stopId);
+  const hasCanonicalTargetStopId = Boolean(stopId && isUuid(stopId));
   const queryUserId = userId ?? 'guest';
   const queryTrackingId = hasValidTrackingId ? trackingId : 'invalid';
-  const queryStopId = stopId && hasValidStopId ? stopId : 'none';
+  const queryTargetStopId = hasCanonicalTargetStopId ? stopId! : 'none';
   const scopeKey = `${queryUserId}:${source}:${queryTrackingId}`;
-  const targetEtaScopeKey = `${scopeKey}:${queryStopId}`;
   const activeFatalError = fatalState?.scopeKey === scopeKey
     ? fatalState.error
     : null;
@@ -423,11 +409,17 @@ export function useTripTracking(options: UseTripTrackingOptions) {
       : trackingKeys.trail(queryUserId, queryTrackingId),
     [isShuttle, queryTrackingId, queryUserId],
   );
-  const etaKey = useMemo(
-    () => isShuttle
-      ? trackingKeys.shuttleEta(queryUserId, queryTrackingId)
-      : trackingKeys.eta(queryUserId, queryTrackingId, queryStopId),
-    [isShuttle, queryStopId, queryTrackingId, queryUserId],
+  const shuttleEtaKey = useMemo(
+    () => trackingKeys.shuttleEta(queryUserId, queryTrackingId),
+    [queryTrackingId, queryUserId],
+  );
+  const nextEtaKey = useMemo(
+    () => trackingKeys.nextEta(queryUserId, queryTrackingId),
+    [queryTrackingId, queryUserId],
+  );
+  const targetEtaKey = useMemo(
+    () => trackingKeys.targetEta(queryUserId, queryTrackingId, queryTargetStopId),
+    [queryTargetStopId, queryTrackingId, queryUserId],
   );
 
   const latestQuery = useQuery({
@@ -462,20 +454,51 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     ),
   });
 
-  const etaQuery = useQuery<LiveTrackingEtaResponse>({
-    queryKey: etaKey,
-    queryFn: ({ signal }) => {
-      if (isShuttle) return getShuttleTrackingEta(trackingId, signal);
-      if (!stopId) throw new Error('Missing stopId.');
-      return getTrackingEta(trackingId, stopId, signal);
-    },
-    enabled: queryEnabled && (isShuttle || (Boolean(stopId) && hasValidStopId)),
+  const shuttleEtaQuery = useQuery<ShuttleTrackingEtaResponse>({
+    queryKey: shuttleEtaKey,
+    queryFn: ({ signal }) => getShuttleTrackingEta(trackingId, signal),
+    enabled: queryEnabled && isShuttle,
     staleTime: TRACKING_ETA_POLL_MS - 5_000,
     gcTime: TRACKING_TRAIL_REFRESH_MS,
     retry: shouldRetryTracking,
     refetchOnReconnect: false,
     refetchInterval: (query) => getTrackingRefetchInterval(
-      pollingEnabled && (isShuttle || Boolean(stopId)),
+      pollingEnabled && isShuttle,
+      query.state.error,
+      TRACKING_ETA_POLL_MS,
+    ),
+  });
+
+  // Operational next-stop: no stopId; poll every 60s when focused/foreground/online/non-terminal.
+  const nextEtaQuery = useQuery<TrackingEtaResponse>({
+    queryKey: nextEtaKey,
+    queryFn: ({ signal }) => getTrackingEta(trackingId, { signal }),
+    enabled: queryEnabled && !isShuttle,
+    staleTime: TRACKING_ETA_POLL_MS - 5_000,
+    gcTime: TRACKING_TRAIL_REFRESH_MS,
+    retry: shouldRetryTracking,
+    refetchOnReconnect: false,
+    refetchInterval: (query) => getTrackingRefetchInterval(
+      pollingEnabled && !isShuttle,
+      query.state.error,
+      TRACKING_ETA_POLL_MS,
+    ),
+  });
+
+  // Target ETA only when caller has a canonical UUID stopId.
+  const targetEtaQuery = useQuery<TrackingEtaResponse>({
+    queryKey: targetEtaKey,
+    queryFn: ({ signal }) => getTrackingEta(trackingId, {
+      stopId: stopId!,
+      signal,
+    }),
+    enabled: queryEnabled && !isShuttle && hasCanonicalTargetStopId,
+    staleTime: TRACKING_ETA_POLL_MS - 5_000,
+    gcTime: TRACKING_TRAIL_REFRESH_MS,
+    retry: shouldRetryTracking,
+    refetchOnReconnect: false,
+    refetchInterval: (query) => getTrackingRefetchInterval(
+      pollingEnabled && !isShuttle && hasCanonicalTargetStopId,
       query.state.error,
       TRACKING_ETA_POLL_MS,
     ),
@@ -485,7 +508,9 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     const fatalError = getFatalTrackingError([
       latestQuery.error,
       trailQuery.error,
-      etaQuery.error,
+      shuttleEtaQuery.error,
+      nextEtaQuery.error,
+      targetEtaQuery.error,
       trackingContext.contextQuery.error,
     ]);
     if (!fatalError) return;
@@ -494,9 +519,11 @@ export function useTripTracking(options: UseTripTrackingOptions) {
       ? current
       : { scopeKey, error: fatalError });
   }, [
-    etaQuery.error,
     latestQuery.error,
+    nextEtaQuery.error,
     scopeKey,
+    shuttleEtaQuery.error,
+    targetEtaQuery.error,
     trackingContext.contextQuery.error,
     trailQuery.error,
   ]);
@@ -504,20 +531,16 @@ export function useTripTracking(options: UseTripTrackingOptions) {
   useEffect(() => {
     if (!activeFatalError) return;
 
+    // 403/404: clear entire tracking subtree and disconnect (socket cleanup below).
     queryClient.removeQueries({ queryKey: trackingRootKey });
     setLiveTrail((current) => current.scopeKey === scopeKey
       ? { scopeKey, points: [] }
-      : current);
-    setNextEtaState((current) => current?.scopeKey === scopeKey ? null : current);
-    setTargetEtaState((current) => current?.scopeKey === targetEtaScopeKey
-      ? null
       : current);
     setDelayState((current) => current?.scopeKey === scopeKey ? null : current);
   }, [
     activeFatalError,
     queryClient,
     scopeKey,
-    targetEtaScopeKey,
     trackingRootKey,
   ]);
 
@@ -655,9 +678,9 @@ export function useTripTracking(options: UseTripTrackingOptions) {
           onGpsUpdate: appendLivePoint,
           onEtaUpdate: (eta) => {
             if (disposed) return;
-            setNextEtaState({ scopeKey, eta });
+            // RQ cache is source of truth — never write older socket over newer.
             queryClient.setQueryData<ShuttleTrackingEtaResponse>(
-              etaKey,
+              shuttleEtaKey,
               (current) => ({ eta: getNewestEta(current?.eta, eta) }),
             );
           },
@@ -674,7 +697,11 @@ export function useTripTracking(options: UseTripTrackingOptions) {
         onGpsUpdate: appendLivePoint,
         onEtaUpdate: (eta) => {
           if (disposed) return;
-          setNextEtaState({ scopeKey, eta });
+          // Always merge newer operational events into nextEta.
+          queryClient.setQueryData<TrackingEtaResponse>(
+            nextEtaKey,
+            (current) => ({ eta: getNewestEta(current?.eta, eta) }),
+          );
           setDelayState((current) => {
             if (eta.delayStatus === 'DELAYED' && eta.delayMinutes !== null) {
               return {
@@ -691,11 +718,12 @@ export function useTripTracking(options: UseTripTrackingOptions) {
 
             return current?.scopeKey === scopeKey ? null : current;
           });
-          if (stopId && hasValidStopId && eta.stopId === stopId) {
-            setTargetEtaState({ scopeKey: targetEtaScopeKey, eta });
-            queryClient.setQueryData<TrackingEtaResponse>(etaKey, (current) => ({
-              eta: getNewestEta(current?.eta, eta),
-            }));
+          // Only merge into target cache when stop IDs match.
+          if (hasCanonicalTargetStopId && eta.stopId === stopId) {
+            queryClient.setQueryData<TrackingEtaResponse>(
+              targetEtaKey,
+              (current) => ({ eta: getNewestEta(current?.eta, eta) }),
+            );
           }
         },
         onDelayUpdate: (delay) => {
@@ -733,16 +761,17 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     };
   }, [
     activeFatalError,
-    etaKey,
-    hasValidStopId,
+    hasCanonicalTargetStopId,
     isInactive,
     isShuttle,
     latestKey,
+    nextEtaKey,
     pollingEnabled,
     queryClient,
     scopeKey,
+    shuttleEtaKey,
     stopId,
-    targetEtaScopeKey,
+    targetEtaKey,
     trackingId,
     userId,
   ]);
@@ -771,59 +800,52 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     ]),
     [rawLatest, trailPoints],
   );
-  const scopedNextEta = nextEtaState?.scopeKey === scopeKey
-    ? nextEtaState.eta
-    : null;
-  const scopedTargetEta = targetEtaState?.scopeKey === targetEtaScopeKey
-    ? targetEtaState.eta
-    : null;
+  // React Query cache is the single source of truth for ETA (including socket merges).
   const nextEta: LiveTrackingEta | null = isShuttle
-    ? getNewestEta(
-        (etaQuery.data as ShuttleTrackingEtaResponse | undefined)?.eta,
-        scopedNextEta && 'shuttleTripId' in scopedNextEta
-          ? scopedNextEta
-          : null,
-      )
-    : scopedNextEta && 'stopId' in scopedNextEta
-      ? scopedNextEta
-      : null;
+    ? (shuttleEtaQuery.data?.eta ?? null)
+    : (nextEtaQuery.data?.eta ?? null);
   const targetEta: TrackingEta | null = isShuttle
     ? null
-    : getNewestEta(
-        (etaQuery.data as TrackingEtaResponse | undefined)?.eta,
-        scopedTargetEta,
-      );
-  // Keep the existing field until every presentation caller migrates to the
-  // explicit operational/booking-target ETA fields.
-  const eta = isShuttle ? nextEta : targetEta;
+    : (targetEtaQuery.data?.eta ?? null);
   const delay = delayState?.scopeKey === scopeKey ? delayState.delay : null;
 
   const refetchLatest = latestQuery.refetch;
   const refetchTrail = trailQuery.refetch;
-  const refetchEta = etaQuery.refetch;
+  const refetchShuttleEta = shuttleEtaQuery.refetch;
+  const refetchNextEta = nextEtaQuery.refetch;
+  const refetchTargetEta = targetEtaQuery.refetch;
   const refetchContext = trackingContext.contextQuery.refetch;
   const refetchAll = useCallback(async (): Promise<void> => {
     if (!queryEnabled) return;
 
     const requests: Array<Promise<unknown>> = [refetchLatest(), refetchContext()];
-    if (!isShuttle) requests.push(refetchTrail());
-    if (isShuttle || (stopId && hasValidStopId)) requests.push(refetchEta());
+    if (isShuttle) {
+      requests.push(refetchShuttleEta());
+    } else {
+      requests.push(refetchTrail(), refetchNextEta());
+      if (hasCanonicalTargetStopId) {
+        requests.push(refetchTargetEta());
+      }
+    }
     await Promise.all(requests);
   }, [
-    hasValidStopId,
+    hasCanonicalTargetStopId,
     isShuttle,
     queryEnabled,
     refetchContext,
-    refetchEta,
     refetchLatest,
+    refetchNextEta,
+    refetchShuttleEta,
+    refetchTargetEta,
     refetchTrail,
-    stopId,
   ]);
 
   const queryFatalError = getFatalTrackingError([
     latestQuery.error,
     trailQuery.error,
-    etaQuery.error,
+    shuttleEtaQuery.error,
+    nextEtaQuery.error,
+    targetEtaQuery.error,
     trackingContext.contextQuery.error,
   ]);
   const fatalError = activeFatalError ?? queryFatalError;
@@ -831,13 +853,13 @@ export function useTripTracking(options: UseTripTrackingOptions) {
   return {
     latest,
     trailPoints,
-    eta,
     nextEta,
     targetEta,
     delay,
     latestQuery,
     trailQuery,
-    etaQuery,
+    nextEtaQuery: isShuttle ? shuttleEtaQuery : nextEtaQuery,
+    targetEtaQuery,
     contextQuery: trackingContext.contextQuery,
     mapContext: trackingContext.mapContext,
     routeContext: trackingContext.routeContext,
@@ -850,7 +872,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     hasAuthenticatedUser: Boolean(userId),
     hasValidTripId: hasValidTrackingId,
     hasValidTrackingId,
-    hasValidStopId,
+    hasValidStopId: hasCanonicalTargetStopId,
     source,
     isShuttle,
     isAppActive,

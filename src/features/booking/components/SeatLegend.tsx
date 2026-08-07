@@ -20,11 +20,20 @@ export const SeatLegend = ({ items }: SeatLegendProps): React.JSX.Element => {
       color: theme.effects.contentSurfaceElevated,
       borderColor: theme.effects.contentBorderStrong,
     },
-    { label: t('booking.seats.selected'), color: theme.colors.primary, borderColor: theme.colors.primary },
+    {
+      label: t('booking.seats.selected'),
+      color: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
     {
       label: t('booking.seats.sold'),
       color: theme.effects.contentSurfaceSoft,
       borderColor: theme.colors.divider,
+    },
+    {
+      label: t('booking.seats.unavailable'),
+      color: theme.colors.errorLight ?? theme.effects.contentSurfaceSoft,
+      borderColor: theme.colors.error,
     },
   ];
 
@@ -48,12 +57,14 @@ export const SeatLegend = ({ items }: SeatLegendProps): React.JSX.Element => {
 const createStyles = (theme: AppTheme) => ({
   legend: {
     flexDirection: 'row',
+    flexWrap: 'wrap' as const,
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center',
-    gap: spacing.md,
+    alignSelf: 'stretch',
+    gap: spacing.sm,
+    rowGap: spacing.sm,
     backgroundColor: theme.effects.contentSurfaceSoft,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.effects.contentBorder,
     paddingHorizontal: spacing.md,
@@ -64,16 +75,20 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flexShrink: 1,
+    maxWidth: '48%' as unknown as number,
   },
   legendDot: {
     width: 14,
     height: 14,
     borderRadius: borderRadius.xs,
     borderWidth: 1.2,
+    flexShrink: 0,
   },
   legendText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
+    flexShrink: 1,
   },
 });

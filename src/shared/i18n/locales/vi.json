@@ -270,6 +270,7 @@
     "noNotifications": "Chưa có thông báo",
     "markAllRead": "Đánh dấu tất cả thông báo là đã đọc",
     "allCaughtUp": "Bạn đã xem hết thông báo",
+    "loadMoreFailed": "Không tải thêm được thông báo.",
     "unreadCount_one": "{{count}} thông báo chưa đọc",
     "unreadCount_other": "{{count}} thông báo chưa đọc",
     "itemAccessibility": "Mở thông báo: {{title}}",
@@ -751,13 +752,16 @@
       "walletLabel": "Ví VietRide",
       "walletDescription": "Thanh toán từ số dư ví khả dụng",
       "breakdown": "Chi tiết giá",
-      "baseFare": "Giá vé · {{count}} ghế",
-      "baseFare_one": "Giá vé · {{count}} ghế",
-      "baseFare_other": "Giá vé · {{count}} ghế",
+      "baseFare": "Tạm tính giá vé · {{count}} ghế",
+      "baseFare_one": "Tạm tính giá vé · {{count}} ghế",
+      "baseFare_other": "Tạm tính giá vé · {{count}} ghế",
       "voucherDiscount": "Giảm giá ưu đãi",
       "processing": "Đang xử lý...",
       "payWithVnpay": "Thanh toán qua VNPay",
-      "confirmBooking": "Xác nhận đặt vé"
+      "confirmBooking": "Xác nhận đặt vé",
+      "reselectSeats": "Chọn lại ghế",
+      "reselectOutboundSeats": "Chọn lại ghế chiều đi",
+      "reselectReturnSeats": "Chọn lại ghế chiều về"
     },
     "results": {
       "noRidesTitle": "Không tìm thấy chuyến",
