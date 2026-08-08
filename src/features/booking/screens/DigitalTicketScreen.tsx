@@ -645,7 +645,7 @@ function CheckoutTicketContent(): React.JSX.Element {
       source: 'trip',
       tripId: leg.tripId,
       bookingId: leg.bookingId,
-      stopId: leg.stopId,
+      ...(leg.trackingTarget ? { trackingTarget: leg.trackingTarget } : {}),
       tripStatus: leg.tripStatus,
     });
   }, [navigation]);
@@ -768,7 +768,7 @@ function HistoryTicketContent({
       source: 'trip',
       tripId: leg.tripId,
       bookingId: leg.bookingId,
-      stopId: leg.stopId,
+      ...(leg.trackingTarget ? { trackingTarget: leg.trackingTarget } : {}),
       tripStatus: leg.tripStatus,
     });
   }, [navigation]);

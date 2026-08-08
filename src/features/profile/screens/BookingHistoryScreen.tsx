@@ -147,7 +147,11 @@ const TicketFilterChip = memo(function TicketFilterChipComponent({
 interface TicketHistoryRowProps {
   item: PassengerTicketHistoryItem;
   onOpen: (item: PassengerTicketHistoryItem) => void;
-  onTrack: (tripId: string, bookingId: string) => void;
+  onTrack: (
+    tripId: string,
+    bookingId: string,
+    trackingTarget: PassengerTicketHistoryItem['trackingTarget'],
+  ) => void;
   onContinuePayment: ContinuePaymentHandler;
   isOpeningPayment: boolean;
 }
@@ -174,8 +178,8 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
   );
   const handleOpen = useCallback(() => onOpen(item), [item, onOpen]);
   const handleTrack = useCallback(
-    () => onTrack(item.tripId, item.id),
-    [item.id, item.tripId, onTrack],
+    () => onTrack(item.tripId, item.id, item.trackingTarget),
+    [item.id, item.trackingTarget, item.tripId, onTrack],
   );
   const handleContinuePayment = useCallback(() => {
     if (paymentRedirectUrl) onContinuePayment(item.id, item.type, paymentRedirectUrl);
@@ -333,7 +337,10 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
 
 interface ParcelHistoryRowProps {
   item: PassengerParcelHistoryItem;
-  onOpen: (parcelId: string) => void;
+  onOpen: (
+    parcelId: string,
+    trackingTarget?: PassengerParcelHistoryItem['trackingTarget'],
+  ) => void;
   onContinuePayment: ContinuePaymentHandler;
   isOpeningPayment: boolean;
 }
@@ -352,7 +359,10 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
   const paymentRedirectUrl = getParcelPaymentStage(item.status)
     ? item.paymentRedirectUrl
     : null;
-  const handleOpen = useCallback(() => onOpen(item.id), [item.id, onOpen]);
+  const handleOpen = useCallback(
+    () => onOpen(item.id, item.trackingTarget),
+    [item.id, item.trackingTarget, onOpen],
+  );
   const handleContinuePayment = useCallback(() => {
     if (paymentRedirectUrl) onContinuePayment(item.id, item.type, paymentRedirectUrl);
   }, [item.id, item.type, onContinuePayment, paymentRedirectUrl]);
@@ -699,14 +709,30 @@ export function BookingHistoryScreen(): React.JSX.Element {
     });
   }, [navigation]);
 
-  const handleTrack = useCallback((tripId: string, bookingId: string) => {
-    navigation.navigate('Tracking', { source: 'trip', tripId, bookingId });
+  const handleTrack = useCallback((
+    tripId: string,
+    bookingId: string,
+    trackingTarget: PassengerTicketHistoryItem['trackingTarget'],
+  ) => {
+    navigation.navigate('Tracking', {
+      source: 'trip',
+      tripId,
+      bookingId,
+      ...(trackingTarget ? { trackingTarget } : {}),
+    });
   }, [navigation]);
 
-  const handleParcelOpen = useCallback((parcelId: string) => {
+  const handleParcelOpen = useCallback((
+    parcelId: string,
+    trackingTarget?: PassengerParcelHistoryItem['trackingTarget'],
+  ) => {
     navigation.navigate('Parcel', {
       screen: 'ParcelDetail',
-      params: { parcelId, fromHistory: true },
+      params: {
+        parcelId,
+        fromHistory: true,
+        ...(trackingTarget ? { trackingTarget } : {}),
+      },
     });
   }, [navigation]);
 

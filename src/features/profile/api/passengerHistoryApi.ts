@@ -42,6 +42,66 @@ const paymentRedirectUrlSchema = z.string()
 const statusTokenSchema = z.string().trim().min(1).max(100)
   .regex(/^[A-Z0-9_]+$/, 'Invalid status token.');
 
+/**
+ * BE may serialize the inactive id as null (e.g. STOP with stationId:null).
+ * Accept both ids as optional/nullable, enforce XOR, transform to clean union.
+ */
+const trackingTargetSchema = z.preprocess(
+  (value) => (value === undefined ? null : value),
+  z.union([
+    z.null(),
+    z.object({
+      kind: z.enum(['STOP', 'STATION']),
+      stopId: z.string().uuid().nullable().optional(),
+      stationId: z.string().uuid().nullable().optional(),
+    }),
+  ]).superRefine((value, ctx) => {
+    if (value === null) return;
+    const stopId = value.stopId ?? null;
+    const stationId = value.stationId ?? null;
+    if (value.kind === 'STOP') {
+      if (!stopId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['stopId'],
+          message: 'STOP trackingTarget requires stopId.',
+        });
+      }
+      if (stationId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['stationId'],
+          message: 'STOP trackingTarget must not include stationId.',
+        });
+      }
+      return;
+    }
+    if (!stationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['stationId'],
+        message: 'STATION trackingTarget requires stationId.',
+      });
+    }
+    if (stopId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['stopId'],
+        message: 'STATION trackingTarget must not include stopId.',
+      });
+    }
+  }).transform((value) => {
+    if (value === null) return null;
+    if (value.kind === 'STOP' && value.stopId) {
+      return { kind: 'STOP' as const, stopId: value.stopId };
+    }
+    if (value.kind === 'STATION' && value.stationId) {
+      return { kind: 'STATION' as const, stationId: value.stationId };
+    }
+    return null;
+  }),
+);
+
 const baseHistoryItemShape = {
   id: z.string().uuid(),
   code: z.string().trim().min(1).max(100),
@@ -53,6 +113,7 @@ const baseHistoryItemShape = {
   departureDateTime: rfc3339Schema.nullable(),
   estimatedArrivalTime: rfc3339Schema.nullable(),
   paymentRedirectUrl: paymentRedirectUrlSchema,
+  trackingTarget: trackingTargetSchema,
 } as const;
 
 const ticketHistoryItemSchema = z.object({

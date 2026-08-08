@@ -118,12 +118,14 @@ export const TripCard = memo(function TripCardComponent({
             </Text>
           </View>
         ) : null}
-        <View style={styles.metaChip}>
-          <Clock size={15} weight="bold" color={theme.colors.textSecondary} />
-          <Text style={styles.metaText}>
-            {t('booking.tripCard.durationHours', { value: trip.durationHours })}
-          </Text>
-        </View>
+        {trip.durationHours > 0 ? (
+          <View style={styles.metaChip}>
+            <Clock size={15} weight="bold" color={theme.colors.textSecondary} />
+            <Text style={styles.metaText}>
+              {t('booking.tripCard.durationHours', { value: trip.durationHours })}
+            </Text>
+          </View>
+        ) : null}
         <View style={[styles.seatsLeftBadge, seatsUrgent && styles.seatsLeftUrgent]}>
           <Text style={[styles.seatsLeftText, seatsUrgent && styles.seatsLeftTextUrgent]}>
             {t('booking.tripCard.seatsLeft', { count: trip.seatsLeft })}

@@ -5,6 +5,7 @@ import type {
 } from '../types';
 import type { StationDetail } from '@features/trip/types';
 import {
+  composeShuttleServiceAddress,
   getShuttleEligibility,
   isOriginStationPickup,
   isShuttleRequestCutoffPassed,
@@ -42,6 +43,29 @@ const station = {
   latitude: 10.7769,
   longitude: 106.7009,
 } as StationDetail;
+
+describe('composeShuttleServiceAddress', () => {
+  it('keeps the POI display name with the formatted street line', () => {
+    expect(composeShuttleServiceAddress(
+      'S802 Origami',
+      'Long Bình, Quận 9, Hồ Chí Minh, Vietnam',
+    )).toBe('S802 Origami, Long Bình, Quận 9, Hồ Chí Minh, Vietnam');
+  });
+
+  it('does not duplicate when formatted address already starts with the name', () => {
+    expect(composeShuttleServiceAddress(
+      'S802 Origami',
+      'S802 Origami, Long Bình, Quận 9, Hồ Chí Minh',
+    )).toBe('S802 Origami, Long Bình, Quận 9, Hồ Chí Minh');
+  });
+
+  it('falls back to a single non-empty field', () => {
+    expect(composeShuttleServiceAddress('S802 Origami', '')).toBe('S802 Origami');
+    expect(composeShuttleServiceAddress('', 'Long Bình, Quận 9')).toBe(
+      'Long Bình, Quận 9',
+    );
+  });
+});
 
 describe('Shuttle booking rules', () => {
   it('normalizes an address and keeps finite coordinates', () => {

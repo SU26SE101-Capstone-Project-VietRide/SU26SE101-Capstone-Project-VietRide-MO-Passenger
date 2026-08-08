@@ -9,12 +9,17 @@ export interface ApiMeta {
 export interface ApiFieldError {
   field: string;
   message: string;
+  /**
+   * Optional multi-value payload (e.g. seat labels in `value: string[]`).
+   * Mirrors BE ExtractSeatNumbers which reads both message and value.
+   */
+  values?: string[];
 }
 
 export interface ApiErrorPayload {
   code: string;
   message: string;
-  fields?: ApiFieldError[] | Record<string, string[] | string>;
+  fields?: ApiFieldError[] | Record<string, string[] | string> | Array<Record<string, unknown>>;
 }
 
 export interface ApiErrorEnvelope {
@@ -101,6 +106,42 @@ export const isApiErrorEnvelope = (value: unknown): value is ApiErrorEnvelope =>
   );
 };
 
+const isSeatNumbersField = (field: string): boolean => {
+  const normalized = field.trim().toLowerCase();
+  return normalized === 'seatnumbers'
+    || normalized === 'outbound.seatnumbers'
+    || normalized === 'return.seatnumbers';
+};
+
+/** Collect seat-like labels from message and/or value[] (BE ExtractSeatNumbers parity). */
+const collectFieldValueLabels = (fieldError: Record<string, unknown>): string[] => {
+  const labels: string[] = [];
+  const seen = new Set<string>();
+  const pushToken = (raw: string): void => {
+    for (const part of raw.split(/[,;\s]+/)) {
+      const token = part.trim();
+      if (!token || seen.has(token)) continue;
+      seen.add(token);
+      labels.push(token);
+    }
+  };
+
+  if (typeof fieldError.message === 'string' && fieldError.message.trim()) {
+    pushToken(fieldError.message);
+  }
+
+  const value = fieldError.value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (typeof item === 'string' && item.trim()) pushToken(item);
+    }
+  } else if (typeof value === 'string' && value.trim()) {
+    pushToken(value);
+  }
+
+  return labels;
+};
+
 export const normalizeApiFields = (
   fields?: ApiErrorPayload['fields'],
 ): ApiFieldError[] => {
@@ -109,19 +150,46 @@ export const normalizeApiFields = (
   }
 
   if (Array.isArray(fields)) {
-    return fields.filter(
-      (fieldError): fieldError is ApiFieldError =>
-        isRecord(fieldError)
-        && typeof fieldError.field === 'string'
-        && typeof fieldError.message === 'string',
-    );
+    return fields.flatMap((fieldError) => {
+      if (!isRecord(fieldError) || typeof fieldError.field !== 'string') {
+        return [];
+      }
+
+      const field = fieldError.field;
+      const messageText = typeof fieldError.message === 'string'
+        ? fieldError.message
+        : '';
+      const labels = collectFieldValueLabels(fieldError);
+
+      // Classic { field, message } validation errors.
+      if (messageText && !isSeatNumbersField(field) && !Array.isArray(fieldError.value)) {
+        return [{ field, message: messageText }];
+      }
+
+      // Seat conflicts: keep field when message and/or value[] present.
+      if (isSeatNumbersField(field) || Array.isArray(fieldError.value)) {
+        if (!messageText && labels.length === 0) return [];
+        return [{
+          field,
+          message: messageText || labels.join(', '),
+          ...(labels.length > 0 ? { values: labels } : {}),
+        }];
+      }
+
+      if (!messageText) return [];
+      return [{ field, message: messageText }];
+    });
   }
 
   return Object.entries(fields).flatMap(([field, value]) => {
     if (Array.isArray(value)) {
-      return value
-        .filter((message): message is string => typeof message === 'string')
-        .map((message) => ({ field, message }));
+      const labels = value.filter((item): item is string => typeof item === 'string');
+      if (labels.length === 0) return [];
+      return [{
+        field,
+        message: labels.join(', '),
+        ...(isSeatNumbersField(field) ? { values: labels } : {}),
+      }];
     }
 
     return typeof value === 'string' ? [{ field, message: value }] : [];

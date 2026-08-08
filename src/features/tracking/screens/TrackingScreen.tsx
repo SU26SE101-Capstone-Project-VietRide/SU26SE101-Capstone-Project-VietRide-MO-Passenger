@@ -79,7 +79,7 @@ export function TrackingScreen(): React.JSX.Element {
           <LiveTripTrackingPanel
             source="trip"
             tripId={route.params.tripId}
-            stopId={route.params.stopId}
+            trackingTarget={route.params.trackingTarget}
             tripStatus={tripStatus}
             terminalMessage={terminalMessageKey ? t(terminalMessageKey) : undefined}
             onRouteHeaderChange={handleRouteHeaderChange}

@@ -1,29 +1,34 @@
+import { useRef } from 'react';
 import {
   useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
   type InfiniteData,
+  type QueryClient,
+  type QueryKey,
 } from '@tanstack/react-query';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { createIdempotencyKey } from '@shared/api/idempotency';
 import { isUuid } from '@shared/utils/pathSegment';
 import {
   listNotifications,
+  markAllNotificationsRead,
   markNotificationRead,
   notificationKeys,
   type ListNotificationsParams,
+  type MarkAllNotificationsReadResult,
   type NotificationItemDto,
+  type NotificationListKeyFilters,
   type PagedNotifications,
 } from '../api/notificationApi';
 
-/** Filters for the infinite list — page is never part of the query key. */
-export type NotificationListFilters = Omit<ListNotificationsParams, 'page'>;
+/** Filters for the infinite list — cursor/page are never part of the query key. */
+export type NotificationListFilters = NotificationListKeyFilters;
 
 export const DEFAULT_NOTIFICATION_LIST_PARAMS: Required<NotificationListFilters> = {
   unreadOnly: false,
   pageSize: 30,
-  sortBy: 'createdAt',
-  sortDir: 'desc',
 };
 
 const normalizeListFilters = (
@@ -31,9 +36,59 @@ const normalizeListFilters = (
 ): Required<NotificationListFilters> => ({
   unreadOnly: params.unreadOnly ?? DEFAULT_NOTIFICATION_LIST_PARAMS.unreadOnly,
   pageSize: params.pageSize ?? DEFAULT_NOTIFICATION_LIST_PARAMS.pageSize,
-  sortBy: params.sortBy ?? DEFAULT_NOTIFICATION_LIST_PARAMS.sortBy,
-  sortDir: params.sortDir ?? DEFAULT_NOTIFICATION_LIST_PARAMS.sortDir,
 });
+
+/**
+ * pageParam:
+ * - null → first page (unreadOnly + pageSize)
+ * - string starting with "cursor:" → opaque cursor
+ * - string starting with "page:" → numeric page fallback
+ */
+export type NotificationPageParam = string | null;
+
+const cursorPageParam = (cursor: string): string => `cursor:${cursor}`;
+const numericPageParam = (page: number): string => `page:${page}`;
+
+const parsePageParam = (
+  pageParam: NotificationPageParam,
+  filters: Required<NotificationListFilters>,
+): ListNotificationsParams => {
+  if (!pageParam) {
+    return {
+      unreadOnly: filters.unreadOnly,
+      pageSize: filters.pageSize,
+    };
+  }
+  if (pageParam.startsWith('cursor:')) {
+    return { cursor: pageParam.slice('cursor:'.length) };
+  }
+  if (pageParam.startsWith('page:')) {
+    const page = Number(pageParam.slice('page:'.length));
+    return {
+      unreadOnly: filters.unreadOnly,
+      pageSize: filters.pageSize,
+      page: Number.isFinite(page) && page > 1 ? page : 1,
+    };
+  }
+  // Legacy opaque string treated as cursor.
+  return { cursor: pageParam };
+};
+
+type InfiniteNotifications = InfiniteData<PagedNotifications, NotificationPageParam>;
+
+/** Keep only the first page so refresh/invalidation cannot O(n) refetch. */
+export const trimNotificationInfiniteToFirstPage = (
+  queryClient: QueryClient,
+  queryKey: QueryKey,
+): void => {
+  queryClient.setQueryData<InfiniteNotifications>(queryKey, (current) => {
+    if (!current?.pages?.length) return current;
+    return {
+      pages: [current.pages[0]],
+      pageParams: [current.pageParams[0] ?? null],
+    };
+  });
+};
 
 export function useNotifications(params: NotificationListFilters = {}) {
   const userId = useAuthStore((state) => state.user?.id);
@@ -41,16 +96,21 @@ export function useNotifications(params: NotificationListFilters = {}) {
 
   return useInfiniteQuery({
     queryKey: notificationKeys.list(userId ?? 'none', filters),
-    queryFn: ({ pageParam, signal }) => listNotifications({
-      ...filters,
-      page: pageParam,
-    }, signal),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) => (
-      lastPage.hasNextPage && lastPage.page < lastPage.totalPages
-        ? lastPage.page + 1
-        : undefined
+    queryFn: ({ pageParam, signal }) => listNotifications(
+      parsePageParam(pageParam, filters),
+      signal,
     ),
+    initialPageParam: null as NotificationPageParam,
+    getNextPageParam: (lastPage): NotificationPageParam | undefined => {
+      if (lastPage.nextCursor) {
+        return cursorPageParam(lastPage.nextCursor);
+      }
+      // Real page fallback when BE still reports hasNextPage without cursor.
+      if (lastPage.hasNextPage && lastPage.page < lastPage.totalPages) {
+        return numericPageParam(lastPage.page + 1);
+      }
+      return undefined;
+    },
     enabled: Boolean(userId),
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
@@ -68,10 +128,7 @@ export function useNotificationUnreadCount() {
     queryKey: notificationKeys.unreadCount(userId ?? 'none'),
     queryFn: ({ signal }) => listNotifications({
       unreadOnly: true,
-      page: 1,
       pageSize: 1,
-      sortBy: 'createdAt',
-      sortDir: 'desc',
     }, signal),
     select: (data) => data.totalItems,
     enabled: Boolean(userId),
@@ -83,17 +140,12 @@ export function useNotificationUnreadCount() {
   });
 }
 
-type InfiniteNotifications = InfiniteData<PagedNotifications, number>;
-
-export function useMarkNotificationRead(_params: NotificationListFilters = {}) {
+export function useMarkNotificationRead(params: NotificationListFilters = {}) {
   const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.user?.id);
   const scopedUserId = userId ?? 'none';
-  const userQueryKey = notificationKeys.user(scopedUserId);
-  const listQueryKey = notificationKeys.list(
-    scopedUserId,
-    normalizeListFilters(_params),
-  );
+  const filters = normalizeListFilters(params);
+  const listQueryKey = notificationKeys.list(scopedUserId, filters);
   const unreadCountKey = notificationKeys.unreadCount(scopedUserId);
 
   return useMutation({
@@ -106,43 +158,36 @@ export function useMarkNotificationRead(_params: NotificationListFilters = {}) {
     retry: 0,
     onMutate: async (notificationId) => {
       if (!isUuid(notificationId)) {
-        return { previousLists: [], previousUnread: undefined as number | undefined };
+        return { previousList: undefined as InfiniteNotifications | undefined, previousUnread: undefined as number | undefined };
       }
 
-      await queryClient.cancelQueries({ queryKey: userQueryKey });
+      await queryClient.cancelQueries({ queryKey: listQueryKey });
+      await queryClient.cancelQueries({ queryKey: unreadCountKey });
 
-      const previousLists = queryClient.getQueriesData<InfiniteNotifications>({
-        queryKey: [...notificationKeys.user(scopedUserId), 'list'],
-      });
+      const previousList = queryClient.getQueryData<InfiniteNotifications>(listQueryKey);
       const previousUnread = queryClient.getQueryData<PagedNotifications>(unreadCountKey);
 
-      const wasUnread = previousLists.some(([, data]) =>
-        data?.pages.some((page) =>
-          page.items.some((item) => item.id === notificationId && !item.readAt),
-        ),
+      const wasUnread = previousList?.pages.some((page) =>
+        page.items.some((item) => item.id === notificationId && !item.readAt),
       );
       const now = new Date().toISOString();
 
-      // Optimistically patch the item across every infinite page of this user.
-      queryClient.setQueriesData<InfiniteNotifications>(
-        { queryKey: [...notificationKeys.user(scopedUserId), 'list'] },
-        (current) => {
-          if (!current) return current;
-          return {
-            ...current,
-            pages: current.pages.map((page) => ({
-              ...page,
-              items: page.items.map((item) => (
-                item.id === notificationId && !item.readAt
-                  ? { ...item, readAt: now }
-                  : item
-              )),
-            })),
-          };
-        },
-      );
+      // Patch only the active list key (not every user list variant).
+      queryClient.setQueryData<InfiniteNotifications>(listQueryKey, (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          pages: current.pages.map((page) => ({
+            ...page,
+            items: page.items.map((item) => (
+              item.id === notificationId && !item.readAt
+                ? { ...item, readAt: now }
+                : item
+            )),
+          })),
+        };
+      });
 
-      // Decrement unread count at most once if the item was previously unread.
       if (wasUnread && previousUnread) {
         queryClient.setQueryData<PagedNotifications>(unreadCountKey, {
           ...previousUnread,
@@ -150,18 +195,84 @@ export function useMarkNotificationRead(_params: NotificationListFilters = {}) {
         });
       }
 
-      return { previousLists, previousUnread, listQueryKey };
+      return { previousList, previousUnread };
     },
     onError: (_error, _notificationId, context) => {
-      context?.previousLists?.forEach(([key, data]) => {
-        queryClient.setQueryData(key, data);
-      });
+      if (context?.previousList !== undefined) {
+        queryClient.setQueryData(listQueryKey, context.previousList);
+      }
       if (context?.previousUnread !== undefined) {
         queryClient.setQueryData(unreadCountKey, context.previousUnread);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: userQueryKey });
+      // Trim then invalidate only active list + unread (bounded refetch).
+      trimNotificationInfiniteToFirstPage(queryClient, listQueryKey);
+      queryClient.invalidateQueries({ queryKey: listQueryKey });
+      queryClient.invalidateQueries({ queryKey: unreadCountKey });
+    },
+  });
+}
+
+/**
+ * Mark-all with stable idempotency key for ambiguous retries.
+ * Patches only rows with createdAt <= readAt; reduces unread by markedCount.
+ */
+export function useMarkAllNotificationsRead(params: NotificationListFilters = {}) {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore((state) => state.user?.id);
+  const scopedUserId = userId ?? 'none';
+  const filters = normalizeListFilters(params);
+  const listQueryKey = notificationKeys.list(scopedUserId, filters);
+  const unreadCountKey = notificationKeys.unreadCount(scopedUserId);
+  // Keep one key for the in-flight intent; reset only after success.
+  const idempotencyKeyRef = useRef<string | null>(null);
+
+  return useMutation({
+    mutationFn: async (): Promise<MarkAllNotificationsReadResult> => {
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current = createIdempotencyKey('notification-read-all');
+      }
+      return markAllNotificationsRead(idempotencyKeyRef.current);
+    },
+    retry: 0,
+    onSuccess: (result) => {
+      idempotencyKeyRef.current = null;
+      const cutoffMs = Date.parse(result.readAt);
+
+      queryClient.setQueryData<InfiniteNotifications>(listQueryKey, (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          pages: current.pages.map((page) => ({
+            ...page,
+            items: page.items.map((item) => {
+              if (item.readAt) return item;
+              const createdMs = Date.parse(item.createdAt);
+              if (!Number.isFinite(cutoffMs) || !Number.isFinite(createdMs)) {
+                return item;
+              }
+              if (createdMs <= cutoffMs) {
+                return { ...item, readAt: result.readAt };
+              }
+              return item;
+            }),
+          })),
+        };
+      });
+
+      const previousUnread = queryClient.getQueryData<PagedNotifications>(unreadCountKey);
+      if (previousUnread) {
+        queryClient.setQueryData<PagedNotifications>(unreadCountKey, {
+          ...previousUnread,
+          totalItems: Math.max(0, previousUnread.totalItems - result.markedCount),
+        });
+      }
+    },
+    onSettled: () => {
+      trimNotificationInfiniteToFirstPage(queryClient, listQueryKey);
+      queryClient.invalidateQueries({ queryKey: listQueryKey });
+      queryClient.invalidateQueries({ queryKey: unreadCountKey });
     },
   });
 }

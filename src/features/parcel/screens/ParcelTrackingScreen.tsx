@@ -28,6 +28,8 @@ import {
   TrackingHeader,
   type TrackingHeaderRoute,
 } from '@features/tracking';
+import { isUuid } from '@shared/utils/pathSegment';
+import type { TrackingTarget } from '@features/tracking/types/trackingTarget';
 import { ErrorView, ParcelTrackingTimeline } from '../components';
 import { useParcelDetail } from '../hooks/useParcelQueries';
 import {
@@ -58,7 +60,7 @@ export function ParcelTrackingScreen(): React.JSX.Element {
   const locale = i18n.resolvedLanguage ?? i18n.language;
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { parcelId } = route.params;
+  const { parcelId, trackingTarget: routeTrackingTarget } = route.params;
   const {
     data: parcel,
     error,
@@ -67,6 +69,14 @@ export function ParcelTrackingScreen(): React.JSX.Element {
     isRefetching,
     refetch,
   } = useParcelDetail(parcelId);
+
+  const trackingTarget = useMemo<TrackingTarget | undefined>(() => {
+    if (routeTrackingTarget) return routeTrackingTarget;
+    if (parcel?.dropoffStopId && isUuid(parcel.dropoffStopId)) {
+      return { kind: 'STOP', stopId: parcel.dropoffStopId };
+    }
+    return undefined;
+  }, [parcel?.dropoffStopId, routeTrackingTarget]);
 
   const milestones = useMemo(
     () => (parcel ? buildParcelMilestones(parcel, locale) : []),
@@ -206,7 +216,7 @@ export function ParcelTrackingScreen(): React.JSX.Element {
           <LiveTripTrackingPanel
             source="trip"
             tripId={parcel.tripId}
-            stopId={parcel.dropoffStopId ?? undefined}
+            trackingTarget={trackingTarget}
             sourceTerminal={isTrackingTerminal}
             terminalMessage={t('parcel.tracking.transportComplete')}
             refreshing={isRefetching}

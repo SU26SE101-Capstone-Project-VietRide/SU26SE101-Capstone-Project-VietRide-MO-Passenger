@@ -148,9 +148,15 @@ const buildDropOffPoints = (trip: TripDetail, selectedPickUp?: PickUpPoint | nul
   ];
 };
 
+/**
+ * Keep the same idempotency key for ambiguous / in-flight outcomes.
+ * IDEMPOTENCY_REQUEST_PENDING (409) means BE still has the original request —
+ * a new key on the next tap can create a duplicate booking/payment.
+ */
 const shouldRetainBookingIdempotencyKey = (error: ApiRequestError): boolean =>
   error.isNetworkError
   || error.code === 'REQUEST_TIMEOUT'
+  || error.code === 'IDEMPOTENCY_REQUEST_PENDING'
   || error.statusCode === 408
   || Boolean(error.statusCode && error.statusCode >= 500);
 
@@ -203,6 +209,90 @@ const uniqueConflictLegs = (
   return result;
 };
 
+/**
+ * Exact BE field allowlist only (no endsWith heuristics).
+ * - one-way: always outbound
+ * - RT `outbound.seatNumbers` → outbound
+ * - RT `return.seatNumbers` → return
+ * - RT top-level `seatNumbers` or unknown/missing → both legs
+ */
+export const resolveSeatConflictLegsFromError = (
+  isRoundTrip: boolean,
+  error?: ApiRequestError,
+): BookingSeatConflictLeg[] => {
+  if (!isRoundTrip) {
+    return ['outbound'];
+  }
+
+  const fields = error?.fields ?? [];
+  if (fields.length === 0) {
+    return uniqueConflictLegs(['outbound', 'return']);
+  }
+
+  const legs: BookingSeatConflictLeg[] = [];
+  let sawKnownField = false;
+
+  for (const fieldError of fields) {
+    const field = fieldError.field.trim().toLowerCase();
+    if (field === 'outbound.seatnumbers') {
+      sawKnownField = true;
+      legs.push('outbound');
+      continue;
+    }
+    if (field === 'return.seatnumbers') {
+      sawKnownField = true;
+      legs.push('return');
+      continue;
+    }
+    if (field === 'seatnumbers') {
+      // Ambiguous on round-trip — reconcile both legs.
+      sawKnownField = true;
+      legs.push('outbound', 'return');
+    }
+  }
+
+  if (!sawKnownField || legs.length === 0) {
+    return uniqueConflictLegs(['outbound', 'return']);
+  }
+  return uniqueConflictLegs(legs);
+};
+
+/**
+ * Authoritative conflicted seat labels from BE fields.
+ * Prefer structured `values` (from value[]), then message tokens — matches
+ * TripServiceClient.ExtractSeatNumbers on BE.
+ */
+export const extractConflictedSeatLabels = (
+  error?: ApiRequestError,
+): string[] => {
+  if (!error?.fields?.length) return [];
+  const labels: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw: string): void => {
+    for (const token of raw.split(/[,;\s]+/)) {
+      const seat = token.trim();
+      if (!seat || seen.has(seat)) continue;
+      seen.add(seat);
+      labels.push(seat);
+    }
+  };
+
+  for (const fieldError of error.fields) {
+    const field = fieldError.field.trim().toLowerCase();
+    const isSeatField = field === 'seatnumbers'
+      || field === 'outbound.seatnumbers'
+      || field === 'return.seatnumbers';
+    if (!isSeatField) continue;
+
+    if (fieldError.values?.length) {
+      for (const value of fieldError.values) push(value);
+      continue;
+    }
+    if (fieldError.message?.trim()) push(fieldError.message);
+  }
+  return labels;
+};
+
 export type OutboundState = BookingLegDraft;
 type ReturnState = BookingLegDraft;
 
@@ -232,8 +322,9 @@ interface BookingStore {
   /**
    * After a definitive seat conflict: refresh seat maps for affected trip(s),
    * reconcile selection per tripId+seatNumber, never auto-retry booking.
+   * Uses BE error.fields (outbound.seatNumbers / return.seatNumbers) when present.
    */
-  handleSeatUnavailableConflict: () => Promise<void>;
+  handleSeatUnavailableConflict: (error?: ApiRequestError) => Promise<void>;
 
   // ─── Computed ────────────────────────────────────────
   totalSteps: () => number;
@@ -430,7 +521,14 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   })),
   restoreLegForEdit: (leg) => set((state) => {
     const snapshot = leg === 'outbound' ? state.outboundState : state.returnState;
-    if (!snapshot?.trip) return { currentLeg: leg, seatMap: [] };
+    if (!snapshot?.trip) {
+      return {
+        currentLeg: leg,
+        seatMap: [],
+        bookingError: null,
+        bookingStatus: 'idle' as const,
+      };
+    }
 
     const pickUpPoints = snapshot.trip === state.selectedTrip
       ? state.pickUpPoints
@@ -451,6 +549,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       selectedShuttleDropoff: snapshot.shuttleDropoff ?? null,
       pickUpPoints,
       dropOffPoints,
+      // Clear stale checkout error so Payment does not keep blocking UI after edit.
+      bookingError: null,
+      bookingStatus: 'idle' as const,
     };
   }),
   seatConflictLegs: [],
@@ -458,16 +559,23 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     seatConflictLegs: state.seatConflictLegs.filter((item) => item !== leg),
   })),
   clearAllSeatConflicts: () => set({ seatConflictLegs: [] }),
-  handleSeatUnavailableConflict: async () => {
+  handleSeatUnavailableConflict: async (error) => {
     const generation = bookingGeneration;
     const state = get();
     const isRoundTrip = Boolean(state.searchParams.isRoundTrip);
 
-    // Without structured per-leg fields from BE (BOOK-BE-002), mark both legs
-    // conservatively for round-trip; one-way is always the active outbound path.
-    const conflictLegs: BookingSeatConflictLeg[] = isRoundTrip
-      ? uniqueConflictLegs(['outbound', 'return'])
-      : ['outbound'];
+    // BE v1.63+: field-scoped legs. Fallback both RT legs only when fields missing/unknown.
+    const conflictLegs = resolveSeatConflictLegsFromError(isRoundTrip, error);
+    const conflictedLabels = new Set(
+      extractConflictedSeatLabels(error).map((label) => label.toUpperCase()),
+    );
+    const dropConflicted = (seats: Seat[]): Seat[] => {
+      if (conflictedLabels.size === 0) return seats;
+      return seats.filter((seat) => {
+        const label = String(seat.label || seat.id).toUpperCase();
+        return !conflictedLabels.has(label);
+      });
+    };
 
     set({ seatConflictLegs: conflictLegs });
 
@@ -478,15 +586,18 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     };
 
     const targets: RefreshTarget[] = [];
+    const includeOutbound = conflictLegs.includes('outbound');
+    const includeReturn = conflictLegs.includes('return');
+
     if (isRoundTrip) {
-      if (state.outboundState?.trip?.id) {
+      if (includeOutbound && state.outboundState?.trip?.id) {
         targets.push({
           leg: 'outbound',
           tripId: state.outboundState.trip.id,
           seats: state.outboundState.seats,
         });
       }
-      if (state.returnState?.trip?.id) {
+      if (includeReturn && state.returnState?.trip?.id) {
         targets.push({
           leg: 'return',
           tripId: state.returnState.trip.id,
@@ -524,11 +635,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       return;
     }
 
-    const refreshFailed = uniqueTripIds.some((tripId) => seatMapByTripId.get(tripId) == null);
-    // If any refresh fails or BE cannot attribute legs, keep both RT legs conflicted.
-    const nextConflictLegs = isRoundTrip && refreshFailed
-      ? uniqueConflictLegs(['outbound', 'return'])
-      : conflictLegs;
+    const nextConflictLegs = conflictLegs;
 
     set((current) => {
       if (generation !== bookingGeneration) {
@@ -542,23 +649,31 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
       for (const target of targets) {
         const seatRows = seatMapByTripId.get(target.tripId);
-        if (!seatRows) {
-          continue;
+        let nextSeats: Seat[];
+        if (seatRows) {
+          // Reconcile by tripId + seatNumber; never merge same labels across legs.
+          nextSeats = dropConflicted(reconcileSelectedSeats(seatRows, target.seats));
+        } else {
+          // Refresh failed: still drop authoritative conflicted labels so user
+          // cannot resubmit the same 409 seats.
+          nextSeats = dropConflicted(target.seats);
         }
-
-        // Reconcile by tripId + seatNumber (seat.id); never merge same labels across legs.
-        const reconciled = reconcileSelectedSeats(seatRows, target.seats);
 
         if (target.leg === 'outbound' && nextOutbound?.trip?.id === target.tripId) {
-          nextOutbound = { ...nextOutbound, seats: reconciled };
+          nextOutbound = { ...nextOutbound, seats: nextSeats };
         }
         if (target.leg === 'return' && nextReturn?.trip?.id === target.tripId) {
-          nextReturn = { ...nextReturn, seats: reconciled };
+          nextReturn = { ...nextReturn, seats: nextSeats };
         }
         if (current.selectedTrip?.id === target.tripId) {
-          nextSelectedSeats = reconciled;
-          nextSeatMap = seatRows;
+          nextSelectedSeats = nextSeats;
+          if (seatRows) nextSeatMap = seatRows;
         }
+      }
+
+      // One-way / active selection when no target matched but labels known.
+      if (targets.length === 0 && conflictedLabels.size > 0) {
+        nextSelectedSeats = dropConflicted(current.selectedSeats);
       }
 
       return {
@@ -702,6 +817,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           state.highestStepReached,
           state.currentLeg === 'return' ? 5 : 1,
         ),
+        bookingError: null,
+        bookingStatus: 'idle' as const,
+        seatConflictLegs: [],
       };
     });
   },
@@ -1015,7 +1133,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           });
           // Definitive 409 seat conflict: refresh maps, never auto-retry submit.
           if (apiError.code === 'BOOKING_SEAT_UNAVAILABLE') {
-            get().handleSeatUnavailableConflict().catch(() => undefined);
+            get().handleSeatUnavailableConflict(apiError).catch(() => undefined);
           }
         }
         throw apiError;

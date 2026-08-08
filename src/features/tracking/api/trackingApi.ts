@@ -8,6 +8,9 @@ import { isValidGeoCoordinate } from '@shared/utils/geo';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 import { z } from 'zod';
 
+import type { TrackingTarget } from '../types/trackingTarget';
+import { trackingTargetCacheKey } from '../types/trackingTarget';
+
 export const trackingDateTimeSchema = z.string().datetime();
 
 const trackingPointShape = {
@@ -27,18 +30,98 @@ const trackingTrailPointSchema = z.object({
   id: z.string().uuid(),
 }).strict().refine(isValidGeoCoordinate, 'Invalid GPS coordinate.');
 
+/**
+ * REST ETA (BE v1.63+): discriminated target STOP|STATION.
+ * Rolling compat:
+ * - missing targetKind + stopId only → STOP
+ * - inactive id may arrive as null (strip before XOR), not only omitted
+ * Socket payloads re-use a STOP-normalized variant in trackingRealtime.
+ */
 export const trackingEtaSchema = z.object({
   tripId: z.string().uuid(),
-  stopId: z.string().uuid(),
+  targetKind: z.enum(['STOP', 'STATION']).optional(),
+  // nullish: BE/Redis may emit inactive side as null rather than omitting.
+  stopId: z.string().uuid().nullish(),
+  stationId: z.string().uuid().nullish(),
   stopName: z.string().nullable().optional(),
   etaMinutes: z.number().int().positive(),
   estimatedArrivalTime: trackingDateTimeSchema,
   distanceMeters: z.number().int().nonnegative(),
   updatedAt: trackingDateTimeSchema,
-  delayed: z.boolean().nullable(),
-  delayStatus: z.enum(['DELAYED', 'ON_TIME', 'UNKNOWN']),
-  delayMinutes: z.number().int().nonnegative().nullable(),
-}).strict();
+  delayed: z.boolean().nullable().optional().default(null),
+  delayStatus: z.enum(['DELAYED', 'ON_TIME', 'UNKNOWN']).optional().default('UNKNOWN'),
+  delayMinutes: z.number().int().nonnegative().nullable().optional().default(null),
+}).strict().superRefine((value, ctx) => {
+  const stopId = value.stopId ?? null;
+  const stationId = value.stationId ?? null;
+  const inferredKind = value.targetKind
+    ?? (stopId && !stationId
+      ? 'STOP' as const
+      : stationId && !stopId
+        ? 'STATION' as const
+        : undefined);
+
+  if (!inferredKind) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['targetKind'],
+      message: 'ETA must declare targetKind STOP|STATION with a matching id.',
+    });
+    return;
+  }
+
+  if (inferredKind === 'STOP') {
+    if (!stopId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['stopId'],
+        message: 'STOP ETA requires stopId.',
+      });
+    }
+    if (stationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['stationId'],
+        message: 'STOP ETA must not include stationId.',
+      });
+    }
+    return;
+  }
+
+  if (!stationId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['stationId'],
+      message: 'STATION ETA requires stationId.',
+    });
+  }
+  if (stopId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['stopId'],
+      message: 'STATION ETA must not include stopId.',
+    });
+  }
+}).transform((value) => {
+  const stopId = value.stopId ?? undefined;
+  const stationId = value.stationId ?? undefined;
+  const targetKind = value.targetKind
+    ?? (stopId ? 'STOP' as const : 'STATION' as const);
+  return {
+    tripId: value.tripId,
+    targetKind,
+    ...(stopId ? { stopId } : {}),
+    ...(stationId ? { stationId } : {}),
+    stopName: value.stopName,
+    etaMinutes: value.etaMinutes,
+    estimatedArrivalTime: value.estimatedArrivalTime,
+    distanceMeters: value.distanceMeters,
+    updatedAt: value.updatedAt,
+    delayed: value.delayed ?? null,
+    delayStatus: value.delayStatus ?? 'UNKNOWN',
+    delayMinutes: value.delayMinutes ?? null,
+  };
+});
 
 const trackingLatestResponseSchema = z.object({
   latest: trackingPointSchema.nullable(),
@@ -149,6 +232,15 @@ export type TrackingTrailResponse = z.infer<typeof trackingTrailResponseSchema>;
 export type TrackingEta = z.infer<typeof trackingEtaSchema>;
 
 export type TrackingEtaResponse = z.infer<typeof trackingEtaResponseSchema>;
+
+export type { TrackingTarget } from '../types/trackingTarget';
+export {
+  buildTrackingTargetFromPoints,
+  isTrackingTarget,
+  trackingTargetCacheKey,
+  trackingTargetId,
+  trackingTargetsEqual,
+} from '../types/trackingTarget';
 
 export type ShuttleTrackingEta = z.infer<typeof shuttleTrackingEtaSchema>;
 
@@ -267,17 +359,19 @@ export const parseTrackingTrailResponse = (
 export const parseTrackingEtaResponse = (
   value: unknown,
   expectedTripId: string,
-  expectedStopId?: string,
+  expectedTarget?: TrackingTarget,
 ): TrackingEtaResponse => {
   const parsed = trackingEtaResponseSchema.parse(value);
   assertExpectedTrip(expectedTripId, parsed.eta ? [parsed.eta.tripId] : []);
-  // Only enforce exact stop match when the caller requested a target stop.
-  if (
-    expectedStopId
-    && parsed.eta
-    && parsed.eta.stopId !== expectedStopId
-  ) {
-    throw new Error('Tracking ETA response does not match the requested stop.');
+  // Enforce target match only when the caller requested a specific target.
+  if (expectedTarget && parsed.eta) {
+    const eta = parsed.eta;
+    const matches = expectedTarget.kind === 'STOP'
+      ? eta.targetKind === 'STOP' && eta.stopId === expectedTarget.stopId
+      : eta.targetKind === 'STATION' && eta.stationId === expectedTarget.stationId;
+    if (!matches) {
+      throw new Error('Tracking ETA response does not match the requested target.');
+    }
   }
   return parsed;
 };
@@ -316,16 +410,16 @@ export const trackingKeys = {
   /** Operational next-stop ETA (no stopId on the wire). */
   nextEta: (userId: string, tripId: string) =>
     [...trackingKeys.etaRoot(userId, tripId), 'next'] as const,
-  /** Passenger target ETA for a canonical stop UUID. */
-  targetEta: (userId: string, tripId: string, stopId: string) =>
-    [...trackingKeys.etaRoot(userId, tripId), 'target', stopId] as const,
-  /**
-   * @deprecated Prefer nextEta / targetEta. Kept for any residual callers during migration.
-   */
-  eta: (userId: string, tripId: string, stopId: string) =>
-    stopId === 'none'
-      ? trackingKeys.nextEta(userId, tripId)
-      : trackingKeys.targetEta(userId, tripId, stopId),
+  /** Passenger target ETA for STOP|STATION (kind + id in the key). */
+  targetEta: (
+    userId: string,
+    tripId: string,
+    target: TrackingTarget | 'none',
+  ) => [
+    ...trackingKeys.etaRoot(userId, tripId),
+    'target',
+    target === 'none' ? 'none' : trackingTargetCacheKey(target),
+  ] as const,
   routeContext: (userId: string, tripId: string) =>
     [...trackingKeys.trip(userId, tripId), 'route-context'] as const,
   shuttle: (userId: string, shuttleTripId: string) =>
@@ -412,22 +506,27 @@ export async function getTrackingTrail(
 }
 
 export interface GetTrackingEtaOptions {
-  stopId?: string;
+  /** Omit for operational next-stop; pass STOP|STATION for target ETA. */
+  target?: TrackingTarget;
   signal?: AbortSignal;
 }
 
 /**
- * Single ETA helper. Omit stopId for operational next-stop; pass a UUID stopId
- * for passenger target ETA.
+ * Single ETA helper. Omit target for operational next-stop; pass TrackingTarget
+ * for passenger destination ETA (STOP or STATION).
  */
 export async function getTrackingEta(
   tripId: string,
   options: GetTrackingEtaOptions = {},
 ): Promise<TrackingEtaResponse> {
-  const { stopId, signal } = options;
+  const { target, signal } = options;
   const params: Record<string, string> = {};
-  if (stopId) {
-    params.stopId = encodeUuidPathSegment(stopId, 'stopId');
+  if (target?.kind === 'STOP') {
+    params.targetKind = 'STOP';
+    params.stopId = encodeUuidPathSegment(target.stopId, 'stopId');
+  } else if (target?.kind === 'STATION') {
+    params.targetKind = 'STATION';
+    params.stationId = encodeUuidPathSegment(target.stationId, 'stationId');
   }
   const response = await apiClient.get<ApiEnvelope<TrackingEtaResponse>>(
     `${trackingTripPath(tripId)}/eta`,
@@ -439,7 +538,7 @@ export async function getTrackingEta(
   return parseTrackingEtaResponse(
     unwrapApiResponse(response.data),
     tripId,
-    stopId,
+    target,
   );
 }
 

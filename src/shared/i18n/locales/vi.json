@@ -269,6 +269,7 @@
     "loading": "Đang tải thông báo...",
     "noNotifications": "Chưa có thông báo",
     "markAllRead": "Đánh dấu tất cả thông báo là đã đọc",
+    "markAllShort": "Đọc hết",
     "allCaughtUp": "Bạn đã xem hết thông báo",
     "loadMoreFailed": "Không tải thêm được thông báo.",
     "unreadCount_one": "{{count}} thông báo chưa đọc",
@@ -761,7 +762,12 @@
       "confirmBooking": "Xác nhận đặt vé",
       "reselectSeats": "Chọn lại ghế",
       "reselectOutboundSeats": "Chọn lại ghế chiều đi",
-      "reselectReturnSeats": "Chọn lại ghế chiều về"
+      "reselectReturnSeats": "Chọn lại ghế chiều về",
+      "reselectReturnTrip": "Chọn lại chuyến về",
+      "seatUnavailable": "Một số ghế đã chọn không còn trống. Vui lòng chọn lại ghế bị ảnh hưởng.",
+      "roundTripInvalid": "Chiều đi và chiều về không hợp lệ. Hãy chọn lại chuyến về.",
+      "returnRouteNotConfigured": "Chuyến đi chưa có tuyến chiều về. Hãy chọn lại chuyến đi.",
+      "reselectOutboundTrip": "Chọn lại chuyến đi"
     },
     "results": {
       "noRidesTitle": "Không tìm thấy chuyến",

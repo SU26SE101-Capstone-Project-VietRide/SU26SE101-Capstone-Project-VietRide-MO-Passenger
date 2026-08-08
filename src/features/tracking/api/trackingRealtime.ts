@@ -113,9 +113,22 @@ export interface TripTrackingConnection {
   disconnect: () => void;
 }
 
-const trackingEtaUpdateSchema = trackingEtaSchema.extend({
-  delayed: z.boolean(),
-});
+/**
+ * Socket ETA is STOP-scoped (no targetKind on the wire historically).
+ * Normalize missing targetKind → STOP when stopId is present, then re-validate
+ * through the shared REST schema transform.
+ */
+const trackingEtaUpdateSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'object' || value === null) return value;
+    const record = value as Record<string, unknown>;
+    if (record.targetKind == null && typeof record.stopId === 'string') {
+      return { ...record, targetKind: 'STOP' };
+    }
+    return value;
+  },
+  trackingEtaSchema.and(z.object({ delayed: z.boolean() })),
+);
 
 const trackingDelayUpdateSchema = z.discriminatedUnion('status', [
   z.object({

@@ -1,5 +1,5 @@
 import React, { Suspense, useMemo, type ReactNode } from 'react';
-import { Platform, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { MapPin } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -60,10 +60,12 @@ const EMPTY_ROUTE: readonly GeoCoordinate[] = [];
 const EMPTY_MARKERS: readonly TrackingMapMarker[] = [];
 const EMPTY_STOPS: readonly TrackingMapStop[] = [];
 
-/** Map-first: ~58% viewport, clamped for small/tall phones. */
-const MAP_HEIGHT_RATIO = 0.58;
-const MAP_HEIGHT_MIN = 320;
-const MAP_HEIGHT_MAX = 560;
+/**
+ * Embedded map fills its parent flex slot (map/details split owns height).
+ * Do not force a viewport-derived minHeight here — that clips short screens.
+ * A small absolute floor only avoids a zero-height flash before layout.
+ */
+const EMBEDDED_MAP_FLOOR = 120;
 
 const CONNECTION_PRESENTATION: Record<
   TrackingMapConnectionState,
@@ -118,7 +120,6 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
 }: TrackingMapProps): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const { height: viewportHeight } = useWindowDimensions();
   const inputTrail = trail ?? points ?? EMPTY_POINTS;
   const inputMarkers = useMemo<readonly TrackingMapMarker[]>(() => (
     markers ?? (stops.length > 0
@@ -141,16 +142,14 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     }),
     [inputTrail, latest],
   );
-  // Prefer filling parent (map-first layout). Fallback min height for short parents.
+  // Fill parent; short-screen / landscape height is owned by LiveTripTrackingPanel.
   const frameStyle = useMemo(
     () => ({
       flex: 1,
-      minHeight: Math.min(
-        MAP_HEIGHT_MAX,
-        Math.max(MAP_HEIGHT_MIN, viewportHeight * MAP_HEIGHT_RATIO),
-      ),
+      minHeight: EMBEDDED_MAP_FLOOR,
+      minWidth: 0,
     }),
-    [viewportHeight],
+    [],
   );
   const hasMapContext = staticMapData.plannedRoute.length > 0
     || staticMapData.markers.length > 0;

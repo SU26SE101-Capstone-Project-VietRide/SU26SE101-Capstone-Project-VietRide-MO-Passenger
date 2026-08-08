@@ -126,13 +126,16 @@ describe('LiveTripTrackingPanel', () => {
 
     await act(async () => {
       renderer = ReactTestRenderer.create(
-        <LiveTripTrackingPanel tripId={tripId} stopId={stopId} />,
+        <LiveTripTrackingPanel
+          tripId={tripId}
+          trackingTarget={{ kind: 'STOP', stopId }}
+        />,
       );
     });
 
     expect(mockUseTripTracking).toHaveBeenCalledWith({
       tripId,
-      stopId,
+      trackingTarget: { kind: 'STOP', stopId },
       tripStatus: 'IN_PROGRESS',
       sourceTerminal: false,
     });

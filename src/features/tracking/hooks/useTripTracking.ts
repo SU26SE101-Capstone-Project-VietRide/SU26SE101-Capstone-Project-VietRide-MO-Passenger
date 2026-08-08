@@ -29,6 +29,8 @@ import {
   type TrackingEtaResponse,
   type TrackingLatestResponse,
   type TrackingPoint,
+  type TrackingTarget,
+  isTrackingTarget,
 } from '../api/trackingApi';
 import {
   createTripTrackingConnection,
@@ -50,7 +52,8 @@ export type TrackingTripStatus = TripLifecycleStatus;
 interface UseMainTripTrackingOptions {
   source?: 'trip';
   tripId: string;
-  stopId?: string;
+  /** Canonical STOP|STATION target; omit for operational next-stop only. */
+  trackingTarget?: TrackingTarget;
   tripStatus?: TrackingTripStatus;
   /** Lets non-trip sources (for example a delivered parcel) stop live work. */
   sourceTerminal?: boolean;
@@ -316,7 +319,11 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     ? options.shuttleTripId
     : options.tripId;
   const bookingId = options.source === 'shuttle' ? options.bookingId : undefined;
-  const stopId = options.source === 'shuttle' ? undefined : options.stopId;
+  const trackingTarget = options.source === 'shuttle'
+    ? undefined
+    : (options.trackingTarget && isTrackingTarget(options.trackingTarget)
+      ? options.trackingTarget
+      : undefined);
   const tripStatus = options.source === 'shuttle' ? undefined : options.tripStatus;
   const sourceTerminal = options.source === 'shuttle'
     ? false
@@ -343,10 +350,10 @@ export function useTripTracking(options: UseTripTrackingOptions) {
   const [delayState, setDelayState] = useState<ScopedDelayState | null>(null);
 
   const hasValidTrackingId = isUuid(trackingId);
-  const hasCanonicalTargetStopId = Boolean(stopId && isUuid(stopId));
+  const hasCanonicalTarget = Boolean(trackingTarget);
   const queryUserId = userId ?? 'guest';
   const queryTrackingId = hasValidTrackingId ? trackingId : 'invalid';
-  const queryTargetStopId = hasCanonicalTargetStopId ? stopId! : 'none';
+  const queryTarget = trackingTarget ?? 'none';
   const scopeKey = `${queryUserId}:${source}:${queryTrackingId}`;
   const activeFatalError = fatalState?.scopeKey === scopeKey
     ? fatalState.error
@@ -418,8 +425,8 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     [queryTrackingId, queryUserId],
   );
   const targetEtaKey = useMemo(
-    () => trackingKeys.targetEta(queryUserId, queryTrackingId, queryTargetStopId),
-    [queryTargetStopId, queryTrackingId, queryUserId],
+    () => trackingKeys.targetEta(queryUserId, queryTrackingId, queryTarget),
+    [queryTarget, queryTrackingId, queryUserId],
   );
 
   const latestQuery = useQuery({
@@ -485,20 +492,20 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     ),
   });
 
-  // Target ETA only when caller has a canonical UUID stopId.
+  // Target ETA only when caller has a canonical STOP|STATION target.
   const targetEtaQuery = useQuery<TrackingEtaResponse>({
     queryKey: targetEtaKey,
     queryFn: ({ signal }) => getTrackingEta(trackingId, {
-      stopId: stopId!,
+      target: trackingTarget!,
       signal,
     }),
-    enabled: queryEnabled && !isShuttle && hasCanonicalTargetStopId,
+    enabled: queryEnabled && !isShuttle && hasCanonicalTarget,
     staleTime: TRACKING_ETA_POLL_MS - 5_000,
     gcTime: TRACKING_TRAIL_REFRESH_MS,
     retry: shouldRetryTracking,
     refetchOnReconnect: false,
     refetchInterval: (query) => getTrackingRefetchInterval(
-      pollingEnabled && !isShuttle && hasCanonicalTargetStopId,
+      pollingEnabled && !isShuttle && hasCanonicalTarget,
       query.state.error,
       TRACKING_ETA_POLL_MS,
     ),
@@ -703,7 +710,12 @@ export function useTripTracking(options: UseTripTrackingOptions) {
             (current) => ({ eta: getNewestEta(current?.eta, eta) }),
           );
           setDelayState((current) => {
-            if (eta.delayStatus === 'DELAYED' && eta.delayMinutes !== null) {
+            // Socket delay events are STOP-scoped; ignore STATION-only ETAs.
+            if (
+              eta.delayStatus === 'DELAYED'
+              && eta.delayMinutes !== null
+              && eta.stopId
+            ) {
               return {
                 scopeKey,
                 delay: {
@@ -718,8 +730,13 @@ export function useTripTracking(options: UseTripTrackingOptions) {
 
             return current?.scopeKey === scopeKey ? null : current;
           });
-          // Only merge into target cache when stop IDs match.
-          if (hasCanonicalTargetStopId && eta.stopId === stopId) {
+          // Socket ETA is STOP-only: merge into target cache only for matching STOP.
+          // STATION targets keep REST polling as the sole source of truth.
+          if (
+            trackingTarget?.kind === 'STOP'
+            && eta.targetKind === 'STOP'
+            && eta.stopId === trackingTarget.stopId
+          ) {
             queryClient.setQueryData<TrackingEtaResponse>(
               targetEtaKey,
               (current) => ({ eta: getNewestEta(current?.eta, eta) }),
@@ -761,7 +778,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     };
   }, [
     activeFatalError,
-    hasCanonicalTargetStopId,
+    hasCanonicalTarget,
     isInactive,
     isShuttle,
     latestKey,
@@ -770,9 +787,9 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     queryClient,
     scopeKey,
     shuttleEtaKey,
-    stopId,
     targetEtaKey,
     trackingId,
+    trackingTarget,
     userId,
   ]);
 
@@ -823,13 +840,13 @@ export function useTripTracking(options: UseTripTrackingOptions) {
       requests.push(refetchShuttleEta());
     } else {
       requests.push(refetchTrail(), refetchNextEta());
-      if (hasCanonicalTargetStopId) {
+      if (hasCanonicalTarget) {
         requests.push(refetchTargetEta());
       }
     }
     await Promise.all(requests);
   }, [
-    hasCanonicalTargetStopId,
+    hasCanonicalTarget,
     isShuttle,
     queryEnabled,
     refetchContext,
@@ -872,7 +889,9 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     hasAuthenticatedUser: Boolean(userId),
     hasValidTripId: hasValidTrackingId,
     hasValidTrackingId,
-    hasValidStopId: hasCanonicalTargetStopId,
+    hasValidStopId: hasCanonicalTarget && trackingTarget?.kind === 'STOP',
+    hasCanonicalTarget,
+    trackingTarget,
     source,
     isShuttle,
     isAppActive,

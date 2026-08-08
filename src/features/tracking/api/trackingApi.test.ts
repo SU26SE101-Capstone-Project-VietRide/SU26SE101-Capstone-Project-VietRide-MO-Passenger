@@ -97,18 +97,20 @@ describe('trackingApi', () => {
     );
   });
 
-  it('passes a validated stop UUID to the ETA endpoint', async () => {
+  it('passes a validated STOP target to the ETA endpoint', async () => {
     const payload: TrackingEtaResponse = { eta: null };
     getMock.mockResolvedValueOnce({ data: successEnvelope(payload) });
 
-    await expect(getTrackingEta(TRIP_ID, { stopId: STOP_ID })).resolves.toEqual(payload);
+    await expect(getTrackingEta(TRIP_ID, {
+      target: { kind: 'STOP', stopId: STOP_ID },
+    })).resolves.toEqual(payload);
     expect(getMock).toHaveBeenCalledWith(
       `/tracking/trips/${TRIP_ID}/eta`,
-      { params: { stopId: STOP_ID } },
+      { params: { targetKind: 'STOP', stopId: STOP_ID } },
     );
   });
 
-  it('omits stopId for operational next-stop ETA', async () => {
+  it('omits target params for operational next-stop ETA', async () => {
     const payload: TrackingEtaResponse = { eta: null };
     getMock.mockResolvedValueOnce({ data: successEnvelope(payload) });
 
@@ -123,7 +125,9 @@ describe('trackingApi', () => {
     ['invalid trip', 'not-a-uuid', STOP_ID],
     ['invalid stop', TRIP_ID, 'bad-stop'],
   ])('rejects %s before issuing a request', async (_label, tripId, stopId) => {
-    await expect(getTrackingEta(tripId, { stopId })).rejects.toThrow(/Invalid/);
+    await expect(getTrackingEta(tripId, {
+      target: { kind: 'STOP', stopId },
+    })).rejects.toThrow(/Invalid/);
     expect(getMock).not.toHaveBeenCalled();
   });
 });

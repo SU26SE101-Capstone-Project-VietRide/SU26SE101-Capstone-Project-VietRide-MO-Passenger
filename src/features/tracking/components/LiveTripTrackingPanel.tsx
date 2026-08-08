@@ -47,6 +47,7 @@ import type {
   ShuttlePassengerPickup,
   ShuttleTrackingEta,
   TrackingEta,
+  TrackingTarget,
   TripRouteContext,
 } from '../api/trackingApi';
 import type { GeoCoordinate } from '@shared/types/common';
@@ -69,7 +70,7 @@ interface TrackingLayoutSlots {
 interface LiveMainTripTrackingPanelProps extends TrackingLayoutSlots {
   source?: 'trip';
   tripId: string;
-  stopId?: string;
+  trackingTarget?: TrackingTarget;
   tripStatus?: TripLifecycleStatus;
   sourceTerminal?: boolean;
   terminalMessage?: string;
@@ -104,7 +105,7 @@ const EMPTY_PLANNED_ROUTE: readonly GeoCoordinate[] = [];
 
 const isMainTripEta = (
   eta: TrackingEta | ShuttleTrackingEta | null,
-): eta is TrackingEta => Boolean(eta && 'stopId' in eta);
+): eta is TrackingEta => Boolean(eta && 'delayStatus' in eta);
 
 const isShuttleEta = (
   eta: TrackingEta | ShuttleTrackingEta | null,
@@ -228,9 +229,16 @@ const MapJourneyDock = React.memo(function MapJourneyDockComponent({
 const buildTripMarkers = (
   context: TripRouteContext | null,
   nextStopId: string | undefined,
-  targetStopId: string | undefined,
+  trackingTarget: TrackingTarget | undefined,
 ): TrackingMapMarker[] => {
   if (!context) return [];
+
+  const targetStopId = trackingTarget?.kind === 'STOP'
+    ? trackingTarget.stopId
+    : undefined;
+  const targetStationId = trackingTarget?.kind === 'STATION'
+    ? trackingTarget.stationId
+    : undefined;
 
   const markers: TrackingMapMarker[] = [];
   if (context.originStation) {
@@ -260,12 +268,16 @@ const buildTripMarkers = (
   });
 
   if (context.destinationStation) {
+    const isTargetStation = Boolean(
+      targetStationId
+      && context.destinationStation.stationId === targetStationId,
+    );
     markers.push({
       id: `destination:${context.destinationStation.stationId}`,
       name: context.destinationStation.name,
       latitude: context.destinationStation.latitude,
       longitude: context.destinationStation.longitude,
-      kind: 'destination',
+      kind: isTargetStation ? 'target' : 'destination',
     });
   }
 
@@ -332,7 +344,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const isShuttle = props.source === 'shuttle';
   const tripId = props.source === 'shuttle' ? props.shuttleTripId : props.tripId;
   const bookingId = props.source === 'shuttle' ? props.bookingId : undefined;
-  const stopId = props.source === 'shuttle' ? undefined : props.stopId;
+  const trackingTarget = props.source === 'shuttle'
+    ? undefined
+    : props.trackingTarget;
   const tripStatus = props.source === 'shuttle' ? undefined : props.tripStatus;
   const sourceTerminal = props.source === 'shuttle'
     ? false
@@ -393,7 +407,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     : {
         source: 'trip',
         tripId,
-        stopId,
+        ...(trackingTarget ? { trackingTarget } : {}),
         tripStatus: effectiveTripStatus,
         sourceTerminal,
       });
@@ -421,7 +435,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const selectedShuttlePickup = tracking.selectedShuttlePickup ?? null;
   const nextEta = tracking.nextEta ?? null;
   const targetEta = tracking.targetEta ?? null;
-  const nextStopId = !isShuttle && isMainTripEta(nextEta)
+  const nextStopId = !isShuttle && isMainTripEta(nextEta) && nextEta.targetKind === 'STOP'
     ? nextEta.stopId
     : undefined;
   const markers = useMemo(
@@ -432,14 +446,14 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           t('tracking.map.ownPickupMarker'),
           t('tracking.map.ownDropoffMarker'),
         )
-      : buildTripMarkers(routeContext, nextStopId, stopId)),
+      : buildTripMarkers(routeContext, nextStopId, trackingTarget)),
     [
       isShuttle,
       nextStopId,
       routeContext,
+      trackingTarget,
       selectedShuttlePickup,
       shuttleContext,
-      stopId,
       t,
     ],
   );
@@ -697,8 +711,12 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     const nextStop = nextStopId
       ? intermediateStops.find((stop) => stop.stopId === nextStopId)
       : undefined;
-    const targetStop = stopId
-      ? intermediateStops.find((stop) => stop.stopId === stopId)
+    const targetStop = trackingTarget?.kind === 'STOP'
+      ? intermediateStops.find((stop) => stop.stopId === trackingTarget.stopId)
+      : undefined;
+    const targetStation = trackingTarget?.kind === 'STATION' && routeContext?.destinationStation
+      && routeContext.destinationStation.stationId === trackingTarget.stationId
+      ? routeContext.destinationStation
       : undefined;
 
     // Same stop → single target row reusing ETA; different stops → two clear rows.
@@ -715,7 +733,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     }
     if (targetStop) {
       const sharedEta = targetEta ?? (
-        isMainTripEta(nextEta) && nextEta.stopId === targetStop.stopId
+        isMainTripEta(nextEta)
+        && nextEta.targetKind === 'STOP'
+        && nextEta.stopId === targetStop.stopId
           ? nextEta
           : null
       );
@@ -727,6 +747,16 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           ? formatEta(sharedEta)
           : t('tracking.details.waitingEta'),
         tone: 'target',
+      });
+    } else if (targetStation) {
+      items.push({
+        id: `target-station:${targetStation.stationId}`,
+        label: t('tracking.map.targetStopMarker'),
+        name: targetStation.name,
+        detail: isMainTripEta(targetEta)
+          ? formatEta(targetEta)
+          : t('tracking.details.waitingEta'),
+        tone: 'destination',
       });
     }
     // nextEta:null must show waiting — never invent destination or Haversine ETA.
@@ -746,12 +776,13 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     isShuttle,
     nextEta,
     nextStopId,
+    routeContext?.destinationStation,
     selectedShuttlePickup,
     shuttleContext?.direction,
     shuttleContext?.station,
-    stopId,
     t,
     targetEta,
+    trackingTarget,
   ]);
 
   let hero: ReactNode;

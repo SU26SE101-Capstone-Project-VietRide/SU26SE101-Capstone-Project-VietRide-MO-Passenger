@@ -958,6 +958,14 @@ export function CreateParcelScreen(): React.JSX.Element {
           navigation.navigate('ParcelDetail', {
             parcelId: result.parcelId,
             preferredPaymentMethod: paymentMethod,
+            ...(dropoffStation?.id
+              ? {
+                  trackingTarget: {
+                    kind: 'STATION' as const,
+                    stationId: dropoffStation.id,
+                  },
+                }
+              : {}),
           });
           Alert.alert(
             t('parcel.create.savedTitle'),
@@ -978,6 +986,14 @@ export function CreateParcelScreen(): React.JSX.Element {
         parcelId: result.parcelId,
         paymentRedirectUrl: paymentRedirectUrl ?? undefined,
         preferredPaymentMethod: paymentMethod,
+        ...(dropoffStation?.id
+          ? {
+              trackingTarget: {
+                kind: 'STATION' as const,
+                stationId: dropoffStation.id,
+              },
+            }
+          : {}),
       });
 
       if (paymentRedirectUrl) {
@@ -999,6 +1015,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     buildCreatePayload,
     createParcelMutation,
     depositPaymentMutation,
+    dropoffStation?.id,
     invalidateParcelCheckoutQueries,
     navigation,
     paymentMethod,

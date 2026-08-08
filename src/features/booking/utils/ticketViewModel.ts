@@ -1,5 +1,9 @@
 import type { TripLifecycleStatus } from '@features/trip/types';
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
+import {
+  buildTrackingTargetFromPoints,
+  type TrackingTarget,
+} from '@features/tracking/types/trackingTarget';
 import { formatDateTime } from '@shared/utils/format';
 import i18n from '@shared/i18n';
 import type {
@@ -33,7 +37,8 @@ export interface TicketLegViewModel {
   totalAmount: number;
   tripId?: string;
   bookingId?: string;
-  stopId?: string;
+  /** Canonical STOP|STATION for live ETA; prefer over inventing from names. */
+  trackingTarget?: TrackingTarget;
   tripStatus?: TripLifecycleStatus;
   trackingEnabled: boolean;
   shuttlePickupAddress?: string;
@@ -142,7 +147,7 @@ const buildLeg = ({
   totalAmount,
   tripId: trip?.id,
   bookingId,
-  stopId: dropOff?.stopId,
+  trackingTarget: buildTrackingTargetFromPoints(dropOff),
   tripStatus: trip?.status,
   trackingEnabled: trackingEnabled && Boolean(trip?.id),
   ...(shuttlePickup?.address
@@ -272,7 +277,7 @@ export const buildHistoryTicketViewModel = (
     totalAmount: detail.totalAmount,
     tripId: detail.tripId,
     bookingId: detail.id,
-    stopId: detail.dropoff.stopId,
+    trackingTarget: buildTrackingTargetFromPoints(detail.dropoff),
     trackingEnabled: source === 'remote' && detail.status === 'CONFIRMED',
   }],
 });
@@ -355,6 +360,7 @@ export const buildPassengerHistoryTicketViewModel = (
     totalAmount: item.totalAmount,
     tripId: item.tripId,
     bookingId: item.id,
+    ...(item.trackingTarget ? { trackingTarget: item.trackingTarget } : {}),
     trackingEnabled: getTicketStatusPresentation(item.status).trackingEnabled,
   }],
 });

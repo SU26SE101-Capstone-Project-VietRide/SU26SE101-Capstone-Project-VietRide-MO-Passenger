@@ -85,6 +85,7 @@ import {
   type ResolvedPlace,
 } from '../places';
 import {
+  composeShuttleServiceAddress,
   SHUTTLE_ADDRESS_MAX_LENGTH,
   validateShuttleService,
 } from '../utils/shuttle';
@@ -501,16 +502,28 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     });
   }, [animateToCoordinate, scheduleStopTrackingViewChanges, t]);
 
-  const validation = useMemo(() => {
+  const serviceAddress = useMemo(() => {
     if (!selected) {
+      return '';
+    }
+    // Persist POI title + street line so "S802 Origami, Long Bình…" is not
+    // reduced to area-only formattedAddress.
+    return composeShuttleServiceAddress(
+      selected.displayName,
+      selected.formattedAddress,
+    );
+  }, [selected]);
+
+  const validation = useMemo(() => {
+    if (!selected || !serviceAddress) {
       return null;
     }
     return validateShuttleService({
-      address: selected.formattedAddress,
+      address: serviceAddress,
       latitude: selected.pin.latitude,
       longitude: selected.pin.longitude,
     });
-  }, [selected]);
+  }, [selected, serviceAddress]);
 
   // Existing drafts may be reconfirmed without another Places resolve.
   const confirmEnabled = Boolean(
@@ -798,8 +811,8 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
                 <Text style={styles.confirmTitle} numberOfLines={2}>
                   {selected.displayName}
                 </Text>
-                <Text style={styles.confirmAddress} numberOfLines={3}>
-                  {selected.formattedAddress}
+                <Text style={styles.confirmAddress} numberOfLines={4}>
+                  {serviceAddress || selected.formattedAddress}
                 </Text>
                 <Text style={styles.confirmHint}>
                   {t('booking.shuttlePicker.pinGuidance')}

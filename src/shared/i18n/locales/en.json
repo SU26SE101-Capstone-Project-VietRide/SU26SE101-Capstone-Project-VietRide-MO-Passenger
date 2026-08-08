@@ -269,6 +269,7 @@
     "loading": "Loading notifications...",
     "noNotifications": "No notifications yet",
     "markAllRead": "Mark all notifications as read",
+    "markAllShort": "Mark all read",
     "allCaughtUp": "You're all caught up",
     "loadMoreFailed": "Could not load more notifications.",
     "unreadCount_one": "{{count}} unread notification",
@@ -761,7 +762,12 @@
       "confirmBooking": "Confirm booking",
       "reselectSeats": "Reselect seats",
       "reselectOutboundSeats": "Reselect outbound seats",
-      "reselectReturnSeats": "Reselect return seats"
+      "reselectReturnSeats": "Reselect return seats",
+      "reselectReturnTrip": "Choose a different return trip",
+      "seatUnavailable": "Some selected seats are no longer available. Please reselect the affected seats.",
+      "roundTripInvalid": "This outbound and return combination is not valid. Choose a different return trip.",
+      "returnRouteNotConfigured": "This outbound trip has no return route. Choose a different outbound trip.",
+      "reselectOutboundTrip": "Choose a different outbound trip"
     },
     "results": {
       "noRidesTitle": "No trips found",

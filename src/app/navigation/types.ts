@@ -72,8 +72,12 @@ export type ParcelStackParamList = {
     fromHistory?: boolean;
     paymentRedirectUrl?: string;
     preferredPaymentMethod?: PaymentMethod;
+    trackingTarget?: import('@features/tracking/types/trackingTarget').TrackingTarget;
   };
-  ParcelTracking: { parcelId: string };
+  ParcelTracking: {
+    parcelId: string;
+    trackingTarget?: import('@features/tracking/types/trackingTarget').TrackingTarget;
+  };
 };
 
 // ─── Profile Stack ────────────────────────────────────────
@@ -120,7 +124,8 @@ export type RootStackParamList = {
         source: 'trip';
         tripId: string;
         bookingId?: string;
-        stopId?: string;
+        /** Canonical STOP|STATION; omit for operational next-stop only. */
+        trackingTarget?: import('@features/tracking/types/trackingTarget').TrackingTarget;
         tripStatus?: TripLifecycleStatus;
       }
     | {

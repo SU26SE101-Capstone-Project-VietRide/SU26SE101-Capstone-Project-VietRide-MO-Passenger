@@ -1,5 +1,6 @@
 import type { BookingStatus } from '@features/booking/types';
 import type { ParcelStatus } from '@features/parcel/types';
+import type { TrackingTarget } from '@features/tracking/types/trackingTarget';
 
 export type PassengerHistoryType = 'TICKET' | 'PARCEL';
 
@@ -56,6 +57,8 @@ interface PassengerHistoryItemBase {
   departureDateTime: string | null;
   estimatedArrivalTime: string | null;
   paymentRedirectUrl: string | null;
+  /** Canonical tracking destination from BE v1.63+; null when unknown. */
+  trackingTarget: TrackingTarget | null;
 }
 
 export interface PassengerTicketHistoryItem extends PassengerHistoryItemBase {

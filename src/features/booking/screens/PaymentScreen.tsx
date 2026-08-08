@@ -28,6 +28,7 @@ import {
   OUTBOUND_DROPOFF_STEP,
   OUTBOUND_PICKUP_STEP,
   OUTBOUND_SEAT_STEP,
+  OUTBOUND_STEPS,
   RETURN_DROPOFF_STEP,
   RETURN_PICKUP_STEP,
   RETURN_SEAT_STEP,
@@ -341,8 +342,37 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
   ]);
 
   const isSeatConflict = bookingError?.code === 'BOOKING_SEAT_UNAVAILABLE';
+  const isRoundTripInvalid = bookingError?.code === 'BOOKING_ROUND_TRIP_INVALID';
+  const isReturnRouteMissing = bookingError?.code === 'ROUTE_RETURN_NOT_CONFIGURED';
   const seatConflictActions = useMemo<ShuttleEditAction[]>(() => {
-    if (!isSeatConflict || !onGoToStep || seatConflictLegs.length === 0) {
+    if (!onGoToStep) {
+      return [];
+    }
+
+    if (isReturnRouteMissing) {
+      return [{
+        key: 'reselect-outbound-trip',
+        label: t('booking.paymentScreen.reselectOutboundTrip'),
+        onPress: () => {
+          restoreLegForEdit('outbound');
+          onGoToStep(1);
+        },
+      }];
+    }
+
+    if (isRoundTripInvalid && isRoundTrip) {
+      return [{
+        key: 'reselect-return-trip',
+        label: t('booking.paymentScreen.reselectReturnTrip'),
+        onPress: () => {
+          restoreLegForEdit('return');
+          // Return trip list is the first return-leg step (after outbound 1–4).
+          onGoToStep(OUTBOUND_STEPS + 1);
+        },
+      }];
+    }
+
+    if (!isSeatConflict || seatConflictLegs.length === 0) {
       return [];
     }
 
@@ -380,7 +410,9 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
     }
     return actions;
   }, [
+    isReturnRouteMissing,
     isRoundTrip,
+    isRoundTripInvalid,
     isSeatConflict,
     onGoToStep,
     restoreLegForEdit,

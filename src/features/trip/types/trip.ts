@@ -1,5 +1,10 @@
 import { formatTime } from '@shared/utils/format';
 import { isValidGeoCoordinate } from '@shared/utils/geo';
+import {
+  resolveStopDisplayTime,
+  resolveStopDurationFromOriginMinutes,
+  resolveTripDurationHours,
+} from '../utils/tripDuration';
 
 export type BusType = 'sleeper' | 'limousine' | 'standard';
 export type TripLifecycleStatus =
@@ -93,7 +98,13 @@ export interface BusTrip {
   allowDropoff: boolean;
   busType: BusType | null;
   busLabel: string | null;
+  /**
+   * Display duration in hours. Prefer BE `estimatedDurationMinutes` when present;
+   * otherwise rolling fallback from departure/arrival timestamps.
+   */
   durationHours: number;
+  /** BE-owned trip duration in minutes when the contract ships it. */
+  estimatedDurationMinutes?: number | null;
   totalSeats: number | null;
   departureCity: string;
   arrivalCity: string;
@@ -113,11 +124,19 @@ export interface TripStop {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  /** Clock label — from BE arrival or BE origin→stop minutes (never client Haversine). */
   time: string;
   orderIndex: number;
   isActive?: boolean;
   status?: TripStopLifecycleStatus;
   actualArrivalTime?: string | null;
+  /** BE planned arrival ISO when present. */
+  estimatedArrivalTime?: string | null;
+  /**
+   * BE-owned minutes from origin departure to this stop.
+   * Source of truth for origin→stop schedule once passenger wire exposes it.
+   */
+  estimatedDurationFromOriginMinutes?: number | null;
   distanceFromOriginKm?: number | null;
   allowPickup?: boolean;
   allowDropoff?: boolean;
@@ -159,6 +178,8 @@ export interface TripSearchDto {
   destinationStation: { id: string; name: string };
   departureDateTime: string;
   estimatedArrivalTime: string;
+  /** Optional until passenger search ships BE-owned duration. */
+  estimatedDurationMinutes?: number | null;
   baseFare: number;
   effectiveFare?: number | null;
   surchargePercent?: number;
@@ -178,6 +199,8 @@ export interface TripDetailDto {
   vehicleId: string;
   departureDateTime: string;
   estimatedArrivalTime: string;
+  /** Optional until passenger detail ships BE-owned duration. */
+  estimatedDurationMinutes?: number | null;
   destinationArrivedAt?: string | null;
   baseFare: number;
   effectiveFare?: number | null;
@@ -220,6 +243,8 @@ export interface TripDetailDto {
     orderIndex?: number;
     arrivalTime?: string;
     estimatedArrivalTime?: string;
+    /** BE origin→stop minutes (prepare for passenger wire). */
+    estimatedDurationFromOriginMinutes?: number | null;
     distanceFromOriginKm?: number | null;
     allowPickup?: boolean;
     allowDropoff?: boolean;
@@ -241,12 +266,6 @@ export interface SeatDto {
   deck?: number;
   disabledReason?: string | null;
 }
-
-const durationHoursBetween = (start: string, end: string): number => {
-  const startMs = new Date(start).getTime();
-  const endMs = new Date(end).getTime();
-  return Math.round((endMs - startMs) / (1000 * 60 * 60) * 10) / 10;
-};
 
 const stationCityLabel = (stationName: string): string =>
   stationName.replace('Ben xe ', '').replace('Bến xe ', '');
@@ -282,6 +301,9 @@ export function mapNetworkSeatStatus(
 
 export function mapBusTrip(dto: TripSearchDto): BusTrip {
   const baseFare = normalizeMoneyAmount(dto.baseFare) ?? 0;
+  const estimatedDurationMinutes = resolveStopDurationFromOriginMinutes(
+    dto.estimatedDurationMinutes,
+  );
   return {
     id: dto.tripId,
     operatorId: dto.operatorId,
@@ -307,7 +329,12 @@ export function mapBusTrip(dto: TripSearchDto): BusTrip {
     // The public search contract does not expose vehicle type or seat capacity.
     busType: null,
     busLabel: null,
-    durationHours: durationHoursBetween(dto.departureDateTime, dto.estimatedArrivalTime),
+    estimatedDurationMinutes,
+    durationHours: resolveTripDurationHours({
+      estimatedDurationMinutes,
+      departureDateTime: dto.departureDateTime,
+      estimatedArrivalTime: dto.estimatedArrivalTime,
+    }),
     totalSeats: null,
     departureCity: stationCityLabel(dto.originStation.name),
     arrivalCity: stationCityLabel(dto.destinationStation.name),
@@ -316,6 +343,9 @@ export function mapBusTrip(dto: TripSearchDto): BusTrip {
 
 export function mapTripDetail(dto: TripDetailDto): TripDetail {
   const baseFare = normalizeMoneyAmount(dto.baseFare) ?? 0;
+  const estimatedDurationMinutes = resolveStopDurationFromOriginMinutes(
+    dto.estimatedDurationMinutes,
+  );
   return {
     id: dto.tripId,
     operatorId: dto.operatorId,
@@ -345,7 +375,12 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     allowDropoff: dto.stops.some((stop) => Boolean(stop.allowDropoff)),
     busType: null,
     busLabel: null,
-    durationHours: durationHoursBetween(dto.departureDateTime, dto.estimatedArrivalTime),
+    estimatedDurationMinutes,
+    durationHours: resolveTripDurationHours({
+      estimatedDurationMinutes,
+      departureDateTime: dto.departureDateTime,
+      estimatedArrivalTime: dto.estimatedArrivalTime,
+    }),
     totalSeats: dto.seatSummary.totalSeats,
     departureCity: stationCityLabel(dto.originStation.name),
     arrivalCity: stationCityLabel(dto.destinationStation.name),
@@ -358,6 +393,9 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
           latitude,
           longitude,
         });
+      const estimatedDurationFromOriginMinutes = resolveStopDurationFromOriginMinutes(
+        stop.estimatedDurationFromOriginMinutes,
+      );
 
       return {
         id: stop.stopId ?? stop.id ?? '',
@@ -367,7 +405,14 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
         address: stop.address ?? null,
         latitude: hasValidCoordinates ? latitude : null,
         longitude: hasValidCoordinates ? longitude : null,
-        time: formatTime(stop.estimatedArrivalTime ?? stop.arrivalTime ?? ''),
+        estimatedArrivalTime: stop.estimatedArrivalTime ?? stop.arrivalTime ?? null,
+        estimatedDurationFromOriginMinutes,
+        time: resolveStopDisplayTime({
+          estimatedArrivalTime: stop.estimatedArrivalTime,
+          arrivalTime: stop.arrivalTime,
+          estimatedDurationFromOriginMinutes,
+          tripDepartureDateTime: dto.departureDateTime,
+        }),
         orderIndex: stop.orderIndex ?? 0,
         isActive: stop.isActive,
         status: stop.status,

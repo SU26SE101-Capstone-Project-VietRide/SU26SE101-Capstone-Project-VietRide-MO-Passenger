@@ -325,8 +325,13 @@ export function ParcelDetailScreen(): React.JSX.Element {
   }, [parcelId, queryClient, userId]);
 
   const handleTrack = React.useCallback(() => {
-    navigation.navigate('ParcelTracking', { parcelId });
-  }, [navigation, parcelId]);
+    navigation.navigate('ParcelTracking', {
+      parcelId,
+      ...(route.params.trackingTarget
+        ? { trackingTarget: route.params.trackingTarget }
+        : {}),
+    });
+  }, [navigation, parcelId, route.params.trackingTarget]);
 
   const handleGoHome = React.useCallback(() => {
     rootNav.navigate('Main', { screen: 'Home' });

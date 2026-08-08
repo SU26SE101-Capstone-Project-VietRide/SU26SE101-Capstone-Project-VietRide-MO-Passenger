@@ -1,9 +1,10 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StatusBar,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
@@ -11,8 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { Bell, Package, Tag, Ticket, Van } from 'phosphor-react-native';
 
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import {
@@ -24,10 +27,15 @@ import type { AppTheme } from '@shared/theme';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { toIntlLocale } from '@shared/utils/format';
 import type { RootStackParamList } from '@app/navigation/types';
-import type { NotificationItemDto } from '../api/notificationApi';
+import {
+  notificationKeys,
+  type NotificationItemDto,
+} from '../api/notificationApi';
 import {
   DEFAULT_NOTIFICATION_LIST_PARAMS,
   flattenNotificationPages,
+  trimNotificationInfiniteToFirstPage,
+  useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotificationUnreadCount,
   useNotifications,
@@ -173,11 +181,16 @@ export function NotificationScreen(): React.JSX.Element {
   const navigation = useNavigation<NotificationNavigation>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrowHeader = viewportWidth < 380;
+  const queryClient = useQueryClient();
+  const userId = useAuthStore((state) => state.user?.id);
   const handleTabBarScroll = useTabBarScrollBehavior();
   const bottomTabClearance = useFloatingTabBarContentInset();
   const notificationsQuery = useNotifications(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const unreadCountQuery = useNotificationUnreadCount();
   const markReadMutation = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
+  const markAllMutation = useMarkAllNotificationsRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const {
     data: notificationsData,
     error: notificationsError,
@@ -191,20 +204,37 @@ export function NotificationScreen(): React.JSX.Element {
     refetch: refetchNotifications,
   } = notificationsQuery;
   const { mutate: markRead } = markReadMutation;
+  const {
+    mutate: markAllRead,
+    isPending: isMarkingAll,
+    isError: isMarkAllError,
+    error: markAllError,
+    reset: resetMarkAll,
+  } = markAllMutation;
 
   const notifications = useMemo(
     () => flattenNotificationPages(notificationsData),
     [notificationsData],
   );
+  // Ref keeps press handler stable so memoized rows do not rerender on every page patch.
+  const notificationsRef = useRef(notifications);
+  notificationsRef.current = notifications;
+
   const unreadCount = unreadCountQuery.data ?? 0;
   const isInitialLoading = isNotificationsLoading && notifications.length === 0;
   const isRefreshing = isNotificationsRefetching && !isFetchingNextPage;
+  const listQueryKey = notificationKeys.list(
+    userId ?? 'none',
+    DEFAULT_NOTIFICATION_LIST_PARAMS,
+  );
 
   const handleRefresh = useCallback(() => {
-    // Pull-to-refresh restarts from page 1 (invalidate infinite query root).
+    // Bound refresh cost: drop cached pages beyond the first, then refetch once.
+    trimNotificationInfiniteToFirstPage(queryClient, listQueryKey);
     refetchNotifications().catch(() => undefined);
     unreadCountQuery.refetch().catch(() => undefined);
-  }, [refetchNotifications, unreadCountQuery]);
+    resetMarkAll();
+  }, [listQueryKey, queryClient, refetchNotifications, resetMarkAll, unreadCountQuery]);
 
   const handleEndReached = useCallback(() => {
     if (!hasNextPage || isFetchingNextPage || isFetchNextPageError) {
@@ -218,7 +248,9 @@ export function NotificationScreen(): React.JSX.Element {
   }, [fetchNextPage]);
 
   const handleNotificationPress = useCallback((id: string) => {
-    const item = notifications.find((notification) => notification.id === id);
+    const item = notificationsRef.current.find(
+      (notification) => notification.id === id,
+    );
     if (!item) {
       return;
     }
@@ -229,7 +261,13 @@ export function NotificationScreen(): React.JSX.Element {
     }
 
     navigation.navigate('NotificationDetail', { notification: item });
-  }, [markRead, navigation, notifications]);
+  }, [markRead, navigation]);
+
+  const handleMarkAllRead = useCallback(() => {
+    if (unreadCount <= 0 || isMarkingAll) return;
+    resetMarkAll();
+    markAllRead();
+  }, [isMarkingAll, markAllRead, resetMarkAll, unreadCount]);
 
   const renderNotificationItem = useCallback(
     ({ item }: { item: NotificationItemDto }) => (
@@ -354,20 +392,62 @@ export function NotificationScreen(): React.JSX.Element {
         backgroundColor={theme.colors.background}
       />
 
-      <View style={styles.header}>
+      <View style={[styles.header, isNarrowHeader ? styles.headerStacked : null]}>
         <View style={styles.headerLeft}>
           <Bell size={24} color={theme.colors.textPrimary} style={styles.headerIcon} />
-          <View>
-            <Text style={styles.headerTitle}>{t('notification.title')}</Text>
-            <Text style={styles.headerSubtitle}>
+          <View style={styles.headerCopy}>
+            <Text style={styles.headerTitle} numberOfLines={2}>
+              {t('notification.title')}
+            </Text>
+            <Text style={styles.headerSubtitle} numberOfLines={2}>
               {unreadCount > 0
                 ? t('notification.unreadCount', { count: unreadCount })
                 : t('notification.allCaughtUp')}
             </Text>
           </View>
         </View>
-        {/* Mark-all is fully hidden until BE ships atomic read-all (NOTIF-BE-001). */}
+        {unreadCount > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('notification.markAllRead')}
+            accessibilityState={{ busy: isMarkingAll, disabled: isMarkingAll }}
+            disabled={isMarkingAll}
+            onPress={handleMarkAllRead}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.markAllButton,
+              isNarrowHeader ? styles.markAllButtonWide : null,
+              pressed ? styles.pressedRow : null,
+              isMarkingAll ? styles.markAllButtonDisabled : null,
+            ]}
+          >
+            {isMarkingAll ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <Text style={styles.markAllText} numberOfLines={2}>
+                {t('notification.markAllShort')}
+              </Text>
+            )}
+          </Pressable>
+        ) : null}
       </View>
+
+      {isMarkAllError ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.retry')}
+          onPress={handleMarkAllRead}
+          style={({ pressed }) => [
+            styles.markAllErrorBanner,
+            pressed ? styles.pressedRow : null,
+          ]}
+        >
+          <Text style={styles.markAllErrorText}>
+            {getLocalizedApiErrorMessage(markAllError, t)}
+          </Text>
+          <Text style={styles.markAllErrorRetry}>{t('common.retry')}</Text>
+        </Pressable>
+      ) : null}
 
       <FlashList
         data={notifications}
@@ -401,19 +481,78 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
+    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.effects.contentBorder,
   },
+  headerStacked: {
+    flexDirection: 'column' as const,
+    alignItems: 'stretch' as const,
+  },
+  markAllButton: {
+    flexShrink: 0,
+    maxWidth: 120,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    backgroundColor: theme.colors.primaryFaded,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    minHeight: 36,
+  },
+  markAllButtonWide: {
+    maxWidth: '100%' as unknown as number,
+    alignSelf: 'flex-start' as const,
+  },
+  markAllButtonDisabled: {
+    opacity: 0.6,
+  },
+  markAllText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+    textAlign: 'center' as const,
+  },
+  markAllErrorBanner: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: theme.colors.errorLight,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    gap: spacing.sm,
+  },
+  markAllErrorText: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: theme.colors.error,
+  },
+  markAllErrorRetry: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
+  },
   headerLeft: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     flex: 1,
+    minWidth: 0,
     gap: spacing.md,
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   headerIcon: {
     marginTop: 2,
+    flexShrink: 0,
   },
   headerTitle: {
     fontFamily: fontFamilies.semiBold,

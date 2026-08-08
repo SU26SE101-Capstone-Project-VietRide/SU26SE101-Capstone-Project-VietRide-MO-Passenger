@@ -24,6 +24,60 @@ export interface ShuttleServiceValidationResult {
   error: string | null;
 }
 
+/**
+ * Build the wire `address` for Shuttle from Google Places fields.
+ *
+ * Place.displayName is the POI title (e.g. "S802 Origami"); formattedAddress is
+ * the street/area line (e.g. "Long Bình, Quận 9, HCM"). Saving only the
+ * formatted line drops the building/POI name — that is incorrect for drivers.
+ *
+ * Prefer: "Display Name, Formatted Address" when the name is not already
+ * present in the formatted line; never invent a place name.
+ */
+export const composeShuttleServiceAddress = (
+  displayName: string | null | undefined,
+  formattedAddress: string | null | undefined,
+  maxLength: number = SHUTTLE_ADDRESS_MAX_LENGTH,
+): string => {
+  const name = (displayName ?? '').trim().replace(/\s+/g, ' ');
+  const formatted = (formattedAddress ?? '').trim().replace(/\s+/g, ' ');
+
+  if (!name && !formatted) {
+    return '';
+  }
+  if (!name) {
+    return formatted.slice(0, maxLength);
+  }
+  if (!formatted) {
+    return name.slice(0, maxLength);
+  }
+
+  const nameLower = name.toLowerCase();
+  const formattedLower = formatted.toLowerCase();
+  // Avoid "S802 Origami, S802 Origami, Long Binh..." when formatted already
+  // starts with or fully contains the display name as a prefix token.
+  if (
+    formattedLower === nameLower
+    || formattedLower.startsWith(`${nameLower},`)
+    || formattedLower.startsWith(`${nameLower} `)
+  ) {
+    return formatted.slice(0, maxLength);
+  }
+
+  const composed = `${name}, ${formatted}`;
+  if (composed.length <= maxLength) {
+    return composed;
+  }
+
+  // Prefer keeping the POI name; trim the street line if over cap.
+  const separator = ', ';
+  const budget = maxLength - name.length - separator.length;
+  if (budget < 8) {
+    return name.slice(0, maxLength);
+  }
+  return `${name}${separator}${formatted.slice(0, budget).trim()}`;
+};
+
 export type ShuttleEligibility =
   | { eligible: true; reason: null }
   | {
@@ -263,6 +317,9 @@ export const SHUTTLE_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = 
   SHUTTLE_TRIP_SCHEDULE_UNAVAILABLE: 'booking.shuttle.apiErrors.scheduleUnavailable',
   SHUTTLE_PICKUP_INVALID: 'booking.shuttle.apiErrors.addressInvalid',
   SHUTTLE_DROPOFF_INVALID: 'booking.shuttle.apiErrors.addressInvalid',
+  BOOKING_ROUND_TRIP_INVALID: 'booking.paymentScreen.roundTripInvalid',
+  BOOKING_SEAT_UNAVAILABLE: 'booking.paymentScreen.seatUnavailable',
+  ROUTE_RETURN_NOT_CONFIGURED: 'booking.paymentScreen.returnRouteNotConfigured',
 };
 
 /** Errors that keep the Shuttle draft so the user can edit the address. */
