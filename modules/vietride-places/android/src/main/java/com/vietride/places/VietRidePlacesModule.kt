@@ -49,6 +49,13 @@ class ResolvePlaceArgs : Record {
 
   @Field
   var placeId: String = ""
+
+  /**
+   * When true (default), autocomplete session is closed after a successful details fetch.
+   * Map-pin previews should pass false (and may omit sessionId) so multiple pins can load.
+   */
+  @Field
+  var endSession: Boolean = true
 }
 
 class VietRidePlacesModule : Module() {
@@ -157,19 +164,24 @@ class VietRidePlacesModule : Module() {
         val client = ensurePlacesInitialized()
         val sessionId = args.sessionId.trim()
         val placeId = args.placeId.trim()
-        if (sessionId.isEmpty()) {
-          throw PlacesCodedException("INVALID_SESSION", "A Places session is required.")
-        }
         if (placeId.isEmpty()) {
           throw PlacesCodedException("INVALID_PLACE", "A place identifier is required.")
         }
 
-        val token = sessions[sessionId]
-          ?: throw PlacesCodedException("INVALID_SESSION", "Places session is not active.")
+        // Session is optional: map pin previews resolve without a session so multiple
+        // markers can load without closing the autocomplete session early.
+        val token = if (sessionId.isEmpty()) {
+          null
+        } else {
+          sessions[sessionId]
+            ?: throw PlacesCodedException("INVALID_SESSION", "Places session is not active.")
+        }
 
-        val request = FetchPlaceRequest.builder(placeId, PLACE_FIELDS)
-          .setSessionToken(token)
-          .build()
+        val requestBuilder = FetchPlaceRequest.builder(placeId, PLACE_FIELDS)
+        if (token != null) {
+          requestBuilder.setSessionToken(token)
+        }
+        val request = requestBuilder.build()
 
         client.fetchPlace(request)
           .addOnSuccessListener { response ->
@@ -177,10 +189,14 @@ class VietRidePlacesModule : Module() {
             val location = place.location
             if (location == null) {
               promise.reject(
-                PlacesCodedException("INVALID_PLACE", "Place coordinates are unavailable."),
+                PlacesCodedException(
+                  "INVALID_PLACE",
+                  "Place coordinates are unavailable for id=$placeId",
+                ),
               )
               return@addOnSuccessListener
             }
+            // Prefer Places fields; never invent a name when both are blank.
             val displayName = place.displayName?.takeIf { it.isNotBlank() }
               ?: place.formattedAddress?.takeIf { it.isNotBlank() }
               ?: ""
@@ -188,22 +204,27 @@ class VietRidePlacesModule : Module() {
               ?: displayName
             if (displayName.isBlank() || formattedAddress.isBlank()) {
               promise.reject(
-                PlacesCodedException("INVALID_PLACE", "Place address details are incomplete."),
+                PlacesCodedException(
+                  "INVALID_PLACE",
+                  "Place address details are incomplete for id=$placeId",
+                ),
               )
               return@addOnSuccessListener
             }
 
-            // End session after a successful resolve so billing session closes.
-            sessions.remove(sessionId)
-            activeCancellations.remove(sessionId)?.cancel()
+            if (args.endSession && sessionId.isNotEmpty()) {
+              sessions.remove(sessionId)
+              activeCancellations.remove(sessionId)?.cancel()
+            }
 
+            // Box as Double so the JS bridge always receives finite numbers.
             promise.resolve(
               mapOf(
                 "placeId" to placeId,
                 "displayName" to displayName,
                 "formattedAddress" to formattedAddress,
-                "latitude" to location.latitude,
-                "longitude" to location.longitude,
+                "latitude" to location.latitude.toDouble(),
+                "longitude" to location.longitude.toDouble(),
               ),
             )
           }
@@ -295,7 +316,19 @@ class VietRidePlacesModule : Module() {
           "CONFIGURATION",
           "Google Places is not configured for this build.",
         )
-        else -> PlacesCodedException("UNAVAILABLE", "Places request failed.")
+        // Common when a Maps POI placeId is not resolvable via Place Details.
+        STATUS_NOT_FOUND -> PlacesCodedException(
+          "INVALID_PLACE",
+          "Place was not found (status ${error.statusCode}).",
+        )
+        STATUS_INVALID_REQUEST -> PlacesCodedException(
+          "INVALID_PLACE",
+          "Invalid Place Details request (status ${error.statusCode}).",
+        )
+        else -> PlacesCodedException(
+          "UNAVAILABLE",
+          "Places request failed (status ${error.statusCode}).",
+        )
       }
     }
 
@@ -322,6 +355,8 @@ class VietRidePlacesModule : Module() {
     private const val STATUS_CANCELLED = 16
     private const val STATUS_OVER_QUERY_LIMIT = 9001
     private const val STATUS_REQUEST_DENIED = 9011
+    private const val STATUS_INVALID_REQUEST = 9007
+    private const val STATUS_NOT_FOUND = 9013
     private const val DEFAULT_BIAS_RADIUS_METERS = 5_000.0
     private const val DEFAULT_MAX_RESULTS = 5
     private val PLACE_FIELDS = listOf(

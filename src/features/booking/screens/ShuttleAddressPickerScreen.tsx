@@ -1,9 +1,10 @@
 /**
  * ShuttleAddressPickerScreen — map-first Google Places address picker.
  *
- * Layout A: stable MapView, floating search, suggestions overlay, terminal
- * marker, draggable Shuttle pin, and confirmation surface. Never saves raw
- * unverified text. GPS permission is not requested on open.
+ * Layout A: stable MapView, floating search, suggestion list + map markers for
+ * Google predictions, bottom preview sheet (select CTA), terminal marker,
+ * draggable refine pin, and confirmation surface. Never saves raw unverified
+ * text. GPS permission is not requested on open.
  */
 
 import React, {
@@ -18,6 +19,7 @@ import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -30,6 +32,7 @@ import MapView, {
   PROVIDER_GOOGLE,
   type LatLng,
   type MapViewProps,
+  type PoiClickEvent,
   type Region,
 } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +58,16 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useDebounce, useThemedStyles } from '@shared/hooks';
 import { useMotion } from '@shared/motion';
 import {
+  isNativePlacesAvailable,
+  isPlacesRequestError,
+  resolveMapPlaceSelection,
+  resolvePlaceDetails,
+  usePlacesSession,
+  type PlacePrediction,
+  type PlacesErrorCode,
+  type ResolvedPlace,
+} from '@shared/places';
+import {
   borderRadius,
   fontFamilies,
   fontSizes,
@@ -67,23 +80,12 @@ import {
   isValidGeoCoordinate,
 } from '@shared/utils/geo';
 import {
-  LIQUID_DARK_MAP_STYLE,
-  LIQUID_LIGHT_MAP_STYLE,
+  SHUTTLE_PICKER_DARK_MAP_STYLE,
+  SHUTTLE_PICKER_LIGHT_MAP_STYLE,
   getTrackingMapPalette,
 } from '@features/tracking/components/trackingMapStyles';
 
 import { useBookingStore } from '../store/useBookingStore';
-import {
-  beginPlacesSession,
-  endPlacesSession,
-  findPlacePredictions,
-  isNativePlacesAvailable,
-  isPlacesRequestError,
-  resolvePlaceDetails,
-  type PlacePrediction,
-  type PlacesErrorCode,
-  type ResolvedPlace,
-} from '../places';
 import {
   composeShuttleServiceAddress,
   SHUTTLE_ADDRESS_MAX_LENGTH,
@@ -101,6 +103,12 @@ const BIAS_RADIUS_METERS = 5_000;
 const COUNTRY_CODE = 'vn';
 const DEFAULT_DELTA = 0.018;
 const MARKER_TRACKS_VIEW_CHANGES_MS = 500;
+const PREVIEW_FIT_PADDING = {
+  top: 140,
+  right: 48,
+  bottom: 260,
+  left: 48,
+};
 
 type SelectedPlaceState = {
   placeId: string;
@@ -142,9 +150,13 @@ const placesErrorTranslationKey = (code: PlacesErrorCode): string => {
 
 const SuggestionRow = memo(function SuggestionRowComponent({
   item,
+  hasMapPin,
+  isHighlighted,
   onPress,
 }: {
   item: PlacePrediction;
+  hasMapPin: boolean;
+  isHighlighted: boolean;
   onPress: (item: PlacePrediction) => void;
 }): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
@@ -155,10 +167,19 @@ const SuggestionRow = memo(function SuggestionRowComponent({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${item.primaryText}. ${item.secondaryText}`}
+      accessibilityState={{ selected: isHighlighted }}
       onPress={handlePress}
-      style={({ pressed }) => [styles.suggestionRow, pressed ? styles.pressed : null]}
+      style={({ pressed }) => [
+        styles.suggestionRow,
+        isHighlighted ? styles.suggestionRowActive : null,
+        pressed ? styles.pressed : null,
+      ]}
     >
-      <MapPin size={18} color={theme.colors.primary} weight="duotone" />
+      <MapPin
+        size={18}
+        color={isHighlighted ? theme.colors.primary : theme.colors.textSecondary}
+        weight={hasMapPin || isHighlighted ? 'fill' : 'duotone'}
+      />
       <View style={styles.suggestionCopy}>
         <Text style={styles.suggestionPrimary} numberOfLines={2}>
           {item.primaryText}
@@ -170,6 +191,60 @@ const SuggestionRow = memo(function SuggestionRowComponent({
         ) : null}
       </View>
     </Pressable>
+  );
+});
+
+const PredictionMapMarker = memo(function PredictionMapMarkerComponent({
+  place,
+  index,
+  highlighted,
+  onPress,
+}: {
+  place: ResolvedPlace;
+  index: number;
+  highlighted: boolean;
+  onPress: (placeId: string) => void;
+}): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+  const theme = useTheme();
+  const handlePress = useCallback(() => onPress(place.placeId), [onPress, place.placeId]);
+
+  return (
+    <Marker
+      coordinate={{
+        latitude: place.latitude,
+        longitude: place.longitude,
+      }}
+      identifier={`prediction-${place.placeId}`}
+      title={place.displayName}
+      description={place.formattedAddress}
+      // Small set of pins (≤5); keep tracking so Android paints custom views.
+      tracksViewChanges
+      onPress={handlePress}
+      zIndex={highlighted ? 20 : 10 + index}
+      accessibilityLabel={place.displayName}
+    >
+      <View
+        style={[
+          styles.predictionMarker,
+          highlighted ? styles.predictionMarkerActive : null,
+        ]}
+      >
+        <Text
+          style={[
+            styles.predictionMarkerIndex,
+            highlighted ? styles.predictionMarkerIndexActive : null,
+          ]}
+        >
+          {index + 1}
+        </Text>
+        <MapPin
+          size={highlighted ? 22 : 18}
+          color={highlighted ? theme.colors.primary : theme.colors.textPrimary}
+          weight="fill"
+        />
+      </View>
+    </Marker>
   );
 });
 
@@ -225,14 +300,27 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     : appConfig.nativeGoogleMapsEnabled.ios;
   const placesAvailable = mapsEnabled && isNativePlacesAvailable();
 
+  const {
+    ensureSession,
+    endSession: endPlacesSessionOwned,
+    clearLocalSession,
+    findPredictions: findPredictionsWithSession,
+    controller: placesSession,
+  } = usePlacesSession();
+
   const mapRef = useRef<MapView | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
   const requestIdRef = useRef(0);
   const pinTracksViewChangesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [query, setQuery] = useState('');
   const [searchInputActive, setSearchInputActive] = useState(false);
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
+  /** Place Details cache for map markers / sheet — keyed by placeId. */
+  const [previewByPlaceId, setPreviewByPlaceId] = useState<Record<string, ResolvedPlace>>({});
+  const [isResolvingPreviews, setIsResolvingPreviews] = useState(false);
+  /** Place open in the bottom preview sheet (marker or list). */
+  const [sheetPlaceId, setSheetPlaceId] = useState<string | null>(null);
+  const [isSheetResolving, setIsSheetResolving] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -256,9 +344,12 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
       pin: origin,
     };
   });
+  /** Policy A: drag refines coordinates only; keep POI name and show badge. */
+  const [pinRefined, setPinRefined] = useState(false);
   const [pinTracksViewChanges, setPinTracksViewChanges] = useState(true);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const searchBiasRef = useRef<GeoCoordinate>(selected?.pin ?? stationCoordinate);
+  const previewRequestIdRef = useRef(0);
 
   const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
   const normalizedDebouncedQuery = useMemo(
@@ -273,7 +364,10 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     [],
   );
 
-  const mapStyle = theme.isDark ? LIQUID_DARK_MAP_STYLE : LIQUID_LIGHT_MAP_STYLE;
+  // Shuttle picker keeps Google POI pins; tracking maps use a quieter style.
+  const mapStyle = theme.isDark
+    ? SHUTTLE_PICKER_DARK_MAP_STYLE
+    : SHUTTLE_PICKER_LIGHT_MAP_STYLE;
 
   const clearPinTracksTimer = useCallback(() => {
     if (pinTracksViewChangesTimerRef.current) {
@@ -289,23 +383,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
       setPinTracksViewChanges(false);
     }, MARKER_TRACKS_VIEW_CHANGES_MS);
   }, [clearPinTracksTimer]);
-
-  const endActiveSession = useCallback(async () => {
-    const sessionId = sessionIdRef.current;
-    sessionIdRef.current = null;
-    if (sessionId) {
-      await endPlacesSession(sessionId);
-    }
-  }, []);
-
-  const ensureSession = useCallback(async (): Promise<string> => {
-    if (sessionIdRef.current) {
-      return sessionIdRef.current;
-    }
-    const sessionId = await beginPlacesSession();
-    sessionIdRef.current = sessionId;
-    return sessionId;
-  }, []);
 
   useEffect(() => {
     if (currentLeg !== leg) {
@@ -331,8 +408,8 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
 
   useEffect(() => () => {
     clearPinTracksTimer();
-    endActiveSession().catch(() => undefined);
-  }, [clearPinTracksTimer, endActiveSession]);
+    // Session cleanup is owned by usePlacesSession unmount.
+  }, [clearPinTracksTimer]);
 
   useEffect(() => {
     if (selected?.pin) {
@@ -366,9 +443,7 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
 
     const runSearch = async (): Promise<void> => {
       try {
-        const sessionId = await ensureSession();
-        const nextPredictions = await findPlacePredictions({
-          sessionId,
+        const nextPredictions = await findPredictionsWithSession({
           query: normalizedDebouncedQuery,
           latitude: bias.latitude,
           longitude: bias.longitude,
@@ -393,6 +468,9 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
         if (code === 'CONFIGURATION' || code === 'UNSUPPORTED') {
           setBannerError(t(placesErrorTranslationKey(code)));
         }
+        if (code === 'INVALID_SESSION') {
+          clearLocalSession();
+        }
       } finally {
         if (!cancelled && requestIdRef.current === requestId) {
           setIsSearching(false);
@@ -405,12 +483,91 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
       cancelled = true;
     };
   }, [
-    ensureSession,
+    clearLocalSession,
+    findPredictionsWithSession,
     normalizedDebouncedQuery,
     placesAvailable,
     searchInputActive,
     t,
   ]);
+
+  // Resolve coordinates for each prediction without ending the autocomplete
+  // session so the map can show interactive markers while the user still picks.
+  useEffect(() => {
+    if (!placesAvailable || predictions.length === 0) {
+      previewRequestIdRef.current += 1;
+      setPreviewByPlaceId({});
+      setIsResolvingPreviews(false);
+      return;
+    }
+
+    let cancelled = false;
+    const requestId = previewRequestIdRef.current + 1;
+    previewRequestIdRef.current = requestId;
+    const placeIds = new Set(predictions.map((item) => item.placeId));
+
+    setPreviewByPlaceId((current) => {
+      const retained: Record<string, ResolvedPlace> = {};
+      placeIds.forEach((placeId) => {
+        const existing = current[placeId];
+        if (existing) {
+          retained[placeId] = existing;
+        }
+      });
+      return retained;
+    });
+    setIsResolvingPreviews(true);
+
+    const resolvePreviews = async (): Promise<void> => {
+      let sessionId: string;
+      try {
+        sessionId = await ensureSession();
+      } catch {
+        if (!cancelled && previewRequestIdRef.current === requestId) {
+          setIsResolvingPreviews(false);
+        }
+        return;
+      }
+
+      await Promise.all(
+        predictions.map(async (prediction) => {
+          try {
+            // Screen-owned session; do not close until final confirmation.
+            const place = await resolvePlaceDetails({
+              sessionId,
+              placeId: prediction.placeId,
+              endSession: false,
+            });
+            if (cancelled || previewRequestIdRef.current !== requestId) {
+              return;
+            }
+            setPreviewByPlaceId((current) => {
+              if (current[prediction.placeId]?.placeId === place.placeId
+                && current[prediction.placeId]?.latitude === place.latitude
+                && current[prediction.placeId]?.longitude === place.longitude) {
+                return current;
+              }
+              return {
+                ...current,
+                [prediction.placeId]: place,
+              };
+            });
+          } catch {
+            // Skip markers that fail Place Details; list rows still work.
+          }
+        }),
+      );
+      if (!cancelled && previewRequestIdRef.current === requestId) {
+        setIsResolvingPreviews(false);
+      }
+    };
+
+    resolvePreviews().catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ensureSession, placesAvailable, predictions]);
 
   const animateToCoordinate = useCallback((coordinate: GeoCoordinate, delta = 0.01) => {
     mapRef.current?.animateToRegion(
@@ -419,54 +576,266 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     );
   }, [reduceMotion]);
 
-  const handleSelectPrediction = useCallback(async (prediction: PlacePrediction) => {
-    if (isResolving || !placesAvailable) {
+  const fitToPreviewPins = useCallback((places: ResolvedPlace[]) => {
+    if (!mapRef.current || places.length === 0) {
+      return;
+    }
+    const coordinates: LatLng[] = [
+      stationCoordinate,
+      ...places.map((place) => ({
+        latitude: place.latitude,
+        longitude: place.longitude,
+      })),
+    ];
+    mapRef.current.fitToCoordinates(coordinates, {
+      edgePadding: PREVIEW_FIT_PADDING,
+      animated: !reduceMotion,
+    });
+  }, [reduceMotion, stationCoordinate]);
+
+  useEffect(() => {
+    // While a preview sheet is open we zoom to that one pin; otherwise fit all.
+    if (sheetPlaceId) {
+      return;
+    }
+    const pins = predictions
+      .map((item) => previewByPlaceId[item.placeId])
+      .filter((place): place is ResolvedPlace => Boolean(place));
+    if (pins.length === 0) {
+      return;
+    }
+    fitToPreviewPins(pins);
+  }, [fitToPreviewPins, predictions, previewByPlaceId, sheetPlaceId]);
+
+  const closePreviewSheet = useCallback(() => {
+    setSheetPlaceId(null);
+    setIsSheetResolving(false);
+  }, []);
+
+  /**
+   * Open the bottom preview sheet for a place.
+   * Map POI taps always pass a coordinate seed — the sheet must become
+   * selectable immediately from that seed. Place Details is best-effort
+   * enrichment (full street address); it must never block selection.
+   */
+  const openPreviewSheet = useCallback(async (
+    placeId: string,
+    seed?: Partial<ResolvedPlace> & Pick<ResolvedPlace, 'latitude' | 'longitude'>,
+  ) => {
+    if (isResolving) {
+      return;
+    }
+
+    const normalizedPlaceId = placeId.trim();
+    if (!normalizedPlaceId) {
+      return;
+    }
+
+    // Search-list path needs Places. Map POI seeds only need coordinates.
+    if (!seed && !placesAvailable) {
+      setSearchError(t('booking.shuttlePicker.errors.unsupported'));
       return;
     }
 
     Keyboard.dismiss();
-    requestIdRef.current += 1;
+    setSearchError(null);
+
+    // Apply seed synchronously in local state intent: always register the
+    // place before any await so the first paint can show name + CTA.
+    if (seed && isValidGeoCoordinate({ latitude: seed.latitude, longitude: seed.longitude })) {
+      const displayName = (seed.displayName ?? '').trim()
+        || t('booking.shuttlePicker.poiFallbackName');
+      const formattedAddress = (seed.formattedAddress ?? '').trim() || displayName;
+      setPreviewByPlaceId((current) => ({
+        ...current,
+        [normalizedPlaceId]: {
+          placeId: normalizedPlaceId,
+          displayName,
+          formattedAddress,
+          latitude: seed.latitude,
+          longitude: seed.longitude,
+        },
+      }));
+      setSheetPlaceId(normalizedPlaceId);
+      animateToCoordinate({
+        latitude: seed.latitude,
+        longitude: seed.longitude,
+      }, 0.012);
+    } else {
+      const cached = previewByPlaceId[normalizedPlaceId];
+      if (cached) {
+        setSheetPlaceId(normalizedPlaceId);
+        setIsSheetResolving(false);
+        animateToCoordinate({
+          latitude: cached.latitude,
+          longitude: cached.longitude,
+        }, 0.012);
+        return;
+      }
+      setSheetPlaceId(normalizedPlaceId);
+    }
+
+    // Synthetic map-poi ids are not resolvable via Place Details.
+    const canResolveDetails = placesAvailable
+      && !normalizedPlaceId.startsWith('map-poi:');
+
+    if (!canResolveDetails) {
+      setIsSheetResolving(false);
+      return;
+    }
+
+    setIsSheetResolving(true);
+    try {
+      const sessionId = await ensureSession();
+      const place = await resolvePlaceDetails({
+        sessionId,
+        placeId: normalizedPlaceId,
+        endSession: false,
+      });
+      setPreviewByPlaceId((current) => ({
+        ...current,
+        [normalizedPlaceId]: place,
+      }));
+      animateToCoordinate({
+        latitude: place.latitude,
+        longitude: place.longitude,
+      }, 0.012);
+    } catch (error) {
+      // Keep the seed-based sheet open. Details failure is non-fatal for POI.
+      if (!seed && !previewByPlaceId[normalizedPlaceId]) {
+        const code = isPlacesRequestError(error) ? error.code : 'UNAVAILABLE';
+        const displayCode = code === 'INVALID_SESSION' ? 'UNAVAILABLE' : code;
+        setSearchError(t(placesErrorTranslationKey(displayCode)));
+        setSheetPlaceId(null);
+      }
+      if (isPlacesRequestError(error) && error.code === 'INVALID_SESSION') {
+        clearLocalSession();
+      }
+    } finally {
+      setIsSheetResolving(false);
+    }
+  }, [
+    animateToCoordinate,
+    clearLocalSession,
+    ensureSession,
+    isResolving,
+    placesAvailable,
+    previewByPlaceId,
+    t,
+  ]);
+
+  const handlePredictionPress = useCallback((prediction: PlacePrediction) => {
+    openPreviewSheet(prediction.placeId).catch(() => undefined);
+  }, [openPreviewSheet]);
+
+  const handlePredictionMarkerPress = useCallback((placeId: string) => {
+    openPreviewSheet(placeId).catch(() => undefined);
+  }, [openPreviewSheet]);
+
+  /**
+   * Native Google Map POI (restaurant, shop, building…).
+   * Name + lat/lng come from the map tile event — enough to open the sheet
+   * and select without waiting on Place Details.
+   */
+  const handlePoiClick = useCallback((event: PoiClickEvent) => {
+    const { placeId, name, coordinate } = event.nativeEvent;
+    if (!isValidGeoCoordinate(coordinate)) {
+      return;
+    }
+
+    const trimmedId = placeId?.trim() ?? '';
+    // Some map POIs omit placeId; still allow selection via coordinates.
+    const resolvedId = trimmedId.length > 0
+      ? trimmedId
+      : `map-poi:${coordinate.latitude.toFixed(6)},${coordinate.longitude.toFixed(6)}`;
+    const label = name?.trim() || t('booking.shuttlePicker.poiFallbackName');
+
+    openPreviewSheet(resolvedId, {
+      displayName: label,
+      formattedAddress: label,
+      latitude: coordinate.latitude,
+      longitude: coordinate.longitude,
+    }).catch(() => undefined);
+  }, [openPreviewSheet, t]);
+
+  const applyResolvedPlace = useCallback((place: ResolvedPlace) => {
+    const coordinate = {
+      latitude: place.latitude,
+      longitude: place.longitude,
+    };
+    setSelected({
+      placeId: place.placeId,
+      displayName: place.displayName,
+      formattedAddress: place.formattedAddress.slice(0, SHUTTLE_ADDRESS_MAX_LENGTH),
+      origin: coordinate,
+      pin: coordinate,
+    });
+    setPinRefined(false);
+    setQuery(place.displayName);
     setSearchInputActive(false);
     setPredictions([]);
+    setPreviewByPlaceId({});
+    setSheetPlaceId(null);
+    setIsSheetResolving(false);
     setIsSearching(false);
+    setSearchError(null);
+    scheduleStopTrackingViewChanges();
+    animateToCoordinate(coordinate);
+  }, [animateToCoordinate, scheduleStopTrackingViewChanges]);
+
+  const handleSelectSheetPlace = useCallback(async () => {
+    if (!sheetPlaceId || isResolving) {
+      return;
+    }
+    if (!placesAvailable) {
+      setSearchError(t('booking.shuttlePicker.errors.unsupported'));
+      return;
+    }
+
     setIsResolving(true);
     setSearchError(null);
 
-    try {
-      const sessionId = await ensureSession();
-      const place: ResolvedPlace = await resolvePlaceDetails({
-        sessionId,
-        placeId: prediction.placeId,
-      });
-      // Selection ends the billing session; a later search opens a new one.
-      sessionIdRef.current = null;
+    const seed = previewByPlaceId[sheetPlaceId] ?? null;
 
-      const coordinate = {
-        latitude: place.latitude,
-        longitude: place.longitude,
-      };
-      setSelected({
-        placeId: place.placeId,
-        displayName: place.displayName,
-        formattedAddress: place.formattedAddress.slice(0, SHUTTLE_ADDRESS_MAX_LENGTH),
-        origin: coordinate,
-        pin: coordinate,
+    try {
+      const place = await resolveMapPlaceSelection({
+        placeId: sheetPlaceId,
+        seed,
+        session: placesSession,
       });
-      setQuery(place.displayName);
-      scheduleStopTrackingViewChanges();
-      animateToCoordinate(coordinate);
+
+      await endPlacesSessionOwned();
+      applyResolvedPlace(place);
     } catch (error) {
       const code = isPlacesRequestError(error) ? error.code : 'UNAVAILABLE';
-      setSearchError(t(placesErrorTranslationKey(code)));
+      if (code === 'INVALID_SESSION') {
+        clearLocalSession();
+      }
+      const base = t(placesErrorTranslationKey(code));
+      const detail = isPlacesRequestError(error) ? error.message.trim() : '';
+      const shouldShowDetail = Boolean(
+        detail
+        && detail.length > 0
+        && detail !== base
+        && (code === 'INVALID_PLACE' || code === 'CONFIGURATION' || code === 'UNAVAILABLE'),
+      );
+      setSearchError(shouldShowDetail ? `${base} (${detail})` : base);
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn('[ShuttlePicker] select place failed', code, error);
+      }
     } finally {
       setIsResolving(false);
     }
   }, [
-    animateToCoordinate,
-    ensureSession,
+    applyResolvedPlace,
+    clearLocalSession,
+    endPlacesSessionOwned,
     isResolving,
     placesAvailable,
-    scheduleStopTrackingViewChanges,
+    placesSession,
+    previewByPlaceId,
+    sheetPlaceId,
     t,
   ]);
 
@@ -491,7 +860,9 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
       }
 
       setSearchError(null);
+      setPinRefined(true);
       scheduleStopTrackingViewChanges();
+      // Keep displayName + formattedAddress — drag only refines coordinates.
       return {
         ...current,
         pin: {
@@ -566,22 +937,28 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
 
   const handleClearQuery = useCallback(() => {
     requestIdRef.current += 1;
+    previewRequestIdRef.current += 1;
     setSearchInputActive(false);
     setQuery('');
     setPredictions([]);
+    setPreviewByPlaceId({});
+    setSheetPlaceId(null);
+    setIsSheetResolving(false);
     setIsSearching(false);
+    setIsResolvingPreviews(false);
     setSearchError(null);
   }, []);
 
   const handleQueryChange = useCallback((value: string) => {
     setQuery(value);
     setSearchInputActive(true);
+    setSheetPlaceId(null);
   }, []);
 
   const handleBack = useCallback(() => {
-    endActiveSession().catch(() => undefined);
+    endPlacesSessionOwned().catch(() => undefined);
     navigation.goBack();
-  }, [endActiveSession, navigation]);
+  }, [endPlacesSessionOwned, navigation]);
 
   const onMapReady = useCallback<NonNullable<MapViewProps['onMapReady']>>(() => {
     if (selected) {
@@ -597,6 +974,34 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     || isSearching
     || Boolean(searchError && normalizedDebouncedQuery.length >= MIN_QUERY_LENGTH)
   );
+
+  const predictionMarkers = useMemo(
+    () => predictions
+      .map((item, index) => {
+        const place = previewByPlaceId[item.placeId];
+        if (!place) {
+          return null;
+        }
+        return { place, index };
+      })
+      .filter((item): item is { place: ResolvedPlace; index: number } => item !== null),
+    [predictions, previewByPlaceId],
+  );
+
+  const sheetPlace = sheetPlaceId ? previewByPlaceId[sheetPlaceId] ?? null : null;
+  const sheetPrediction = useMemo(() => {
+    if (!sheetPlaceId) {
+      return null;
+    }
+    return predictions.find((item) => item.placeId === sheetPlaceId) ?? null;
+  }, [predictions, sheetPlaceId]);
+
+  const sheetDisplayName = sheetPlace?.displayName
+    ?? sheetPrediction?.primaryText
+    ?? '';
+  const sheetAddress = sheetPlace
+    ? composeShuttleServiceAddress(sheetPlace.displayName, sheetPlace.formattedAddress)
+    : (sheetPrediction?.secondaryText || sheetPrediction?.fullText || '');
 
   const bottomOffset = Math.max(insets.bottom, spacing.md) + (keyboardHeight > 0 ? spacing.sm : 0);
   const mapPadding = useMemo(
@@ -623,6 +1028,7 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     [stationCoordinate],
   );
   const selectedPinCoordinate = selected?.pin;
+  const sheetVisible = Boolean(sheetPlaceId);
 
   return (
     <View style={styles.root}>
@@ -643,16 +1049,17 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
           moveOnMarkerPress={false}
           pitchEnabled={false}
           rotateEnabled={false}
-          showsBuildings={false}
+          showsBuildings
           showsCompass={false}
           showsIndoorLevelPicker={false}
           showsIndoors={false}
           showsMyLocationButton={false}
-          showsPointsOfInterest={false}
+          showsPointsOfInterest
           showsTraffic={false}
           showsUserLocation={false}
           toolbarEnabled={false}
-          poiClickEnabled={false}
+          poiClickEnabled
+          onPoiClick={handlePoiClick}
           onMapReady={onMapReady}
           accessibilityLabel={t('booking.shuttlePicker.mapAccessibility')}
         >
@@ -664,7 +1071,16 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
             tracksViewChanges={false}
             identifier="shuttle-terminal"
           />
-          {selectedPinCoordinate ? (
+          {predictionMarkers.map(({ place, index }) => (
+            <PredictionMapMarker
+              key={place.placeId}
+              place={place}
+              index={index}
+              highlighted={sheetPlaceId === place.placeId}
+              onPress={handlePredictionMarkerPress}
+            />
+          ))}
+          {selectedPinCoordinate && predictionMarkers.length === 0 ? (
             <Marker
               coordinate={selectedPinCoordinate}
               draggable
@@ -769,6 +1185,15 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
                 </View>
               ) : null}
 
+              {!isSearching && isResolvingPreviews && predictions.length > 0 ? (
+                <View style={styles.suggestionsStatus}>
+                  <ActivityIndicator color={theme.colors.primary} />
+                  <Text style={styles.suggestionsStatusText}>
+                    {t('booking.shuttlePicker.loadingMapPins')}
+                  </Text>
+                </View>
+              ) : null}
+
               {!isSearching && searchError ? (
                 <Text style={styles.suggestionsError}>{searchError}</Text>
               ) : null}
@@ -783,10 +1208,18 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
                     <SuggestionRow
                       key={item.placeId}
                       item={item}
-                      onPress={handleSelectPrediction}
+                      hasMapPin={Boolean(previewByPlaceId[item.placeId])}
+                      isHighlighted={sheetPlaceId === item.placeId}
+                      onPress={handlePredictionPress}
                     />
                   ))}
                 </ScrollView>
+              ) : null}
+
+              {!isSearching && predictions.length > 0 && predictionMarkers.length > 0 ? (
+                <Text style={styles.suggestionsHint}>
+                  {t('booking.shuttlePicker.tapMarkerHint')}
+                </Text>
               ) : null}
 
               <Text style={styles.attribution}>
@@ -797,58 +1230,167 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
 
           <View style={styles.flexSpacer} pointerEvents="none" />
 
+          {!sheetVisible ? (
+            <View
+              style={styles.confirmCard}
+              onLayout={(event) => {
+                const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+                setConfirmCardHeight((currentHeight) => (
+                  currentHeight === nextHeight ? currentHeight : nextHeight
+                ));
+              }}
+            >
+              {selected ? (
+                <>
+                  <Text style={styles.confirmTitle} numberOfLines={2}>
+                    {selected.displayName}
+                  </Text>
+                  <Text style={styles.confirmAddress} numberOfLines={4}>
+                    {serviceAddress || selected.formattedAddress}
+                  </Text>
+                  {pinRefined ? (
+                    <View style={styles.refinedBadge} accessibilityRole="text">
+                      <Text style={styles.refinedBadgeText}>
+                        {t('booking.shuttlePicker.pinRefinedBadge')}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Text style={styles.confirmHint}>
+                    {pinRefined
+                      ? t('booking.shuttlePicker.pinRefinedHint')
+                      : t('booking.shuttlePicker.pinGuidance')}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.confirmHint}>
+                    {t('booking.shuttlePicker.selectHint')}
+                  </Text>
+                  <Text style={styles.confirmHint}>
+                    {t('booking.shuttlePicker.poiTapHint')}
+                  </Text>
+                </>
+              )}
+
+              {searchError && !showSuggestions ? (
+                <Text style={styles.confirmError}>{searchError}</Text>
+              ) : null}
+
+              {isResolving ? (
+                <View style={styles.resolvingRow}>
+                  <ActivityIndicator color={theme.colors.primary} />
+                  <Text style={styles.resolvingText}>
+                    {t('booking.shuttlePicker.resolving')}
+                  </Text>
+                </View>
+              ) : null}
+
+              <Button
+                title={t(isDropoff
+                  ? 'booking.shuttlePicker.confirmDropoff'
+                  : 'booking.shuttlePicker.confirmPickup')}
+                onPress={handleConfirm}
+                disabled={!confirmEnabled}
+                fullWidth
+                style={styles.confirmButton}
+              />
+            </View>
+          ) : null}
+        </View>
+      </KeyboardAvoidingView>
+
+      <Modal
+        visible={sheetVisible}
+        transparent
+        animationType={reduceMotion ? 'none' : 'slide'}
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={closePreviewSheet}
+      >
+        <View style={styles.sheetModalRoot}>
+          <Pressable
+            accessible={false}
+            style={styles.sheetBackdrop}
+            onPress={closePreviewSheet}
+          />
           <View
-            style={styles.confirmCard}
-            onLayout={(event) => {
-              const nextHeight = Math.ceil(event.nativeEvent.layout.height);
-              setConfirmCardHeight((currentHeight) => (
-                currentHeight === nextHeight ? currentHeight : nextHeight
-              ));
-            }}
+            accessibilityViewIsModal
+            style={[
+              styles.previewSheet,
+              { paddingBottom: Math.max(insets.bottom, spacing.md) },
+            ]}
           >
-            {selected ? (
-              <>
-                <Text style={styles.confirmTitle} numberOfLines={2}>
-                  {selected.displayName}
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <View style={styles.sheetHeaderCopy}>
+                <Text style={styles.sheetEyebrow}>
+                  {t(isDropoff
+                    ? 'booking.shuttlePicker.previewDropoffEyebrow'
+                    : 'booking.shuttlePicker.previewPickupEyebrow')}
                 </Text>
-                <Text style={styles.confirmAddress} numberOfLines={4}>
-                  {serviceAddress || selected.formattedAddress}
+                <Text style={styles.sheetTitle} numberOfLines={2}>
+                  {sheetDisplayName || t('booking.shuttlePicker.resolving')}
                 </Text>
-                <Text style={styles.confirmHint}>
-                  {t('booking.shuttlePicker.pinGuidance')}
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.confirmHint}>
-                {t('booking.shuttlePicker.selectHint')}
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('common.cancel')}
+                onPress={closePreviewSheet}
+                style={({ pressed }) => [styles.sheetCloseButton, pressed ? styles.pressed : null]}
+                hitSlop={8}
+              >
+                <X size={18} color={theme.colors.textPrimary} weight="bold" />
+              </Pressable>
+            </View>
+
+            {sheetPlace ? (
+              <Text style={styles.sheetAddress} numberOfLines={4}>
+                {sheetAddress || sheetPlace.displayName}
               </Text>
+            ) : (
+              <View style={styles.sheetLoadingRow}>
+                <ActivityIndicator color={theme.colors.primary} />
+                <Text style={styles.sheetLoadingText}>
+                  {t('booking.shuttlePicker.resolving')}
+                </Text>
+              </View>
             )}
 
-            {searchError && !showSuggestions ? (
-              <Text style={styles.confirmError}>{searchError}</Text>
-            ) : null}
-
-            {isResolving ? (
-              <View style={styles.resolvingRow}>
+            {isSheetResolving ? (
+              <View style={styles.sheetLoadingRow}>
                 <ActivityIndicator color={theme.colors.primary} />
-                <Text style={styles.resolvingText}>
-                  {t('booking.shuttlePicker.resolving')}
+                <Text style={styles.sheetLoadingText}>
+                  {t('booking.shuttlePicker.enrichingAddress')}
                 </Text>
               </View>
             ) : null}
 
+            {searchError && sheetVisible ? (
+              <Text style={styles.confirmError}>{searchError}</Text>
+            ) : null}
+
+            <Text style={styles.sheetHint}>
+              {t('booking.shuttlePicker.previewHint')}
+            </Text>
+
             <Button
-              title={t(isDropoff
-                ? 'booking.shuttlePicker.confirmDropoff'
-                : 'booking.shuttlePicker.confirmPickup')}
-              onPress={handleConfirm}
-              disabled={!confirmEnabled}
+              title={isResolving
+                ? t('booking.shuttlePicker.verifyingPlace')
+                : t(isDropoff
+                  ? 'booking.shuttlePicker.selectThisDropoff'
+                  : 'booking.shuttlePicker.selectThisPickup')}
+              onPress={() => {
+                handleSelectSheetPlace().catch(() => undefined);
+              }}
+              // Sheet can open from map seed; confirm always re-fetches Places.
+              disabled={!sheetPlace || isResolving}
+              loading={isResolving}
               fullWidth
               style={styles.confirmButton}
             />
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -887,14 +1429,16 @@ const createStyles = (theme: AppTheme) => ({
   headerCard: {
     borderRadius: borderRadius.xl,
     padding: spacing.md,
+    // Solid elevated surface over the map — glassSurfaceSoft is too transparent.
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
-      : theme.colors.surface,
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surfaceElevated,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.glassBorderStrong
       : theme.colors.divider,
     gap: spacing.sm,
+    ...theme.effects.floatingShadow,
   },
   headerRow: {
     flexDirection: 'row' as const,
@@ -907,7 +1451,9 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.full,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    backgroundColor: theme.effects.contentSurfaceSoft,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.fieldSurface
+      : theme.colors.surfaceAlt,
   },
   headerCopy: {
     flex: 1,
@@ -968,12 +1514,13 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.sm,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
-      : theme.colors.surface,
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surfaceElevated,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.glassBorderStrong
       : theme.colors.divider,
+    ...theme.effects.floatingShadow,
   },
   suggestionsList: {
     maxHeight: 220,
@@ -985,6 +1532,9 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     minHeight: 44,
+  },
+  suggestionRowActive: {
+    backgroundColor: theme.colors.primaryFaded,
   },
   suggestionCopy: {
     flex: 1,
@@ -1022,6 +1572,14 @@ const createStyles = (theme: AppTheme) => ({
     lineHeight: 18,
     color: theme.colors.error,
   },
+  suggestionsHint: {
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: 16,
+    color: theme.colors.textSecondary,
+  },
   attribution: {
     marginTop: spacing.xs,
     paddingHorizontal: spacing.md,
@@ -1036,13 +1594,14 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceSoft
-      : theme.colors.surface,
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surfaceElevated,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
+      ? theme.effects.glassBorderStrong
       : theme.colors.divider,
     gap: spacing.sm,
+    ...theme.effects.floatingShadow,
   },
   confirmTitle: {
     fontFamily: fontFamilies.bold,
@@ -1054,6 +1613,18 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
     lineHeight: 20,
     color: theme.colors.textSecondary,
+  },
+  refinedBadge: {
+    alignSelf: 'flex-start' as const,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  refinedBadgeText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
   },
   confirmHint: {
     fontFamily: fontFamilies.regular,
@@ -1079,6 +1650,133 @@ const createStyles = (theme: AppTheme) => ({
   },
   confirmButton: {
     marginTop: spacing.xs,
+  },
+  predictionMarker: {
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    minWidth: 36,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceElevated
+      : theme.colors.surfaceElevated,
+    borderWidth: 1.5,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorderStrong
+      : theme.colors.divider,
+    gap: 2,
+  },
+  predictionMarkerActive: {
+    backgroundColor: theme.colors.primaryFaded,
+    borderColor: theme.colors.primary,
+  },
+  predictionMarkerIndex: {
+    fontFamily: fontFamilies.bold,
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+  },
+  predictionMarkerIndexActive: {
+    color: theme.colors.primary,
+  },
+  sheetModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end' as const,
+  },
+  sheetBackdrop: {
+    ...({ position: 'absolute' as const }),
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    // Dim entire screen (map + header) so only the sheet stays readable.
+    backgroundColor: theme.isDark
+      ? 'rgba(1, 10, 10, 0.78)'
+      : 'rgba(15, 23, 42, 0.58)',
+  },
+  previewSheet: {
+    borderTopLeftRadius: borderRadius.xl + 8,
+    borderTopRightRadius: borderRadius.xl + 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    // Near-opaque sheet — glassSurfaceSoft blends into map behind.
+    backgroundColor: theme.effects.isLiquid
+      ? (theme.isDark ? 'rgba(13, 34, 33, 0.98)' : 'rgba(255, 255, 255, 0.98)')
+      : theme.colors.surfaceElevated,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorderStrong
+      : theme.colors.divider,
+    gap: spacing.sm,
+    ...theme.effects.floatingShadow,
+  },
+  sheetHandle: {
+    alignSelf: 'center' as const,
+    width: 40,
+    height: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.divider,
+    marginBottom: spacing.xs,
+  },
+  sheetHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: spacing.sm,
+  },
+  sheetHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  sheetEyebrow: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.4,
+  },
+  sheetTitle: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.lg,
+    color: theme.colors.textPrimary,
+  },
+  sheetCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.fieldSurface
+      : theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.fieldBorder
+      : theme.colors.divider,
+  },
+  sheetAddress: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
+    color: theme.colors.textSecondary,
+  },
+  sheetHint: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
+    color: theme.colors.textTertiary,
+  },
+  sheetLoadingRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    minHeight: 44,
+  },
+  sheetLoadingText: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
   },
   pressed: {
     opacity: 0.82,

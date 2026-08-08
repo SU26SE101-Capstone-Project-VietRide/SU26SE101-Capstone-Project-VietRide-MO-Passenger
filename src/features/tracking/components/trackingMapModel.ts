@@ -42,6 +42,11 @@ export interface PreparedTrackingMapData {
   trail: TrackingPoint[];
   plannedRoute: GeoCoordinate[];
   markers: TrackingMapMarker[];
+  /**
+   * Intermediate stops not rendered due to the marker cap.
+   * Used for the “+N stops” disclosure chip (map UX design CP-T04).
+   */
+  hiddenIntermediateCount: number;
   /** @deprecated Compatibility aliases for existing callers/tests. */
   points: TrackingPoint[];
   /** @deprecated Compatibility aliases for existing callers/tests. */
@@ -151,7 +156,7 @@ const sanitizeMarker = (marker: TrackingMapMarker): TrackingMapMarker | null => 
 
 const prepareMarkers = (
   markers: readonly TrackingMapMarker[],
-): TrackingMapMarker[] => {
+): { markers: TrackingMapMarker[]; hiddenIntermediateCount: number } => {
   const essentials: TrackingMapMarker[] = [];
   const intermediates: TrackingMapMarker[] = [];
   const seenIds = new Set<string>();
@@ -193,7 +198,15 @@ const prepareMarkers = (
     }
   }
 
-  return [...essentials, ...cappedIntermediates];
+  const hiddenIntermediateCount = Math.max(
+    0,
+    intermediates.length - cappedIntermediates.length,
+  );
+
+  return {
+    markers: [...essentials, ...cappedIntermediates],
+    hiddenIntermediateCount,
+  };
 };
 
 const legacyStopsToMarkers = (
@@ -236,14 +249,17 @@ export function prepareTrackingMapData(
   )
     ? safeLatest
     : trailLatest;
-  const markers = prepareMarkers(input.markers ?? []);
+  const preparedMarkers = prepareMarkers(input.markers ?? []);
 
   return {
     latest,
     trail,
     plannedRoute: prepareRoute(input.plannedRoute ?? []),
-    markers,
+    markers: preparedMarkers.markers,
+    hiddenIntermediateCount: preparedMarkers.hiddenIntermediateCount,
     points: trail,
-    stops: markers.map(({ kind: _kind, sequence: _sequence, ...marker }) => marker),
+    stops: preparedMarkers.markers.map(
+      ({ kind: _kind, sequence: _sequence, ...marker }) => marker,
+    ),
   };
 }

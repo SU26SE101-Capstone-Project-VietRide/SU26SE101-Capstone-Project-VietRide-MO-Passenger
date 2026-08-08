@@ -21,6 +21,7 @@ import {
   MapPin,
   NavigationArrow,
   ShareNetwork,
+  Target,
   WarningCircle,
   WifiSlash,
 } from 'phosphor-react-native';
@@ -849,6 +850,14 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     );
   }
 
+  const targetInsight = !isShuttle && trackingTarget
+    ? trackingTarget.kind === 'STATION'
+      ? t('tracking.target.stationHint')
+      : t('tracking.target.stopHint')
+    : !isShuttle && tracking.hasValidTrackingId && tracking.hasAuthenticatedUser && !tracking.fatalError
+      ? t('tracking.target.missingHint')
+      : null;
+
   return (
     <View style={styles.container}>
       <View
@@ -879,6 +888,19 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           />
         )}
       >
+        {targetInsight ? (
+          <View
+            style={[
+              styles.infoBanner,
+              trackingTarget ? styles.infoBannerAccent : styles.infoBannerMuted,
+            ]}
+            accessibilityRole="summary"
+          >
+            <Target size={18} color={trackingTarget ? mapPalette.target : theme.colors.textSecondary} weight="duotone" />
+            <Text style={styles.infoBannerText}>{targetInsight}</Text>
+          </View>
+        ) : null}
+
         {!tracking.isOnline ? (
           <View style={styles.warningBanner}>
             <WifiSlash size={18} color={theme.colors.warning} />
@@ -939,6 +961,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
                 <Text style={styles.shareTitle}>{t('tracking.share.title')}</Text>
                 <Text style={styles.shareDescription}>
                   {t('tracking.share.description')}
+                </Text>
+                <Text style={styles.sharePrivacy}>
+                  {t('tracking.share.privacyNote')}
                 </Text>
               </View>
             </View>
@@ -1165,6 +1190,30 @@ const createStyles = (theme: AppTheme) => {
   pressed: {
     opacity: 0.78,
   },
+  infoBanner: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderCurve: 'continuous' as const,
+  },
+  infoBannerAccent: {
+    backgroundColor: palette.progressSurface,
+    borderWidth: 1,
+    borderColor: palette.frameBorder,
+  },
+  infoBannerMuted: {
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  infoBannerText: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
+    color: theme.colors.textPrimary,
+  },
   warningBanner: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -1257,6 +1306,13 @@ const createStyles = (theme: AppTheme) => {
     fontSize: fontSizes.sm,
     lineHeight: 20,
     color: theme.colors.textSecondary,
+  },
+  sharePrivacy: {
+    marginTop: spacing.sm,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    lineHeight: 16,
+    color: theme.colors.textTertiary,
   },
   shareActions: {
     flexDirection: 'row' as const,

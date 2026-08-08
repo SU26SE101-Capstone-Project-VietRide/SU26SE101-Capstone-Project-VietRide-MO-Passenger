@@ -24,8 +24,17 @@ export type FindPredictionsInput = {
 };
 
 export type ResolvePlaceInput = {
-  sessionId: string;
+  /**
+   * Optional autocomplete session. Omit or pass empty for session-less Place
+   * Details (map pin previews for many results without closing the search session).
+   */
+  sessionId?: string;
   placeId: string;
+  /**
+   * When true (default), the session is closed after a successful details fetch.
+   * Map pin previews must pass false (and usually omit sessionId).
+   */
+  endSession?: boolean;
 };
 
 export type NativeVietRidePlacesModule = {

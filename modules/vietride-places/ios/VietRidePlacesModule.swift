@@ -133,13 +133,22 @@ public class VietRidePlacesModule: Module {
   }
 
   private func resolvePlaceNative(params: [String: Any]) async throws -> [String: Any] {
-    let sessionId = stringValue(params["sessionId"])
+    let sessionId = stringValue(params["sessionId"]).trimmingCharacters(in: .whitespacesAndNewlines)
     let placeId = stringValue(params["placeId"]).trimmingCharacters(in: .whitespacesAndNewlines)
+    let endSession = boolValue(params["endSession"], defaultValue: true)
     if placeId.isEmpty {
       throw PlacesException("INVALID_PLACE", "A place identifier is required.")
     }
 
-    let token = try token(for: sessionId)
+    // Session is optional so map-pin previews can fetch many places without
+    // closing the autocomplete session after the first pin.
+    let token: GMSAutocompleteSessionToken?
+    if sessionId.isEmpty {
+      token = nil
+    } else {
+      token = try self.token(for: sessionId)
+    }
+
     let properties: [String] = [
       GMSPlaceProperty.placeID,
       GMSPlaceProperty.displayName,
@@ -190,7 +199,9 @@ public class VietRidePlacesModule: Module {
       throw PlacesException("INVALID_PLACE", "Place coordinates are unavailable.")
     }
 
-    endSessionNative(sessionId: sessionId)
+    if endSession && !sessionId.isEmpty {
+      endSessionNative(sessionId: sessionId)
+    }
 
     return [
       "placeId": placeId,
@@ -199,6 +210,16 @@ public class VietRidePlacesModule: Module {
       "latitude": coordinate.latitude,
       "longitude": coordinate.longitude,
     ]
+  }
+
+  private func boolValue(_ value: Any?, defaultValue: Bool) -> Bool {
+    if let bool = value as? Bool {
+      return bool
+    }
+    if let number = value as? NSNumber {
+      return number.boolValue
+    }
+    return defaultValue
   }
 
   private func mapError(_ error: Error) -> PlacesException {

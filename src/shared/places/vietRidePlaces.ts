@@ -1,9 +1,10 @@
 /**
- * Typed VietRide Places facade.
+ * Typed VietRide Places facade (`@shared/places`).
  *
- * UI code imports this module only. Never import the raw Expo native module
- * from screens or components. Native session tokens stay on the native side;
- * JS only holds opaque session IDs.
+ * Thin bridge over the native module only:
+ * - Screens own session lifecycle via `usePlacesSession`.
+ * - This module does not invent sessions, retry policy, or product matching.
+ * - Never import the raw Expo module from screens.
  */
 
 import { Platform } from 'react-native';
@@ -35,9 +36,18 @@ export type FindPredictionsInput = {
   maxResults?: number;
 };
 
+/**
+ * Place Details always runs inside an explicit native session.
+ * The picker screen (or a hook) owns begin/end; this facade never auto-opens sessions.
+ */
 export type ResolvePlaceInput = {
   sessionId: string;
   placeId: string;
+  /**
+   * When true (default), native closes the session after a successful details fetch.
+   * Pass false while still browsing results; pass true on final confirmation.
+   */
+  endSession?: boolean;
 };
 
 export type PlacesErrorCode =
@@ -63,10 +73,16 @@ export class PlacesRequestError extends Error {
 export const isPlacesRequestError = (error: unknown): error is PlacesRequestError =>
   error instanceof PlacesRequestError;
 
+type NativeResolvePlaceArgs = {
+  sessionId: string;
+  placeId: string;
+  endSession: boolean;
+};
+
 type NativeModuleShape = {
   beginSession: () => Promise<string>;
   findPredictions: (input: FindPredictionsInput) => Promise<unknown>;
-  resolvePlace: (input: ResolvePlaceInput) => Promise<unknown>;
+  resolvePlace: (input: NativeResolvePlaceArgs) => Promise<unknown>;
   endSession: (sessionId: string) => Promise<void>;
 };
 
@@ -120,10 +136,23 @@ const asNonEmptyString = (value: unknown): string | null => {
 };
 
 const asFiniteNumber = (value: unknown): number | null => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return null;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
   }
-  return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+const readErrorMessage = (error: unknown): string | null => {
+  const record = asRecord(error);
+  return asNonEmptyString(record?.message)
+    ?? asNonEmptyString((error as { message?: unknown } | null)?.message)
+    ?? null;
 };
 
 const mapNativeError = (error: unknown): PlacesRequestError => {
@@ -135,45 +164,53 @@ const mapNativeError = (error: unknown): PlacesRequestError => {
   const codeRaw = asNonEmptyString(record?.code)
     ?? asNonEmptyString((error as { code?: unknown } | null)?.code)
     ?? '';
-  const normalized = codeRaw.replace(/^ERR_/, '').toUpperCase();
+  const normalized = codeRaw
+    .replace(/^ERR_/, '')
+    .replace(/^VIETRIDEPLACES[./]/i, '')
+    .toUpperCase();
+  const nativeMessage = readErrorMessage(error);
 
   switch (normalized) {
     case 'CONFIGURATION':
       return new PlacesRequestError(
         'CONFIGURATION',
-        'Google Places is not configured for this build.',
+        nativeMessage ?? 'Google Places is not configured for this build.',
       );
     case 'OFFLINE':
       return new PlacesRequestError(
         'OFFLINE',
-        'Places requires a network connection.',
+        nativeMessage ?? 'Places requires a network connection.',
       );
     case 'QUOTA':
       return new PlacesRequestError(
         'QUOTA',
-        'Places quota has been exceeded.',
+        nativeMessage ?? 'Places quota has been exceeded.',
       );
     case 'INVALID_SESSION':
       return new PlacesRequestError(
         'INVALID_SESSION',
-        'Places session is not active.',
+        nativeMessage ?? 'Places session is not active.',
       );
     case 'INVALID_PLACE':
+    case 'NOT_FOUND':
       return new PlacesRequestError(
         'INVALID_PLACE',
-        'Place details are incomplete.',
+        nativeMessage ?? 'Place details are incomplete.',
       );
     case 'UNSUPPORTED':
       return new PlacesRequestError(
         'UNSUPPORTED',
-        'Native Places requires a custom development or release build.',
+        nativeMessage ?? 'Native Places requires a custom development or release build.',
       );
     case 'NO_RESULTS':
-      return new PlacesRequestError('NO_RESULTS', 'No matching places were found.');
+      return new PlacesRequestError(
+        'NO_RESULTS',
+        nativeMessage ?? 'No matching places were found.',
+      );
     default:
       return new PlacesRequestError(
         'UNAVAILABLE',
-        'Places is temporarily unavailable.',
+        nativeMessage ?? 'Places is temporarily unavailable.',
       );
   }
 };
@@ -246,10 +283,15 @@ export const beginPlacesSession = async (): Promise<string> => {
 export const findPlacePredictions = async (
   input: FindPredictionsInput,
 ): Promise<PlacePrediction[]> => {
+  const sessionId = input.sessionId.trim();
+  if (!sessionId) {
+    throw new PlacesRequestError('INVALID_SESSION', 'A Places session is required.');
+  }
+
   try {
     const raw = await requireNative().findPredictions({
       ...input,
-      sessionId: input.sessionId.trim(),
+      sessionId,
       query: input.query.trim(),
       maxResults: Math.min(Math.max(input.maxResults ?? 5, 1), 5),
     });
@@ -268,11 +310,22 @@ export const findPlacePredictions = async (
 export const resolvePlaceDetails = async (
   input: ResolvePlaceInput,
 ): Promise<ResolvedPlace> => {
+  const sessionId = input.sessionId.trim();
+  const placeId = input.placeId.trim();
+
+  if (!sessionId) {
+    throw new PlacesRequestError('INVALID_SESSION', 'A Places session is required.');
+  }
+  if (!placeId) {
+    throw new PlacesRequestError('INVALID_PLACE', 'A place identifier is required.');
+  }
+
   try {
     const resolved = validateResolvedPlace(
       await requireNative().resolvePlace({
-        sessionId: input.sessionId.trim(),
-        placeId: input.placeId.trim(),
+        sessionId,
+        placeId,
+        endSession: input.endSession !== false,
       }),
     );
     if (!resolved) {

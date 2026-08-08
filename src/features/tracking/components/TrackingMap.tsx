@@ -142,6 +142,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     }),
     [inputTrail, latest],
   );
+  const hiddenStopCount = staticMapData.hiddenIntermediateCount;
   // Fill parent; short-screen / landscape height is owned by LiveTripTrackingPanel.
   const frameStyle = useMemo(
     () => ({
@@ -203,16 +204,43 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     );
   }
 
+  const isWaitingGps = effectiveConnectionState === 'waiting';
+
   return (
     <View style={[styles.mapFrame, frameStyle]}>
       <View style={styles.mapCanvas}>
         {mapCanvas}
-        {showConnectionChip ? (
-          <View pointerEvents="none" style={styles.connectionOverlay}>
+        {/*
+          Overlay zoning (avoid stacking on legend bottom-left):
+          - Top-center: camera segment lives inside NativeTrackingMap
+          - Top-left: live/connecting/stale/offline chips (not waiting)
+          - Bottom-right: waiting GPS chip
+          - Top-right: +N hidden stops when needed
+        */}
+        {showConnectionChip && !isWaitingGps ? (
+          <View pointerEvents="none" style={styles.connectionOverlayTopLeft}>
             <StatusChip
               label={t(connectionPresentation.key)}
               tone={connectionPresentation.tone}
               style={styles.connectionChip}
+            />
+          </View>
+        ) : null}
+        {showConnectionChip && isWaitingGps ? (
+          <View pointerEvents="none" style={styles.connectionOverlayBottomRight}>
+            <StatusChip
+              label={t(connectionPresentation.key)}
+              tone={connectionPresentation.tone}
+              style={styles.connectionChip}
+            />
+          </View>
+        ) : null}
+        {showConnectionChip && hiddenStopCount > 0 ? (
+          <View pointerEvents="none" style={styles.overflowOverlay}>
+            <StatusChip
+              label={t('tracking.map.hiddenStops', { count: hiddenStopCount })}
+              tone="neutral"
+              style={styles.overflowChip}
             />
           </View>
         ) : null}
@@ -243,17 +271,40 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
     minHeight: 240,
   },
-  connectionOverlay: {
+  connectionOverlayTopLeft: {
     position: 'absolute' as const,
-    top: spacing.md,
+    top: spacing.md + 44,
     left: spacing.md,
     zIndex: 30,
     alignItems: 'flex-start' as const,
+    maxWidth: '48%' as unknown as number,
+  },
+  connectionOverlayBottomRight: {
+    position: 'absolute' as const,
+    right: spacing.sm,
+    bottom: spacing.sm,
+    zIndex: 30,
+    alignItems: 'flex-end' as const,
+    maxWidth: '52%' as unknown as number,
+  },
+  overflowOverlay: {
+    position: 'absolute' as const,
+    top: spacing.md + 44,
+    right: spacing.md,
+    zIndex: 30,
+    maxWidth: '40%' as unknown as number,
   },
   connectionChip: {
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
       ? theme.effects.glassBorderStrong
+      : theme.colors.divider,
+    ...theme.effects.cardShadow,
+  },
+  overflowChip: {
+    borderWidth: 1,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassBorder
       : theme.colors.divider,
     ...theme.effects.cardShadow,
   },

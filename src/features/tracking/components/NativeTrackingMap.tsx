@@ -625,43 +625,71 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
         </View>
       </View>
 
-      <View style={styles.cameraControls} pointerEvents="box-none">
-        {cameraMode === 'overview' && latestCoordinate ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('tracking.map.followAccessibility')}
-            onPress={handleFollowVehicle}
-            style={({ pressed }) => [
-              styles.cameraButton,
-              pressed ? styles.cameraButtonPressed : null,
-            ]}
-            hitSlop={4}
-          >
-            <Crosshair size={18} color={mapPalette.target} weight="bold" />
-            <Text style={styles.cameraButtonLabel} numberOfLines={1}>
-              {t('tracking.map.followVehicle')}
-            </Text>
-          </Pressable>
-        ) : null}
-
-        {cameraMode === 'follow' && canShowOverview ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('tracking.map.viewRouteAccessibility')}
-            onPress={handleViewRoute}
-            style={({ pressed }) => [
-              styles.cameraButton,
-              pressed ? styles.cameraButtonPressed : null,
-            ]}
-            hitSlop={4}
-          >
-            <MapPin size={18} color={mapPalette.target} weight="bold" />
-            <Text style={styles.cameraButtonLabel} numberOfLines={1}>
-              {t('tracking.map.viewRoute')}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
+      {/* Segmented camera control — always visible so “Theo xe / Toàn tuyến” is discoverable. */}
+      {(latestCoordinate || canShowOverview) ? (
+        <View style={styles.cameraControls} pointerEvents="box-none">
+          <View style={styles.cameraSegment}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: cameraMode === 'follow', disabled: !latestCoordinate }}
+              accessibilityLabel={t('tracking.map.followAccessibility')}
+              disabled={!latestCoordinate}
+              onPress={handleFollowVehicle}
+              style={({ pressed }) => [
+                styles.cameraSegmentItem,
+                cameraMode === 'follow' ? styles.cameraSegmentItemActive : null,
+                !latestCoordinate ? styles.cameraSegmentItemDisabled : null,
+                pressed ? styles.cameraButtonPressed : null,
+              ]}
+              hitSlop={4}
+            >
+              <Crosshair
+                size={16}
+                color={cameraMode === 'follow' ? theme.colors.textInverse : mapPalette.target}
+                weight="bold"
+              />
+              <Text
+                style={[
+                  styles.cameraButtonLabel,
+                  cameraMode === 'follow' ? styles.cameraSegmentLabelActive : null,
+                ]}
+                numberOfLines={1}
+              >
+                {t('tracking.map.followVehicle')}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: cameraMode === 'overview', disabled: !canShowOverview }}
+              accessibilityLabel={t('tracking.map.viewRouteAccessibility')}
+              disabled={!canShowOverview}
+              onPress={handleViewRoute}
+              style={({ pressed }) => [
+                styles.cameraSegmentItem,
+                cameraMode === 'overview' ? styles.cameraSegmentItemActive : null,
+                !canShowOverview ? styles.cameraSegmentItemDisabled : null,
+                pressed ? styles.cameraButtonPressed : null,
+              ]}
+              hitSlop={4}
+            >
+              <MapPin
+                size={16}
+                color={cameraMode === 'overview' ? theme.colors.textInverse : mapPalette.target}
+                weight="bold"
+              />
+              <Text
+                style={[
+                  styles.cameraButtonLabel,
+                  cameraMode === 'overview' ? styles.cameraSegmentLabelActive : null,
+                ]}
+                numberOfLines={1}
+              >
+                {t('tracking.map.viewRoute')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 });
@@ -764,11 +792,13 @@ const createStyles = (theme: AppTheme) => {
     markerStation: {
       backgroundColor: palette.shuttleStation,
     },
+    // Bottom-left only — camera is top-center, waiting GPS is bottom-right.
     mapLegend: {
       position: 'absolute' as const,
       left: spacing.sm,
       bottom: spacing.sm,
       maxWidth: 148,
+      zIndex: 20,
       gap: 3,
       paddingHorizontal: spacing.sm,
       paddingVertical: 6,
@@ -810,37 +840,56 @@ const createStyles = (theme: AppTheme) => {
       lineHeight: 13,
       color: theme.colors.textSecondary,
     },
+    // Top-center so it does not cover the bottom legend (left) or waiting chip (right).
     cameraControls: {
       position: 'absolute' as const,
+      top: spacing.sm,
+      left: spacing.sm,
       right: spacing.sm,
-      bottom: spacing.sm,
-      maxWidth: '44%' as const,
-      alignItems: 'flex-end' as const,
-      gap: spacing.sm,
-    },
-    cameraButton: {
-      minHeight: 44,
-      maxWidth: '100%' as const,
-      flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      gap: spacing.sm,
-      paddingHorizontal: spacing.md,
+      zIndex: 40,
+    },
+    cameraSegment: {
+      flexDirection: 'row' as const,
+      alignItems: 'stretch' as const,
+      maxWidth: 320,
+      width: '88%' as unknown as number,
+      minHeight: 40,
+      padding: 3,
       borderRadius: borderRadius.full,
       borderWidth: 1,
       borderColor: liquid ? theme.effects.glassBorderStrong : palette.frameBorder,
       backgroundColor: liquid ? theme.effects.glassSurfaceStrong : theme.colors.surfaceElevated,
       ...theme.effects.floatingShadow,
     },
+    cameraSegmentItem: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.full,
+    },
+    cameraSegmentItemActive: {
+      backgroundColor: palette.target,
+    },
+    cameraSegmentItemDisabled: {
+      opacity: 0.45,
+    },
     cameraButtonPressed: {
-      opacity: 0.84,
-      transform: [{ scale: 0.98 }],
+      opacity: 0.88,
     },
     cameraButtonLabel: {
       flexShrink: 1,
       fontFamily: fontFamilies.semiBold,
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.xs,
       color: theme.colors.textPrimary,
+    },
+    cameraSegmentLabelActive: {
+      color: theme.colors.textInverse,
     },
   };
 };
