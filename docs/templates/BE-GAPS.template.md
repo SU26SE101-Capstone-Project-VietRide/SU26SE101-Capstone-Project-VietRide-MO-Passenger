@@ -1,9 +1,9 @@
-# BE Gaps — Handoff from Mobile
+# BE Gaps — Mobile/Backend Contract Tracker
 
 **Mobile baseline:** `<commit>`  
 **Backend baseline:** `<tag@commit>`  
 **Last updated:** `YYYY-MM-DD`  
-**Status vocabulary:** `BLOCKED_BE` → resolved when BE ships + Mobile re-verifies  
+**Status vocabulary:** `BLOCKED_BE` → `BE_FIXED_PENDING_MOBILE_VERIFY` → `VERIFIED`
 
 ---
 

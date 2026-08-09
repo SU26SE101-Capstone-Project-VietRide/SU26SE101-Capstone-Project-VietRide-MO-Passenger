@@ -88,8 +88,12 @@ yarn-error.log
 # Ruby / bundler
 .bundle/
 
-# AI agent configs (personal)
-.agents/
+# AI agent configs (personal), except the shared workflow skill
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/brainstorming/
+!.agents/skills/brainstorming/**
 
 # Tooling lock files (Claude Code, etc.)
 skills-lock.json
