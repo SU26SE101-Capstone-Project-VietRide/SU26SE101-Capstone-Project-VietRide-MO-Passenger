@@ -105,6 +105,7 @@ export function CustomTabBar({
             }
           };
 
+          // Chatbot is a root modal now; its historical center slot is inserted below.
           // Standard tabs mapping
           let label = '';
           let IconComponent = House;
@@ -123,58 +124,79 @@ export function CustomTabBar({
             IconComponent = User;
           }
 
+          const badgeValue = route.name === 'Notification'
+            ? descriptors[route.key]?.options.tabBarBadge
+            : undefined;
+          const badgeCount = Number(badgeValue);
+          const hasNotificationBadge = Number.isFinite(badgeCount) && badgeCount > 0;
+          const badgeLabel = badgeCount > 99 ? '99+' : String(Math.floor(badgeCount));
+          const tabAccessibilityLabel = hasNotificationBadge
+            ? `${label}. ${t('notification.unreadCount', { count: badgeCount })}`
+            : label;
+
           return (
             <React.Fragment key={route.key}>
-            {index === 2 ? (
-              <View style={styles.fabSlot}>
-                <Pressable
-                  onPress={() => {
-                    setCompact(false);
-                    navigation.navigate('Chatbot');
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('shared.tabBar.assistantAccessibility')}
-                  style={({ pressed }) => [styles.fabButton, pressed ? styles.pressed : null]}
-                >
-                  <Image source={APP_LOGO} style={styles.fabImage} contentFit="cover" transition={0} />
-                </Pressable>
-              </View>
-            ) : null}
-            <Pressable
-              onPress={onPress}
-              accessibilityRole="tab"
-              accessibilityLabel={label}
-              accessibilityState={{ selected: isFocused }}
-              style={({ pressed }) => [
-                styles.tabButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              {isFocused ? <View style={styles.activeTabFill} pointerEvents="none" /> : null}
-              <View style={styles.tabContent}>
-                <IconComponent
-                  size={22}
-                  weight={isFocused ? 'fill' : 'regular'}
-                  color={isFocused ? theme.colors.textInverse : theme.colors.textSecondary}
-                  style={styles.tabIcon}
-                />
-                <Text
-                  numberOfLines={1}
-                  style={[styles.tabLabel, isFocused ? styles.tabLabelActive : null]}
-                >
-                  {label}
-                </Text>
-                {route.name === 'Notification' && descriptors[route.key]?.options.tabBarBadge ? (
-                  <View style={styles.badge} accessibilityElementsHidden>
-                    <Text style={styles.badgeText}>
-                      {Number(descriptors[route.key].options.tabBarBadge) > 99
-                        ? '99+'
-                        : String(descriptors[route.key].options.tabBarBadge)}
-                    </Text>
+              {route.name === 'BookingHistory' ? (
+                <View style={styles.fabSlot}>
+                  <Pressable
+                    onPress={() => {
+                      setCompact(false);
+                      navigation.navigate('Chatbot');
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('shared.tabBar.assistantAccessibility')}
+                    style={({ pressed }) => [
+                      styles.fabButton,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Image
+                      source={APP_LOGO}
+                      style={styles.fabImage}
+                      contentFit="cover"
+                      transition={0}
+                    />
+                  </Pressable>
+                </View>
+              ) : null}
+              <Pressable
+                onPress={onPress}
+                accessibilityRole="tab"
+                accessibilityLabel={tabAccessibilityLabel}
+                accessibilityState={{ selected: isFocused }}
+                style={({ pressed }) => [
+                  styles.tabButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                {isFocused ? <View style={styles.activeTabFill} pointerEvents="none" /> : null}
+                <View style={styles.tabContent}>
+                  <View style={styles.tabIconAnchor}>
+                    <IconComponent
+                      size={22}
+                      weight={isFocused ? 'fill' : 'regular'}
+                      color={isFocused ? theme.colors.textInverse : theme.colors.textSecondary}
+                    />
+                    {hasNotificationBadge ? (
+                      <View
+                        pointerEvents="none"
+                        accessible={false}
+                        accessibilityElementsHidden
+                        importantForAccessibility="no-hide-descendants"
+                        style={[
+                          styles.notificationBadge,
+                          isFocused
+                            ? styles.notificationBadgeActive
+                            : styles.notificationBadgeInactive,
+                        ]}
+                      >
+                        <Text style={styles.notificationBadgeText}>{badgeLabel}</Text>
+                      </View>
+                    ) : null}
                   </View>
-                ) : null}
-              </View>
-            </Pressable>
+                  {isFocused ? <View style={styles.activeDot} /> : <View style={styles.dotSpacer} />}
+                </View>
+              </Pressable>
             </React.Fragment>
           );
         })}
@@ -299,34 +321,43 @@ const createStyles = (theme: AppTheme) => ({
     gap: 3,
     width: '100%',
   },
-  tabIcon: {
-    marginTop: 1,
+  tabIconAnchor: {
+    position: 'relative',
+    width: 22,
+    height: 22,
+    marginTop: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tabLabel: {
-    maxWidth: 64,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-  },
-  tabLabelActive: { color: theme.colors.textInverse },
-  badge: {
+  notificationBadge: {
     position: 'absolute',
-    top: -7,
-    right: 4,
+    top: -6,
+    right: -12,
     minWidth: 18,
     height: 18,
     paddingHorizontal: 4,
     borderRadius: 9,
+    borderCurve: 'continuous',
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.error,
-    borderWidth: 1,
-    borderColor: theme.colors.surface,
+    zIndex: 3,
   },
-  badgeText: {
+  notificationBadgeActive: {
+    borderColor: theme.colors.primary,
+  },
+  notificationBadgeInactive: {
+    borderColor: theme.effects.isLiquid ? theme.effects.tabBarSurface : '#FFFFFF',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: theme.colors.textInverse,
+    lineHeight: 12,
+    letterSpacing: -0.2,
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   activeDot: {
     width: 4,

@@ -26,6 +26,7 @@ import type {
   RootStackParamList,
 } from '@app/navigation/types';
 import { ProfileHeader } from '@shared/components';
+import { useNotificationUnreadCount } from '../hooks/useNotifications';
 import { useBookingStore } from '../../booking/store/useBookingStore';
 import { useBookingDiscovery } from '../../booking/hooks/useBookingDiscovery';
 import { useParcelStore } from '../../parcel/store/useParcelStore';
@@ -64,6 +65,7 @@ export function HomeScreen(): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
   const bottomTabClearance = useFloatingTabBarContentInset();
+  const unreadNotificationCount = useNotificationUnreadCount().data ?? 0;
 
   const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
 
@@ -266,6 +268,7 @@ export function HomeScreen(): React.JSX.Element {
         showBackButton={false}
         userName={user?.fullName}
         onNotificationPress={handleNotificationPress}
+        notificationBadgeCount={unreadNotificationCount}
       />
 
       {/* Main Content Area */}

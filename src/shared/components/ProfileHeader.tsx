@@ -17,6 +17,7 @@ export interface ProfileHeaderProps {
   onBackPress?: () => void;
   showNotificationButton?: boolean;
   onNotificationPress?: () => void;
+  notificationBadgeCount?: number;
   userName?: string;
   greeting?: string;
 }
@@ -26,6 +27,7 @@ export function ProfileHeader({
   onBackPress,
   showNotificationButton = true,
   onNotificationPress,
+  notificationBadgeCount = 0,
   userName,
   greeting,
 }: ProfileHeaderProps): React.JSX.Element {
@@ -42,6 +44,18 @@ export function ProfileHeader({
     || t('shared.profileHeader.defaultUserName');
   const resolvedGreeting = greeting ?? t('shared.profileHeader.greeting');
   const shouldShowGreeting = isAuthenticated && resolvedUserName.trim().length > 0;
+  const normalizedNotificationBadgeCount = Number.isFinite(notificationBadgeCount)
+    ? Math.max(0, Math.floor(notificationBadgeCount))
+    : 0;
+  const hasNotificationBadge = normalizedNotificationBadgeCount > 0;
+  const notificationBadgeLabel = normalizedNotificationBadgeCount > 99
+    ? '99+'
+    : String(normalizedNotificationBadgeCount);
+  const notificationAccessibilityLabel = hasNotificationBadge
+    ? `${t('profile.notifications')}. ${t('notification.unreadCount', {
+        count: normalizedNotificationBadgeCount,
+      })}`
+    : t('profile.notifications');
 
   const handleAuthPress = useCallback(() => {
     navigation.navigate('Auth', { screen: 'Login' });
@@ -109,7 +123,7 @@ export function ProfileHeader({
       
       {showNotificationButton ? (
         <Pressable
-          accessibilityLabel={t('profile.notifications')}
+          accessibilityLabel={notificationAccessibilityLabel}
           accessibilityRole="button"
           onPress={handleNotification}
           style={({ pressed }) => [
@@ -117,7 +131,22 @@ export function ProfileHeader({
             pressed ? styles.pressed : null,
           ]}
         >
-          <Bell size={22} color={theme.colors.textPrimary} />
+          <View style={styles.notificationIconAnchor}>
+            <Bell size={22} color={theme.colors.textPrimary} />
+            {hasNotificationBadge ? (
+              <View
+                pointerEvents="none"
+                accessible={false}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={styles.notificationBadge}
+              >
+                <Text style={styles.notificationBadgeText}>
+                  {notificationBadgeLabel}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </Pressable>
       ) : null}
     </View>
@@ -182,6 +211,41 @@ const createStyles = (theme: AppTheme) => ({
     ...theme.components.headerButton,
     width: 40,
     height: 40,
+    overflow: 'visible',
+  },
+  notificationIconAnchor: {
+    position: 'relative',
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -9,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    borderCurve: 'continuous',
+    borderWidth: 1.5,
+    borderColor: theme.effects.isLiquid
+      ? theme.effects.glassSurfaceStrong
+      : theme.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.error,
+    zIndex: 2,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    lineHeight: 12,
+    letterSpacing: -0.2,
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.8,
