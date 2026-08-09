@@ -33,6 +33,40 @@ import { navigationRef } from './navigationRef';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const renderAuthScreen = (
+  mode: 'guest' | 'signed-out',
+  reduceMotion: boolean,
+): React.JSX.Element => (
+  <Stack.Screen
+    name="Auth"
+    navigationKey={mode === 'guest' ? 'guest-auth' : 'signed-out-auth'}
+    component={AuthNavigator}
+    options={mode === 'guest'
+      ? {
+          presentation: 'fullScreenModal',
+          animation: reduceMotion ? 'none' : 'slide_from_bottom',
+        }
+      : undefined}
+  />
+);
+
+const renderCompleteProfileScreen = (
+  asGuestHandoff: boolean,
+  reduceMotion: boolean,
+): React.JSX.Element => (
+  <Stack.Screen
+    name="CompleteProfile"
+    component={CompleteProfileScreen}
+    options={asGuestHandoff
+      ? {
+          presentation: 'fullScreenModal',
+          animation: reduceMotion ? 'none' : 'slide_from_bottom',
+          gestureEnabled: false,
+        }
+      : undefined}
+  />
+);
+
 export function RootNavigator(): React.JSX.Element {
   useAuthInitializer();
   useAuthSync();
@@ -88,7 +122,7 @@ export function RootNavigator(): React.JSX.Element {
         screenOptions={screenOptions}
       >
         {needsPhoneCompletion && !shouldKeepGuestRouteMounted ? (
-          <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+          renderCompleteProfileScreen(false, reduceMotion)
         ) : canEnterApp || shouldKeepGuestRouteMounted ? (
           <>
             <Stack.Screen name="Main" component={MainTabNavigator} />
@@ -106,35 +140,13 @@ export function RootNavigator(): React.JSX.Element {
               name="NotificationDetail"
               component={NotificationDetailScreen}
             />
-            {isGuest ? (
-              <Stack.Screen
-                name="Auth"
-                navigationKey="guest-auth"
-                component={AuthNavigator}
-                options={{
-                  presentation: 'fullScreenModal',
-                  animation: reduceMotion ? 'none' : 'slide_from_bottom',
-                }}
-              />
-            ) : null}
-            {shouldKeepGuestRouteMounted ? (
-              <Stack.Screen
-                name="CompleteProfile"
-                component={CompleteProfileScreen}
-                options={{
-                  presentation: 'fullScreenModal',
-                  animation: reduceMotion ? 'none' : 'slide_from_bottom',
-                  gestureEnabled: false,
-                }}
-              />
-            ) : null}
+            {isGuest ? renderAuthScreen('guest', reduceMotion) : null}
+            {shouldKeepGuestRouteMounted
+              ? renderCompleteProfileScreen(true, reduceMotion)
+              : null}
           </>
         ) : (
-          <Stack.Screen
-            name="Auth"
-            navigationKey="signed-out-auth"
-            component={AuthNavigator}
-          />
+          renderAuthScreen('signed-out', reduceMotion)
         )}
       </Stack.Navigator>
     </>
