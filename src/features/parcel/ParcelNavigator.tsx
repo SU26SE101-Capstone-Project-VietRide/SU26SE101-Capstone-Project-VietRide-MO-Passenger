@@ -24,7 +24,11 @@ export function ParcelNavigator(): React.JSX.Element {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="CityPicker" component={ParcelCityPicker} />
-      <Stack.Screen name="CreateParcel" component={CreateParcelScreen} />
+      <Stack.Screen
+        name="CreateParcel"
+        component={CreateParcelScreen}
+        options={{ gestureEnabled: false }}
+      />
       <Stack.Screen
         name="ParcelDetail"
         component={ParcelDetailScreen}

@@ -39,6 +39,7 @@ interface ChatMessageBubbleProps {
     assistantMessageId: string,
     rating: ChatFeedbackRating,
   ) => void;
+  onRetry?: (messageId: string) => void;
 }
 
 function ChatMessageBubbleComponent({
@@ -46,6 +47,7 @@ function ChatMessageBubbleComponent({
   isFeedbackPending,
   onBookingPress,
   onRate,
+  onRetry,
 }: ChatMessageBubbleProps): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const theme = useTheme();
@@ -74,6 +76,7 @@ function ChatMessageBubbleComponent({
   const handleBookingPress = useCallback(() => {
     if (message.bookingDraft) onBookingPress(message.bookingDraft);
   }, [message.bookingDraft, onBookingPress]);
+  const handleRetry = useCallback(() => onRetry?.(message.id), [message.id, onRetry]);
 
   return (
     <View style={[styles.row, isUser ? styles.userRow : styles.assistantRow]}>
@@ -107,7 +110,16 @@ function ChatMessageBubbleComponent({
           ) : null}
 
           {message.status === 'error' && message.content ? (
-            <Text style={styles.statusText}>{t('chatbot.responseInterrupted')}</Text>
+            <View style={styles.errorRecoveryRow}>
+              <Text style={styles.statusText}>{t('chatbot.responseInterrupted')}</Text>
+              {onRetry ? <Pressable
+                accessibilityRole="button"
+                onPress={handleRetry}
+                style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
+              >
+                <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
+              </Pressable> : null}
+            </View>
           ) : null}
 
           <Text style={[
@@ -153,6 +165,7 @@ function ChatMessageBubbleComponent({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('chatbot.helpfulYes')}
+              accessibilityState={{ selected: message.feedback === 1, disabled: isFeedbackPending }}
               disabled={isFeedbackPending}
               onPress={handlePositiveRating}
               style={({ pressed }) => [
@@ -170,6 +183,7 @@ function ChatMessageBubbleComponent({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('chatbot.helpfulNo')}
+              accessibilityState={{ selected: message.feedback === -1, disabled: isFeedbackPending }}
               disabled={isFeedbackPending}
               onPress={handleNegativeRating}
               style={({ pressed }) => [
@@ -270,7 +284,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   timeText: {
     fontFamily: fontFamilies.regular,
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     textAlign: 'right' as const,
     marginTop: spacing.xs,
   },
@@ -324,6 +338,24 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.xs,
     marginTop: spacing.xs,
   },
+  errorRecoveryRow: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  retryButton: {
+    minHeight: 44,
+    alignSelf: 'flex-start' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  retryButtonText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
+  },
   feedbackLabel: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
@@ -331,8 +363,8 @@ const createStyles = (theme: AppTheme) => ({
     marginRight: 2,
   },
   feedbackButton: {
-    width: 30,
-    height: 30,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,

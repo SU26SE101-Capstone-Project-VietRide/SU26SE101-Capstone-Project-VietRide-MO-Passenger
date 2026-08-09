@@ -275,7 +275,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   stepLabel: {
     fontFamily: fontFamilies.medium,
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     color: theme.colors.primary,
     marginTop: 4,
     opacity: 0.7,

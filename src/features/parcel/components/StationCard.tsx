@@ -170,7 +170,7 @@ const createStyles = (theme: AppTheme) => ({
   nearbyText: {
     color: theme.colors.accent,
     fontFamily: fontFamilies.bold,
-    fontSize: 9,
+    fontSize: fontSizes.xs,
     letterSpacing: 0.4,
   },
   selectionIcon: {

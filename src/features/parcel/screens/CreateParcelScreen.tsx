@@ -9,9 +9,12 @@ import {
   ActivityIndicator,
   Alert,
   BackHandler,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -264,6 +267,14 @@ export function CreateParcelScreen(): React.JSX.Element {
   const [recipientName, setRecipientName] = useState(user?.fullName ?? '');
   const [recipientPhone, setRecipientPhone] = useState(user?.phone ?? '');
   const [recipientEmail, setRecipientEmail] = useState(user?.email ?? '');
+  const [recipientErrors, setRecipientErrors] = useState<{
+    name?: string;
+    phone?: string;
+    email?: string;
+  }>({});
+  const recipientNameRef = useRef<TextInput>(null);
+  const recipientPhoneRef = useRef<TextInput>(null);
+  const recipientEmailRef = useRef<TextInput>(null);
   const departureDateBase = useMemo(() => startOfLocalDay(new Date()), []);
   const [departureOffset, setDepartureOffset] = useState(0);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
@@ -277,6 +288,18 @@ export function CreateParcelScreen(): React.JSX.Element {
   const selectedTripIdRef = useRef<string | null>(null);
   const checkoutInFlightRef = useRef(false);
   const walletBalanceQuery = useWalletBalance(step === 4);
+  const hasParcelDraft = Boolean(
+    fromLocationCode
+    || toLocationCode
+    || receivingStation
+    || dropoffStation
+    || step > 1
+    || selectedTripId
+    || appliedPromo
+    || photos.length > 0
+    || estimatedValue.trim()
+    || packageCategory.trim(),
+  );
 
   const currentLocation = useCurrentCoordinates(step === 1 || step === 2);
 
@@ -569,9 +592,25 @@ export function CreateParcelScreen(): React.JSX.Element {
       return true;
     }
 
-    navigation.goBack();
+    if (!hasParcelDraft) {
+      navigation.goBack();
+      return true;
+    }
+
+    Alert.alert(
+      t('parcel.exitDraft.title'),
+      t('parcel.exitDraft.description'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('parcel.exitDraft.discard'),
+          style: 'destructive',
+          onPress: () => navigation.goBack(),
+        },
+      ],
+    );
     return true;
-  }, [navigation, step]);
+  }, [hasParcelDraft, navigation, step, t]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -731,25 +770,24 @@ export function CreateParcelScreen(): React.JSX.Element {
       return false;
     }
     if (step === 3 || validateWholeDraft) {
-      if (!recipientName.trim() || !recipientPhone.trim()) {
-        Alert.alert(
-          t('app.name'),
-          t('parcel.validation.recipientRequired'),
-        );
+      if (!recipientName.trim()) {
+        setRecipientErrors({ name: t('parcel.validation.recipientNameRequired') });
+        requestAnimationFrame(() => recipientNameRef.current?.focus());
+        return false;
+      }
+      if (!recipientPhone.trim()) {
+        setRecipientErrors({ phone: t('parcel.validation.recipientPhoneRequired') });
+        requestAnimationFrame(() => recipientPhoneRef.current?.focus());
         return false;
       }
       if (!isValidVietnamPhone(recipientPhone)) {
-        Alert.alert(
-          t('app.name'),
-          t('parcel.validation.invalidVietnamPhone'),
-        );
+        setRecipientErrors({ phone: t('parcel.validation.invalidVietnamPhone') });
+        requestAnimationFrame(() => recipientPhoneRef.current?.focus());
         return false;
       }
       if (recipientEmail.trim() && !isValidEmail(recipientEmail)) {
-        Alert.alert(
-          t('app.name'),
-          t('parcel.validation.invalidRecipientEmail'),
-        );
+        setRecipientErrors({ email: t('parcel.validation.invalidRecipientEmail') });
+        requestAnimationFrame(() => recipientEmailRef.current?.focus());
         return false;
       }
       if (!packageMeasurementsValid) {
@@ -761,6 +799,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         return false;
       }
     }
+    setRecipientErrors({});
     if (step === 4 && !selectedTrip) {
       Alert.alert(
         t('app.name'),
@@ -1114,6 +1153,9 @@ export function CreateParcelScreen(): React.JSX.Element {
   const handleRetryAvailableTrips = useCallback(() => {
     refetchAvailableTrips().catch(() => undefined);
   }, [refetchAvailableTrips]);
+  const handleChooseRouteLocation = useCallback(() => {
+    navigation.navigate('CityPicker', { mode: step === 1 ? 'from' : 'to' });
+  }, [navigation, step]);
   const isStationListReady =
     isStationSelectionStep &&
     !missingLocation &&
@@ -1150,6 +1192,20 @@ export function CreateParcelScreen(): React.JSX.Element {
           <Text style={styles.stateText}>
             {t('parcel.stations.chooseRouteFirstDescription')}
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleChooseRouteLocation}
+            style={({ pressed }) => [
+              styles.routePickerButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.routePickerButtonText}>
+              {step === 1
+                ? t('parcel.stations.chooseOriginAction')
+                : t('parcel.stations.chooseDestinationAction')}
+            </Text>
+          </Pressable>
         </View>
       );
     }
@@ -1417,27 +1473,42 @@ export function CreateParcelScreen(): React.JSX.Element {
               {t('parcel.form.recipientTitle')}
             </Text>
             <Input
+              ref={recipientNameRef}
               label={t('parcel.form.fullNameLabel')}
               placeholder={t('parcel.form.fullNamePlaceholder')}
               maxLength={255}
               value={recipientName}
-              onChangeText={setRecipientName}
+              error={recipientErrors.name}
+              onChangeText={(value) => {
+                setRecipientName(value);
+                if (recipientErrors.name) setRecipientErrors((current) => ({ ...current, name: undefined }));
+              }}
             />
             <Input
+              ref={recipientPhoneRef}
               label={t('parcel.form.phoneLabel')}
               placeholder={t('parcel.form.phonePlaceholder')}
               keyboardType="phone-pad"
               maxLength={20}
               value={recipientPhone}
-              onChangeText={setRecipientPhone}
+              error={recipientErrors.phone}
+              onChangeText={(value) => {
+                setRecipientPhone(value);
+                if (recipientErrors.phone) setRecipientErrors((current) => ({ ...current, phone: undefined }));
+              }}
             />
             <Input
+              ref={recipientEmailRef}
               label={t('parcel.form.emailLabel')}
               placeholder={t('parcel.form.emailPlaceholder')}
               keyboardType="email-address"
               maxLength={255}
               value={recipientEmail}
-              onChangeText={setRecipientEmail}
+              error={recipientErrors.email}
+              onChangeText={(value) => {
+                setRecipientEmail(value);
+                if (recipientErrors.email) setRecipientErrors((current) => ({ ...current, email: undefined }));
+              }}
               autoCapitalize="none"
             />
           </View>
@@ -1588,6 +1659,11 @@ export function CreateParcelScreen(): React.JSX.Element {
         />
         <StepHeaderWithMascot step={step} />
 
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={insets.top}
+          style={styles.keyboardAvoidingView}
+        >
         {isStationListReady ? (
           <FlashList
             data={stationStepStations}
@@ -1602,6 +1678,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           <ScrollView
             style={styles.scrollContainer}
             contentContainerStyle={scrollContentStyle}
+            automaticallyAdjustKeyboardInsets
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -1656,6 +1733,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             )}
           </Pressable>
         </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -1672,6 +1750,7 @@ const createStyles = (theme: AppTheme) => ({
     zIndex: 0,
   },
   container: { flex: 1, backgroundColor: 'transparent' },
+  keyboardAvoidingView: { flex: 1 },
   scrollContainer: { flex: 1 },
   stationLoadingContent: {
     padding: spacing.xl,
@@ -1859,6 +1938,20 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  routePickerButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.colors.primary,
+    marginTop: spacing.sm,
+  },
+  routePickerButtonText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textInverse,
   },
   emptyTripActions: {
     width: '100%',

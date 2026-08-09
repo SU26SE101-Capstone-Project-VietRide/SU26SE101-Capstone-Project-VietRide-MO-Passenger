@@ -151,7 +151,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   sizeSub: {
     fontFamily: fontFamilies.regular,
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
     marginTop: 2,
     textAlign: 'center',

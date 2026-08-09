@@ -289,7 +289,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   routeLabelText: {
     fontFamily: fontFamilies.bold,
-    fontSize: 9,
+    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
     marginBottom: 2,
   },

@@ -45,8 +45,9 @@ export const ChatComposer = React.memo(function ChatComposerComponent({
         placeholder={placeholder}
         containerStyle={styles.inputContainer}
         maxLength={4_000}
-        onSubmitEditing={handleSend}
-        returnKeyType="send"
+        multiline
+        inputStyle={styles.composerInput}
+        returnKeyType="default"
         accessibilityLabel={placeholder}
       />
       <Pressable
@@ -84,6 +85,11 @@ const createStyles = (theme: AppTheme) => ({
   inputContainer: {
     flex: 1,
     marginBottom: 0,
+  },
+  composerInput: {
+    minHeight: 48,
+    maxHeight: 120,
+    textAlignVertical: 'top' as const,
   },
   sendButton: {
     width: 48,

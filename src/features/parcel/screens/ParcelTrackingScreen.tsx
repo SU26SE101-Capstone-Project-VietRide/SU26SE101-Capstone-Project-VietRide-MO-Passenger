@@ -318,7 +318,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   statusEyebrow: {
     fontFamily: fontFamilies.bold,
-    fontSize: 9,
+    fontSize: fontSizes.xs,
     letterSpacing: 0.4,
     color: theme.colors.textTertiary,
   },

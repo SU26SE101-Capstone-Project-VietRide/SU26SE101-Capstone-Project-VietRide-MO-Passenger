@@ -293,7 +293,7 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
     padding: 0,
     fontFamily: fontFamilies.bold,
-    fontSize: 22,
+    fontSize: fontSizes.xxl,
     color: theme.colors.textPrimary,
   },
   weightInputUnit: {

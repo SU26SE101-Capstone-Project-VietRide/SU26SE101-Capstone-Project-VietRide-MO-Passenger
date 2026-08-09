@@ -7,6 +7,7 @@ import {
   StatusBar,
   Text,
   View,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -153,6 +154,16 @@ export function ChatbotScreen(): React.JSX.Element {
   ) => {
     rateMessage(messageId, assistantMessageId, rating).catch(() => undefined);
   }, [rateMessage]);
+  const handleRetryMessage = useCallback((assistantMessageId: string) => {
+    const assistantIndex = messages.findIndex((message) => message.id === assistantMessageId);
+    for (let index = assistantIndex - 1; index >= 0; index -= 1) {
+      const candidate = messages[index];
+      if (candidate?.role === 'user' && candidate.content.trim()) {
+        sendMessage(candidate.content).catch(() => undefined);
+        return;
+      }
+    }
+  }, [messages, sendMessage]);
 
   const handleSend = useCallback((message: string) => {
     sendMessage(message).catch(() => undefined);
@@ -180,7 +191,10 @@ export function ChatbotScreen(): React.JSX.Element {
         params: { initialTab: 'ticket' },
       });
     } else if (action.id === 'parcel') {
-      navigation.navigate('Parcel', { screen: 'CreateParcel' });
+      navigation.navigate('Parcel', {
+        screen: 'CityPicker',
+        params: { mode: 'from', next: 'to' },
+      });
     } else if (action.prompt && availability === 'ready' && isOnline && !isStreaming) {
       handleSend(action.prompt);
     }
@@ -199,8 +213,25 @@ export function ChatbotScreen(): React.JSX.Element {
       isFeedbackPending={Boolean(pendingFeedbackId)}
       onBookingPress={handleBookingPress}
       onRate={handleRate}
+      onRetry={handleRetryMessage}
     />
-  ), [handleBookingPress, handleRate, pendingFeedbackId]);
+  ), [handleBookingPress, handleRate, handleRetryMessage, pendingFeedbackId]);
+
+  const handleNewConversation = useCallback(() => {
+    const hasConversationContent = messages.some((message) => message.id !== 'welcome');
+    if (!hasConversationContent) {
+      resetConversation();
+      return;
+    }
+    Alert.alert(
+      t('chatbot.newConversationConfirmTitle'),
+      t('chatbot.newConversationConfirmDescription'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('chatbot.newConversation'), style: 'destructive', onPress: resetConversation },
+      ],
+    );
+  }, [messages, resetConversation, t]);
 
   const listExtraData = useMemo(
     () => ({ pendingFeedbackId, language: i18n.language }),
@@ -248,7 +279,7 @@ export function ChatbotScreen(): React.JSX.Element {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('chatbot.newConversation')}
-            onPress={resetConversation}
+            onPress={handleNewConversation}
             style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
           >
             <NotePencil size={21} color={theme.colors.primary} weight="bold" />
@@ -304,6 +335,9 @@ export function ChatbotScreen(): React.JSX.Element {
               return (
                 <Pressable
                   key={action.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={action.label}
+                  accessibilityState={{ disabled: isPolicyDisabled }}
                   disabled={isPolicyDisabled}
                   onPress={() => handleQuickAction(action)}
                   style={({ pressed }) => [
@@ -438,7 +472,7 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
   },
   quickAction: {
-    minHeight: 38,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,

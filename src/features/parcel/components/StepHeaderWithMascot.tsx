@@ -64,7 +64,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   headingInsideNavbar: {
     fontFamily: fontFamilies.bold,
-    fontSize: 22,
+    fontSize: fontSizes.xxl,
     color: theme.colors.primaryDark,
     marginBottom: spacing.xs,
   },

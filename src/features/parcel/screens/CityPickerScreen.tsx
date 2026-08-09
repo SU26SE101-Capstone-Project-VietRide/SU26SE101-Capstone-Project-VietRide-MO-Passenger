@@ -135,9 +135,18 @@ export function ParcelCityPicker(): React.JSX.Element {
         setToLocation(location.name, location.code);
       }
 
+      if (route.params.next === 'to') {
+        navigation.replace('CityPicker', { mode: 'to', next: 'create' });
+        return;
+      }
+      if (route.params.next === 'create') {
+        navigation.replace('CreateParcel');
+        return;
+      }
+
       navigation.goBack();
     },
-    [mode, navigation, oppositeLocationCode, setFromLocation, setToLocation],
+    [mode, navigation, oppositeLocationCode, route.params.next, setFromLocation, setToLocation],
   );
 
   const renderLocation = useCallback<ListRenderItem<Location>>(
