@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Share } from 'react-native';
 
-import { toApiError } from '@shared/api/errors';
+import { isAmbiguousIdempotentRequestError } from '@shared/api/errors';
 import { IdempotencyKeyTracker } from '@shared/api/idempotency';
 import {
   getTokenSessionEpoch,
@@ -29,15 +29,8 @@ export type TripShareOutcome =
   | 'revoked'
   | 'cancelled';
 
-const shouldRetainIdempotencyKey = (error: unknown): boolean => {
-  const apiError = toApiError(error);
-  return (
-    apiError.isNetworkError
-    || apiError.statusCode === undefined
-    || apiError.statusCode === 408
-    || apiError.statusCode >= 500
-  );
-};
+const shouldRetainIdempotencyKey = (error: unknown): boolean =>
+  isAmbiguousIdempotentRequestError(error, { retainOnUnknownStatus: true });
 
 /**
  * Coordinates ephemeral share links without putting their fragment token in a

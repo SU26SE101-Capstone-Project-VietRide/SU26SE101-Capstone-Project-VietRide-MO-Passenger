@@ -130,7 +130,7 @@ export async function markAllNotificationsRead(
 ): Promise<MarkAllNotificationsReadResult> {
   const response = await apiClient.post<ApiEnvelope<MarkAllNotificationsReadResult>>(
     '/notifications/read-all',
-    {},
+    undefined,
     {
       headers: { 'Idempotency-Key': idempotencyKey },
       ...(signal ? { signal } : {}),

@@ -3,7 +3,10 @@ import { useTranslation } from 'react-i18next';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useLocations } from '@features/location/hooks/useLocations';
-import { toApiError } from '@shared/api/errors';
+import {
+  isAmbiguousIdempotentRequestError,
+  toApiError,
+} from '@shared/api/errors';
 import { IdempotencyKeyTracker } from '@shared/api/idempotency';
 import { useAppStore } from '@shared/store';
 import { streamChat, submitChatFeedback } from '../api/chatbotApi';
@@ -252,7 +255,9 @@ export function useChatSession() {
       if (sequence !== requestSequence.current || !mountedRef.current) return false;
 
       const apiError = toApiError(error);
-      if (!apiError.isNetworkError && apiError.statusCode && apiError.statusCode < 500) {
+      if (!isAmbiguousIdempotentRequestError(apiError, {
+        retainOnUnknownStatus: true,
+      })) {
         chatIdempotencyRef.current.reset();
       }
       if (apiError.code === 'RAG_CONVERSATION_NOT_FOUND') {

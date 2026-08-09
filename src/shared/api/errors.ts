@@ -311,6 +311,34 @@ export const toApiError = (error: unknown): ApiRequestError => {
   });
 };
 
+export interface AmbiguousIdempotentRequestOptions {
+  /** Preserve existing conservative behavior when the transport has no status. */
+  retainOnUnknownStatus?: boolean;
+  /** Some payment flows deliberately reconcile after a rate-limit response. */
+  retainOnRateLimit?: boolean;
+}
+
+/**
+ * Returns true when a mutating request may still have been accepted by BE.
+ * Retrying such an intent with a new key can duplicate a booking, payment,
+ * parcel, share link, or streamed assistant response.
+ */
+export const isAmbiguousIdempotentRequestError = (
+  error: unknown,
+  options: AmbiguousIdempotentRequestOptions = {},
+): boolean => {
+  const apiError = toApiError(error);
+  const statusCode = apiError.statusCode;
+
+  return apiError.isNetworkError
+    || apiError.code === 'REQUEST_TIMEOUT'
+    || apiError.code === 'IDEMPOTENCY_REQUEST_PENDING'
+    || statusCode === 408
+    || (options.retainOnRateLimit === true && statusCode === 429)
+    || Boolean(statusCode && statusCode >= 500)
+    || (options.retainOnUnknownStatus === true && statusCode === undefined);
+};
+
 const DEFAULT_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   AUTH_INVALID_CREDENTIALS: 'errors.api.invalidCredentials',
   AUTH_EMAIL_NOT_VERIFIED: 'errors.api.emailNotVerified',

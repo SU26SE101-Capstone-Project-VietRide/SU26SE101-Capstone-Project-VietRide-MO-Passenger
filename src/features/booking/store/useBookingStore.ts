@@ -23,7 +23,11 @@ import type {
 import type { TripDetail } from '../../trip/types';
 import { searchTrips, getSeatMap, getTripDetail } from '../../trip/api/tripApi';
 import { createBooking as apiCreateBooking, createRoundTripBooking } from '../api/bookingApi';
-import { ApiRequestError, toApiError } from '@shared/api/errors';
+import {
+  ApiRequestError,
+  isAmbiguousIdempotentRequestError,
+  toApiError,
+} from '@shared/api/errors';
 import { IdempotencyKeyTracker } from '@shared/api/idempotency';
 import { registerSessionCleanup } from '@shared/session/cleanup';
 import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
@@ -153,18 +157,6 @@ const buildDropOffPoints = (trip: TripDetail, selectedPickUp?: PickUpPoint | nul
     buildTerminalDropOff(trip),
   ];
 };
-
-/**
- * Keep the same idempotency key for ambiguous / in-flight outcomes.
- * IDEMPOTENCY_REQUEST_PENDING (409) means BE still has the original request —
- * a new key on the next tap can create a duplicate booking/payment.
- */
-const shouldRetainBookingIdempotencyKey = (error: ApiRequestError): boolean =>
-  error.isNetworkError
-  || error.code === 'REQUEST_TIMEOUT'
-  || error.code === 'IDEMPOTENCY_REQUEST_PENDING'
-  || error.statusCode === 408
-  || Boolean(error.statusCode && error.statusCode >= 500);
 
 const SHUTTLE_DRAFT_INVALIDATING_ERROR_CODES = new Set([
   'SHUTTLE_PICKUP_STALE',
@@ -1166,7 +1158,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           : staleBookingSessionError();
 
         if (generation === bookingGeneration) {
-          if (!shouldRetainBookingIdempotencyKey(apiError)) {
+          if (!isAmbiguousIdempotentRequestError(apiError)) {
             bookingIdempotency.reset();
           }
           if (shouldInvalidateShuttleDrafts(apiError)) {

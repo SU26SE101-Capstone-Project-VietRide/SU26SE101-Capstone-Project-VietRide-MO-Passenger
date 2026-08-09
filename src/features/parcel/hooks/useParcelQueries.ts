@@ -6,7 +6,10 @@ import {
   useQuery,
 } from '@tanstack/react-query';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { ApiRequestError, toApiError } from '@shared/api/errors';
+import {
+  ApiRequestError,
+  isAmbiguousIdempotentRequestError,
+} from '@shared/api/errors';
 import { IdempotencyKeyTracker } from '@shared/api/idempotency';
 import i18n from '@shared/i18n';
 import {
@@ -49,20 +52,6 @@ interface InFlightParcelSubmission<TResult> {
   sessionEpoch: number;
   promise: Promise<TResult>;
 }
-
-const isAmbiguousParcelSubmissionError = (error: unknown): boolean => {
-  const apiError = toApiError(error);
-  const statusCode = apiError.statusCode;
-
-  return (
-    apiError.isNetworkError ||
-    apiError.code === 'SESSION_INVALIDATED' ||
-    statusCode === undefined ||
-    statusCode === 408 ||
-    statusCode === 429 ||
-    statusCode >= 500
-  );
-};
 
 /**
  * Owns one idempotency key and single-flight promise per parcel command.
@@ -115,7 +104,10 @@ class ParcelSubmissionCoordinator<TInput, TResult> {
       (error: unknown) => {
         if (this.inFlight === activeSubmission) {
           this.inFlight = null;
-          if (!isAmbiguousParcelSubmissionError(error)) {
+          if (!isAmbiguousIdempotentRequestError(error, {
+            retainOnRateLimit: true,
+            retainOnUnknownStatus: true,
+          })) {
             this.tracker.reset();
           }
         }
