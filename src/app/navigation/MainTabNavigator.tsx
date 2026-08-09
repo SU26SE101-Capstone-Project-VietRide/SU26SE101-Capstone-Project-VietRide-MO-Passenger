@@ -13,7 +13,7 @@ import {
 
 import type { MainTabParamList } from './types';
 import { HomeScreen, NotificationScreen } from '@features/home';
-import { ChatbotScreen } from '@features/chatbot';
+import { useNotificationUnreadCount } from '@features/home/hooks/useNotifications';
 import { ProfileNavigator, BookingHistoryScreen } from '@features/profile';
 import { CustomTabBar } from '@shared/components';
 
@@ -25,6 +25,7 @@ const renderTabBar = (props: BottomTabBarProps): React.JSX.Element => (
 
 // ─── Navigator ────────────────────────────────────────────
 export function MainTabNavigator(): React.JSX.Element {
+  const unreadCount = useNotificationUnreadCount().data ?? 0;
   return (
     <Tab.Navigator
       tabBar={renderTabBar}
@@ -33,8 +34,11 @@ export function MainTabNavigator(): React.JSX.Element {
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Notification" component={NotificationScreen} />
-      <Tab.Screen name="ChatbotTab" component={ChatbotScreen} />
+      <Tab.Screen
+        name="Notification"
+        component={NotificationScreen}
+        options={{ tabBarBadge: unreadCount > 0 ? unreadCount : undefined }}
+      />
       <Tab.Screen name="BookingHistory" component={BookingHistoryScreen} />
       <Tab.Screen name="Profile" component={ProfileNavigator} />
     </Tab.Navigator>

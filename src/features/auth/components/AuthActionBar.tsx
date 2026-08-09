@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { ArrowLeft } from 'phosphor-react-native';
 import {
   borderRadius,
@@ -50,13 +50,16 @@ export const AuthActionBar = ({
           <Text style={styles.summaryValue}>{summary.value}</Text>
         </View>
       ) : null}
-      <TouchableOpacity
+      <Pressable
         accessibilityLabel={label}
         accessibilityRole="button"
         accessibilityState={{ disabled }}
-        style={[styles.cta, disabled ? styles.ctaDisabled : null]}
+        style={({ pressed }) => [
+          styles.cta,
+          disabled ? styles.ctaDisabled : null,
+          pressed && !disabled ? styles.ctaPressed : null,
+        ]}
         onPress={onPress}
-        activeOpacity={0.85}
         disabled={disabled}
       >
         <Text style={styles.ctaLabel}>{label}</Text>
@@ -66,7 +69,7 @@ export const AuthActionBar = ({
           weight="bold"
           style={styles.arrow}
         />
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 };
@@ -108,6 +111,7 @@ const createStyles = (theme: AppTheme) => ({
     ...theme.effects.floatingShadow,
   },
   ctaDisabled: { backgroundColor: theme.colors.textDisabled },
+  ctaPressed: { opacity: 0.85 },
   ctaLabel: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,

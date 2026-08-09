@@ -10,6 +10,8 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -70,19 +72,29 @@ export function ResetPasswordScreen(): React.JSX.Element {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<ResetPasswordFormErrors>({});
   const [completed, setCompleted] = useState(false);
-  const [timer, setTimer] = useState(Math.max(otpTtlMinutes * 60, 1));
+  const initialTtlSeconds = Math.max(otpTtlMinutes * 60, 1);
+  const [expiresAt] = useState(() => Date.now() + initialTtlSeconds * 1000);
+  const [timer, setTimer] = useState(initialTtlSeconds);
 
   const resetMutation = useMutation({
     mutationFn: resetPassword,
   });
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTimer((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
+    const syncTimer = () => {
+      setTimer(Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)));
+    };
+    syncTimer();
+    const interval = setInterval(syncTimer, 1000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') syncTimer();
+    });
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [expiresAt]);
 
   const clearFieldError = useCallback((field: ResetPasswordFormField) => {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -307,6 +319,21 @@ export function ResetPasswordScreen(): React.JSX.Element {
                   </Text>
                 ) : null}
 
+                {isExpired ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => navigation.navigate('ForgotPassword')}
+                    style={({ pressed }) => [
+                      styles.expiredAction,
+                      pressed ? styles.expiredActionPressed : null,
+                    ]}
+                  >
+                    <Text style={styles.expiredActionText}>
+                      {t('auth.resetPassword.requestNewCode')}
+                    </Text>
+                  </Pressable>
+                ) : null}
+
                 <Button
                   title={t('auth.resetPassword.submit')}
                   onPress={handleReset}
@@ -369,6 +396,18 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
     color: theme.colors.error,
     marginBottom: spacing.md,
+  },
+  expiredAction: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  expiredActionPressed: { opacity: 0.72 },
+  expiredActionText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
   },
   successScroll: {
     flexGrow: 1,

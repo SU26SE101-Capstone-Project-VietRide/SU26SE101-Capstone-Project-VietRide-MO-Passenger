@@ -1,12 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const { resolveGoogleMapsNativeConfig } = require('./config/googleMapsConfig');
+const { version: appVersion } = require('./package.json');
 
 const baseConfig = {
   name: 'VietRide',
   slug: 'viet-ride-passenger',
   owner: 'vitoomac116s-team',
-  version: '0.0.1',
+  version: appVersion,
   scheme: 'vietride',
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',

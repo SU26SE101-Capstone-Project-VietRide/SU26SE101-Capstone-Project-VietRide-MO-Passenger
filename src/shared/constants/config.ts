@@ -10,6 +10,7 @@ import { normalizeUrlBase } from '@shared/utils/url';
 export type Environment = 'development' | 'staging' | 'production';
 
 interface AppConfig {
+  readonly appVersion: string;
   readonly apiBaseUrl: string;
   readonly nativeGoogleMapsEnabled: Readonly<{
     android: boolean;
@@ -82,6 +83,7 @@ const secureTransportRequired = env !== 'development';
 const isExplicitlyEnabled = (value: string | undefined): boolean => value === 'true';
 
 export const appConfig: AppConfig = {
+  appVersion: require('../../../package.json').version as string,
   apiBaseUrl: requireServiceUrl(
     'EXPO_PUBLIC_API_BASE_URL',
     apiBaseUrlValue,

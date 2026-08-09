@@ -111,6 +111,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   authError: null,
 
   setSession: async (session) => {
+    const preserveGuestDrafts = get().isGuest;
     const sessionEpoch = beginTokenSession();
     const stored = await setToken(
       session.accessToken,
@@ -131,7 +132,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw new Error('The authentication session was superseded by a newer session.');
     }
 
-    clearSessionData();
+    if (preserveGuestDrafts) {
+      // Signing in from guest mode changes identity, but it must not erase the
+      // booking/parcel intent that led the passenger to authenticate.
+      queryClient.clear();
+    } else {
+      clearSessionData();
+    }
     // Both primary login endpoints return the login-safe user projection,
     // including avatarUrl when present. Keep that response as the first
     // app-frame profile without an extra /users/me round trip.
@@ -428,6 +435,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    const preserveGuestDrafts = get().isGuest;
     const logoutSessionEpoch = getTokenSessionEpoch();
     const tokenBundle = await getTokenBundle();
     if (!isTokenSessionEpochCurrent(logoutSessionEpoch)) {
@@ -451,7 +459,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     if (isTokenSessionEpochCurrent(clearedSessionEpoch)) {
-      clearSessionData();
+      if (preserveGuestDrafts) {
+        queryClient.clear();
+      } else {
+        clearSessionData();
+      }
       set({
         ...unauthenticatedState,
         authError: cleared

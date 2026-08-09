@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { ArrowLeft, X } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -45,15 +45,14 @@ export const AuthProgressBar = ({
     <View style={styles.root}>
       <View style={styles.controlsRow}>
         {onBack ? (
-          <TouchableOpacity
+          <Pressable
             accessibilityLabel={t('common.back')}
             accessibilityRole="button"
-            activeOpacity={0.7}
             onPress={onBack}
-            style={styles.iconBtn}
+            style={({ pressed }) => [styles.iconBtn, pressed ? styles.iconBtnPressed : null]}
           >
             <ArrowLeft size={18} color={theme.colors.primary} />
-          </TouchableOpacity>
+          </Pressable>
         ) : (
           <View style={styles.iconBtn} />
         )}
@@ -64,15 +63,14 @@ export const AuthProgressBar = ({
         </View>
 
         {onCancel ? (
-          <TouchableOpacity
+          <Pressable
             accessibilityLabel={t('common.cancel')}
             accessibilityRole="button"
-            activeOpacity={0.7}
             onPress={onCancel}
-            style={styles.iconBtn}
+            style={({ pressed }) => [styles.iconBtn, pressed ? styles.iconBtnPressed : null]}
           >
             <X size={18} color={theme.colors.primary} />
-          </TouchableOpacity>
+          </Pressable>
         ) : (
           <View style={styles.iconBtn} />
         )}
@@ -131,13 +129,14 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.md,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     borderRadius: borderRadius.full,
     backgroundColor: theme.colors.primaryFaded,
   },
+  iconBtnPressed: { opacity: 0.7 },
   titleWrap: {
     flex: 1,
     alignItems: 'center' as const,
@@ -150,7 +149,7 @@ const createStyles = (theme: AppTheme) => ({
   subtitle: {
     marginBottom: 2,
     fontFamily: fontFamilies.medium,
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     color: theme.colors.primary,
   },
   progressRow: {

@@ -55,14 +55,11 @@ describe('navigation registry contract', () => {
     },
   );
 
-  it('never leaves the Chatbot tab backed by a blank native View', () => {
+  it('keeps Assistant as a root modal action instead of a duplicate tab route', () => {
     const mainTabs = readSource('app/navigation/MainTabNavigator.tsx');
+    const customTabBar = readSource('shared/components/CustomTabBar.tsx');
 
-    expect(mainTabs).toMatch(
-      /<Tab\.Screen\s+name="ChatbotTab"\s+component=\{ChatbotScreen\}/,
-    );
-    expect(mainTabs).not.toMatch(
-      /<Tab\.Screen\s+name="ChatbotTab"\s+component=\{View\}/,
-    );
+    expect(mainTabs).not.toMatch(/name="ChatbotTab"/);
+    expect(customTabBar).toMatch(/navigation\.navigate\('Chatbot'\)/);
   });
 });

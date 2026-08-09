@@ -103,7 +103,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   title: {
     fontFamily: fontFamilies.bold,
-    fontSize: 24,
+    fontSize: fontSizes.h3,
     color: theme.isDark ? theme.colors.textPrimary : theme.colors.primaryDark,
     marginBottom: spacing.xs,
   },

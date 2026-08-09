@@ -16,6 +16,8 @@ import {
   ScrollView,
   NativeSyntheticEvent,
   TextInputKeyPressEventData,
+  AppState,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -68,6 +70,8 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { width: viewportWidth } = useWindowDimensions();
+  const isNarrow = viewportWidth <= 340;
   const setUser = useAuthStore((state) => state.setUser);
   const currentUser = useAuthStore((state) => state.user);
 
@@ -80,7 +84,9 @@ export function OTPVerificationScreen(): React.JSX.Element {
   } = route.params;
 
   const [code, setCode] = useState<string[]>(Array(AUTH_CODE_LENGTH).fill(''));
-  const [timer, setTimer] = useState(Math.max(otpTtlMinutes * 60, 1));
+  const initialTtlSeconds = Math.max(otpTtlMinutes * 60, 1);
+  const [expiresAt, setExpiresAt] = useState(() => Date.now() + initialTtlSeconds * 1000);
+  const [timer, setTimer] = useState(initialTtlSeconds);
   const [errors, setErrors] = useState<OtpFormErrors>({});
   const [resendSucceeded, setResendSucceeded] = useState(false);
   const inputRefs = useRef<Array<TextInput | null>>([]);
@@ -89,12 +95,20 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const resendMutation = useMutation({ mutationFn: resendVerificationEmail });
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTimer((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
+    const syncTimer = () => {
+      setTimer(Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)));
+    };
+    syncTimer();
+    const interval = setInterval(syncTimer, 1000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') syncTimer();
+    });
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [expiresAt]);
 
   // ─── Input handling ──────────────────────────────────────
   const handleCodeChange = (text: string, index: number) => {
@@ -194,7 +208,9 @@ export function OTPVerificationScreen(): React.JSX.Element {
     try {
       const response = await resendMutation.mutateAsync({ email, purpose });
       // Reset timer with new TTL from server
-      setTimer(Math.max((response.otpTtlMinutes ?? otpTtlMinutes) * 60, 1));
+      const ttlSeconds = Math.max((response.otpTtlMinutes ?? otpTtlMinutes) * 60, 1);
+      setExpiresAt(Date.now() + ttlSeconds * 1000);
+      setTimer(ttlSeconds);
       // Clear existing code
       setCode(Array(AUTH_CODE_LENGTH).fill(''));
       inputRefs.current[0]?.focus();
@@ -243,7 +259,10 @@ export function OTPVerificationScreen(): React.JSX.Element {
         >
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              isNarrow ? styles.scrollContentNarrow : null,
+            ]}
             keyboardShouldPersistTaps="handled"
           >
             <AuthStepHeader
@@ -251,7 +270,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
               subtitle={headerSubtitle}
             />
 
-            <View style={styles.formCard}>
+            <View style={[styles.formCard, isNarrow ? styles.formCardNarrow : null]}>
               <View style={styles.otpContainer}>
                 {code.map((digit, index) => (
                   <TextInput
@@ -305,6 +324,9 @@ export function OTPVerificationScreen(): React.JSX.Element {
 
               {/* Resend button */}
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('auth.otpResend')}
+                accessibilityState={{ disabled: resendMutation.isPending, busy: resendMutation.isPending }}
                 onPress={handleResend}
                 disabled={resendMutation.isPending}
                 style={({ pressed }) => [
@@ -380,6 +402,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
   },
+  scrollContentNarrow: { paddingHorizontal: spacing.sm },
   formCard: {
     ...theme.components.card,
     borderRadius: borderRadius.xl,
@@ -391,8 +414,10 @@ const createStyles = (theme: AppTheme) => ({
   otpContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: spacing.xs,
     marginBottom: spacing.xxl,
   },
+  formCardNarrow: { paddingHorizontal: spacing.xs },
   otpInput: {
     width: 44,
     height: 56,

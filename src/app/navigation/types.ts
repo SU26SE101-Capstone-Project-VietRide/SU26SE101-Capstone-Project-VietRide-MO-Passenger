@@ -65,7 +65,10 @@ export type BookingStackParamList = {
 
 // ─── Parcel Stack ─────────────────────────────────────────
 export type ParcelStackParamList = {
-  CityPicker: { mode: 'from' | 'to' };
+  CityPicker: {
+    mode: 'from' | 'to';
+    next?: 'to' | 'create';
+  };
   CreateParcel: undefined;
   ParcelDetail: {
     parcelId: string;
@@ -106,7 +109,6 @@ export type ProfileStackParamList = {
 export type MainTabParamList = {
   Home: undefined;
   Notification: undefined;
-  ChatbotTab: undefined;
   BookingHistory: { initialTab?: 'ticket' | 'parcel' } | undefined;
   Profile: NavigatorScreenParams<ProfileStackParamList>;
 };
