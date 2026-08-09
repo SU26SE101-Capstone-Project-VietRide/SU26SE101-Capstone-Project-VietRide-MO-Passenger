@@ -69,7 +69,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   title: {
     fontFamily: fontFamilies.bold,
-    fontSize: 18,
+    fontSize: fontSizes.xl,
     color: theme.colors.textPrimary,
   },
   actionButton: {

@@ -17,7 +17,6 @@ import {
   ArrowCounterClockwise,
   ArrowFatUp,
   ArrowLeft,
-  CaretRight,
   CreditCard,
   Money,
 } from 'phosphor-react-native';
@@ -25,7 +24,7 @@ import {
 import type { ProfileStackParamList } from '@app/navigation/types';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useFloatingTabBarContentInset, useThemedStyles } from '@shared/hooks';
 import {
   borderRadius as BR,
   fontFamilies,
@@ -41,55 +40,11 @@ import {
   type WalletTransactionType,
 } from '../api/walletApi';
 import { useWalletBalance, useWalletTransactions } from '../hooks/useWallet';
-import {
-  COMING_SOON_FINANCIAL_ROUTES,
-  getFinancialUnavailableNotice,
-  type ComingSoonFinancialRoute,
-} from '../config/financialCapabilities';
 
 type WalletNavigation = NativeStackNavigationProp<
   ProfileStackParamList,
   'Wallet'
 >;
-
-interface ComingSoonActionProps {
-  onOpen: (route: ComingSoonFinancialRoute) => void;
-  route: ComingSoonFinancialRoute;
-}
-
-const ComingSoonAction = memo(function ComingSoonActionItem({
-  onOpen,
-  route,
-}: ComingSoonActionProps): React.JSX.Element {
-  const { t } = useTranslation();
-  const theme = useTheme();
-  const styles = useThemedStyles(createStyles);
-  const handlePress = useCallback(() => onOpen(route), [onOpen, route]);
-  const Icon = route === 'Withdraw' ? Money : CreditCard;
-  const title = t(getFinancialUnavailableNotice(route).titleKey);
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={t('financial.comingSoonAccessibility', { title })}
-      accessibilityHint={t('financial.comingSoonHint')}
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.comingSoonAction,
-        pressed ? styles.pressed : null,
-      ]}
-    >
-      <View style={styles.comingSoonIcon}>
-        <Icon size={18} color={theme.colors.textInverse} weight="duotone" />
-      </View>
-      <Text style={styles.comingSoonTitle} numberOfLines={2}>{title}</Text>
-      <View style={styles.comingSoonBadge}>
-        <Text style={styles.comingSoonBadgeText}>{t('financial.comingSoon')}</Text>
-      </View>
-      <CaretRight size={16} color={theme.colors.textInverse} weight="bold" />
-    </Pressable>
-  );
-});
 
 const getTransactionTitle = (
   referenceType: WalletTransactionReferenceType,
@@ -214,6 +169,7 @@ export function WalletScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const bottomTabClearance = useFloatingTabBarContentInset();
   const balanceQuery = useWalletBalance();
   const transactionsQuery = useWalletTransactions();
   const {
@@ -249,19 +205,6 @@ export function WalletScreen(): React.JSX.Element {
     () => navigation.navigate('TopUp'),
     [navigation],
   );
-  const handleOpenComingSoon = useCallback((route: ComingSoonFinancialRoute) => {
-    switch (route) {
-      case 'Withdraw':
-        navigation.navigate('Withdraw');
-        break;
-      case 'SavedPayments':
-        navigation.navigate('SavedPayments');
-        break;
-      case 'AddPaymentMethod':
-        navigation.navigate('AddPaymentMethod');
-        break;
-    }
-  }, [navigation]);
   const handleRefresh = useCallback(async () => {
     await Promise.all([refetchBalance(), refetchTransactions()]);
   }, [refetchBalance, refetchTransactions]);
@@ -363,13 +306,9 @@ export function WalletScreen(): React.JSX.Element {
           <Text style={styles.comingSoonSectionTitle}>
             {t('wallet.moreTools')}
           </Text>
-          {COMING_SOON_FINANCIAL_ROUTES.map((routeName) => (
-            <ComingSoonAction
-              key={routeName}
-              route={routeName}
-              onOpen={handleOpenComingSoon}
-            />
-          ))}
+          <Text style={styles.unavailableToolsNotice}>
+            {t('wallet.moreToolsUnavailable')}
+          </Text>
         </View>
 
         <Text style={styles.sectionTitle}>
@@ -386,7 +325,6 @@ export function WalletScreen(): React.JSX.Element {
       balanceData,
       balanceError,
       handleRetryBalance,
-      handleOpenComingSoon,
       handleTopUp,
       isBalanceError,
       isBalancePending,
@@ -521,7 +459,8 @@ export function WalletScreen(): React.JSX.Element {
           isBalanceRefetching
           || (isTransactionsRefetching && !isFetchingNextPage)
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: bottomTabClearance }]}
+        scrollIndicatorInsets={{ bottom: bottomTabClearance }}
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
@@ -584,7 +523,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   balanceAmount: {
     fontFamily: fontFamilies.bold,
-    fontSize: 40,
+    fontSize: fontSizes.h1,
     color: theme.colors.textInverse,
     letterSpacing: -1,
   },
@@ -643,6 +582,13 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
     color: theme.colors.textInverse,
+  },
+  unavailableToolsNotice: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
+    color: theme.colors.textInverse,
+    opacity: 0.82,
   },
   comingSoonAction: {
     minHeight: 52,

@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
 import { Camera, ArrowLeft, CheckCircle } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
@@ -75,6 +75,7 @@ export function EditProfileScreen(): React.JSX.Element {
   const [phone, setPhone] = useState(user?.phone || '');
   const [selectedAvatar, setSelectedAvatar] = useState<SelectedAvatar | null>(null);
   const [errors, setErrors] = useState<Partial<Record<EditProfileField, string>>>({});
+  const [allowLeave, setAllowLeave] = useState(false);
 
   const avatarUri = selectedAvatar?.uri || user?.avatarUrl;
   const canCompletePhone = !user?.phone;
@@ -114,7 +115,8 @@ export function EditProfileScreen(): React.JSX.Element {
         return;
       }
 
-      navigation.goBack();
+      setAllowLeave(true);
+      requestAnimationFrame(() => navigation.goBack());
     },
     onError: (error) => {
       const apiError = toApiError(error);
@@ -141,6 +143,24 @@ export function EditProfileScreen(): React.JSX.Element {
       Boolean(selectedAvatar),
     [canCompletePhone, phone, selectedAvatar],
   );
+
+  usePreventRemove(hasUnsavedChanges && !allowLeave, ({ data }) => {
+    Alert.alert(
+      t('profile.edit.discardTitle'),
+      t('profile.edit.discardDescription'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('profile.edit.discardAction'),
+          style: 'destructive',
+          onPress: () => {
+            setAllowLeave(true);
+            requestAnimationFrame(() => navigation.dispatch(data.action));
+          },
+        },
+      ],
+    );
+  });
 
   const handlePickAvatar = useCallback(async () => {
     try {

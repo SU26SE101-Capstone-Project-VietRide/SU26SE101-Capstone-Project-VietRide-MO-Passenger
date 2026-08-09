@@ -30,7 +30,7 @@ import {
   getLocalizedApiErrorMessage,
 } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useFloatingTabBarContentInset, useThemedStyles } from '@shared/hooks';
 import {
   borderRadius as BR,
   fontFamilies,
@@ -127,6 +127,7 @@ export function TopUpScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const bottomTabClearance = useFloatingTabBarContentInset();
   const topUpMutation = useCreateWalletTopUp();
   const {
     completePaymentReturn,
@@ -277,7 +278,8 @@ export function TopUpScreen(): React.JSX.Element {
       >
         <ScrollView
           automaticallyAdjustKeyboardInsets
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+          scrollIndicatorInsets={{ bottom: bottomTabClearance }}
           contentInsetAdjustmentBehavior="automatic"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -518,7 +520,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   amountValue: {
     fontFamily: fontFamilies.bold,
-    fontSize: 36,
+    fontSize: fontSizes.h1,
     color: theme.colors.textPrimary,
     letterSpacing: -0.5,
   },

@@ -41,6 +41,7 @@ import type {
   RootStackParamList,
 } from '@app/navigation/types';
 import { FinancialFeatureNotice } from '../components/FinancialFeatureNotice';
+import { appConfig } from '@shared/constants/config';
 import { isProfileWalletEntryPointEnabled } from '../config/financialCapabilities';
 
 type ProfileNavProp = CompositeNavigationProp<
@@ -284,7 +285,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         </Pressable>
 
         <Text style={styles.versionText}>
-          {t('profile.appVersion', { version: '1.0.0' })}
+          {t('profile.appVersion', { version: appConfig.appVersion })}
         </Text>
       </ScrollView>
     </SafeAreaView>

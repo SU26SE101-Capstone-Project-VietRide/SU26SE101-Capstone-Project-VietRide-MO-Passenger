@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
   Easing,
@@ -17,7 +17,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useTranslation } from 'react-i18next';
 import { House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native';
 
-import { spacing } from '@shared/theme';
+import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import { useMotion } from '@shared/motion';
@@ -32,7 +32,7 @@ const TAB_BAR_EXPAND_DURATION_MS = 360;
 
 export function CustomTabBar({
   state,
-  descriptors: _descriptors,
+  descriptors,
   navigation,
   insets,
 }: BottomTabBarProps): React.JSX.Element {
@@ -105,33 +105,6 @@ export function CustomTabBar({
             }
           };
 
-          // Middle AI Chat FAB Layout
-          if (route.name === 'ChatbotTab') {
-            return (
-              <View key={route.key} style={styles.fabSlot}>
-                <Pressable
-                  onPress={() => {
-                    setCompact(false);
-                    navigation.navigate('Chatbot');
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('shared.tabBar.assistantAccessibility')}
-                  style={({ pressed }) => [
-                    styles.fabButton,
-                    pressed ? styles.pressed : null,
-                  ]}
-                >
-                  <Image
-                    source={APP_LOGO}
-                    style={styles.fabImage}
-                    contentFit="cover"
-                    transition={0}
-                  />
-                </Pressable>
-              </View>
-            );
-          }
-
           // Standard tabs mapping
           let label = '';
           let IconComponent = House;
@@ -151,8 +124,23 @@ export function CustomTabBar({
           }
 
           return (
+            <React.Fragment key={route.key}>
+            {index === 2 ? (
+              <View style={styles.fabSlot}>
+                <Pressable
+                  onPress={() => {
+                    setCompact(false);
+                    navigation.navigate('Chatbot');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('shared.tabBar.assistantAccessibility')}
+                  style={({ pressed }) => [styles.fabButton, pressed ? styles.pressed : null]}
+                >
+                  <Image source={APP_LOGO} style={styles.fabImage} contentFit="cover" transition={0} />
+                </Pressable>
+              </View>
+            ) : null}
             <Pressable
-              key={route.key}
               onPress={onPress}
               accessibilityRole="tab"
               accessibilityLabel={label}
@@ -170,9 +158,24 @@ export function CustomTabBar({
                   color={isFocused ? theme.colors.textInverse : theme.colors.textSecondary}
                   style={styles.tabIcon}
                 />
-                {isFocused ? <View style={styles.activeDot} /> : <View style={styles.dotSpacer} />}
+                <Text
+                  numberOfLines={1}
+                  style={[styles.tabLabel, isFocused ? styles.tabLabelActive : null]}
+                >
+                  {label}
+                </Text>
+                {route.name === 'Notification' && descriptors[route.key]?.options.tabBarBadge ? (
+                  <View style={styles.badge} accessibilityElementsHidden>
+                    <Text style={styles.badgeText}>
+                      {Number(descriptors[route.key].options.tabBarBadge) > 99
+                        ? '99+'
+                        : String(descriptors[route.key].options.tabBarBadge)}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </Pressable>
+            </React.Fragment>
           );
         })}
       </Animated.View>
@@ -297,7 +300,33 @@ const createStyles = (theme: AppTheme) => ({
     width: '100%',
   },
   tabIcon: {
-    marginTop: 2,
+    marginTop: 1,
+  },
+  tabLabel: {
+    maxWidth: 64,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  tabLabelActive: { color: theme.colors.textInverse },
+  badge: {
+    position: 'absolute',
+    top: -7,
+    right: 4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.error,
+    borderWidth: 1,
+    borderColor: theme.colors.surface,
+  },
+  badgeText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textInverse,
   },
   activeDot: {
     width: 4,

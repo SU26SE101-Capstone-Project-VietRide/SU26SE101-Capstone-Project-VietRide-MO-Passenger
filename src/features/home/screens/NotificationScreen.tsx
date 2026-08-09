@@ -36,7 +36,6 @@ import {
   flattenNotificationPages,
   trimNotificationInfiniteToFirstPage,
   useMarkAllNotificationsRead,
-  useMarkNotificationRead,
   useNotificationUnreadCount,
   useNotifications,
 } from '../hooks/useNotifications';
@@ -115,7 +114,12 @@ const NotificationRow = memo(function NotificationRowView({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t('notification.itemAccessibility', { title })}
+      accessibilityLabel={t('notification.itemAccessibility', {
+        title,
+        body,
+        time: relativeTime,
+        state: isUnread ? t('notification.unread') : t('notification.read'),
+      })}
       style={({ pressed }) => [
         styles.notificationRow,
         isUnread ? styles.unreadRow : null,
@@ -189,7 +193,6 @@ export function NotificationScreen(): React.JSX.Element {
   const bottomTabClearance = useFloatingTabBarContentInset();
   const notificationsQuery = useNotifications(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const unreadCountQuery = useNotificationUnreadCount();
-  const markReadMutation = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const markAllMutation = useMarkAllNotificationsRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const {
     data: notificationsData,
@@ -203,7 +206,6 @@ export function NotificationScreen(): React.JSX.Element {
     fetchNextPage,
     refetch: refetchNotifications,
   } = notificationsQuery;
-  const { mutate: markRead } = markReadMutation;
   const {
     mutate: markAllRead,
     isPending: isMarkingAll,
@@ -255,13 +257,8 @@ export function NotificationScreen(): React.JSX.Element {
       return;
     }
 
-    // Mark-read accepts exactly one id (no multi-id Promise.all).
-    if (!item.readAt) {
-      markRead(item.id);
-    }
-
     navigation.navigate('NotificationDetail', { notification: item });
-  }, [markRead, navigation]);
+  }, [navigation]);
 
   const handleMarkAllRead = useCallback(() => {
     if (unreadCount <= 0 || isMarkingAll) return;

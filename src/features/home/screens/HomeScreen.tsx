@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   View,
@@ -17,7 +17,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
+import { useFloatingTabBarContentInset, useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
@@ -48,6 +48,8 @@ import {
 import { PromotionsSection } from '../components/PromotionsSection';
 import { RecentParcelsSection } from '../components/RecentParcelsSection';
 import { WalletSummaryCard } from '../components/WalletSummaryCard';
+import { formatDate } from '@shared/utils/format';
+import { toTripSearchDate } from '../../booking/utils/searchParams';
 
 type HomeNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Home'>,
@@ -61,11 +63,27 @@ export function HomeScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const bottomTabClearance = useFloatingTabBarContentInset();
 
   const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
 
   // Booking flow state/actions
   const searchParams = useBookingStore(state => state.searchParams);
+  const departureDateLabel = useMemo(() => {
+    try {
+      return formatDate(toTripSearchDate(searchParams.date));
+    } catch {
+      return '';
+    }
+  }, [searchParams.date]);
+  const returnDateLabel = useMemo(() => {
+    if (!searchParams.returnDate) return '';
+    try {
+      return formatDate(toTripSearchDate(searchParams.returnDate));
+    } catch {
+      return '';
+    }
+  }, [searchParams.returnDate]);
   const swapCities = useBookingStore(state => state.swapCities);
   const setSearchParams = useBookingStore(state => state.setSearchParams);
   const {
@@ -84,8 +102,6 @@ export function HomeScreen(): React.JSX.Element {
   const canSearchTickets = Boolean(
     searchParams.originLocationCode &&
       searchParams.destinationLocationCode &&
-      searchParams.originLocationCode !==
-        searchParams.destinationLocationCode &&
       searchParams.date &&
       (!searchParams.isRoundTrip || searchParams.returnDate),
   );
@@ -256,7 +272,8 @@ export function HomeScreen(): React.JSX.Element {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+        scrollIndicatorInsets={{ bottom: bottomTabClearance }}
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}
       >
@@ -412,7 +429,7 @@ export function HomeScreen(): React.JSX.Element {
                       weight="fill"
                     />
                     <Text style={styles.metaText} numberOfLines={1}>
-                      {searchParams.date || t('home.ticket.selectDate')}
+                      {departureDateLabel || t('home.ticket.selectDate')}
                     </Text>
                   </Pressable>
 
@@ -436,7 +453,7 @@ export function HomeScreen(): React.JSX.Element {
                         weight="fill"
                       />
                       <Text style={styles.metaText} numberOfLines={1}>
-                        {searchParams.returnDate || t('home.ticket.returnDate')}
+                        {returnDateLabel || t('home.ticket.returnDate')}
                       </Text>
                     </Pressable>
                   ) : null}
@@ -451,21 +468,23 @@ export function HomeScreen(): React.JSX.Element {
                           isRoundTrip: !searchParams.isRoundTrip,
                         })
                       }
-                      style={[
-                        styles.switchTrack,
-                        searchParams.isRoundTrip
-                          ? styles.switchTrackActive
-                          : null,
-                      ]}
+                      style={styles.switchHitArea}
                     >
                       <View
                         style={[
-                          styles.switchThumb,
-                          searchParams.isRoundTrip
-                            ? styles.switchThumbActive
-                            : styles.switchThumbInactive,
+                          styles.switchTrack,
+                          searchParams.isRoundTrip ? styles.switchTrackActive : null,
                         ]}
-                      />
+                      >
+                        <View
+                          style={[
+                            styles.switchThumb,
+                            searchParams.isRoundTrip
+                              ? styles.switchThumbActive
+                              : styles.switchThumbInactive,
+                          ]}
+                        />
+                      </View>
                     </Pressable>
                   </View>
                 </View>
@@ -794,6 +813,12 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 11,
     backgroundColor: theme.colors.divider,
     padding: 2,
+    justifyContent: 'center',
+  },
+  switchHitArea: {
+    width: 48,
+    height: 44,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   switchTrackActive: {

@@ -317,7 +317,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   previewCityText: {
     fontFamily: fontFamilies.bold,
-    fontSize: 8,
+    fontSize: fontSizes.xs,
   },
   previewRouteLine: {
     flex: 1,
@@ -397,7 +397,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   themeTagText: {
     fontFamily: fontFamilies.bold,
-    fontSize: 9,
+    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
   },
   themeTagTextActive: {

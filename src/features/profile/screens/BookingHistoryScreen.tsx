@@ -1203,7 +1203,7 @@ const createStyles = (theme: AppTheme) => ({
   completedBadge: { backgroundColor: theme.colors.successLight },
   statusText: {
     fontFamily: fontFamilies.bold,
-    fontSize: 9,
+    fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
   },
   activeStatusText: { color: theme.colors.info },
@@ -1381,7 +1381,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   parcelBadgeText: {
     fontFamily: fontFamilies.bold,
-    fontSize: 9,
+    fontSize: fontSizes.xs,
     color: theme.colors.primary,
   },
   parcelReference: {

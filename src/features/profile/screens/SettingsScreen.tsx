@@ -6,6 +6,7 @@ import {
   Switch,
   ScrollView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -26,6 +27,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import {
   useIsAppActive,
+  useFloatingTabBarContentInset,
   useTabBarScrollBehavior,
   useThemedStyles,
 } from '@shared/hooks';
@@ -48,6 +50,7 @@ export function SettingsScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
+  const bottomTabClearance = useFloatingTabBarContentInset();
   const isAppActive = useIsAppActive();
   const setLocaleStore = useAppStore((state) => state.setLocale);
   const localeStore = useAppStore((state) => state.locale);
@@ -70,6 +73,13 @@ export function SettingsScreen(): React.JSX.Element {
   const wasAppActiveRef = useRef(isAppActive);
   const pendingPushEnableRef = useRef(false);
   const pendingDailyEnableRef = useRef(false);
+  const showPermissionError = useCallback(() => {
+    Alert.alert(
+      t('settings.notifications.permissionErrorTitle'),
+      t('settings.notifications.permissionErrorDescription'),
+      [{ text: t('common.ok') }],
+    );
+  }, [t]);
 
   useEffect(() => {
     const wasAppActive = wasAppActiveRef.current;
@@ -95,7 +105,7 @@ export function SettingsScreen(): React.JSX.Element {
           setDailyReminderEnabled(true);
         }
       })
-      .catch(() => undefined);
+      .catch(showPermissionError);
 
     return () => {
       cancelled = true;
@@ -104,6 +114,7 @@ export function SettingsScreen(): React.JSX.Element {
     isAppActive,
     setDailyReminderEnabled,
     setPushNotificationsEnabled,
+    showPermissionError,
   ]);
 
   const handleLanguageChange = useCallback((lang: 'en' | 'vi') => {
@@ -148,8 +159,8 @@ export function SettingsScreen(): React.JSX.Element {
         setPushNotificationsEnabled(true);
         return undefined;
       })
-      .catch(() => undefined);
-  }, [setPushNotificationsEnabled]);
+      .catch(showPermissionError);
+  }, [setPushNotificationsEnabled, showPermissionError]);
   const handleDailyReminderChange = useCallback((enabled: boolean) => {
     if (!enabled) {
       pendingDailyEnableRef.current = false;
@@ -170,8 +181,8 @@ export function SettingsScreen(): React.JSX.Element {
         setDailyReminderEnabled(true);
         return undefined;
       })
-      .catch(() => undefined);
-  }, [setDailyReminderEnabled]);
+      .catch(showPermissionError);
+  }, [setDailyReminderEnabled, showPermissionError]);
   const pushDescriptionKey = useMemo(() => {
     switch (pushNotificationStatus) {
       case 'active':
@@ -222,7 +233,8 @@ export function SettingsScreen(): React.JSX.Element {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+        scrollIndicatorInsets={{ bottom: bottomTabClearance }}
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}
       >

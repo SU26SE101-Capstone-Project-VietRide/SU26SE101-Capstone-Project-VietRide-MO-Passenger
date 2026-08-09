@@ -13,7 +13,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
-  ClockCounterClockwise,
   DeviceMobile,
   Key,
   ShieldCheck,
@@ -159,26 +158,13 @@ export function SecurityScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('security.signedInDevicesSection')}</Text>
+          <Text style={styles.sectionTitle}>{t('security.moreControlsSection')}</Text>
           <View style={styles.card}>
             <View style={styles.emptyState}>
               <WarningCircle size={24} color={theme.colors.warning} weight="fill" />
-              <Text style={styles.emptyTitle}>{t('security.sessionsUnavailableTitle')}</Text>
+              <Text style={styles.emptyTitle}>{t('security.moreControlsUnavailableTitle')}</Text>
               <Text style={styles.emptyText}>
-                {t('security.sessionsUnavailableDescription')}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('security.recentLoginsSection')}</Text>
-          <View style={styles.card}>
-            <View style={styles.emptyState}>
-              <ClockCounterClockwise size={24} color={theme.colors.textTertiary} />
-              <Text style={styles.emptyTitle}>{t('security.activityUnavailableTitle')}</Text>
-              <Text style={styles.emptyText}>
-                {t('security.activityUnavailableDescription')}
+                {t('security.moreControlsUnavailableDescription')}
               </Text>
             </View>
           </View>
