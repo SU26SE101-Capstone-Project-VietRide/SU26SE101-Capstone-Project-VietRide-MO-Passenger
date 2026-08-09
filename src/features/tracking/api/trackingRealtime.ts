@@ -45,6 +45,12 @@ export interface TrackingEtaUpdate extends TrackingEta {
   delayed: boolean;
 }
 
+export interface TrackingEtaBatchUpdate {
+  tripId: string;
+  etas: TrackingEta[];
+  updatedAt: string;
+}
+
 export type TrackingDelayUpdate =
   | {
       tripId: string;
@@ -64,6 +70,7 @@ export type TrackingDelayUpdate =
 interface TrackingServerEvents {
   'gps:update': (payload: unknown) => void;
   'eta:update': (payload: unknown) => void;
+  'eta:batch:update': (payload: unknown) => void;
   'trip:statusChanged': (payload: unknown) => void;
   'shuttle:gps:update': (payload: unknown) => void;
   'shuttle:eta:update': (payload: unknown) => void;
@@ -95,6 +102,7 @@ interface CreateTripTrackingConnectionOptions
   /** @deprecated ETA filtering belongs to the tracking orchestration hook. */
   stopId?: string;
   onEtaUpdate: (eta: TrackingEtaUpdate) => void;
+  onEtaBatchUpdate?: (update: TrackingEtaBatchUpdate) => void;
   onDelayUpdate: (delay: TrackingDelayUpdate) => void;
 }
 
@@ -128,6 +136,51 @@ const trackingEtaUpdateSchema = z.preprocess(
     return value;
   },
   trackingEtaSchema.and(z.object({ delayed: z.boolean() })),
+);
+
+/**
+ * The documented socket example omits tripId inside each ETA while Redis-backed
+ * runtime payloads include it. Normalize both forms using the authoritative
+ * outer tripId before applying the shared strict batch schema.
+ */
+const trackingEtaBatchUpdateSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'object' || value === null) return value;
+    const record = value as Record<string, unknown>;
+    if (typeof record.tripId !== 'string' || !Array.isArray(record.etas)) {
+      return value;
+    }
+    return {
+      ...record,
+      etas: record.etas.map((eta) => (
+        typeof eta === 'object' && eta !== null && !('tripId' in eta)
+          ? { ...eta, tripId: record.tripId }
+          : eta
+      )),
+    };
+  },
+  z.object({
+    tripId: z.string().uuid(),
+    etas: z.array(trackingEtaSchema),
+    updatedAt: trackingDateTimeSchema,
+  }).strict().superRefine((value, ctx) => {
+    value.etas.forEach((eta, index) => {
+      if (eta.tripId !== value.tripId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['etas', index, 'tripId'],
+          message: 'Batch ETA tripId must match the outer payload.',
+        });
+      }
+      if (eta.targetKind === 'STOP' && eta.sequence === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['etas', index, 'sequence'],
+          message: 'Batch STOP ETA requires sequence.',
+        });
+      }
+    });
+  }),
 );
 
 const trackingDelayUpdateSchema = z.discriminatedUnion('status', [
@@ -385,6 +438,12 @@ export function createTripTrackingConnection(
       const parsed = trackingEtaUpdateSchema.safeParse(value);
       if (!parsed.success || parsed.data.tripId !== trackingId) return;
       options.onEtaUpdate(parsed.data);
+    });
+
+    socket.on('eta:batch:update', (value) => {
+      const parsed = trackingEtaBatchUpdateSchema.safeParse(value);
+      if (!parsed.success || parsed.data.tripId !== trackingId) return;
+      options.onEtaBatchUpdate?.(parsed.data);
     });
 
     socket.on('trip:statusChanged', (value) => {

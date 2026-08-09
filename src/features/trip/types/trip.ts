@@ -15,6 +15,7 @@ export type TripLifecycleStatus =
   | 'CANCELLED'
   | 'DISRUPTED';
 export type TripStopLifecycleStatus = 'PENDING' | 'ARRIVED' | 'SKIPPED';
+export type EtaEstimateQuality = 'TRAFFIC_AWARE' | 'FALLBACK';
 
 export type NetworkSeatStatus = 'AVAILABLE' | 'HELD' | 'BOOKED' | 'UNAVAILABLE';
 export type SeatPresentationStatus = 'available' | 'selected' | 'sold' | 'unavailable';
@@ -114,6 +115,7 @@ export interface BusTrip {
 export interface TripDetail extends BusTrip {
   status: TripLifecycleStatus;
   destinationArrivedAt: string | null;
+  plannedEtaQuality: EtaEstimateQuality;
   returnRouteId: string | null;
   stops: TripStop[];
 }
@@ -199,6 +201,7 @@ export interface TripDetailDto {
   vehicleId: string;
   departureDateTime: string;
   estimatedArrivalTime: string;
+  plannedEtaQuality?: EtaEstimateQuality;
   /** Optional until passenger detail ships BE-owned duration. */
   estimatedDurationMinutes?: number | null;
   destinationArrivedAt?: string | null;
@@ -363,6 +366,7 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     arrivalTime: formatTime(dto.estimatedArrivalTime),
     departureDateTime: dto.departureDateTime,
     estimatedArrivalDateTime: dto.estimatedArrivalTime,
+    plannedEtaQuality: dto.plannedEtaQuality ?? 'FALLBACK',
     returnRouteId: dto.returnRouteId ?? null,
     baseFare,
     effectiveFare: resolveEffectiveFare(baseFare, dto.effectiveFare),

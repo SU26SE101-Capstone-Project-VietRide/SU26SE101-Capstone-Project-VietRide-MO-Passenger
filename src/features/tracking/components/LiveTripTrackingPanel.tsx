@@ -41,7 +41,7 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import { formatDateTime } from '@shared/utils/format';
+import { formatDateTime, formatTime } from '@shared/utils/format';
 import { isUuid } from '@shared/utils/pathSegment';
 import type {
   ShuttlePassengerContext,
@@ -436,9 +436,35 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const selectedShuttlePickup = tracking.selectedShuttlePickup ?? null;
   const nextEta = tracking.nextEta ?? null;
   const targetEta = tracking.targetEta ?? null;
-  const nextStopId = !isShuttle && isMainTripEta(nextEta) && nextEta.targetKind === 'STOP'
+  const plannedStopsById = useMemo(
+    () => new Map((tripQuery.data?.stops ?? []).map((stop) => [stop.id, stop])),
+    [tripQuery.data?.stops],
+  );
+  const etaByStopId = useMemo(
+    () => new Map(
+      tracking.etas
+        .filter((eta) => eta.targetKind === 'STOP' && eta.stopId)
+        .map((eta) => [eta.stopId as string, eta]),
+    ),
+    [tracking.etas],
+  );
+  const destinationEta = useMemo(
+    () => tracking.etas.find((eta) => (
+      eta.targetKind === 'STATION'
+      && eta.stationId === tripQuery.data?.destinationStationId
+    )) ?? null,
+    [tracking.etas, tripQuery.data?.destinationStationId],
+  );
+  const plannedNextStopId = useMemo(
+    () => [...(tripQuery.data?.stops ?? [])]
+      .filter((stop) => stop.status === undefined || stop.status === 'PENDING')
+      .sort((left, right) => left.orderIndex - right.orderIndex)[0]?.id,
+    [tripQuery.data?.stops],
+  );
+  const liveNextStopId = !isShuttle && isMainTripEta(nextEta) && nextEta.targetKind === 'STOP'
     ? nextEta.stopId
     : undefined;
+  const nextStopId = liveNextStopId ?? plannedNextStopId;
   const markers = useMemo(
     () => (isShuttle
       ? buildShuttleMarkers(
@@ -606,26 +632,48 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     [t],
   );
   const formatEta = useCallback(
-    (eta: TrackingEta | ShuttleTrackingEta | null): string => (
-      eta
-        ? t('tracking.details.etaValue', {
-            count: eta.etaMinutes,
-            distance: formatDistance(eta.distanceMeters),
-          })
-        : t('tracking.details.waitingEta')
-    ),
+    (eta: TrackingEta | ShuttleTrackingEta | null): string => {
+      if (!eta) return t('tracking.details.waitingEta');
+      if (isShuttleEta(eta)) {
+        return t('tracking.details.shuttleEtaValue', {
+          order: eta.nextPickupOrder,
+          count: eta.etaMinutes,
+          distance: formatDistance(eta.distanceMeters),
+        });
+      }
+      return t('tracking.details.etaValue', {
+        count: eta.etaMinutes,
+        arrival: formatTime(eta.estimatedArrivalTime),
+      });
+    },
     [formatDistance, t],
   );
 
+  const formatPlannedEta = useCallback(
+    (estimatedArrivalTime?: string | null): string => {
+      const arrival = estimatedArrivalTime
+        ? formatTime(estimatedArrivalTime)
+        : '';
+      return arrival
+        ? t('tracking.details.plannedEta', { arrival })
+        : t('tracking.details.waitingEta');
+    },
+    [t],
+  );
+
   const intermediateStops = routeContext?.intermediateStops ?? EMPTY_INTERMEDIATE_STOPS;
-  const nextStopIndex = nextStopId
-    ? intermediateStops.findIndex((stop) => stop.stopId === nextStopId)
-    : -1;
   const upcomingStops = useMemo(
-    () => (nextStopIndex >= 0
-      ? intermediateStops.slice(nextStopIndex, nextStopIndex + 3)
-      : []),
-    [intermediateStops, nextStopIndex],
+    () => {
+      const realtimeStopIds = new Set(etaByStopId.keys());
+      if (realtimeStopIds.size > 0) {
+        return intermediateStops.filter((stop) => realtimeStopIds.has(stop.stopId));
+      }
+      return intermediateStops.filter((stop) => {
+        const plannedStop = plannedStopsById.get(stop.stopId);
+        return plannedStop?.status === undefined || plannedStop.status === 'PENDING';
+      });
+    },
+    [etaByStopId, intermediateStops, plannedStopsById],
   );
   const progressItems = useMemo<ProgressItem[]>(() => {
     if (isShuttle) {
@@ -728,7 +776,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         name: nextStop.name,
         detail: isMainTripEta(nextEta)
           ? formatEta(nextEta)
-          : t('tracking.details.waitingEta'),
+          : formatPlannedEta(
+              plannedStopsById.get(nextStop.stopId)?.estimatedArrivalTime,
+            ),
         tone: 'next',
       });
     }
@@ -746,7 +796,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         name: targetStop.name,
         detail: sharedEta
           ? formatEta(sharedEta)
-          : t('tracking.details.waitingEta'),
+          : formatPlannedEta(
+              plannedStopsById.get(targetStop.stopId)?.estimatedArrivalTime,
+            ),
         tone: 'target',
       });
     } else if (targetStation) {
@@ -754,9 +806,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         id: `target-station:${targetStation.stationId}`,
         label: t('tracking.map.targetStopMarker'),
         name: targetStation.name,
-        detail: isMainTripEta(targetEta)
-          ? formatEta(targetEta)
-          : t('tracking.details.waitingEta'),
+        detail: isMainTripEta(targetEta ?? destinationEta)
+          ? formatEta(targetEta ?? destinationEta)
+          : formatPlannedEta(tripQuery.data?.estimatedArrivalDateTime),
         tone: 'destination',
       });
     }
@@ -773,10 +825,13 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     return items;
   }, [
     formatEta,
+    formatPlannedEta,
     intermediateStops,
     isShuttle,
     nextEta,
     nextStopId,
+    destinationEta,
+    plannedStopsById,
     routeContext?.destinationStation,
     selectedShuttlePickup,
     shuttleContext?.direction,
@@ -784,6 +839,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     t,
     targetEta,
     trackingTarget,
+    tripQuery.data?.estimatedArrivalDateTime,
   ]);
 
   let hero: ReactNode;
@@ -1027,7 +1083,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           </View>
         ) : null}
 
-        {!isShuttle && upcomingStops.length > 0 ? (
+        {!isShuttle && (upcomingStops.length > 0 || routeContext?.destinationStation) ? (
           <View style={styles.upcomingCard}>
             <Text style={styles.upcomingTitle}>
               {t('tracking.progress.upcomingStops')}
@@ -1035,11 +1091,35 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
             {upcomingStops.map((stop) => (
               <View key={stop.stopId} style={styles.upcomingRow}>
                 <MapPin size={17} color={mapPalette.next} weight="duotone" />
-                <Text style={styles.upcomingName} numberOfLines={2}>
-                  {stop.name}
-                </Text>
+                <View style={styles.upcomingCopy}>
+                  <Text style={styles.upcomingName} numberOfLines={2}>
+                    {stop.name}
+                  </Text>
+                  <Text style={styles.upcomingEta} numberOfLines={1}>
+                    {etaByStopId.has(stop.stopId)
+                      ? formatEta(etaByStopId.get(stop.stopId) ?? null)
+                      : formatPlannedEta(
+                          plannedStopsById.get(stop.stopId)?.estimatedArrivalTime,
+                        )}
+                  </Text>
+                </View>
               </View>
             ))}
+            {routeContext?.destinationStation ? (
+              <View style={styles.upcomingRow}>
+                <Target size={17} color={mapPalette.destination} weight="duotone" />
+                <View style={styles.upcomingCopy}>
+                  <Text style={styles.upcomingName} numberOfLines={2}>
+                    {routeContext.destinationStation.name}
+                  </Text>
+                  <Text style={styles.upcomingEta} numberOfLines={1}>
+                    {destinationEta
+                      ? formatEta(destinationEta)
+                      : formatPlannedEta(tripQuery.data?.estimatedArrivalDateTime)}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -1428,11 +1508,21 @@ const createStyles = (theme: AppTheme) => {
     gap: spacing.sm,
   },
   upcomingName: {
-    flex: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     lineHeight: 20,
     color: theme.colors.textSecondary,
+  },
+  upcomingCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  upcomingEta: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
+    color: theme.colors.textTertiary,
   },
   diagnosticsCard: {
     ...theme.components.surface,

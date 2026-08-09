@@ -12,6 +12,7 @@ import type { TrackingTarget } from '../types/trackingTarget';
 import { trackingTargetCacheKey } from '../types/trackingTarget';
 
 export const trackingDateTimeSchema = z.string().datetime();
+export const trackingEtaQualitySchema = z.enum(['TRAFFIC_AWARE', 'FALLBACK']);
 
 const trackingPointShape = {
   tripId: z.string().uuid(),
@@ -43,6 +44,7 @@ export const trackingEtaSchema = z.object({
   // nullish: BE/Redis may emit inactive side as null rather than omitting.
   stopId: z.string().uuid().nullish(),
   stationId: z.string().uuid().nullish(),
+  sequence: z.number().int().positive().optional(),
   stopName: z.string().nullable().optional(),
   etaMinutes: z.number().int().positive(),
   estimatedArrivalTime: trackingDateTimeSchema,
@@ -51,6 +53,7 @@ export const trackingEtaSchema = z.object({
   delayed: z.boolean().nullable().optional().default(null),
   delayStatus: z.enum(['DELAYED', 'ON_TIME', 'UNKNOWN']).optional().default('UNKNOWN'),
   delayMinutes: z.number().int().nonnegative().nullable().optional().default(null),
+  estimateQuality: trackingEtaQualitySchema,
 }).strict().superRefine((value, ctx) => {
   const stopId = value.stopId ?? null;
   const stationId = value.stationId ?? null;
@@ -112,6 +115,7 @@ export const trackingEtaSchema = z.object({
     targetKind,
     ...(stopId ? { stopId } : {}),
     ...(stationId ? { stationId } : {}),
+    ...(value.sequence !== undefined ? { sequence: value.sequence } : {}),
     stopName: value.stopName,
     etaMinutes: value.etaMinutes,
     estimatedArrivalTime: value.estimatedArrivalTime,
@@ -120,6 +124,7 @@ export const trackingEtaSchema = z.object({
     delayed: value.delayed ?? null,
     delayStatus: value.delayStatus ?? 'UNKNOWN',
     delayMinutes: value.delayMinutes ?? null,
+    estimateQuality: value.estimateQuality,
   };
 });
 
@@ -140,6 +145,20 @@ const trackingTrailResponseSchema = z.object({
 const trackingEtaResponseSchema = z.object({
   eta: trackingEtaSchema.nullable(),
 }).strict();
+
+export const trackingEtaBatchResponseSchema = z.object({
+  etas: z.array(trackingEtaSchema),
+}).strict().superRefine((value, ctx) => {
+  value.etas.forEach((eta, index) => {
+    if (eta.targetKind === 'STOP' && eta.sequence === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['etas', index, 'sequence'],
+        message: 'Batch STOP ETA requires sequence.',
+      });
+    }
+  });
+});
 
 const trackingGeoCoordinateShape = {
   latitude: z.number().finite().min(-90).max(90),
@@ -232,6 +251,12 @@ export type TrackingTrailResponse = z.infer<typeof trackingTrailResponseSchema>;
 export type TrackingEta = z.infer<typeof trackingEtaSchema>;
 
 export type TrackingEtaResponse = z.infer<typeof trackingEtaResponseSchema>;
+
+export type TrackingEtaBatchResponse = z.infer<
+  typeof trackingEtaBatchResponseSchema
+>;
+
+export type TrackingEtaQuality = z.infer<typeof trackingEtaQualitySchema>;
 
 export type { TrackingTarget } from '../types/trackingTarget';
 export {
@@ -376,6 +401,15 @@ export const parseTrackingEtaResponse = (
   return parsed;
 };
 
+export const parseTrackingEtaBatchResponse = (
+  value: unknown,
+  expectedTripId: string,
+): TrackingEtaBatchResponse => {
+  const parsed = trackingEtaBatchResponseSchema.parse(value);
+  assertExpectedTrip(expectedTripId, parsed.etas.map((eta) => eta.tripId));
+  return parsed;
+};
+
 export const parseTripRouteContext = (
   value: unknown,
   expectedTripId: string,
@@ -420,6 +454,8 @@ export const trackingKeys = {
     'target',
     target === 'none' ? 'none' : trackingTargetCacheKey(target),
   ] as const,
+  etaBatch: (userId: string, tripId: string) =>
+    [...trackingKeys.etaRoot(userId, tripId), 'batch'] as const,
   routeContext: (userId: string, tripId: string) =>
     [...trackingKeys.trip(userId, tripId), 'route-context'] as const,
   shuttle: (userId: string, shuttleTripId: string) =>
@@ -539,6 +575,21 @@ export async function getTrackingEta(
     unwrapApiResponse(response.data),
     tripId,
     target,
+  );
+}
+
+/** Preferred v1.67 display read: all remaining STOP ETAs plus destination STATION. */
+export async function getTrackingEtas(
+  tripId: string,
+  signal?: AbortSignal,
+): Promise<TrackingEtaBatchResponse> {
+  const response = await apiClient.get<ApiEnvelope<unknown>>(
+    `${trackingTripPath(tripId)}/etas`,
+    signal ? { signal } : undefined,
+  );
+  return parseTrackingEtaBatchResponse(
+    unwrapApiResponse(response.data),
+    tripId,
   );
 }
 
