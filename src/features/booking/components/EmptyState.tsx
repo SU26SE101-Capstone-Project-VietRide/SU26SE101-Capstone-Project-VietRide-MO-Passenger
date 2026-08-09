@@ -87,7 +87,7 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.lg,
   },
   illustrationEmoji: {
-    fontSize: 28,
+    fontSize: fontSizes.h2,
   },
   title: {
     fontFamily: fontFamilies.semiBold,

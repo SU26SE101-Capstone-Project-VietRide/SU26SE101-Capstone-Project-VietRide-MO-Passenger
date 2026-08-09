@@ -118,6 +118,7 @@ export function PickUpScreen({ onNext }: PickUpStepProps): React.JSX.Element {
         status={item.status}
         refundAmount={item.refundAmount}
         disabledReason={item.disabledReason}
+        disabledReasonKey={item.disabledReasonKey}
         isSelected={selectedPickUp?.id === item.id}
         onPress={handlePickUpPress}
       />

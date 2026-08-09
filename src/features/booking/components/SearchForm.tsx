@@ -137,7 +137,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   cardTitle: {
     fontFamily: fontFamilies.bold,
-    fontSize: 20,
+    fontSize: fontSizes.xxl,
     color: theme.colors.textPrimary,
     marginBottom: spacing.md,
   },

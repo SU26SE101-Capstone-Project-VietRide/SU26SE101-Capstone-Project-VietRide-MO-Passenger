@@ -85,7 +85,7 @@ const createStyles = (theme: AppTheme) => ({
     marginRight: spacing.lg,
   },
   iconEmoji: {
-    fontSize: 18,
+    fontSize: fontSizes.xl,
   },
   textBlock: {
     flex: 1,

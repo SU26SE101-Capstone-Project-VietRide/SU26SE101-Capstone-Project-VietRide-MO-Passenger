@@ -4,10 +4,12 @@
  */
 
 import React, { useEffect, useCallback, useMemo } from 'react';
-import { ScrollView, View, Text } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { ArrowClockwise, WarningCircle } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
+import { useTheme } from '@shared/contexts/ThemeContext';
 import type { AppTheme } from '@shared/theme';
 import { FloatingActionBar, RouteProgressRow, SeatLegend } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
@@ -25,6 +27,8 @@ export function SeatSelectionScreen({
   const { t } = useTranslation();
   const selectedTrip = useBookingStore(state => state.selectedTrip);
   const seatMap = useBookingStore(state => state.seatMap);
+  const seatMapStatus = useBookingStore(state => state.seatMapStatus);
+  const tripDetailStatus = useBookingStore(state => state.tripDetailStatus);
   const selectedSeats = useBookingStore(state => state.selectedSeats);
   const toggleSeat = useBookingStore(state => state.toggleSeat);
   const initSeatMap = useBookingStore(state => state.initSeatMap);
@@ -36,6 +40,7 @@ export function SeatSelectionScreen({
   );
   const setHighestStep = useBookingStore(state => state.setHighestStep);
   const styles = useThemedStyles(createStyles);
+  const theme = useTheme();
   // Warm the capability cache while seat/detail requests run in parallel.
   useStationDetail(selectedTrip?.originStationId, Boolean(selectedTrip?.originStationId));
 
@@ -50,6 +55,12 @@ export function SeatSelectionScreen({
     const nextStep = currentLeg === 'outbound' ? 3 : 7;
     onNext(nextStep);
   }, [onNext, currentLeg]);
+  const retrySeatMap = useCallback(() => {
+    initSeatMap().catch(() => undefined);
+  }, [initSeatMap]);
+  const retryTripDetail = useCallback(() => {
+    initTripDetail().catch(() => undefined);
+  }, [initTripDetail]);
 
   const trip = selectedTrip;
   const seatBadges = useMemo(
@@ -87,6 +98,25 @@ export function SeatSelectionScreen({
           style={styles.routeSummary}
         />
 
+        {tripDetailStatus === 'error' ? (
+          <View style={styles.warningPanel} accessibilityRole="alert">
+            <WarningCircle size={20} color={theme.colors.warning} weight="fill" />
+            <View style={styles.warningCopy}>
+              <Text style={styles.warningTitle}>{t('booking.seatMap.detailError')}</Text>
+              <Text style={styles.warningBody}>{t('booking.seatMap.detailErrorDescription')}</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.retry')}
+              hitSlop={8}
+              onPress={retryTripDetail}
+              style={({ pressed }) => [styles.iconButton, pressed ? styles.pressed : null]}
+            >
+              <ArrowClockwise size={20} color={theme.colors.primary} weight="bold" />
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* Seat Legend */}
         <View style={styles.legendWrap}>
           <SeatLegend />
@@ -94,11 +124,43 @@ export function SeatSelectionScreen({
 
         {/* Seat Grid */}
         <View style={styles.seatWrap}>
-          <SeatGrid
-            seatMap={seatMap}
-            selectedSeats={selectedSeats}
-            onSeatPress={toggleSeat}
-          />
+          {seatMapStatus === 'loading' && seatMap.length === 0 ? (
+            <View style={styles.resourcePanel} accessibilityRole="progressbar">
+              <ActivityIndicator color={theme.colors.primary} />
+              <Text style={styles.resourceTitle}>{t('booking.seatMap.loading')}</Text>
+              <Text style={styles.resourceBody}>{t('booking.seatMap.loadingDescription')}</Text>
+            </View>
+          ) : seatMapStatus === 'error' && seatMap.length === 0 ? (
+            <View style={styles.resourcePanel} accessibilityRole="alert">
+              <WarningCircle size={28} color={theme.colors.warning} weight="duotone" />
+              <Text style={styles.resourceTitle}>{t('booking.seatMap.loadError')}</Text>
+              <Text style={styles.resourceBody}>{t('booking.seatMap.loadErrorDescription')}</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={retrySeatMap}
+                style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
+              >
+                <ArrowClockwise size={17} color={theme.colors.textInverse} weight="bold" />
+                <Text style={styles.retryText}>{t('common.retry')}</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              {seatMapStatus === 'error' ? (
+                <View style={styles.inlineRetry} accessibilityRole="alert">
+                  <Text style={styles.inlineRetryText}>{t('booking.seatMap.refreshError')}</Text>
+                  <Pressable accessibilityRole="button" onPress={retrySeatMap} hitSlop={8}>
+                    <Text style={styles.inlineRetryAction}>{t('common.retry')}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              <SeatGrid
+                seatMap={seatMap}
+                selectedSeats={selectedSeats}
+                onSeatPress={toggleSeat}
+              />
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -107,6 +169,7 @@ export function SeatSelectionScreen({
         totalPrice={getTotalPrice()}
         ctaLabel={t('common.continue')}
         onPress={handleBookNow}
+        disabled={seatMapStatus !== 'success' || selectedSeats.length === 0}
       />
     </View>
   );
@@ -146,4 +209,89 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.md,
     alignItems: 'center',
   },
+  warningPanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 14,
+    backgroundColor: theme.colors.warningLight,
+    marginBottom: spacing.md,
+  },
+  warningCopy: { flex: 1 },
+  warningTitle: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+  },
+  warningBody: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resourcePanel: {
+    width: '100%',
+    minHeight: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+  },
+  resourceTitle: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.md,
+    color: theme.colors.textPrimary,
+    textAlign: 'center',
+  },
+  resourceBody: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+  },
+  retryButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 999,
+    backgroundColor: theme.colors.primary,
+    marginTop: spacing.sm,
+  },
+  retryText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textInverse,
+  },
+  inlineRetry: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: 14,
+    backgroundColor: theme.colors.warningLight,
+  },
+  inlineRetryText: {
+    flex: 1,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+  },
+  inlineRetryAction: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
+  },
+  pressed: { opacity: 0.72 },
 });

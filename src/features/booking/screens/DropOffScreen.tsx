@@ -148,6 +148,7 @@ export function DropOffScreen({ onNext }: DropOffStepProps): React.JSX.Element {
         status={item.status}
         refundAmount={item.refundAmount}
         disabledReason={item.disabledReason}
+        disabledReasonKey={item.disabledReasonKey}
         isSelected={selectedDropOff?.id === item.id}
         onPress={handleDropOffPress}
       />

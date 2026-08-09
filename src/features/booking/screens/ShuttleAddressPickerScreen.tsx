@@ -103,12 +103,6 @@ const BIAS_RADIUS_METERS = 5_000;
 const COUNTRY_CODE = 'vn';
 const DEFAULT_DELTA = 0.018;
 const MARKER_TRACKS_VIEW_CHANGES_MS = 500;
-const PREVIEW_FIT_PADDING = {
-  top: 140,
-  right: 48,
-  bottom: 260,
-  left: 48,
-};
 
 type SelectedPlaceState = {
   placeId: string;
@@ -317,7 +311,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   /** Place Details cache for map markers / sheet — keyed by placeId. */
   const [previewByPlaceId, setPreviewByPlaceId] = useState<Record<string, ResolvedPlace>>({});
-  const [isResolvingPreviews, setIsResolvingPreviews] = useState(false);
   /** Place open in the bottom preview sheet (marker or list). */
   const [sheetPlaceId, setSheetPlaceId] = useState<string | null>(null);
   const [isSheetResolving, setIsSheetResolving] = useState(false);
@@ -349,7 +342,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
   const [pinTracksViewChanges, setPinTracksViewChanges] = useState(true);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const searchBiasRef = useRef<GeoCoordinate>(selected?.pin ?? stationCoordinate);
-  const previewRequestIdRef = useRef(0);
 
   const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
   const normalizedDebouncedQuery = useMemo(
@@ -491,121 +483,12 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     t,
   ]);
 
-  // Resolve coordinates for each prediction without ending the autocomplete
-  // session so the map can show interactive markers while the user still picks.
-  useEffect(() => {
-    if (!placesAvailable || predictions.length === 0) {
-      previewRequestIdRef.current += 1;
-      setPreviewByPlaceId({});
-      setIsResolvingPreviews(false);
-      return;
-    }
-
-    let cancelled = false;
-    const requestId = previewRequestIdRef.current + 1;
-    previewRequestIdRef.current = requestId;
-    const placeIds = new Set(predictions.map((item) => item.placeId));
-
-    setPreviewByPlaceId((current) => {
-      const retained: Record<string, ResolvedPlace> = {};
-      placeIds.forEach((placeId) => {
-        const existing = current[placeId];
-        if (existing) {
-          retained[placeId] = existing;
-        }
-      });
-      return retained;
-    });
-    setIsResolvingPreviews(true);
-
-    const resolvePreviews = async (): Promise<void> => {
-      let sessionId: string;
-      try {
-        sessionId = await ensureSession();
-      } catch {
-        if (!cancelled && previewRequestIdRef.current === requestId) {
-          setIsResolvingPreviews(false);
-        }
-        return;
-      }
-
-      await Promise.all(
-        predictions.map(async (prediction) => {
-          try {
-            // Screen-owned session; do not close until final confirmation.
-            const place = await resolvePlaceDetails({
-              sessionId,
-              placeId: prediction.placeId,
-              endSession: false,
-            });
-            if (cancelled || previewRequestIdRef.current !== requestId) {
-              return;
-            }
-            setPreviewByPlaceId((current) => {
-              if (current[prediction.placeId]?.placeId === place.placeId
-                && current[prediction.placeId]?.latitude === place.latitude
-                && current[prediction.placeId]?.longitude === place.longitude) {
-                return current;
-              }
-              return {
-                ...current,
-                [prediction.placeId]: place,
-              };
-            });
-          } catch {
-            // Skip markers that fail Place Details; list rows still work.
-          }
-        }),
-      );
-      if (!cancelled && previewRequestIdRef.current === requestId) {
-        setIsResolvingPreviews(false);
-      }
-    };
-
-    resolvePreviews().catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [ensureSession, placesAvailable, predictions]);
-
   const animateToCoordinate = useCallback((coordinate: GeoCoordinate, delta = 0.01) => {
     mapRef.current?.animateToRegion(
       toRegion(coordinate, delta),
       reduceMotion ? 0 : 280,
     );
   }, [reduceMotion]);
-
-  const fitToPreviewPins = useCallback((places: ResolvedPlace[]) => {
-    if (!mapRef.current || places.length === 0) {
-      return;
-    }
-    const coordinates: LatLng[] = [
-      stationCoordinate,
-      ...places.map((place) => ({
-        latitude: place.latitude,
-        longitude: place.longitude,
-      })),
-    ];
-    mapRef.current.fitToCoordinates(coordinates, {
-      edgePadding: PREVIEW_FIT_PADDING,
-      animated: !reduceMotion,
-    });
-  }, [reduceMotion, stationCoordinate]);
-
-  useEffect(() => {
-    // While a preview sheet is open we zoom to that one pin; otherwise fit all.
-    if (sheetPlaceId) {
-      return;
-    }
-    const pins = predictions
-      .map((item) => previewByPlaceId[item.placeId])
-      .filter((place): place is ResolvedPlace => Boolean(place));
-    if (pins.length === 0) {
-      return;
-    }
-    fitToPreviewPins(pins);
-  }, [fitToPreviewPins, predictions, previewByPlaceId, sheetPlaceId]);
 
   const closePreviewSheet = useCallback(() => {
     setSheetPlaceId(null);
@@ -820,10 +703,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
         && (code === 'INVALID_PLACE' || code === 'CONFIGURATION' || code === 'UNAVAILABLE'),
       );
       setSearchError(shouldShowDetail ? `${base} (${detail})` : base);
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.warn('[ShuttlePicker] select place failed', code, error);
-      }
     } finally {
       setIsResolving(false);
     }
@@ -937,7 +816,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
 
   const handleClearQuery = useCallback(() => {
     requestIdRef.current += 1;
-    previewRequestIdRef.current += 1;
     setSearchInputActive(false);
     setQuery('');
     setPredictions([]);
@@ -945,7 +823,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     setSheetPlaceId(null);
     setIsSheetResolving(false);
     setIsSearching(false);
-    setIsResolvingPreviews(false);
     setSearchError(null);
   }, []);
 
@@ -1181,15 +1058,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
                   <ActivityIndicator color={theme.colors.primary} />
                   <Text style={styles.suggestionsStatusText}>
                     {t('booking.shuttlePicker.searching')}
-                  </Text>
-                </View>
-              ) : null}
-
-              {!isSearching && isResolvingPreviews && predictions.length > 0 ? (
-                <View style={styles.suggestionsStatus}>
-                  <ActivityIndicator color={theme.colors.primary} />
-                  <Text style={styles.suggestionsStatusText}>
-                    {t('booking.shuttlePicker.loadingMapPins')}
                   </Text>
                 </View>
               ) : null}
@@ -1584,7 +1452,7 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.xs,
     paddingHorizontal: spacing.md,
     fontFamily: fontFamilies.regular,
-    fontSize: 11,
+    fontSize: fontSizes.sm,
     color: theme.colors.textTertiary,
   },
   flexSpacer: {
@@ -1673,7 +1541,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   predictionMarkerIndex: {
     fontFamily: fontFamilies.bold,
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
   },
   predictionMarkerIndexActive: {

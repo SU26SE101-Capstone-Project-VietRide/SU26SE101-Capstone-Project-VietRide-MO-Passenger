@@ -103,14 +103,14 @@ export function CheckoutScreen({
     const nextStep = searchParams.isRoundTrip ? 10 : 6; // Payment step
     onNext(nextStep);
   }, [onNext, searchParams.isRoundTrip]);
-  const handleEditOneWay = useCallback(() => onGoToStep(1), [onGoToStep]);
-  const handleEditOutbound = useCallback(() => {
+  const editOneWay = useCallback((step: number) => onGoToStep(step), [onGoToStep]);
+  const editOutbound = useCallback((step: number) => {
     restoreLegForEdit('outbound');
-    onGoToStep(1);
+    onGoToStep(step);
   }, [onGoToStep, restoreLegForEdit]);
-  const handleEditReturn = useCallback(() => {
+  const editReturn = useCallback((step: number) => {
     restoreLegForEdit('return');
-    onGoToStep(5);
+    onGoToStep(step);
   }, [onGoToStep, restoreLegForEdit]);
 
   return (
@@ -129,7 +129,10 @@ export function CheckoutScreen({
             <BookingLegSummaryCard
               title={t('booking.checkout.departureTrip')}
               leg={oneWayLeg}
-              onEdit={handleEditOneWay}
+              onEditTrip={() => editOneWay(1)}
+              onEditSeats={() => editOneWay(2)}
+              onEditPickup={() => editOneWay(3)}
+              onEditDropoff={() => editOneWay(4)}
             />
           ) : null}
 
@@ -138,7 +141,10 @@ export function CheckoutScreen({
             <BookingLegSummaryCard
               title={t('booking.checkout.departureTrip')}
               leg={outboundState}
-              onEdit={handleEditOutbound}
+              onEditTrip={() => editOutbound(1)}
+              onEditSeats={() => editOutbound(2)}
+              onEditPickup={() => editOutbound(3)}
+              onEditDropoff={() => editOutbound(4)}
             />
           ) : null}
 
@@ -147,7 +153,10 @@ export function CheckoutScreen({
             <BookingLegSummaryCard
               title={t('booking.checkout.returnTrip')}
               leg={returnState}
-              onEdit={handleEditReturn}
+              onEditTrip={() => editReturn(5)}
+              onEditSeats={() => editReturn(6)}
+              onEditPickup={() => editReturn(7)}
+              onEditDropoff={() => editReturn(8)}
             />
           ) : null}
         </ScrollView>

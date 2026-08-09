@@ -4,12 +4,13 @@
  */
 
 import React, { useEffect, useCallback, useMemo } from 'react';
-import { View, Text } from 'react-native';
+import { ActivityIndicator, Pressable, View, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FlashList } from '@shopify/flash-list';
 import { useShallow } from 'zustand/react/shallow';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
+import { useTheme } from '@shared/contexts/ThemeContext';
 import type { AppTheme } from '@shared/theme';
 import { LoadingState, EmptyState, ErrorState } from '../components';
 import { TripCard } from '../components/TripCard';
@@ -113,6 +114,7 @@ export function TripResultsScreen({
     searchParams: state.searchParams,
   })));
   const styles = useThemedStyles(createStyles);
+  const theme = useTheme();
   const hasActiveFilters = isFilterActive(filters);
   const visibleTrips = useMemo(() => filterTrips(trips, filters), [filters, trips]);
   const hasLoadedTrips = trips.length > 0;
@@ -151,7 +153,7 @@ export function TripResultsScreen({
     if (tripResultsStatus === 'loading' && !hasLoadedTrips) {
       return <LoadingState />;
     }
-    if (tripResultsStatus === 'error') {
+    if (tripResultsStatus === 'error' && !hasLoadedTrips) {
       return <ErrorState onRetry={handleRetry} />;
     }
     if (tripResultsStatus === 'empty') {
@@ -159,7 +161,7 @@ export function TripResultsScreen({
         <EmptyState
           title={t('booking.results.noRidesTitle')}
           subtitle={t('booking.results.noRidesDescription')}
-          actionLabel={t('booking.filters.clear')}
+          actionLabel={t('booking.results.searchAgain')}
           onAction={handleRetry}
         />
       );
@@ -188,6 +190,23 @@ export function TripResultsScreen({
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         renderItem={renderTrip}
+        ListHeaderComponent={tripResultsStatus === 'loading' || tripResultsStatus === 'error' ? (
+          <View style={styles.refreshBanner} accessibilityRole="alert">
+            {tripResultsStatus === 'loading' ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : null}
+            <Text style={styles.refreshText}>
+              {tripResultsStatus === 'loading'
+                ? t('booking.results.refreshing')
+                : t('booking.results.refreshFailed')}
+            </Text>
+            {tripResultsStatus === 'error' ? (
+              <Pressable accessibilityRole="button" onPress={handleRetry} hitSlop={8}>
+                <Text style={styles.refreshAction}>{t('common.retry')}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
       />
     );
   };
@@ -228,5 +247,25 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
     color: theme.colors.textPrimary,
+  },
+  refreshBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: 14,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  refreshText: {
+    flex: 1,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
+  },
+  refreshAction: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
   },
 });

@@ -46,7 +46,7 @@ describe('booking discovery actions', () => {
       passengers: 2,
     }, new Date(2026, 6, 14, 12));
 
-    expect(input).toMatchObject({ date: '14/07/2026', passengers: 2 });
+    expect(input).toMatchObject({ date: '2026-07-14', passengers: 2 });
   });
 
   it('clamps discovery passenger counts to the backend booking limit', () => {
@@ -64,6 +64,39 @@ describe('booking discovery actions', () => {
     }, new Date(2026, 6, 14, 12));
 
     expect(input?.passengers).toBe(5);
+  });
+
+  it('preserves matching location codes in recent searches', () => {
+    const now = new Date(2026, 6, 14, 12);
+    const input = toRecentSearchInput({
+      from: 'Thành phố Hồ Chí Minh',
+      to: 'Thành phố Hồ Chí Minh',
+      originLocationCode: 'HCM',
+      destinationLocationCode: 'HCM',
+      originStationId: '',
+      destinationStationId: '',
+      originStationName: '',
+      destinationStationName: '',
+      date: 'Today',
+      passengers: 2,
+    }, now);
+
+    expect(input).toMatchObject({
+      fromCode: 'HCM',
+      toCode: 'HCM',
+    });
+
+    expect(recentSearchToPrefill({
+      ...input!,
+      id: 'same-city',
+      savedAt: now.getTime(),
+    }, now)).toMatchObject({
+      status: 'applied',
+      prefill: {
+        originLocationCode: 'HCM',
+        destinationLocationCode: 'HCM',
+      },
+    });
   });
 
   it('does not apply an expired recent search to the booking store', () => {

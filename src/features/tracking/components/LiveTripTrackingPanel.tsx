@@ -663,17 +663,11 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
 
   const intermediateStops = routeContext?.intermediateStops ?? EMPTY_INTERMEDIATE_STOPS;
   const upcomingStops = useMemo(
-    () => {
-      const realtimeStopIds = new Set(etaByStopId.keys());
-      if (realtimeStopIds.size > 0) {
-        return intermediateStops.filter((stop) => realtimeStopIds.has(stop.stopId));
-      }
-      return intermediateStops.filter((stop) => {
+    () => intermediateStops.filter((stop) => {
         const plannedStop = plannedStopsById.get(stop.stopId);
         return plannedStop?.status === undefined || plannedStop.status === 'PENDING';
-      });
-    },
-    [etaByStopId, intermediateStops, plannedStopsById],
+      }),
+    [intermediateStops, plannedStopsById],
   );
   const progressItems = useMemo<ProgressItem[]>(() => {
     if (isShuttle) {
@@ -1003,6 +997,42 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           </View>
         ) : null}
 
+        {!isShuttle && (upcomingStops.length > 0 || routeContext?.destinationStation) ? (
+          <View style={styles.upcomingCard}>
+            <Text style={styles.upcomingTitle}>
+              {t('tracking.progress.upcomingStops')}
+            </Text>
+            {upcomingStops.map((stop) => (
+              <View key={stop.stopId} style={styles.upcomingRow}>
+                <MapPin size={17} color={mapPalette.next} weight="duotone" />
+                <View style={styles.upcomingCopy}>
+                  <Text style={styles.upcomingName} numberOfLines={2}>{stop.name}</Text>
+                  <Text style={styles.upcomingEta} numberOfLines={1}>
+                    {etaByStopId.has(stop.stopId)
+                      ? formatEta(etaByStopId.get(stop.stopId) ?? null)
+                      : formatPlannedEta(plannedStopsById.get(stop.stopId)?.estimatedArrivalTime)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+            {routeContext?.destinationStation ? (
+              <View style={styles.upcomingRow}>
+                <Target size={17} color={mapPalette.destination} weight="duotone" />
+                <View style={styles.upcomingCopy}>
+                  <Text style={styles.upcomingName} numberOfLines={2}>
+                    {routeContext.destinationStation.name}
+                  </Text>
+                  <Text style={styles.upcomingEta} numberOfLines={1}>
+                    {destinationEta
+                      ? formatEta(destinationEta)
+                      : formatPlannedEta(tripQuery.data?.estimatedArrivalDateTime)}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         {canManageTripSharing ? (
           <View style={styles.shareCard}>
             <View style={styles.shareHeading}>
@@ -1080,46 +1110,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
                 </Text>
               </Pressable>
             </View>
-          </View>
-        ) : null}
-
-        {!isShuttle && (upcomingStops.length > 0 || routeContext?.destinationStation) ? (
-          <View style={styles.upcomingCard}>
-            <Text style={styles.upcomingTitle}>
-              {t('tracking.progress.upcomingStops')}
-            </Text>
-            {upcomingStops.map((stop) => (
-              <View key={stop.stopId} style={styles.upcomingRow}>
-                <MapPin size={17} color={mapPalette.next} weight="duotone" />
-                <View style={styles.upcomingCopy}>
-                  <Text style={styles.upcomingName} numberOfLines={2}>
-                    {stop.name}
-                  </Text>
-                  <Text style={styles.upcomingEta} numberOfLines={1}>
-                    {etaByStopId.has(stop.stopId)
-                      ? formatEta(etaByStopId.get(stop.stopId) ?? null)
-                      : formatPlannedEta(
-                          plannedStopsById.get(stop.stopId)?.estimatedArrivalTime,
-                        )}
-                  </Text>
-                </View>
-              </View>
-            ))}
-            {routeContext?.destinationStation ? (
-              <View style={styles.upcomingRow}>
-                <Target size={17} color={mapPalette.destination} weight="duotone" />
-                <View style={styles.upcomingCopy}>
-                  <Text style={styles.upcomingName} numberOfLines={2}>
-                    {routeContext.destinationStation.name}
-                  </Text>
-                  <Text style={styles.upcomingEta} numberOfLines={1}>
-                    {destinationEta
-                      ? formatEta(destinationEta)
-                      : formatPlannedEta(tripQuery.data?.estimatedArrivalDateTime)}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
           </View>
         ) : null}
 
@@ -1259,7 +1249,7 @@ const createStyles = (theme: AppTheme) => {
   },
   dockMetricLabel: {
     fontFamily: fontFamilies.medium,
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
   },
   dockMetricValue: {
@@ -1474,7 +1464,7 @@ const createStyles = (theme: AppTheme) => {
   },
   progressLabel: {
     fontFamily: fontFamilies.bold,
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     letterSpacing: 0.2,
     textTransform: 'uppercase' as const,
   },
@@ -1532,7 +1522,7 @@ const createStyles = (theme: AppTheme) => {
   },
   diagnosticsText: {
     fontFamily: fontFamilies.regular,
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
   },
   detailsFooter: {

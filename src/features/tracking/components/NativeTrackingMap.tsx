@@ -740,7 +740,7 @@ const createStyles = (theme: AppTheme) => {
     },
     intermediateNumber: {
       fontFamily: fontFamilies.bold,
-      fontSize: 12,
+      fontSize: fontSizes.xs,
       lineHeight: 14,
     },
     emphasizedWrap: {
@@ -830,14 +830,16 @@ const createStyles = (theme: AppTheme) => {
     },
     legendMiniNumber: {
       fontFamily: fontFamilies.bold,
+      // Intentional map-marker exception: this is a single ordinal inside a
+      // 16 dp symbol; the adjacent readable label carries the same meaning.
       fontSize: 8,
       lineHeight: 9,
     },
     legendLabel: {
       flexShrink: 1,
       fontFamily: fontFamilies.medium,
-      fontSize: 10,
-      lineHeight: 13,
+      fontSize: fontSizes.xs,
+      lineHeight: 16,
       color: theme.colors.textSecondary,
     },
     // Top-center so it does not cover the bottom legend (left) or waiting chip (right).

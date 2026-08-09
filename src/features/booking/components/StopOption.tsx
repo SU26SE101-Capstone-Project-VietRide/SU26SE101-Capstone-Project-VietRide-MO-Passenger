@@ -16,6 +16,7 @@ interface StopOptionProps {
   status: 'current' | 'available' | 'disabled';
   refundAmount?: number;
   disabledReason?: string;
+  disabledReasonKey?: string;
   isSelected: boolean;
   onPress: (id: string) => void;
   icon?: string;
@@ -29,6 +30,7 @@ export const StopOption = memo(function StopOptionComponent({
   status,
   refundAmount,
   disabledReason,
+  disabledReasonKey,
   isSelected,
   onPress,
 }: StopOptionProps): React.JSX.Element {
@@ -36,6 +38,7 @@ export const StopOption = memo(function StopOptionComponent({
   const isDisabled = status === 'disabled';
   const displayName = name.trim() || t('booking.stops.unnamed');
   const displayAddress = address.trim() || t('common.notAvailable');
+  const displayDisabledReason = disabledReasonKey ? t(disabledReasonKey) : disabledReason;
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handlePress = useCallback(() => {
@@ -89,7 +92,9 @@ export const StopOption = memo(function StopOptionComponent({
         <Text style={styles.pointAddress}>{displayAddress}</Text>
         {time ? (
           <View style={styles.timePill}>
-            <Text style={styles.pointTime}>{time}</Text>
+            <Text style={styles.pointTime}>
+              {t('booking.stops.plannedArrival', { time })}
+            </Text>
           </View>
         ) : null}
         {refundAmount != null ? (
@@ -105,9 +110,9 @@ export const StopOption = memo(function StopOptionComponent({
             </Text>
           </View>
         ) : null}
-        {disabledReason ? (
+        {displayDisabledReason ? (
           <Text style={styles.disabledReason}>
-            {disabledReason}
+            {displayDisabledReason}
           </Text>
         ) : null}
       </View>

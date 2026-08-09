@@ -83,6 +83,18 @@ export const BookingProgressBar = ({
           <Text style={styles.stepLabel}>{stepLabel}</Text>
         </View>
 
+        {isRoundTrip ? (
+          <View style={styles.legLabels} accessibilityRole="summary">
+            <Text style={[styles.legLabel, styles.legLabelMain]}>
+              {t('booking.header.outbound')}
+            </Text>
+            <Text style={[styles.legLabel, styles.legLabelMain]}>
+              {t('booking.header.return')}
+            </Text>
+            <Text style={styles.legLabel}>{t('booking.steps.checkout')}</Text>
+          </View>
+        ) : null}
+
         <View style={styles.progressBarBg}>
           <View
             style={[
@@ -183,6 +195,19 @@ const createStyles = (theme: AppTheme) => ({
     overflow: 'hidden',
     marginBottom: spacing.sm,
   },
+  legLabels: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  legLabel: {
+    flex: 1,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+    textAlign: 'center',
+  },
+  legLabelMain: { flex: 2 },
   progressBarActive: {
     height: '100%',
     borderRadius: 2,
@@ -195,9 +220,11 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: -16,
   },
   stepBubbleContainer: {
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'transparent',
-    paddingTop: 8,
   },
   stepBubblePressed: {
     opacity: 0.82,

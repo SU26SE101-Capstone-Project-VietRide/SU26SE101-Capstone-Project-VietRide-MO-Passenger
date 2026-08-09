@@ -19,7 +19,10 @@ import { SectionCard } from './SectionCard';
 interface BookingLegSummaryCardProps {
   title: string;
   leg: BookingLegDraft;
-  onEdit?: () => void;
+  onEditTrip?: () => void;
+  onEditSeats?: () => void;
+  onEditPickup?: () => void;
+  onEditDropoff?: () => void;
 }
 
 interface ShuttleRequestSummaryProps {
@@ -53,7 +56,10 @@ const ShuttleRequestSummary = memo(function ShuttleRequestSummaryComponent({
 export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponent({
   title,
   leg,
-  onEdit,
+  onEditTrip,
+  onEditSeats,
+  onEditPickup,
+  onEditDropoff,
 }: BookingLegSummaryCardProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -66,7 +72,7 @@ export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponen
     <SectionCard>
       <View style={styles.cardHeaderRow}>
         <Text style={styles.cardTitle}>{title}</Text>
-        {onEdit ? (
+        {onEditTrip ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('booking.checkout.editLeg', { leg: title })}
@@ -75,7 +81,7 @@ export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponen
               styles.editButton,
               pressed ? styles.editButtonPressed : null,
             ]}
-            onPress={onEdit}
+            onPress={onEditTrip}
           >
             <PencilSimple
               size={14}
@@ -84,6 +90,28 @@ export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponen
             />
           </Pressable>
         ) : null}
+      </View>
+
+      <View style={styles.editActions}>
+        {([
+          { label: t('booking.checkout.route'), action: onEditTrip },
+          { label: t('booking.checkout.seats'), action: onEditSeats },
+          { label: t('booking.steps.pickup'), action: onEditPickup },
+          { label: t('booking.steps.dropoff'), action: onEditDropoff },
+        ] satisfies Array<{ label: string; action?: () => void }>).map(({ label, action }) => action ? (
+          <Pressable
+            key={label}
+            accessibilityRole="button"
+            accessibilityLabel={t('booking.checkout.editField', { field: label })}
+            onPress={action}
+            style={({ pressed }) => [
+              styles.editChip,
+              pressed ? styles.editButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.editChipText}>{label}</Text>
+          </Pressable>
+        ) : null)}
       </View>
 
       <InfoRow
@@ -184,6 +212,26 @@ const createStyles = (theme: AppTheme) => ({
   editButtonPressed: {
     opacity: 0.8,
     transform: [{ scale: 0.96 }],
+  },
+  editActions: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  editChip: {
+    minHeight: 44,
+    justifyContent: 'center' as const,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.accents.ticket.soft,
+    borderWidth: 1,
+    borderColor: theme.accents.ticket.border,
+  },
+  editChipText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.accents.ticket.foreground,
   },
   locationBlock: {
     marginTop: spacing.md,

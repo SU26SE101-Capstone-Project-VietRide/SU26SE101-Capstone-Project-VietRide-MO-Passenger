@@ -150,7 +150,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   routeLabel: {
     fontFamily: fontFamilies.bold,
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
   },
   routeName: {

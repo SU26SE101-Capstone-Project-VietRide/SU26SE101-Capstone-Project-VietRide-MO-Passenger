@@ -75,6 +75,9 @@ export function FloatingActionBar({
 
       {/* CTA Button */}
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={ctaLabel}
+        accessibilityState={{ disabled: disabled || seatBadges.length === 0 }}
         onPress={onPress}
         disabled={disabled || seatBadges.length === 0}
         style={({ pressed }) => [
@@ -154,6 +157,7 @@ const createStyles = (theme: AppTheme) => ({
     ...theme.components.primaryButton,
     borderRadius: borderRadius.full,
     paddingVertical: spacing.md,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

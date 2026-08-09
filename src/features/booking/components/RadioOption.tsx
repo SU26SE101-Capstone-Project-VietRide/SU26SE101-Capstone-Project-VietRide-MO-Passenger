@@ -100,7 +100,7 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.primaryFaded,
   },
   iconEmoji: {
-    fontSize: 18,
+    fontSize: fontSizes.xl,
   },
   textBlock: {
     flex: 1,

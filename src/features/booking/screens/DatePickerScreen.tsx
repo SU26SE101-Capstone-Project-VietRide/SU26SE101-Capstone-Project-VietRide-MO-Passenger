@@ -3,9 +3,9 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, FlatList, StatusBar } from 'react-native';
+import { View, Text, Pressable, FlatList, ScrollView, StatusBar } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
@@ -23,6 +23,7 @@ import {
   parseLocalDate,
   startOfLocalDay,
   toLocalDisplayDate,
+  toLocalIsoDate,
 } from '@shared/utils/localDate';
 import { toTripSearchDate } from '../utils/searchParams';
 import { formatMonthYear } from '@shared/utils/format';
@@ -65,6 +66,7 @@ export function DatePicker(): React.JSX.Element {
   const setSearchParams = useBookingStore((state) => state.setSearchParams);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
 
   const mode = route.params?.mode || 'departure';
   const today = useMemo(() => startOfLocalDay(new Date()), []);
@@ -98,6 +100,7 @@ export function DatePicker(): React.JSX.Element {
       ? initialSelection
       : toLocalDisplayDate(firstSelectableDate),
   );
+  const selectedDate = parseLocalDate(selected) ?? firstSelectableDate;
   const dayLabels = useMemo(
     () => DAY_KEYS.map(key => t(`booking.datePicker.weekdays.${key}`)),
     [t],
@@ -105,9 +108,9 @@ export function DatePicker(): React.JSX.Element {
 
   const onConfirm = () => {
     if (mode === 'return') {
-      setSearchParams({ returnDate: selected });
+      setSearchParams({ returnDate: toLocalIsoDate(selectedDate) });
     } else {
-      const selectedDate = parseLocalDate(selected);
+      const selectedDateForConfirm = parseLocalDate(selected);
       const currentReturnDate = (() => {
         try {
           return searchParams.returnDate
@@ -117,11 +120,11 @@ export function DatePicker(): React.JSX.Element {
           return null;
         }
       })();
-      const shouldClearReturnDate = selectedDate
-        && (!currentReturnDate || compareLocalDates(currentReturnDate, selectedDate) < 0);
+      const shouldClearReturnDate = selectedDateForConfirm
+        && (!currentReturnDate || compareLocalDates(currentReturnDate, selectedDateForConfirm) < 0);
 
       setSearchParams({
-        date: selected,
+        date: toLocalIsoDate(selectedDate),
         ...(shouldClearReturnDate ? { returnDate: '' } : {}),
       });
     }
@@ -165,6 +168,10 @@ export function DatePicker(): React.JSX.Element {
           <View style={styles.headerSpacer} />
         </View>
 
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 88 + Math.max(insets.bottom, spacing.md) }}
+        >
         {/* 30-day strip */}
         <View style={styles.stripCard}>
           <FlatList
@@ -207,7 +214,7 @@ export function DatePicker(): React.JSX.Element {
 
         {/* Month label */}
         <Text style={styles.monthLabel}>
-          {formatMonthYear(firstSelectableDate)}
+          {formatMonthYear(selectedDate)}
         </Text>
 
         {/* Calendar grid */}
@@ -254,7 +261,7 @@ export function DatePicker(): React.JSX.Element {
                       onPress={() => setSelected(dateStr)}
                     >
                       <Text style={[styles.calCellText, active && styles.calCellTextActive, dimmed && styles.calCellDimmed]}>
-                        {d.getDate()}
+                        {dimmed ? `${d.getDate()}/${d.getMonth() + 1}` : d.getDate()}
                       </Text>
                     </Pressable>
                   );
@@ -267,9 +274,10 @@ export function DatePicker(): React.JSX.Element {
             ));
           })()}
         </View>
+        </ScrollView>
 
         {/* Confirm */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('booking.datePicker.confirmAccessibility', { date: selected })}
@@ -382,7 +390,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   dayBadge: {
     fontFamily: fontFamilies.medium,
-    fontSize: 9,
+    fontSize: fontSizes.xs,
     color: theme.colors.primary,
     backgroundColor: theme.colors.primaryFaded,
     paddingHorizontal: 6,

@@ -52,6 +52,8 @@ import {
 } from '../utils/bookingDiscovery';
 import { BookingCompletionCoordinator } from '../utils/bookingCompletion';
 import { getRoundTripLegForStep } from '../utils/bookingSteps';
+import { formatDate } from '@shared/utils/format';
+import { toTripSearchDate } from '../utils/searchParams';
 
 // Import Steps
 import { TripResultsScreen as TripResultsStep } from './TripResultsScreen';
@@ -140,6 +142,15 @@ const makeTravelDateRangeLabel = (
   returnFallback = '',
 ): string => {
   return `${outboundDate || departureFallback} ↔ ${returnDate || returnFallback}`;
+};
+
+const makeBookingDateLabel = (value: string | undefined, fallback: string): string => {
+  if (!value) return fallback;
+  try {
+    return formatDate(toTripSearchDate(value)) || fallback;
+  } catch {
+    return fallback;
+  }
 };
 
 function FilterChip({
@@ -486,7 +497,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
         primary: makeRouteLabel(from, to),
         secondary: makeHeaderContextLabel(
           t('booking.header.oneWay'),
-          searchParams.date,
+          makeBookingDateLabel(searchParams.date, t('booking.header.selectDate')),
           t('booking.header.selectDate'),
           trip?.departureTime,
         ),
@@ -500,15 +511,15 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
       ? selectedTrip ?? returnState?.trip
       : selectedTrip ?? outboundState?.trip;
     const activeDate = stepLeg === 'return'
-      ? searchParams.returnDate || t('booking.header.returnDate')
-      : searchParams.date;
+      ? makeBookingDateLabel(searchParams.returnDate, t('booking.header.returnDate'))
+      : makeBookingDateLabel(searchParams.date, t('booking.header.selectDate'));
 
     if (isCheckoutOrPaymentStep) {
       return {
         primary: makeRoundTripRouteLabel(from, to),
         secondary: makeTravelDateRangeLabel(
-          searchParams.date,
-          searchParams.returnDate,
+          makeBookingDateLabel(searchParams.date, t('booking.header.departureDate')),
+          makeBookingDateLabel(searchParams.returnDate, t('booking.header.returnDate')),
           t('booking.header.departureDate'),
           t('booking.header.returnDate'),
         ),

@@ -10,7 +10,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
+  CalendarBlank,
   CheckCircle,
+  ClockCountdown,
   Coins,
   File,
   Flask,
@@ -232,11 +234,11 @@ function TicketView({
           {model.isPendingPayment && pendingPaymentActions?.isChecking ? (
             <ActivityIndicator size="large" color={theme.colors.primary} />
           ) : (
-            <CheckCircle
-              size={56}
-              color={model.isPendingPayment ? theme.colors.primary : theme.colors.success}
-              weight="fill"
-            />
+            model.isPendingPayment ? (
+              <ClockCountdown size={56} color={theme.colors.warning} weight="duotone" />
+            ) : (
+              <CheckCircle size={56} color={theme.colors.success} weight="fill" />
+            )
           )}
           <Text style={styles.successTitle}>{model.statusTitle}</Text>
           <Text style={styles.successSubtitle}>{model.statusMessage}</Text>
@@ -369,6 +371,19 @@ function TicketView({
                       </View>
                     </View>
                   ) : null}
+                  {activeLeg.boardingDate ? (
+                    <View style={styles.travelDateRow}>
+                      <CalendarBlank size={17} color={theme.colors.primary} weight="duotone" />
+                      <Text style={styles.travelDateText}>
+                        {activeLeg.isOvernight && activeLeg.alightingDate
+                          ? t('booking.ticket.overnightDates', {
+                              departure: activeLeg.boardingDate,
+                              arrival: activeLeg.alightingDate,
+                            })
+                          : t('booking.ticket.travelDate', { date: activeLeg.boardingDate })}
+                      </Text>
+                    </View>
+                  ) : null}
                   <View style={styles.routeRow}>
                     <View style={styles.routeItem}>
                       <Text style={styles.routeLabel}>
@@ -379,6 +394,9 @@ function TicketView({
                       <Text style={styles.routeName}>{activeLeg.boardingName}</Text>
                       {activeLeg.boardingAddress ? (
                         <Text style={styles.routeCity}>{activeLeg.boardingAddress}</Text>
+                      ) : null}
+                      {activeLeg.boardingDate ? (
+                        <Text style={styles.routeDate}>{activeLeg.boardingDate}</Text>
                       ) : null}
                     </View>
                     <View style={styles.routeItem}>
@@ -391,6 +409,11 @@ function TicketView({
                       {activeLeg.alightingAddress ? (
                         <Text style={[styles.routeCity, styles.alignRight]}>
                           {activeLeg.alightingAddress}
+                        </Text>
+                      ) : null}
+                      {activeLeg.alightingDate ? (
+                        <Text style={[styles.routeDate, styles.alignRight]}>
+                          {activeLeg.alightingDate}
                         </Text>
                       ) : null}
                     </View>
@@ -1076,11 +1099,26 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.md,
     marginBottom: spacing.xl,
   },
+  travelDateRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    borderRadius: BR.md,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  travelDateText: {
+    flex: 1,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+  },
   routeItem: { flex: 1 },
   routeLabel: {
     marginBottom: 4,
     fontFamily: fontFamilies.bold,
-    fontSize: 9,
+    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
   },
   routeName: {
@@ -1093,6 +1131,12 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
+  },
+  routeDate: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
   },
   alignRight: { textAlign: 'right' as const },
   specsGrid: {
@@ -1107,7 +1151,7 @@ const createStyles = (theme: AppTheme) => ({
   specLabel: {
     marginBottom: 4,
     fontFamily: fontFamilies.bold,
-    fontSize: 9,
+    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
   },
   specValue: {

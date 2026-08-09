@@ -45,6 +45,17 @@ describe('recent search persistence', () => {
     expect(parseRecentSearches(serializeRecentSearches(items))).toEqual(items);
   });
 
+  it('keeps a route whose endpoints share one location code', () => {
+    const items = upsertRecentSearch([], {
+      ...search(1),
+      fromCode: 'HCM',
+      toCode: 'HCM',
+    }, 10);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ fromCode: 'HCM', toCode: 'HCM' });
+  });
+
   it('migrates a legacy array and ignores malformed entries', () => {
     const legacy = JSON.stringify([
       { ...search(1), savedAt: 5 },

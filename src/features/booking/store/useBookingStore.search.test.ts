@@ -53,7 +53,21 @@ describe('booking trip search', () => {
   });
 
   it('reverses location codes and uses the return date for the return leg', async () => {
-    useBookingStore.setState({ currentLeg: 'return' });
+    useBookingStore.setState({
+      currentLeg: 'return',
+      outboundState: {
+        trip: {
+          id: 'outbound-trip',
+          routeId: 'outbound-route',
+          returnRouteId: 'return-route',
+        } as never,
+        seats: [],
+        pickUp: null,
+        dropOff: null,
+        shuttlePickup: null,
+        shuttleDropoff: null,
+      },
+    });
 
     await useBookingStore.getState().searchTrips();
 
@@ -81,6 +95,32 @@ describe('booking trip search', () => {
 
     expect(mockSearchTrips).toHaveBeenCalledWith({
       originLocationCode: 'HN',
+      destinationLocationCode: 'HCM',
+      departureDate: '2026-07-10',
+      passengerCount: 3,
+      allowAlongRoutePickup: false,
+    });
+  });
+
+  it('passes matching location codes through to the backend', async () => {
+    useBookingStore.setState({
+      searchParams: {
+        ...searchParams,
+        from: 'Thành phố Hồ Chí Minh',
+        to: 'Thành phố Hồ Chí Minh',
+        originLocationCode: 'HCM',
+        destinationLocationCode: 'HCM',
+        originStationId: '',
+        destinationStationId: '',
+        originStationName: '',
+        destinationStationName: '',
+      },
+    });
+
+    await useBookingStore.getState().searchTrips();
+
+    expect(mockSearchTrips).toHaveBeenCalledWith({
+      originLocationCode: 'HCM',
       destinationLocationCode: 'HCM',
       departureDate: '2026-07-10',
       passengerCount: 3,

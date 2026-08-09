@@ -4,7 +4,7 @@ import {
   buildTrackingTargetFromPoints,
   type TrackingTarget,
 } from '@features/tracking/types/trackingTarget';
-import { formatDateTime } from '@shared/utils/format';
+import { formatDate, formatDateTime } from '@shared/utils/format';
 import i18n from '@shared/i18n';
 import type {
   BookingResult,
@@ -28,9 +28,12 @@ export interface TicketLegViewModel {
   boardingName: string;
   boardingAddress?: string;
   boardingTime?: string;
+  boardingDate?: string;
   alightingName: string;
   alightingAddress?: string;
   alightingTime?: string;
+  alightingDate?: string;
+  isOvernight?: boolean;
   busType?: string;
   seatNumbers: string;
   ticketCount: number;
@@ -117,7 +120,13 @@ const buildLeg = ({
   dropOff,
   shuttlePickup,
   shuttleDropoff,
-}: BuildLegInput): TicketLegViewModel => ({
+}: BuildLegInput): TicketLegViewModel => {
+  const boardingTimestamp = pickUp?.estimatedArrivalTime ?? trip?.departureDateTime;
+  const alightingTimestamp = dropOff?.estimatedArrivalTime ?? trip?.estimatedArrivalDateTime;
+  const boardingDate = boardingTimestamp ? formatDate(boardingTimestamp) : '';
+  const alightingDate = alightingTimestamp ? formatDate(alightingTimestamp) : '';
+
+  return ({
   label,
   reference,
   ticketReferences: tickets
@@ -135,9 +144,12 @@ const buildLeg = ({
   boardingName: pickUp?.name || translate('common.notAvailable'),
   boardingAddress: pickUp?.address || '',
   boardingTime: pickUp?.time || undefined,
+  boardingDate: boardingDate || undefined,
   alightingName: dropOff?.name || translate('common.notAvailable'),
   alightingAddress: dropOff?.address || '',
   alightingTime: dropOff?.time || undefined,
+  alightingDate: alightingDate || undefined,
+  isOvernight: Boolean(boardingDate && alightingDate && boardingDate !== alightingDate),
   busType: trip?.busType || translate('booking.ticket.notReported'),
   seatNumbers: tickets
     .map((ticket) => ticket.seatNumber.trim())
@@ -156,7 +168,8 @@ const buildLeg = ({
   ...(shuttleDropoff?.address
     ? { shuttleDropoffAddress: shuttleDropoff.address }
     : {}),
-});
+  });
+};
 
 export const buildCheckoutTicketViewModel = ({
   bookingResult,

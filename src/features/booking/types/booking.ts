@@ -51,10 +51,12 @@ export interface DropOffPoint {
   name: string;
   address: string;
   time: string;
+  estimatedArrivalTime?: string | null;
   status: StopStatus;
   orderIndex?: number;
   refundAmount?: number;
   disabledReason?: string;
+  disabledReasonKey?: string;
 }
 
 export interface PickUpPoint {
@@ -64,10 +66,12 @@ export interface PickUpPoint {
   name: string;
   address: string;
   time: string;
+  estimatedArrivalTime?: string | null;
   status: StopStatus;
   orderIndex?: number;
   refundAmount?: number;
   disabledReason?: string;
+  disabledReasonKey?: string;
   /** Copied from TripStop.effectiveFare by stop id — never name-matched. */
   effectiveFare?: number | null;
 }

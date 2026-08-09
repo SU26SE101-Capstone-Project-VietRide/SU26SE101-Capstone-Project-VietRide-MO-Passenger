@@ -34,13 +34,11 @@ const locationKeyExtractor = (item: Location) => item.id;
 
 interface LocationRowProps {
   location: Location;
-  isUnavailable: boolean;
   onSelect: (location: Location) => void;
 }
 
 const LocationRow = memo(function LocationRowComponent({
   location,
-  isUnavailable,
   onSelect,
 }: LocationRowProps): React.JSX.Element {
   const { t } = useTranslation();
@@ -55,17 +53,14 @@ const LocationRow = memo(function LocationRowComponent({
     <Pressable
       style={({ pressed }) => [
         styles.item,
-        isUnavailable ? styles.itemDisabled : null,
-        pressed && !isUnavailable ? styles.pressed : null,
+        pressed ? styles.pressed : null,
       ]}
       onPress={handlePress}
-      disabled={isUnavailable}
       accessibilityRole="button"
       accessibilityLabel={t('booking.locations.locationAccessibility', {
         name: location.name,
         type: typeLabel,
       })}
-      accessibilityState={{ disabled: isUnavailable }}
     >
       <View style={styles.itemIcon}>
         <MapPin size={16} color={theme.colors.primary} weight="fill" />
@@ -73,12 +68,10 @@ const LocationRow = memo(function LocationRowComponent({
       <View style={styles.itemTextWrap}>
         <Text style={styles.itemName}>{location.name}</Text>
         <Text style={styles.itemRegion}>
-          {isUnavailable
-            ? t('booking.locations.alreadySelected')
-            : t('booking.locations.typeAndCode', {
-              type: typeLabel,
-              code: location.code,
-            })}
+          {t('booking.locations.typeAndCode', {
+            type: typeLabel,
+            code: location.code,
+          })}
         </Text>
       </View>
       <View style={styles.itemArrow}>
@@ -99,14 +92,10 @@ export function CityPickerScreen(): React.JSX.Element {
   const route = useRoute<CityPickerRouteProp>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const searchParams = useBookingStore((state) => state.searchParams);
   const setSearchParams = useBookingStore((state) => state.setSearchParams);
   const { data: locations = [], isLoading, isError, isFetching, refetch } = useLocations();
   const mode = route.params.mode;
   const [query, setQuery] = useState('');
-  const oppositeLocationCode = mode === 'from'
-    ? searchParams.destinationLocationCode
-    : searchParams.originLocationCode;
 
   const filteredLocations = useMemo(() => {
     const activeLocations = locations.filter((location) => location.isActive);
@@ -123,10 +112,6 @@ export function CityPickerScreen(): React.JSX.Element {
 
   const onSelectLocation = useCallback(
     (location: Location) => {
-      if (location.code === oppositeLocationCode) {
-        return;
-      }
-
       if (mode === 'from') {
         setSearchParams({
           from: location.name,
@@ -144,18 +129,17 @@ export function CityPickerScreen(): React.JSX.Element {
       }
       navigation.goBack();
     },
-    [mode, navigation, oppositeLocationCode, setSearchParams],
+    [mode, navigation, setSearchParams],
   );
 
   const renderLocation = useCallback(
     ({ item }: ListRenderItemInfo<Location>) => (
       <LocationRow
         location={item}
-        isUnavailable={item.code === oppositeLocationCode}
         onSelect={onSelectLocation}
       />
     ),
-    [onSelectLocation, oppositeLocationCode],
+    [onSelectLocation],
   );
 
   const locationEmptyState = useMemo(() => {

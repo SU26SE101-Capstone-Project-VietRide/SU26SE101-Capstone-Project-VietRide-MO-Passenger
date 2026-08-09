@@ -56,7 +56,6 @@ const normalizeSearch = (value: unknown): RecentSearch | null => {
     || !input.toCode
     || !input.toName
     || !input.date
-    || input.fromCode === input.toCode
   ) {
     return null;
   }

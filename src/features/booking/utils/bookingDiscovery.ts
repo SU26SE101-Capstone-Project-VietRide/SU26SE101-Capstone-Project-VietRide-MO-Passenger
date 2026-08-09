@@ -104,14 +104,14 @@ export const toRecentSearchInput = (
   const fromName = (searchParams.originStationName || searchParams.from).trim();
   const toName = (searchParams.destinationStationName || searchParams.to).trim();
 
-  if (!fromCode || !toCode || !fromName || !toName || fromCode === toCode) return null;
+  if (!fromCode || !toCode || !fromName || !toName) return null;
 
   return {
     fromCode,
     fromName,
     toCode,
     toName,
-    date: date.date,
+    date: toTripSearchDate(date.date, now),
     passengers: normalizeBookingSeatCount(searchParams.passengers),
   };
 };
@@ -136,7 +136,7 @@ export const recentSearchToPrefill = (
       destinationStationId: '',
       originStationName: '',
       destinationStationName: '',
-      date: date.date,
+      date: toTripSearchDate(date.date, now),
       passengers: search.passengers,
       isRoundTrip: false,
       returnDate: '',
