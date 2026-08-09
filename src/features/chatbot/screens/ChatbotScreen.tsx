@@ -29,7 +29,6 @@ import {
 } from 'phosphor-react-native';
 
 import type { RootStackParamList } from '@app/navigation/types';
-import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useBookingStore } from '@features/booking/store/useBookingStore';
 import type { BookingSearchPrefill } from '@features/booking/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -72,7 +71,6 @@ export function ChatbotScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const applySearchPrefill = useBookingStore((state) => state.applySearchPrefill);
-  const resetAuthState = useAuthStore((state) => state.resetAuthState);
   const {
     availability,
     feedbackError,
@@ -172,7 +170,7 @@ export function ChatbotScreen(): React.JSX.Element {
 
   const handleAccessPress = useCallback(() => {
     if (availability === 'guest') {
-      resetAuthState();
+      navigation.navigate('Auth', { screen: 'Login' });
       return;
     }
 
@@ -180,7 +178,7 @@ export function ChatbotScreen(): React.JSX.Element {
       screen: 'Profile',
       params: { screen: 'EditProfile' },
     });
-  }, [availability, navigation, resetAuthState]);
+  }, [availability, navigation]);
 
   const handleQuickAction = useCallback((action: QuickAction) => {
     if (action.id === 'booking') {

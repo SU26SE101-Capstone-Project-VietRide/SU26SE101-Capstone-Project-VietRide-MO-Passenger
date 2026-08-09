@@ -6,7 +6,7 @@
  * otherwise Auth (login/register) is shown.
  */
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 
@@ -29,6 +29,7 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { AppLaunchScreen } from '@shared/components';
 import { PaymentDeepLinkHandler } from '@app/components/PaymentDeepLinkHandler';
 import { createNativeStackOptions, useMotion } from '@shared/motion';
+import { navigationRef } from './navigationRef';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -39,6 +40,9 @@ export function RootNavigator(): React.JSX.Element {
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isGuest = useAuthStore((state) => state.isGuest);
+  const isGuestHandoffActive = useAuthStore(
+    (state) => state.isGuestHandoffActive,
+  );
   const isAuthLoading = useAuthStore((state) => state.isAuthLoading);
   const user = useAuthStore((state) => state.user);
   const theme = useTheme();
@@ -55,6 +59,23 @@ export function RootNavigator(): React.JSX.Element {
   );
   const needsPhoneCompletion = isAuthenticated && Boolean(user && !user.phone);
   const canEnterApp = isGuest || (isAuthenticated && Boolean(user?.phone));
+  const shouldKeepGuestRouteMounted = needsPhoneCompletion && isGuestHandoffActive;
+
+  useEffect(() => {
+    if (!shouldKeepGuestRouteMounted) return undefined;
+
+    const frame = requestAnimationFrame(() => {
+      if (
+        navigationRef.isReady()
+        && navigationRef.getRootState().routeNames.includes('CompleteProfile')
+        && navigationRef.getCurrentRoute()?.name !== 'CompleteProfile'
+      ) {
+        navigationRef.navigate('CompleteProfile');
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [shouldKeepGuestRouteMounted]);
 
   if (isAuthLoading || (isAuthenticated && !user)) {
     return <AppLaunchScreen message={t('app.restoringSession')} />;
@@ -66,9 +87,9 @@ export function RootNavigator(): React.JSX.Element {
       <Stack.Navigator
         screenOptions={screenOptions}
       >
-        {needsPhoneCompletion ? (
+        {needsPhoneCompletion && !shouldKeepGuestRouteMounted ? (
           <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
-        ) : canEnterApp ? (
+        ) : canEnterApp || shouldKeepGuestRouteMounted ? (
           <>
             <Stack.Screen name="Main" component={MainTabNavigator} />
             <Stack.Screen name="Booking" component={BookingNavigator} />
@@ -85,9 +106,35 @@ export function RootNavigator(): React.JSX.Element {
               name="NotificationDetail"
               component={NotificationDetailScreen}
             />
+            {isGuest ? (
+              <Stack.Screen
+                name="Auth"
+                navigationKey="guest-auth"
+                component={AuthNavigator}
+                options={{
+                  presentation: 'fullScreenModal',
+                  animation: reduceMotion ? 'none' : 'slide_from_bottom',
+                }}
+              />
+            ) : null}
+            {shouldKeepGuestRouteMounted ? (
+              <Stack.Screen
+                name="CompleteProfile"
+                component={CompleteProfileScreen}
+                options={{
+                  presentation: 'fullScreenModal',
+                  animation: reduceMotion ? 'none' : 'slide_from_bottom',
+                  gestureEnabled: false,
+                }}
+              />
+            ) : null}
           </>
         ) : (
-          <Stack.Screen name="Auth" component={AuthNavigator} />
+          <Stack.Screen
+            name="Auth"
+            navigationKey="signed-out-auth"
+            component={AuthNavigator}
+          />
         )}
       </Stack.Navigator>
     </>

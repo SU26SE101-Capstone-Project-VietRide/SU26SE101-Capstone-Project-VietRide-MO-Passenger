@@ -35,7 +35,6 @@ export function ProfileHeader({
   const styles = useThemedStyles(createStyles);
   const authUser = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const logout = useAuthStore((state) => state.logout);
   const resolvedUserName =
     authUser?.fullName
     || authUser?.displayName
@@ -45,12 +44,8 @@ export function ProfileHeader({
   const shouldShowGreeting = isAuthenticated && resolvedUserName.trim().length > 0;
 
   const handleAuthPress = useCallback(() => {
-    logout().catch((error) => {
-      if (__DEV__) {
-        console.warn('[Auth] Unable to open auth flow from profile header:', error);
-      }
-    });
-  }, [logout]);
+    navigation.navigate('Auth', { screen: 'Login' });
+  }, [navigation]);
 
   const handleBack = () => {
     if (onBackPress) {

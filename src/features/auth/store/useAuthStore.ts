@@ -34,6 +34,8 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isGuest: boolean;
+  /** Keeps the guest route mounted only while a newly signed-in user completes phone gating. */
+  isGuestHandoffActive: boolean;
   isAuthLoading: boolean;
   authError: ApiRequestError | null;
 
@@ -52,9 +54,18 @@ const unauthenticatedState = {
   user: null,
   isAuthenticated: false,
   isGuest: false,
+  isGuestHandoffActive: false,
   isAuthLoading: false,
   authError: null,
-} satisfies Pick<AuthState, 'user' | 'isAuthenticated' | 'isGuest' | 'isAuthLoading' | 'authError'>;
+} satisfies Pick<
+  AuthState,
+  | 'user'
+  | 'isAuthenticated'
+  | 'isGuest'
+  | 'isGuestHandoffActive'
+  | 'isAuthLoading'
+  | 'authError'
+>;
 
 const AUTH_ME_STALE_TIME_MS = 5 * 60 * 1000;
 
@@ -107,6 +118,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isGuest: false,
+  isGuestHandoffActive: false,
   isAuthLoading: true,
   authError: null,
 
@@ -148,6 +160,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: session.user,
       isAuthenticated: true,
       isGuest: false,
+      isGuestHandoffActive: preserveGuestDrafts && !session.user.phone,
       isAuthLoading: false,
       authError: null,
     });
@@ -174,6 +187,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user,
       isAuthenticated: true,
       isGuest: false,
+      isGuestHandoffActive: current.isGuestHandoffActive && !user.phone,
       isAuthLoading: false,
       authError: null,
     });
@@ -197,6 +211,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null,
       isAuthenticated: false,
       isGuest: true,
+      isGuestHandoffActive: false,
       isAuthLoading: false,
       authError: null,
     });
@@ -294,6 +309,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user,
         isAuthenticated: true,
         isGuest: false,
+        isGuestHandoffActive: false,
         isAuthLoading: false,
         authError: null,
       });
@@ -309,6 +325,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: cachedUser,
           isAuthenticated: true,
           isGuest: false,
+          isGuestHandoffActive: false,
           isAuthLoading: false,
           authError: toApiError(error),
         });
@@ -330,6 +347,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: session.user,
           isAuthenticated: true,
           isGuest: false,
+          isGuestHandoffActive: false,
           isAuthLoading: false,
           authError: null,
         });
@@ -358,6 +376,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: cachedUser,
         isAuthenticated: true,
         isGuest: false,
+        isGuestHandoffActive: false,
         isAuthLoading: false,
         authError: toApiError(error),
       });
@@ -401,6 +420,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: session.user,
         isAuthenticated: true,
         isGuest: false,
+        isGuestHandoffActive: get().isGuestHandoffActive && !session.user.phone,
         isAuthLoading: false,
         authError: null,
       });

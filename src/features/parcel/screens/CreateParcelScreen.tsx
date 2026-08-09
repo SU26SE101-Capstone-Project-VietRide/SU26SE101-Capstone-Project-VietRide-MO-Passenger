@@ -69,7 +69,10 @@ import {
   formatVnd,
 } from '@shared/utils/format';
 import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
-import type { ParcelStackParamList } from '@app/navigation/types';
+import type {
+  ParcelStackParamList,
+  RootStackParamList,
+} from '@app/navigation/types';
 import type { PromoOffer } from '@shared/utils/promo';
 import {
   findPromoByCode,
@@ -905,6 +908,13 @@ export function CreateParcelScreen(): React.JSX.Element {
   }, [queryClient, user?.id]);
 
   const handleSubmit = useCallback(async () => {
+    if (step === 4 && !user?.id) {
+      navigation
+        .getParent<NativeStackNavigationProp<RootStackParamList>>()
+        ?.navigate('Auth', { screen: 'Login' });
+      return;
+    }
+
     if (!validateCurrentStep()) {
       return;
     }
@@ -1065,6 +1075,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     step,
     t,
     uploadParcelPhoto,
+    user?.id,
     validateCurrentStep,
   ]);
 

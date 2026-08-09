@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   ScrollView,
@@ -11,7 +11,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { completeProfile } from '@features/profile/api/profileApi';
-import { ApiRequestError } from '@shared/api/errors';
+import { ApiRequestError, toApiError } from '@shared/api/errors';
 import { Button, Input } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import {
@@ -34,6 +34,7 @@ export function CompleteProfileScreen(): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const user = useAuthStore((state) => state.user);
   const refreshSession = useAuthStore((state) => state.refreshSession);
+  const completionAcceptedRef = useRef(false);
   const [phone, setPhone] = useState('');
   const [localErrorKey, setLocalErrorKey] = useState<string | null>(null);
   const { clearError, errorMessage, handleError } = useApiError(
@@ -42,7 +43,21 @@ export function CompleteProfileScreen(): React.JSX.Element {
 
   const mutation = useMutation({
     mutationFn: async (normalizedPhone: string) => {
-      await completeProfile({ phone: normalizedPhone });
+      if (!completionAcceptedRef.current) {
+        try {
+          await completeProfile({ phone: normalizedPhone });
+          completionAcceptedRef.current = true;
+        } catch (error) {
+          const apiError = toApiError(error);
+          // BE returns 422 when the phone was already persisted. This can
+          // happen after a previous 200 whose required token refresh failed.
+          if (apiError.statusCode !== 422 || apiError.code !== 'VALIDATION_ERROR') {
+            throw error;
+          }
+          completionAcceptedRef.current = true;
+        }
+      }
+
       const refreshedSession = await refreshSession();
       if (!refreshedSession?.user.phone) {
         throw new ApiRequestError({
@@ -50,6 +65,7 @@ export function CompleteProfileScreen(): React.JSX.Element {
           message: 'The secure session did not contain the updated phone number.',
         });
       }
+      completionAcceptedRef.current = true;
     },
     onError: handleError,
   });

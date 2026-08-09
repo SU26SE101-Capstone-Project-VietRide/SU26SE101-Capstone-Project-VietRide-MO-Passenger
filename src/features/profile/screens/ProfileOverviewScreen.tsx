@@ -87,19 +87,17 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         },
         {
           text: t('auth.login'),
-          onPress: async () => {
-            await logout();
-          },
+          onPress: () => navigation.navigate('Auth', { screen: 'Login' }),
         },
       ],
     );
 
     return false;
-  }, [isGuest, logout, t]);
+  }, [isGuest, navigation, t]);
 
   const handleLogout = useCallback(async () => {
     if (isGuest) {
-      await logout();
+      navigation.navigate('Auth', { screen: 'Login' });
       return;
     }
 
@@ -120,7 +118,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         },
       ]
     );
-  }, [isGuest, logout, t]);
+  }, [isGuest, logout, navigation, t]);
 
   const profileMenuItems = useMemo(() => [
     {

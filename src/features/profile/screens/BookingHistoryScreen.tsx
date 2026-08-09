@@ -471,6 +471,7 @@ interface HistoryEmptyStateProps {
   isPending: boolean;
   error: unknown;
   onRetry: () => void;
+  onSignIn: () => void;
 }
 
 const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
@@ -479,6 +480,7 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
   isPending,
   error,
   onRetry,
+  onSignIn,
 }: HistoryEmptyStateProps): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -497,6 +499,16 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
             ? t('bookingHistory.signInTicketsDescription')
             : t('bookingHistory.signInParcelsDescription')}
         </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('bookingHistory.signInAction')}
+          onPress={onSignIn}
+          style={styles.retryButton}
+        >
+          <Text style={styles.retryButtonText}>
+            {t('bookingHistory.signInAction')}
+          </Text>
+        </Pressable>
       </View>
     );
   }
@@ -692,6 +704,9 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const showTickets = useCallback(() => setActiveTab('ticket'), []);
   const showParcels = useCallback(() => setActiveTab('parcel'), []);
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleSignIn = useCallback(() => {
+    navigation.navigate('Auth', { screen: 'Login' });
+  }, [navigation]);
 
   const handleTicketOpen = useCallback((item: PassengerTicketHistoryItem) => {
     // Signed redirect URLs stay in the authenticated query cache and are not
@@ -836,8 +851,9 @@ export function BookingHistoryScreen(): React.JSX.Element {
       isPending={isTicketPending}
       error={isTicketError ? ticketError : null}
       onRetry={refreshTickets}
+      onSignIn={handleSignIn}
     />
-  ), [isTicketError, isTicketPending, refreshTickets, ticketError, userId]);
+  ), [handleSignIn, isTicketError, isTicketPending, refreshTickets, ticketError, userId]);
   const parcelEmpty = useMemo(() => (
     <HistoryEmptyState
       kind="parcel"
@@ -845,8 +861,9 @@ export function BookingHistoryScreen(): React.JSX.Element {
       isPending={isParcelPending}
       error={isParcelError ? parcelError : null}
       onRetry={refreshParcels}
+      onSignIn={handleSignIn}
     />
-  ), [isParcelError, isParcelPending, parcelError, refreshParcels, userId]);
+  ), [handleSignIn, isParcelError, isParcelPending, parcelError, refreshParcels, userId]);
   const ticketFooter = useMemo(
     () => <PaginationFooter loading={isFetchingNextTicketPage} />,
     [isFetchingNextTicketPage],

@@ -57,6 +57,7 @@ export function LoginScreen(): React.JSX.Element {
   const route = useRoute<ScreenRouteProp>();
   const setSession = useAuthStore((state) => state.setSession);
   const continueAsGuest = useAuthStore((state) => state.continueAsGuest);
+  const isGuest = useAuthStore((state) => state.isGuest);
   const authError = useAuthStore((state) => state.authError);
   const clearAuthError = useAuthStore((state) => state.clearAuthError);
   const theme = useTheme();
@@ -127,6 +128,12 @@ export function LoginScreen(): React.JSX.Element {
   const handleContinueAsGuest = useCallback(async () => {
     clearError();
     clearAuthError();
+
+    if (isGuest) {
+      navigation.getParent()?.goBack();
+      return;
+    }
+
     setIsGuestPending(true);
 
     try {
@@ -135,7 +142,14 @@ export function LoginScreen(): React.JSX.Element {
       setIsGuestPending(false);
       handleError(error);
     }
-  }, [clearAuthError, clearError, continueAsGuest, handleError]);
+  }, [
+    clearAuthError,
+    clearError,
+    continueAsGuest,
+    handleError,
+    isGuest,
+    navigation,
+  ]);
 
   const handleGoogleLogin = useCallback(async () => {
     clearError();
@@ -281,7 +295,7 @@ export function LoginScreen(): React.JSX.Element {
               </View>
 
               <Button
-                title={t('auth.loginFlow.continueAsGuest')}
+                title={isGuest ? t('common.back') : t('auth.loginFlow.continueAsGuest')}
                 onPress={handleContinueAsGuest}
                 disabled={loginMutation.isPending || isGuestPending || isGoogleLoginPending}
                 loading={isGuestPending}

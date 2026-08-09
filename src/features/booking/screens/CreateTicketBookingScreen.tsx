@@ -44,7 +44,11 @@ import {
 
 import { useBookingStore } from '../store/useBookingStore';
 import { BookingProgressBar } from '../components/BookingProgressBar';
-import type { BookingStackParamList } from '@app/navigation/types';
+import type {
+  BookingStackParamList,
+  RootStackParamList,
+} from '@app/navigation/types';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { TripFilterState, TripPriceRange, TripTimeSlot } from '../types';
 import {
   createBookingEntryKey,
@@ -417,6 +421,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<CreateBookingRouteProp>();
+  const userId = useAuthStore((state) => state.user?.id);
   const [step, setStep] = useState(1);
   const [tripFilters, setTripFilters] = useState<TripFilterState>(DEFAULT_TRIP_FILTERS);
   const [filterVisible, setFilterVisible] = useState(false);
@@ -613,6 +618,13 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
   }, []);
 
   const handleFinishBooking = useCallback((): Promise<void> => {
+    if (!userId) {
+      navigation
+        .getParent<NativeStackNavigationProp<RootStackParamList>>()
+        ?.navigate('Auth', { screen: 'Login' });
+      return Promise.resolve();
+    }
+
     return bookingCompletionRef.current!.run({
       createBooking: () => useBookingStore.getState().createBooking(),
       showTicket: () => navigation.replace('DigitalTicket', { source: 'checkout' }),
@@ -624,7 +636,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
         );
       },
     }).catch(() => undefined);
-  }, [navigation, t]);
+  }, [navigation, t, userId]);
 
   const renderStep = () => {
     if (isRoundTrip) {
