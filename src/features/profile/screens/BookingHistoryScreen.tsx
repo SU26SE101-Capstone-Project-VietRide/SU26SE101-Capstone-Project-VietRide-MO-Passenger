@@ -69,7 +69,10 @@ import {
   formatVnd,
 } from '@shared/utils/format';
 import {
-  PaymentRedirectCoordinator,
+  getPendingVnPaySession,
+  reopenPendingVnPayPayment,
+} from '@shared/payments';
+import {
   PaymentReturnGate,
 } from '@shared/utils/paymentRedirect';
 import { PASSENGER_HISTORY_DEFAULT_PAGE_SIZE } from '../api/passengerHistoryApi';
@@ -604,11 +607,8 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
   const isAppActive = useIsAppActive();
-  const paymentRedirectCoordinator = useMemo(
-    () => new PaymentRedirectCoordinator(),
-    [],
-  );
   const paymentReturnGate = useMemo(() => new PaymentReturnGate(), []);
+  const paymentOpenInFlightRef = useRef(false);
   const pendingPaymentReturnRef = useRef<PendingPaymentReturn | null>(null);
   const userId = useAuthStore((state) => state.user?.id);
   const [openingPaymentItemKey, setOpeningPaymentItemKey] = useState<string | null>(null);
@@ -754,11 +754,11 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const handleContinuePayment = useCallback<ContinuePaymentHandler>((
     itemId,
     type,
-    redirectUrl,
+    _redirectUrl,
   ) => {
     if (
       !userId
-      || paymentRedirectCoordinator.isRunning
+      || paymentOpenInFlightRef.current
       || pendingPaymentReturnRef.current
     ) {
       return;
@@ -768,31 +768,45 @@ export function BookingHistoryScreen(): React.JSX.Element {
     pendingPaymentReturnRef.current = { itemKey, type, userId };
     paymentReturnGate.arm(isAppActive ? 'active' : 'background');
     setOpeningPaymentItemKey(itemKey);
+    paymentOpenInFlightRef.current = true;
 
-    paymentRedirectCoordinator.open(redirectUrl).catch(() => {
-      const pendingPaymentReturn = pendingPaymentReturnRef.current;
-      if (pendingPaymentReturn?.itemKey === itemKey) {
-        pendingPaymentReturnRef.current = null;
-        paymentReturnGate.cancel();
-        setOpeningPaymentItemKey(null);
+    void (async () => {
+      try {
+        const pending = await getPendingVnPaySession();
+        if (
+          !pending?.paymentRedirectUrl
+          || !pending.vnpaySdk
+          || (pending.businessId && pending.businessId !== itemId)
+        ) {
+          throw new Error('PENDING_VNPAY_SESSION_UNAVAILABLE');
+        }
+
+        await reopenPendingVnPayPayment(pending);
+      } catch {
+        const pendingPaymentReturn = pendingPaymentReturnRef.current;
+        if (pendingPaymentReturn?.itemKey === itemKey) {
+          pendingPaymentReturnRef.current = null;
+          paymentReturnGate.cancel();
+          setOpeningPaymentItemKey(null);
+        }
+
+        if (type === 'PARCEL') {
+          Alert.alert(
+            t('parcel.payment.redirectErrorTitle'),
+            t('parcel.payment.redirectErrorDescription'),
+          );
+        } else {
+          Alert.alert(
+            t('booking.paymentRedirect.errorTitle'),
+            t('booking.paymentRedirect.errorDescription'),
+          );
+        }
+      } finally {
+        paymentOpenInFlightRef.current = false;
       }
-
-      if (type === 'PARCEL') {
-        Alert.alert(
-          t('parcel.payment.redirectErrorTitle'),
-          t('parcel.payment.redirectErrorDescription'),
-        );
-        return;
-      }
-
-      Alert.alert(
-        t('booking.paymentRedirect.errorTitle'),
-        t('booking.paymentRedirect.errorDescription'),
-      );
-    });
+    })();
   }, [
     isAppActive,
-    paymentRedirectCoordinator,
     paymentReturnGate,
     t,
     userId,

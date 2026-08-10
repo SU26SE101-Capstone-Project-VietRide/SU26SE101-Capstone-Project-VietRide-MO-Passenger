@@ -38,9 +38,7 @@ import {
   spacing,
 } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
-import {
-  openPaymentRedirect,
-} from '@shared/utils/paymentRedirect';
+import { openVnPayPayment } from '@shared/payments';
 import { formatVnd } from '@shared/utils/format';
 import { MINIMUM_TOP_UP_AMOUNT } from '../api/walletApi';
 import {
@@ -214,7 +212,11 @@ export function TopUpScreen(): React.JSX.Element {
       }
 
       try {
-        await openPaymentRedirect(result.paymentRedirectUrl);
+        await openVnPayPayment({
+          result,
+          kind: 'topup',
+          businessId: result.topUpRequestId,
+        });
       } catch {
         cancelPaymentReturn();
         Alert.alert(

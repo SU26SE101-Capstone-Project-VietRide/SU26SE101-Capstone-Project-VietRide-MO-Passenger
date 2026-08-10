@@ -41,8 +41,9 @@ import {
 } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
 import {
-  PaymentRedirectCoordinator,
-} from '@shared/utils/paymentRedirect';
+  openVnPayPayment,
+  VnPayPaymentOpenCoordinator,
+} from '@shared/payments';
 import { useBookingPaymentReconciliation } from '../hooks/useBookingPaymentReconciliation';
 import { useBookingStore } from '../store/useBookingStore';
 import type { BookingResult, RoundTripResult } from '../types';
@@ -703,8 +704,8 @@ function UnavailableTicket({
 function CheckoutTicketContent(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<DigitalTicketNavigation>();
-  const paymentRedirectCoordinator = useMemo(
-    () => new PaymentRedirectCoordinator(),
+  const paymentOpenCoordinator = useMemo(
+    () => new VnPayPaymentOpenCoordinator(),
     [],
   );
   const {
@@ -801,16 +802,31 @@ function CheckoutTicketContent(): React.JSX.Element {
   }, [checkPaymentStatus]);
 
   const handleOpenPayment = useCallback(() => {
-    const redirectUrl = bookingResult?.paymentRedirectUrl;
-    if (!redirectUrl || paymentRedirectCoordinator.isRunning) return;
+    if (!bookingResult || paymentOpenCoordinator.isRunning) return;
+    if (!bookingResult.paymentRedirectUrl || !bookingResult.vnpaySdk) return;
 
-    paymentRedirectCoordinator.open(redirectUrl).catch(() => {
-      Alert.alert(
-        t('booking.paymentRedirect.errorTitle'),
-        t('booking.paymentRedirect.errorDescription'),
-      );
-    });
-  }, [bookingResult?.paymentRedirectUrl, paymentRedirectCoordinator, t]);
+    const businessId =
+      'bookingId' in bookingResult
+        ? bookingResult.bookingId
+        : bookingResult.outbound.bookingId;
+
+    paymentOpenCoordinator
+      .open({
+        result: bookingResult,
+        kind: 'booking',
+        businessId,
+      })
+      .catch(() => {
+        Alert.alert(
+          t('booking.paymentRedirect.errorTitle'),
+          t('booking.paymentRedirect.errorDescription'),
+        );
+      });
+  }, [bookingResult, paymentOpenCoordinator, t]);
+
+  const canOpenPayment = Boolean(
+    bookingResult?.paymentRedirectUrl && bookingResult?.vnpaySdk,
+  );
 
   const pendingPaymentActions = useMemo<PendingPaymentActions | undefined>(() => {
     if (!model?.isPendingPayment) return undefined;
@@ -820,10 +836,10 @@ function CheckoutTicketContent(): React.JSX.Element {
       isOnline: paymentReconciliation.isOnline,
       errorMessage: paymentReconciliation.errorMessage,
       onCheck: handleCheckPayment,
-      onOpenPayment: bookingResult?.paymentRedirectUrl ? handleOpenPayment : undefined,
+      onOpenPayment: canOpenPayment ? handleOpenPayment : undefined,
     };
   }, [
-    bookingResult?.paymentRedirectUrl,
+    canOpenPayment,
     handleCheckPayment,
     handleOpenPayment,
     model?.isPendingPayment,

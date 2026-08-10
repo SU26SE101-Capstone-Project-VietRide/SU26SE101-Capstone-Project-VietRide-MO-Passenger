@@ -14,10 +14,39 @@ let mockPaymentReturnHandler:
   | ((event: MockPaymentReturnEvent) => void)
   | undefined;
 
+const mockReconcilePendingVnPaySession = jest.fn(async () => ({
+  pending: null,
+  status: null,
+  cleared: false,
+}));
+
 jest.mock('@features/booking/api/bookingApi', () => ({
   bookingKeys: {
     user: (userId: string) => ['bookings', userId] as const,
   },
+}));
+
+jest.mock('@features/parcel/api/parcelApi', () => ({
+  parcelKeys: {
+    user: (userId: string) => ['parcels', userId] as const,
+  },
+}));
+
+jest.mock('@features/profile/api/passengerHistoryApi', () => ({
+  passengerHistoryKeys: {
+    user: (userId: string) => ['passenger-history', userId] as const,
+  },
+}));
+
+jest.mock('@features/profile/api/walletApi', () => ({
+  walletKeys: {
+    user: (userId: string) => ['wallet', userId] as const,
+  },
+}));
+
+jest.mock('@shared/payments', () => ({
+  reconcilePendingVnPaySession: () => mockReconcilePendingVnPaySession(),
+  isSuccessfulPaymentSession: (status: string) => status === 'SUCCEEDED',
 }));
 
 jest.mock('@shared/hooks', () => ({
@@ -37,6 +66,7 @@ jest.mock('@features/auth/store/useAuthStore', () => ({
 describe('PaymentDeepLinkHandler', () => {
   afterEach(() => {
     mockPaymentReturnHandler = undefined;
+    mockReconcilePendingVnPaySession.mockClear();
     jest.restoreAllMocks();
   });
 
@@ -59,17 +89,19 @@ describe('PaymentDeepLinkHandler', () => {
     await ReactTestRenderer.act(async () => {
       mockPaymentReturnHandler?.({ source: 'custom-scheme' });
       await Promise.resolve();
+      await Promise.resolve();
     });
 
-    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(mockReconcilePendingVnPaySession).toHaveBeenCalled();
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: bookingKeys.user('user-a'),
       refetchType: 'none',
     });
+    expect(invalidate.mock.calls.length).toBeGreaterThanOrEqual(1);
 
     const alertCopy = alert.mock.calls.flat().join(' ');
-    expect(alertCopy).toContain('Đang xác nhận thanh toán');
-    expect(alertCopy).not.toContain('Thanh toán thành công');
+    expect(alertCopy).toContain('paymentReturn.reconcilingTitle');
+    expect(alertCopy).not.toMatch(/success|thành công/i);
 
     ReactTestRenderer.act(() => renderer!.unmount());
     queryClient.clear();

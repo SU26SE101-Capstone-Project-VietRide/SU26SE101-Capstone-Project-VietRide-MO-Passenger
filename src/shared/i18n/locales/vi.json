@@ -177,7 +177,14 @@
   },
   "paymentReturn": {
     "reconcilingTitle": "Đang xác nhận thanh toán",
-    "reconcilingDescription": "VietRide đã nhận tín hiệu quay lại. Kết quả chỉ được cập nhật sau khi hệ thống xác minh giao dịch với VNPay."
+    "reconcilingDescription": "VietRide đã nhận tín hiệu quay lại. Kết quả chỉ được cập nhật sau khi hệ thống xác minh giao dịch với VNPay.",
+    "errors": {
+      "mobileAppUpdateRequired": "Vui lòng cập nhật VietRide để thanh toán VNPay.",
+      "returnModeInvalid": "Kênh thanh toán không được hỗ trợ. Thử lại hoặc liên hệ hỗ trợ.",
+      "mobileSdkDisabled": "Thanh toán VNPay trên mobile đang tạm khóa. Vui lòng thử lại sau.",
+      "deadlinePassed": "Đã hết hạn thanh toán. Vui lòng tạo giao dịch mới.",
+      "sessionUnavailable": "Không thể tiếp tục thanh toán trên thiết bị này. Mở chi tiết vé/kiện để thanh toán lại."
+    }
   },
   "nav": {
     "home": "Trang chủ",

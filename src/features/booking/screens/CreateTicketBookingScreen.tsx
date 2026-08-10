@@ -38,9 +38,7 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { motionTokens, useMotion } from '@shared/motion';
-import {
-  openPaymentRedirect,
-} from '@shared/utils/paymentRedirect';
+import { openVnPayPayment } from '@shared/payments';
 
 import { useBookingStore } from '../store/useBookingStore';
 import { BookingProgressBar } from '../components/BookingProgressBar';
@@ -628,7 +626,17 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     return bookingCompletionRef.current!.run({
       createBooking: () => useBookingStore.getState().createBooking(),
       showTicket: () => navigation.replace('DigitalTicket', { source: 'checkout' }),
-      openPayment: openPaymentRedirect,
+      openPayment: async (charge) => {
+        const businessId =
+          'bookingId' in charge
+            ? charge.bookingId
+            : charge.outbound.bookingId;
+        await openVnPayPayment({
+          result: charge,
+          kind: 'booking',
+          businessId,
+        });
+      },
       onPaymentOpenError: () => {
         Alert.alert(
           t('booking.paymentRedirect.errorTitle'),

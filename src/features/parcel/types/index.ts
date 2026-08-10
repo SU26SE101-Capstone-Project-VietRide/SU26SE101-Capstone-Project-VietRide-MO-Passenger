@@ -185,6 +185,14 @@ export interface CreateParcelResult {
 export interface StartParcelPaymentInput {
   parcelId: string;
   paymentMethod: ParcelBackendPaymentMethod;
+  /** Required by BE when paymentMethod is VNPAY (MOBILE_SDK). */
+  paymentReturnMode?: 'MOBILE_SDK';
+}
+
+export interface ParcelVnPaySdkMeta {
+  tmnCode: string;
+  scheme: string;
+  isSandbox: boolean;
 }
 
 export interface ParcelDepositPaymentResult {
@@ -195,6 +203,8 @@ export interface ParcelDepositPaymentResult {
   depositPaidVnd: number;
   paymentDueAt: string | null;
   paymentRedirectUrl: string | null;
+  paymentReturnMode?: 'MOBILE_SDK' | string | null;
+  vnpaySdk?: ParcelVnPaySdkMeta | null;
 }
 
 export interface ParcelFinalPaymentResult {
@@ -205,6 +215,8 @@ export interface ParcelFinalPaymentResult {
   balancePaidVnd: number;
   finalPaymentDeadline: string;
   paymentRedirectUrl: string | null;
+  paymentReturnMode?: 'MOBILE_SDK' | string | null;
+  vnpaySdk?: ParcelVnPaySdkMeta | null;
 }
 
 export interface ParcelDetail {

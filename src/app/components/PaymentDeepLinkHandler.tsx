@@ -6,13 +6,17 @@ import { useTranslation } from 'react-i18next';
 import { bookingKeys } from '@features/booking/api/bookingApi';
 import { parcelKeys } from '@features/parcel/api/parcelApi';
 import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
+import { walletKeys } from '@features/profile/api/walletApi';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { usePaymentDeepLink, type PaymentReturnEvent } from '@shared/hooks';
+import {
+  isSuccessfulPaymentSession,
+  reconcilePendingVnPaySession,
+} from '@shared/payments';
 
 /**
- * Converts an OS payment-return signal into user-scoped cache reconciliation.
- * It never infers success from redirect query parameters; only BE state is
- * authoritative for booking confirmation and wallet balance.
+ * Wake signal after the user returns from VNPay. Never infers paid status from
+ * the deep-link URL itself — only BE session/business state is authoritative.
  */
 export function PaymentDeepLinkHandler(): null {
   const queryClient = useQueryClient();
@@ -23,39 +27,57 @@ export function PaymentDeepLinkHandler(): null {
     (_event: PaymentReturnEvent) => {
       if (!userId) return;
 
-      queryClient
-        .invalidateQueries({
-          queryKey: bookingKeys.user(userId),
-          refetchType: 'none',
-        })
-        .catch(() => undefined);
+      const markBusinessCachesStale = () => {
+        queryClient
+          .invalidateQueries({
+            queryKey: bookingKeys.user(userId),
+            refetchType: 'none',
+          })
+          .catch(() => undefined);
 
-      queryClient
-        .invalidateQueries({
-          queryKey: parcelKeys.user(userId),
-          refetchType: 'none',
-        })
-        .catch(() => undefined);
+        queryClient
+          .invalidateQueries({
+            queryKey: parcelKeys.user(userId),
+            refetchType: 'none',
+          })
+          .catch(() => undefined);
 
-      queryClient
-        .invalidateQueries({
-          queryKey: passengerHistoryKeys.user(userId),
-          // The initiating History screen owns its one foreground refetch.
-          // Other payment surfaces only mark this user-scoped cache stale so
-          // the next History visit refreshes without racing that owner.
-          refetchType: 'none',
-        })
-        .catch(() => undefined);
+        queryClient
+          .invalidateQueries({
+            queryKey: passengerHistoryKeys.user(userId),
+            refetchType: 'none',
+          })
+          .catch(() => undefined);
 
-      // Payment detail screens own authoritative reconciliation. Booking,
-      // Parcel and History caches stay stale-only here so this global wake
-      // signal cannot race the initiating screen's foreground owner.
+        queryClient
+          .invalidateQueries({
+            queryKey: walletKeys.user(userId),
+            refetchType: 'none',
+          })
+          .catch(() => undefined);
+      };
 
       Alert.alert(
         t('paymentReturn.reconcilingTitle'),
         t('paymentReturn.reconcilingDescription'),
         [{ text: t('common.understood') }],
       );
+
+      reconcilePendingVnPaySession()
+        .then((result) => {
+          markBusinessCachesStale();
+
+          if (
+            result.status
+            && isSuccessfulPaymentSession(result.status.status)
+          ) {
+            // Owner screens still own success UX; this only refreshes caches.
+            return;
+          }
+        })
+        .catch(() => {
+          markBusinessCachesStale();
+        });
     },
     [queryClient, t, userId],
   );

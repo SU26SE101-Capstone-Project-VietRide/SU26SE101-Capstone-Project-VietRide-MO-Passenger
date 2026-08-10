@@ -1,6 +1,7 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import { normalizeIdempotencyKey } from '@shared/api/idempotency';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import { withVnPayPaymentReturnMode } from '@shared/payments';
 import type { 
   CreateBookingPayload, 
   CreateRoundTripPayload, 
@@ -47,9 +48,10 @@ export async function createBooking(
   payload: CreateBookingPayload,
   idempotencyKey: string,
 ): Promise<BookingResult> {
+  const body = withVnPayPaymentReturnMode(payload);
   const response = await apiClient.post<ApiEnvelope<BookingResult>>(
     '/bookings',
-    payload,
+    body,
     withIdempotencyKey(idempotencyKey),
   );
   return unwrapApiResponse(response.data);
@@ -59,9 +61,10 @@ export async function createRoundTripBooking(
   payload: CreateRoundTripPayload,
   idempotencyKey: string,
 ): Promise<RoundTripResult> {
+  const body = withVnPayPaymentReturnMode(payload);
   const response = await apiClient.post<ApiEnvelope<RoundTripResult>>(
     '/bookings/round-trip',
-    payload,
+    body,
     withIdempotencyKey(idempotencyKey),
   );
   return unwrapApiResponse(response.data);

@@ -97,9 +97,16 @@ async function startParcelPayment<TResult>(
   idempotencyKey: string,
 ): Promise<TResult> {
   const parcelIdSegment = encodeUuidPathSegment(input.parcelId, 'parcelId');
+  const body =
+    input.paymentMethod === 'VNPAY'
+      ? {
+          paymentMethod: input.paymentMethod,
+          paymentReturnMode: 'MOBILE_SDK' as const,
+        }
+      : { paymentMethod: input.paymentMethod };
   const response = await apiClient.post<ApiEnvelope<TResult>>(
     `/parcels/${parcelIdSegment}/${endpoint}`,
-    { paymentMethod: input.paymentMethod },
+    body,
     { headers: getIdempotencyHeaders(idempotencyKey) },
   );
 

@@ -55,9 +55,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useCurrentCoordinates, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import {
-  openPaymentRedirect,
-} from '@shared/utils/paymentRedirect';
+import { openVnPayPayment } from '@shared/payments';
 import {
   addApiCalendarDays,
   toVietnamBusinessDate,
@@ -988,14 +986,15 @@ export function CreateParcelScreen(): React.JSX.Element {
       setPackage({ photos: [] });
       resetParcelPhotoUpload();
 
-      let paymentRedirectUrl: string | null = null;
+      let depositPaymentResult: Awaited<
+        ReturnType<typeof depositPaymentMutation.mutateAsync>
+      > | null = null;
       if (result.status === 'PENDING_PAYMENT') {
         try {
-          const paymentResult = await depositPaymentMutation.mutateAsync({
+          depositPaymentResult = await depositPaymentMutation.mutateAsync({
             parcelId: result.parcelId,
             paymentMethod: backendPaymentMethod,
           });
-          paymentRedirectUrl = paymentResult.paymentRedirectUrl;
         } catch (error) {
           const apiError = toApiError(error);
           if (apiError.code === 'SESSION_INVALIDATED') {
@@ -1032,7 +1031,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       invalidateParcelCheckoutQueries(paymentMethod === 'wallet');
       navigation.navigate('ParcelDetail', {
         parcelId: result.parcelId,
-        paymentRedirectUrl: paymentRedirectUrl ?? undefined,
+        paymentRedirectUrl: depositPaymentResult?.paymentRedirectUrl ?? undefined,
         preferredPaymentMethod: paymentMethod,
         ...(dropoffStation?.id
           ? {
@@ -1044,9 +1043,16 @@ export function CreateParcelScreen(): React.JSX.Element {
           : {}),
       });
 
-      if (paymentRedirectUrl) {
+      if (
+        depositPaymentResult?.paymentRedirectUrl
+        && backendPaymentMethod === 'VNPAY'
+      ) {
         try {
-          await openPaymentRedirect(paymentRedirectUrl);
+          await openVnPayPayment({
+            result: depositPaymentResult,
+            kind: 'parcel_deposit',
+            businessId: result.parcelId,
+          });
         } catch {
           Alert.alert(
             t('parcel.payment.redirectErrorTitle'),

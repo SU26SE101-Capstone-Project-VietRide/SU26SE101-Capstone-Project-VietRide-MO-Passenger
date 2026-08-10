@@ -25,7 +25,7 @@ export interface BookingLegDraft {
 
 export type BookingLegPayload = Omit<
   CreateBookingPayload,
-  'voucherCode' | 'paymentMethod'
+  'voucherCode' | 'paymentMethod' | 'paymentReturnMode'
 >;
 
 type BookingLocationPayload = CreateBookingPayload['pickup'];

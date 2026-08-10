@@ -71,14 +71,23 @@ export interface WalletTransactionsPage
 export interface TopUpPayload {
   amount: number;
   method: 'VNPAY';
+  paymentReturnMode: 'MOBILE_SDK';
 }
 
 export type TopUpStatus = 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED';
+
+export interface VnPaySdkMeta {
+  tmnCode: string;
+  scheme: string;
+  isSandbox: boolean;
+}
 
 export interface TopUpResult {
   topUpRequestId: string;
   status: TopUpStatus;
   paymentRedirectUrl: string;
+  paymentReturnMode?: 'MOBILE_SDK' | string | null;
+  vnpaySdk?: VnPaySdkMeta | null;
 }
 
 export const walletKeys = {
@@ -94,7 +103,11 @@ export const createTopUpPayload = (amount: number): TopUpPayload => {
     throw new Error(`Top-up amount must be an integer of at least ${MINIMUM_TOP_UP_AMOUNT} VND.`);
   }
 
-  return { amount, method: 'VNPAY' };
+  return {
+    amount,
+    method: 'VNPAY',
+    paymentReturnMode: 'MOBILE_SDK',
+  };
 };
 
 export const mapWalletTransactionDto = (

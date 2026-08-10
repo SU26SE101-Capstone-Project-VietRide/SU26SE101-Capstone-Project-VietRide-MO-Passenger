@@ -120,6 +120,12 @@ export type BookingEntryIntent =
 // ─── Popular Route ────────────────────────────────────────
 // ─── Recent Search ────────────────────────────────────────
 // ─── Booking Result ───────────────────────────────────────
+export interface VnPaySdkMeta {
+  tmnCode: string;
+  scheme: string;
+  isSandbox: boolean;
+}
+
 export interface BookingResult {
   bookingId: string;
   bookingCode: string;
@@ -128,6 +134,9 @@ export interface BookingResult {
   discountAmount: number;
   paymentId: string | null;
   paymentRedirectUrl: string | null;
+  /** Present on MOBILE_SDK VNPay charges (BE v1.72+). */
+  paymentReturnMode?: 'MOBILE_SDK' | string | null;
+  vnpaySdk?: VnPaySdkMeta | null;
   tickets: BookingTicketResult[];
 }
 
@@ -179,6 +188,8 @@ export interface RoundTripResult {
   paymentId: string | null;
   status: BookingCreationStatus;
   paymentRedirectUrl: string | null;
+  paymentReturnMode?: 'MOBILE_SDK' | string | null;
+  vnpaySdk?: VnPaySdkMeta | null;
 }
 
 // ─── Trip Results State ───────────────────────────────────
@@ -222,13 +233,22 @@ export interface CreateBookingPayload {
   seats: SeatBookingPayload[];
   voucherCode?: string;
   paymentMethod: 'WALLET' | 'VNPAY';
+  /** Required by BE when paymentMethod is VNPAY (MOBILE_SDK). */
+  paymentReturnMode?: 'MOBILE_SDK';
 }
 
 export interface CreateRoundTripPayload {
-  outbound: Omit<CreateBookingPayload, 'voucherCode' | 'paymentMethod'>;
-  return: Omit<CreateBookingPayload, 'voucherCode' | 'paymentMethod'>;
+  outbound: Omit<
+    CreateBookingPayload,
+    'voucherCode' | 'paymentMethod' | 'paymentReturnMode'
+  >;
+  return: Omit<
+    CreateBookingPayload,
+    'voucherCode' | 'paymentMethod' | 'paymentReturnMode'
+  >;
   voucherCode?: string;
   paymentMethod: 'WALLET' | 'VNPAY';
+  paymentReturnMode?: 'MOBILE_SDK';
 }
 
 export interface BookingHistoryItem {

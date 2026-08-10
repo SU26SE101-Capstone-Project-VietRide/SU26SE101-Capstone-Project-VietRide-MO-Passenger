@@ -39,8 +39,9 @@ import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi'
 import { walletKeys } from '@features/profile/api/walletApi';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import {
-  PaymentRedirectCoordinator,
-} from '@shared/utils/paymentRedirect';
+  openVnPayPayment,
+  VnPayPaymentOpenCoordinator,
+} from '@shared/payments';
 import type {
   ParcelStackParamList,
   RootStackParamList,
@@ -168,10 +169,20 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const queryClient = useQueryClient();
-  const paymentRedirectCoordinator = React.useMemo(
-    () => new PaymentRedirectCoordinator(),
+  const paymentOpenCoordinator = React.useMemo(
+    () => new VnPayPaymentOpenCoordinator(),
     [],
   );
+  const lastVnPayChargeRef = React.useRef<{
+    paymentRedirectUrl: string | null;
+    depositPaymentId?: string | null;
+    balancePaymentId?: string | null;
+    vnpaySdk?: {
+      tmnCode: string;
+      scheme: string;
+      isSandbox: boolean;
+    } | null;
+  } | null>(null);
   const userId = useAuthStore(state => state.user?.id);
   const {
     parcelId,
@@ -346,15 +357,29 @@ export function ParcelDetailScreen(): React.JSX.Element {
   }, [refetchParcelDetail]);
 
   const handleContinuePayment = React.useCallback(() => {
-    if (!paymentRedirectUrl || paymentRedirectCoordinator.isRunning) return;
+    const charge = lastVnPayChargeRef.current;
+    if (!charge?.paymentRedirectUrl || !charge.vnpaySdk || paymentOpenCoordinator.isRunning) {
+      return;
+    }
 
-    paymentRedirectCoordinator.open(paymentRedirectUrl).catch(() => {
-      Alert.alert(
-        t('parcel.payment.redirectErrorTitle'),
-        t('parcel.payment.redirectErrorDescription'),
-      );
-    });
-  }, [paymentRedirectCoordinator, paymentRedirectUrl, t]);
+    paymentOpenCoordinator
+      .open({
+        result: {
+          paymentRedirectUrl: charge.paymentRedirectUrl,
+          depositPaymentId: charge.depositPaymentId,
+          balancePaymentId: charge.balancePaymentId,
+          vnpaySdk: charge.vnpaySdk,
+        },
+        kind: paymentStage === 'final' ? 'parcel_final' : 'parcel_deposit',
+        businessId: parcelId,
+      })
+      .catch(() => {
+        Alert.alert(
+          t('parcel.payment.redirectErrorTitle'),
+          t('parcel.payment.redirectErrorDescription'),
+        );
+      });
+  }, [parcelId, paymentOpenCoordinator, paymentStage, t]);
 
   const handleStartPayment = React.useCallback(async () => {
     if (!paymentStage || isStartingPayment) {
@@ -377,9 +402,22 @@ export function ParcelDetailScreen(): React.JSX.Element {
       });
       invalidatePaymentQueries();
 
-      if (result.paymentRedirectUrl) {
+      if (result.paymentRedirectUrl && selectedPaymentMethod === 'vnpay') {
+        lastVnPayChargeRef.current = {
+          paymentRedirectUrl: result.paymentRedirectUrl,
+          depositPaymentId:
+            'depositPaymentId' in result ? result.depositPaymentId : null,
+          balancePaymentId:
+            'balancePaymentId' in result ? result.balancePaymentId : null,
+          vnpaySdk: result.vnpaySdk ?? null,
+        };
+
         try {
-          await paymentRedirectCoordinator.open(result.paymentRedirectUrl);
+          await openVnPayPayment({
+            result,
+            kind: paymentStage === 'deposit' ? 'parcel_deposit' : 'parcel_final',
+            businessId: parcelId,
+          });
         } catch {
           Alert.alert(
             t('parcel.payment.redirectErrorTitle'),
@@ -404,7 +442,6 @@ export function ParcelDetailScreen(): React.JSX.Element {
     isStartingPayment,
     navigation,
     parcelId,
-    paymentRedirectCoordinator,
     paymentStage,
     selectedPaymentMethod,
     t,

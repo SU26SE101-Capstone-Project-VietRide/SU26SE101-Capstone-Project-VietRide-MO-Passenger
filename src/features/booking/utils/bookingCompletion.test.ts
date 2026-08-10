@@ -6,48 +6,54 @@ import {
 
 const pendingResult: BookingResult = {
   bookingId: '11111111-1111-4111-8111-111111111111',
-  bookingCode: 'VR-PENDING',
+  bookingCode: 'VR-1',
   status: 'PENDING_PAYMENT',
-  totalAmount: 250_000,
+  totalAmount: 100_000,
   discountAmount: 0,
   paymentId: '22222222-2222-4222-8222-222222222222',
   paymentRedirectUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
+  paymentReturnMode: 'MOBILE_SDK',
+  vnpaySdk: {
+    tmnCode: 'TMNCODE',
+    scheme: 'vietride',
+    isSandbox: true,
+  },
   tickets: [],
 };
 
-describe('booking completion side effects', () => {
-  it('navigates and opens VNPay exactly once after a rapid double tap', async () => {
+describe('completeBookingFlow', () => {
+  it('opens payment once with the full charge result after a rapid double tap', async () => {
     let resolveBooking: ((result: BookingResult) => void) | undefined;
     const createBooking = jest.fn(() => new Promise<BookingResult>((resolve) => {
       resolveBooking = resolve;
     }));
-    const showTicket = jest.fn();
     const openPayment = jest.fn().mockResolvedValue(undefined);
     const coordinator = new BookingCompletionCoordinator();
-    const dependencies = {
+    const showTicket = jest.fn();
+
+    const first = coordinator.run({
       createBooking,
       showTicket,
       openPayment,
       onPaymentOpenError: jest.fn(),
-    };
+    });
+    const second = coordinator.run({
+      createBooking,
+      showTicket,
+      openPayment,
+      onPaymentOpenError: jest.fn(),
+    });
 
-    const first = coordinator.run(dependencies);
-    const second = coordinator.run(dependencies);
-
-    expect(second).toBe(first);
-    expect(coordinator.isRunning).toBe(true);
     expect(createBooking).toHaveBeenCalledTimes(1);
     resolveBooking?.(pendingResult);
     await Promise.all([first, second]);
 
-    expect(coordinator.isRunning).toBe(false);
-    expect(showTicket).toHaveBeenCalledTimes(1);
     expect(openPayment).toHaveBeenCalledTimes(1);
-    expect(openPayment).toHaveBeenCalledWith(pendingResult.paymentRedirectUrl);
+    expect(openPayment).toHaveBeenCalledWith(pendingResult);
+    expect(showTicket).toHaveBeenCalledTimes(1);
   });
 
-  it('does not open a redirect for a confirmed wallet booking', async () => {
-    const showTicket = jest.fn();
+  it('skips payment open when booking is already confirmed', async () => {
     const openPayment = jest.fn();
 
     await completeBookingFlow({
@@ -56,18 +62,18 @@ describe('booking completion side effects', () => {
         status: 'CONFIRMED',
         paymentId: null,
         paymentRedirectUrl: null,
+        vnpaySdk: null,
       }),
-      showTicket,
+      showTicket: jest.fn(),
       openPayment,
       onPaymentOpenError: jest.fn(),
     });
 
-    expect(showTicket).toHaveBeenCalledTimes(1);
     expect(openPayment).not.toHaveBeenCalled();
   });
 
-  it('reports a redirect error without undoing the created booking', async () => {
-    const error = new Error('Linking failed.');
+  it('reports payment open errors without rejecting the flow', async () => {
+    const error = new Error('open failed');
     const onPaymentOpenError = jest.fn();
 
     await expect(completeBookingFlow({

@@ -5,7 +5,8 @@ type BookingSubmissionResult = BookingResult | RoundTripResult;
 export interface BookingCompletionDependencies {
   createBooking: () => Promise<BookingSubmissionResult>;
   showTicket: () => void;
-  openPayment: (redirectUrl: string) => Promise<void>;
+  /** Opens VNPay for a pending booking charge (full BE result, not URL alone). */
+  openPayment: (charge: BookingSubmissionResult) => Promise<void>;
   onPaymentOpenError: (error: unknown) => void;
 }
 
@@ -21,7 +22,7 @@ export async function completeBookingFlow({
   if (result.status !== 'PENDING_PAYMENT') return;
 
   try {
-    await openPayment(result.paymentRedirectUrl ?? '');
+    await openPayment(result);
   } catch (error) {
     onPaymentOpenError(error);
   }

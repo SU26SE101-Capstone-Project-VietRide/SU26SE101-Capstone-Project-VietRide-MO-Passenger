@@ -100,7 +100,7 @@ describe('bookingApi create contracts', () => {
 
     expect(postMock).toHaveBeenCalledWith(
       '/bookings',
-      oneWayPayload,
+      { ...oneWayPayload, paymentReturnMode: 'MOBILE_SDK' },
       { headers: { 'Idempotency-Key': ONE_WAY_IDEMPOTENCY_KEY } },
     );
     expect(JSON.stringify(postMock.mock.calls[0][1])).not.toMatch(

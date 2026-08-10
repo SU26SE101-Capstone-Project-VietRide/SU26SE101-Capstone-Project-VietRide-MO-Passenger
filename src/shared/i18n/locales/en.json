@@ -177,7 +177,14 @@
   },
   "paymentReturn": {
     "reconcilingTitle": "Confirming payment",
-    "reconcilingDescription": "VietRide received the return signal. The result will update only after the system verifies the transaction with VNPay."
+    "reconcilingDescription": "VietRide received the return signal. The result will update only after the system verifies the transaction with VNPay.",
+    "errors": {
+      "mobileAppUpdateRequired": "Please update VietRide to complete VNPay payments.",
+      "returnModeInvalid": "This payment channel is not supported. Please try again or contact support.",
+      "mobileSdkDisabled": "VNPay mobile payments are temporarily unavailable. Please try again later.",
+      "deadlinePassed": "The payment window has expired. Please create a new payment.",
+      "sessionUnavailable": "We could not resume this payment on this device. Open the ticket or parcel detail to pay again."
+    }
   },
   "nav": {
     "home": "Home",

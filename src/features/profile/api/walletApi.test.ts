@@ -105,7 +105,7 @@ describe('wallet API contract', () => {
     ).resolves.toBe(result);
     expect(postMock).toHaveBeenCalledWith(
       '/wallet/top-up',
-      { amount: 100_000, method: 'VNPAY' },
+      { amount: 100_000, method: 'VNPAY', paymentReturnMode: 'MOBILE_SDK' },
       { headers: { 'Idempotency-Key': TOP_UP_IDEMPOTENCY_KEY } },
     );
   });
