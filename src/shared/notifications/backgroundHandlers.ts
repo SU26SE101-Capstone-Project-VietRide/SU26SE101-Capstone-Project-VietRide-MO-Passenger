@@ -10,24 +10,59 @@ import {
   isNativePushConfigured,
   isNotificationPressEvent,
 } from './nativeNotifications';
+import {
+  NONE_NOTIFICATION_ACTION,
+  notificationActionSchema,
+  parseFcmNotificationAction,
+  type NotificationAction,
+} from './notificationAction';
+import { z } from 'zod';
 
 const PENDING_NOTIFICATION_OPEN_KEY = 'vietride.notifications.pending-open.v1';
 
-export const queuePendingNotificationOpen = (): Promise<void> => (
-  AsyncStorage.setItem(PENDING_NOTIFICATION_OPEN_KEY, '1')
+const storedPendingNotificationOpenSchema = z.object({
+  version: z.literal(1),
+  action: notificationActionSchema,
+}).strict();
+
+export const queuePendingNotificationOpen = (
+  action: NotificationAction = NONE_NOTIFICATION_ACTION,
+): Promise<void> => (
+  AsyncStorage.setItem(PENDING_NOTIFICATION_OPEN_KEY, JSON.stringify({
+    version: 1,
+    action,
+  }))
 );
 
-export const consumePendingNotificationOpen = async (): Promise<boolean> => {
+export const clearPendingNotificationOpen = (): Promise<void> => (
+  AsyncStorage.removeItem(PENDING_NOTIFICATION_OPEN_KEY)
+);
+
+export const consumePendingNotificationOpen = async (): Promise<NotificationAction | null> => {
   const pending = await AsyncStorage.getItem(PENDING_NOTIFICATION_OPEN_KEY);
-  if (pending !== '1') return false;
+  if (pending == null) return null;
   await AsyncStorage.removeItem(PENDING_NOTIFICATION_OPEN_KEY);
-  return true;
+
+  // Migrate the legacy boolean marker. It still represents a real tap, but
+  // has no validated semantic destination, so it safely opens the inbox.
+  if (pending === '1') return NONE_NOTIFICATION_ACTION;
+
+  try {
+    const parsed = storedPendingNotificationOpenSchema.safeParse(
+      JSON.parse(pending) as unknown,
+    );
+    return parsed.success ? parsed.data.action : NONE_NOTIFICATION_ACTION;
+  } catch {
+    return NONE_NOTIFICATION_ACTION;
+  }
 };
 
 export const registerNotificationBackgroundHandlers = (): void => {
   notifee.onBackgroundEvent(async (event) => {
     if (isNotificationPressEvent(event)) {
-      await queuePendingNotificationOpen();
+      await queuePendingNotificationOpen(
+        parseFcmNotificationAction(event.detail.notification?.data),
+      );
     }
   });
 

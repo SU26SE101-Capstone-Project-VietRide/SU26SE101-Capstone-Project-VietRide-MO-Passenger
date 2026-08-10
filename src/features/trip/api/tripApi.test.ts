@@ -33,16 +33,28 @@ describe('tripApi', () => {
     });
     const controller = new AbortController();
     const params = {
-      originLocationCode: 'SGN',
-      destinationLocationCode: 'DAD',
+      originProvinceCode: '79',
+      originWardCode: '26506',
+      destinationProvinceCode: '48',
+      destinationWardCode: '20101',
       departureDate: '2026-07-14',
       passengerCount: 1,
+      allowAlongRoutePickup: false,
     };
 
     await searchTrips(params, controller.signal);
 
+    // Exactly the 9 BE query fields that apply (no legacy locationCode).
     expect(mockGet).toHaveBeenCalledWith('/trips/search', {
-      params,
+      params: {
+        originProvinceCode: '79',
+        originWardCode: '26506',
+        destinationProvinceCode: '48',
+        destinationWardCode: '20101',
+        departureDate: '2026-07-14',
+        passengerCount: 1,
+        allowAlongRoutePickup: false,
+      },
       signal: controller.signal,
     });
   });

@@ -1,5 +1,7 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { useFonts } from 'expo-font';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppProviders } from '@app/providers';
 import { useNetworkStatus } from '@shared/hooks';
 import { LoadingOverlay } from '@shared/components/LoadingOverlay';
@@ -28,8 +30,16 @@ export default function App(): React.JSX.Element {
   });
 
   return (
-    <AppProviders isAppReady={fontsLoaded || Boolean(fontError)}>
-      <AppContent />
-    </AppProviders>
+    <GestureHandlerRootView style={styles.root}>
+      <AppProviders isAppReady={fontsLoaded || Boolean(fontError)}>
+        <AppContent />
+      </AppProviders>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

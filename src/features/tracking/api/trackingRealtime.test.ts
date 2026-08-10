@@ -199,6 +199,7 @@ describe('tracking realtime connection', () => {
       distanceMeters: 8_000,
       updatedAt: recordedAt,
       delayed: false,
+      estimateQuality: 'TRAFFIC_AWARE',
     });
     fire(socket.handlers, 'trip:statusChanged', {
       tripId: OTHER_TRIP_ID,
@@ -219,6 +220,63 @@ describe('tracking realtime connection', () => {
     expect(etaUpdates).toHaveLength(1);
     expect(delayUpdates).toHaveLength(1);
   });
+  it('accepts +07 socket instants and drops offsetless events', () => {
+    connect();
+    const updatedAt = '2026-07-20T15:00:00+07:00';
+    const offsetless = '2026-07-20T15:00:00';
+
+    fire(socket.handlers, 'gps:update', {
+      tripId: TRIP_ID,
+      latitude: 10.762622,
+      longitude: 106.660172,
+      recordedAt: updatedAt,
+    });
+    fire(socket.handlers, 'gps:update', {
+      tripId: TRIP_ID,
+      latitude: 10.762622,
+      longitude: 106.660172,
+      recordedAt: offsetless,
+    });
+    fire(socket.handlers, 'eta:update', {
+      tripId: TRIP_ID,
+      stopId: STOP_ID,
+      etaMinutes: 12,
+      estimatedArrivalTime: '2026-07-20T15:12:00+07:00',
+      distanceMeters: 8_000,
+      updatedAt: '2026-07-20T15:00:00.1234567+07:00',
+      delayed: false,
+      estimateQuality: 'TRAFFIC_AWARE',
+    });
+    fire(socket.handlers, 'eta:update', {
+      tripId: TRIP_ID,
+      stopId: STOP_ID,
+      etaMinutes: 12,
+      estimatedArrivalTime: offsetless,
+      distanceMeters: 8_000,
+      updatedAt: offsetless,
+      delayed: false,
+      estimateQuality: 'TRAFFIC_AWARE',
+    });
+    fire(socket.handlers, 'trip:statusChanged', {
+      tripId: TRIP_ID,
+      stopId: STOP_ID,
+      status: 'DELAYED',
+      delayMinutes: 35,
+      updatedAt,
+    });
+    fire(socket.handlers, 'trip:statusChanged', {
+      tripId: TRIP_ID,
+      stopId: STOP_ID,
+      status: 'DELAYED',
+      delayMinutes: 35,
+      updatedAt: offsetless,
+    });
+
+    expect(gpsUpdates).toHaveLength(1);
+    expect(etaUpdates).toHaveLength(1);
+    expect(delayUpdates).toHaveLength(1);
+  });
+
 
   it('maps authorization rejection to a fatal realtime state', () => {
     connect();

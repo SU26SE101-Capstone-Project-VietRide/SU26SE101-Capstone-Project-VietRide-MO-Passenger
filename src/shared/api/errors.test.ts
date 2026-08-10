@@ -1,4 +1,5 @@
 import {
+  getLocalizedApiErrorMessage,
   isApiErrorEnvelope,
   parseApiErrorResponse,
   toApiError,
@@ -86,6 +87,34 @@ describe('API error normalization', () => {
       statusCode: 422,
       message: 'A valid UUID v4 Idempotency-Key header is required.',
     });
+  });
+
+  it('maps NestJS VALIDATION_FAILED to the localized validation message', () => {
+    const translate = jest.fn((key: string) => key);
+    const message = getLocalizedApiErrorMessage(
+      {
+        isAxiosError: true,
+        message: 'Request failed with status code 400',
+        response: {
+          status: 400,
+          data: {
+            success: false,
+            statusCode: 400,
+            error: {
+              code: 'VALIDATION_FAILED',
+              message: 'Validation failed.',
+            },
+          },
+        },
+      },
+      translate as never,
+    );
+
+    expect(message).toBe('errors.api.validation');
+    expect(translate).toHaveBeenCalledWith(
+      'errors.api.validation',
+      expect.objectContaining({ retryAfter: 60 }),
+    );
   });
 
   it('does not expose arbitrary internal Error messages to the UI', () => {

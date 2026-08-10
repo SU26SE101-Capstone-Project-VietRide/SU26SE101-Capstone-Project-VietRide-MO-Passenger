@@ -89,6 +89,7 @@ const fallbackMessages: Record<string, string> = {
   AUTH_PASSWORD_RESET_TOKEN_EXPIRED: 'Phiên đặt lại mật khẩu đã hết hạn. Vui lòng yêu cầu mã mới.',
   AUTH_TOKEN_INVALID: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
   VALIDATION_ERROR: 'Thông tin chưa hợp lệ. Vui lòng kiểm tra lại.',
+  VALIDATION_FAILED: 'Thông tin chưa hợp lệ. Vui lòng kiểm tra lại.',
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -353,6 +354,7 @@ const DEFAULT_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   AUTH_PASSWORD_RESET_TOKEN_EXPIRED: 'errors.api.passwordResetExpired',
   AUTH_TOKEN_INVALID: 'errors.api.sessionExpired',
   VALIDATION_ERROR: 'errors.api.validation',
+  VALIDATION_FAILED: 'errors.api.validation',
   GATEWAY_ORIGIN_UNAVAILABLE: 'errors.api.gatewayUnavailable',
   RESOURCE_NOT_FOUND: 'errors.api.notFound',
   REQUEST_TIMEOUT: 'errors.api.timeout',

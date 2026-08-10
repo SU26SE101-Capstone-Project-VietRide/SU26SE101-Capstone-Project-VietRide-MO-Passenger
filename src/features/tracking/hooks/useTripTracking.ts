@@ -847,8 +847,10 @@ export function useTripTracking(options: UseTripTrackingOptions) {
 
   const latest = useMemo(
     () => getNewestTrackingPoint([
-      rawLatest,
       trailPoints[trailPoints.length - 1],
+      // On equal timestamps, prefer REST/socket latest because BE may snap it
+      // to the effective route while the persisted trail keeps raw GPS.
+      rawLatest,
     ]),
     [rawLatest, trailPoints],
   );

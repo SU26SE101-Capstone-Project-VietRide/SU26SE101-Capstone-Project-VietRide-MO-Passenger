@@ -4,7 +4,6 @@ import type { TrackingPoint } from '../api/trackingApi';
 
 const MAX_NATIVE_TRAIL_POINTS = 300;
 const MAX_NATIVE_ROUTE_POINTS = 1_000;
-const MAX_INTERMEDIATE_MARKERS = 8;
 const MAX_MARKER_NAME_LENGTH = 120;
 
 export type TrackingMapMarkerKind =
@@ -12,6 +11,7 @@ export type TrackingMapMarkerKind =
   | 'intermediate'
   | 'next'
   | 'target'
+  | 'targetNext'
   | 'destination'
   | 'shuttlePickup'
   | 'shuttleDropoff'
@@ -42,11 +42,6 @@ export interface PreparedTrackingMapData {
   trail: TrackingPoint[];
   plannedRoute: GeoCoordinate[];
   markers: TrackingMapMarker[];
-  /**
-   * Intermediate stops not rendered due to the marker cap.
-   * Used for the “+N stops” disclosure chip (map UX design CP-T04).
-   */
-  hiddenIntermediateCount: number;
   /** @deprecated Compatibility aliases for existing callers/tests. */
   points: TrackingPoint[];
   /** @deprecated Compatibility aliases for existing callers/tests. */
@@ -154,59 +149,48 @@ const sanitizeMarker = (marker: TrackingMapMarker): TrackingMapMarker | null => 
   };
 };
 
+const combinesTargetAndNext = (
+  left: TrackingMapMarkerKind,
+  right: TrackingMapMarkerKind,
+): boolean => (
+  (left === 'next' && right === 'target')
+  || (left === 'target' && right === 'next')
+  || (left === 'targetNext' && (right === 'next' || right === 'target'))
+  || (right === 'targetNext' && (left === 'next' || left === 'target'))
+);
+
 const prepareMarkers = (
   markers: readonly TrackingMapMarker[],
-): { markers: TrackingMapMarker[]; hiddenIntermediateCount: number } => {
-  const essentials: TrackingMapMarker[] = [];
-  const intermediates: TrackingMapMarker[] = [];
-  const seenIds = new Set<string>();
+): TrackingMapMarker[] => {
+  const preparedById = new Map<string, TrackingMapMarker>();
 
-  const append = (marker: TrackingMapMarker): void => {
+  for (const marker of markers) {
     const safeMarker = sanitizeMarker(marker);
-    if (!safeMarker || seenIds.has(safeMarker.id)) return;
-    seenIds.add(safeMarker.id);
-    if (safeMarker.kind === 'intermediate') intermediates.push(safeMarker);
-    else essentials.push(safeMarker);
-  };
+    if (!safeMarker) continue;
 
-  // Essential markers win when a stop appears twice with different semantics.
-  markers.filter((marker) => marker.kind !== 'intermediate').forEach(append);
-  markers.filter((marker) => marker.kind === 'intermediate').forEach(append);
+    const existing = preparedById.get(safeMarker.id);
+    if (!existing) {
+      preparedById.set(safeMarker.id, safeMarker);
+      continue;
+    }
 
-  intermediates.sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0));
+    if (combinesTargetAndNext(existing.kind, safeMarker.kind)) {
+      preparedById.set(safeMarker.id, {
+        ...safeMarker,
+        kind: 'targetNext',
+        sequence: safeMarker.sequence ?? existing.sequence,
+      });
+      continue;
+    }
 
-  // Prefer stops at/after the operational "next" sequence so the map shows
-  // "where we stop next" rather than only early origin-side stops.
-  const nextSequence = essentials.find((marker) => marker.kind === 'next')?.sequence;
-  let cappedIntermediates = intermediates;
-  if (intermediates.length > MAX_INTERMEDIATE_MARKERS) {
-    if (nextSequence != null && Number.isFinite(nextSequence)) {
-      const upcoming = intermediates.filter(
-        (marker) => (marker.sequence ?? 0) >= nextSequence,
-      );
-      const prior = intermediates.filter(
-        (marker) => (marker.sequence ?? 0) < nextSequence,
-      );
-      cappedIntermediates = [
-        ...upcoming.slice(0, MAX_INTERMEDIATE_MARKERS),
-        ...prior.slice(-(Math.max(0, MAX_INTERMEDIATE_MARKERS - upcoming.length))),
-      ]
-        .sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0))
-        .slice(0, MAX_INTERMEDIATE_MARKERS);
-    } else {
-      cappedIntermediates = intermediates.slice(0, MAX_INTERMEDIATE_MARKERS);
+    // A semantic marker always wins over its duplicate ordinary stop. For
+    // duplicates with equal semantic weight, keep the latest valid payload.
+    if (safeMarker.kind !== 'intermediate' || existing.kind === 'intermediate') {
+      preparedById.set(safeMarker.id, safeMarker);
     }
   }
 
-  const hiddenIntermediateCount = Math.max(
-    0,
-    intermediates.length - cappedIntermediates.length,
-  );
-
-  return {
-    markers: [...essentials, ...cappedIntermediates],
-    hiddenIntermediateCount,
-  };
+  return [...preparedById.values()];
 };
 
 const legacyStopsToMarkers = (
@@ -255,10 +239,9 @@ export function prepareTrackingMapData(
     latest,
     trail,
     plannedRoute: prepareRoute(input.plannedRoute ?? []),
-    markers: preparedMarkers.markers,
-    hiddenIntermediateCount: preparedMarkers.hiddenIntermediateCount,
+    markers: preparedMarkers,
     points: trail,
-    stops: preparedMarkers.markers.map(
+    stops: preparedMarkers.map(
       ({ kind: _kind, sequence: _sequence, ...marker }) => marker,
     ),
   };

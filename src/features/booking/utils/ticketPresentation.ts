@@ -119,3 +119,21 @@ export const getTicketLifecyclePresentation = (
     ? LIFECYCLE_PRESENTATIONS[normalizedStatus] ?? UNKNOWN_LIFECYCLE_PRESENTATION
     : UNKNOWN_LIFECYCLE_PRESENTATION;
 };
+
+/**
+ * Boarding QR is operational only for issued (boardable) tickets.
+ * ACTIVE is retained for checkout payloads that still emit the older token.
+ * Other lifecycle states keep the ticket code as text only.
+ */
+export const canShowBoardingQr = (
+  ticketStatus: string | null | undefined,
+  isPendingPayment = false,
+): boolean => {
+  if (isPendingPayment) return false;
+  const normalizedStatus = ticketStatus?.trim().toUpperCase();
+  if (!normalizedStatus) {
+    // Fresh checkout confirmation often omits lifecycle; still show the code.
+    return true;
+  }
+  return normalizedStatus === 'ISSUED' || normalizedStatus === 'ACTIVE';
+};

@@ -33,7 +33,7 @@ describe('extractBookingDraft', () => {
     const draft = extractBookingDraft(
       'Đặt 2 vé từ Hồ Chí Minh đến Đà Lạt ngày mai',
       locations,
-      new Date(2026, 6, 13),
+      new Date('2026-07-13T12:00:00+07:00'),
     );
 
     expect(draft).toMatchObject({
@@ -49,7 +49,7 @@ describe('extractBookingDraft', () => {
     const draft = extractBookingDraft(
       'Book 3 tickets from HCM to DAD on 2026-07-20',
       locations,
-      new Date(2026, 6, 13),
+      new Date('2026-07-13T12:00:00+07:00'),
     );
 
     expect(draft).toMatchObject({
@@ -86,13 +86,13 @@ describe('extractBookingDraft', () => {
     expect(extractBookingDraft(
       'Đặt vé từ HCM đến Đà Lạt ngày 31/02/2026',
       locations,
-      new Date(2026, 6, 13),
+      new Date('2026-07-13T12:00:00+07:00'),
     )?.isReadyToSearch).toBe(false);
 
     expect(extractBookingDraft(
       'Đặt vé từ HCM đến Đà Lạt ngày 01/01/2026',
       locations,
-      new Date(2026, 6, 13),
+      new Date('2026-07-13T12:00:00+07:00'),
     )?.isReadyToSearch).toBe(false);
   });
 
@@ -100,8 +100,22 @@ describe('extractBookingDraft', () => {
     expect(extractBookingDraft(
       'Đặt vé từ HCM đến Đà Lạt ngày 01/01',
       locations,
-      new Date(2026, 6, 13),
+      new Date('2026-07-13T12:00:00+07:00'),
     )?.date).toBe('01/01/2027');
+  });
+
+  it('uses the Vietnam business date across the UTC midnight boundary', () => {
+    expect(extractBookingDraft(
+      'Đặt vé từ HCM đến Đà Lạt ngày 13/07/2026',
+      locations,
+      new Date('2026-07-13T16:59:59Z'),
+    )?.date).toBe('13/07/2026');
+
+    expect(extractBookingDraft(
+      'Đặt vé từ HCM đến Đà Lạt ngày 13/07/2026',
+      locations,
+      new Date('2026-07-13T17:00:00Z'),
+    )?.isReadyToSearch).toBe(false);
   });
 
   it('merges safe booking fields across multiple user turns', () => {
@@ -109,13 +123,13 @@ describe('extractBookingDraft', () => {
     const route = extractBookingDraft(
       'từ HCM đến Đà Lạt',
       locations,
-      new Date(2026, 6, 13),
+      new Date('2026-07-13T12:00:00+07:00'),
       initial,
     );
     const completed = extractBookingDraft(
       'ngày mai cho 2 người',
       locations,
-      new Date(2026, 6, 13),
+      new Date('2026-07-13T12:00:00+07:00'),
       route,
     );
 

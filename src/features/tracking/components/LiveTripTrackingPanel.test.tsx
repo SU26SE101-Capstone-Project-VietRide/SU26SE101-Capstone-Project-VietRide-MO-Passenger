@@ -3,6 +3,7 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 import { Text } from 'react-native';
 
 import { ApiRequestError } from '@shared/api/errors';
+import { formatTime } from '@shared/utils/format';
 
 const mockTheme = {
   colors: {
@@ -21,19 +22,29 @@ const mockTheme = {
     surface: '#FFFFFF',
     surfaceAlt: '#F3F7F6',
   },
+  isDark: false,
 };
 
 const mockUseTripTracking = jest.fn();
 const mockTrackingMap = jest.fn((_props: unknown) => null);
+const mockTripTrackingMapExperience = jest.fn((props: {
+  renderMap: (bottomContentInset: number) => React.ReactNode;
+}) => props.renderMap(132));
+const mockTrackingDetailsContent = jest.fn((_props: unknown) => null);
 const mockUseTripDetail = jest.fn((_tripId: unknown, _options: unknown) => ({
   data: {
     status: 'IN_PROGRESS',
+    destinationStationId: '33333333-3333-4333-8333-333333333333',
+    estimatedArrivalDateTime: '2026-07-20T15:00:00+07:00',
     stops: [
       {
         id: '22222222-2222-4222-8222-222222222222',
         name: 'Destination stop',
         latitude: 10.77,
         longitude: 106.69,
+        orderIndex: 1,
+        status: 'PENDING',
+        estimatedArrivalTime: '2026-07-20T14:45:00+07:00',
       },
     ],
   },
@@ -60,11 +71,30 @@ jest.mock('@shared/contexts/ThemeContext', () => ({
 jest.mock('@shared/hooks', () => ({
   useIsAppActive: () => true,
   useNetworkStatus: () => true,
-  useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) => factory(mockTheme),
+  useThemedStyles: () => new Proxy({}, { get: () => ({}) }),
 }));
 
 jest.mock('./TrackingMap', () => ({
   TrackingMap: (props: unknown) => mockTrackingMap(props),
+}));
+
+jest.mock('./TripTrackingMapExperience', () => ({
+  TripTrackingMapExperience: (props: {
+    renderMap: (bottomContentInset: number) => React.ReactNode;
+  }) => mockTripTrackingMapExperience(props),
+}));
+
+jest.mock('./TrackingDetailsContent', () => ({
+  TrackingDetailsContent: (props: unknown) => mockTrackingDetailsContent(props),
+}));
+
+jest.mock('../hooks/useTripSharing', () => ({
+  useTripSharing: () => ({
+    shareTrip: jest.fn(),
+    revokeTripShare: jest.fn(),
+    isSharing: false,
+    isRevoking: false,
+  }),
 }));
 
 jest.mock('../hooks/useTripTracking', () => ({
@@ -85,9 +115,53 @@ const latest = {
   speedKmh: 42,
   recordedAt: '2026-07-20T06:30:00.000Z',
 };
+const routeContext = {
+  tripId,
+  geometry: {
+    source: 'ROUTE_POLYLINE',
+    points: [
+      { latitude: 10.75, longitude: 106.67 },
+      { latitude: 10.77, longitude: 106.69 },
+    ],
+  },
+  originStation: null,
+  intermediateStops: [{
+    stopId,
+    name: 'Destination stop',
+    sequence: 1,
+    latitude: 10.77,
+    longitude: 106.69,
+  }],
+  destinationStation: {
+    stationId: '33333333-3333-4333-8333-333333333333',
+    name: 'Destination station',
+    latitude: 10.78,
+    longitude: 106.7,
+  },
+};
+const liveEta = {
+  tripId,
+  targetKind: 'STOP' as const,
+  stopId,
+  sequence: 1,
+  stopName: null,
+  etaMinutes: 6,
+  estimatedArrivalTime: '2026-07-20T13:36:00+07:00',
+  distanceMeters: 1_200,
+  updatedAt: '2026-07-20T13:30:00+07:00',
+  delayed: null,
+  delayStatus: 'UNKNOWN' as const,
+  delayMinutes: null,
+  estimateQuality: 'TRAFFIC_AWARE' as const,
+};
+
 
 const createTrackingResult = (overrides: Record<string, unknown> = {}) => ({
   latest,
+  etas: [liveEta],
+  routeContext,
+  shuttleContext: null,
+  selectedShuttlePickup: null,
   trailPoints: [latest],
   nextEta: null,
   targetEta: null,
@@ -101,6 +175,7 @@ const createTrackingResult = (overrides: Record<string, unknown> = {}) => ({
   realtimeStatus: 'connected',
   isRealtimeConnected: true,
   hasAuthenticatedUser: true,
+  hasValidTrackingId: true,
   hasValidTripId: true,
   hasValidStopId: true,
   isAppActive: true,
@@ -116,6 +191,8 @@ const createTrackingResult = (overrides: Record<string, unknown> = {}) => ({
 describe('LiveTripTrackingPanel', () => {
   beforeEach(() => {
     mockTrackingMap.mockClear();
+    mockTripTrackingMapExperience.mockClear();
+    mockTrackingDetailsContent.mockClear();
     mockUseTripDetail.mockClear();
     mockUseTripTracking.mockReset();
     mockUseTripTracking.mockReturnValue(createTrackingResult());
@@ -134,6 +211,7 @@ describe('LiveTripTrackingPanel', () => {
     });
 
     expect(mockUseTripTracking).toHaveBeenCalledWith({
+      source: 'trip',
       tripId,
       trackingTarget: { kind: 'STOP', stopId },
       tripStatus: 'IN_PROGRESS',
@@ -144,11 +222,64 @@ describe('LiveTripTrackingPanel', () => {
     };
     expect(tripQueryOptions.getRefetchInterval({ status: 'IN_PROGRESS' })).toBe(60_000);
     expect(tripQueryOptions.getRefetchInterval({ status: 'COMPLETED' })).toBe(false);
+    expect(mockTripTrackingMapExperience).toHaveBeenCalledWith(expect.objectContaining({
+      items: expect.arrayContaining([
+        expect.objectContaining({ id: `stop:${stopId}`, tone: 'targetNext' }),
+      ]),
+      featuredItems: [expect.objectContaining({ tone: 'targetNext' })],
+    }));
     expect(mockTrackingMap).toHaveBeenCalledWith(expect.objectContaining({
       latest,
       trail: [latest],
       vehicleKind: 'bus',
-      bottomDock: expect.anything(),
+      showDrivenTrail: false,
+      bottomContentInset: 132,
+      edgeToEdge: true,
+    }));
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('renders planned route and all stop POIs before the first GPS point', async () => {
+    mockUseTripTracking.mockReturnValue(createTrackingResult({
+      latest: null,
+      trailPoints: [],
+      etas: [{
+        tripId,
+        targetKind: 'STOP',
+        stopId,
+        sequence: 1,
+        stopName: null,
+        etaMinutes: 1,
+        estimatedArrivalTime: '2026-07-20T13:31:00+07:00',
+        distanceMeters: 300,
+        updatedAt: '2026-07-20T13:30:00+07:00',
+        delayed: null,
+        delayStatus: 'UNKNOWN',
+        delayMinutes: null,
+        estimateQuality: 'TRAFFIC_AWARE',
+      }],
+    }));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<LiveTripTrackingPanel tripId={tripId} />);
+    });
+
+    expect(mockTrackingMap).toHaveBeenCalledWith(expect.objectContaining({
+      latest: null,
+      plannedRoute: routeContext.geometry.points,
+      markers: expect.arrayContaining([
+        expect.objectContaining({ id: `stop:${stopId}` }),
+        expect.objectContaining({ id: `destination:${routeContext.destinationStation.stationId}` }),
+      ]),
+      showDrivenTrail: false,
+    }));
+    expect(mockTripTrackingMapExperience).toHaveBeenCalledWith(expect.objectContaining({
+      featuredItems: [expect.objectContaining({
+        id: `stop:${stopId}`,
+        detail: expect.stringContaining(formatTime('2026-07-20T14:45:00+07:00')),
+      })],
     }));
 
     await act(async () => renderer!.unmount());
@@ -174,8 +305,137 @@ describe('LiveTripTrackingPanel', () => {
       .map((node) => node.props.children)
       .flat(Infinity)
       .join(' ');
-    expect(renderedText).toContain('Tracking access denied');
+    expect(renderedText).toMatch(/Tracking access denied|Không có quyền theo dõi/);
     expect(mockTrackingMap).not.toHaveBeenCalled();
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('shows an unavailable Your Stop card instead of guessing across route contexts', async () => {
+    const foreignStopId = '77777777-7777-4777-8777-777777777777';
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          tripId={tripId}
+          trackingTarget={{ kind: 'STOP', stopId: foreignStopId }}
+        />,
+      );
+    });
+
+    expect(mockTripTrackingMapExperience).toHaveBeenCalledWith(expect.objectContaining({
+      featuredItems: expect.arrayContaining([
+        expect.objectContaining({ id: `stop:${stopId}`, tone: 'next' }),
+        expect.objectContaining({ id: 'target:unavailable', tone: 'target' }),
+      ]),
+    }));
+    const mapProps = mockTrackingMap.mock.calls[0][0] as {
+      markers: Array<{ kind: string }>;
+    };
+    expect(mapProps.markers).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'target' }),
+      expect.objectContaining({ kind: 'targetNext' }),
+    ]));
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('keeps the existing Shuttle map flow and journey dock', async () => {
+    const bookingId = '44444444-4444-4444-8444-444444444444';
+    const shuttleLatest = {
+      shuttleTripId: tripId,
+      latitude: 10.76,
+      longitude: 106.68,
+      speedKmh: 28,
+      recordedAt: '2026-07-20T13:30:00+07:00',
+    };
+    const selectedShuttlePickup = {
+      bookingId,
+      pickupOrder: 1,
+      serviceAddress: '12 Nguyen Hue',
+      latitude: 10.775,
+      longitude: 106.7,
+      status: 'PENDING',
+      stopsBeforePickup: 0,
+    };
+    mockUseTripTracking.mockReturnValue(createTrackingResult({
+      latest: shuttleLatest,
+      trailPoints: [shuttleLatest],
+      routeContext: null,
+      shuttleContext: {
+        shuttleTripId: tripId,
+        mainTripId: '55555555-5555-4555-8555-555555555555',
+        direction: 'INBOUND_TO_STATION',
+        ownPickups: [selectedShuttlePickup],
+        station: {
+          stationId: '66666666-6666-4666-8666-666666666666',
+          name: 'Ben Thanh Station',
+          latitude: 10.772,
+          longitude: 106.698,
+          pickupOrder: 2,
+        },
+      },
+      selectedShuttlePickup,
+    }));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          source="shuttle"
+          shuttleTripId={tripId}
+          bookingId={bookingId}
+        />,
+      );
+    });
+
+    expect(mockUseTripTracking).toHaveBeenCalledWith({
+      source: 'shuttle',
+      shuttleTripId: tripId,
+      bookingId,
+    });
+    expect(mockTripTrackingMapExperience).not.toHaveBeenCalled();
+    expect(mockTrackingMap).toHaveBeenCalledWith(expect.objectContaining({
+      latest: shuttleLatest,
+      trail: [shuttleLatest],
+      vehicleKind: 'shuttle',
+      bottomDock: expect.anything(),
+    }));
+    const shuttleMapProps = mockTrackingMap.mock.calls[0][0] as Record<string, unknown>;
+    expect(shuttleMapProps).not.toHaveProperty('edgeToEdge');
+    expect(shuttleMapProps).not.toHaveProperty('showDrivenTrail');
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('keeps POIs and exposes route-unavailable state when geometry is null', async () => {
+    mockUseTripTracking.mockReturnValue(createTrackingResult({
+      routeContext: {
+        ...routeContext,
+        geometry: null,
+      },
+    }));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<LiveTripTrackingPanel tripId={tripId} />);
+    });
+
+    expect(mockTrackingMap).toHaveBeenCalledWith(expect.objectContaining({
+      plannedRoute: [],
+      markers: expect.arrayContaining([
+        expect.objectContaining({ id: `stop:${stopId}` }),
+        expect.objectContaining({
+          id: `destination:${routeContext.destinationStation.stationId}`,
+        }),
+      ]),
+      showDrivenTrail: false,
+    }));
+    const experienceProps = mockTripTrackingMapExperience.mock.calls[0][0] as unknown as {
+      footer: React.ReactElement<{ routeUnavailable: boolean }>;
+    };
+    expect(experienceProps.footer.props.routeUnavailable).toBe(true);
 
     await act(async () => renderer!.unmount());
   });

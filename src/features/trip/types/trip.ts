@@ -20,15 +20,41 @@ export type EtaEstimateQuality = 'TRAFFIC_AWARE' | 'FALLBACK';
 export type NetworkSeatStatus = 'AVAILABLE' | 'HELD' | 'BOOKED' | 'UNAVAILABLE';
 export type SeatPresentationStatus = 'available' | 'selected' | 'sold' | 'unavailable';
 
+/**
+ * BE SearchTripsQuery query string (TripsController.SearchAsync).
+ * Exactly these 9 fields — no legacy aliases.
+ */
 export interface TripSearchParams {
   originStationId?: string;
   destinationStationId?: string;
-  originLocationCode?: string;
-  destinationLocationCode?: string;
+  originProvinceCode?: string;
+  originWardCode?: string;
+  destinationProvinceCode?: string;
+  destinationWardCode?: string;
   departureDate: string;
   passengerCount: number;
   allowAlongRoutePickup?: boolean;
 }
+
+/**
+ * BE `SearchTripPointDto` — matched pickup/dropoff inside the requested scope.
+ * XOR identity: STATION sets stationId only; STOP sets stopId only.
+ */
+export interface TripSearchServicePointDto {
+  type: 'STATION' | 'STOP';
+  stationId: string | null;
+  stopId: string | null;
+  name: string;
+  address: string | null;
+  orderIndex: number;
+  /** Instant with offset, e.g. 2026-08-15T09:00:00+07:00 */
+  estimatedTime: string;
+  allowPickup: boolean;
+  allowDropoff: boolean;
+}
+
+/** UI/domain copy of a search service point after mapping. */
+export type TripSearchServicePoint = TripSearchServicePointDto;
 
 export interface StationSearchResult {
   id: string;
@@ -110,6 +136,12 @@ export interface BusTrip {
   departureCity: string;
   arrivalCity: string;
   status?: TripLifecycleStatus;
+  /**
+   * Hierarchy/station search points from BE (`pickupPoints` / `dropoffPoints`).
+   * Empty arrays when BE returns none; never invent points client-side.
+   */
+  pickupPoints: TripSearchServicePoint[];
+  dropoffPoints: TripSearchServicePoint[];
 }
 
 export interface TripDetail extends BusTrip {
@@ -171,26 +203,33 @@ export interface Seat {
   disabledReason?: string | null;
 }
 
+/**
+ * BE `SearchTripItem` (camelCase JSON).
+ * Required positional fields + init surcharge/points.
+ */
 export interface TripSearchDto {
   tripId: string;
   operatorId: string;
   operatorName: string;
   routeId: string;
-  originStation: { id: string; name: string };
-  destinationStation: { id: string; name: string };
   departureDateTime: string;
   estimatedArrivalTime: string;
-  /** Optional until passenger search ships BE-owned duration. */
-  estimatedDurationMinutes?: number | null;
-  baseFare: number;
-  effectiveFare?: number | null;
-  surchargePercent?: number;
-  surchargeAmount?: number;
-  surchargePeriodId?: string | null;
-  surchargePeriodName?: string | null;
+  originStation: { id: string; name: string };
+  destinationStation: { id: string; name: string };
   availableSeats: number;
+  baseFare: number;
   allowAlongRoutePickup: boolean;
   allowAlongRouteDropoff: boolean;
+  surchargePercent?: number;
+  surchargeAmount?: number;
+  effectiveFare?: number | null;
+  surchargePeriodId?: string | null;
+  surchargePeriodName?: string | null;
+  /** Ordered by orderIndex; empty when none match (should not happen on success). */
+  pickupPoints?: TripSearchServicePointDto[] | null;
+  dropoffPoints?: TripSearchServicePointDto[] | null;
+  /** Optional until passenger search ships BE-owned duration. */
+  estimatedDurationMinutes?: number | null;
 }
 
 export interface TripDetailDto {
@@ -302,6 +341,31 @@ export function mapNetworkSeatStatus(
   return 'unavailable';
 }
 
+const mapSearchServicePoints = (
+  points: TripSearchServicePointDto[] | null | undefined,
+): TripSearchServicePoint[] => {
+  if (!Array.isArray(points)) return [];
+  return points
+    .filter((point) => (
+      (point.type === 'STATION' || point.type === 'STOP')
+      && typeof point.name === 'string'
+      && point.name.trim().length > 0
+      && Number.isFinite(point.orderIndex)
+    ))
+    .map((point) => ({
+      type: point.type,
+      stationId: point.stationId ?? null,
+      stopId: point.stopId ?? null,
+      name: point.name.trim(),
+      address: point.address ?? null,
+      orderIndex: point.orderIndex,
+      estimatedTime: point.estimatedTime,
+      allowPickup: Boolean(point.allowPickup),
+      allowDropoff: Boolean(point.allowDropoff),
+    }))
+    .sort((left, right) => left.orderIndex - right.orderIndex);
+};
+
 export function mapBusTrip(dto: TripSearchDto): BusTrip {
   const baseFare = normalizeMoneyAmount(dto.baseFare) ?? 0;
   const estimatedDurationMinutes = resolveStopDurationFromOriginMinutes(
@@ -341,6 +405,8 @@ export function mapBusTrip(dto: TripSearchDto): BusTrip {
     totalSeats: null,
     departureCity: stationCityLabel(dto.originStation.name),
     arrivalCity: stationCityLabel(dto.destinationStation.name),
+    pickupPoints: mapSearchServicePoints(dto.pickupPoints),
+    dropoffPoints: mapSearchServicePoints(dto.dropoffPoints),
   };
 }
 
@@ -388,6 +454,8 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     totalSeats: dto.seatSummary.totalSeats,
     departureCity: stationCityLabel(dto.originStation.name),
     arrivalCity: stationCityLabel(dto.destinationStation.name),
+    pickupPoints: [],
+    dropoffPoints: [],
     stops: (dto.stops || []).map((stop) => {
       const latitude = stop.latitude;
       const longitude = stop.longitude;

@@ -2,6 +2,11 @@ import type { Location } from '@features/location/types/location';
 import { normalizeLocationSearchText } from '@features/location/utils/locationSearch';
 import type { ChatBookingDraft } from '../types/chatbot';
 import { normalizeBookingSeatCount } from '@features/booking/constants/bookingLimits';
+import {
+  apiCalendarDateSchema,
+  toVietnamBusinessDate,
+} from '@shared/utils/apiTime';
+
 const BOOKING_TERMS = [
   'dat ve',
   'mua ve',
@@ -80,27 +85,32 @@ const toValidatedDisplayDate = (
 ): string | undefined => {
   const day = Number.parseInt(dayValue, 10);
   const month = Number.parseInt(monthValue, 10);
-  let year = yearValue ? Number.parseInt(yearValue, 10) : now.getFullYear();
+  const today = toVietnamBusinessDate(now);
+  let year = yearValue
+    ? Number.parseInt(yearValue, 10)
+    : Number.parseInt(today.slice(0, 4), 10);
 
-  const isValidDate = (candidateYear: number): boolean => {
-    const date = new Date(candidateYear, month - 1, day);
-    return date.getFullYear() === candidateYear
-      && date.getMonth() === month - 1
-      && date.getDate() === day;
+  const toCandidateDate = (candidateYear: number): string | undefined => {
+    const value = [
+      String(candidateYear).padStart(4, '0'),
+      String(month).padStart(2, '0'),
+      String(day).padStart(2, '0'),
+    ].join('-');
+    return apiCalendarDateSchema.safeParse(value).success ? value : undefined;
   };
 
-  if (!isValidDate(year)) return undefined;
+  let candidate = toCandidateDate(year);
+  if (!candidate) return undefined;
 
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let candidate = new Date(year, month - 1, day);
   if (candidate < today) {
     if (yearValue) return undefined;
     year += 1;
-    if (!isValidDate(year)) return undefined;
-    candidate = new Date(year, month - 1, day);
+    candidate = toCandidateDate(year);
+    if (!candidate) return undefined;
   }
 
-  return `${String(candidate.getDate()).padStart(2, '0')}/${String(candidate.getMonth() + 1).padStart(2, '0')}/${candidate.getFullYear()}`;
+  const [candidateYear, candidateMonth, candidateDay] = candidate.split('-');
+  return `${candidateDay}/${candidateMonth}/${candidateYear}`;
 };
 
 const extractDate = (message: string, now: Date): string | undefined => {

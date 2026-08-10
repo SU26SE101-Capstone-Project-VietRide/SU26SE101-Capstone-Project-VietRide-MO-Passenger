@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
+import {
+  apiInstantSchema,
+  assertApiInstantRange,
+} from '@shared/utils/apiTime';
 import { isTrustedPaymentRedirectUrl } from '@shared/utils/url';
 import type {
   PassengerHistoryItem,
@@ -14,11 +18,7 @@ import type {
 export const PASSENGER_HISTORY_DEFAULT_PAGE_SIZE = 20;
 export const PASSENGER_HISTORY_MAX_PAGE_SIZE = 100;
 
-const rfc3339Schema = z.string()
-  .trim()
-  .min(1)
-  .max(64)
-  .refine((value) => Number.isFinite(Date.parse(value)), 'Invalid RFC 3339 timestamp.');
+const rfc3339Schema = apiInstantSchema;
 
 const nullableTextSchema = z.string().trim().max(500).nullable();
 const moneySchema = z.number().int().nonnegative().safe();
@@ -194,6 +194,10 @@ const assertQueryBounds = (query: PassengerHistoryQuery): void => {
   ) {
     throw new Error('Passenger history pageSize is out of range.');
   }
+  assertApiInstantRange(
+    { from: query.from, to: query.to },
+    { allowEqual: false, label: 'Passenger history range' },
+  );
 };
 
 export const parsePassengerHistoryPage = (

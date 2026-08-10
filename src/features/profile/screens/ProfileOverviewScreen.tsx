@@ -192,24 +192,31 @@ export function ProfileOverviewScreen(): React.JSX.Element {
               <UserAvatar url={user?.avatarUrl} name={displayName} size={64} />
             </View>
             <View style={styles.namePhoneWrapper}>
-              <View style={styles.nameVerifyRow}>
-                <Text style={styles.fullNameText}>{displayName}</Text>
+              <View style={styles.nameVerifyRow} testID="profile-name-row">
+                <Text
+                  ellipsizeMode="tail"
+                  numberOfLines={1}
+                  style={styles.fullNameText}
+                  testID="profile-display-name"
+                >
+                  {displayName}
+                </Text>
                 {!isGuest ? (
-                  isVerified ? (
-                    <CheckCircle
-                      size={18}
-                      color={theme.colors.success}
-                      weight="fill"
-                      style={styles.verifyBadge}
-                    />
-                  ) : (
-                    <WarningCircle
-                      size={18}
-                      color={theme.colors.warning}
-                      weight="fill"
-                      style={styles.verifyBadge}
-                    />
-                  )
+                  <View style={styles.verifyBadgeSlot} testID="profile-verification-badge">
+                    {isVerified ? (
+                      <CheckCircle
+                        size={18}
+                        color={theme.colors.success}
+                        weight="fill"
+                      />
+                    ) : (
+                      <WarningCircle
+                        size={18}
+                        color={theme.colors.warning}
+                        weight="fill"
+                      />
+                    )}
+                  </View>
                 ) : null}
               </View>
               <View style={styles.phoneRow}>
@@ -328,19 +335,27 @@ const createStyles = (theme: AppTheme) => ({
   namePhoneWrapper: {
     marginLeft: spacing.lg,
     flex: 1,
+    minWidth: 0,
   },
   fullNameText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
-    marginBottom: spacing.xs,
+    flexShrink: 1,
+    minWidth: 0,
   },
   nameVerifyRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
+    marginBottom: spacing.xs,
   },
-  verifyBadge: {
+  verifyBadgeSlot: {
+    width: 18,
+    height: 18,
+    flexShrink: 0,
     marginLeft: spacing.xs,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   verifyButton: {
     flexDirection: 'row' as const,

@@ -31,7 +31,7 @@ import {
 import { IdempotencyKeyTracker } from '@shared/api/idempotency';
 import { registerSessionCleanup } from '@shared/session/cleanup';
 import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
-import { toLocalIsoDate } from '@shared/utils/localDate';
+import { toVietnamBusinessDate } from '@shared/utils/apiTime';
 import { toTripSearchDate } from '../utils/searchParams';
 import {
   MAX_BOOKING_SEATS,
@@ -62,7 +62,7 @@ export {
 type BookingSubmissionResult = BookingResult | RoundTripResult;
 type BookingResourceStatus = 'idle' | 'loading' | 'success' | 'empty' | 'error';
 
-const createDefaultSearchDate = (): string => toLocalIsoDate(new Date());
+const createDefaultSearchDate = (): string => toVietnamBusinessDate();
 
 const bookingIdempotency = new IdempotencyKeyTracker('booking-mobile');
 let bookingGeneration = 0;
@@ -391,6 +391,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     to: '',
     originLocationCode: '',
     destinationLocationCode: '',
+    originWardCode: '',
+    destinationWardCode: '',
     originStationId: '',
     destinationStationId: '',
     originStationName: '',
@@ -414,6 +416,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         && params.originLocationCode === undefined
       ) {
         nextParams.originLocationCode = '';
+        nextParams.originWardCode = '';
         nextParams.originStationId = '';
         nextParams.originStationName = '';
       }
@@ -423,6 +426,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         && params.destinationLocationCode === undefined
       ) {
         nextParams.destinationLocationCode = '';
+        nextParams.destinationWardCode = '';
         nextParams.destinationStationId = '';
         nextParams.destinationStationName = '';
       }
@@ -432,6 +436,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         && params.originStationId === undefined
       ) {
         nextParams.originStationId = '';
+        if (params.originWardCode === undefined) {
+          nextParams.originWardCode = '';
+        }
         nextParams.originStationName = '';
       }
       if (
@@ -440,6 +447,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         && params.destinationStationId === undefined
       ) {
         nextParams.destinationStationId = '';
+        if (params.destinationWardCode === undefined) {
+          nextParams.destinationWardCode = '';
+        }
         nextParams.destinationStationName = '';
       }
 
@@ -459,6 +469,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         to: state.searchParams.from,
         originLocationCode: state.searchParams.destinationLocationCode,
         destinationLocationCode: state.searchParams.originLocationCode,
+        originWardCode: state.searchParams.destinationWardCode,
+        destinationWardCode: state.searchParams.originWardCode,
         originStationId: state.searchParams.destinationStationId,
         destinationStationId: state.searchParams.originStationId,
         originStationName: state.searchParams.destinationStationName,
@@ -714,13 +726,28 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     const { searchParams, currentLeg } = get();
     try {
       const isReturnLeg = currentLeg === 'return';
-      const originLocationCode = (
+      // Map booking store → BE's 9 search query fields.
+      const originStationId = (
+        isReturnLeg ? searchParams.destinationStationId : searchParams.originStationId
+      ).trim();
+      const destinationStationId = (
+        isReturnLeg ? searchParams.originStationId : searchParams.destinationStationId
+      ).trim();
+      const originProvinceCode = (
         isReturnLeg ? searchParams.destinationLocationCode : searchParams.originLocationCode
-      ).trim().toUpperCase();
-      const destinationLocationCode = (
+      ).trim();
+      const destinationProvinceCode = (
         isReturnLeg ? searchParams.originLocationCode : searchParams.destinationLocationCode
-      ).trim().toUpperCase();
-      if (!originLocationCode || !destinationLocationCode) {
+      ).trim();
+      const originWardCode = (
+        isReturnLeg ? searchParams.destinationWardCode : searchParams.originWardCode
+      ).trim();
+      const destinationWardCode = (
+        isReturnLeg ? searchParams.originWardCode : searchParams.destinationWardCode
+      ).trim();
+      const hasStationPair = Boolean(originStationId && destinationStationId);
+      const hasProvincePair = Boolean(originProvinceCode && destinationProvinceCode);
+      if (!hasStationPair && !hasProvincePair) {
         throw new BookingSearchValidationError('Please select both departure and destination provinces.');
       }
 
@@ -735,8 +762,12 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       const passengerCount = normalizeBookingSeatCount(searchParams.passengers);
       const searchFingerprint = [
         currentLeg,
-        originLocationCode,
-        destinationLocationCode,
+        originStationId,
+        destinationStationId,
+        originProvinceCode,
+        originWardCode,
+        destinationProvinceCode,
+        destinationWardCode,
         departureDate,
         passengerCount,
       ].join('|');
@@ -791,13 +822,23 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         }
       }
 
-      const discoveredTrips = await searchTrips({
-        originLocationCode,
-        destinationLocationCode,
-        departureDate,
-        passengerCount,
-        allowAlongRoutePickup: false,
-      });
+      const discoveredTrips = await searchTrips(
+        hasStationPair
+          ? {
+              originStationId,
+              destinationStationId,
+              departureDate,
+              passengerCount,
+            }
+          : {
+              originProvinceCode,
+              destinationProvinceCode,
+              ...(originWardCode ? { originWardCode } : {}),
+              ...(destinationWardCode ? { destinationWardCode } : {}),
+              departureDate,
+              passengerCount,
+            },
+      );
 
       if (generation !== bookingGeneration || requestId !== searchRequestSequence) {
         return;
@@ -1292,6 +1333,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         to: '',
         originLocationCode: '',
         destinationLocationCode: '',
+        originWardCode: '',
+        destinationWardCode: '',
         originStationId: '',
         destinationStationId: '',
         originStationName: '',

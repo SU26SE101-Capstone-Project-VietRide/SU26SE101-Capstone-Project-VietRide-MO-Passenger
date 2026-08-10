@@ -1,3 +1,4 @@
+import { AxiosHeaders } from 'axios';
 import { z } from 'zod';
 
 import { apiClient } from '@shared/api/axiosInstance';
@@ -7,6 +8,7 @@ import {
   type ApiEnvelope,
 } from '@shared/api/errors';
 import { normalizeIdempotencyKey } from '@shared/api/idempotency';
+import { apiInstantSchema } from '@shared/utils/apiTime';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 
 const SHARE_TOKEN_FRAGMENT_PATTERN =
@@ -29,7 +31,7 @@ const secureShareUrlSchema = z.string().url().refine((value) => {
 
 const tripShareLinkResponseSchema = z.object({
   shareUrl: secureShareUrlSchema,
-  expiresAt: z.string().datetime(),
+  expiresAt: apiInstantSchema,
 }).strict();
 
 const tripShareRevokedResponseSchema = z.object({
@@ -64,20 +66,29 @@ const idempotencyHeaders = (idempotencyKey: string) => ({
   'Idempotency-Key': normalizeIdempotencyKey(idempotencyKey),
 });
 
+const bodylessShareLinkHeaders = (idempotencyKey: string): AxiosHeaders => {
+  const headers = new AxiosHeaders(idempotencyHeaders(idempotencyKey));
+
+  // This endpoint is bodyless. `false` prevents Axios from inheriting or
+  // inferring these default representation headers before the adapter runs.
+  headers.set('Accept', false);
+  headers.set('Content-Type', false);
+
+  return headers;
+};
+
 /** Creates or returns the passenger-owned active link for this trip. */
 export async function createTripShareLink(
   tripId: string,
   idempotencyKey: string,
   signal?: AbortSignal,
 ): Promise<TripShareLinkResponse> {
-  const response = await apiClient.put<ApiEnvelope<unknown>>(
-    shareLinkPath(tripId),
-    null,
-    {
-      headers: idempotencyHeaders(idempotencyKey),
-      ...(signal ? { signal } : {}),
-    },
-  );
+  const response = await apiClient.request<ApiEnvelope<unknown>>({
+    method: 'PUT',
+    url: shareLinkPath(tripId),
+    headers: bodylessShareLinkHeaders(idempotencyKey),
+    ...(signal ? { signal } : {}),
+  });
 
   return parseResponse(
     unwrapApiResponse(response.data),

@@ -71,6 +71,39 @@ describe('trackingApi', () => {
     })).toBeNull();
   });
 
+  it('accepts explicit-offset timestamps with BE precision variants', () => {
+    expect(parseTrackingPoint({
+      tripId: TRIP_ID,
+      latitude: 10.762622,
+      longitude: 106.660172,
+      recordedAt: '2026-07-20T15:00:00+07:00',
+    })).not.toBeNull();
+    expect(parseTrackingPoint({
+      tripId: TRIP_ID,
+      latitude: 10.762622,
+      longitude: 106.660172,
+      recordedAt: '2026-07-20T08:00:00.1234567Z',
+    })).not.toBeNull();
+    expect(parseTrackingPoint({
+      tripId: TRIP_ID,
+      latitude: 10.762622,
+      longitude: 106.660172,
+      recordedAt: '2026-07-20T08:00:00',
+    })).toBeNull();
+  });
+
+  it('rejects invalid trail ranges before issuing a request', async () => {
+    await expect(getTrackingTrail(TRIP_ID, {
+      from: '2026-07-20T08:00:00',
+    })).rejects.toThrow();
+    await expect(getTrackingTrail(TRIP_ID, {
+      from: '2026-07-20T08:00:01Z',
+      to: '2026-07-20T08:00:00Z',
+    })).rejects.toThrow(/from must be before or equal to to/);
+
+    expect(getMock).not.toHaveBeenCalled();
+  });
+
   it('loads the newest trail page with the BE pagination contract', async () => {
     const payload: TrackingTrailResponse = {
       items: [],

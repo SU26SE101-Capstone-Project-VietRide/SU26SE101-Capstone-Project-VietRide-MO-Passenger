@@ -2,6 +2,11 @@ import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 import { createIdempotencyKey } from '@shared/api/idempotency';
+import {
+  NONE_NOTIFICATION_ACTION,
+  notificationActionSchema,
+  type NotificationAction,
+} from '@shared/notifications/notificationAction';
 import { z } from 'zod';
 
 export interface NotificationItemDto {
@@ -11,6 +16,7 @@ export interface NotificationItemDto {
   title: string;
   body: string;
   data: unknown;
+  action: NotificationAction;
   readAt: string | null;
   createdAt: string;
 }
@@ -59,6 +65,7 @@ const notificationItemSchema = z.object({
   title: z.string(),
   body: z.string(),
   data: z.unknown().nullable(),
+  action: notificationActionSchema.catch(NONE_NOTIFICATION_ACTION),
   readAt: z.string().datetime({ offset: true }).nullable(),
   createdAt: z.string().datetime({ offset: true }),
 });

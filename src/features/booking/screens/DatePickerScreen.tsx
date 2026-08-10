@@ -21,10 +21,10 @@ import {
   addLocalDays,
   compareLocalDates,
   parseLocalDate,
-  startOfLocalDay,
   toLocalDisplayDate,
   toLocalIsoDate,
 } from '@shared/utils/localDate';
+import { toVietnamBusinessDate } from '@shared/utils/apiTime';
 import { toTripSearchDate } from '../utils/searchParams';
 import { formatMonthYear } from '@shared/utils/format';
 
@@ -69,14 +69,23 @@ export function DatePicker(): React.JSX.Element {
   const insets = useSafeAreaInsets();
 
   const mode = route.params?.mode || 'departure';
-  const today = useMemo(() => startOfLocalDay(new Date()), []);
+  const calendarReference = useMemo(() => new Date(), []);
+  const today = useMemo(() => {
+    const value = parseLocalDate(toVietnamBusinessDate(calendarReference));
+    if (!value) {
+      throw new Error('Cannot resolve the Vietnam business date.');
+    }
+    return value;
+  }, [calendarReference]);
   const departureDate = useMemo(() => {
     try {
-      return parseLocalDate(toTripSearchDate(searchParams.date, today)) ?? today;
+      return parseLocalDate(
+        toTripSearchDate(searchParams.date, calendarReference),
+      ) ?? today;
     } catch {
       return today;
     }
-  }, [searchParams.date, today]);
+  }, [calendarReference, searchParams.date, today]);
   const firstSelectableDate = useMemo(
     () => mode === 'return' && compareLocalDates(departureDate, today) > 0
       ? departureDate
@@ -89,7 +98,11 @@ export function DatePicker(): React.JSX.Element {
   );
   const todayStr = toLocalDisplayDate(today);
   const initialDate = mode === 'return' ? searchParams.returnDate : searchParams.date;
-  const initialSelection = resolveDisplayDate(initialDate, today, firstSelectableDate);
+  const initialSelection = resolveDisplayDate(
+    initialDate,
+    calendarReference,
+    firstSelectableDate,
+  );
   const parsedInitialSelection = parseLocalDate(initialSelection);
   const lastSelectableDate = days[days.length - 1];
   const isInitialSelectionInRange = parsedInitialSelection
@@ -114,7 +127,10 @@ export function DatePicker(): React.JSX.Element {
       const currentReturnDate = (() => {
         try {
           return searchParams.returnDate
-            ? parseLocalDate(toTripSearchDate(searchParams.returnDate, today))
+            ? parseLocalDate(toTripSearchDate(
+              searchParams.returnDate,
+              calendarReference,
+            ))
             : null;
         } catch {
           return null;

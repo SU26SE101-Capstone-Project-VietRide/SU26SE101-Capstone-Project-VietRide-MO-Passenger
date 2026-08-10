@@ -46,6 +46,13 @@ export interface TicketLegViewModel {
   trackingEnabled: boolean;
   shuttlePickupAddress?: string;
   shuttleDropoffAddress?: string;
+  /** Route display name from history payload; omit when unknown. */
+  routeName?: string;
+  /**
+   * History only returns route-level origin/destination (HIST-BE-002).
+   * When true, UI labels them as route endpoints — never as passenger stops.
+   */
+  usesRouteEndpoints?: boolean;
 }
 
 export interface TicketCodeViewModel {
@@ -53,6 +60,7 @@ export interface TicketCodeViewModel {
   ticketCode: string;
   seatNumber: string;
   status?: string;
+  paidAmount?: number;
 }
 
 export interface TicketViewModel {
@@ -64,6 +72,10 @@ export interface TicketViewModel {
   paymentMethod?: 'WALLET' | 'VNPAY';
   totalAmount: number;
   legs: TicketLegViewModel[];
+  /** Booking-level status token for tone-aware header presentation. */
+  bookingStatus?: string;
+  /** Formatted booking createdAt from history; omit when unknown. */
+  createdAtLabel?: string;
 }
 
 export interface TicketPageViewModel {
@@ -139,6 +151,7 @@ const buildLeg = ({
       ticketCode: ticket.ticketCode.trim(),
       seatNumber: ticket.seatNumber.trim(),
       status: ticket.status,
+      paidAmount: ticket.paidAmount,
     }))
     .filter((ticket) => ticket.ticketCode.length > 0),
   boardingName: pickUp?.name || translate('common.notAvailable'),
@@ -198,6 +211,7 @@ export const buildCheckoutTicketViewModel = ({
     isPendingPayment,
     isDemo: false,
     paymentMethod: normalizedPaymentMethod,
+    bookingStatus: bookingResult.status,
   } as const;
 
   if ('bookingGroupId' in bookingResult) {
@@ -330,50 +344,75 @@ export const buildTicketPages = (model: TicketViewModel): TicketPageViewModel[] 
  * Builds only from fields returned by GET /passenger/history. Values that the
  * facade does not own (payment method, bus type, stop address/id) stay absent
  * so the ticket UI can omit them instead of fabricating details.
+ *
+ * HIST-BE-002: originName/destinationName are route endpoints, not the
+ * passenger's booked STOP/STATION snapshots. Labels must not claim otherwise.
  */
 export const buildPassengerHistoryTicketViewModel = (
   item: PassengerTicketHistoryItem,
   translate: Translate = defaultTranslate,
-): TicketViewModel => ({
-  title: translate('booking.ticket.detailTitle'),
-  statusTitle: item.status === 'CONFIRMED'
-    ? translate('booking.ticket.confirmed')
-    : translate('booking.ticket.statusUpdated'),
-  statusMessage: item.status === 'CONFIRMED'
-    ? translate('booking.ticket.showBookingReferenceWhenBoarding')
-    : translate('booking.ticket.latestHistoryStatus'),
-  isPendingPayment: item.status === 'PENDING_PAYMENT',
-  isDemo: false,
-  totalAmount: item.totalAmount,
-  legs: [{
-    label: item.ticket.tripDirection === 'OUTBOUND'
-      ? translate('booking.header.outbound')
-      : item.ticket.tripDirection === 'RETURN'
-        ? translate('booking.header.return')
-        : translate('booking.header.trip'),
-    reference: item.code,
-    ticketReferences: item.ticket.tickets
-      .map((ticket) => ticket.ticketCode)
-      .join(', ') || undefined,
-    ticketEntries: item.ticket.tickets.map((ticket) => ({
-      ticketId: ticket.ticketId,
-      ticketCode: ticket.ticketCode,
-      seatNumber: ticket.seatNumber,
-      status: ticket.status,
-    })),
-    boardingName: item.originName ?? translate('history.originUnavailable'),
-    boardingTime: item.departureDateTime
-      ? formatDateTime(item.departureDateTime)
-      : undefined,
-    alightingName: item.destinationName ?? translate('history.destinationUnavailable'),
-    seatNumbers: item.ticket.tickets
-      .map((ticket) => ticket.seatNumber)
-      .join(', ') || translate('common.none'),
-    ticketCount: item.ticket.tickets.length,
+): TicketViewModel => {
+  const statusPresentation = getTicketStatusPresentation(item.status);
+  const isPendingPayment = statusPresentation.pendingPayment;
+  const statusTitle = translate(statusPresentation.labelKey);
+  const statusMessage = isPendingPayment
+    ? translate('booking.ticket.completePayment')
+    : item.status === 'CONFIRMED'
+      ? translate('booking.ticket.showBookingReferenceWhenBoarding')
+      : translate('booking.ticket.latestHistoryStatus');
+
+  const ticketPaidTotal = item.ticket.tickets.reduce(
+    (sum, ticket) => sum + (Number.isFinite(ticket.paidAmount) ? ticket.paidAmount : 0),
+    0,
+  );
+
+  return {
+    title: translate('booking.ticket.detailTitle'),
+    statusTitle,
+    statusMessage,
+    isPendingPayment,
+    isDemo: false,
     totalAmount: item.totalAmount,
-    tripId: item.tripId,
-    bookingId: item.id,
-    ...(item.trackingTarget ? { trackingTarget: item.trackingTarget } : {}),
-    trackingEnabled: getTicketStatusPresentation(item.status).trackingEnabled,
-  }],
-});
+    bookingStatus: item.status,
+    createdAtLabel: formatDateTime(item.createdAt),
+    legs: [{
+      label: item.ticket.tripDirection === 'OUTBOUND'
+        ? translate('booking.header.outbound')
+        : item.ticket.tripDirection === 'RETURN'
+          ? translate('booking.header.return')
+          : translate('booking.header.trip'),
+      reference: item.code,
+      ticketReferences: item.ticket.tickets
+        .map((ticket) => ticket.ticketCode)
+        .join(', ') || undefined,
+      ticketEntries: item.ticket.tickets.map((ticket) => ({
+        ticketId: ticket.ticketId,
+        ticketCode: ticket.ticketCode,
+        seatNumber: ticket.seatNumber,
+        status: ticket.status,
+        paidAmount: ticket.paidAmount,
+      })),
+      // Route endpoints only — not passenger boarding/alighting stops.
+      boardingName: item.originName ?? translate('history.originUnavailable'),
+      boardingTime: item.departureDateTime
+        ? formatDateTime(item.departureDateTime)
+        : undefined,
+      alightingName: item.destinationName ?? translate('history.destinationUnavailable'),
+      alightingTime: item.estimatedArrivalTime
+        ? formatDateTime(item.estimatedArrivalTime)
+        : undefined,
+      seatNumbers: item.ticket.tickets
+        .map((ticket) => ticket.seatNumber)
+        .join(', ') || translate('common.none'),
+      ticketCount: item.ticket.tickets.length,
+      // Prefer booking total; fall back to summed per-ticket paid amounts.
+      totalAmount: item.totalAmount > 0 ? item.totalAmount : ticketPaidTotal,
+      tripId: item.tripId,
+      bookingId: item.id,
+      ...(item.trackingTarget ? { trackingTarget: item.trackingTarget } : {}),
+      ...(item.ticket.routeName ? { routeName: item.ticket.routeName } : {}),
+      usesRouteEndpoints: true,
+      trackingEnabled: statusPresentation.trackingEnabled,
+    }],
+  };
+};

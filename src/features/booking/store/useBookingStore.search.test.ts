@@ -16,8 +16,10 @@ import { useBookingStore } from './useBookingStore';
 const searchParams = {
   from: 'Ha Noi',
   to: 'Ho Chi Minh City',
-  originLocationCode: 'HN',
-  destinationLocationCode: 'HCM',
+  originLocationCode: '01',
+  destinationLocationCode: '79',
+  originWardCode: '',
+  destinationWardCode: '',
   originStationId: '31111111-1111-1111-1111-111111111111',
   destinationStationId: '41111111-1111-1111-1111-111111111111',
   originStationName: 'My Dinh Station',
@@ -40,19 +42,18 @@ describe('booking trip search', () => {
     });
   });
 
-  it('searches the outbound leg by location code', async () => {
+  it('uses station-pair mode when both station ids are set (wins over province)', async () => {
     await useBookingStore.getState().searchTrips();
 
     expect(mockSearchTrips).toHaveBeenCalledWith({
-      originLocationCode: 'HN',
-      destinationLocationCode: 'HCM',
+      originStationId: '31111111-1111-1111-1111-111111111111',
+      destinationStationId: '41111111-1111-1111-1111-111111111111',
       departureDate: '2026-07-10',
       passengerCount: 3,
-      allowAlongRoutePickup: false,
     });
   });
 
-  it('reverses location codes and uses the return date for the return leg', async () => {
+  it('reverses stations and uses the return date for the return leg', async () => {
     useBookingStore.setState({
       currentLeg: 'return',
       outboundState: {
@@ -72,15 +73,14 @@ describe('booking trip search', () => {
     await useBookingStore.getState().searchTrips();
 
     expect(mockSearchTrips).toHaveBeenCalledWith({
-      originLocationCode: 'HCM',
-      destinationLocationCode: 'HN',
+      originStationId: '41111111-1111-1111-1111-111111111111',
+      destinationStationId: '31111111-1111-1111-1111-111111111111',
       departureDate: '2026-07-14',
       passengerCount: 3,
-      allowAlongRoutePickup: false,
     });
   });
 
-  it('searches by province when the user skips station selection', async () => {
+  it('searches by province codes when the user skips station selection', async () => {
     useBookingStore.setState({
       searchParams: {
         ...searchParams,
@@ -94,37 +94,35 @@ describe('booking trip search', () => {
     await useBookingStore.getState().searchTrips();
 
     expect(mockSearchTrips).toHaveBeenCalledWith({
-      originLocationCode: 'HN',
-      destinationLocationCode: 'HCM',
+      originProvinceCode: '01',
+      destinationProvinceCode: '79',
       departureDate: '2026-07-10',
       passengerCount: 3,
-      allowAlongRoutePickup: false,
     });
   });
 
-  it('passes matching location codes through to the backend', async () => {
+  it('includes optional ward codes in hierarchy mode', async () => {
     useBookingStore.setState({
       searchParams: {
         ...searchParams,
-        from: 'Thành phố Hồ Chí Minh',
-        to: 'Thành phố Hồ Chí Minh',
-        originLocationCode: 'HCM',
-        destinationLocationCode: 'HCM',
         originStationId: '',
         destinationStationId: '',
         originStationName: '',
         destinationStationName: '',
+        originWardCode: '00001',
+        destinationWardCode: '26506',
       },
     });
 
     await useBookingStore.getState().searchTrips();
 
     expect(mockSearchTrips).toHaveBeenCalledWith({
-      originLocationCode: 'HCM',
-      destinationLocationCode: 'HCM',
+      originProvinceCode: '01',
+      originWardCode: '00001',
+      destinationProvinceCode: '79',
+      destinationWardCode: '26506',
       departureDate: '2026-07-10',
       passengerCount: 3,
-      allowAlongRoutePickup: false,
     });
   });
 

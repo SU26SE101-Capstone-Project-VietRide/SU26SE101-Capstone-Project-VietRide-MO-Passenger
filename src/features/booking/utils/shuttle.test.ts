@@ -80,7 +80,7 @@ describe('Shuttle booking rules', () => {
   });
 
   it.each([
-    [{ ...draft, address: ' ' }, 'Enter a pickup address.'],
+    [{ ...draft, address: ' ' }, 'Enter a Shuttle service address.'],
     [{ ...draft, address: 'a'.repeat(SHUTTLE_ADDRESS_MAX_LENGTH + 1) }, '500 characters'],
     [{ ...draft, latitude: Number.NaN }, 'latitude'],
     [{ ...draft, latitude: 91 }, 'latitude'],
@@ -128,6 +128,26 @@ describe('Shuttle booking rules', () => {
       departure,
       Date.parse('2026-07-16T09:30:00+07:00'),
     )).toBe(true);
+  });
+
+  it('keeps the server authoritative when the device clock is ahead', () => {
+    const deviceClock = jest.spyOn(Date, 'now').mockReturnValue(
+      Date.parse('2100-01-01T00:00:00+07:00'),
+    );
+
+    try {
+      expect(getShuttleEligibility(trip, originPickup, station)).toEqual({
+        eligible: true,
+        reason: null,
+      });
+      expect(toShuttlePickupPayload(draft, trip, originPickup)).toEqual({
+        address: '12 Nguyen Hue, District 1',
+        latitude: 10.7769,
+        longitude: 106.7009,
+      });
+    } finally {
+      deviceClock.mockRestore();
+    }
   });
 
   it.each([

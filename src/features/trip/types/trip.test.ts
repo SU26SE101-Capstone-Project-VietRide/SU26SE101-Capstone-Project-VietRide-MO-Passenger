@@ -14,6 +14,37 @@ const searchDto: TripSearchDto = {
   availableSeats: 12,
   allowAlongRoutePickup: false,
   allowAlongRouteDropoff: false,
+  effectiveFare: 350_000,
+  surchargePercent: 0,
+  surchargeAmount: 0,
+  surchargePeriodId: null,
+  surchargePeriodName: null,
+  pickupPoints: [
+    {
+      type: 'STATION',
+      stationId: '9f2678d9-a145-4d04-af84-b4ebf86c8073',
+      stopId: null,
+      name: 'Ben xe Mien Tay',
+      address: 'An Lac',
+      orderIndex: 0,
+      estimatedTime: '2026-07-14T08:00:00+07:00',
+      allowPickup: true,
+      allowDropoff: false,
+    },
+  ],
+  dropoffPoints: [
+    {
+      type: 'STATION',
+      stationId: 'dbb08b70-020c-4c41-8fcc-a9a01d8ef6e4',
+      stopId: null,
+      name: 'Ben xe Da Nang',
+      address: null,
+      orderIndex: 1,
+      estimatedTime: '2026-07-14T18:00:00+07:00',
+      allowPickup: false,
+      allowDropoff: true,
+    },
+  ],
 };
 
 describe('trip DTO mappers', () => {
@@ -24,6 +55,8 @@ describe('trip DTO mappers', () => {
     expect(trip.busType).toBeNull();
     expect(trip.busLabel).toBeNull();
     expect(trip.totalSeats).toBeNull();
+    expect(trip.pickupPoints).toHaveLength(1);
+    expect(trip.dropoffPoints[0]?.type).toBe('STATION');
   });
 
   it('uses detail seat capacity but leaves absent operator and vehicle metadata empty', () => {

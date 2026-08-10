@@ -1,20 +1,43 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
-import { getLocations, locationKeys } from '../api/locationApi';
+import { useQuery } from '@tanstack/react-query';
 
-export const LOCATION_CATALOG_STALE_TIME_MS = 24 * 60 * 60 * 1000;
-export const LOCATION_CATALOG_GC_TIME_MS = 7 * 24 * 60 * 60 * 1000;
+import {
+  getLocations,
+  locationKeys,
+  type ListLocationsParams,
+} from '../api/locationApi';
 
-export const locationCatalogQueryOptions = () =>
-  queryOptions({
-    queryKey: locationKeys.catalog(),
-    queryFn: ({ signal }) => getLocations(signal),
-    staleTime: LOCATION_CATALOG_STALE_TIME_MS,
-    gcTime: LOCATION_CATALOG_GC_TIME_MS,
+export const LOCATION_STALE_MS = 24 * 60 * 60 * 1000;
+export const LOCATION_GC_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Roots: GET /v1/locations (no parentCode). */
+export function useLocations(params: ListLocationsParams = {}) {
+  const parentCode = params.parentCode?.trim() || undefined;
+  const search = params.search?.trim() || undefined;
+  const queryParams: ListLocationsParams = {
+    ...(parentCode ? { parentCode } : {}),
+    ...(search ? { search } : {}),
+  };
+
+  return useQuery({
+    queryKey: locationKeys.list(queryParams),
+    queryFn: ({ signal }) => getLocations(queryParams, signal),
+    staleTime: LOCATION_STALE_MS,
+    gcTime: LOCATION_GC_MS,
     retry: 2,
     refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
   });
+}
 
-export function useLocations() {
-  return useQuery(locationCatalogQueryOptions());
+/** Children: GET /v1/locations?parentCode= */
+export function useLocationChildren(parentCode: string | undefined) {
+  const code = parentCode?.trim() ?? '';
+  return useQuery({
+    queryKey: locationKeys.list({ parentCode: code }),
+    queryFn: ({ signal }) => getLocations({ parentCode: code }, signal),
+    enabled: code.length > 0,
+    staleTime: LOCATION_STALE_MS,
+    gcTime: LOCATION_GC_MS,
+    retry: 2,
+    refetchOnWindowFocus: false,
+  });
 }

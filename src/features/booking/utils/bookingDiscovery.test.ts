@@ -8,7 +8,7 @@ import {
 
 describe('booking discovery actions', () => {
   it('normalizes a replay date and rejects past searches', () => {
-    const now = new Date(2026, 6, 14, 12);
+    const now = new Date('2026-07-14T12:00:00+07:00');
 
     expect(resolveRecentSearchDate({ date: '2026-07-14', savedAt: now.getTime() }, now)).toEqual({
       status: 'valid',
@@ -18,10 +18,27 @@ describe('booking discovery actions', () => {
       status: 'past_date',
     });
   });
+  it('rejects dates using the Vietnam business-day boundary', () => {
+    const beforeMidnight = new Date('2026-07-13T16:59:59Z');
+    const atMidnight = new Date('2026-07-13T17:00:00Z');
+
+    expect(resolveRecentSearchDate({
+      date: '2026-07-13',
+      savedAt: beforeMidnight.getTime(),
+    }, beforeMidnight)).toEqual({
+      status: 'valid',
+      date: '13/07/2026',
+    });
+    expect(resolveRecentSearchDate({
+      date: '2026-07-13',
+      savedAt: atMidnight.getTime(),
+    }, atMidnight)).toEqual({ status: 'past_date' });
+  });
+
 
   it('resolves legacy relative dates against the time they were saved', () => {
-    const savedAt = new Date(2026, 6, 13, 18).getTime();
-    const now = new Date(2026, 6, 14, 9);
+    const savedAt = new Date('2026-07-13T18:00:00+07:00').getTime();
+    const now = new Date('2026-07-14T09:00:00+07:00');
 
     expect(resolveRecentSearchDate({ date: 'Tomorrow', savedAt }, now)).toEqual({
       status: 'valid',
@@ -36,15 +53,17 @@ describe('booking discovery actions', () => {
     const input = toRecentSearchInput({
       from: 'Hà Nội',
       to: 'Đà Nẵng',
-      originLocationCode: 'HN',
-      destinationLocationCode: 'DN',
+      originLocationCode: '01',
+      destinationLocationCode: '48',
+      originWardCode: '',
+      destinationWardCode: '',
       originStationId: '',
       destinationStationId: '',
       originStationName: '',
       destinationStationName: '',
       date: 'Today',
       passengers: 2,
-    }, new Date(2026, 6, 14, 12));
+    }, new Date('2026-07-14T12:00:00+07:00'));
 
     expect(input).toMatchObject({ date: '2026-07-14', passengers: 2 });
   });
@@ -53,26 +72,30 @@ describe('booking discovery actions', () => {
     const input = toRecentSearchInput({
       from: 'Ho Chi Minh City',
       to: 'Da Lat',
-      originLocationCode: 'HCM',
-      destinationLocationCode: 'DL',
+      originLocationCode: '79',
+      destinationLocationCode: '68',
+      originWardCode: '',
+      destinationWardCode: '',
       originStationId: '',
       destinationStationId: '',
       originStationName: '',
       destinationStationName: '',
       date: 'Today',
       passengers: 9,
-    }, new Date(2026, 6, 14, 12));
+    }, new Date('2026-07-14T12:00:00+07:00'));
 
     expect(input?.passengers).toBe(5);
   });
 
   it('preserves matching location codes in recent searches', () => {
-    const now = new Date(2026, 6, 14, 12);
+    const now = new Date('2026-07-14T12:00:00+07:00');
     const input = toRecentSearchInput({
       from: 'Thành phố Hồ Chí Minh',
       to: 'Thành phố Hồ Chí Minh',
-      originLocationCode: 'HCM',
-      destinationLocationCode: 'HCM',
+      originLocationCode: '79',
+      destinationLocationCode: '79',
+      originWardCode: '',
+      destinationWardCode: '',
       originStationId: '',
       destinationStationId: '',
       originStationName: '',
@@ -82,8 +105,8 @@ describe('booking discovery actions', () => {
     }, now);
 
     expect(input).toMatchObject({
-      fromCode: 'HCM',
-      toCode: 'HCM',
+      fromCode: '79',
+      toCode: '79',
     });
 
     expect(recentSearchToPrefill({
@@ -93,8 +116,8 @@ describe('booking discovery actions', () => {
     }, now)).toMatchObject({
       status: 'applied',
       prefill: {
-        originLocationCode: 'HCM',
-        destinationLocationCode: 'HCM',
+        originLocationCode: '79',
+        destinationLocationCode: '79',
       },
     });
   });
@@ -108,8 +131,8 @@ describe('booking discovery actions', () => {
       toName: 'Đà Nẵng',
       date: '13/07/2026',
       passengers: 1,
-      savedAt: new Date(2026, 6, 13).getTime(),
-    }, new Date(2026, 6, 14))).toEqual({ status: 'past_date' });
+      savedAt: new Date('2026-07-13T00:00:00+07:00').getTime(),
+    }, new Date('2026-07-14T00:00:00+07:00'))).toEqual({ status: 'past_date' });
   });
 
   it('resets before carrying a pending voucher to the existing validator', () => {
@@ -130,8 +153,10 @@ describe('booking discovery actions', () => {
     const base = {
       from: 'Ha Noi',
       to: 'Da Nang',
-      originLocationCode: 'HN',
-      destinationLocationCode: 'DN',
+      originLocationCode: '01',
+      destinationLocationCode: '48',
+      originWardCode: '',
+      destinationWardCode: '',
       originStationId: '',
       destinationStationId: '',
       originStationName: '',

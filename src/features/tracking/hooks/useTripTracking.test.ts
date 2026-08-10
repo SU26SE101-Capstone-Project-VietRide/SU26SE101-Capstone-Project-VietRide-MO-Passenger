@@ -65,6 +65,18 @@ describe('trip tracking helpers', () => {
       .toEqual(point(9));
   });
 
+  it('lets the later canonical source win an equal-timestamp tie', () => {
+    const trailPoint = point(9);
+    const canonicalLatest = {
+      ...trailPoint,
+      latitude: trailPoint.latitude + 0.001,
+      longitude: trailPoint.longitude + 0.001,
+    };
+
+    expect(getNewestTrackingPoint([trailPoint, canonicalLatest]))
+      .toEqual(canonicalLatest);
+  });
+
   it.each(['COMPLETED', 'CANCELLED', 'DISRUPTED'] as const)('treats %s as terminal', (status) => {
     expect(isTerminalTrackingStatus(status)).toBe(true);
   });

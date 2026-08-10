@@ -84,8 +84,16 @@ export type PaymentMethod = SharedPaymentMethod;
 export interface SearchParams {
   from: string;
   to: string;
+  /**
+   * Official PROVINCE|MUNICIPALITY code → wire `originProvinceCode`
+   * (e.g. "79", never legacy "HCM").
+   */
   originLocationCode: string;
   destinationLocationCode: string;
+  /** Optional leaf → wire `originWardCode` (5-digit). */
+  originWardCode: string;
+  destinationWardCode: string;
+  /** Station mode → wire `originStationId` / `destinationStationId`. */
   originStationId: string;
   destinationStationId: string;
   originStationName: string;

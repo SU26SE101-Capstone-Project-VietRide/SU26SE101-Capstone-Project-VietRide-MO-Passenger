@@ -21,9 +21,11 @@ describe('toTripSearchDate', () => {
     );
   });
 
-  it('resolves relative labels against an injected local date', () => {
-    const now = new Date(2026, 6, 13, 23, 59);
-    expect(toTripSearchDate('Today', now)).toBe('2026-07-13');
-    expect(toTripSearchDate('Tomorrow', now)).toBe('2026-07-14');
+  it('resolves relative labels against the Vietnam business date', () => {
+    const beforeMidnight = new Date('2026-07-13T16:59:59Z');
+    const atMidnight = new Date('2026-07-13T17:00:00Z');
+    expect(toTripSearchDate('Today', beforeMidnight)).toBe('2026-07-13');
+    expect(toTripSearchDate('Tomorrow', beforeMidnight)).toBe('2026-07-14');
+    expect(toTripSearchDate('Today', atMidnight)).toBe('2026-07-14');
   });
 });

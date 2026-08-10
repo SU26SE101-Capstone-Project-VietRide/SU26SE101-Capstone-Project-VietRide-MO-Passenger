@@ -5,11 +5,14 @@ import type {
   PickUpPoint,
   RoundTripResult,
 } from '../types';
+import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { BOOKING_HISTORY_TICKET_FIXTURE } from '../data/bookingHistoryFixture';
 import {
   buildCheckoutTicketViewModel,
   buildHistoryTicketViewModel,
+  buildPassengerHistoryTicketViewModel,
 } from './ticketViewModel';
+import { canShowBoardingQr } from './ticketPresentation';
 
 const makeTrip = (id: string, from: string, to: string): BusTrip => ({
   id,
@@ -34,6 +37,8 @@ const makeTrip = (id: string, from: string, to: string): BusTrip => ({
   departureCity: from,
   arrivalCity: to,
   status: 'IN_PROGRESS',
+  pickupPoints: [],
+  dropoffPoints: [],
 });
 
 const makePoint = (name: string, time: string): PickUpPoint & DropOffPoint => ({
@@ -107,35 +112,34 @@ describe('checkout ticket view model', () => {
   it('keeps round-trip legs, seats, routes, IDs and amounts separate', () => {
     const model = buildRoundTrip(pendingRoundTrip);
 
-    expect(model).toMatchObject({
-      isPendingPayment: true,
-      totalAmount: 550_000,
-      legs: [
-        {
-          label: 'Outbound',
-          reference: 'VR-OUT',
-          boardingName: 'Ha Noi',
-          alightingName: 'Da Nang',
-          seatNumbers: 'A01',
-          totalAmount: 250_000,
-          bookingId: pendingRoundTrip.outbound.bookingId,
-          tripId: outboundTrip.id,
-          trackingEnabled: false,
-          shuttlePickupAddress: '12 Tran Duy Hung, Ha Noi',
-        },
-        {
-          label: 'Return',
-          reference: 'VR-RETURN',
-          boardingName: 'Da Nang',
-          alightingName: 'Ha Noi',
-          seatNumbers: 'B02',
-          totalAmount: 300_000,
-          bookingId: pendingRoundTrip.return.bookingId,
-          tripId: returnTrip.id,
-          trackingEnabled: false,
-        },
-      ],
+    expect(model?.isPendingPayment).toBe(true);
+    expect(model?.totalAmount).toBe(550_000);
+    expect(model?.legs).toHaveLength(2);
+    expect(model?.legs[0]).toMatchObject({
+      reference: 'VR-OUT',
+      boardingName: 'Ha Noi',
+      alightingName: 'Da Nang',
+      seatNumbers: 'A01',
+      totalAmount: 250_000,
+      bookingId: pendingRoundTrip.outbound.bookingId,
+      tripId: outboundTrip.id,
+      trackingEnabled: false,
+      shuttlePickupAddress: '12 Tran Duy Hung, Ha Noi',
     });
+    expect(model?.legs[1]).toMatchObject({
+      reference: 'VR-RETURN',
+      boardingName: 'Da Nang',
+      alightingName: 'Ha Noi',
+      seatNumbers: 'B02',
+      totalAmount: 300_000,
+      bookingId: pendingRoundTrip.return.bookingId,
+      tripId: returnTrip.id,
+      trackingEnabled: false,
+    });
+    // Labels are i18n-backed; assert they differ across legs without pinning locale.
+    expect(model?.legs[0].label).toBeTruthy();
+    expect(model?.legs[1].label).toBeTruthy();
+    expect(model?.legs[0].label).not.toBe(model?.legs[1].label);
   });
 
   it('does not invent Shuttle data for a leg without a local checkout request', () => {
@@ -165,5 +169,89 @@ describe('checkout ticket view model', () => {
     expect(model.isDemo).toBe(true);
     expect(model.legs).toHaveLength(1);
     expect(model.legs[0].trackingEnabled).toBe(false);
+  });
+});
+
+const historyItem: PassengerTicketHistoryItem = {
+  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  code: 'BK-HIST-01',
+  tripId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  createdAt: '2026-08-01T03:00:00.000Z',
+  totalAmount: 250_000,
+  originName: 'Ha Noi',
+  destinationName: 'Da Nang',
+  departureDateTime: '2026-08-10T01:00:00.000Z',
+  estimatedArrivalTime: '2026-08-10T09:00:00.000Z',
+  paymentRedirectUrl: null,
+  trackingTarget: { kind: 'STATION', stationId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' },
+  type: 'TICKET',
+  status: 'CONFIRMED',
+  ticket: {
+    bookingGroupId: null,
+    tripDirection: 'OUTBOUND',
+    routeName: 'Ha Noi - Da Nang Express',
+    tickets: [{
+      ticketId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      ticketCode: 'VR-TICKET-1',
+      seatNumber: 'A01',
+      status: 'ISSUED',
+      paidAmount: 250_000,
+    }],
+  },
+  parcel: null,
+};
+
+describe('passenger history ticket view model', () => {
+  it('labels route endpoints and surfaces history-only fields without inventing stops', () => {
+    const model = buildPassengerHistoryTicketViewModel(historyItem);
+
+    expect(model.bookingStatus).toBe('CONFIRMED');
+    expect(model.createdAtLabel).toBeTruthy();
+    expect(model.isPendingPayment).toBe(false);
+    expect(model.legs[0]).toMatchObject({
+      boardingName: 'Ha Noi',
+      alightingName: 'Da Nang',
+      routeName: 'Ha Noi - Da Nang Express',
+      usesRouteEndpoints: true,
+      trackingEnabled: true,
+      ticketEntries: [{
+        ticketCode: 'VR-TICKET-1',
+        seatNumber: 'A01',
+        status: 'ISSUED',
+        paidAmount: 250_000,
+      }],
+    });
+    // No fabricated address/stop identity for history snapshots (HIST-BE-002).
+    expect(model.legs[0].boardingAddress).toBeUndefined();
+    expect(model.legs[0].alightingAddress).toBeUndefined();
+  });
+
+  it('maps cancelled history status to a non-success pending-free presentation', () => {
+    const model = buildPassengerHistoryTicketViewModel({
+      ...historyItem,
+      status: 'CANCELLED',
+      ticket: {
+        ...historyItem.ticket,
+        tickets: [{
+          ...historyItem.ticket.tickets[0],
+          status: 'CANCELLED',
+        }],
+      },
+    });
+
+    expect(model.isPendingPayment).toBe(false);
+    expect(model.bookingStatus).toBe('CANCELLED');
+    expect(model.legs[0].trackingEnabled).toBe(false);
+  });
+});
+
+describe('boarding QR eligibility', () => {
+  it('allows ISSUED/ACTIVE codes and blocks inactive lifecycle states', () => {
+    expect(canShowBoardingQr('ISSUED')).toBe(true);
+    expect(canShowBoardingQr('ACTIVE')).toBe(true);
+    expect(canShowBoardingQr(undefined)).toBe(true);
+    expect(canShowBoardingQr('USED')).toBe(false);
+    expect(canShowBoardingQr('EXPIRED')).toBe(false);
+    expect(canShowBoardingQr('ISSUED', true)).toBe(false);
   });
 });

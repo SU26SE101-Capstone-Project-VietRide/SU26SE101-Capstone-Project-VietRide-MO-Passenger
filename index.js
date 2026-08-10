@@ -4,6 +4,7 @@
  * Registers the root component using Expo's registerRootComponent.
  */
 
+import 'react-native-gesture-handler';
 import { registerRootComponent } from 'expo';
 import App from './src/app/App';
 import { registerNotificationBackgroundHandlers } from './src/shared/notifications';

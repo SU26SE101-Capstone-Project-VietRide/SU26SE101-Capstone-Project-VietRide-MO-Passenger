@@ -1,4 +1,5 @@
 import type { Location } from '@features/location/types/location';
+import { isLocationRootType } from '@features/location/types/location';
 import { normalizeLocationSearchText } from '@features/location/utils/locationSearch';
 
 interface PopularRouteDefinition {
@@ -54,7 +55,11 @@ const findActiveLocation = (
   locations: readonly Location[],
   aliases: readonly string[],
 ): Location | undefined =>
-  locations.find((location) => location.isActive && matchesAlias(location, aliases));
+  locations.find((location) => (
+    location.isActive
+    && isLocationRootType(location.type)
+    && matchesAlias(location, aliases)
+  ));
 
 /**
  * Resolve curated shortcuts against the active location catalog. A shortcut is

@@ -19,6 +19,8 @@ export interface TrackingMapPalette {
   nextHalo: string;
   target: string;
   targetHalo: string;
+  targetGlyph: string;
+  shuttleTarget: string;
   shuttleStation: string;
   frameBorder: string;
   progressSurface: string;
@@ -50,8 +52,10 @@ export const TRACKING_MAP_LIGHT_PALETTE = freezePalette({
   intermediateBorder: '#007D78',
   next: '#D97706',
   nextHalo: 'rgba(217, 119, 6, 0.22)',
-  target: '#007D78',
-  targetHalo: 'rgba(0, 125, 120, 0.22)',
+  target: '#6D28D9',
+  targetHalo: 'rgba(109, 40, 217, 0.24)',
+  targetGlyph: '#FFFFFF',
+  shuttleTarget: '#007D78',
   shuttleStation: '#006A67',
   frameBorder: 'rgba(0, 125, 120, 0.22)',
   progressSurface: 'rgba(0, 125, 120, 0.08)',
@@ -77,8 +81,10 @@ export const TRACKING_MAP_DARK_PALETTE = freezePalette({
   intermediateBorder: 'rgba(85, 241, 232, 0.72)',
   next: '#FBBF24',
   nextHalo: 'rgba(251, 191, 36, 0.24)',
-  target: '#55F1E8',
-  targetHalo: 'rgba(85, 241, 232, 0.22)',
+  target: '#C4B5FD',
+  targetHalo: 'rgba(196, 181, 253, 0.26)',
+  targetGlyph: '#241447',
+  shuttleTarget: '#55F1E8',
   shuttleStation: '#9FFFF8',
   frameBorder: 'rgba(85, 241, 232, 0.28)',
   progressSurface: 'rgba(85, 241, 232, 0.10)',

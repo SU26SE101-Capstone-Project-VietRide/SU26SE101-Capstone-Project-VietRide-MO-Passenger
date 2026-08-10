@@ -41,6 +41,8 @@ const trip: BusTrip = {
   departureCity: 'Origin City',
   arrivalCity: 'Destination City',
   status: 'SCHEDULED',
+  pickupPoints: [],
+  dropoffPoints: [],
 };
 
 const returnTrip: BusTrip = {

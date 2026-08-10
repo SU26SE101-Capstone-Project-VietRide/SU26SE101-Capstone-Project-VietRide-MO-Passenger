@@ -1,6 +1,11 @@
 /** Pure, allocation-conscious display formatters shared by mobile features. */
 
 import i18n from '@shared/i18n';
+import {
+  apiCalendarDateSchema,
+  apiInstantSchema,
+  VIETNAM_TIME_ZONE,
+} from '@shared/utils/apiTime';
 
 export type VndDisplay = 'symbol' | 'code';
 
@@ -22,10 +27,41 @@ export const toIntlLocale = (language?: string): string =>
 export const getActiveIntlLocale = (): string =>
   toIntlLocale(i18n.resolvedLanguage ?? i18n.language);
 
-const toValidDate = (dateLike: string | number | Date): Date | null => {
+interface ResolvedDisplayDate {
+  date: Date;
+  timeZone?: string;
+}
+
+const toValidDate = (
+  dateLike: string | number | Date,
+): ResolvedDisplayDate | null => {
+  if (typeof dateLike === 'string') {
+    const calendarResult = apiCalendarDateSchema.safeParse(dateLike);
+    if (calendarResult.success) {
+      const [year, month, day] = calendarResult.data.split('-').map(Number);
+      return {
+        date: new Date(Date.UTC(year, month - 1, day)),
+        timeZone: 'UTC',
+      };
+    }
+
+    const instantResult = apiInstantSchema.safeParse(dateLike);
+    if (!instantResult.success) return null;
+
+    return {
+      date: new Date(instantResult.data),
+      timeZone: VIETNAM_TIME_ZONE,
+    };
+  }
+
   const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (Number.isNaN(date.getTime())) return null;
+
+  return { date };
 };
+
+const dateFormatterKey = (locale: string, timeZone?: string): string =>
+  `${locale}:${timeZone ?? 'device'}`;
 
 /**
  * Format a number as Vietnamese Dong currency.
@@ -70,22 +106,24 @@ export function formatDate(
   dateLike: string | number | Date,
   locale = getActiveIntlLocale(),
 ): string {
-  const date = toValidDate(dateLike);
-  if (!date) {
+  const resolved = toValidDate(dateLike);
+  if (!resolved) {
     return '';
   }
 
-  let formatter = dateFormatters.get(locale);
+  const formatterKey = dateFormatterKey(locale, resolved.timeZone);
+  let formatter = dateFormatters.get(formatterKey);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat(locale, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
+      ...(resolved.timeZone ? { timeZone: resolved.timeZone } : {}),
     });
-    dateFormatters.set(locale, formatter);
+    dateFormatters.set(formatterKey, formatter);
   }
 
-  return formatter.format(date);
+  return formatter.format(resolved.date);
 }
 
 /** Format a date without a year, for compact list metadata. */
@@ -93,21 +131,23 @@ export function formatShortDate(
   dateLike: string | number | Date,
   locale = getActiveIntlLocale(),
 ): string {
-  const date = toValidDate(dateLike);
-  if (!date) {
+  const resolved = toValidDate(dateLike);
+  if (!resolved) {
     return '';
   }
 
-  let formatter = shortDateFormatters.get(locale);
+  const formatterKey = dateFormatterKey(locale, resolved.timeZone);
+  let formatter = shortDateFormatters.get(formatterKey);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat(locale, {
       day: '2-digit',
       month: '2-digit',
+      ...(resolved.timeZone ? { timeZone: resolved.timeZone } : {}),
     });
-    shortDateFormatters.set(locale, formatter);
+    shortDateFormatters.set(formatterKey, formatter);
   }
 
-  return formatter.format(date);
+  return formatter.format(resolved.date);
 }
 
 /** Format the month and year with a cached locale-aware formatter. */
@@ -115,21 +155,23 @@ export function formatMonthYear(
   dateLike: string | number | Date,
   locale = getActiveIntlLocale(),
 ): string {
-  const date = toValidDate(dateLike);
-  if (!date) {
+  const resolved = toValidDate(dateLike);
+  if (!resolved) {
     return '';
   }
 
-  let formatter = monthYearFormatters.get(locale);
+  const formatterKey = dateFormatterKey(locale, resolved.timeZone);
+  let formatter = monthYearFormatters.get(formatterKey);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat(locale, {
       month: 'long',
       year: 'numeric',
+      ...(resolved.timeZone ? { timeZone: resolved.timeZone } : {}),
     });
-    monthYearFormatters.set(locale, formatter);
+    monthYearFormatters.set(formatterKey, formatter);
   }
 
-  return formatter.format(date);
+  return formatter.format(resolved.date);
 }
 
 /** Format a compact local date and time without constructing Intl per render. */
@@ -137,12 +179,13 @@ export function formatDateTime(
   dateLike: string | number | Date,
   locale = getActiveIntlLocale(),
 ): string {
-  const date = toValidDate(dateLike);
-  if (!date) {
+  const resolved = toValidDate(dateLike);
+  if (!resolved) {
     return '';
   }
 
-  let formatter = dateTimeFormatters.get(locale);
+  const formatterKey = dateFormatterKey(locale, resolved.timeZone);
+  let formatter = dateTimeFormatters.get(formatterKey);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat(locale, {
       day: '2-digit',
@@ -151,8 +194,9 @@ export function formatDateTime(
       hour: '2-digit',
       minute: '2-digit',
       hourCycle: 'h23',
+      ...(resolved.timeZone ? { timeZone: resolved.timeZone } : {}),
     });
-    dateTimeFormatters.set(locale, formatter);
+    dateTimeFormatters.set(formatterKey, formatter);
   }
 
   let day: string | undefined;
@@ -161,7 +205,7 @@ export function formatDateTime(
   let hour: string | undefined;
   let minute: string | undefined;
 
-  for (const part of formatter.formatToParts(date)) {
+  for (const part of formatter.formatToParts(resolved.date)) {
     switch (part.type) {
       case 'day': day = part.value; break;
       case 'month': month = part.value; break;
@@ -187,22 +231,24 @@ export function formatTime(
   dateLike: string | number | Date,
   locale = getActiveIntlLocale(),
 ): string {
-  const date = toValidDate(dateLike);
-  if (!date) {
+  const resolved = toValidDate(dateLike);
+  if (!resolved) {
     return '';
   }
 
-  let formatter = timeFormatters.get(locale);
+  const formatterKey = dateFormatterKey(locale, resolved.timeZone);
+  let formatter = timeFormatters.get(formatterKey);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat(locale, {
       hour: '2-digit',
       minute: '2-digit',
       hourCycle: 'h23',
+      ...(resolved.timeZone ? { timeZone: resolved.timeZone } : {}),
     });
-    timeFormatters.set(locale, formatter);
+    timeFormatters.set(formatterKey, formatter);
   }
 
-  return formatter.format(date);
+  return formatter.format(resolved.date);
 }
 
 /** Format a non-negative duration as `mm:ss` for OTP/session countdowns. */

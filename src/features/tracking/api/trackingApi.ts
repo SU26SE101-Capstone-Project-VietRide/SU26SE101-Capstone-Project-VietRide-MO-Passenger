@@ -4,6 +4,10 @@ import {
   unwrapApiResponse,
   type ApiEnvelope,
 } from '@shared/api/errors';
+import {
+  apiInstantSchema,
+  assertApiInstantRange,
+} from '@shared/utils/apiTime';
 import { isValidGeoCoordinate } from '@shared/utils/geo';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 import { z } from 'zod';
@@ -11,7 +15,7 @@ import { z } from 'zod';
 import type { TrackingTarget } from '../types/trackingTarget';
 import { trackingTargetCacheKey } from '../types/trackingTarget';
 
-export const trackingDateTimeSchema = z.string().datetime();
+export const trackingDateTimeSchema = apiInstantSchema;
 export const trackingEtaQualitySchema = z.enum(['TRAFFIC_AWARE', 'FALLBACK']);
 
 const trackingPointShape = {
@@ -525,6 +529,11 @@ export async function getTrackingTrail(
   params: TrackingTrailParams = {},
   signal?: AbortSignal,
 ): Promise<TrackingTrailResponse> {
+  assertApiInstantRange(
+    { from: params.from, to: params.to },
+    { label: 'Tracking trail range' },
+  );
+
   const response = await apiClient.get<ApiEnvelope<TrackingTrailResponse>>(
     `${trackingTripPath(tripId)}/trail`,
     {

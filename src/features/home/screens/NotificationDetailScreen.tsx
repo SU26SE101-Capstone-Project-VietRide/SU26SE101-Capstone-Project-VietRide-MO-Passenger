@@ -3,21 +3,19 @@ import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import { ArrowLeft, Package, Ticket, Van } from 'phosphor-react-native';
+import { ArrowLeft, MapPin, Package, Ticket, Van, Wallet } from 'phosphor-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import type { RootStackParamList } from '@app/navigation/types';
-import { isUuid } from '@shared/utils/pathSegment';
 import { borderRadius, fontFamilies, fontSizes, spacing, type AppTheme } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
+import { getNotificationNavigationIntent } from '@shared/notifications/notificationAction';
 import { formatDateTime, toIntlLocale } from '@shared/utils/format';
 import { DEFAULT_NOTIFICATION_LIST_PARAMS, useMarkNotificationRead } from '../hooks/useNotifications';
 import {
-  getNotificationDataString,
   getNotificationKind,
-  getShuttleTrackingNotificationIntent,
 } from '../utils/notificationPresentation';
 
 type NotificationDetailRoute = RouteProp<RootStackParamList, 'NotificationDetail'>;
@@ -32,11 +30,11 @@ export function NotificationDetailScreen(): React.JSX.Element {
   const { notification } = route.params;
   const { mutate: markRead } = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const kind = getNotificationKind(notification.type);
-  const parcelId = getNotificationDataString(notification.data, 'parcelId');
-  const canOpenParcel = kind === 'parcel' && isUuid(parcelId);
-  const shuttleTrackingIntent = useMemo(
-    () => getShuttleTrackingNotificationIntent(notification),
-    [notification],
+  // Pass notification.data so shuttle tracking can resolve bookingId even when
+  // action.params only has shuttleTripId (current BE + existing inbox rows).
+  const actionIntent = useMemo(
+    () => getNotificationNavigationIntent(notification.action, notification.data),
+    [notification.action, notification.data],
   );
 
   const timestamp = useMemo(() => {
@@ -53,25 +51,59 @@ export function NotificationDetailScreen(): React.JSX.Element {
   }, [markRead, notification.id, notification.readAt]);
 
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
-  const handleOpenParcel = useCallback(() => {
-    if (!canOpenParcel) return;
+  const handleRelatedAction = useCallback(() => {
+    switch (actionIntent?.type) {
+      case 'booking-history':
+        navigation.navigate('Main', {
+          screen: 'BookingHistory',
+          params: { initialTab: 'ticket' },
+        });
+        return;
+      case 'trip-tracking':
+        navigation.navigate('Tracking', {
+          source: 'trip',
+          tripId: actionIntent.tripId,
+        });
+        return;
+      case 'parcel-detail':
+        navigation.navigate('Parcel', {
+          screen: 'ParcelDetail',
+          params: { parcelId: actionIntent.parcelId, fromHistory: true },
+        });
+        return;
+      case 'wallet':
+        navigation.navigate('Main', {
+          screen: 'Profile',
+          params: { screen: 'Wallet' },
+        });
+        return;
+      case 'shuttle-tracking':
+        navigation.navigate('Tracking', {
+          source: 'shuttle',
+          shuttleTripId: actionIntent.shuttleTripId,
+          ...(actionIntent.bookingId
+            ? { bookingId: actionIntent.bookingId }
+            : {}),
+        });
+    }
+  }, [actionIntent, navigation]);
 
-    navigation.navigate('Parcel', {
-      screen: 'ParcelDetail',
-      params: { parcelId, fromHistory: true },
-    });
-  }, [canOpenParcel, navigation, parcelId]);
-  const handleOpenShuttleTracking = useCallback(() => {
-    if (!shuttleTrackingIntent) return;
-
-    navigation.navigate('Tracking', {
-      source: 'shuttle',
-      shuttleTripId: shuttleTrackingIntent.shuttleTripId,
-      ...(shuttleTrackingIntent.bookingId
-        ? { bookingId: shuttleTrackingIntent.bookingId }
-        : {}),
-    });
-  }, [navigation, shuttleTrackingIntent]);
+  const relatedActionLabel = useMemo(() => {
+    switch (actionIntent?.type) {
+      case 'booking-history':
+        return t('notification.viewBookingHistory');
+      case 'trip-tracking':
+        return t('notification.trackTrip');
+      case 'parcel-detail':
+        return t('notification.viewParcelDetails');
+      case 'wallet':
+        return t('notification.openWallet');
+      case 'shuttle-tracking':
+        return t('notification.trackShuttle');
+      default:
+        return null;
+    }
+  }, [actionIntent, t]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -118,31 +150,25 @@ export function NotificationDetailScreen(): React.JSX.Element {
           <Text style={styles.message}>{notification.body}</Text>
         </View>
 
-        {canOpenParcel ? (
+        {actionIntent && relatedActionLabel ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('notification.viewParcelDetails')}
-            onPress={handleOpenParcel}
+            accessibilityLabel={relatedActionLabel}
+            onPress={handleRelatedAction}
             style={({ pressed }) => [styles.relatedAction, pressed ? styles.pressed : null]}
           >
-            <Package size={20} color={theme.colors.textInverse} weight="fill" />
-            <Text style={styles.relatedActionLabel}>
-              {t('notification.viewParcelDetails')}
-            </Text>
-          </Pressable>
-        ) : null}
-
-        {shuttleTrackingIntent ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('notification.trackShuttle')}
-            onPress={handleOpenShuttleTracking}
-            style={({ pressed }) => [styles.relatedAction, pressed ? styles.pressed : null]}
-          >
-            <Van size={20} color={theme.colors.textInverse} weight="fill" />
-            <Text style={styles.relatedActionLabel}>
-              {t('notification.trackShuttle')}
-            </Text>
+            {actionIntent.type === 'parcel-detail' ? (
+              <Package size={20} color={theme.colors.textInverse} weight="fill" />
+            ) : actionIntent.type === 'shuttle-tracking' ? (
+              <Van size={20} color={theme.colors.textInverse} weight="fill" />
+            ) : actionIntent.type === 'trip-tracking' ? (
+              <MapPin size={20} color={theme.colors.textInverse} weight="fill" />
+            ) : actionIntent.type === 'wallet' ? (
+              <Wallet size={20} color={theme.colors.textInverse} weight="fill" />
+            ) : (
+              <Ticket size={20} color={theme.colors.textInverse} weight="fill" />
+            )}
+            <Text style={styles.relatedActionLabel}>{relatedActionLabel}</Text>
           </Pressable>
         ) : null}
       </ScrollView>

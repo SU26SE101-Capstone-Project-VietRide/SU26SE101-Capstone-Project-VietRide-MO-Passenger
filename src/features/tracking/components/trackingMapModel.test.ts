@@ -25,6 +25,21 @@ describe('prepareTrackingMapData', () => {
     expect(result.points).toHaveLength(2);
   });
 
+  it('uses the newest trail point as the current position when latest is empty', () => {
+    const olderTrailPoint = point('2026-07-20T01:00:00.000Z');
+    const currentTrailPoint = point('2026-07-20T01:01:00.000Z', {
+      latitude: 10.78,
+      longitude: 106.71,
+    });
+
+    const result = prepareTrackingMapData({
+      latest: null,
+      trail: [olderTrailPoint, currentTrailPoint],
+    });
+
+    expect(result.latest).toEqual(currentTrailPoint);
+  });
+
   it('rejects unsafe coordinates and telemetry before native rendering', () => {
     const invalid = point('not-a-date', { latitude: 1000 });
     const valid = point('2026-07-20T01:01:00.000Z', {
@@ -54,6 +69,58 @@ describe('prepareTrackingMapData', () => {
 
     expect(result.stops).toEqual([
       { id: 'stop-1', name: 'Updated', latitude: 11, longitude: 107 },
+    ]);
+  });
+
+  it('retains every valid route stop without applying a marker cap', () => {
+    const markers = Array.from({ length: 50 }, (_, index) => ({
+      id: `stop-${index + 1}`,
+      name: `Stop ${index + 1}`,
+      latitude: 10 + index * 0.001,
+      longitude: 106 + index * 0.001,
+      kind: 'intermediate' as const,
+      sequence: index + 1,
+    }));
+
+    const result = prepareTrackingMapData({
+      latest: null,
+      trail: [],
+      markers,
+    });
+
+    expect(result.markers).toHaveLength(50);
+    expect(result.markers.map((marker) => marker.id)).toEqual(
+      markers.map((marker) => marker.id),
+    );
+    expect(result).not.toHaveProperty('hiddenIntermediateCount');
+  });
+
+  it('merges a shared next and target stop into one targetNext marker', () => {
+    const sharedStop = {
+      id: 'shared-stop',
+      name: 'Shared stop',
+      latitude: 10.77,
+      longitude: 106.7,
+      sequence: 7,
+    };
+
+    const result = prepareTrackingMapData({
+      latest: null,
+      trail: [],
+      markers: [
+        { ...sharedStop, kind: 'intermediate' },
+        { ...sharedStop, kind: 'next' },
+        { ...sharedStop, kind: 'target' },
+        { ...sharedStop, kind: 'intermediate' },
+      ],
+    });
+
+    expect(result.markers).toEqual([
+      expect.objectContaining({
+        id: 'shared-stop',
+        kind: 'targetNext',
+        sequence: 7,
+      }),
     ]);
   });
 });

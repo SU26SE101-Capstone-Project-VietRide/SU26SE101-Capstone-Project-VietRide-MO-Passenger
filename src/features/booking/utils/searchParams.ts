@@ -1,9 +1,8 @@
 import {
-  addLocalDays,
   parseLocalDate,
-  startOfLocalDay,
   toLocalIsoDate,
 } from '@shared/utils/localDate';
+import { addApiCalendarDays, toVietnamBusinessDate } from '@shared/utils/apiTime';
 
 export {
   findLocationByName,
@@ -12,14 +11,14 @@ export {
 
 export const toTripSearchDate = (value: string, now = new Date()): string => {
   const normalized = value.trim();
-  const today = startOfLocalDay(now);
+  const today = toVietnamBusinessDate(now);
 
   if (normalized === 'Today') {
-    return toLocalIsoDate(today);
+    return today;
   }
 
   if (normalized === 'Tomorrow') {
-    return toLocalIsoDate(addLocalDays(today, 1));
+    return addApiCalendarDays(today, 1);
   }
 
   const date = parseLocalDate(normalized);

@@ -180,7 +180,6 @@ export const getShuttleServiceEligibility = (
   point: PickUpPoint | DropOffPoint | null,
   station: StationDetail,
   direction: ShuttleServiceDirection,
-  nowMs = Date.now(),
 ): ShuttleEligibility => {
   if (!isEligibleTerminalPoint(trip, point, direction)) {
     return {
@@ -193,9 +192,6 @@ export const getShuttleServiceEligibility = (
   }
   if (!hasValidShuttleTripSchedule(trip.departureDateTime)) {
     return { eligible: false, reason: 'TRIP_SCHEDULE' };
-  }
-  if (isShuttleRequestCutoffPassed(trip.departureDateTime, nowMs)) {
-    return { eligible: false, reason: 'CUTOFF' };
   }
   if (!station.isActive) {
     return { eligible: false, reason: 'STATION_INACTIVE' };
@@ -219,13 +215,11 @@ export const getShuttleEligibility = (
   trip: BusTrip,
   pickup: PickUpPoint | null,
   station: StationDetail,
-  nowMs = Date.now(),
 ): ShuttleEligibility => getShuttleServiceEligibility(
   trip,
   pickup,
   station,
   'pickup',
-  nowMs,
 );
 
 export const toShuttleServicePayload = (
@@ -262,14 +256,6 @@ export const toShuttleServicePayload = (
     throw new ApiRequestError({
       message: 'Shuttle availability cannot be verified for this trip.',
       code: 'SHUTTLE_TRIP_SCHEDULE_UNAVAILABLE',
-    });
-  }
-
-  if (isShuttleRequestCutoffPassed(trip.departureDateTime)) {
-    throw new ApiRequestError({
-      message: 'Shuttle pickup must be requested at least 30 minutes before departure.',
-      code: 'SHUTTLE_REQUEST_CUTOFF_PASSED',
-      statusCode: 409,
     });
   }
 

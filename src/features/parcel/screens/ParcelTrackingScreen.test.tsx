@@ -62,6 +62,7 @@ jest.mock('phosphor-react-native', () => {
 
 jest.mock('@features/tracking', () => ({
   LiveTripTrackingPanel: (props: unknown) => mockLiveTripTrackingPanel(props),
+  TrackingHeader: () => null,
 }));
 
 jest.mock('../hooks/useParcelQueries', () => ({
@@ -70,6 +71,7 @@ jest.mock('../hooks/useParcelQueries', () => ({
 
 jest.mock('../components', () => ({
   ErrorView: () => null,
+  ParcelTrackingTimeline: () => null,
 }));
 
 import { ParcelTrackingScreen } from './ParcelTrackingScreen';
@@ -117,12 +119,16 @@ describe('ParcelTrackingScreen live map integration', () => {
       renderer = ReactTestRenderer.create(<ParcelTrackingScreen />);
     });
 
-    expect(mockLiveTripTrackingPanel).toHaveBeenCalledWith({
+    expect(mockLiveTripTrackingPanel).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'trip',
       tripId,
-      stopId,
+      trackingTarget: { kind: 'STOP', stopId },
       sourceTerminal: false,
-      terminalMessage: 'Parcel transport is complete. Automatic location updates are stopped.',
-    });
+      terminalMessage: expect.any(String),
+      refreshing: false,
+      onRefresh: expect.any(Function),
+      detailsFooter: expect.anything(),
+    }));
 
     await act(async () => renderer!.unmount());
   });

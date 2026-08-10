@@ -59,10 +59,9 @@ import {
   openPaymentRedirect,
 } from '@shared/utils/paymentRedirect';
 import {
-  addLocalDays,
-  startOfLocalDay,
-  toLocalIsoDate,
-} from '@shared/utils/localDate';
+  addApiCalendarDays,
+  toVietnamBusinessDate,
+} from '@shared/utils/apiTime';
 import {
   formatDateTime,
   formatShortDate,
@@ -76,7 +75,6 @@ import type {
 import type { PromoOffer } from '@shared/utils/promo';
 import {
   findPromoByCode,
-  isPromoExpired,
   normalizePromoCode,
 } from '@shared/utils/promo';
 import { findLocationByName } from '@features/location/utils/locationSearch';
@@ -278,7 +276,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const recipientNameRef = useRef<TextInput>(null);
   const recipientPhoneRef = useRef<TextInput>(null);
   const recipientEmailRef = useRef<TextInput>(null);
-  const departureDateBase = useMemo(() => startOfLocalDay(new Date()), []);
+  const departureDateBase = useMemo(() => toVietnamBusinessDate(), []);
   const [departureOffset, setDepartureOffset] = useState(0);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [tripPageIndex, setTripPageIndex] = useState(0);
@@ -382,8 +380,9 @@ export function CreateParcelScreen(): React.JSX.Element {
     : undefined;
   const sizeCategory = getParcelSizeCategory(packageSize);
   const estimatedWeightKg = packageWeight;
-  const departureDate = toLocalIsoDate(
-    addLocalDays(departureDateBase, departureOffset),
+  const departureDate = addApiCalendarDays(
+    departureDateBase,
+    departureOffset,
   );
   const backendPaymentMethod = toBackendPaymentMethod(paymentMethod);
 
@@ -1115,12 +1114,6 @@ export function CreateParcelScreen(): React.JSX.Element {
         return false;
       }
 
-      if (isPromoExpired(promo)) {
-        setAppliedPromo(null);
-        setPromoError(t('parcel.promos.validation.expired'));
-        return false;
-      }
-
       if (promo.minimumSpend && depositBeforeDiscount < promo.minimumSpend) {
         setAppliedPromo(null);
         setPromoError(
@@ -1270,7 +1263,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       >
         {DATE_OFFSETS.map(offset => {
           const active = departureOffset === offset;
-          const date = addLocalDays(departureDateBase, offset);
+          const date = addApiCalendarDays(departureDateBase, offset);
           const label =
             offset === 0
               ? t('parcel.date.today')
@@ -1316,7 +1309,7 @@ export function CreateParcelScreen(): React.JSX.Element {
                 dropoffStation?.name ??
                 t('parcel.route.selectedDestination'),
               date: formatShortDate(
-                addLocalDays(departureDateBase, departureOffset),
+                addApiCalendarDays(departureDateBase, departureOffset),
               ),
             })}
           </Text>

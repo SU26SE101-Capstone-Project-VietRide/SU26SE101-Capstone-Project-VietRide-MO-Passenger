@@ -6,9 +6,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -16,14 +14,8 @@ import {
 } from 'react-native';
 import {
   Broadcast,
-  Clock,
-  LinkBreak,
-  MapPin,
   NavigationArrow,
-  ShareNetwork,
-  Target,
   WarningCircle,
-  WifiSlash,
 } from 'phosphor-react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -61,6 +53,16 @@ import {
 } from './TrackingMap';
 import type { TrackingHeaderRoute } from './TrackingHeader';
 import { getTrackingMapPalette } from './trackingMapStyles';
+import { TrackingDetailsContent } from './TrackingDetailsContent';
+import { TripTrackingMapExperience } from './TripTrackingMapExperience';
+import {
+  buildTripRoutePresentation,
+  type TripRouteStopPresentation,
+} from './tripRoutePresentation';
+import type {
+  UpcomingStopSheetItem,
+  UpcomingStopTone,
+} from './UpcomingStopsSheet';
 
 interface TrackingLayoutSlots {
   detailsFooter?: ReactNode;
@@ -227,64 +229,6 @@ const MapJourneyDock = React.memo(function MapJourneyDockComponent({
   );
 });
 
-const buildTripMarkers = (
-  context: TripRouteContext | null,
-  nextStopId: string | undefined,
-  trackingTarget: TrackingTarget | undefined,
-): TrackingMapMarker[] => {
-  if (!context) return [];
-
-  const targetStopId = trackingTarget?.kind === 'STOP'
-    ? trackingTarget.stopId
-    : undefined;
-  const targetStationId = trackingTarget?.kind === 'STATION'
-    ? trackingTarget.stationId
-    : undefined;
-
-  const markers: TrackingMapMarker[] = [];
-  if (context.originStation) {
-    markers.push({
-      id: `origin:${context.originStation.stationId}`,
-      name: context.originStation.name,
-      latitude: context.originStation.latitude,
-      longitude: context.originStation.longitude,
-      kind: 'origin',
-    });
-  }
-
-  context.intermediateStops.forEach((stop) => {
-    const kind = stop.stopId === targetStopId
-      ? 'target'
-      : stop.stopId === nextStopId
-        ? 'next'
-        : 'intermediate';
-    markers.push({
-      id: `stop:${stop.stopId}`,
-      name: stop.name,
-      sequence: stop.sequence,
-      latitude: stop.latitude,
-      longitude: stop.longitude,
-      kind,
-    });
-  });
-
-  if (context.destinationStation) {
-    const isTargetStation = Boolean(
-      targetStationId
-      && context.destinationStation.stationId === targetStationId,
-    );
-    markers.push({
-      id: `destination:${context.destinationStation.stationId}`,
-      name: context.destinationStation.name,
-      latitude: context.destinationStation.latitude,
-      longitude: context.destinationStation.longitude,
-      kind: isTargetStation ? 'target' : 'destination',
-    });
-  }
-
-  return markers;
-};
-
 const buildShuttleMarkers = (
   context: ShuttlePassengerContext | null,
   selectedPickup: ShuttlePassengerPickup | null,
@@ -362,7 +306,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const externalRefreshing = props.refreshing ?? false;
   const externalRefresh = props.onRefresh;
   const theme = useTheme();
-  const mapPalette = getTrackingMapPalette(theme.isDark);
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const hasDetailsFooter = Boolean(detailsFooter);
@@ -440,14 +383,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     () => new Map((tripQuery.data?.stops ?? []).map((stop) => [stop.id, stop])),
     [tripQuery.data?.stops],
   );
-  const etaByStopId = useMemo(
-    () => new Map(
-      tracking.etas
-        .filter((eta) => eta.targetKind === 'STOP' && eta.stopId)
-        .map((eta) => [eta.stopId as string, eta]),
-    ),
-    [tracking.etas],
-  );
   const destinationEta = useMemo(
     () => tracking.etas.find((eta) => (
       eta.targetKind === 'STATION'
@@ -465,6 +400,23 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     ? nextEta.stopId
     : undefined;
   const nextStopId = liveNextStopId ?? plannedNextStopId;
+  const tripPresentation = useMemo(() => buildTripRoutePresentation({
+    context: routeContext,
+    allowPlannedFallback: !tracking.latest,
+    destinationPlannedArrivalTime: tripQuery.data?.estimatedArrivalDateTime,
+    destinationPlannedStationId: tripQuery.data?.destinationStationId,
+    etas: tracking.latest ? tracking.etas : [],
+    plannedStops: tripQuery.data?.stops ?? [],
+    target: trackingTarget,
+  }), [
+    routeContext,
+    tracking.etas,
+    tracking.latest,
+    trackingTarget,
+    tripQuery.data?.destinationStationId,
+    tripQuery.data?.estimatedArrivalDateTime,
+    tripQuery.data?.stops,
+  ]);
   const markers = useMemo(
     () => (isShuttle
       ? buildShuttleMarkers(
@@ -473,15 +425,13 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           t('tracking.map.ownPickupMarker'),
           t('tracking.map.ownDropoffMarker'),
         )
-      : buildTripMarkers(routeContext, nextStopId, trackingTarget)),
+      : tripPresentation.markers),
     [
       isShuttle,
-      nextStopId,
-      routeContext,
-      trackingTarget,
       selectedShuttlePickup,
       shuttleContext,
       t,
+      tripPresentation.markers,
     ],
   );
   const plannedRoute = routeContext?.geometry?.points ?? EMPTY_PLANNED_ROUTE;
@@ -656,19 +606,12 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         : '';
       return arrival
         ? t('tracking.details.plannedEta', { arrival })
-        : t('tracking.details.waitingEta');
+        : t('tracking.details.etaUnavailable');
     },
     [t],
   );
 
   const intermediateStops = routeContext?.intermediateStops ?? EMPTY_INTERMEDIATE_STOPS;
-  const upcomingStops = useMemo(
-    () => intermediateStops.filter((stop) => {
-        const plannedStop = plannedStopsById.get(stop.stopId);
-        return plannedStop?.status === undefined || plannedStop.status === 'PENDING';
-      }),
-    [intermediateStops, plannedStopsById],
-  );
   const progressItems = useMemo<ProgressItem[]>(() => {
     if (isShuttle) {
       if (!selectedShuttlePickup) {
@@ -836,6 +779,94 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     tripQuery.data?.estimatedArrivalDateTime,
   ]);
 
+  const routeStopToSheetItem = useCallback((
+    stop: TripRouteStopPresentation,
+  ): UpcomingStopSheetItem => {
+    const tone: UpcomingStopTone = stop.isNext && stop.isTarget
+      ? 'targetNext'
+      : stop.isTarget
+        ? 'target'
+        : stop.isNext
+          ? 'next'
+          : stop.targetKind === 'STATION'
+            ? 'destination'
+            : 'default';
+    const label = tone === 'targetNext'
+      ? t('tracking.map.targetNextStopMarker')
+      : tone === 'target'
+        ? t('tracking.map.targetStopMarker')
+        : tone === 'next'
+          ? t('tracking.map.nextStopMarker')
+          : tone === 'destination'
+            ? t('tracking.dropOff')
+            : t('tracking.map.routeStopMarker');
+
+    return {
+      id: stop.key,
+      label,
+      name: stop.name,
+      detail: stop.eta
+        ? formatEta(stop.eta)
+        : formatPlannedEta(stop.plannedArrivalTime),
+      ...(stop.targetKind === 'STOP' ? { sequence: stop.sequence } : {}),
+      tone,
+    };
+  }, [formatEta, formatPlannedEta, t]);
+  const tripSheetItems = useMemo(
+    () => tripPresentation.upcomingStops.map(routeStopToSheetItem),
+    [routeStopToSheetItem, tripPresentation.upcomingStops],
+  );
+  const tripSheetFeaturedItems = useMemo(() => {
+    const featured = tripPresentation.featuredStops.map(routeStopToSheetItem);
+    const items = [...featured];
+    if (!tripPresentation.featuredStops.some((stop) => stop.isNext)) {
+      items.unshift({
+        id: 'next:unavailable',
+        label: t('tracking.map.nextStopMarker'),
+        name: t('tracking.progress.nextStopUnavailable'),
+        detail: t('tracking.details.etaUnavailable'),
+        tone: 'next' as const,
+      });
+    }
+
+    if (trackingTarget && !tripPresentation.targetId) {
+      items.push({
+        id: 'target:unavailable',
+        label: t('tracking.map.targetStopMarker'),
+        name: t('tracking.progress.targetStopUnavailable'),
+        detail: t('tracking.details.etaUnavailable'),
+        tone: 'target' as const,
+      });
+    }
+
+    return items;
+  }, [
+    routeStopToSheetItem,
+    t,
+    trackingTarget,
+    tripPresentation.featuredStops,
+    tripPresentation.targetId,
+  ]);
+  const renderMainTripMap = useCallback((bottomContentInset: number) => (
+    <TrackingMap
+      latest={tracking.latest}
+      trail={tracking.trailPoints}
+      plannedRoute={plannedRoute}
+      markers={tripPresentation.markers}
+      vehicleKind="bus"
+      connectionState={connectionState}
+      showDrivenTrail={false}
+      bottomContentInset={bottomContentInset}
+      edgeToEdge
+    />
+  ), [
+    connectionState,
+    plannedRoute,
+    tracking.latest,
+    tracking.trailPoints,
+    tripPresentation.markers,
+  ]);
+
   let hero: ReactNode;
   if (!tracking.hasValidTrackingId) {
     hero = (
@@ -867,7 +898,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
             : 'tracking.states.notFoundMessage')}
       />
     );
-  } else {
+  } else if (isShuttle) {
     const lastUpdateValue = tracking.latest
       ? formatDateTime(tracking.latest.recordedAt)
       : t('tracking.metrics.waitingGps');
@@ -893,20 +924,67 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         trail={tracking.trailPoints}
         plannedRoute={plannedRoute}
         markers={markers}
-        vehicleKind={isShuttle ? 'shuttle' : 'bus'}
+        vehicleKind="shuttle"
+        showUserLocation
         connectionState={connectionState}
         bottomDock={journeyDock}
       />
     );
+  } else {
+    hero = null;
   }
 
   const targetInsight = !isShuttle && trackingTarget
-    ? trackingTarget.kind === 'STATION'
-      ? t('tracking.target.stationHint')
-      : t('tracking.target.stopHint')
+    ? !tripPresentation.targetId
+      ? t('tracking.target.unavailableHint')
+      : trackingTarget.kind === 'STATION'
+        ? t('tracking.target.stationHint')
+        : t('tracking.target.stopHint')
     : !isShuttle && tracking.hasValidTrackingId && tracking.hasAuthenticatedUser && !tracking.fatalError
       ? t('tracking.target.missingHint')
       : null;
+  const detailsContent = (
+    <TrackingDetailsContent
+      canManageTripSharing={canManageTripSharing}
+      detailsFooter={detailsFooter}
+      hasEtaRouteMismatch={!isShuttle && tripPresentation.hasEtaRouteMismatch}
+      hasTrackingTarget={Boolean(trackingTarget)}
+      isOnline={tracking.isOnline}
+      isRevoking={isRevoking}
+      isShareOperationPending={isShareOperationPending}
+      isSharing={isSharing}
+      isTerminal={tracking.isTerminal}
+      latest={tracking.latest}
+      onRetry={handleRetry}
+      onRevokeTripShare={handleRevokeTripShare}
+      onShareTrip={handleShareTrip}
+      routeUnavailable={Boolean(routeContext && routeContext.geometry === null)}
+      targetInsight={targetInsight}
+      terminalMessage={terminalMessage}
+      transientError={Boolean(transientError)}
+      {...(tracking.delay ? { delayMinutes: tracking.delay.delayMinutes } : {})}
+      trailPointCount={tracking.trailPoints.length}
+    />
+  );
+  const canRenderTripSheet = Boolean(
+    !isShuttle
+    && tracking.hasValidTrackingId
+    && tracking.hasAuthenticatedUser
+    && !tracking.fatalError,
+  );
+
+  if (canRenderTripSheet) {
+    return (
+      <TripTrackingMapExperience
+        featuredItems={tripSheetFeaturedItems}
+        footer={detailsContent}
+        items={tripSheetItems}
+        onRefresh={handleRefresh}
+        refreshing={externalRefreshing || trackingRefreshing}
+        renderMap={renderMainTripMap}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -938,204 +1016,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           />
         )}
       >
-        {targetInsight ? (
-          <View
-            style={[
-              styles.infoBanner,
-              trackingTarget ? styles.infoBannerAccent : styles.infoBannerMuted,
-            ]}
-            accessibilityRole="summary"
-          >
-            <Target size={18} color={trackingTarget ? mapPalette.target : theme.colors.textSecondary} weight="duotone" />
-            <Text style={styles.infoBannerText}>{targetInsight}</Text>
-          </View>
-        ) : null}
-
-        {!tracking.isOnline ? (
-          <View style={styles.warningBanner}>
-            <WifiSlash size={18} color={theme.colors.warning} />
-            <Text style={styles.warningBannerText}>
-              {t('tracking.connection.offline')}
-            </Text>
-          </View>
-        ) : null}
-
-        {tracking.delay && !tracking.isTerminal ? (
-          <View style={styles.warningBanner}>
-            <Clock size={18} color={theme.colors.warning} />
-            <Text style={styles.warningBannerText}>
-              {t('tracking.delayMinutes', { count: tracking.delay.delayMinutes })}
-            </Text>
-          </View>
-        ) : null}
-
-        {tracking.isTerminal ? (
-          <View style={styles.neutralBanner}>
-            <Clock size={18} color={theme.colors.textSecondary} />
-            <Text style={styles.neutralBannerText}>
-              {terminalMessage ?? t('tracking.tripComplete')}
-            </Text>
-          </View>
-        ) : null}
-
-        {transientError ? (
-          <View style={styles.errorBanner}>
-            <WarningCircle size={18} color={theme.colors.error} />
-            <Text style={styles.errorBannerText} numberOfLines={2}>
-              {t('tracking.errors.refresh')}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleRetry}
-              style={({ pressed }) => [
-                styles.retryButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        {!isShuttle && (upcomingStops.length > 0 || routeContext?.destinationStation) ? (
-          <View style={styles.upcomingCard}>
-            <Text style={styles.upcomingTitle}>
-              {t('tracking.progress.upcomingStops')}
-            </Text>
-            {upcomingStops.map((stop) => (
-              <View key={stop.stopId} style={styles.upcomingRow}>
-                <MapPin size={17} color={mapPalette.next} weight="duotone" />
-                <View style={styles.upcomingCopy}>
-                  <Text style={styles.upcomingName} numberOfLines={2}>{stop.name}</Text>
-                  <Text style={styles.upcomingEta} numberOfLines={1}>
-                    {etaByStopId.has(stop.stopId)
-                      ? formatEta(etaByStopId.get(stop.stopId) ?? null)
-                      : formatPlannedEta(plannedStopsById.get(stop.stopId)?.estimatedArrivalTime)}
-                  </Text>
-                </View>
-              </View>
-            ))}
-            {routeContext?.destinationStation ? (
-              <View style={styles.upcomingRow}>
-                <Target size={17} color={mapPalette.destination} weight="duotone" />
-                <View style={styles.upcomingCopy}>
-                  <Text style={styles.upcomingName} numberOfLines={2}>
-                    {routeContext.destinationStation.name}
-                  </Text>
-                  <Text style={styles.upcomingEta} numberOfLines={1}>
-                    {destinationEta
-                      ? formatEta(destinationEta)
-                      : formatPlannedEta(tripQuery.data?.estimatedArrivalDateTime)}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {canManageTripSharing ? (
-          <View style={styles.shareCard}>
-            <View style={styles.shareHeading}>
-              <View style={styles.shareIcon}>
-                <ShareNetwork
-                  size={22}
-                  color={mapPalette.target}
-                  weight="duotone"
-                />
-              </View>
-              <View style={styles.shareCopy}>
-                <Text style={styles.shareTitle}>{t('tracking.share.title')}</Text>
-                <Text style={styles.shareDescription}>
-                  {t('tracking.share.description')}
-                </Text>
-                <Text style={styles.sharePrivacy}>
-                  {t('tracking.share.privacyNote')}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.shareActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('tracking.share.action')}
-                accessibilityHint={t('tracking.share.actionHint')}
-                accessibilityState={{
-                  busy: isSharing,
-                  disabled: !tracking.isOnline || isShareOperationPending,
-                }}
-                disabled={!tracking.isOnline || isShareOperationPending}
-                onPress={handleShareTrip}
-                style={({ pressed }) => [
-                  styles.sharePrimaryButton,
-                  !tracking.isOnline || isShareOperationPending
-                    ? styles.shareButtonDisabled
-                    : null,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                {isSharing ? (
-                  <ActivityIndicator size="small" color={theme.colors.textInverse} />
-                ) : (
-                  <ShareNetwork size={18} color={theme.colors.textInverse} weight="bold" />
-                )}
-                <Text style={styles.sharePrimaryText}>
-                  {isSharing ? t('tracking.share.sharing') : t('tracking.share.action')}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('tracking.share.revokeAction')}
-                accessibilityState={{
-                  busy: isRevoking,
-                  disabled: !tracking.isOnline || isShareOperationPending,
-                }}
-                disabled={!tracking.isOnline || isShareOperationPending}
-                onPress={handleRevokeTripShare}
-                style={({ pressed }) => [
-                  styles.shareRevokeButton,
-                  !tracking.isOnline || isShareOperationPending
-                    ? styles.shareButtonDisabled
-                    : null,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                {isRevoking ? (
-                  <ActivityIndicator size="small" color={theme.colors.error} />
-                ) : (
-                  <LinkBreak size={18} color={theme.colors.error} weight="bold" />
-                )}
-                <Text style={styles.shareRevokeText}>
-                  {isRevoking
-                    ? t('tracking.share.revoking')
-                    : t('tracking.share.revokeAction')}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
-
-        {routeContext && routeContext.geometry === null ? (
-          <View style={styles.neutralBanner}>
-            <MapPin size={18} color={theme.colors.textSecondary} />
-            <Text style={styles.neutralBannerText}>
-              {t('tracking.progress.routeUnavailable')}
-            </Text>
-          </View>
-        ) : null}
-
-        {__DEV__ ? (
-          <View style={styles.diagnosticsCard}>
-            <Text style={styles.diagnosticsText}>
-              {tracking.latest
-                ? `${tracking.latest.latitude.toFixed(6)}, ${tracking.latest.longitude.toFixed(6)}`
-                : t('common.notAvailable')}
-            </Text>
-            <Text style={styles.diagnosticsText}>
-              {`trail=${tracking.trailPoints.length}`}
-            </Text>
-          </View>
-        ) : null}
-
-        {detailsFooter ? <View style={styles.detailsFooter}>{detailsFooter}</View> : null}
+        {detailsContent}
       </ScrollView>
     </View>
   );

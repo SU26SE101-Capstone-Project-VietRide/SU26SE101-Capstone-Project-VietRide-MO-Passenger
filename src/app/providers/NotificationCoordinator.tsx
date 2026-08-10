@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+import type { RemoteMessage } from '@react-native-firebase/messaging';
 
 import {
+  discardPendingNotificationOpen,
   flushPendingNotificationOpen,
-  openNotificationInboxFromSystemTray,
+  openNotificationFromSystemTray,
 } from '@app/navigation/navigationRef';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { notificationKeys } from '@features/home/api/notificationApi';
 import { useIsAppActive, useNetworkStatus } from '@shared/hooks';
 import {
   cancelDailyReminder,
+  clearPendingNotificationOpen,
   consumePendingNotificationOpen,
   displayForegroundRemoteNotification,
   ensureNotificationChannels,
@@ -29,6 +32,7 @@ import {
   subscribeToOpenedRemoteMessages,
   synchronizeDeviceRegistration,
 } from '@shared/notifications';
+import { parseFcmNotificationAction } from '@shared/notifications/notificationAction';
 import { useAppStore } from '@shared/store';
 
 const logNotificationWarning = (message: string): void => {
@@ -67,6 +71,7 @@ export function NotificationCoordinator(): null {
     reminders: t('settings.notifications.remindersChannel'),
   }), [t]);
   const initialOpenHandledRef = useRef(false);
+  const initialLocalOpenHandledRef = useRef(false);
 
   const isEligible = Boolean(
     hasHydrated
@@ -85,25 +90,54 @@ export function NotificationCoordinator(): null {
 
   useEffect(() => {
     const unsubscribe = subscribeToLocalNotificationEvents((event) => {
-      if (isNotificationPressEvent(event)) {
-        openNotificationInboxFromSystemTray();
+      if (isEligible && isNotificationPressEvent(event)) {
+        openNotificationFromSystemTray(
+          parseFcmNotificationAction(event.detail.notification?.data),
+        );
       }
     });
 
-    consumePendingNotificationOpen()
-      .then((pending) => {
-        if (pending) openNotificationInboxFromSystemTray();
-      })
-      .catch(() => logNotificationWarning('Could not restore a notification tap.'));
-
-    getInitialLocalNotification()
-      .then((initial) => {
-        if (initial) openNotificationInboxFromSystemTray();
-      })
-      .catch(() => undefined);
-
     return unsubscribe;
-  }, []);
+  }, [isEligible]);
+
+  useEffect(() => {
+    if (!hasHydrated || isAuthLoading || !isEligible || !isAppActive) return;
+
+    let cancelled = false;
+    const shouldReadInitialLocalOpen = !initialLocalOpenHandledRef.current;
+    initialLocalOpenHandledRef.current = true;
+
+    const restoreLocalNotificationOpen = async (): Promise<void> => {
+      let pending = null;
+      try {
+        pending = await consumePendingNotificationOpen();
+      } catch {
+        logNotificationWarning('Could not restore a notification tap.');
+      }
+      if (cancelled) return;
+      if (pending) {
+        openNotificationFromSystemTray(pending);
+        return;
+      }
+
+      if (!shouldReadInitialLocalOpen) return;
+      try {
+        const initial = await getInitialLocalNotification();
+        if (!cancelled && initial) {
+          openNotificationFromSystemTray(parseFcmNotificationAction(
+            initial.notification.data,
+          ));
+        }
+      } catch {
+        // The Firebase initial-open path below remains available.
+      }
+    };
+
+    restoreLocalNotificationOpen().catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [hasHydrated, isAppActive, isAuthLoading, isEligible]);
 
   useEffect(() => {
     if (isEligible) {
@@ -111,8 +145,26 @@ export function NotificationCoordinator(): null {
       return;
     }
 
-    initialOpenHandledRef.current = false;
-    if (!hasHydrated || !isAppActive || isAuthLoading) return;
+    if (!hasHydrated || isAuthLoading) return;
+
+    // Consume process-launch opens while logged out so an action addressed to
+    // a previous session can never execute after a different user signs in.
+    if (!initialLocalOpenHandledRef.current) {
+      initialLocalOpenHandledRef.current = true;
+      getInitialLocalNotification().catch(() => undefined);
+    }
+    if (!initialOpenHandledRef.current) {
+      initialOpenHandledRef.current = true;
+      if (isNativePushConfigured()) {
+        getInitialRemoteNotification().catch(() => undefined);
+      }
+    }
+
+    // A notification intent must never survive logout and reach a later user.
+    discardPendingNotificationOpen();
+    clearPendingNotificationOpen()
+      .catch(() => logNotificationWarning('Could not clear a notification tap.'));
+    if (!isAppActive) return;
 
     // Also runs after later foreground transitions so a cleanup tombstone is
     // retried if Firebase token deletion failed during logout.
@@ -261,9 +313,11 @@ export function NotificationCoordinator(): null {
     const refreshNotificationInbox = (): void => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.user(userId) });
     };
-    const handleOpen = (): void => {
+    const handleOpen = (message: RemoteMessage): void => {
       refreshNotificationInbox();
-      openNotificationInboxFromSystemTray();
+      openNotificationFromSystemTray(
+        parseFcmNotificationAction(message.data),
+      );
     };
     const unsubscribeForeground = subscribeToForegroundRemoteMessages((message) => {
       refreshNotificationInbox();
@@ -308,7 +362,7 @@ export function NotificationCoordinator(): null {
       initialOpenHandledRef.current = true;
       getInitialRemoteNotification()
         .then((message) => {
-          if (message) handleOpen();
+          if (message) handleOpen(message);
         })
         .catch(() => undefined);
     }

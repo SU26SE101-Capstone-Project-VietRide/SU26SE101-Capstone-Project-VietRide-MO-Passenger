@@ -17,10 +17,12 @@ import {
   File,
   Flask,
   MapPin,
+  PathIcon,
   Ticket,
   Wallet,
   Van,
   WarningCircle,
+  XCircle,
 } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +30,7 @@ import { useTranslation } from 'react-i18next';
 import type { BookingStackParamList, RootStackParamList } from '@app/navigation/types';
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { ScannableCodeCard } from '@shared/components';
+import { ScannableCodeCard, StatusChip } from '@shared/components';
 import { useThemedStyles } from '@shared/hooks';
 import {
   borderRadius as BR,
@@ -53,8 +55,10 @@ import {
   type TicketViewModel,
 } from '../utils/ticketViewModel';
 import {
+  canShowBoardingQr,
   getTicketLifecyclePresentation,
   getTicketStatusPresentation,
+  type TicketStatusPresentation,
 } from '../utils/ticketPresentation';
 
 type DigitalTicketRoute = RouteProp<BookingStackParamList, 'DigitalTicket'>;
@@ -152,6 +156,118 @@ const TicketSelector = memo(function TicketSelectorComponent({
   );
 });
 
+function statusIconColor(
+  theme: AppTheme,
+  tone: TicketStatusPresentation['tone'],
+): string {
+  switch (tone) {
+    case 'success':
+      return theme.colors.success;
+    case 'warning':
+      return theme.colors.warning;
+    case 'error':
+      return theme.colors.error;
+    case 'info':
+      return theme.colors.primary;
+    default:
+      return theme.colors.textSecondary;
+  }
+}
+
+function StatusHeaderIcon({
+  isPendingPayment,
+  isChecking,
+  tone,
+}: {
+  isPendingPayment: boolean;
+  isChecking?: boolean;
+  tone: TicketStatusPresentation['tone'];
+}): React.JSX.Element {
+  const theme = useTheme();
+  if (isPendingPayment && isChecking) {
+    return <ActivityIndicator size="large" color={theme.colors.primary} />;
+  }
+  if (isPendingPayment || tone === 'warning') {
+    return <ClockCountdown size={48} color={statusIconColor(theme, 'warning')} weight="duotone" />;
+  }
+  if (tone === 'error') {
+    return <XCircle size={48} color={theme.colors.error} weight="duotone" />;
+  }
+  if (tone === 'success') {
+    return <CheckCircle size={48} color={theme.colors.success} weight="fill" />;
+  }
+  return <Ticket size={48} color={statusIconColor(theme, tone)} weight="duotone" />;
+}
+
+function JourneyTimeline({
+  leg,
+}: {
+  leg: TicketLegViewModel;
+}): React.JSX.Element {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const usesRouteEndpoints = leg.usesRouteEndpoints === true;
+
+  const originLabel = usesRouteEndpoints
+    ? (leg.boardingTime
+      ? t('booking.ticket.routeStartWithTime', { time: leg.boardingTime })
+      : t('booking.ticket.routeStart'))
+    : (leg.boardingTime
+      ? t('booking.ticket.boardingWithTime', { time: leg.boardingTime })
+      : t('booking.ticket.boarding'));
+
+  const destinationLabel = usesRouteEndpoints
+    ? (leg.alightingTime
+      ? t('booking.ticket.routeEndWithTime', { time: leg.alightingTime })
+      : t('booking.ticket.routeEnd'))
+    : (leg.alightingTime
+      ? t('booking.ticket.alightingWithTime', { time: leg.alightingTime })
+      : t('booking.ticket.alighting'));
+
+  return (
+    <View style={styles.timeline}>
+      <View style={styles.timelineRow}>
+        <View style={styles.timelineRail}>
+          <View style={[styles.timelineDot, styles.timelineDotOrigin]} />
+          <View style={styles.timelineConnector} />
+        </View>
+        <View style={styles.timelineCopy}>
+          <Text style={styles.timelineLabel}>{originLabel}</Text>
+          <Text style={styles.timelineName}>{leg.boardingName}</Text>
+          {leg.boardingAddress ? (
+            <Text style={styles.timelineMeta}>{leg.boardingAddress}</Text>
+          ) : null}
+          {leg.boardingDate ? (
+            <Text style={styles.timelineDate}>{leg.boardingDate}</Text>
+          ) : null}
+        </View>
+      </View>
+      <View style={styles.timelineRow}>
+        <View style={styles.timelineRail}>
+          <View style={[styles.timelineDot, styles.timelineDotDestination]} />
+        </View>
+        <View style={styles.timelineCopy}>
+          <Text style={styles.timelineLabel}>{destinationLabel}</Text>
+          <Text style={styles.timelineName}>{leg.alightingName}</Text>
+          {leg.alightingAddress ? (
+            <Text style={styles.timelineMeta}>{leg.alightingAddress}</Text>
+          ) : null}
+          {leg.alightingDate ? (
+            <Text style={styles.timelineDate}>{leg.alightingDate}</Text>
+          ) : null}
+        </View>
+      </View>
+      {usesRouteEndpoints ? (
+        <View style={styles.timelineHintRow}>
+          <PathIcon size={14} color={theme.colors.textTertiary} weight="bold" />
+          <Text style={styles.timelineHint}>{t('booking.ticket.routeEndpointsHint')}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function TicketView({
   model,
   source,
@@ -185,11 +301,29 @@ function TicketView({
   const activeLeg = activePage?.leg;
   const activeTicket = activePage?.ticket;
   const canTrackActiveLeg = Boolean(activeLeg?.tripId) && activeLeg?.trackingEnabled === true;
+  const statusPresentation = useMemo(
+    () => getTicketStatusPresentation(model.bookingStatus),
+    [model.bookingStatus],
+  );
+  const showBoardingQr = Boolean(
+    activeTicket
+    && canShowBoardingQr(activeTicket.status, model.isPendingPayment),
+  );
   const paymentIcon = model.paymentMethod
     ? model.paymentMethod === 'WALLET'
       ? <Wallet size={12} color={theme.colors.primary} weight="bold" />
       : <Coins size={12} color={theme.colors.primary} weight="bold" />
     : null;
+  const amountLabel = activeTicket?.paidAmount != null && pages.length > 1
+    ? t('booking.ticket.ticketPaidAmount')
+    : model.legs.length > 1
+      ? t('booking.ticket.legAmount', { leg: activeLeg?.label ?? '' })
+      : model.isPendingPayment
+        ? t('booking.ticket.amountDue')
+        : t('booking.ticket.totalAmount');
+  const amountValue = activeTicket?.paidAmount != null && pages.length > 1
+    ? activeTicket.paidAmount
+    : activeLeg?.totalAmount ?? model.totalAmount;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -230,18 +364,23 @@ function TicketView({
           </View>
         ) : null}
 
-        <View style={styles.successHeader}>
-          {model.isPendingPayment && pendingPaymentActions?.isChecking ? (
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-          ) : (
-            model.isPendingPayment ? (
-              <ClockCountdown size={56} color={theme.colors.warning} weight="duotone" />
-            ) : (
-              <CheckCircle size={56} color={theme.colors.success} weight="fill" />
-            )
-          )}
-          <Text style={styles.successTitle}>{model.statusTitle}</Text>
-          <Text style={styles.successSubtitle}>{model.statusMessage}</Text>
+        <View style={styles.statusHeader}>
+          <StatusHeaderIcon
+            isPendingPayment={model.isPendingPayment}
+            isChecking={pendingPaymentActions?.isChecking}
+            tone={statusPresentation.tone}
+          />
+          <StatusChip
+            label={model.statusTitle}
+            tone={statusPresentation.tone}
+            style={styles.statusChip}
+          />
+          <Text style={styles.statusSubtitle}>{model.statusMessage}</Text>
+          {model.createdAtLabel ? (
+            <Text style={styles.createdAtLabel}>
+              {t('history.createdOn', { date: model.createdAtLabel })}
+            </Text>
+          ) : null}
         </View>
 
         {model.isPendingPayment && pendingPaymentActions ? (
@@ -297,35 +436,43 @@ function TicketView({
         ) : null}
 
         {activePage && activeLeg ? (
-            <View style={styles.legBlock}>
-              <View style={styles.ticketCard}>
-                <View style={styles.referenceSection}>
-                  <View style={styles.referenceIconContainer}>
-                    <Ticket size={64} color={theme.colors.primary} weight="duotone" />
-                  </View>
-                  <Text style={styles.referenceCaption}>
-                    {model.legs.length > 1
-                      ? t('booking.ticket.legBookingReference', { leg: activeLeg.label })
-                      : t('booking.ticket.bookingReference')}
+          <View style={styles.legBlock}>
+            <View style={styles.ticketCard}>
+              <View style={styles.referenceSection}>
+                <View style={styles.referenceIconContainer}>
+                  <Ticket size={40} color={theme.colors.primary} weight="duotone" />
+                </View>
+                <Text style={styles.referenceCaption}>
+                  {model.legs.length > 1
+                    ? t('booking.ticket.legBookingReference', { leg: activeLeg.label })
+                    : t('booking.ticket.bookingReference')}
+                </Text>
+                <Text style={styles.ticketIdText} selectable>
+                  {activeLeg.reference}
+                </Text>
+                {activeLeg.routeName ? (
+                  <Text style={styles.routeNameCaption} numberOfLines={2}>
+                    {activeLeg.routeName}
                   </Text>
-                  <Text style={styles.ticketIdText}>{activeLeg.reference}</Text>
-                  {activeLeg.ticketReferences && !activeTicket ? (
-                    <Text style={styles.ticketReferencesText}>
-                      {t('booking.ticket.references', {
-                        count: activeLeg.ticketCount,
-                        references: activeLeg.ticketReferences,
-                      })}
-                    </Text>
-                  ) : null}
-                </View>
+                ) : null}
+                {activeLeg.ticketReferences && !activeTicket ? (
+                  <Text style={styles.ticketReferencesText}>
+                    {t('booking.ticket.references', {
+                      count: activeLeg.ticketCount,
+                      references: activeLeg.ticketReferences,
+                    })}
+                  </Text>
+                ) : null}
+              </View>
 
-                <View style={styles.dashedDivider}>
-                  <View style={styles.sideCutoutLeft} />
-                  <View style={styles.sideCutoutRight} />
-                </View>
+              <View style={styles.dashedDivider}>
+                <View style={styles.sideCutoutLeft} />
+                <View style={styles.sideCutoutRight} />
+              </View>
 
-                <View style={styles.detailsSection}>
-                  {!model.isPendingPayment && activeTicket ? (
+              <View style={styles.detailsSection}>
+                {!model.isPendingPayment && activeTicket ? (
+                  showBoardingQr ? (
                     <View style={styles.codeList}>
                       <Text style={styles.codeListTitle}>
                         {t('booking.ticket.boardingQrCode')}
@@ -341,147 +488,126 @@ function TicketView({
                         size={156}
                       />
                     </View>
-                  ) : null}
-                  {activeLeg.shuttlePickupAddress || activeLeg.shuttleDropoffAddress ? (
-                    <View style={styles.shuttleRequestCard}>
-                      <Van size={20} color={theme.colors.primary} weight="duotone" />
-                      <View style={styles.shuttleRequestCopy}>
-                        <Text style={styles.shuttleRequestTitle}>{t('booking.ticket.shuttleSent')}</Text>
-                        {activeLeg.shuttlePickupAddress ? (
-                          <View style={styles.shuttleRequestItem}>
-                            <Text style={styles.shuttleRequestLabel}>
-                              {t('booking.checkout.shuttleRequest')}
-                            </Text>
-                            <Text style={styles.shuttleRequestAddress}>
-                              {activeLeg.shuttlePickupAddress}
-                            </Text>
-                          </View>
-                        ) : null}
-                        {activeLeg.shuttleDropoffAddress ? (
-                          <View style={styles.shuttleRequestItem}>
-                            <Text style={styles.shuttleRequestLabel}>
-                              {t('booking.checkout.shuttleDropoffRequest')}
-                            </Text>
-                            <Text style={styles.shuttleRequestAddress}>
-                              {activeLeg.shuttleDropoffAddress}
-                            </Text>
-                          </View>
-                        ) : null}
-                        <Text style={styles.shuttleRequestHint}>{t('booking.ticket.shuttleAwaiting')}</Text>
-                      </View>
-                    </View>
-                  ) : null}
-                  {activeLeg.boardingDate ? (
-                    <View style={styles.travelDateRow}>
-                      <CalendarBlank size={17} color={theme.colors.primary} weight="duotone" />
-                      <Text style={styles.travelDateText}>
-                        {activeLeg.isOvernight && activeLeg.alightingDate
-                          ? t('booking.ticket.overnightDates', {
-                              departure: activeLeg.boardingDate,
-                              arrival: activeLeg.alightingDate,
-                            })
-                          : t('booking.ticket.travelDate', { date: activeLeg.boardingDate })}
+                  ) : (
+                    <View style={styles.codeReferenceCard}>
+                      <Text style={styles.codeListTitle}>
+                        {t('booking.ticket.ticketCode')}
+                      </Text>
+                      <Text style={styles.codeReferenceValue} selectable>
+                        {activeTicket.ticketCode}
+                      </Text>
+                      <Text style={styles.codeReferenceHint}>
+                        {activeTicket.status
+                          ? t(getTicketLifecyclePresentation(activeTicket.status).labelKey)
+                          : t('booking.ticket.ticketCodeInactiveHint')}
                       </Text>
                     </View>
-                  ) : null}
-                  <View style={styles.routeRow}>
-                    <View style={styles.routeItem}>
-                      <Text style={styles.routeLabel}>
-                        {activeLeg.boardingTime
-                          ? t('booking.ticket.boardingWithTime', { time: activeLeg.boardingTime })
-                          : t('booking.ticket.boarding')}
-                      </Text>
-                      <Text style={styles.routeName}>{activeLeg.boardingName}</Text>
-                      {activeLeg.boardingAddress ? (
-                        <Text style={styles.routeCity}>{activeLeg.boardingAddress}</Text>
-                      ) : null}
-                      {activeLeg.boardingDate ? (
-                        <Text style={styles.routeDate}>{activeLeg.boardingDate}</Text>
-                      ) : null}
-                    </View>
-                    <View style={styles.routeItem}>
-                      <Text style={[styles.routeLabel, styles.alignRight]}>
-                        {activeLeg.alightingTime
-                          ? t('booking.ticket.alightingWithTime', { time: activeLeg.alightingTime })
-                          : t('booking.ticket.alighting')}
-                      </Text>
-                      <Text style={[styles.routeName, styles.alignRight]}>{activeLeg.alightingName}</Text>
-                      {activeLeg.alightingAddress ? (
-                        <Text style={[styles.routeCity, styles.alignRight]}>
-                          {activeLeg.alightingAddress}
-                        </Text>
-                      ) : null}
-                      {activeLeg.alightingDate ? (
-                        <Text style={[styles.routeDate, styles.alignRight]}>
-                          {activeLeg.alightingDate}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
+                  )
+                ) : null}
 
-                  <View style={styles.specsGrid}>
-                    {activeLeg.busType ? (
-                      <View style={styles.gridItem}>
-                        <Text style={styles.specLabel}>{t('booking.ticket.busType')}</Text>
-                        <Text style={styles.specValue}>
-                          {activeLeg.busType.toLowerCase().includes('sleeper')
-                            ? t('booking.busType.sleeper')
-                            : activeLeg.busType.toLowerCase().includes('limousine')
-                              ? t('booking.busType.limousine')
-                              : activeLeg.busType}
-                        </Text>
-                      </View>
-                    ) : null}
-                    <View style={styles.gridItem}>
-                      <Text style={styles.specLabel}>{t('booking.ticket.seats')}</Text>
-                      <Text style={styles.specValue}>
-                        {activeTicket?.seatNumber ?? activeLeg.seatNumbers}
-                      </Text>
-                    </View>
-                    {model.paymentMethod ? (
-                      <View style={styles.gridItem}>
-                        <Text style={styles.specLabel}>{t('booking.ticket.paymentMethod')}</Text>
-                        <View style={styles.paymentMethodLabel}>
-                          {paymentIcon}
-                          <Text style={styles.specValue}>
-                            {model.paymentMethod === 'WALLET'
-                              ? t('booking.paymentScreen.walletLabel')
-                              : 'VNPAY'}
+                {activeLeg.shuttlePickupAddress || activeLeg.shuttleDropoffAddress ? (
+                  <View style={styles.shuttleRequestCard}>
+                    <Van size={20} color={theme.colors.primary} weight="duotone" />
+                    <View style={styles.shuttleRequestCopy}>
+                      <Text style={styles.shuttleRequestTitle}>{t('booking.ticket.shuttleSent')}</Text>
+                      {activeLeg.shuttlePickupAddress ? (
+                        <View style={styles.shuttleRequestItem}>
+                          <Text style={styles.shuttleRequestLabel}>
+                            {t('booking.checkout.shuttleRequest')}
+                          </Text>
+                          <Text style={styles.shuttleRequestAddress}>
+                            {activeLeg.shuttlePickupAddress}
                           </Text>
                         </View>
-                      </View>
-                    ) : null}
+                      ) : null}
+                      {activeLeg.shuttleDropoffAddress ? (
+                        <View style={styles.shuttleRequestItem}>
+                          <Text style={styles.shuttleRequestLabel}>
+                            {t('booking.checkout.shuttleDropoffRequest')}
+                          </Text>
+                          <Text style={styles.shuttleRequestAddress}>
+                            {activeLeg.shuttleDropoffAddress}
+                          </Text>
+                        </View>
+                      ) : null}
+                      <Text style={styles.shuttleRequestHint}>{t('booking.ticket.shuttleAwaiting')}</Text>
+                    </View>
                   </View>
+                ) : null}
 
-                  <View style={styles.totalRow}>
-                    <Text style={styles.totalLabel}>
-                      {model.legs.length > 1
-                        ? t('booking.ticket.legAmount', { leg: activeLeg.label })
-                        : model.isPendingPayment
-                          ? t('booking.ticket.amountDue')
-                          : t('booking.ticket.totalAmount')}
-                    </Text>
-                    <Text style={styles.totalValue}>
-                      {formatVnd(activeLeg.totalAmount, { display: 'code', clampNegative: true })}
+                {activeLeg.boardingDate ? (
+                  <View style={styles.travelDateRow}>
+                    <CalendarBlank size={17} color={theme.colors.primary} weight="duotone" />
+                    <Text style={styles.travelDateText}>
+                      {activeLeg.isOvernight && activeLeg.alightingDate
+                        ? t('booking.ticket.overnightDates', {
+                            departure: activeLeg.boardingDate,
+                            arrival: activeLeg.alightingDate,
+                          })
+                        : t('booking.ticket.travelDate', { date: activeLeg.boardingDate })}
                     </Text>
                   </View>
+                ) : null}
+
+                <JourneyTimeline leg={activeLeg} />
+
+                <View style={styles.specsGrid}>
+                  {activeLeg.busType ? (
+                    <View style={styles.gridItem}>
+                      <Text style={styles.specLabel}>{t('booking.ticket.busType')}</Text>
+                      <Text style={styles.specValue}>
+                        {activeLeg.busType.toLowerCase().includes('sleeper')
+                          ? t('booking.busType.sleeper')
+                          : activeLeg.busType.toLowerCase().includes('limousine')
+                            ? t('booking.busType.limousine')
+                            : activeLeg.busType}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.gridItem}>
+                    <Text style={styles.specLabel}>{t('booking.ticket.seats')}</Text>
+                    <Text style={styles.specValue}>
+                      {activeTicket?.seatNumber ?? activeLeg.seatNumbers}
+                    </Text>
+                  </View>
+                  {model.paymentMethod ? (
+                    <View style={styles.gridItem}>
+                      <Text style={styles.specLabel}>{t('booking.ticket.paymentMethod')}</Text>
+                      <View style={styles.paymentMethodLabel}>
+                        {paymentIcon}
+                        <Text style={styles.specValue}>
+                          {model.paymentMethod === 'WALLET'
+                            ? t('booking.paymentScreen.walletLabel')
+                            : 'VNPAY'}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>{amountLabel}</Text>
+                  <Text style={styles.totalValue}>
+                    {formatVnd(amountValue, { display: 'code', clampNegative: true })}
+                  </Text>
                 </View>
               </View>
-
-              {canTrackActiveLeg ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('booking.ticket.trackLeg', { leg: activeLeg.label })}
-                  style={({ pressed }) => [styles.primaryAction, pressed ? styles.pressed : null]}
-                  onPress={() => onTrack(activeLeg)}
-                >
-                  <MapPin size={18} color={theme.colors.textInverse} weight="bold" />
-                  <Text style={styles.primaryActionText}>
-                    {t('booking.ticket.trackLeg', { leg: activeLeg.label })}
-                  </Text>
-                </Pressable>
-              ) : null}
             </View>
+
+            {canTrackActiveLeg ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('booking.ticket.trackLeg', { leg: activeLeg.label })}
+                style={({ pressed }) => [styles.primaryAction, pressed ? styles.pressed : null]}
+                onPress={() => onTrack(activeLeg)}
+              >
+                <MapPin size={18} color={theme.colors.textInverse} weight="bold" />
+                <Text style={styles.primaryActionText}>
+                  {t('booking.ticket.trackLeg', { leg: activeLeg.label })}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
 
         {model.legs.length > 1 ? (
@@ -498,31 +624,28 @@ function TicketView({
         ) : null}
 
         {source === 'checkout' ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('booking.ticket.viewBookings')}
-            style={({ pressed }) => [styles.primaryAction, pressed ? styles.pressed : null]}
-            onPress={onViewBookings}
-          >
-            <File size={18} color={theme.colors.textInverse} weight="bold" />
-            <Text style={styles.primaryActionText}>{t('booking.ticket.viewBookings')}</Text>
-          </Pressable>
+          <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('booking.ticket.viewBookings')}
+              style={({ pressed }) => [styles.primaryAction, pressed ? styles.pressed : null]}
+              onPress={onViewBookings}
+            >
+              <File size={18} color={theme.colors.textInverse} weight="bold" />
+              <Text style={styles.primaryActionText}>{t('booking.ticket.viewBookings')}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('booking.ticket.backToDashboard')}
+              style={({ pressed }) => [styles.homeButton, pressed ? styles.pressed : null]}
+              onPress={onHome}
+            >
+              <Text style={styles.homeButtonText}>
+                {t('booking.ticket.backToDashboard')}
+              </Text>
+            </Pressable>
+          </>
         ) : null}
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={source === 'history'
-            ? t('common.back')
-            : t('booking.ticket.backToDashboard')}
-          style={({ pressed }) => [styles.homeButton, pressed ? styles.pressed : null]}
-          onPress={source === 'history' ? onBack : onHome}
-        >
-          <Text style={styles.homeButtonText}>
-            {source === 'history'
-              ? t('common.back')
-              : t('booking.ticket.backToDashboard')}
-          </Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -883,22 +1006,138 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.warning,
   },
-  successHeader: {
+  statusHeader: {
     alignItems: 'center' as const,
-    marginVertical: spacing.md,
+    gap: spacing.sm,
+    marginVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
-  successTitle: {
-    marginTop: spacing.md,
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xl,
-    color: theme.colors.textPrimary,
-  },
-  successSubtitle: {
+  statusChip: {
     marginTop: spacing.xs,
+    // StatusChip defaults to alignSelf:flex-start; force center under the header icon.
+    alignSelf: 'center' as const,
+  },
+  statusSubtitle: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
+    lineHeight: 20,
     color: theme.colors.textSecondary,
     textAlign: 'center' as const,
+  },
+  createdAtLabel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+    textAlign: 'center' as const,
+  },
+  routeNameCaption: {
+    marginTop: spacing.sm,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+    textAlign: 'center' as const,
+  },
+  codeReferenceCard: {
+    gap: spacing.xs,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    borderRadius: BR.lg,
+    borderCurve: 'continuous' as const,
+    backgroundColor: theme.effects.contentSurfaceSoft,
+    alignItems: 'center' as const,
+  },
+  codeReferenceValue: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: theme.colors.primary,
+    letterSpacing: 0.5,
+  },
+  codeReferenceHint: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+    textAlign: 'center' as const,
+  },
+  timeline: {
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  timelineRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'stretch' as const,
+    gap: spacing.md,
+  },
+  timelineRail: {
+    width: 18,
+    alignItems: 'center' as const,
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  timelineDotOrigin: {
+    backgroundColor: theme.colors.primary,
+  },
+  timelineDotDestination: {
+    backgroundColor: theme.colors.success,
+    borderWidth: 2,
+    borderColor: theme.colors.successLight,
+  },
+  timelineConnector: {
+    flex: 1,
+    width: 2,
+    marginVertical: 4,
+    backgroundColor: theme.colors.divider,
+    minHeight: 28,
+  },
+  timelineCopy: {
+    flex: 1,
+    minWidth: 0,
+    paddingBottom: spacing.sm,
+  },
+  timelineLabel: {
+    marginBottom: 2,
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.4,
+  },
+  timelineName: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textPrimary,
+  },
+  timelineMeta: {
+    marginTop: 2,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  timelineDate: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+  },
+  timelineHintRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: BR.md,
+    borderCurve: 'continuous' as const,
+    backgroundColor: theme.effects.contentSurfaceSoft,
+  },
+  timelineHint: {
+    flex: 1,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: 16,
+    color: theme.colors.textTertiary,
   },
   pendingPaymentCard: {
     ...theme.components.card,
@@ -991,8 +1230,8 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.xl,
   },
   referenceIconContainer: {
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
     backgroundColor: theme.effects.contentSurfaceSoft,

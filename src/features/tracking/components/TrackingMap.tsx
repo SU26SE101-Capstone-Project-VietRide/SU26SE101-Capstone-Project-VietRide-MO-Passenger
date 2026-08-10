@@ -38,7 +38,12 @@ interface TrackingMapProps {
   plannedRoute?: readonly GeoCoordinate[];
   markers?: readonly TrackingMapMarker[];
   vehicleKind?: 'bus' | 'shuttle';
+  /** Shuttle tracking: show the passenger device GPS on the map. */
+  showUserLocation?: boolean;
   connectionState?: TrackingMapConnectionState;
+  bottomContentInset?: number;
+  edgeToEdge?: boolean;
+  showDrivenTrail?: boolean;
   /**
    * Chrome docked under the map canvas (journey progress, live metrics).
    * Renders inside the map frame — not an overlay on top of the map.
@@ -113,7 +118,11 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
   plannedRoute = EMPTY_ROUTE,
   markers,
   vehicleKind = 'bus',
+  showUserLocation = false,
   connectionState = 'waiting',
+  bottomContentInset = 0,
+  edgeToEdge = false,
+  showDrivenTrail = true,
   bottomDock,
   points,
   stops = EMPTY_STOPS,
@@ -142,7 +151,6 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     }),
     [inputTrail, latest],
   );
-  const hiddenStopCount = staticMapData.hiddenIntermediateCount;
   // Fill parent; short-screen / landscape height is owned by LiveTripTrackingPanel.
   const frameStyle = useMemo(
     () => ({
@@ -151,6 +159,13 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
       minWidth: 0,
     }),
     [],
+  );
+  const safeBottomContentInset = Number.isFinite(bottomContentInset)
+    ? Math.max(0, bottomContentInset)
+    : 0;
+  const waitingOverlayInsetStyle = useMemo(
+    () => ({ bottom: spacing.sm + safeBottomContentInset }),
+    [safeBottomContentInset],
   );
   const hasMapContext = staticMapData.plannedRoute.length > 0
     || staticMapData.markers.length > 0;
@@ -199,23 +214,32 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
           plannedRoute={staticMapData.plannedRoute}
           markers={staticMapData.markers}
           vehicleKind={vehicleKind}
+          showUserLocation={showUserLocation}
+          bottomContentInset={safeBottomContentInset}
+          showDrivenTrail={showDrivenTrail}
         />
       </Suspense>
     );
   }
 
   const isWaitingGps = effectiveConnectionState === 'waiting';
-
   return (
-    <View style={[styles.mapFrame, frameStyle]}>
+    <View
+      style={[
+        styles.mapFrame,
+        edgeToEdge ? styles.mapFrameEdgeToEdge : null,
+        frameStyle,
+      ]}
+    >
       <View style={styles.mapCanvas}>
         {mapCanvas}
         {/*
           Overlay zoning (avoid stacking on legend bottom-left):
           - Top-center: camera segment lives inside NativeTrackingMap
-          - Top-left: live/connecting/stale/offline chips (not waiting)
-          - Bottom-right: waiting GPS chip
-          - Top-right: +N hidden stops when needed
+          - Top-left: connected/stale/offline/terminal state
+          - Bottom-right: waiting GPS for every tracking layout
+          The native map receives bottomContentInset so the sheet never covers
+          its legend, waiting state, or camera controls.
         */}
         {showConnectionChip && !isWaitingGps ? (
           <View pointerEvents="none" style={styles.connectionOverlayTopLeft}>
@@ -227,20 +251,15 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
           </View>
         ) : null}
         {showConnectionChip && isWaitingGps ? (
-          <View pointerEvents="none" style={styles.connectionOverlayBottomRight}>
+          <View
+            pointerEvents="none"
+            style={[styles.connectionOverlayBottomRight, waitingOverlayInsetStyle]}
+            testID="tracking-waiting-gps-overlay"
+          >
             <StatusChip
               label={t(connectionPresentation.key)}
               tone={connectionPresentation.tone}
               style={styles.connectionChip}
-            />
-          </View>
-        ) : null}
-        {showConnectionChip && hiddenStopCount > 0 ? (
-          <View pointerEvents="none" style={styles.overflowOverlay}>
-            <StatusChip
-              label={t('tracking.map.hiddenStops', { count: hiddenStopCount })}
-              tone="neutral"
-              style={styles.overflowChip}
             />
           </View>
         ) : null}
@@ -267,6 +286,11 @@ const createStyles = (theme: AppTheme) => ({
       ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
   },
+  mapFrameEdgeToEdge: {
+    borderWidth: 0,
+    borderRadius: 0,
+    borderCurve: 'circular' as const,
+  },
   mapCanvas: {
     flex: 1,
     minHeight: 240,
@@ -287,24 +311,10 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'flex-end' as const,
     maxWidth: '52%' as unknown as number,
   },
-  overflowOverlay: {
-    position: 'absolute' as const,
-    top: spacing.md + 44,
-    right: spacing.md,
-    zIndex: 30,
-    maxWidth: '40%' as unknown as number,
-  },
   connectionChip: {
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
       ? theme.effects.glassBorderStrong
-      : theme.colors.divider,
-    ...theme.effects.cardShadow,
-  },
-  overflowChip: {
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassBorder
       : theme.colors.divider,
     ...theme.effects.cardShadow,
   },

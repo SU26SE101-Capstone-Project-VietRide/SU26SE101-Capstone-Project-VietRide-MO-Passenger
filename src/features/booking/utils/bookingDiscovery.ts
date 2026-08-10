@@ -1,9 +1,8 @@
 import {
-  compareLocalDates,
   parseLocalDate,
-  startOfLocalDay,
   toLocalDisplayDate,
 } from '@shared/utils/localDate';
+import { toVietnamBusinessDate } from '@shared/utils/apiTime';
 import { normalizePromoCode } from '@shared/utils/promo';
 import type {
   BookingEntryIntent,
@@ -67,7 +66,7 @@ const resolveSearchDate = (
     const parsedDate = parseLocalDate(isoDate);
 
     if (!parsedDate) return { status: 'invalid_date' };
-    if (compareLocalDates(parsedDate, startOfLocalDay(now)) < 0) {
+    if (isoDate < toVietnamBusinessDate(now)) {
       return { status: 'past_date' };
     }
 
@@ -132,6 +131,8 @@ export const recentSearchToPrefill = (
       to: search.toName,
       originLocationCode: search.fromCode,
       destinationLocationCode: search.toCode,
+      originWardCode: '',
+      destinationWardCode: '',
       originStationId: '',
       destinationStationId: '',
       originStationName: '',

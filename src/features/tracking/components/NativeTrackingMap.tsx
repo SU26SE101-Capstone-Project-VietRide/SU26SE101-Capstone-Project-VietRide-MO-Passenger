@@ -14,6 +14,7 @@ import {
   NavigationArrow,
   Signpost,
   Target,
+  User,
   Van,
 } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
@@ -31,6 +32,11 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks/useThemedStyles';
 import { motionTokens, useMotion } from '@shared/motion';
 import {
+  getCurrentCoordinates,
+  isDeviceLocationError,
+  requestForegroundLocationPermission,
+} from '@shared/services/deviceLocation';
+import {
   borderRadius,
   fontFamilies,
   fontSizes,
@@ -38,6 +44,7 @@ import {
   type AppTheme,
 } from '@shared/theme';
 import type { GeoCoordinate } from '@shared/types/common';
+import { formatDateTime } from '@shared/utils/format';
 import { getGeoDistanceKm } from '@shared/utils/geo';
 import type { TrackingPoint } from '../api/trackingApi';
 import {
@@ -57,11 +64,21 @@ interface NativeTrackingMapProps {
   plannedRoute?: readonly GeoCoordinate[];
   markers?: readonly TrackingMapMarker[];
   vehicleKind?: 'bus' | 'shuttle';
+  showDrivenTrail?: boolean;
+  /**
+   * When true (shuttle tracking), request location permission and show the
+   * passenger's current GPS as a distinct marker + native blue-dot.
+   */
+  showUserLocation?: boolean;
+  bottomContentInset?: number;
   /** @deprecated Compatibility aliases while old callers migrate. */
   points?: readonly TrackingPoint[];
   /** @deprecated Compatibility aliases while old callers migrate. */
   stops?: readonly TrackingMapStop[];
 }
+
+const VEHICLE_TRACKS_VIEW_MS = 450;
+const USER_LOCATION_REFRESH_MS = 15_000;
 
 type CameraMode = 'follow' | 'overview';
 
@@ -83,6 +100,7 @@ const MARKER_LABEL_KEYS: Record<TrackingMapMarkerKind, string> = {
   intermediate: 'tracking.map.routeStopMarker',
   next: 'tracking.map.nextStopMarker',
   target: 'tracking.map.targetStopMarker',
+  targetNext: 'tracking.map.targetNextStopMarker',
   destination: 'tracking.dropOff',
   shuttlePickup: 'tracking.map.ownPickupMarker',
   shuttleDropoff: 'tracking.map.ownDropoffMarker',
@@ -95,6 +113,7 @@ const MARKER_Z_INDEX: Record<TrackingMapMarkerKind, number> = {
   destination: 4,
   next: 7,
   target: 8,
+  targetNext: 9,
   shuttlePickup: 8,
   shuttleDropoff: 8,
   shuttleStation: 6,
@@ -127,9 +146,11 @@ const markerStyleForKind = (
     case 'next':
       return styles.markerNext;
     case 'target':
+    case 'targetNext':
+      return styles.markerTarget;
     case 'shuttlePickup':
     case 'shuttleDropoff':
-      return styles.markerTarget;
+      return styles.markerShuttleTarget;
     case 'shuttleStation':
       return styles.markerStation;
     default:
@@ -158,6 +179,7 @@ function MarkerGlyph({
     case 'next':
       return <NavigationArrow {...commonProps} />;
     case 'target':
+    case 'targetNext':
     case 'shuttlePickup':
     case 'shuttleDropoff':
       return <Target {...commonProps} />;
@@ -184,12 +206,15 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
   palette: ReturnType<typeof getTrackingMapPalette>;
 }): React.JSX.Element {
   const emphasized = isEmphasizedKind(marker.kind);
+  const isNextMarker = marker.kind === 'next';
+  const isTargetMarker = marker.kind === 'target' || marker.kind === 'targetNext';
   const sequenceLabel = marker.sequence != null && marker.sequence > 0
     ? String(marker.sequence)
     : null;
   const title = sequenceLabel
     ? `${sequenceLabel}. ${marker.name}`
     : marker.name;
+  const persistentLabel = isNextMarker || isTargetMarker ? description : null;
 
   // Intermediate: numbered chip so order along the route is readable at a glance.
   if (marker.kind === 'intermediate') {
@@ -213,7 +238,7 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
     );
   }
 
-  // Names live in the map journey dock — keep pins compact so the map stays readable.
+  // Keep semantic roles visible; tapping the marker reveals the full stop name.
   return (
     <Marker
       coordinate={coordinate}
@@ -224,12 +249,32 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
       zIndex={MARKER_Z_INDEX[marker.kind]}
     >
       <View collapsable={false} style={styles.emphasizedWrap}>
-        {(marker.kind === 'next' || marker.kind === 'target') ? (
+        {persistentLabel ? (
+          <View
+            style={[
+              styles.semanticLabel,
+              {
+                backgroundColor: isNextMarker ? palette.next : palette.target,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.semanticLabelText,
+                { color: isNextMarker ? MARKER_CONTRAST : palette.targetGlyph },
+              ]}
+              numberOfLines={1}
+            >
+              {persistentLabel}
+            </Text>
+          </View>
+        ) : null}
+        {persistentLabel ? (
           <View
             style={[
               styles.emphasizedHalo,
               {
-                backgroundColor: marker.kind === 'next'
+                backgroundColor: isNextMarker
                   ? palette.nextHalo
                   : palette.targetHalo,
               },
@@ -243,7 +288,11 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
             markerStyleForKind(marker.kind, styles),
           ]}
         >
-          <MarkerGlyph kind={marker.kind} size={emphasized ? 18 : 14} />
+          <MarkerGlyph
+            kind={marker.kind}
+            size={emphasized ? 18 : 14}
+            color={isTargetMarker ? palette.targetGlyph : MARKER_CONTRAST}
+          />
         </View>
         <View style={styles.markerStem} />
       </View>
@@ -254,22 +303,44 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
 function AnimatedVehicleMarker({
   coordinate,
   heading,
+  speedKmh,
+  recordedAt,
   vehicleKind,
   reduceMotion,
 }: {
   coordinate: LatLng;
   heading: number;
+  speedKmh?: number;
+  recordedAt: string;
   vehicleKind: 'bus' | 'shuttle';
   reduceMotion: boolean;
 }): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // Android custom markers often render blank when tracksViewChanges starts
+  // false — paint once, then freeze for performance.
+  const [tracksViewChanges, setTracksViewChanges] = useState(true);
   const animatedCoordinate = useRef(new AnimatedRegion({
     ...coordinate,
     latitudeDelta: 0,
     longitudeDelta: 0,
   })).current;
   const previousCoordinateRef = useRef(coordinate);
+  const formattedRecordedAt = formatDateTime(recordedAt);
+  const calloutDescription = [
+    speedKmh != null && Number.isFinite(speedKmh)
+      ? `${t('tracking.metrics.speed')}: ${Math.round(speedKmh)} km/h`
+      : null,
+    formattedRecordedAt
+      ? `${t('tracking.metrics.lastUpdate')}: ${formattedRecordedAt}`
+      : null,
+  ].filter((detail): detail is string => detail != null).join(' · ');
+
+  useEffect(() => {
+    setTracksViewChanges(true);
+    const timer = setTimeout(() => setTracksViewChanges(false), VEHICLE_TRACKS_VIEW_MS);
+    return () => clearTimeout(timer);
+  }, [coordinate.latitude, coordinate.longitude, vehicleKind]);
 
   useEffect(() => {
     const previous = previousCoordinateRef.current;
@@ -297,14 +368,25 @@ function AnimatedVehicleMarker({
     <MarkerAnimated
       coordinate={animatedCoordinate}
       title={t('tracking.map.latestVehicle')}
+      description={calloutDescription || undefined}
       rotation={heading}
       anchor={VEHICLE_MARKER_ANCHOR}
       flat
-      tracksViewChanges={false}
+      tracksViewChanges={tracksViewChanges}
       zIndex={20}
+      testID="tracking-vehicle-marker"
     >
+      {/*
+        Both trip and shuttle use a large branded vehicle glyph. The old trip
+        "position dot" was too small to notice on real devices.
+      */}
       <View collapsable={false} style={styles.vehicleHalo}>
-        <View style={styles.vehicleMarker}>
+        <View
+          style={styles.vehicleMarker}
+          testID={vehicleKind === 'shuttle'
+            ? 'tracking-shuttle-vehicle-glyph'
+            : 'tracking-bus-vehicle-glyph'}
+        >
           {vehicleKind === 'shuttle' ? (
             <Van size={20} color={MARKER_CONTRAST} weight="fill" />
           ) : (
@@ -316,12 +398,49 @@ function AnimatedVehicleMarker({
   );
 }
 
+function UserLocationMarker({
+  coordinate,
+}: {
+  coordinate: LatLng;
+}): React.JSX.Element {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+  const [tracksViewChanges, setTracksViewChanges] = useState(true);
+
+  useEffect(() => {
+    setTracksViewChanges(true);
+    const timer = setTimeout(() => setTracksViewChanges(false), VEHICLE_TRACKS_VIEW_MS);
+    return () => clearTimeout(timer);
+  }, [coordinate.latitude, coordinate.longitude]);
+
+  return (
+    <Marker
+      coordinate={coordinate}
+      title={t('tracking.map.yourLocation')}
+      description={t('tracking.map.yourLocationHint')}
+      anchor={VEHICLE_MARKER_ANCHOR}
+      tracksViewChanges={tracksViewChanges}
+      zIndex={18}
+      testID="tracking-user-location-marker"
+    >
+      <View collapsable={false} style={styles.userLocationHalo}>
+        <View style={styles.userLocationMarker}>
+          <User size={16} color={MARKER_CONTRAST} weight="fill" />
+        </View>
+      </View>
+    </Marker>
+  );
+}
+
 export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent({
   latest,
   trail,
   plannedRoute = EMPTY_ROUTE,
   markers,
   vehicleKind = 'bus',
+  showDrivenTrail = true,
+  showUserLocation = false,
+  bottomContentInset = 0,
   points,
   stops,
 }: NativeTrackingMapProps): React.JSX.Element {
@@ -330,11 +449,67 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
   const hasFittedInitialViewportRef = useRef(false);
   const lastFollowedCoordinateRef = useRef<LatLng | null>(null);
   const [cameraMode, setCameraMode] = useState<CameraMode>('follow');
+  const [userCoordinate, setUserCoordinate] = useState<LatLng | null>(null);
+  const [userLocationEnabled, setUserLocationEnabled] = useState(false);
   const theme = useTheme();
   const { t } = useTranslation();
   const { reduceMotion } = useMotion();
   const styles = useThemedStyles(createStyles);
   const mapPalette = getTrackingMapPalette(theme.isDark);
+  const safeBottomContentInset = Number.isFinite(bottomContentInset)
+    ? Math.max(0, bottomContentInset)
+    : 0;
+  const mapPadding = useMemo(() => ({
+    ...MAP_PADDING,
+    bottom: MAP_PADDING.bottom + safeBottomContentInset,
+  }), [safeBottomContentInset]);
+  const overviewPadding = useMemo(() => ({
+    ...OVERVIEW_PADDING,
+    bottom: OVERVIEW_PADDING.bottom + safeBottomContentInset,
+  }), [safeBottomContentInset]);
+
+  useEffect(() => {
+    if (!showUserLocation) {
+      setUserCoordinate(null);
+      setUserLocationEnabled(false);
+      return;
+    }
+
+    let cancelled = false;
+    let refreshTimer: ReturnType<typeof setInterval> | undefined;
+
+    const refreshUserLocation = async (): Promise<void> => {
+      try {
+        await requestForegroundLocationPermission();
+        if (cancelled) return;
+        setUserLocationEnabled(true);
+        const coordinates = await getCurrentCoordinates({
+          onLastKnownCoordinates: (lastKnown) => {
+            if (!cancelled) setUserCoordinate(toCoordinate(lastKnown));
+          },
+        });
+        if (!cancelled) setUserCoordinate(toCoordinate(coordinates));
+      } catch (error) {
+        if (cancelled) return;
+        // Permission denied / GPS unavailable — keep stops + vehicle only.
+        if (isDeviceLocationError(error) && error.code === 'permission-denied') {
+          setUserLocationEnabled(false);
+          setUserCoordinate(null);
+        }
+      }
+    };
+
+    void refreshUserLocation();
+    refreshTimer = setInterval(() => {
+      void refreshUserLocation();
+    }, USER_LOCATION_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer !== undefined) clearInterval(refreshTimer);
+    };
+  }, [showUserLocation]);
+
   const trailPoints = trail ?? points ?? EMPTY_TRACKING_POINTS;
   const legacyMarkers = useMemo(
     () => legacyStopsToMarkers(stops ?? EMPTY_STOPS),
@@ -366,15 +541,17 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
       ...markerCoordinates
         .filter(({ marker }) => marker.kind !== 'intermediate')
         .map(({ coordinate }) => coordinate),
+      ...(userCoordinate ? [userCoordinate] : []),
     ],
-    [markerCoordinates, plannedRouteCoordinates],
+    [markerCoordinates, plannedRouteCoordinates, userCoordinate],
   );
   const fallbackOverviewCoordinates = useMemo(
     () => [
       ...(latestCoordinate ? [latestCoordinate] : []),
       ...markerCoordinates.map(({ coordinate }) => coordinate),
+      ...(userCoordinate ? [userCoordinate] : []),
     ],
-    [latestCoordinate, markerCoordinates],
+    [latestCoordinate, markerCoordinates, userCoordinate],
   );
   const overviewCoordinates = plannedRouteCoordinates.length >= 2
     ? routeOverviewCoordinates
@@ -382,12 +559,14 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
   const focusCoordinate = latestCoordinate
     ?? markerCoordinates.find(({ marker }) => (
       marker.kind === 'target'
+      || marker.kind === 'targetNext'
       || marker.kind === 'next'
       || marker.kind === 'shuttlePickup'
       || marker.kind === 'shuttleDropoff'
     ))?.coordinate
     ?? markerCoordinates.find(({ marker }) => marker.kind === 'origin')?.coordinate
     ?? markerCoordinates[0]?.coordinate
+    ?? userCoordinate
     ?? plannedRouteCoordinates[0]
     ?? null;
   const initialRegion = useMemo(() => ({
@@ -397,15 +576,22 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
     longitudeDelta: 0.02,
   }), [focusCoordinate]);
   const heading = latest?.headingDeg ?? 0;
+  const currentSpeedKmh = latest?.speedKmh;
+  const speedLabel = vehicleKind === 'bus'
+    && currentSpeedKmh !== undefined
+    && Number.isFinite(currentSpeedKmh)
+    && currentSpeedKmh >= 0
+    ? `${Math.round(currentSpeedKmh)} km/h`
+    : null;
   const canShowOverview = overviewCoordinates.length >= 2;
 
   const fitOverview = useCallback((animated: boolean) => {
     if (!mapRef.current || overviewCoordinates.length < 2) return;
     mapRef.current.fitToCoordinates(overviewCoordinates, {
-      edgePadding: OVERVIEW_PADDING,
+      edgePadding: overviewPadding,
       animated: animated && !reduceMotion,
     });
-  }, [overviewCoordinates, reduceMotion]);
+  }, [overviewCoordinates, overviewPadding, reduceMotion]);
 
   useEffect(() => {
     if (
@@ -494,7 +680,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
           : LIQUID_LIGHT_MAP_STYLE}
         googleRenderer="LATEST"
         mapType="standard"
-        mapPadding={MAP_PADDING}
+        mapPadding={mapPadding}
         paddingAdjustmentBehavior="never"
         userInterfaceStyle={theme.isDark ? 'dark' : 'light'}
         minZoomLevel={MIN_ZOOM_LEVEL}
@@ -513,7 +699,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
         showsMyLocationButton={false}
         showsPointsOfInterest={false}
         showsTraffic={false}
-        showsUserLocation={false}
+        showsUserLocation={showUserLocation && userLocationEnabled}
         toolbarEnabled={false}
         poiClickEnabled={false}
         onMapReady={handleMapReady}
@@ -543,7 +729,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
           </>
         ) : null}
 
-        {trailCoordinates.length > 1 ? (
+        {showDrivenTrail && trailCoordinates.length > 1 ? (
           <>
             <Polyline
               coordinates={trailCoordinates}
@@ -575,54 +761,93 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
           />
         ))}
 
-        {latestCoordinate ? (
+        {userCoordinate ? (
+          <UserLocationMarker coordinate={userCoordinate} />
+        ) : null}
+
+        {latestCoordinate && latest ? (
           <AnimatedVehicleMarker
             coordinate={latestCoordinate}
             heading={heading}
+            speedKmh={latest.speedKmh}
+            recordedAt={latest.recordedAt}
             vehicleKind={vehicleKind}
             reduceMotion={reduceMotion}
           />
         ) : null}
       </MapView>
 
+      {speedLabel ? (
+        <View
+          accessible
+          accessibilityLabel={`${t('tracking.metrics.speed')}: ${speedLabel}`}
+          accessibilityRole="summary"
+          pointerEvents="none"
+          style={styles.speedBadge}
+          testID="tracking-speed-badge"
+        >
+          <View style={styles.speedBadgeDot} />
+          <Text style={styles.speedBadgeValue} testID="tracking-speed-badge-value">
+            {speedLabel}
+          </Text>
+        </View>
+      ) : null}
+
       <View
         pointerEvents="none"
-        style={styles.mapLegend}
+        style={[
+          styles.mapLegend,
+          { bottom: spacing.sm + safeBottomContentInset },
+        ]}
         accessibilityRole="summary"
         accessibilityLabel={t('tracking.map.legendAccessibility')}
       >
-        <View style={styles.legendRow}>
-          <View style={[styles.legendSwatch, { backgroundColor: mapPalette.plannedRoute }]} />
-          <Text style={styles.legendLabel} numberOfLines={1}>
-            {t('tracking.map.legendPlannedRoute')}
-          </Text>
-        </View>
-        <View style={styles.legendRow}>
-          <View style={[styles.legendSwatch, { backgroundColor: mapPalette.trail }]} />
-          <Text style={styles.legendLabel} numberOfLines={1}>
-            {t('tracking.map.legendTrail')}
-          </Text>
-        </View>
-        <View style={styles.legendRow}>
-          <View style={[styles.legendSwatchRing, { borderColor: mapPalette.intermediateBorder }]}>
-            <Text style={[styles.legendMiniNumber, { color: mapPalette.sequenceText }]}>2</Text>
+        {plannedRouteCoordinates.length >= 2 ? (
+          <View style={styles.legendRow} testID="tracking-map-legend-planned-route">
+            <View style={[styles.legendSwatch, { backgroundColor: mapPalette.plannedRoute }]} />
+            <Text style={styles.legendLabel} numberOfLines={1}>
+              {t('tracking.map.legendPlannedRoute')}
+            </Text>
           </View>
-          <Text style={styles.legendLabel} numberOfLines={1}>
-            {t('tracking.map.legendStopOrder')}
-          </Text>
-        </View>
-        <View style={styles.legendRow}>
-          <View style={[styles.legendSwatch, { backgroundColor: mapPalette.next }]} />
-          <Text style={styles.legendLabel} numberOfLines={1}>
-            {t('tracking.map.nextStopMarker')}
-          </Text>
-        </View>
-        <View style={styles.legendRow}>
-          <View style={[styles.legendSwatch, { backgroundColor: mapPalette.target }]} />
-          <Text style={styles.legendLabel} numberOfLines={1}>
-            {t('tracking.map.targetStopMarker')}
-          </Text>
-        </View>
+        ) : null}
+        {showDrivenTrail && trailCoordinates.length >= 2 ? (
+          <View style={styles.legendRow}>
+            <View style={[styles.legendSwatch, { backgroundColor: mapPalette.trail }]} />
+            <Text style={styles.legendLabel} numberOfLines={1}>
+              {t('tracking.map.legendTrail')}
+            </Text>
+          </View>
+        ) : null}
+        {markerCoordinates.some(({ marker }) => marker.sequence !== undefined) ? (
+          <View style={styles.legendRow}>
+            <View style={[styles.legendSwatchRing, { borderColor: mapPalette.intermediateBorder }]}>
+              <Text style={[styles.legendMiniNumber, { color: mapPalette.sequenceText }]}>2</Text>
+            </View>
+            <Text style={styles.legendLabel} numberOfLines={1}>
+              {t('tracking.map.legendStopOrder')}
+            </Text>
+          </View>
+        ) : null}
+        {markerCoordinates.some(({ marker }) => (
+          marker.kind === 'next' || marker.kind === 'targetNext'
+        )) ? (
+          <View style={styles.legendRow}>
+            <View style={[styles.legendSwatch, { backgroundColor: mapPalette.next }]} />
+            <Text style={styles.legendLabel} numberOfLines={1}>
+              {t('tracking.map.nextStopMarker')}
+            </Text>
+          </View>
+        ) : null}
+        {markerCoordinates.some(({ marker }) => (
+          marker.kind === 'target' || marker.kind === 'targetNext'
+        )) ? (
+          <View style={styles.legendRow}>
+            <View style={[styles.legendSwatch, { backgroundColor: mapPalette.target }]} />
+            <Text style={styles.legendLabel} numberOfLines={1}>
+              {t('tracking.map.targetStopMarker')}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Segmented camera control — always visible so “Theo xe / Toàn tuyến” is discoverable. */}
@@ -645,7 +870,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             >
               <Crosshair
                 size={16}
-                color={cameraMode === 'follow' ? theme.colors.textInverse : mapPalette.target}
+                color={cameraMode === 'follow' ? theme.colors.textInverse : mapPalette.plannedRoute}
                 weight="bold"
               />
               <Text
@@ -674,7 +899,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             >
               <MapPin
                 size={16}
-                color={cameraMode === 'overview' ? theme.colors.textInverse : mapPalette.target}
+                color={cameraMode === 'overview' ? theme.colors.textInverse : mapPalette.plannedRoute}
                 weight="bold"
               />
               <Text
@@ -723,6 +948,24 @@ const createStyles = (theme: AppTheme) => {
       borderColor: MARKER_CONTRAST,
       backgroundColor: palette.vehicle,
     },
+    userLocationHalo: {
+      width: 44,
+      height: 44,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: borderRadius.full,
+      backgroundColor: 'rgba(37, 99, 235, 0.22)',
+    },
+    userLocationMarker: {
+      width: 34,
+      height: 34,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: borderRadius.full,
+      borderWidth: 3,
+      borderColor: MARKER_CONTRAST,
+      backgroundColor: '#2563EB',
+    },
     intermediateWrap: {
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
@@ -746,9 +989,27 @@ const createStyles = (theme: AppTheme) => {
     emphasizedWrap: {
       alignItems: 'center' as const,
     },
+    semanticLabel: {
+      maxWidth: 148,
+      minHeight: 22,
+      marginBottom: 5,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: borderRadius.full,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.84)',
+    },
+    semanticLabelText: {
+      fontFamily: fontFamilies.bold,
+      fontSize: fontSizes.xs,
+      lineHeight: 16,
+    },
+
     emphasizedHalo: {
       position: 'absolute' as const,
-      top: -6,
+      bottom: 1,
       width: 52,
       height: 52,
       borderRadius: borderRadius.full,
@@ -789,10 +1050,45 @@ const createStyles = (theme: AppTheme) => {
     markerTarget: {
       backgroundColor: palette.target,
     },
+    markerShuttleTarget: {
+      backgroundColor: palette.shuttleTarget,
+    },
     markerStation: {
       backgroundColor: palette.shuttleStation,
     },
-    // Bottom-left only — camera is top-center, waiting GPS is bottom-right.
+    speedBadge: {
+      position: 'absolute' as const,
+      top: spacing.md + 44,
+      right: spacing.sm,
+      zIndex: 30,
+      minHeight: 32,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 6,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.full,
+      borderCurve: 'continuous' as const,
+      borderWidth: 1,
+      borderColor: palette.vehicle,
+      backgroundColor: liquid
+        ? theme.effects.glassSurfaceStrong
+        : theme.colors.surfaceElevated,
+      ...theme.effects.cardShadow,
+    },
+    speedBadgeDot: {
+      width: 8,
+      height: 8,
+      borderRadius: borderRadius.full,
+      backgroundColor: palette.vehicle,
+    },
+    speedBadgeValue: {
+      fontFamily: fontFamilies.semiBold,
+      fontSize: fontSizes.xs,
+      lineHeight: 16,
+      color: theme.colors.textPrimary,
+    },
+    // Legend stays bottom-left; camera is top-center and live speed is top-right.
     mapLegend: {
       position: 'absolute' as const,
       left: spacing.sm,
@@ -876,7 +1172,7 @@ const createStyles = (theme: AppTheme) => {
       borderRadius: borderRadius.full,
     },
     cameraSegmentItemActive: {
-      backgroundColor: palette.target,
+      backgroundColor: palette.plannedRoute,
     },
     cameraSegmentItemDisabled: {
       opacity: 0.45,
