@@ -38,8 +38,6 @@ interface TrackingMapProps {
   plannedRoute?: readonly GeoCoordinate[];
   markers?: readonly TrackingMapMarker[];
   vehicleKind?: 'bus' | 'shuttle';
-  /** Shuttle tracking: show the passenger device GPS on the map. */
-  showUserLocation?: boolean;
   connectionState?: TrackingMapConnectionState;
   bottomContentInset?: number;
   edgeToEdge?: boolean;
@@ -118,7 +116,6 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
   plannedRoute = EMPTY_ROUTE,
   markers,
   vehicleKind = 'bus',
-  showUserLocation = false,
   connectionState = 'waiting',
   bottomContentInset = 0,
   edgeToEdge = false,
@@ -214,7 +211,6 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
           plannedRoute={staticMapData.plannedRoute}
           markers={staticMapData.markers}
           vehicleKind={vehicleKind}
-          showUserLocation={showUserLocation}
           bottomContentInset={safeBottomContentInset}
           showDrivenTrail={showDrivenTrail}
         />

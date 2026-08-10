@@ -30,11 +30,9 @@ export function NotificationDetailScreen(): React.JSX.Element {
   const { notification } = route.params;
   const { mutate: markRead } = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const kind = getNotificationKind(notification.type);
-  // Pass notification.data so shuttle tracking can resolve bookingId even when
-  // action.params only has shuttleTripId (current BE + existing inbox rows).
   const actionIntent = useMemo(
-    () => getNotificationNavigationIntent(notification.action, notification.data),
-    [notification.action, notification.data],
+    () => getNotificationNavigationIntent(notification.action),
+    [notification.action],
   );
 
   const timestamp = useMemo(() => {

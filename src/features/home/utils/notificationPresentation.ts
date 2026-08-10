@@ -69,7 +69,6 @@ const SHUTTLE_TRACKING_NOTIFICATION_TYPES = new Set([
 
 const shuttleTrackingIntentSchema = z.object({
   shuttleTripId: z.string().uuid(),
-  bookingId: z.string().uuid().optional(),
 }).strict();
 
 export type ShuttleTrackingNotificationIntent = z.infer<
@@ -92,11 +91,6 @@ export const getShuttleTrackingNotificationIntent = ({
   const shuttleTripId = getNotificationDataString(data, 'shuttleTripId');
   if (!isUuid(shuttleTripId)) return null;
 
-  const bookingId = getNotificationDataString(data, 'bookingId');
-  const candidate = {
-    shuttleTripId,
-    ...(isUuid(bookingId) ? { bookingId } : {}),
-  };
-  const parsed = shuttleTrackingIntentSchema.safeParse(candidate);
+  const parsed = shuttleTrackingIntentSchema.safeParse({ shuttleTripId });
   return parsed.success ? parsed.data : null;
 };

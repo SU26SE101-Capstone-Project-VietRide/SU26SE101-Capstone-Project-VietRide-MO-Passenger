@@ -1,14 +1,12 @@
 import { z } from 'zod';
 
-import { isUuid } from '@shared/utils/pathSegment';
-
 const uuidParamsSchema = (key: 'bookingId' | 'tripId' | 'parcelId' | 'shuttleTripId') => (
   z.object({ [key]: z.string().uuid() }).strict()
 );
 
 const emptyParamsSchema = z.object({}).strict();
 
-/** Shuttle tracking may include bookingId so multi-pickup passengers open the right stop. */
+/** Shuttle tracking may include bookingId when BE embeds it in action.params. */
 const openShuttleTrackingParamsSchema = z.object({
   shuttleTripId: z.string().uuid(),
   bookingId: z.string().uuid().optional(),
@@ -63,43 +61,6 @@ export const NONE_NOTIFICATION_ACTION: NotificationAction = {
   params: {},
 };
 
-const readBookingIdFromUnknown = (value: unknown): string | undefined => {
-  if (typeof value === 'string' && isUuid(value)) return value;
-  return undefined;
-};
-
-/**
- * Prefer action.params.bookingId; fall back to notification/FCM data.bookingId
- * so existing SHUTTLE_ASSIGNED payloads still open the correct pickup before BE
- * starts embedding bookingId in OPEN_SHUTTLE_TRACKING.params.
- */
-export const resolveShuttleTrackingBookingId = (
-  action: NotificationAction,
-  data?: unknown,
-): string | undefined => {
-  if (action.type !== 'OPEN_SHUTTLE_TRACKING') return undefined;
-  if (action.params.bookingId) return action.params.bookingId;
-
-  if (data && typeof data === 'object' && !Array.isArray(data)) {
-    return readBookingIdFromUnknown((data as Record<string, unknown>).bookingId);
-  }
-  return undefined;
-};
-
-const withShuttleBookingId = (
-  action: Extract<NotificationAction, { type: 'OPEN_SHUTTLE_TRACKING' }>,
-  bookingId: string | undefined,
-): Extract<NotificationAction, { type: 'OPEN_SHUTTLE_TRACKING' }> => {
-  if (!bookingId || action.params.bookingId === bookingId) return action;
-  return {
-    type: 'OPEN_SHUTTLE_TRACKING',
-    params: {
-      shuttleTripId: action.params.shuttleTripId,
-      bookingId,
-    },
-  };
-};
-
 /**
  * Treat notification actions as untrusted input. Invalid or future actions
  * deliberately degrade to the notification inbox instead of executing a
@@ -118,14 +79,10 @@ export const parseFcmNotificationAction = (
   }
 
   try {
-    const action = parseNotificationAction({
+    return parseNotificationAction({
       type: data.actionType,
       params: JSON.parse(data.actionParams) as unknown,
     });
-    if (action.type !== 'OPEN_SHUTTLE_TRACKING') return action;
-
-    // FCM flattens notification.data (incl. bookingId) alongside actionParams.
-    return withShuttleBookingId(action, resolveShuttleTrackingBookingId(action, data));
   } catch {
     return NONE_NOTIFICATION_ACTION;
   }
@@ -141,7 +98,6 @@ export type NotificationNavigationIntent =
 /** Only Passenger routes with a validated, supported destination are exposed. */
 export const getNotificationNavigationIntent = (
   action: NotificationAction,
-  data?: unknown,
 ): NotificationNavigationIntent | null => {
   switch (action.type) {
     case 'OPEN_BOOKING_DETAIL':
@@ -153,14 +109,12 @@ export const getNotificationNavigationIntent = (
       return { type: 'parcel-detail', parcelId: action.params.parcelId };
     case 'OPEN_WALLET':
       return { type: 'wallet' };
-    case 'OPEN_SHUTTLE_TRACKING': {
-      const bookingId = resolveShuttleTrackingBookingId(action, data);
+    case 'OPEN_SHUTTLE_TRACKING':
       return {
         type: 'shuttle-tracking',
         shuttleTripId: action.params.shuttleTripId,
-        ...(bookingId ? { bookingId } : {}),
+        ...(action.params.bookingId ? { bookingId: action.params.bookingId } : {}),
       };
-    }
     case 'OPEN_CREW_TRIP_BOOKING':
     case 'OPEN_TRIP_DETAIL':
     case 'OPEN_SUBSCRIPTION':

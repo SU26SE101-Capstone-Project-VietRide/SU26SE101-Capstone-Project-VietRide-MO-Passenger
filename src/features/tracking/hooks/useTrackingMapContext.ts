@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -12,8 +12,18 @@ import {
 } from '../api/trackingApi';
 
 export const TRACKING_ROUTE_CONTEXT_REFRESH_MS = 10 * 60_000;
-export const TRACKING_SHUTTLE_CONTEXT_REFRESH_MS = 60_000;
 const TRACKING_ROUTE_CONTEXT_GC_MS = 30 * 60_000;
+/**
+ * Keep one-shot shuttle bootstrap in memory while the tracking screen may
+ * briefly unmount/remount. Not used for polling — live GPS/ETA never go here.
+ */
+const TRACKING_SHUTTLE_CONTEXT_GC_MS = 5 * 60_000;
+
+/**
+ * @deprecated No longer polled. Kept so any external import does not break;
+ * passenger-context is bootstrap-only (notification / enter tracking).
+ */
+export const TRACKING_SHUTTLE_CONTEXT_REFRESH_MS = 0;
 
 export type TrackingMapContext =
   | {
@@ -32,6 +42,10 @@ interface UseTrackingMapContextOptions {
   trackingId: string;
   bookingId?: string;
   enabled: boolean;
+  /**
+   * Only applies to trip route-context geometry refresh.
+   * Shuttle passenger-context is never interval-polled.
+   */
   pollingEnabled: boolean;
   retainSensitiveContext: boolean;
   isFatalError: (error: unknown) => boolean;
@@ -68,6 +82,50 @@ export const selectShuttlePassengerPickup = (
   return pending ?? pickedUp;
 };
 
+/**
+ * Passenger-context fields that affect map markers / journey chrome.
+ * Live progress (stopsBeforePickup, vehicle GPS) is owned by latest/eta/socket.
+ */
+const shuttleBootstrapFingerprint = (
+  context: ShuttlePassengerContext | null | undefined,
+): string => {
+  if (!context) return '';
+  const pickups = context.ownPickups
+    .map((pickup) => [
+      pickup.bookingId,
+      pickup.pickupOrder,
+      pickup.latitude,
+      pickup.longitude,
+      pickup.status,
+      pickup.serviceAddress ?? '',
+    ].join(':'))
+    .join('|');
+  const station = context.station
+    ? [
+        context.station.stationId,
+        context.station.pickupOrder,
+        context.station.latitude,
+        context.station.longitude,
+        context.station.name,
+      ].join(':')
+    : '';
+  return [
+    context.shuttleTripId,
+    context.mainTripId,
+    context.direction,
+    pickups,
+    station,
+  ].join('#');
+};
+
+/**
+ * Map geometry / marker bootstrap for tracking screens.
+ *
+ * - **Trip `route-context`**: planned polyline + stations; slow refresh with ETag.
+ * - **Shuttle `passenger-context`**: one-shot bootstrap for own pickup + station
+ *   when entering tracking (notification deep-link, ticket, etc.).
+ *   **Not** live tracking — vehicle GPS and ETA use `/latest`, `/eta`, and socket.
+ */
 export function useTrackingMapContext({
   source,
   userId,
@@ -81,22 +139,28 @@ export function useTrackingMapContext({
   const queryClient = useQueryClient();
   const isShuttle = source === 'shuttle';
   const contextKey = useMemo(
-    () => isShuttle
+    () => (isShuttle
       ? trackingKeys.shuttlePassengerContext(userId, trackingId)
-      : trackingKeys.routeContext(userId, trackingId),
+      : trackingKeys.routeContext(userId, trackingId)),
     [isShuttle, trackingId, userId],
   );
-  const refreshInterval = isShuttle
-    ? TRACKING_SHUTTLE_CONTEXT_REFRESH_MS
-    : TRACKING_ROUTE_CONTEXT_REFRESH_MS;
-  const clearShuttleContext = useCallback(() => {
-    if (!isShuttle) return;
+  // Stable key for unmount cleanup without re-subscribing the effect every render.
+  const contextKeyRef = useRef(contextKey);
+  contextKeyRef.current = contextKey;
+  const isShuttleRef = useRef(isShuttle);
+  isShuttleRef.current = isShuttle;
 
+  const stableShuttleRef = useRef<ShuttlePassengerContext | null>(null);
+  const stableShuttleFingerprintRef = useRef('');
+
+  const evictShuttleContext = useCallback((key: readonly unknown[]) => {
     queryClient
-      .cancelQueries({ queryKey: contextKey, exact: true })
+      .cancelQueries({ queryKey: key, exact: true })
       .catch(() => undefined);
-    queryClient.removeQueries({ queryKey: contextKey, exact: true });
-  }, [contextKey, isShuttle, queryClient]);
+    queryClient.removeQueries({ queryKey: key, exact: true });
+    stableShuttleRef.current = null;
+    stableShuttleFingerprintRef.current = '';
+  }, [queryClient]);
 
   const contextQuery = useQuery<TrackingContextQueryData>({
     queryKey: contextKey,
@@ -107,33 +171,74 @@ export function useTrackingMapContext({
       return getTripRouteContext(trackingId, previous, signal);
     },
     enabled,
-    staleTime: isShuttle ? 0 : TRACKING_ROUTE_CONTEXT_REFRESH_MS,
-    gcTime: isShuttle ? 0 : TRACKING_ROUTE_CONTEXT_GC_MS,
+    // Trip geometry: long-lived, ETag-aware.
+    // Shuttle passenger-context: bootstrap once per enter-tracking session.
+    // Live shuttle updates never flow through this query.
+    staleTime: isShuttle ? Number.POSITIVE_INFINITY : TRACKING_ROUTE_CONTEXT_REFRESH_MS,
+    gcTime: isShuttle
+      ? TRACKING_SHUTTLE_CONTEXT_GC_MS
+      : TRACKING_ROUTE_CONTEXT_GC_MS,
     retry: (failureCount, error) => !isFatalError(error) && failureCount < 2,
     refetchOnReconnect: false,
-    refetchInterval: (query) => (
-      pollingEnabled && !isFatalError(query.state.error)
-        ? refreshInterval
-        : false
-    ),
+    refetchOnMount: isShuttle ? false : true,
+    refetchOnWindowFocus: false,
+    refetchInterval: (query) => {
+      if (isShuttle) return false;
+      return pollingEnabled && !isFatalError(query.state.error)
+        ? TRACKING_ROUTE_CONTEXT_REFRESH_MS
+        : false;
+    },
   });
 
-  useEffect(() => clearShuttleContext, [clearShuttleContext]);
-
+  // Evict sensitive shuttle coordinates when the screen blurs / app backgrounds.
+  // Do NOT return the clear as the effect cleanup — that re-ran clear on every
+  // dependency identity change while mounted and caused removeQueries → refetch storms.
   useEffect(() => {
-    if (!isShuttle || retainSensitiveContext) return;
+    if (!isShuttle) return;
 
-    // A native-stack screen can remain mounted after blur. Explicit eviction
-    // prevents passenger pickup coordinates outliving the active map screen.
-    clearShuttleContext();
-  }, [clearShuttleContext, isShuttle, retainSensitiveContext]);
+    if (!retainSensitiveContext) {
+      evictShuttleContext(contextKey);
+    }
+  }, [contextKey, evictShuttleContext, isShuttle, retainSensitiveContext]);
+
+  // Unmount-only: clear the last active shuttle context key.
+  useEffect(() => () => {
+    if (!isShuttleRef.current) return;
+    evictShuttleContext(contextKeyRef.current);
+  }, [evictShuttleContext]);
 
   const routeContext = !isShuttle
     ? (contextQuery.data as TripRouteContextCache | undefined)?.data ?? null
     : null;
-  const shuttleContext = isShuttle
+
+  const rawShuttleContext = isShuttle
     ? (contextQuery.data as ShuttlePassengerContext | undefined) ?? null
     : null;
+
+  // Zod parse + RQ always yield new object identities. Hold a stable reference
+  // unless bootstrap marker fields actually change — stops map marker rebuilds
+  // when pull-to-refresh returns the same pickup/station payload.
+  const shuttleContext = useMemo(() => {
+    if (!isShuttle) return null;
+    if (!rawShuttleContext) {
+      stableShuttleRef.current = null;
+      stableShuttleFingerprintRef.current = '';
+      return null;
+    }
+
+    const fingerprint = shuttleBootstrapFingerprint(rawShuttleContext);
+    if (
+      stableShuttleRef.current
+      && stableShuttleFingerprintRef.current === fingerprint
+    ) {
+      return stableShuttleRef.current;
+    }
+
+    stableShuttleRef.current = rawShuttleContext;
+    stableShuttleFingerprintRef.current = fingerprint;
+    return rawShuttleContext;
+  }, [isShuttle, rawShuttleContext]);
+
   const selectedShuttlePickup = useMemo(
     () => selectShuttlePassengerPickup(shuttleContext, bookingId),
     [bookingId, shuttleContext],

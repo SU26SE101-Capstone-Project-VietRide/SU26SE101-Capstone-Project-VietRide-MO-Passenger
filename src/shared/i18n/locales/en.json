@@ -935,8 +935,6 @@
       "accessibilityLabel": "Live trip map",
       "accessibilityHint": "Drag or pinch to explore the trip. Use Follow vehicle to resume live tracking.",
       "latestVehicle": "Latest vehicle location",
-      "yourLocation": "Your location",
-      "yourLocationHint": "Current device GPS",
       "followAccessibility": "Follow the live vehicle location",
       "followVehicle": "Follow vehicle",
       "viewRoute": "Full route",

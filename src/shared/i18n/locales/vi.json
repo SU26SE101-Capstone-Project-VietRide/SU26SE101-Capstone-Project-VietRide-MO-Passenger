@@ -935,8 +935,6 @@
       "accessibilityLabel": "Bản đồ chuyến đi trực tiếp",
       "accessibilityHint": "Kéo hoặc chụm để khám phá hành trình. Dùng Theo xe để tiếp tục theo dõi trực tiếp.",
       "latestVehicle": "Vị trí xe mới nhất",
-      "yourLocation": "Vị trí của bạn",
-      "yourLocationHint": "GPS thiết bị hiện tại",
       "followAccessibility": "Theo dõi vị trí trực tiếp của xe",
       "followVehicle": "Theo xe",
       "viewRoute": "Toàn tuyến",

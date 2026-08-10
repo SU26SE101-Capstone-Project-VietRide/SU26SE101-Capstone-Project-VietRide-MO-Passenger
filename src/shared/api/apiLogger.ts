@@ -15,15 +15,13 @@ import type {
 export const API_LOGGER_ENABLED = true;
 export const LOG_REQUEST_PAYLOAD = true;
 export const LOG_RESPONSE_BODY = true;
-/** 0 = no body truncation (full JSON). Positive = max chars after stringify. */
-export const API_LOGGER_MAX_BODY_LENGTH = 0;
+export const API_LOGGER_MAX_BODY_LENGTH = 2000;
 
 const REDACTED = '[REDACTED]';
 const SEPARATOR = '─'.repeat(60);
 const MAX_COLLECTION_ENTRIES = 100;
 const MAX_LOG_DEPTH = 8;
-/** 0 = no per-string truncation. Positive = max chars per string value. */
-const MAX_STRING_LENGTH = 0;
+const MAX_STRING_LENGTH = 500;
 
 const UUID_PATH_SEGMENT_PATTERN =
   /\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?=\/|$)/gi;
@@ -119,25 +117,13 @@ const isSensitiveKey = (key: string): boolean => {
   );
 };
 
-/** Calendar date or RFC 3339 instant — must not be treated as a phone number. */
-const isApiDateOrInstant = (value: string): boolean => (
-  /^\d{4}-\d{2}-\d{2}$/.test(value)
-  || /^\d{4}-\d{2}-\d{2}T/.test(value)
-  || /^\d{2}:\d{2}(:\d{2})?$/.test(value)
-);
-
 const sanitizeText = (text: string): string => {
-  const maybeTruncated =
-    MAX_STRING_LENGTH > 0 && text.length > MAX_STRING_LENGTH
+  const truncated =
+    text.length > MAX_STRING_LENGTH
       ? `${text.slice(0, MAX_STRING_LENGTH)}… [string truncated]`
       : text;
 
-  // Pure date/instant strings (departureDate, recordedAt, …) skip phone scrubbing.
-  if (isApiDateOrInstant(maybeTruncated.trim())) {
-    return maybeTruncated;
-  }
-
-  return maybeTruncated
+  return truncated
     .replace(/Bearer\s+[^\s,;]+/gi, `Bearer ${REDACTED}`)
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, REDACTED)
     .replace(/(https?:\/\/[^\s"'<>#]+)#token=[^\s"'<>]+/gi, '$1#[REDACTED_FRAGMENT]')
@@ -146,17 +132,7 @@ const sanitizeText = (text: string): string => {
       const queryIndex = match.indexOf('?');
       return `${match.slice(0, queryIndex)}?[REDACTED_QUERY]`;
     })
-    // Phones: require optional + and at least 9 digit-like chars; exclude ISO dates.
-    .replace(
-      /(^|[^\w])(\+?\d[\d\s().-]{8,}\d)(?=$|[^\w])/g,
-      (full, prefix: string, candidate: string) => {
-        const compact = candidate.replace(/[\s().-]/g, '');
-        if (/^\d{4}-\d{2}-\d{2}/.test(candidate.trim())) return full;
-        // VN mobiles are typically 10–11 digits; skip short calendar-like runs.
-        if (compact.length < 9 || compact.length > 15) return full;
-        return `${prefix}${REDACTED}`;
-      },
-    );
+    .replace(/(^|[^\w])\+?\d[\d\s().-]{7,}\d(?=$|[^\w])/g, `$1${REDACTED}`);
 };
 
 const sanitizeValue = (
@@ -341,13 +317,6 @@ export const logRequest = (config: InternalAxiosRequestConfig): void => {
     if (body) parts.push(`📦 Request Body:\n${body}`);
   }
 
-  const searchSummary = formatTripSearchRequestSummary(config);
-  if (searchSummary) {
-    parts.push(searchSummary);
-    // Emit early as info — Metro paste often drops multiline debug blocks.
-    console.info(searchSummary);
-  }
-
   parts.push(SEPARATOR);
   console.debug(parts.join('\n'));
 };
@@ -363,18 +332,6 @@ export const logResponse = (response: AxiosResponse): void => {
     : '?ms';
   const statusEmoji =
     response.status >= 200 && response.status < 300 ? '✅' : '⚠️';
-
-  // Emit trip-search summary FIRST as console.info — Metro/copy often drops
-  // long multiline console.debug payloads after the "Response Body:" label.
-  const searchSummary = formatTripSearchResponseSummary(
-    response.config,
-    response.status,
-    response.data,
-  );
-  if (searchSummary) {
-    console.info(searchSummary);
-  }
-
   const parts: string[] = [
     `\n${SEPARATOR}`,
     `${statusEmoji} RESPONSE [${requestId}]  ${response.status}  ${method}  ${url}  (${elapsed})`,
@@ -383,146 +340,11 @@ export const logResponse = (response: AxiosResponse): void => {
 
   if (LOG_RESPONSE_BODY) {
     const body = formatBody(response.data);
-    if (body) {
-      parts.push(`📥 Response Body:\n${body}`);
-    } else {
-      parts.push(
-        `📥 Response Body: (empty or unreadable; typeof=${typeof response.data})`,
-      );
-    }
+    if (body) parts.push(`📥 Response Body:\n${body}`);
   }
-
-  if (searchSummary) parts.push(searchSummary);
 
   parts.push(SEPARATOR);
   console.debug(parts.join('\n'));
-};
-
-/** Compact trip-search lines so Metro paste still shows the outcome. */
-const isTripSearchRequest = (config: InternalAxiosRequestConfig | undefined): boolean => {
-  const raw = `${config?.url ?? ''} ${config?.baseURL ?? ''}`;
-  const path = safeRouteLabel(config?.url);
-  return path.includes('trips/search') || /trips\/search/i.test(raw);
-};
-
-const readParam = (
-  params: unknown,
-  key: string,
-): string | number | boolean | undefined => {
-  if (!params || typeof params !== 'object') return undefined;
-  const value = (params as Record<string, unknown>)[key];
-  if (
-    typeof value === 'string'
-    || typeof value === 'number'
-    || typeof value === 'boolean'
-  ) {
-    return value;
-  }
-  return undefined;
-};
-
-const formatTripSearchRequestSummary = (
-  config: InternalAxiosRequestConfig,
-): string | null => {
-  if (!isTripSearchRequest(config)) return null;
-  const p = config.params;
-  const fields = [
-    ['originStationId', readParam(p, 'originStationId')],
-    ['destinationStationId', readParam(p, 'destinationStationId')],
-    ['originProvinceCode', readParam(p, 'originProvinceCode')],
-    ['originWardCode', readParam(p, 'originWardCode')],
-    ['destinationProvinceCode', readParam(p, 'destinationProvinceCode')],
-    ['destinationWardCode', readParam(p, 'destinationWardCode')],
-    ['departureDate', readParam(p, 'departureDate')],
-    ['passengerCount', readParam(p, 'passengerCount')],
-    ['allowAlongRoutePickup', readParam(p, 'allowAlongRoutePickup')],
-  ]
-    .filter(([, value]) => value !== undefined && value !== '')
-    .map(([key, value]) => `${key}=${String(value)}`)
-    .join(' ');
-
-  return `🔎 TRIP_SEARCH_REQ ${fields || '(no recognized params)'}`;
-};
-
-const unwrapSearchPayload = (data: unknown): {
-  totalItems?: number;
-  items?: Array<{
-    tripId?: string;
-    departureDateTime?: string;
-    originStation?: { name?: string };
-    destinationStation?: { name?: string };
-  }>;
-} | null => {
-  if (!data || typeof data !== 'object') return null;
-  const root = data as Record<string, unknown>;
-  // Envelope: { success, data: { items, totalItems } }
-  if (root.data && typeof root.data === 'object' && !Array.isArray(root.data)) {
-    const inner = root.data as Record<string, unknown>;
-    if ('items' in inner || 'totalItems' in inner) {
-      return inner as {
-        totalItems?: number;
-        items?: Array<{
-          tripId?: string;
-          departureDateTime?: string;
-          originStation?: { name?: string };
-          destinationStation?: { name?: string };
-        }>;
-      };
-    }
-  }
-  // Already unwrapped page object
-  if ('items' in root || 'totalItems' in root) {
-    return root as {
-      totalItems?: number;
-      items?: Array<{
-        tripId?: string;
-        departureDateTime?: string;
-        originStation?: { name?: string };
-        destinationStation?: { name?: string };
-      }>;
-    };
-  }
-  return null;
-};
-
-const formatTripSearchResponseSummary = (
-  config: InternalAxiosRequestConfig | undefined,
-  status: number,
-  data: unknown,
-): string | null => {
-  if (!isTripSearchRequest(config)) return null;
-
-  let totalItems: number | string = '?';
-  let itemCount: number | string = '?';
-  let firstTripId = '-';
-  let firstDep = '-';
-  let routeLabel = '-';
-
-  try {
-    const payload = unwrapSearchPayload(data);
-    if (payload) {
-      totalItems = typeof payload.totalItems === 'number' ? payload.totalItems : '?';
-      itemCount = Array.isArray(payload.items) ? payload.items.length : '?';
-      const first = Array.isArray(payload.items) ? payload.items[0] : undefined;
-      if (first) {
-        firstTripId = first.tripId ?? '-';
-        firstDep = first.departureDateTime ?? '-';
-        const from = first.originStation?.name ?? '?';
-        const to = first.destinationStation?.name ?? '?';
-        routeLabel = `${from} -> ${to}`;
-      }
-    } else {
-      totalItems = 'UNPARSED';
-      itemCount = typeof data;
-    }
-  } catch {
-    totalItems = 'ERROR';
-  }
-
-  return (
-    `🔎 TRIP_SEARCH_RES status=${status} totalItems=${totalItems} `
-    + `items=${itemCount} firstTripId=${firstTripId} firstDep=${firstDep} route=${routeLabel}`
-  );
 };
 
 export const logError = (error: AxiosError): void => {

@@ -417,6 +417,8 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     tripQuery.data?.estimatedArrivalDateTime,
     tripQuery.data?.stops,
   ]);
+  // Shuttle markers come only from passenger-context bootstrap (stable ref).
+  // Live vehicle motion must not rebuild stop markers.
   const markers = useMemo(
     () => (isShuttle
       ? buildShuttleMarkers(
@@ -925,7 +927,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         plannedRoute={plannedRoute}
         markers={markers}
         vehicleKind="shuttle"
-        showUserLocation
         connectionState={connectionState}
         bottomDock={journeyDock}
       />

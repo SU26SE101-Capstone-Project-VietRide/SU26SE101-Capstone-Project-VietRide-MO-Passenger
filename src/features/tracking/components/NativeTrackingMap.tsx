@@ -14,7 +14,6 @@ import {
   NavigationArrow,
   Signpost,
   Target,
-  User,
   Van,
 } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
@@ -32,11 +31,6 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks/useThemedStyles';
 import { motionTokens, useMotion } from '@shared/motion';
 import {
-  getCurrentCoordinates,
-  isDeviceLocationError,
-  requestForegroundLocationPermission,
-} from '@shared/services/deviceLocation';
-import {
   borderRadius,
   fontFamilies,
   fontSizes,
@@ -44,7 +38,6 @@ import {
   type AppTheme,
 } from '@shared/theme';
 import type { GeoCoordinate } from '@shared/types/common';
-import { formatDateTime } from '@shared/utils/format';
 import { getGeoDistanceKm } from '@shared/utils/geo';
 import type { TrackingPoint } from '../api/trackingApi';
 import {
@@ -65,20 +58,12 @@ interface NativeTrackingMapProps {
   markers?: readonly TrackingMapMarker[];
   vehicleKind?: 'bus' | 'shuttle';
   showDrivenTrail?: boolean;
-  /**
-   * When true (shuttle tracking), request location permission and show the
-   * passenger's current GPS as a distinct marker + native blue-dot.
-   */
-  showUserLocation?: boolean;
   bottomContentInset?: number;
   /** @deprecated Compatibility aliases while old callers migrate. */
   points?: readonly TrackingPoint[];
   /** @deprecated Compatibility aliases while old callers migrate. */
   stops?: readonly TrackingMapStop[];
 }
-
-const VEHICLE_TRACKS_VIEW_MS = 450;
-const USER_LOCATION_REFRESH_MS = 15_000;
 
 type CameraMode = 'follow' | 'overview';
 
@@ -303,44 +288,22 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
 function AnimatedVehicleMarker({
   coordinate,
   heading,
-  speedKmh,
-  recordedAt,
   vehicleKind,
   reduceMotion,
 }: {
   coordinate: LatLng;
   heading: number;
-  speedKmh?: number;
-  recordedAt: string;
   vehicleKind: 'bus' | 'shuttle';
   reduceMotion: boolean;
 }): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  // Android custom markers often render blank when tracksViewChanges starts
-  // false — paint once, then freeze for performance.
-  const [tracksViewChanges, setTracksViewChanges] = useState(true);
   const animatedCoordinate = useRef(new AnimatedRegion({
     ...coordinate,
     latitudeDelta: 0,
     longitudeDelta: 0,
   })).current;
   const previousCoordinateRef = useRef(coordinate);
-  const formattedRecordedAt = formatDateTime(recordedAt);
-  const calloutDescription = [
-    speedKmh != null && Number.isFinite(speedKmh)
-      ? `${t('tracking.metrics.speed')}: ${Math.round(speedKmh)} km/h`
-      : null,
-    formattedRecordedAt
-      ? `${t('tracking.metrics.lastUpdate')}: ${formattedRecordedAt}`
-      : null,
-  ].filter((detail): detail is string => detail != null).join(' · ');
-
-  useEffect(() => {
-    setTracksViewChanges(true);
-    const timer = setTimeout(() => setTracksViewChanges(false), VEHICLE_TRACKS_VIEW_MS);
-    return () => clearTimeout(timer);
-  }, [coordinate.latitude, coordinate.longitude, vehicleKind]);
 
   useEffect(() => {
     const previous = previousCoordinateRef.current;
@@ -368,18 +331,13 @@ function AnimatedVehicleMarker({
     <MarkerAnimated
       coordinate={animatedCoordinate}
       title={t('tracking.map.latestVehicle')}
-      description={calloutDescription || undefined}
       rotation={heading}
       anchor={VEHICLE_MARKER_ANCHOR}
       flat
-      tracksViewChanges={tracksViewChanges}
+      tracksViewChanges={false}
       zIndex={20}
       testID="tracking-vehicle-marker"
     >
-      {/*
-        Both trip and shuttle use a large branded vehicle glyph. The old trip
-        "position dot" was too small to notice on real devices.
-      */}
       <View collapsable={false} style={styles.vehicleHalo}>
         <View
           style={styles.vehicleMarker}
@@ -398,40 +356,6 @@ function AnimatedVehicleMarker({
   );
 }
 
-function UserLocationMarker({
-  coordinate,
-}: {
-  coordinate: LatLng;
-}): React.JSX.Element {
-  const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
-  const [tracksViewChanges, setTracksViewChanges] = useState(true);
-
-  useEffect(() => {
-    setTracksViewChanges(true);
-    const timer = setTimeout(() => setTracksViewChanges(false), VEHICLE_TRACKS_VIEW_MS);
-    return () => clearTimeout(timer);
-  }, [coordinate.latitude, coordinate.longitude]);
-
-  return (
-    <Marker
-      coordinate={coordinate}
-      title={t('tracking.map.yourLocation')}
-      description={t('tracking.map.yourLocationHint')}
-      anchor={VEHICLE_MARKER_ANCHOR}
-      tracksViewChanges={tracksViewChanges}
-      zIndex={18}
-      testID="tracking-user-location-marker"
-    >
-      <View collapsable={false} style={styles.userLocationHalo}>
-        <View style={styles.userLocationMarker}>
-          <User size={16} color={MARKER_CONTRAST} weight="fill" />
-        </View>
-      </View>
-    </Marker>
-  );
-}
-
 export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent({
   latest,
   trail,
@@ -439,7 +363,6 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
   markers,
   vehicleKind = 'bus',
   showDrivenTrail = true,
-  showUserLocation = false,
   bottomContentInset = 0,
   points,
   stops,
@@ -449,8 +372,6 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
   const hasFittedInitialViewportRef = useRef(false);
   const lastFollowedCoordinateRef = useRef<LatLng | null>(null);
   const [cameraMode, setCameraMode] = useState<CameraMode>('follow');
-  const [userCoordinate, setUserCoordinate] = useState<LatLng | null>(null);
-  const [userLocationEnabled, setUserLocationEnabled] = useState(false);
   const theme = useTheme();
   const { t } = useTranslation();
   const { reduceMotion } = useMotion();
@@ -467,48 +388,6 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
     ...OVERVIEW_PADDING,
     bottom: OVERVIEW_PADDING.bottom + safeBottomContentInset,
   }), [safeBottomContentInset]);
-
-  useEffect(() => {
-    if (!showUserLocation) {
-      setUserCoordinate(null);
-      setUserLocationEnabled(false);
-      return;
-    }
-
-    let cancelled = false;
-    let refreshTimer: ReturnType<typeof setInterval> | undefined;
-
-    const refreshUserLocation = async (): Promise<void> => {
-      try {
-        await requestForegroundLocationPermission();
-        if (cancelled) return;
-        setUserLocationEnabled(true);
-        const coordinates = await getCurrentCoordinates({
-          onLastKnownCoordinates: (lastKnown) => {
-            if (!cancelled) setUserCoordinate(toCoordinate(lastKnown));
-          },
-        });
-        if (!cancelled) setUserCoordinate(toCoordinate(coordinates));
-      } catch (error) {
-        if (cancelled) return;
-        // Permission denied / GPS unavailable — keep stops + vehicle only.
-        if (isDeviceLocationError(error) && error.code === 'permission-denied') {
-          setUserLocationEnabled(false);
-          setUserCoordinate(null);
-        }
-      }
-    };
-
-    void refreshUserLocation();
-    refreshTimer = setInterval(() => {
-      void refreshUserLocation();
-    }, USER_LOCATION_REFRESH_MS);
-
-    return () => {
-      cancelled = true;
-      if (refreshTimer !== undefined) clearInterval(refreshTimer);
-    };
-  }, [showUserLocation]);
 
   const trailPoints = trail ?? points ?? EMPTY_TRACKING_POINTS;
   const legacyMarkers = useMemo(
@@ -541,17 +420,15 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
       ...markerCoordinates
         .filter(({ marker }) => marker.kind !== 'intermediate')
         .map(({ coordinate }) => coordinate),
-      ...(userCoordinate ? [userCoordinate] : []),
     ],
-    [markerCoordinates, plannedRouteCoordinates, userCoordinate],
+    [markerCoordinates, plannedRouteCoordinates],
   );
   const fallbackOverviewCoordinates = useMemo(
     () => [
       ...(latestCoordinate ? [latestCoordinate] : []),
       ...markerCoordinates.map(({ coordinate }) => coordinate),
-      ...(userCoordinate ? [userCoordinate] : []),
     ],
-    [latestCoordinate, markerCoordinates, userCoordinate],
+    [latestCoordinate, markerCoordinates],
   );
   const overviewCoordinates = plannedRouteCoordinates.length >= 2
     ? routeOverviewCoordinates
@@ -566,7 +443,6 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
     ))?.coordinate
     ?? markerCoordinates.find(({ marker }) => marker.kind === 'origin')?.coordinate
     ?? markerCoordinates[0]?.coordinate
-    ?? userCoordinate
     ?? plannedRouteCoordinates[0]
     ?? null;
   const initialRegion = useMemo(() => ({
@@ -699,7 +575,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
         showsMyLocationButton={false}
         showsPointsOfInterest={false}
         showsTraffic={false}
-        showsUserLocation={showUserLocation && userLocationEnabled}
+        showsUserLocation={false}
         toolbarEnabled={false}
         poiClickEnabled={false}
         onMapReady={handleMapReady}
@@ -761,16 +637,10 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
           />
         ))}
 
-        {userCoordinate ? (
-          <UserLocationMarker coordinate={userCoordinate} />
-        ) : null}
-
         {latestCoordinate && latest ? (
           <AnimatedVehicleMarker
             coordinate={latestCoordinate}
             heading={heading}
-            speedKmh={latest.speedKmh}
-            recordedAt={latest.recordedAt}
             vehicleKind={vehicleKind}
             reduceMotion={reduceMotion}
           />
@@ -947,24 +817,6 @@ const createStyles = (theme: AppTheme) => {
       borderWidth: 3,
       borderColor: MARKER_CONTRAST,
       backgroundColor: palette.vehicle,
-    },
-    userLocationHalo: {
-      width: 44,
-      height: 44,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      borderRadius: borderRadius.full,
-      backgroundColor: 'rgba(37, 99, 235, 0.22)',
-    },
-    userLocationMarker: {
-      width: 34,
-      height: 34,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      borderRadius: borderRadius.full,
-      borderWidth: 3,
-      borderColor: MARKER_CONTRAST,
-      backgroundColor: '#2563EB',
     },
     intermediateWrap: {
       alignItems: 'center' as const,

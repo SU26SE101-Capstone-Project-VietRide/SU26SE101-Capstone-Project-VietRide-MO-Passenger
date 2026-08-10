@@ -36,13 +36,9 @@ describe('API logger redaction', () => {
         page: 1,
         accessToken: 'query-access-secret',
         filter: { email: 'query@example.com' },
-        // Public trip-search calendar date must stay visible in logs.
-        departureDate: '2026-08-15',
-        originProvinceCode: '79',
       },
       data: JSON.stringify({
         tripId: 'trip-safe-value',
-        departureDateTime: '2026-08-15T09:00:00+07:00',
         contactInformation: {
           fullName: 'Nguyen Secret',
           phone: '0901234567',
@@ -73,9 +69,6 @@ describe('API logger redaction', () => {
     expect(output).toContain('trip-safe-value');
     expect(output).toContain('A01');
     expect(output).toContain('"page": 1');
-    expect(output).toContain('2026-08-15');
-    expect(output).toContain('2026-08-15T09:00:00+07:00');
-    expect(output).toContain('"originProvinceCode": "79"');
     expect(output).toContain('Auth: [REDACTED]');
     expect(output).toContain('Idempotency-Key: [REDACTED]');
     [
@@ -94,53 +87,6 @@ describe('API logger redaction', () => {
       '12.654321',
       'private-key-secret',
     ].forEach(secret => expect(output).not.toContain(secret));
-  });
-
-  it('prints a one-line trip search summary that keeps totalItems readable', () => {
-    const infoSpy = jest.spyOn(console, 'info').mockImplementation();
-    const debugSpy = jest.spyOn(console, 'debug').mockImplementation();
-
-    const config = makeConfig({
-      method: 'get',
-      url: '/v1/trips/search',
-      params: {
-        originProvinceCode: '92',
-        destinationProvinceCode: '79',
-        departureDate: '2026-08-15',
-        passengerCount: 1,
-      },
-    });
-
-    logRequest(config);
-    logResponse({
-      config,
-      data: {
-        success: true,
-        statusCode: 200,
-        data: {
-          items: [{
-            tripId: '7c70fc6e-4f99-4e38-891f-eb07e6e53b75',
-            departureDateTime: '2026-08-15T09:00:00+07:00',
-          }],
-          totalItems: 1,
-          page: 1,
-          pageSize: 20,
-        },
-      },
-      headers: {},
-      status: 200,
-      statusText: 'OK',
-    } as AxiosResponse);
-
-    const info = consoleOutput(infoSpy);
-    expect(info).toContain('TRIP_SEARCH_REQ');
-    expect(info).toContain('originProvinceCode=92');
-    expect(info).toContain('destinationProvinceCode=79');
-    expect(info).toContain('departureDate=2026-08-15');
-    expect(info).toContain('TRIP_SEARCH_RES');
-    expect(info).toContain('totalItems=1');
-    expect(info).toContain('firstTripId=7c70fc6e-4f99-4e38-891f-eb07e6e53b75');
-    expect(debugSpy).toHaveBeenCalled();
   });
 
   it('redacts sensitive response values inside nested objects and arrays', () => {

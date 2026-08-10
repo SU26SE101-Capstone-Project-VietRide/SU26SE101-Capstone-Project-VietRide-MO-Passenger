@@ -205,7 +205,9 @@ const shuttlePassengerPickupSchema = z.object({
   pickupOrder: z.number().int().positive(),
   serviceAddress: z.string().trim().min(1).optional(),
   serviceOrder: z.number().int().positive().optional(),
-  roadDistanceMeters: z.number().int().nonnegative().optional(),
+  // BE allows non-integer meters; forcing .int() rejected valid payloads and
+  // retried passenger-context in a loop.
+  roadDistanceMeters: z.number().nonnegative().optional(),
   ...trackingGeoCoordinateShape,
   status: z.enum(['PENDING', 'PICKED_UP']),
   stopsBeforePickup: z.number().int().nonnegative(),
@@ -610,6 +612,11 @@ const trackingShuttlePath = (shuttleTripId: string): string => {
   return `/tracking/shuttle-trips/${shuttleTripIdSegment}`;
 };
 
+/**
+ * Bootstrap own-pickup + station markers when entering shuttle tracking
+ * (notification deep-link, ticket, etc.). Not a live poll — vehicle GPS/ETA
+ * use {@link getShuttleTrackingLatest}, {@link getShuttleTrackingEta}, socket.
+ */
 export async function getShuttlePassengerContext(
   shuttleTripId: string,
   signal?: AbortSignal,

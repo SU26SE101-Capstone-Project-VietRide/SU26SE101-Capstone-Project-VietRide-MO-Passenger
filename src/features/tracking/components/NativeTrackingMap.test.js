@@ -12,21 +12,7 @@ jest.mock('phosphor-react-native', () => ({
   NavigationArrow: () => null,
   Signpost: () => null,
   Target: () => null,
-  User: () => null,
   Van: () => null,
-}));
-
-jest.mock('@shared/services/deviceLocation', () => ({
-  requestForegroundLocationPermission: jest.fn(async () => ({
-    granted: true,
-    canAskAgain: true,
-  })),
-  getCurrentCoordinates: jest.fn(async ({ onLastKnownCoordinates } = {}) => {
-    const coordinates = { latitude: 10.78, longitude: 106.70 };
-    onLastKnownCoordinates?.(coordinates);
-    return coordinates;
-  }),
-  isDeviceLocationError: () => false,
 }));
 
 jest.mock('react-native-maps', () => {
@@ -308,8 +294,6 @@ describe('NativeTrackingMap route-only primitives', () => {
     )).not.toHaveLength(0);
 
     const vehicle = renderer.root.findAllByProps({ testID: 'tracking-vehicle-marker' })[0];
-    expect(vehicle.props.description).toContain('42 km/h');
-    expect(vehicle.props.description.split(' · ')).toHaveLength(2);
     expect(vehicle.props.coordinate).toMatchObject({
       latitude: latest.latitude,
       longitude: latest.longitude,
@@ -401,34 +385,6 @@ describe('NativeTrackingMap route-only primitives', () => {
     })).toHaveLength(0);
 
     ReactTestRenderer.act(() => renderer.unmount());
-  });
-
-  it('shows the passenger GPS marker when showUserLocation is enabled', async () => {
-    const current = makePoint('2026-07-20T01:00:00.000Z', {
-      speedKmh: 20,
-    });
-    let renderer;
-
-    await ReactTestRenderer.act(async () => {
-      renderer = ReactTestRenderer.create(React.createElement(NativeTrackingMap, {
-        latest: current,
-        trail: [current],
-        vehicleKind: 'shuttle',
-        showUserLocation: true,
-      }));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(renderer.root.findAllByProps({
-      testID: 'tracking-user-location-marker',
-    })).not.toHaveLength(0);
-    expect(renderer.root.findByProps({ testID: 'tracking-native-map' }).props.showsUserLocation)
-      .toBe(true);
-
-    await ReactTestRenderer.act(async () => {
-      renderer.unmount();
-    });
   });
 
   it('shows zero speed and removes the badge when a newer point omits speed', () => {

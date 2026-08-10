@@ -3,7 +3,6 @@ import {
   NONE_NOTIFICATION_ACTION,
   parseFcmNotificationAction,
   parseNotificationAction,
-  resolveShuttleTrackingBookingId,
 } from './notificationAction';
 
 const BOOKING_ID = '92be9c75-9e7c-474f-b59f-d0255f8ff5a2';
@@ -121,7 +120,7 @@ describe('notification actions', () => {
     expect(getNotificationNavigationIntent(NONE_NOTIFICATION_ACTION)).toBeNull();
   });
 
-  it('enriches shuttle bookingId from FCM data when action.params omit it', () => {
+  it('does not invent bookingId from FCM data when action.params omit it', () => {
     expect(parseFcmNotificationAction({
       actionType: 'OPEN_SHUTTLE_TRACKING',
       actionParams: JSON.stringify({ shuttleTripId: SHUTTLE_TRIP_ID }),
@@ -131,26 +130,7 @@ describe('notification actions', () => {
       type: 'OPEN_SHUTTLE_TRACKING',
       params: {
         shuttleTripId: SHUTTLE_TRIP_ID,
-        bookingId: BOOKING_ID,
       },
-    });
-  });
-
-  it('resolves shuttle bookingId from notification data for inbox navigation', () => {
-    const action = parseNotificationAction({
-      type: 'OPEN_SHUTTLE_TRACKING',
-      params: { shuttleTripId: SHUTTLE_TRIP_ID },
-    });
-
-    expect(resolveShuttleTrackingBookingId(action, { bookingId: BOOKING_ID }))
-      .toBe(BOOKING_ID);
-    expect(getNotificationNavigationIntent(action, {
-      bookingId: BOOKING_ID,
-      shuttleTripId: SHUTTLE_TRIP_ID,
-    })).toEqual({
-      type: 'shuttle-tracking',
-      shuttleTripId: SHUTTLE_TRIP_ID,
-      bookingId: BOOKING_ID,
     });
   });
 });
