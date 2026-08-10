@@ -41,19 +41,41 @@ export interface BuildTripRoutePresentationInput {
   context: TripRouteContext | null;
   destinationPlannedArrivalTime?: string | null;
   destinationPlannedStationId?: string | null;
+  /**
+   * When route-geometry stations omit coordinates, use trip-detail names/ids
+   * plus geometry endpoints so origin/destination pins still render.
+   */
+  originPlannedStationId?: string | null;
+  originStationName?: string | null;
+  destinationStationName?: string | null;
   etas: readonly TrackingEta[];
   plannedStops: readonly PlannedStop[];
   target?: TrackingTarget;
 }
 
+/**
+ * Map pin roles for non-shuttle tracking (4 colors):
+ * origin | destination | intermediate | passenger target.
+ * Operational "next stop" is sheet/ETA chrome only — it must not steal a
+ * fifth map color or replace destination/target colors.
+ */
 const markerKindForStop = (
   isNext: boolean,
   isTarget: boolean,
 ): TrackingMapMarkerKind => {
-  if (isNext && isTarget) return 'targetNext';
+  if (isTarget && isNext) return 'targetNext';
   if (isTarget) return 'target';
-  if (isNext) return 'next';
   return 'intermediate';
+};
+
+const markerKindForDestination = (
+  isNext: boolean,
+  isTarget: boolean,
+): TrackingMapMarkerKind => {
+  // Passenger alights at the terminal station → same color as "điểm dừng".
+  if (isTarget && isNext) return 'targetNext';
+  if (isTarget) return 'target';
+  return 'destination';
 };
 
 const isPlannedStopUpcoming = (stop: PlannedStop): boolean => (
@@ -70,6 +92,9 @@ export const buildTripRoutePresentation = ({
   allowPlannedFallback = true,
   destinationPlannedArrivalTime,
   destinationPlannedStationId,
+  originPlannedStationId,
+  originStationName,
+  destinationStationName,
   etas,
   plannedStops,
   target,
@@ -98,15 +123,51 @@ export const buildTripRoutePresentation = ({
       seenRouteStopIds.add(stop.stopId);
       return true;
     });
+  const geometryPoints = context.geometry?.points ?? [];
+  const geometryStart = geometryPoints[0];
+  const geometryEnd = geometryPoints.length >= 2
+    ? geometryPoints[geometryPoints.length - 1]
+    : undefined;
+
+  // Primary: station POIs from route-geometry (authoritative when coords valid).
+  // Fallback: polyline endpoints — same BE payload, no invented route.
+  const originStation = context.originStation
+    && context.originStation.stationId
+    && context.originStation.name.trim()
+    && isValidGeoCoordinate(context.originStation)
+    ? context.originStation
+    : geometryStart && isValidGeoCoordinate(geometryStart)
+      ? {
+          stationId: originPlannedStationId?.trim() || 'geometry-origin',
+          name: (originStationName?.trim()
+            || context.originStation?.name.trim()
+            || 'Origin'),
+          latitude: geometryStart.latitude,
+          longitude: geometryStart.longitude,
+        }
+      : null;
+
   const destinationStation = context.destinationStation
     && context.destinationStation.stationId
     && context.destinationStation.name.trim()
     && isValidGeoCoordinate(context.destinationStation)
     ? context.destinationStation
-    : null;
+    : geometryEnd && isValidGeoCoordinate(geometryEnd)
+      ? {
+          stationId: destinationPlannedStationId?.trim() || 'geometry-destination',
+          name: (destinationStationName?.trim()
+            || context.destinationStation?.name.trim()
+            || 'Destination'),
+          latitude: geometryEnd.latitude,
+          longitude: geometryEnd.longitude,
+        }
+      : null;
   const plannedStopsById = new Map(plannedStops.map((stop) => [stop.id, stop]));
   const routeStopIds = new Set(orderedRouteStops.map((stop) => stop.stopId));
-  const destinationStationId = destinationStation?.stationId;
+  // Prefer live POI id; fall back to trip-detail destination id for STATION targets.
+  const destinationStationId = destinationStation?.stationId
+    ?? destinationPlannedStationId
+    ?? undefined;
   const etaByStopId = new Map<string, TrackingEta>();
   let destinationEta: TrackingEta | null = null;
   let hasEtaRouteMismatch = false;
@@ -199,18 +260,13 @@ export const buildTripRoutePresentation = ({
   ];
 
   const markers: TrackingMapMarker[] = [];
-  if (
-    context.originStation
-    && context.originStation.stationId
-    && context.originStation.name.trim()
-    && isValidGeoCoordinate(context.originStation)
-  ) {
+  if (originStation) {
     markers.push({
-      id: `origin:${context.originStation.stationId}`,
+      id: `origin:${originStation.stationId}`,
       kind: 'origin',
-      latitude: context.originStation.latitude,
-      longitude: context.originStation.longitude,
-      name: context.originStation.name,
+      latitude: originStation.latitude,
+      longitude: originStation.longitude,
+      name: originStation.name,
     });
   }
   for (const stop of orderedRouteStops) {
@@ -227,16 +283,15 @@ export const buildTripRoutePresentation = ({
   }
   if (destinationStation) {
     const isNext = destinationStation.stationId === nextTargetId;
-    const isTarget = destinationStation.stationId === targetId;
+    const isTarget = destinationStation.stationId === targetId
+      || (
+        target?.kind === 'STATION'
+        && destinationPlannedStationId != null
+        && target.stationId === destinationPlannedStationId
+      );
     markers.push({
       id: `destination:${destinationStation.stationId}`,
-      kind: isNext && isTarget
-        ? 'targetNext'
-        : isTarget
-          ? 'target'
-          : isNext
-            ? 'next'
-            : 'destination',
+      kind: markerKindForDestination(isNext, isTarget),
       latitude: destinationStation.latitude,
       longitude: destinationStation.longitude,
       name: destinationStation.name,

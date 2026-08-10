@@ -195,6 +195,13 @@ describe('NativeTrackingMap route-only primitives', () => {
     ];
     const markers = [
       {
+        id: 'origin-station',
+        name: 'Origin station',
+        latitude: 10.77,
+        longitude: 106.69,
+        kind: 'origin',
+      },
+      {
         id: 'ordinary-stop',
         name: 'Ordinary stop',
         latitude: 10.775,
@@ -203,28 +210,19 @@ describe('NativeTrackingMap route-only primitives', () => {
         sequence: 1,
       },
       {
-        id: 'next-stop',
-        name: 'Next stop name',
-        latitude: 10.78,
-        longitude: 106.7,
-        kind: 'next',
-        sequence: 2,
-      },
-      {
         id: 'target-stop',
         name: 'Target stop name',
         latitude: 10.79,
         longitude: 106.71,
         kind: 'target',
-        sequence: 3,
+        sequence: 2,
       },
       {
-        id: 'shared-stop',
-        name: 'Shared stop name',
+        id: 'destination-station',
+        name: 'Destination station',
         latitude: 10.8,
         longitude: 106.72,
-        kind: 'targetNext',
-        sequence: 4,
+        kind: 'destination',
       },
     ];
     let renderer;
@@ -270,28 +268,35 @@ describe('NativeTrackingMap route-only primitives', () => {
       testID: 'tracking-stop-marker',
     }).map((marker) => marker.props.title).filter(Boolean));
     expect(stopTitles).toEqual(new Set([
+      'Origin station',
       '1. Ordinary stop',
-      '2. Next stop name',
-      '3. Target stop name',
-      '4. Shared stop name',
+      '2. Target stop name',
+      'Destination station',
     ]));
     const ordinaryMarker = renderer.root.findAllByProps({ title: '1. Ordinary stop' })[0];
-    const nextMarker = renderer.root.findAllByProps({ title: '2. Next stop name' })[0];
-    const targetMarker = renderer.root.findAllByProps({ title: '3. Target stop name' })[0];
-    const sharedMarker = renderer.root.findAllByProps({ title: '4. Shared stop name' })[0];
+    const targetMarker = renderer.root.findAllByProps({ title: '2. Target stop name' })[0];
+    const originMarker = renderer.root.findAllByProps({ title: 'Origin station' })[0];
+    const destinationMarker = renderer.root.findAllByProps({ title: 'Destination station' })[0];
     expect(ordinaryMarker.props.description).toEqual(expect.any(String));
-    expect(sharedMarker.props.description).toEqual(expect.any(String));
-    expect(sharedMarker.props.description).not.toBe(nextMarker.props.description);
-    expect(sharedMarker.props.description).not.toBe(targetMarker.props.description);
-    expect(renderer.root.findAll(
-      (node) => node.props.children === nextMarker.props.description,
-    )).not.toHaveLength(0);
-    expect(renderer.root.findAll(
-      (node) => node.props.children === targetMarker.props.description,
-    )).not.toHaveLength(0);
-    expect(renderer.root.findAll(
-      (node) => node.props.children === sharedMarker.props.description,
-    )).not.toHaveLength(0);
+    expect(originMarker.props.description).toEqual(expect.any(String));
+    expect(destinationMarker.props.description).toEqual(expect.any(String));
+    expect(targetMarker.props.description).toEqual(expect.any(String));
+    // Origin / destination / passenger stop share one liquid pin family.
+    expect(originMarker.props.coordinate).toBeTruthy();
+    expect(destinationMarker.props.coordinate).toBeTruthy();
+    expect(targetMarker.props.coordinate).toBeTruthy();
+    expect(renderer.root.findAllByProps({
+      testID: 'tracking-map-legend-origin',
+    })).not.toHaveLength(0);
+    expect(renderer.root.findAllByProps({
+      testID: 'tracking-map-legend-destination',
+    })).not.toHaveLength(0);
+    expect(renderer.root.findAllByProps({
+      testID: 'tracking-map-legend-intermediate',
+    })).not.toHaveLength(0);
+    expect(renderer.root.findAllByProps({
+      testID: 'tracking-map-legend-passenger-stop',
+    })).not.toHaveLength(0);
 
     const vehicle = renderer.root.findAllByProps({ testID: 'tracking-vehicle-marker' })[0];
     expect(vehicle.props.coordinate).toMatchObject({
@@ -422,14 +427,13 @@ describe('NativeTrackingMap route-only primitives', () => {
     ReactTestRenderer.act(() => renderer.unmount());
   });
 
-  it('uses a distinct violet Your Stop palette with readable glyph contrast', () => {
-    expect(TRACKING_MAP_LIGHT_PALETTE.target).toBe('#6D28D9');
-    expect(TRACKING_MAP_LIGHT_PALETTE.targetGlyph).toBe('#FFFFFF');
-    expect(TRACKING_MAP_DARK_PALETTE.target).toBe('#C4B5FD');
-    expect(TRACKING_MAP_DARK_PALETTE.targetGlyph).toBe('#241447');
-    expect(TRACKING_MAP_LIGHT_PALETTE.plannedRoute).not.toBe(
-      TRACKING_MAP_LIGHT_PALETTE.target,
-    );
+  it('keeps origin distinct from planned-route teal', () => {
+    expect(TRACKING_MAP_LIGHT_PALETTE.origin).toBe('#2F6FED');
+    expect(TRACKING_MAP_LIGHT_PALETTE.origin).not.toContain('007D78');
+    expect(TRACKING_MAP_LIGHT_PALETTE.destination).toBe('#D4544A');
+    expect(TRACKING_MAP_LIGHT_PALETTE.target).toBe('#5B4BDB');
+    expect(TRACKING_MAP_DARK_PALETTE.origin).toBe('#7EB6FF');
+    expect(TRACKING_MAP_DARK_PALETTE.origin).not.toBe('#55F1E8');
   });
 
   it('keeps route POIs without drawing or advertising an unavailable geometry', () => {

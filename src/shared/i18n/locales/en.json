@@ -949,6 +949,10 @@
       "legendAccessibility": "Map legend for route, trail, and stops",
       "legendPlannedRoute": "Planned route",
       "legendTrail": "Driven path",
+      "legendOrigin": "Origin",
+      "legendDestination": "Destination",
+      "legendIntermediateStops": "Other stops",
+      "legendPassengerStop": "Your stop",
       "legendStopOrder": "Stop order",
       "hiddenStops_one": "+{{count}} more stop",
       "hiddenStops_other": "+{{count}} more stops"

@@ -949,6 +949,10 @@
       "legendAccessibility": "Chú thích bản đồ: lộ trình, đường đã đi và điểm dừng",
       "legendPlannedRoute": "Lộ trình dự kiến",
       "legendTrail": "Đường xe đã đi",
+      "legendOrigin": "Điểm đầu",
+      "legendDestination": "Điểm cuối",
+      "legendIntermediateStops": "Điểm dừng khác",
+      "legendPassengerStop": "Điểm của bạn",
       "legendStopOrder": "Thứ tự bến",
       "hiddenStops_one": "+{{count}} điểm nữa",
       "hiddenStops_other": "+{{count}} điểm nữa"

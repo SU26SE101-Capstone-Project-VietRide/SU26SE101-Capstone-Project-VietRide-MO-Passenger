@@ -184,16 +184,29 @@ const trackingRouteIntermediateStopSchema = z.object({
   ...trackingGeoCoordinateShape,
 }).strict();
 
+/**
+ * Coerce partial/invalid station objects to null instead of rejecting the whole
+ * route-geometry payload (geometry polyline can still seed origin/destination pins).
+ */
+const nullableRouteStationSchema = z.preprocess(
+  (value) => {
+    if (value == null) return null;
+    const parsed = trackingRouteStationSchema.safeParse(value);
+    return parsed.success ? parsed.data : null;
+  },
+  z.union([trackingRouteStationSchema, z.null()]),
+);
+
 const tripRouteContextSchema = z.object({
   tripId: z.string().uuid(),
   geometry: z.object({
     source: z.literal('ROUTE_POLYLINE'),
     points: z.array(trackingRoutePointSchema).min(2).max(1_000),
-  }).strict().nullable(),
-  originStation: trackingRouteStationSchema.nullable(),
-  intermediateStops: z.array(trackingRouteIntermediateStopSchema),
-  destinationStation: trackingRouteStationSchema.nullable(),
-}).strict();
+  }).nullable(),
+  originStation: nullableRouteStationSchema,
+  intermediateStops: z.array(trackingRouteIntermediateStopSchema).default([]),
+  destinationStation: nullableRouteStationSchema,
+});
 
 export const shuttleDirectionSchema = z.enum([
   'INBOUND_TO_STATION',

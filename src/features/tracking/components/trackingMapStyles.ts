@@ -38,7 +38,10 @@ const freezeMapStyle = (style: MapStyleElement[]): MapStyleElement[] =>
 const freezePalette = (palette: TrackingMapPalette): Readonly<TrackingMapPalette> =>
   Object.freeze(palette);
 
-/** Liquid Light — brand teal planned route, mint trail, warm vehicle accent. */
+/**
+ * Classic marker family, colors tuned to VietRide liquid teal UI
+ * (same pin types: MapPin / Flag / Target — just cleaner tones).
+ */
 export const TRACKING_MAP_LIGHT_PALETTE = freezePalette({
   plannedRoute: 'rgba(0, 125, 120, 0.88)',
   plannedRouteHalo: 'rgba(255, 255, 255, 0.94)',
@@ -46,28 +49,28 @@ export const TRACKING_MAP_LIGHT_PALETTE = freezePalette({
   trailHalo: 'rgba(255, 255, 255, 0.96)',
   vehicle: '#E6A800',
   vehicleHalo: 'rgba(230, 168, 0, 0.28)',
-  origin: '#0F9F6E',
-  destination: '#C43C3C',
-  intermediate: '#E8F4F3',
-  intermediateBorder: '#007D78',
-  next: '#D97706',
-  nextHalo: 'rgba(217, 119, 6, 0.22)',
-  target: '#6D28D9',
-  targetHalo: 'rgba(109, 40, 217, 0.24)',
+  // Origin must NOT match plannedRoute teal (#007D78) — blue start vs teal path.
+  origin: '#2F6FED',
+  destination: '#D4544A',
+  intermediate: '#FFFFFF',
+  intermediateBorder: 'rgba(0, 125, 120, 0.55)',
+  next: '#C98900',
+  nextHalo: 'rgba(201, 137, 0, 0.20)',
+  target: '#5B4BDB',
+  targetHalo: 'rgba(91, 75, 219, 0.22)',
   targetGlyph: '#FFFFFF',
   shuttleTarget: '#007D78',
-  shuttleStation: '#006A67',
+  shuttleStation: '#005B57',
   frameBorder: 'rgba(0, 125, 120, 0.22)',
   progressSurface: 'rgba(0, 125, 120, 0.08)',
   trailSurface: 'rgba(26, 168, 162, 0.10)',
   vehicleSurface: 'rgba(230, 168, 0, 0.12)',
-  legendSurface: 'rgba(255, 255, 255, 0.88)',
-  legendBorder: 'rgba(0, 125, 120, 0.18)',
+  legendSurface: 'rgba(255, 255, 255, 0.90)',
+  legendBorder: 'rgba(0, 125, 120, 0.16)',
   legendText: '#13211F',
   sequenceText: '#007D78',
 });
 
-/** Liquid Dark — luminous mint/cyan on deep teal canvas. */
 export const TRACKING_MAP_DARK_PALETTE = freezePalette({
   plannedRoute: 'rgba(85, 241, 232, 0.86)',
   plannedRouteHalo: 'rgba(6, 19, 19, 0.88)',
@@ -75,23 +78,24 @@ export const TRACKING_MAP_DARK_PALETTE = freezePalette({
   trailHalo: 'rgba(6, 19, 19, 0.90)',
   vehicle: '#FFD166',
   vehicleHalo: 'rgba(255, 209, 102, 0.28)',
-  origin: '#4ADE80',
-  destination: '#FB7185',
-  intermediate: 'rgba(18, 48, 45, 0.92)',
-  intermediateBorder: 'rgba(85, 241, 232, 0.72)',
-  next: '#FBBF24',
-  nextHalo: 'rgba(251, 191, 36, 0.24)',
-  target: '#C4B5FD',
-  targetHalo: 'rgba(196, 181, 253, 0.26)',
-  targetGlyph: '#241447',
+  // Distinct from plannedRoute mint (#55F1E8).
+  origin: '#7EB6FF',
+  destination: '#FF8F80',
+  intermediate: 'rgba(20, 38, 38, 0.94)',
+  intermediateBorder: 'rgba(85, 241, 232, 0.55)',
+  next: '#FFD166',
+  nextHalo: 'rgba(255, 209, 102, 0.22)',
+  target: '#B8A6FF',
+  targetHalo: 'rgba(184, 166, 255, 0.24)',
+  targetGlyph: '#1A1238',
   shuttleTarget: '#55F1E8',
   shuttleStation: '#9FFFF8',
   frameBorder: 'rgba(85, 241, 232, 0.28)',
   progressSurface: 'rgba(85, 241, 232, 0.10)',
   trailSurface: 'rgba(85, 241, 232, 0.10)',
   vehicleSurface: 'rgba(255, 209, 102, 0.12)',
-  legendSurface: 'rgba(13, 34, 33, 0.90)',
-  legendBorder: 'rgba(184, 255, 249, 0.20)',
+  legendSurface: 'rgba(13, 34, 33, 0.92)',
+  legendBorder: 'rgba(184, 255, 249, 0.18)',
   legendText: '#F4FFFD',
   sequenceText: '#9FFFF8',
 });

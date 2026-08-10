@@ -69,6 +69,7 @@ const SHUTTLE_TRACKING_NOTIFICATION_TYPES = new Set([
 
 const shuttleTrackingIntentSchema = z.object({
   shuttleTripId: z.string().uuid(),
+  bookingId: z.string().uuid().optional(),
 }).strict();
 
 export type ShuttleTrackingNotificationIntent = z.infer<
@@ -78,6 +79,7 @@ export type ShuttleTrackingNotificationIntent = z.infer<
 /**
  * Creates a navigation intent from an allow-listed notification type and UUID
  * fields only. A server-provided deepLink is deliberately never executed.
+ * bookingId disambiguates multi-pickup passengers on the same shuttleTripId.
  */
 export const getShuttleTrackingNotificationIntent = ({
   type,
@@ -91,6 +93,11 @@ export const getShuttleTrackingNotificationIntent = ({
   const shuttleTripId = getNotificationDataString(data, 'shuttleTripId');
   if (!isUuid(shuttleTripId)) return null;
 
-  const parsed = shuttleTrackingIntentSchema.safeParse({ shuttleTripId });
+  const bookingId = getNotificationDataString(data, 'bookingId');
+  const candidate = {
+    shuttleTripId,
+    ...(isUuid(bookingId) ? { bookingId } : {}),
+  };
+  const parsed = shuttleTrackingIntentSchema.safeParse(candidate);
   return parsed.success ? parsed.data : null;
 };

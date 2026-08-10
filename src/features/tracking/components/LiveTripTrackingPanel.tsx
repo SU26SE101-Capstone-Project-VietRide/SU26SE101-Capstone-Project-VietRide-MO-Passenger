@@ -405,6 +405,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     allowPlannedFallback: !tracking.latest,
     destinationPlannedArrivalTime: tripQuery.data?.estimatedArrivalDateTime,
     destinationPlannedStationId: tripQuery.data?.destinationStationId,
+    originPlannedStationId: tripQuery.data?.originStationId,
+    originStationName: tripQuery.data?.departureStation,
+    destinationStationName: tripQuery.data?.arrivalStation,
     etas: tracking.latest ? tracking.etas : [],
     plannedStops: tripQuery.data?.stops ?? [],
     target: trackingTarget,
@@ -413,44 +416,97 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     tracking.etas,
     tracking.latest,
     trackingTarget,
+    tripQuery.data?.arrivalStation,
+    tripQuery.data?.departureStation,
     tripQuery.data?.destinationStationId,
     tripQuery.data?.estimatedArrivalDateTime,
+    tripQuery.data?.originStationId,
     tripQuery.data?.stops,
   ]);
-  // Shuttle markers come only from passenger-context bootstrap (stable ref).
-  // Live vehicle motion must not rebuild stop markers.
-  const markers = useMemo(
-    () => (isShuttle
-      ? buildShuttleMarkers(
-          shuttleContext,
-          selectedShuttlePickup,
-          t('tracking.map.ownPickupMarker'),
-          t('tracking.map.ownDropoffMarker'),
-        )
-      : tripPresentation.markers),
-    [
-      isShuttle,
-      selectedShuttlePickup,
-      shuttleContext,
-      t,
-      tripPresentation.markers,
-    ],
-  );
   const plannedRoute = routeContext?.geometry?.points ?? EMPTY_PLANNED_ROUTE;
-  const routeHeader = useMemo<TrackingHeaderRoute | undefined>(() => {
-    if (!routeContext?.originStation && !routeContext?.destinationStation) {
-      return undefined;
+  // Shuttle markers come only from passenger-context bootstrap (stable ref).
+  // Trip markers: presentation model + hard guarantee that polyline endpoints
+  // become origin/destination pins when station POIs are null (SCHEDULED trips
+  // often have geometry but no live GPS and empty intermediateStops).
+  const markers = useMemo(() => {
+    if (isShuttle) {
+      return buildShuttleMarkers(
+        shuttleContext,
+        selectedShuttlePickup,
+        t('tracking.map.ownPickupMarker'),
+        t('tracking.map.ownDropoffMarker'),
+      );
     }
 
+    const base = tripPresentation.markers;
+    if (plannedRoute.length < 2) return base;
+
+    const hasOrigin = base.some((marker) => marker.kind === 'origin');
+    const hasDestination = base.some((marker) => (
+      marker.kind === 'destination'
+      || marker.id.startsWith('destination:')
+    ));
+    if (hasOrigin && hasDestination) return base;
+
+    const next = [...base];
+    if (!hasOrigin) {
+      const start = plannedRoute[0];
+      if (start) {
+        next.unshift({
+          id: `origin:${tripQuery.data?.originStationId ?? 'route-start'}`,
+          kind: 'origin',
+          latitude: start.latitude,
+          longitude: start.longitude,
+          name: tripQuery.data?.departureStation?.trim()
+            || t('tracking.boardingPoint'),
+        });
+      }
+    }
+    if (!hasDestination) {
+      const end = plannedRoute[plannedRoute.length - 1];
+      if (end) {
+        next.push({
+          id: `destination:${tripQuery.data?.destinationStationId ?? 'route-end'}`,
+          kind: 'destination',
+          latitude: end.latitude,
+          longitude: end.longitude,
+          name: tripQuery.data?.arrivalStation?.trim()
+            || t('tracking.dropOff'),
+        });
+      }
+    }
+    return next;
+  }, [
+    isShuttle,
+    plannedRoute,
+    selectedShuttlePickup,
+    shuttleContext,
+    t,
+    tripPresentation.markers,
+    tripQuery.data?.arrivalStation,
+    tripQuery.data?.departureStation,
+    tripQuery.data?.destinationStationId,
+    tripQuery.data?.originStationId,
+  ]);
+  const routeHeader = useMemo<TrackingHeaderRoute | undefined>(() => {
+    const originName = routeContext?.originStation?.name.trim()
+      || tripQuery.data?.departureStation?.trim()
+      || undefined;
+    const destinationName = routeContext?.destinationStation?.name.trim()
+      || tripQuery.data?.arrivalStation?.trim()
+      || undefined;
+    if (!originName && !destinationName) return undefined;
+
     return {
-      ...(routeContext.originStation
-        ? { originName: routeContext.originStation.name }
-        : {}),
-      ...(routeContext.destinationStation
-        ? { destinationName: routeContext.destinationStation.name }
-        : {}),
+      ...(originName ? { originName } : {}),
+      ...(destinationName ? { destinationName } : {}),
     };
-  }, [routeContext?.destinationStation, routeContext?.originStation]);
+  }, [
+    routeContext?.destinationStation?.name,
+    routeContext?.originStation?.name,
+    tripQuery.data?.arrivalStation,
+    tripQuery.data?.departureStation,
+  ]);
   useEffect(() => {
     onRouteHeaderChange?.(routeHeader);
   }, [onRouteHeaderChange, routeHeader]);
@@ -854,7 +910,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       latest={tracking.latest}
       trail={tracking.trailPoints}
       plannedRoute={plannedRoute}
-      markers={tripPresentation.markers}
+      markers={markers}
       vehicleKind="bus"
       connectionState={connectionState}
       showDrivenTrail={false}
@@ -863,10 +919,10 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     />
   ), [
     connectionState,
+    markers,
     plannedRoute,
     tracking.latest,
     tracking.trailPoints,
-    tripPresentation.markers,
   ]);
 
   let hero: ReactNode;

@@ -6,6 +6,8 @@ const stopB = '33333333-3333-4333-8333-333333333333';
 const stationId = '44444444-4444-4444-8444-444444444444';
 const tripId = '11111111-1111-4111-8111-111111111111';
 
+const originStationId = '66666666-6666-4666-8666-666666666666';
+
 const context: TripRouteContext = {
   tripId,
   geometry: {
@@ -15,7 +17,12 @@ const context: TripRouteContext = {
       { latitude: 10.8, longitude: 106.7 },
     ],
   },
-  originStation: null,
+  originStation: {
+    stationId: originStationId,
+    name: 'Origin',
+    latitude: 10.7,
+    longitude: 106.6,
+  },
   intermediateStops: [
     { stopId: stopA, name: 'Stop A', sequence: 1, latitude: 10.71, longitude: 106.61 },
     { stopId: stopB, name: 'Stop B', sequence: 2, latitude: 10.72, longitude: 106.62 },
@@ -69,6 +76,70 @@ describe('buildTripRoutePresentation', () => {
 
     expect(result.upcomingStops.map((stop) => stop.id)).toEqual([stopA, stopB, stationId]);
     expect(result.featuredStops.map((stop) => stop.id)).toEqual([stopA, stopB]);
+  });
+
+  it('uses 4 map pin roles: origin, destination, intermediate, passenger stop', () => {
+    const result = buildTripRoutePresentation({
+      context,
+      etas: [eta(stopA, 1), eta(stopB, 2)],
+      plannedStops: [],
+      target: { kind: 'STOP', stopId: stopB },
+    });
+
+    expect(result.markers.find((marker) => marker.id === `origin:${originStationId}`)?.kind)
+      .toBe('origin');
+    // Next operational stop is not a fifth map color — stays intermediate.
+    expect(result.markers.find((marker) => marker.id === `stop:${stopA}`)?.kind)
+      .toBe('intermediate');
+    expect(result.markers.find((marker) => marker.id === `stop:${stopB}`)?.kind)
+      .toBe('target');
+    expect(result.markers.find((marker) => marker.id === `destination:${stationId}`)?.kind)
+      .toBe('destination');
+  });
+
+  it('colors destination as passenger stop when the passenger target is the terminal station', () => {
+    const result = buildTripRoutePresentation({
+      context,
+      etas: [],
+      plannedStops: [],
+      target: { kind: 'STATION', stationId },
+    });
+
+    expect(result.markers.find((marker) => marker.id === `destination:${stationId}`)?.kind)
+      .toBe('target');
+    expect(result.markers.find((marker) => marker.id === `origin:${originStationId}`)?.kind)
+      .toBe('origin');
+  });
+
+  it('falls back to geometry endpoints when station POIs have no coordinates', () => {
+    const result = buildTripRoutePresentation({
+      context: {
+        ...context,
+        originStation: null,
+        destinationStation: null,
+      },
+      destinationPlannedStationId: stationId,
+      originPlannedStationId: originStationId,
+      originStationName: 'Ben xe di',
+      destinationStationName: 'Ben xe den',
+      etas: [],
+      plannedStops: [],
+    });
+
+    expect(result.markers.find((marker) => marker.id === `origin:${originStationId}`))
+      .toMatchObject({
+        kind: 'origin',
+        name: 'Ben xe di',
+        latitude: 10.7,
+        longitude: 106.6,
+      });
+    expect(result.markers.find((marker) => marker.id === `destination:${stationId}`))
+      .toMatchObject({
+        kind: 'destination',
+        name: 'Ben xe den',
+        latitude: 10.8,
+        longitude: 106.7,
+      });
   });
 
   it('drops ETA targets outside the effective route instead of guessing a match', () => {
@@ -210,10 +281,34 @@ describe('buildTripRoutePresentation', () => {
     expect(result.upcomingStops.find((stop) => stop.id === stationId)?.isNext).toBe(false);
   });
 
-  it('filters invalid destination POI from both the sheet rows and native markers', () => {
+  it('replaces invalid destination POI with geometry end when polyline exists', () => {
     const result = buildTripRoutePresentation({
       context: {
         ...context,
+        destinationStation: context.destinationStation
+          ? { ...context.destinationStation, longitude: 181 }
+          : null,
+      },
+      destinationStationName: 'Geometry destination',
+      etas: [],
+      plannedStops: [],
+    });
+
+    expect(result.markers.find((marker) => marker.id.startsWith('destination:')))
+      .toMatchObject({
+        kind: 'destination',
+        latitude: 10.8,
+        longitude: 106.7,
+        name: 'Geometry destination',
+      });
+    expect(result.upcomingStops.some((stop) => stop.targetKind === 'STATION')).toBe(true);
+  });
+
+  it('omits destination when both station POI and geometry end are unavailable', () => {
+    const result = buildTripRoutePresentation({
+      context: {
+        ...context,
+        geometry: null,
         destinationStation: context.destinationStation
           ? { ...context.destinationStation, longitude: 181 }
           : null,

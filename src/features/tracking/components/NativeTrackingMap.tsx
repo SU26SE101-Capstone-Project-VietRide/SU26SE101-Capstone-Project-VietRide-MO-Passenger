@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import {
   Bus,
   Crosshair,
@@ -104,9 +104,6 @@ const MARKER_Z_INDEX: Record<TrackingMapMarkerKind, number> = {
   shuttleStation: 6,
 };
 
-const isEmphasizedKind = (kind: TrackingMapMarkerKind): boolean =>
-  kind !== 'intermediate';
-
 const toCoordinate = (point: GeoCoordinate): LatLng => ({
   latitude: point.latitude,
   longitude: point.longitude,
@@ -118,6 +115,9 @@ const legacyStopsToMarkers = (
   ...stop,
   kind: 'intermediate',
 }));
+
+const isEmphasizedKind = (kind: TrackingMapMarkerKind): boolean =>
+  kind !== 'intermediate';
 
 const markerStyleForKind = (
   kind: TrackingMapMarkerKind,
@@ -177,6 +177,35 @@ function MarkerGlyph({
   }
 }
 
+const pinColorForKind = (
+  kind: TrackingMapMarkerKind,
+  palette: ReturnType<typeof getTrackingMapPalette>,
+): string | undefined => {
+  switch (kind) {
+    case 'origin':
+      return palette.origin;
+    case 'destination':
+      return palette.destination;
+    case 'target':
+    case 'targetNext':
+      return palette.target;
+    case 'next':
+      return palette.next;
+    case 'shuttlePickup':
+    case 'shuttleDropoff':
+      return palette.shuttleTarget;
+    case 'shuttleStation':
+      return palette.shuttleStation;
+    default:
+      return undefined;
+  }
+};
+
+/**
+ * Classic marker family (kept intentionally simple for Android reliability):
+ * - Android: native pinColor Google pins
+ * - iOS: same structure — soft halo, solid disc, glyph, stem (polished only)
+ */
 const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
   coordinate,
   description,
@@ -193,15 +222,42 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
   const emphasized = isEmphasizedKind(marker.kind);
   const isNextMarker = marker.kind === 'next';
   const isTargetMarker = marker.kind === 'target' || marker.kind === 'targetNext';
+  const isOriginMarker = marker.kind === 'origin';
+  const isDestinationMarker = marker.kind === 'destination';
   const sequenceLabel = marker.sequence != null && marker.sequence > 0
     ? String(marker.sequence)
     : null;
   const title = sequenceLabel
     ? `${sequenceLabel}. ${marker.name}`
     : marker.name;
-  const persistentLabel = isNextMarker || isTargetMarker ? description : null;
+  const pinColor = pinColorForKind(marker.kind, palette);
+  const roleFill = pinColor ?? palette.origin;
+  const haloFill = isNextMarker
+    ? palette.nextHalo
+    : isTargetMarker
+      ? palette.targetHalo
+      : isDestinationMarker
+        ? `${palette.destination}33`
+        : isOriginMarker
+          ? `${palette.origin}33`
+          : `${roleFill}33`;
+  const glyphColor = isTargetMarker ? palette.targetGlyph : MARKER_CONTRAST;
 
-  // Intermediate: numbered chip so order along the route is readable at a glance.
+  // Native Google pins on Android — reliable, same role colors via pinColor.
+  if (Platform.OS === 'android' && pinColor) {
+    return (
+      <Marker
+        coordinate={coordinate}
+        title={title}
+        description={description}
+        pinColor={pinColor}
+        zIndex={MARKER_Z_INDEX[marker.kind]}
+        testID="tracking-stop-marker"
+      />
+    );
+  }
+
+  // Intermediate: numbered chip (iOS + fallback).
   if (marker.kind === 'intermediate') {
     return (
       <Marker
@@ -211,9 +267,10 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
         anchor={{ x: 0.5, y: 0.5 }}
         tracksViewChanges={false}
         zIndex={MARKER_Z_INDEX[marker.kind]}
+        testID="tracking-stop-marker"
       >
         <View collapsable={false} style={styles.intermediateWrap}>
-          <View style={[styles.intermediateChip, markerStyleForKind(marker.kind, styles)]}>
+          <View style={styles.intermediateChip}>
             <Text style={[styles.intermediateNumber, { color: palette.sequenceText }]}>
               {sequenceLabel ?? '·'}
             </Text>
@@ -223,7 +280,7 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
     );
   }
 
-  // Keep semantic roles visible; tapping the marker reveals the full stop name.
+  // iOS custom role pin — classic disc + glyph + stem, softer polish.
   return (
     <Marker
       coordinate={coordinate}
@@ -232,40 +289,15 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
       anchor={STOP_MARKER_ANCHOR}
       tracksViewChanges={false}
       zIndex={MARKER_Z_INDEX[marker.kind]}
+      testID="tracking-stop-marker"
     >
       <View collapsable={false} style={styles.emphasizedWrap}>
-        {persistentLabel ? (
-          <View
-            style={[
-              styles.semanticLabel,
-              {
-                backgroundColor: isNextMarker ? palette.next : palette.target,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.semanticLabelText,
-                { color: isNextMarker ? MARKER_CONTRAST : palette.targetGlyph },
-              ]}
-              numberOfLines={1}
-            >
-              {persistentLabel}
-            </Text>
-          </View>
-        ) : null}
-        {persistentLabel ? (
-          <View
-            style={[
-              styles.emphasizedHalo,
-              {
-                backgroundColor: isNextMarker
-                  ? palette.nextHalo
-                  : palette.targetHalo,
-              },
-            ]}
-          />
-        ) : null}
+        <View
+          style={[
+            styles.emphasizedHalo,
+            { backgroundColor: haloFill },
+          ]}
+        />
         <View
           style={[
             styles.stopMarker,
@@ -275,11 +307,16 @@ const SemanticStopMarker = React.memo(function SemanticStopMarkerComponent({
         >
           <MarkerGlyph
             kind={marker.kind}
-            size={emphasized ? 18 : 14}
-            color={isTargetMarker ? palette.targetGlyph : MARKER_CONTRAST}
+            size={emphasized ? 16 : 13}
+            color={glyphColor}
           />
         </View>
-        <View style={styles.markerStem} />
+        <View
+          style={[
+            styles.markerStem,
+            { backgroundColor: roleFill },
+          ]}
+        />
       </View>
     </Marker>
   );
@@ -315,8 +352,6 @@ function AnimatedVehicleMarker({
     }
 
     previousCoordinateRef.current = coordinate;
-    // AnimatedRegion maps every region field to its own Animated.Value target;
-    // its published type still inherits the scalar `toValue` requirement.
     const animationConfig = {
       ...coordinate,
       latitudeDelta: 0,
@@ -395,6 +430,15 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
     [stops],
   );
   const mapMarkers = markers ?? legacyMarkers;
+  // Trip/parcel maps use a 4-role palette (origin / destination / intermediate /
+  // passenger stop). Shuttle keeps pickup/station semantics and its own legend.
+  const isTripStyleMap = vehicleKind === 'bus';
+  const hasOriginMarker = mapMarkers.some((marker) => marker.kind === 'origin');
+  const hasDestinationMarker = mapMarkers.some((marker) => marker.kind === 'destination');
+  const hasIntermediateMarker = mapMarkers.some((marker) => marker.kind === 'intermediate');
+  const hasPassengerStopMarker = mapMarkers.some((marker) => (
+    marker.kind === 'target' || marker.kind === 'targetNext'
+  ));
   const trailCoordinates = useMemo(
     () => trailPoints.map(toCoordinate),
     [trailPoints],
@@ -554,7 +598,8 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
         customMapStyle={theme.isDark
           ? LIQUID_DARK_MAP_STYLE
           : LIQUID_LIGHT_MAP_STYLE}
-        googleRenderer="LATEST"
+        // LATEST renderer has custom-marker snapshot bugs on some Android GPUs
+        // (cropped circles). Default/legacy path is more reliable for View markers.
         mapType="standard"
         mapPadding={mapPadding}
         paddingAdjustmentBehavior="never"
@@ -688,7 +733,41 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             </Text>
           </View>
         ) : null}
-        {markerCoordinates.some(({ marker }) => marker.sequence !== undefined) ? (
+        {isTripStyleMap && hasOriginMarker ? (
+          <View style={styles.legendRow} testID="tracking-map-legend-origin">
+            <View style={[styles.legendSwatch, { backgroundColor: mapPalette.origin }]} />
+            <Text style={styles.legendLabel} numberOfLines={1}>
+              {t('tracking.map.legendOrigin')}
+            </Text>
+          </View>
+        ) : null}
+        {isTripStyleMap && hasDestinationMarker ? (
+          <View style={styles.legendRow} testID="tracking-map-legend-destination">
+            <View style={[styles.legendSwatch, { backgroundColor: mapPalette.destination }]} />
+            <Text style={styles.legendLabel} numberOfLines={1}>
+              {t('tracking.map.legendDestination')}
+            </Text>
+          </View>
+        ) : null}
+        {isTripStyleMap && hasIntermediateMarker ? (
+          <View style={styles.legendRow} testID="tracking-map-legend-intermediate">
+            <View style={[styles.legendSwatchRing, { borderColor: mapPalette.intermediateBorder }]}>
+              <Text style={[styles.legendMiniNumber, { color: mapPalette.sequenceText }]}>2</Text>
+            </View>
+            <Text style={styles.legendLabel} numberOfLines={1}>
+              {t('tracking.map.legendIntermediateStops')}
+            </Text>
+          </View>
+        ) : null}
+        {isTripStyleMap && hasPassengerStopMarker ? (
+          <View style={styles.legendRow} testID="tracking-map-legend-passenger-stop">
+            <View style={[styles.legendSwatch, { backgroundColor: mapPalette.target }]} />
+            <Text style={styles.legendLabel} numberOfLines={1}>
+              {t('tracking.map.legendPassengerStop')}
+            </Text>
+          </View>
+        ) : null}
+        {!isTripStyleMap && markerCoordinates.some(({ marker }) => marker.sequence !== undefined) ? (
           <View style={styles.legendRow}>
             <View style={[styles.legendSwatchRing, { borderColor: mapPalette.intermediateBorder }]}>
               <Text style={[styles.legendMiniNumber, { color: mapPalette.sequenceText }]}>2</Text>
@@ -698,17 +777,7 @@ export const NativeTrackingMap = React.memo(function NativeTrackingMapComponent(
             </Text>
           </View>
         ) : null}
-        {markerCoordinates.some(({ marker }) => (
-          marker.kind === 'next' || marker.kind === 'targetNext'
-        )) ? (
-          <View style={styles.legendRow}>
-            <View style={[styles.legendSwatch, { backgroundColor: mapPalette.next }]} />
-            <Text style={styles.legendLabel} numberOfLines={1}>
-              {t('tracking.map.nextStopMarker')}
-            </Text>
-          </View>
-        ) : null}
-        {markerCoordinates.some(({ marker }) => (
+        {!isTripStyleMap && markerCoordinates.some(({ marker }) => (
           marker.kind === 'target' || marker.kind === 'targetNext'
         )) ? (
           <View style={styles.legendRow}>
@@ -819,73 +888,59 @@ const createStyles = (theme: AppTheme) => {
       backgroundColor: palette.vehicle,
     },
     intermediateWrap: {
+      width: 34,
+      height: 34,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
     },
     intermediateChip: {
-      minWidth: 28,
-      height: 28,
-      paddingHorizontal: 6,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      borderRadius: borderRadius.full,
-      borderWidth: 2,
-      borderColor: palette.intermediateBorder,
-      backgroundColor: palette.intermediate,
-    },
-    intermediateNumber: {
-      fontFamily: fontFamilies.bold,
-      fontSize: fontSizes.xs,
-      lineHeight: 14,
-    },
-    emphasizedWrap: {
-      alignItems: 'center' as const,
-    },
-    semanticLabel: {
-      maxWidth: 148,
-      minHeight: 22,
-      marginBottom: 5,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 3,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      borderRadius: borderRadius.full,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.84)',
-    },
-    semanticLabelText: {
-      fontFamily: fontFamilies.bold,
-      fontSize: fontSizes.xs,
-      lineHeight: 16,
-    },
-
-    emphasizedHalo: {
-      position: 'absolute' as const,
-      bottom: 1,
-      width: 52,
-      height: 52,
-      borderRadius: borderRadius.full,
-    },
-    stopMarker: {
       width: 28,
       height: 28,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      borderRadius: borderRadius.full,
-      borderWidth: 2.5,
-      borderColor: MARKER_CONTRAST,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: palette.intermediateBorder,
+      backgroundColor: palette.intermediate,
+    },
+    intermediateNumber: {
+      fontFamily: fontFamilies.semiBold,
+      fontSize: fontSizes.xs,
+      lineHeight: 14,
+    },
+    emphasizedWrap: {
+      width: 44,
+      alignItems: 'center' as const,
+      paddingTop: 2,
+    },
+    emphasizedHalo: {
+      position: 'absolute' as const,
+      top: 0,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+    },
+    stopMarker: {
+      width: 30,
+      height: 30,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: 15,
+      borderWidth: 2,
+      borderColor: '#FFFFFF',
     },
     stopMarkerEmphasized: {
-      width: 38,
-      height: 38,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
     },
     markerStem: {
-      width: 3,
-      height: 8,
+      width: 2.5,
+      height: 7,
       marginTop: -1,
-      borderRadius: 2,
-      backgroundColor: MARKER_CONTRAST,
-      opacity: 0.92,
+      borderBottomLeftRadius: 2,
+      borderBottomRightRadius: 2,
+      opacity: 0.95,
     },
     markerOrigin: {
       backgroundColor: palette.origin,
