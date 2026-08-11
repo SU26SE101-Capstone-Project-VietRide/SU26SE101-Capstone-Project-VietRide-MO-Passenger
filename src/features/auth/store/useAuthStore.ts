@@ -17,6 +17,7 @@ import {
   refreshStoredTokenBundle,
   shouldForceLogoutAfterRefreshFailure,
   type RefreshTokenBundleDto,
+  type TokenRefreshResult,
 } from '@shared/api/tokenRefresh';
 import {
   beginTokenSession,
@@ -96,6 +97,22 @@ const shouldKeepLocalSession = (error: unknown): boolean => {
     apiError.code === 'REQUEST_TIMEOUT' ||
     Boolean(apiError.statusCode && apiError.statusCode >= 500)
   );
+};
+
+const refreshFailureAuthError = (
+  result: TokenRefreshResult,
+  fallbackError?: unknown,
+): ApiRequestError => {
+  if (!result.success && result.error) {
+    return toApiError(result.error);
+  }
+  if (fallbackError) {
+    return toApiError(fallbackError);
+  }
+  return new ApiRequestError({
+    code: 'AUTH_TOKEN_INVALID',
+    message: 'The stored authentication session has expired.',
+  });
 };
 
 const authSessionFromRefreshBundle = async (
@@ -288,10 +305,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           clearSessionData();
           set({
             ...unauthenticatedState,
-            authError: new ApiRequestError({
-              code: 'AUTH_TOKEN_INVALID',
-              message: 'The stored authentication session has expired.',
-            }),
+            authError: refreshFailureAuthError(refreshResult),
           });
           return;
         }
@@ -365,7 +379,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         set({
           ...unauthenticatedState,
-          authError: toApiError(error),
+          authError: refreshFailureAuthError(refreshResult, error),
         });
         return;
       }
@@ -400,7 +414,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return null;
         }
         clearSessionData();
-        set(unauthenticatedState);
+        set({
+          ...unauthenticatedState,
+          authError: refreshFailureAuthError(refreshResult),
+        });
       }
 
       return null;

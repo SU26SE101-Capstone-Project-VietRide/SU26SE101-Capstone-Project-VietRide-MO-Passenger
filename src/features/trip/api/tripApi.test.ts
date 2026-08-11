@@ -34,9 +34,9 @@ describe('tripApi', () => {
     const controller = new AbortController();
     const params = {
       originProvinceCode: '79',
-      originWardCode: '26506',
+      originLocationCode: '26506',
       destinationProvinceCode: '48',
-      destinationWardCode: '20101',
+      destinationLocationCode: '20101',
       departureDate: '2026-07-14',
       passengerCount: 1,
       allowAlongRoutePickup: false,
@@ -44,13 +44,13 @@ describe('tripApi', () => {
 
     await searchTrips(params, controller.signal);
 
-    // Exactly the 9 BE query fields that apply (no legacy locationCode).
+    // Send only the preferred leaf-location query names.
     expect(mockGet).toHaveBeenCalledWith('/trips/search', {
       params: {
         originProvinceCode: '79',
-        originWardCode: '26506',
+        originLocationCode: '26506',
         destinationProvinceCode: '48',
-        destinationWardCode: '20101',
+        destinationLocationCode: '20101',
         departureDate: '2026-07-14',
         passengerCount: 1,
         allowAlongRoutePickup: false,

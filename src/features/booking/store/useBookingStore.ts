@@ -833,8 +833,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           : {
               originProvinceCode,
               destinationProvinceCode,
-              ...(originWardCode ? { originWardCode } : {}),
-              ...(destinationWardCode ? { destinationWardCode } : {}),
+              ...(originWardCode ? { originLocationCode: originWardCode } : {}),
+              ...(destinationWardCode
+                ? { destinationLocationCode: destinationWardCode }
+                : {}),
               departureDate,
               passengerCount,
             },

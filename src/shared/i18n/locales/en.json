@@ -36,7 +36,7 @@
     "api": {
       "invalidCredentials": "The email or password is incorrect.",
       "emailNotVerified": "Your email is not verified yet. Check your verification code.",
-      "accountLocked": "This account has been locked.",
+      "accountLocked": "This account has been locked. Please contact support.",
       "emailAlreadyRegistered": "This email is already registered.",
       "phoneAlreadyRegistered": "This phone number is already registered.",
       "phoneInvalid": "Enter a valid phone number.",

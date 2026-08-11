@@ -36,7 +36,7 @@
     "api": {
       "invalidCredentials": "Email hoặc mật khẩu không đúng.",
       "emailNotVerified": "Email chưa được xác minh. Hãy kiểm tra mã xác minh.",
-      "accountLocked": "Tài khoản này đã bị khóa.",
+      "accountLocked": "Tài khoản này đã bị khóa. Vui lòng liên hệ hỗ trợ.",
       "emailAlreadyRegistered": "Email này đã được đăng ký.",
       "phoneAlreadyRegistered": "Số điện thoại này đã được đăng ký.",
       "phoneInvalid": "Hãy nhập số điện thoại hợp lệ.",

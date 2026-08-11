@@ -18,6 +18,7 @@ import type { TripLifecycleStatus } from '@features/trip/types';
 import {
   getShuttleTrackingEta,
   getShuttleTrackingLatest,
+  getTrackingEta,
   getTrackingEtas,
   getTrackingLatest,
   getTrackingTrail,
@@ -27,6 +28,7 @@ import {
   type ShuttleTrackingLatestResponse,
   type TrackingEta,
   type TrackingEtaBatchResponse,
+  type TrackingEtaResponse,
   type TrackingLatestResponse,
   type TrackingPoint,
   type TrackingTarget,
@@ -324,6 +326,17 @@ const upsertTrackingEta = (
   return { etas };
 };
 
+export function mergeTrackingEtaSources(
+  batchEtas: readonly TrackingEta[],
+  focusedEtas: ReadonlyArray<TrackingEta | null | undefined>,
+): TrackingEta[] {
+  let merged: TrackingEtaBatchResponse = { etas: [...batchEtas] };
+  focusedEtas.forEach((eta) => {
+    if (eta) merged = upsertTrackingEta(merged, eta);
+  });
+  return merged.etas;
+}
+
 const replaceWithNewestEtaBatch = (
   current: TrackingEtaBatchResponse | undefined,
   incoming: TrackingEtaBatchResponse,
@@ -476,6 +489,18 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     () => trackingKeys.shuttleEta(queryUserId, queryTrackingId),
     [queryTrackingId, queryUserId],
   );
+  const nextEtaKey = useMemo(
+    () => trackingKeys.nextEta(queryUserId, queryTrackingId),
+    [queryTrackingId, queryUserId],
+  );
+  const targetEtaKey = useMemo(
+    () => trackingKeys.targetEta(
+      queryUserId,
+      queryTrackingId,
+      trackingTarget ?? 'none',
+    ),
+    [queryTrackingId, queryUserId, trackingTarget],
+  );
   const etaBatchKey = useMemo(
     () => trackingKeys.etaBatch(queryUserId, queryTrackingId),
     [queryTrackingId, queryUserId],
@@ -528,7 +553,41 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     ),
   });
 
-  // Preferred v1.67 display read: one ordered batch for all STOPs + destination.
+  // Canonical operational ETA read. BE infers the next pending stop.
+  const nextEtaQuery = useQuery<TrackingEtaResponse>({
+    queryKey: nextEtaKey,
+    queryFn: ({ signal }) => getTrackingEta(trackingId, { signal }),
+    enabled: queryEnabled && !isShuttle,
+    staleTime: TRACKING_ETA_POLL_MS - 5_000,
+    gcTime: TRACKING_TRAIL_REFRESH_MS,
+    retry: shouldRetryTracking,
+    refetchOnReconnect: false,
+    refetchInterval: (query) => getTrackingRefetchInterval(
+      pollingEnabled && !isShuttle,
+      query.state.error,
+      TRACKING_ETA_POLL_MS,
+    ),
+  });
+
+  // Canonical passenger target read. STOP and destination STATION use distinct params.
+  const targetEtaQuery = useQuery<TrackingEtaResponse>({
+    queryKey: targetEtaKey,
+    queryFn: ({ signal }) => trackingTarget
+      ? getTrackingEta(trackingId, { target: trackingTarget, signal })
+      : Promise.resolve({ eta: null }),
+    enabled: queryEnabled && !isShuttle && hasCanonicalTarget,
+    staleTime: TRACKING_ETA_POLL_MS - 5_000,
+    gcTime: TRACKING_TRAIL_REFRESH_MS,
+    retry: shouldRetryTracking,
+    refetchOnReconnect: false,
+    refetchInterval: (query) => getTrackingRefetchInterval(
+      pollingEnabled && !isShuttle && hasCanonicalTarget,
+      query.state.error,
+      TRACKING_ETA_POLL_MS,
+    ),
+  });
+
+  // Supplementary display read: one ordered batch for all STOPs + destination.
   const etaBatchQuery = useQuery<TrackingEtaBatchResponse>({
     queryKey: etaBatchKey,
     queryFn: async ({ signal }) => {
@@ -557,6 +616,8 @@ export function useTripTracking(options: UseTripTrackingOptions) {
       latestQuery.error,
       trailQuery.error,
       shuttleEtaQuery.error,
+      nextEtaQuery.error,
+      targetEtaQuery.error,
       etaBatchQuery.error,
       trackingContext.contextQuery.error,
     ]);
@@ -568,8 +629,10 @@ export function useTripTracking(options: UseTripTrackingOptions) {
   }, [
     latestQuery.error,
     etaBatchQuery.error,
+    nextEtaQuery.error,
     scopeKey,
     shuttleEtaQuery.error,
+    targetEtaQuery.error,
     trackingContext.contextQuery.error,
     trailQuery.error,
   ]);
@@ -743,7 +806,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
         onGpsUpdate: appendLivePoint,
         onEtaUpdate: (eta) => {
           if (disposed) return;
-          // Legacy next-stop event remains a compatibility delta for the batch.
+          // Keep the socket next-stop delta in the batch cache for derived reads.
           queryClient.setQueryData<TrackingEtaBatchResponse>(
             etaBatchKey,
             (current) => upsertTrackingEta(current, eta),
@@ -854,10 +917,17 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     ]),
     [rawLatest, trailPoints],
   );
-  // React Query cache is the single source of truth for ETA (including socket merges).
-  const etas = useMemo(
+  // Merge focused REST reads with the supplementary batch/socket cache by target + freshness.
+  const batchEtas = useMemo(
     () => etaBatchQuery.data?.etas ?? [],
     [etaBatchQuery.data?.etas],
+  );
+  const etas = useMemo(
+    () => mergeTrackingEtaSources(batchEtas, [
+      nextEtaQuery.data?.eta,
+      targetEtaQuery.data?.eta,
+    ]),
+    [batchEtas, nextEtaQuery.data?.eta, targetEtaQuery.data?.eta],
   );
   const firstStopEta = useMemo(
     () => etas
@@ -872,7 +942,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
   );
   const nextEta: LiveTrackingEta | null = isShuttle
     ? (shuttleEtaQuery.data?.eta ?? null)
-    : firstStopEta;
+    : getNewestEta(nextEtaQuery.data?.eta, firstStopEta);
   const targetEta: TrackingEta | null = isShuttle || !trackingTarget
     ? null
     : etas.find((eta) => (
@@ -885,6 +955,8 @@ export function useTripTracking(options: UseTripTrackingOptions) {
   const refetchLatest = latestQuery.refetch;
   const refetchTrail = trailQuery.refetch;
   const refetchShuttleEta = shuttleEtaQuery.refetch;
+  const refetchNextEta = nextEtaQuery.refetch;
+  const refetchTargetEta = targetEtaQuery.refetch;
   const refetchEtaBatch = etaBatchQuery.refetch;
   const refetchContext = trackingContext.contextQuery.refetch;
   const refetchAll = useCallback(async (): Promise<void> => {
@@ -894,16 +966,20 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     if (isShuttle) {
       requests.push(refetchShuttleEta());
     } else {
-      requests.push(refetchTrail(), refetchEtaBatch());
+      requests.push(refetchTrail(), refetchNextEta(), refetchEtaBatch());
+      if (hasCanonicalTarget) requests.push(refetchTargetEta());
     }
     await Promise.all(requests);
   }, [
+    hasCanonicalTarget,
     isShuttle,
     queryEnabled,
     refetchContext,
-    refetchLatest,
     refetchEtaBatch,
+    refetchLatest,
+    refetchNextEta,
     refetchShuttleEta,
+    refetchTargetEta,
     refetchTrail,
   ]);
 
@@ -911,6 +987,8 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     latestQuery.error,
     trailQuery.error,
     shuttleEtaQuery.error,
+    nextEtaQuery.error,
+    targetEtaQuery.error,
     etaBatchQuery.error,
     trackingContext.contextQuery.error,
   ]);
@@ -925,8 +1003,8 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     delay,
     latestQuery,
     trailQuery,
-    nextEtaQuery: isShuttle ? shuttleEtaQuery : etaBatchQuery,
-    targetEtaQuery: etaBatchQuery,
+    nextEtaQuery: isShuttle ? shuttleEtaQuery : nextEtaQuery,
+    targetEtaQuery,
     contextQuery: trackingContext.contextQuery,
     mapContext: trackingContext.mapContext,
     routeContext: trackingContext.routeContext,

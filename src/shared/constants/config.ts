@@ -2,8 +2,11 @@
  * Type-safe wrapper around Expo's built-in environment variables.
  *
  * Expo inlines EXPO_PUBLIC_* env vars from .env at build time via
- * process.env.EXPO_PUBLIC_XXX.  No native modules needed.
+ * process.env.EXPO_PUBLIC_XXX. Native capability flags come from the embedded
+ * Expo manifest because they are derived while app.config.js is evaluated.
  */
+
+import Constants from 'expo-constants';
 
 import { normalizeUrlBase } from '@shared/utils/url';
 
@@ -24,6 +27,21 @@ interface AppConfig {
   readonly isDev: boolean;
   readonly isStaging: boolean;
   readonly isProd: boolean;
+}
+
+interface NativeCapabilities {
+  readonly googleMaps?: Readonly<{
+    android?: boolean;
+    ios?: boolean;
+  }>;
+  readonly pushNotifications?: Readonly<{
+    android?: boolean;
+    ios?: boolean;
+  }>;
+}
+
+interface VietRideExpoExtra {
+  readonly nativeCapabilities?: NativeCapabilities;
 }
 
 const normalizeEnv = (
@@ -81,6 +99,12 @@ const apiBaseUrlValue = process.env.EXPO_PUBLIC_API_BASE_URL;
 const secureTransportRequired = env !== 'development';
 
 const isExplicitlyEnabled = (value: string | undefined): boolean => value === 'true';
+const expoExtra = Constants.expoConfig?.extra as VietRideExpoExtra | undefined;
+const nativeCapabilities = expoExtra?.nativeCapabilities;
+const resolveNativeCapability = (
+  embeddedValue: boolean | undefined,
+  legacyEnvironmentValue: string | undefined,
+): boolean => embeddedValue ?? isExplicitlyEnabled(legacyEnvironmentValue);
 
 export const appConfig: AppConfig = {
   appVersion: require('../../../package.json').version as string,
@@ -90,16 +114,22 @@ export const appConfig: AppConfig = {
     secureTransportRequired ? ['https:'] : ['http:', 'https:'],
   ),
   nativeGoogleMapsEnabled: {
-    android: isExplicitlyEnabled(
+    android: resolveNativeCapability(
+      nativeCapabilities?.googleMaps?.android,
       process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED,
     ),
-    ios: isExplicitlyEnabled(process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED),
+    ios: resolveNativeCapability(
+      nativeCapabilities?.googleMaps?.ios,
+      process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED,
+    ),
   },
   nativePushNotificationsEnabled: {
-    android: isExplicitlyEnabled(
+    android: resolveNativeCapability(
+      nativeCapabilities?.pushNotifications?.android,
       process.env.EXPO_PUBLIC_NATIVE_PUSH_ANDROID_ENABLED,
     ),
-    ios: isExplicitlyEnabled(
+    ios: resolveNativeCapability(
+      nativeCapabilities?.pushNotifications?.ios,
       process.env.EXPO_PUBLIC_NATIVE_PUSH_IOS_ENABLED,
     ),
   },

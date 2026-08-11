@@ -21,7 +21,7 @@ export const tripKeys = {
   seats: (tripId: string) => [...tripKeys.all, tripId, 'seats'] as const,
 };
 
-/** Serialize only non-empty BE SearchTripsQuery fields. */
+/** Serialize only non-empty preferred BE SearchTripsQuery fields. */
 export function toTripSearchQuery(
   params: TripSearchParams,
 ): Record<string, string | number | boolean> {
@@ -38,9 +38,9 @@ export function toTripSearchQuery(
   set('originStationId', params.originStationId?.trim());
   set('destinationStationId', params.destinationStationId?.trim());
   set('originProvinceCode', params.originProvinceCode?.trim());
-  set('originWardCode', params.originWardCode?.trim());
   set('destinationProvinceCode', params.destinationProvinceCode?.trim());
-  set('destinationWardCode', params.destinationWardCode?.trim());
+  set('originLocationCode', params.originLocationCode?.trim());
+  set('destinationLocationCode', params.destinationLocationCode?.trim());
   if (params.allowAlongRoutePickup !== undefined) {
     q.allowAlongRoutePickup = params.allowAlongRoutePickup;
   }

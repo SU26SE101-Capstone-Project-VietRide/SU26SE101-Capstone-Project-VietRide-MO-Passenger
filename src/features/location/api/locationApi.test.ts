@@ -34,14 +34,14 @@ describe('getLocations (BE contract)', () => {
     expect(rows).toEqual([root]);
   });
 
-  it('calls GET /locations?parentCode=&search= for children', async () => {
+  it('combines parentCode, search, and type for children', async () => {
     mockGet.mockResolvedValue({
       data: { success: true, statusCode: 200, data: [] },
     });
 
-    await getLocations({ parentCode: '79', search: 'Vung' });
+    await getLocations({ parentCode: '79', search: 'Vung', type: 'WARD' });
     expect(mockGet).toHaveBeenCalledWith('/locations', {
-      params: { parentCode: '79', search: 'Vung' },
+      params: { parentCode: '79', search: 'Vung', type: 'WARD' },
     });
   });
 });

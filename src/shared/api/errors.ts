@@ -78,7 +78,7 @@ export class ApiRequestError extends Error {
 const fallbackMessages: Record<string, string> = {
   AUTH_INVALID_CREDENTIALS: 'Email hoặc mật khẩu không đúng.',
   AUTH_EMAIL_NOT_VERIFIED: 'Email chưa được xác minh. Vui lòng kiểm tra mã OTP.',
-  AUTH_ACCOUNT_LOCKED: 'Tài khoản đã bị khóa.',
+  AUTH_ACCOUNT_LOCKED: 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.',
   AUTH_EMAIL_ALREADY_REGISTERED: 'Email đã được đăng ký.',
   AUTH_PHONE_ALREADY_REGISTERED: 'Số điện thoại đã được đăng ký.',
   AUTH_PHONE_INVALID_FORMAT: 'Số điện thoại không đúng định dạng.',

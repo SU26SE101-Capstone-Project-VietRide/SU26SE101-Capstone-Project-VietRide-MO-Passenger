@@ -10,7 +10,12 @@ import {
   type SecureTokenBundle,
 } from '@shared/utils/storage';
 import { normalizeUrlBase } from '@shared/utils/url';
-import { toApiError, type ApiEnvelope } from './errors';
+import {
+  apiErrorFromEnvelope,
+  toApiError,
+  type ApiEnvelope,
+  type ApiRequestError,
+} from './errors';
 
 export const TOKEN_REFRESH_WINDOW_MS = 3 * 60 * 1000;
 
@@ -24,6 +29,9 @@ export interface RefreshTokenBundleDto {
 type TokenRefreshFailureReason =
   | 'missing_refresh_token'
   | 'invalid_refresh_token'
+  | 'account_locked'
+  | 'operator_suspended'
+  | 'forbidden'
   | 'network'
   | 'server'
   | 'storage'
@@ -84,12 +92,40 @@ export const isTokenExpiringSoon = (
   return bundle.expiresAt - now <= windowMs;
 };
 
+const classifyTokenRefreshFailure = (
+  apiError: ApiRequestError,
+): TokenRefreshFailureReason => {
+  if (apiError.code === 'AUTH_ACCOUNT_LOCKED') return 'account_locked';
+  if (apiError.code === 'OPERATOR_SUSPENDED') return 'operator_suspended';
+  if (apiError.statusCode === 403 || apiError.code === 'FORBIDDEN') return 'forbidden';
+  if (apiError.statusCode === 401 || apiError.code === 'AUTH_TOKEN_INVALID') {
+    return 'invalid_refresh_token';
+  }
+  if (apiError.isNetworkError || apiError.code === 'REQUEST_TIMEOUT') return 'network';
+  if (apiError.statusCode && apiError.statusCode >= 500) return 'server';
+  return 'unknown';
+};
+
+const tokenRefreshFailure = (
+  apiError: ApiRequestError,
+): TokenRefreshResult => ({
+  success: false,
+  reason: classifyTokenRefreshFailure(apiError),
+  error: apiError,
+});
+
 export const shouldForceLogoutAfterRefreshFailure = (
   result: TokenRefreshResult,
 ): boolean => {
   return (
     !result.success &&
-    (result.reason === 'missing_refresh_token' || result.reason === 'invalid_refresh_token')
+    (
+      result.reason === 'missing_refresh_token'
+      || result.reason === 'invalid_refresh_token'
+      || result.reason === 'account_locked'
+      || result.reason === 'operator_suspended'
+      || result.reason === 'forbidden'
+    )
   );
 };
 
@@ -125,15 +161,7 @@ const refreshStoredTokenBundleOnce = async (
     );
 
     if (!response.data.success) {
-      const reason = response.data.statusCode === 401
-        ? 'invalid_refresh_token'
-        : 'unknown';
-
-      return {
-        success: false,
-        reason,
-        error: new Error(response.data.error.message),
-      };
+      return tokenRefreshFailure(apiErrorFromEnvelope(response.data));
     }
 
     const nextBundle = response.data.data;
@@ -177,24 +205,10 @@ const refreshStoredTokenBundleOnce = async (
     }
 
     const apiError = toApiError(error);
-
     if (__DEV__) {
       console.warn('[Auth] Token refresh failed:', apiError);
     }
-
-    if (apiError.statusCode === 401 || apiError.code === 'AUTH_TOKEN_INVALID') {
-      return { success: false, reason: 'invalid_refresh_token', error: apiError };
-    }
-
-    if (apiError.isNetworkError || apiError.code === 'REQUEST_TIMEOUT') {
-      return { success: false, reason: 'network', error: apiError };
-    }
-
-    if (apiError.statusCode && apiError.statusCode >= 500) {
-      return { success: false, reason: 'server', error: apiError };
-    }
-
-    return { success: false, reason: 'unknown', error: apiError };
+    return tokenRefreshFailure(apiError);
   }
 };
 

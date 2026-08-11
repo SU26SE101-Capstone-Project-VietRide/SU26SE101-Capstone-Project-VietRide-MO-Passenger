@@ -1,17 +1,21 @@
 import { useEffect } from 'react';
 
 import { setUnauthorizedHandler } from '@shared/api/axiosInstance';
+import { toApiError } from '@shared/api/errors';
 import { useAuthStore } from '../store/useAuthStore';
 
 export function useAuthInitializer(): void {
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
 
   useEffect(() => {
-    setUnauthorizedHandler(() => {
+    setUnauthorizedHandler((error) => {
       const { isGuest, resetAuthState } = useAuthStore.getState();
 
       if (!isGuest) {
         resetAuthState();
+        if (error) {
+          useAuthStore.setState({ authError: toApiError(error) });
+        }
       }
     });
 

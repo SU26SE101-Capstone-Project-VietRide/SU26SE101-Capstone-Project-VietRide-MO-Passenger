@@ -2,6 +2,7 @@ import { apiClient } from '@shared/api/axiosInstance';
 import type { ApiSuccessEnvelope } from '@shared/api/errors';
 import {
   getTrackingEta,
+  getTrackingEtas,
   getTrackingLatest,
   getTrackingTrail,
   parseTrackingPoint,
@@ -16,6 +17,7 @@ jest.mock('@shared/api/axiosInstance', () => ({
 
 const TRIP_ID = '11111111-1111-4111-8111-111111111111';
 const STOP_ID = '22222222-2222-4222-8222-222222222222';
+const STATION_ID = '33333333-3333-4333-8333-333333333333';
 
 const successEnvelope = <T>(data: T): ApiSuccessEnvelope<T> => ({
   success: true,
@@ -151,6 +153,30 @@ describe('trackingApi', () => {
     expect(getMock).toHaveBeenCalledWith(
       `/tracking/trips/${TRIP_ID}/eta`,
       {},
+    );
+  });
+
+  it('passes a validated STATION target to the ETA endpoint', async () => {
+    const payload: TrackingEtaResponse = { eta: null };
+    getMock.mockResolvedValueOnce({ data: successEnvelope(payload) });
+
+    await expect(getTrackingEta(TRIP_ID, {
+      target: { kind: 'STATION', stationId: STATION_ID },
+    })).resolves.toEqual(payload);
+    expect(getMock).toHaveBeenCalledWith(
+      `/tracking/trips/${TRIP_ID}/eta`,
+      { params: { targetKind: 'STATION', stationId: STATION_ID } },
+    );
+  });
+
+  it('uses the batch ETA endpoint only for the supplementary route list', async () => {
+    const payload = { etas: [] };
+    getMock.mockResolvedValueOnce({ data: successEnvelope(payload) });
+
+    await expect(getTrackingEtas(TRIP_ID)).resolves.toEqual(payload);
+    expect(getMock).toHaveBeenCalledWith(
+      `/tracking/trips/${TRIP_ID}/etas`,
+      undefined,
     );
   });
 

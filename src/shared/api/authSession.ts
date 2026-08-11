@@ -5,7 +5,7 @@ import {
   shouldForceLogoutAfterRefreshFailure,
 } from './tokenRefresh';
 
-type UnauthorizedHandler = () => void;
+type UnauthorizedHandler = (error?: Error) => void;
 
 let unauthorizedHandler: UnauthorizedHandler | null = null;
 
@@ -13,8 +13,8 @@ export const setUnauthorizedHandler = (handler: UnauthorizedHandler | null): voi
   unauthorizedHandler = handler;
 };
 
-export const notifyUnauthorized = (): void => {
-  unauthorizedHandler?.();
+export const notifyUnauthorized = (error?: Error): void => {
+  unauthorizedHandler?.(error);
 };
 
 export const resolveStoredAccessToken = async ({
@@ -37,7 +37,7 @@ export const resolveStoredAccessToken = async ({
       accessToken = refreshResult.data.accessToken;
     } else if (shouldForceLogoutAfterRefreshFailure(refreshResult)) {
       await clearToken();
-      notifyUnauthorized();
+      notifyUnauthorized(refreshResult.error);
       accessToken = null;
     }
   }
@@ -54,7 +54,7 @@ export const refreshAccessTokenAfterUnauthorized = async (): Promise<string | nu
 
   if (shouldForceLogoutAfterRefreshFailure(refreshResult)) {
     await clearToken();
-    notifyUnauthorized();
+    notifyUnauthorized(refreshResult.error);
   }
 
   return null;

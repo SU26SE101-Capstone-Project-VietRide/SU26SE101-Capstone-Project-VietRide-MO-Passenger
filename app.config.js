@@ -159,20 +159,20 @@ if (
   );
 }
 
-// These flags contain no credential. Expo inlines them so the UI can fail
-// closed instead of mounting a native map with a missing/placeholder key.
-process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED = String(
-  googleMapsEnabledForBuild && Boolean(androidApiKey),
-);
-process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED = String(
-  googleMapsEnabledForBuild && Boolean(iosApiKey),
-);
-process.env.EXPO_PUBLIC_NATIVE_PUSH_ANDROID_ENABLED = String(
-  hasAndroidFirebaseConfig,
-);
-process.env.EXPO_PUBLIC_NATIVE_PUSH_IOS_ENABLED = String(
-  hasIosFirebaseConfig,
-);
+// Capability flags contain no credential. Keep them in Expo's embedded config
+// so release bundles see the same native capabilities that prebuild/Gradle saw.
+// Mutating process.env here is insufficient because Metro only inlines public
+// variables that existed in its own bundling environment.
+const nativeCapabilities = {
+  googleMaps: {
+    android: googleMapsEnabledForBuild && Boolean(androidApiKey),
+    ios: googleMapsEnabledForBuild && Boolean(iosApiKey),
+  },
+  pushNotifications: {
+    android: hasAndroidFirebaseConfig,
+    ios: hasIosFirebaseConfig,
+  },
+};
 
 if (isProduction && buildPlatform === 'android' && !hasAndroidFirebaseConfig) {
   throw new Error(
@@ -192,6 +192,7 @@ module.exports = {
     eas: {
       projectId: 'dd7171b6-f140-4564-ba91-0ee0567d00a1',
     },
+    nativeCapabilities,
   },
   ios: {
     ...baseConfig.ios,

@@ -118,9 +118,9 @@ describe('booking trip search', () => {
 
     expect(mockSearchTrips).toHaveBeenCalledWith({
       originProvinceCode: '01',
-      originWardCode: '00001',
+      originLocationCode: '00001',
       destinationProvinceCode: '79',
-      destinationWardCode: '26506',
+      destinationLocationCode: '26506',
       departureDate: '2026-07-10',
       passengerCount: 3,
     });

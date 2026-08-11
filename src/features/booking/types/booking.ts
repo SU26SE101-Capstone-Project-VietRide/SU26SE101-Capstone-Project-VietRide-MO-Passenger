@@ -90,7 +90,7 @@ export interface SearchParams {
    */
   originLocationCode: string;
   destinationLocationCode: string;
-  /** Optional leaf → wire `originWardCode` (5-digit). */
+  /** Optional leaf code (5 digits); mapped to the preferred `*LocationCode` wire field. */
   originWardCode: string;
   destinationWardCode: string;
   /** Station mode → wire `originStationId` / `destinationStationId`. */

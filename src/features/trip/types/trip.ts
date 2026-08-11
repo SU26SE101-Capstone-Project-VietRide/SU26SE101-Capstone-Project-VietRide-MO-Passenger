@@ -22,15 +22,16 @@ export type SeatPresentationStatus = 'available' | 'selected' | 'sold' | 'unavai
 
 /**
  * BE SearchTripsQuery query string (TripsController.SearchAsync).
- * Exactly these 9 fields — no legacy aliases.
+ * Use the preferred `*LocationCode` names for leaf locations; the older
+ * `*WardCode` fields remain BE aliases and are not emitted by Passenger.
  */
 export interface TripSearchParams {
   originStationId?: string;
   destinationStationId?: string;
   originProvinceCode?: string;
-  originWardCode?: string;
+  originLocationCode?: string;
   destinationProvinceCode?: string;
-  destinationWardCode?: string;
+  destinationLocationCode?: string;
   departureDate: string;
   passengerCount: number;
   allowAlongRoutePickup?: boolean;

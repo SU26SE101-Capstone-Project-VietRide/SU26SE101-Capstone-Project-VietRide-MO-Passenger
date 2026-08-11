@@ -602,7 +602,7 @@ export async function getTrackingEta(
   );
 }
 
-/** Preferred v1.67 display read: all remaining STOP ETAs plus destination STATION. */
+/** Supplementary route-list read: all remaining STOP ETAs plus destination STATION. */
 export async function getTrackingEtas(
   tripId: string,
   signal?: AbortSignal,

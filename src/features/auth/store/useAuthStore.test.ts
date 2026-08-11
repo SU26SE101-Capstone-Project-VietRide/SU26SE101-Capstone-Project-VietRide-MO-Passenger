@@ -6,7 +6,10 @@ const mockClearSessionBoundState = jest.fn();
 const mockSetToken = jest.fn();
 const mockSetTokenRefreshAllowed = jest.fn();
 const mockGetTokenBundle = jest.fn();
+const mockClearToken = jest.fn();
 const mockLogout = jest.fn();
+const mockRefreshStoredTokenBundle = jest.fn();
+const mockShouldForceLogoutAfterRefreshFailure = jest.fn();
 
 let mockSessionEpoch = 0;
 
@@ -21,15 +24,15 @@ jest.mock('@shared/api/queryClient', () => ({
 jest.mock('@shared/session/cleanup', () => ({
   clearSessionBoundState: () => mockClearSessionBoundState(),
 }));
+jest.mock('@shared/notifications', () => ({
+  revokeDeviceRegistration: jest.fn(async () => undefined),
+}));
 jest.mock('@shared/utils/storage', () => ({
   beginTokenSession: jest.fn(() => {
     mockSessionEpoch += 1;
     return mockSessionEpoch;
   }),
-  clearToken: jest.fn(async () => {
-    mockSessionEpoch += 1;
-    return true;
-  }),
+  clearToken: (...args: unknown[]) => mockClearToken(...args),
   getTokenBundle: (...args: unknown[]) => mockGetTokenBundle(...args),
   getTokenSessionEpoch: jest.fn(() => mockSessionEpoch),
   isTokenSessionEpochCurrent: jest.fn((epoch: number) => epoch === mockSessionEpoch),
@@ -39,11 +42,8 @@ jest.mock('@shared/utils/storage', () => ({
 jest.mock('@shared/api/tokenRefresh', () => ({
   isTokenExpired: jest.fn(() => false),
   isTokenExpiringSoon: jest.fn(() => false),
-  refreshStoredTokenBundle: jest.fn(async () => ({
-    success: false,
-    reason: 'network',
-  })),
-  shouldForceLogoutAfterRefreshFailure: jest.fn(() => false),
+  refreshStoredTokenBundle: (...args: unknown[]) => mockRefreshStoredTokenBundle(...args),
+  shouldForceLogoutAfterRefreshFailure: (...args: unknown[]) => mockShouldForceLogoutAfterRefreshFailure(...args),
 }));
 jest.mock('../api/authApi', () => ({
   authKeys: { all: ['auth'], me: ['auth', 'me'] },
@@ -51,6 +51,7 @@ jest.mock('../api/authApi', () => ({
   logout: (...args: unknown[]) => mockLogout(...args),
 }));
 
+import { ApiRequestError } from '@shared/api/errors';
 import type { AuthSession, User } from '../types';
 import { useAuthStore } from './useAuthStore';
 
@@ -80,7 +81,16 @@ describe('auth store account boundaries', () => {
     mockSetToken.mockResolvedValue(true);
     mockSetTokenRefreshAllowed.mockResolvedValue(true);
     mockGetTokenBundle.mockResolvedValue(null);
+    mockClearToken.mockImplementation(async () => {
+      mockSessionEpoch += 1;
+      return true;
+    });
     mockLogout.mockResolvedValue(undefined);
+    mockRefreshStoredTokenBundle.mockResolvedValue({
+      success: false,
+      reason: 'network',
+    });
+    mockShouldForceLogoutAfterRefreshFailure.mockReturnValue(false);
     useAuthStore.setState({
       user: null,
       isAuthenticated: false,
@@ -129,6 +139,7 @@ describe('auth store account boundaries', () => {
     expect(mockLogout).toHaveBeenCalledWith(
       'refresh-account-a',
       'access-account-a',
+      0,
     );
     expect(useAuthStore.getState()).toMatchObject({
       user: null,
@@ -164,11 +175,43 @@ describe('auth store account boundaries', () => {
     const loginA = useAuthStore.getState().setSession(session(accountA));
     const loginB = useAuthStore.getState().setSession(session(accountB));
     finishA?.(true);
-    await expect(loginA).rejects.toThrow('một phiên mới hơn');
+    await expect(loginA).rejects.toThrow('superseded by a newer session');
     finishB?.(true);
     await expect(loginB).resolves.toBeUndefined();
 
     expect(useAuthStore.getState().user).toEqual(accountB);
     expect(mockQueryClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the local session and preserves account-locked refresh errors', async () => {
+    const account = user('account-a', 'Account A');
+    const lockedError = new ApiRequestError({
+      code: 'AUTH_ACCOUNT_LOCKED',
+      message: 'Account is locked.',
+      statusCode: 403,
+    });
+    mockRefreshStoredTokenBundle.mockResolvedValueOnce({
+      success: false,
+      reason: 'account_locked',
+      error: lockedError,
+    });
+    mockShouldForceLogoutAfterRefreshFailure.mockReturnValueOnce(true);
+    useAuthStore.setState({
+      user: account,
+      isAuthenticated: true,
+      isGuest: false,
+      isAuthLoading: false,
+      authError: null,
+    });
+
+    await useAuthStore.getState().refreshSession();
+
+    expect(mockClearToken).toHaveBeenCalledTimes(1);
+    expect(mockClearSessionBoundState).toHaveBeenCalledTimes(1);
+    expect(useAuthStore.getState()).toMatchObject({
+      user: null,
+      isAuthenticated: false,
+      authError: lockedError,
+    });
   });
 });

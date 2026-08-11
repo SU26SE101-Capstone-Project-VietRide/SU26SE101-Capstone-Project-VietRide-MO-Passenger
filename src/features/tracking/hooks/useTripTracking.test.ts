@@ -37,9 +37,10 @@ import {
   getTrackingRefetchInterval,
   isFatalTrackingError,
   isTerminalTrackingStatus,
+  mergeTrackingEtaSources,
   mergeTrackingPoints,
 } from './useTripTracking';
-import type { TrackingPoint } from '../api/trackingApi';
+import type { TrackingEta, TrackingPoint } from '../api/trackingApi';
 
 const point = (index: number): TrackingPoint => ({
   tripId: '11111111-1111-4111-8111-111111111111',
@@ -48,7 +49,47 @@ const point = (index: number): TrackingPoint => ({
   recordedAt: new Date(Date.UTC(2026, 6, 14, 1, index)).toISOString(),
 });
 
+const eta = (
+  stopId: string,
+  updatedAt: string,
+  etaMinutes: number,
+): TrackingEta => ({
+  tripId: '11111111-1111-4111-8111-111111111111',
+  targetKind: 'STOP',
+  stopId,
+  sequence: 1,
+  stopName: 'Stop',
+  etaMinutes,
+  estimatedArrivalTime: '2026-07-14T02:00:00.000Z',
+  distanceMeters: 1_000,
+  updatedAt,
+  delayed: null,
+  delayStatus: 'UNKNOWN',
+  delayMinutes: null,
+  estimateQuality: 'FALLBACK',
+});
+
 describe('trip tracking helpers', () => {
+  it('keeps focused /eta data when the supplementary /etas batch is empty', () => {
+    const focused = eta(
+      '22222222-2222-4222-8222-222222222222',
+      '2026-07-14T01:10:00.000Z',
+      12,
+    );
+
+    expect(mergeTrackingEtaSources([], [focused])).toEqual([focused]);
+  });
+
+  it('merges ETA sources by target and keeps the newest value', () => {
+    const stopId = '22222222-2222-4222-8222-222222222222';
+    const batch = eta(stopId, '2026-07-14T01:10:00.000Z', 12);
+    const staleFocused = eta(stopId, '2026-07-14T01:09:00.000Z', 13);
+    const freshFocused = eta(stopId, '2026-07-14T01:11:00.000Z', 11);
+
+    expect(mergeTrackingEtaSources([batch], [staleFocused])).toEqual([batch]);
+    expect(mergeTrackingEtaSources([batch], [freshFocused])).toEqual([freshFocused]);
+  });
+
   it('deduplicates, sorts and caps locally appended latest points', () => {
     const persisted = Array.from({ length: MAX_TRACKING_TRAIL_POINTS }, (_, index) => point(index));
     const newest = point(MAX_TRACKING_TRAIL_POINTS);

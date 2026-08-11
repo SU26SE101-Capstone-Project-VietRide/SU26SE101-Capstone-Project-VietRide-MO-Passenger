@@ -13,9 +13,11 @@ export const LOCATION_GC_MS = 7 * 24 * 60 * 60 * 1000;
 export function useLocations(params: ListLocationsParams = {}) {
   const parentCode = params.parentCode?.trim() || undefined;
   const search = params.search?.trim() || undefined;
+  const type = params.type;
   const queryParams: ListLocationsParams = {
     ...(parentCode ? { parentCode } : {}),
     ...(search ? { search } : {}),
+    ...(type ? { type } : {}),
   };
 
   return useQuery({

@@ -3,17 +3,19 @@ import { z } from 'zod';
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import { apiInstantSchema } from '@shared/utils/apiTime';
-import type { Location } from '../types/location';
+import type { Location, LocationType } from '../types/location';
 
 /**
  * BE GET /v1/locations
- * Query (LocationsController): parentCode?, search?
+ * Query (LocationsController): parentCode?, search?, type?
  * - no parentCode → active PROVINCE|MUNICIPALITY roots
  * - parentCode=<official root code> → active children under that root
+ * - type combines with parentCode/search using AND semantics
  */
 export interface ListLocationsParams {
   parentCode?: string;
   search?: string;
+  type?: LocationType;
 }
 
 const locationSchema = z.object({
@@ -36,6 +38,7 @@ export const locationKeys = {
     [...locationKeys.all, 'list', {
       parentCode: params.parentCode?.trim() || null,
       search: params.search?.trim() || null,
+      type: params.type ?? null,
     }] as const,
 };
 
@@ -48,6 +51,7 @@ export async function getLocations(
   const search = params.search?.trim();
   if (parentCode) query.parentCode = parentCode;
   if (search) query.search = search;
+  if (params.type) query.type = params.type;
 
   const response = signal
     ? await apiClient.get<ApiEnvelope<unknown>>('/locations', { params: query, signal })
