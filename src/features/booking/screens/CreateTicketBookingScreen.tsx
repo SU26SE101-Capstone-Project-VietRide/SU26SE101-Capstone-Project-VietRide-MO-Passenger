@@ -392,10 +392,8 @@ function AnimatedRouteHeader({
     <View style={styles.routeHeaderShell}>
       <Text
         style={styles.routePrimary}
-        numberOfLines={1}
+        numberOfLines={2}
         ellipsizeMode="tail"
-        adjustsFontSizeToFit
-        minimumFontScale={0.82}
       >
         {primary}
       </Text>
@@ -406,8 +404,6 @@ function AnimatedRouteHeader({
               style={styles.routeSecondary}
               numberOfLines={1}
               ellipsizeMode="tail"
-              adjustsFontSizeToFit
-              minimumFontScale={0.86}
             >
               {visibleSecondary}
             </Text>
@@ -850,10 +846,10 @@ const createStyles = (theme: AppTheme) => ({
   routeHeaderShell: {
     width: '100%',
     minWidth: 0,
-    height: 50,
+    minHeight: 64,
+    paddingVertical: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
   },
   routeSecondaryShell: {
     width: '100%',
@@ -872,6 +868,7 @@ const createStyles = (theme: AppTheme) => ({
   routePrimary: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
+    lineHeight: fontSizes.md * 1.3,
     color: theme.colors.textPrimary,
     textAlign: 'center',
     maxWidth: '100%',
