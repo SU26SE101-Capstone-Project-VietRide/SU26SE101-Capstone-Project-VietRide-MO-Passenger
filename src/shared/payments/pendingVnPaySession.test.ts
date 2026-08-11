@@ -30,29 +30,50 @@ describe('pendingVnPaySession', () => {
     secureStore.__store.clear();
   });
 
-  it('parses and round-trips a valid session', async () => {
-    const saved = await savePendingVnPaySession({
+  it('round-trips owner, redirect URL, and SDK metadata through SecureStore', async () => {
+    const input = {
       sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      kind: 'topup',
+      kind: 'topup' as const,
       businessId: 'top-1',
+      ownerUserId: '11111111-1111-4111-8111-111111111111',
+      createdAt: '2026-08-11T00:00:00.000Z',
       paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
       vnpaySdk: {
         tmnCode: 'TMN',
         scheme: 'vietride',
         isSandbox: true,
       },
-    });
+    };
+
+    const saved = await savePendingVnPaySession(input);
+    const secureStore = jest.requireMock('expo-secure-store') as {
+      __store: Map<string, string>;
+    };
+    expect(JSON.parse(secureStore.__store.get('pendingVnPaySession') ?? '{}'))
+      .toEqual(input);
 
     resetPendingVnPaySessionMemory();
-    await expect(getPendingVnPaySession()).resolves.toEqual(saved);
+    await expect(getPendingVnPaySession()).resolves.toEqual(input);
+    expect(saved).toEqual(input);
 
     await clearPendingVnPaySession();
     resetPendingVnPaySessionMemory();
     await expect(getPendingVnPaySession()).resolves.toBeNull();
   });
 
-  it('rejects malformed stored JSON', () => {
+  it('rejects legacy or malformed records missing owner/resume metadata', () => {
     expect(parsePendingVnPaySession('{')).toBeNull();
     expect(parsePendingVnPaySession(JSON.stringify({ sessionId: 'x' }))).toBeNull();
+    expect(parsePendingVnPaySession(JSON.stringify({
+      sessionId: 's1',
+      kind: 'booking',
+      createdAt: '2026-08-11T00:00:00.000Z',
+      paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+      vnpaySdk: {
+        tmnCode: 'TMN',
+        scheme: 'vietride',
+        isSandbox: true,
+      },
+    }))).toBeNull();
   });
 });

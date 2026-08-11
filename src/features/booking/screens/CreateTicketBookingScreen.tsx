@@ -38,7 +38,10 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { motionTokens, useMotion } from '@shared/motion';
-import { openVnPayPayment } from '@shared/payments';
+import {
+  assertVnPaySdkAvailable,
+  openVnPayPayment,
+} from '@shared/payments';
 
 import { useBookingStore } from '../store/useBookingStore';
 import { BookingProgressBar } from '../components/BookingProgressBar';
@@ -623,6 +626,18 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
       return Promise.resolve();
     }
 
+    if (useBookingStore.getState().paymentMethod === 'vnpay') {
+      try {
+        assertVnPaySdkAvailable();
+      } catch {
+        Alert.alert(
+          t('booking.paymentRedirect.errorTitle'),
+          t('paymentReturn.errors.nativeUnavailable'),
+        );
+        return Promise.resolve();
+      }
+    }
+
     return bookingCompletionRef.current!.run({
       createBooking: () => useBookingStore.getState().createBooking(),
       showTicket: () => navigation.replace('DigitalTicket', { source: 'checkout' }),
@@ -635,6 +650,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
           result: charge,
           kind: 'booking',
           businessId,
+          ownerUserId: userId,
         });
       },
       onPaymentOpenError: () => {

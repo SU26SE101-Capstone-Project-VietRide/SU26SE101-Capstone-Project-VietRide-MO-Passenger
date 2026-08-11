@@ -33,18 +33,6 @@
         <data android:scheme="vietride"/>
         <data android:scheme="exp+viet-ride-passenger"/>
       </intent-filter>
-      <intent-filter data-generated="true">
-        <action android:name="android.intent.action.VIEW"/>
-        <data android:scheme="vietride" android:host="payments" android:path="/return"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-        <category android:name="android.intent.category.BROWSABLE"/>
-      </intent-filter>
-      <intent-filter android:autoVerify="true" data-generated="true">
-        <action android:name="android.intent.action.VIEW"/>
-        <data android:scheme="https" android:host="app.vietride.online" android:path="/payments/return"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-        <category android:name="android.intent.category.BROWSABLE"/>
-      </intent-filter>
     </activity>
   </application>
 </manifest>

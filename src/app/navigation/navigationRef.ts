@@ -6,13 +6,15 @@ import {
   NONE_NOTIFICATION_ACTION,
   type NotificationAction,
 } from '@shared/notifications/notificationAction';
+import type { PendingVnPaySession } from '@shared/payments';
 import type { RootStackParamList } from './types';
 
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 let pendingNotificationAction: NotificationAction | null = null;
+let pendingPaymentDestination: PendingVnPaySession | null = null;
 
-const canOpenNotificationInbox = (): boolean => {
+const canOpenAuthenticatedRoute = (): boolean => {
   if (!navigationRef.isReady()) return false;
   const { isAuthenticated, isGuest, user } = useAuthStore.getState();
   if (
@@ -61,14 +63,12 @@ const navigateToNotificationAction = (action: NotificationAction): void => {
       });
       return;
     default:
-      // Unsupported Passenger actions (including NONE) remain useful: the
-      // user lands in the inbox instead of a guessed or untrusted route.
       navigationRef.navigate('Main', { screen: 'Notification' });
   }
 };
 
 export const flushPendingNotificationOpen = (): void => {
-  if (!pendingNotificationAction || !canOpenNotificationInbox()) return;
+  if (!pendingNotificationAction || !canOpenAuthenticatedRoute()) return;
 
   const action = pendingNotificationAction;
   pendingNotificationAction = null;
@@ -88,4 +88,51 @@ export const discardPendingNotificationOpen = (): void => {
 
 export const openNotificationInboxFromSystemTray = (): void => {
   openNotificationFromSystemTray(NONE_NOTIFICATION_ACTION);
+};
+
+export const flushPendingPaymentOpen = (): void => {
+  const pending = pendingPaymentDestination;
+  if (!pending || !canOpenAuthenticatedRoute()) return;
+
+  const currentUserId = useAuthStore.getState().user?.id;
+  pendingPaymentDestination = null;
+  if (!currentUserId || pending.ownerUserId !== currentUserId) return;
+
+  switch (pending.kind) {
+    case 'booking':
+      navigationRef.navigate('Main', {
+        screen: 'BookingHistory',
+        params: { initialTab: 'ticket' },
+      });
+      return;
+    case 'parcel_deposit':
+    case 'parcel_final':
+      if (!pending.businessId) return;
+      navigationRef.navigate('Parcel', {
+        screen: 'ParcelDetail',
+        params: { parcelId: pending.businessId, fromHistory: true },
+      });
+      return;
+    case 'topup':
+      navigationRef.navigate('Main', {
+        screen: 'Profile',
+        params: { screen: 'Wallet' },
+      });
+  }
+};
+
+export const openPendingPaymentDestination = (
+  pending: PendingVnPaySession,
+): void => {
+  pendingPaymentDestination = pending;
+  flushPendingPaymentOpen();
+};
+
+export const discardPendingPaymentOpen = (): void => {
+  pendingPaymentDestination = null;
+};
+
+export const flushPendingNavigationOpens = (): void => {
+  flushPendingNotificationOpen();
+  flushPendingPaymentOpen();
 };

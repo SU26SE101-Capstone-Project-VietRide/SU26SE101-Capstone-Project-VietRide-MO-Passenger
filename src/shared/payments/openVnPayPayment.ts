@@ -1,7 +1,21 @@
+import { getPaymentSessionStatus } from './paymentSessionApi';
 import { pickVnPaySessionId } from './pickSessionId';
-import { savePendingVnPaySession } from './pendingVnPaySession';
-import type { VnPayChargeResult, VnPaySessionKind } from './types';
-import { openVnPaySdk, toOpenVnPaySdkInput, VnPaySdkError } from './vnPaySdk';
+import {
+  clearPendingVnPaySession,
+  savePendingVnPaySession,
+} from './pendingVnPaySession';
+import {
+  isTerminalPaymentSessionStatus,
+  type PendingVnPaySession,
+  type VnPayChargeResult,
+  type VnPaySessionKind,
+} from './types';
+import {
+  assertVnPaySdkAvailable,
+  openVnPaySdk,
+  toOpenVnPaySdkInput,
+  VnPaySdkError,
+} from './vnPaySdk';
 
 export class VnPayPaymentOpenError extends Error {
   readonly code: string;
@@ -17,25 +31,23 @@ export interface OpenVnPayPaymentOptions {
   result: VnPayChargeResult;
   kind: VnPaySessionKind;
   businessId?: string;
+  ownerUserId: string;
 }
 
-/**
- * Persists the BE session id, then opens VNPay. Callers poll session status
- * after the user returns to the app — never infer paid from the open result.
- */
 export async function openVnPayPayment({
   result,
   kind,
   businessId,
+  ownerUserId,
 }: OpenVnPayPaymentOptions): Promise<{ sessionId: string }> {
   const sessionId = pickVnPaySessionId(result);
   const paymentUrl = result.paymentRedirectUrl?.trim() ?? '';
   const sdk = result.vnpaySdk;
 
-  if (!sessionId || !paymentUrl || !sdk) {
+  if (!sessionId || !paymentUrl || !sdk || !ownerUserId.trim()) {
     throw new VnPayPaymentOpenError(
       'VNPAY_CHARGE_INCOMPLETE',
-      'Payment response is missing sessionId, paymentRedirectUrl, or vnpaySdk.',
+      'Payment response is missing session, SDK, or owner metadata.',
     );
   }
 
@@ -46,23 +58,24 @@ export async function openVnPayPayment({
   ) {
     throw new VnPayPaymentOpenError(
       'VNPAY_SDK_META_INVALID',
-      'payment response vnpaySdk is incomplete.',
+      'Payment response vnpaySdk is incomplete.',
     );
   }
 
-  await savePendingVnPaySession({
-    sessionId,
-    kind,
-    businessId,
-    paymentRedirectUrl: paymentUrl,
-    vnpaySdk: {
-      tmnCode: sdk.tmnCode.trim(),
-      scheme: sdk.scheme.trim(),
-      isSandbox: sdk.isSandbox,
-    },
-  });
-
   try {
+    assertVnPaySdkAvailable();
+    await savePendingVnPaySession({
+      sessionId,
+      kind,
+      businessId,
+      ownerUserId,
+      paymentRedirectUrl: paymentUrl,
+      vnpaySdk: {
+        tmnCode: sdk.tmnCode.trim(),
+        scheme: sdk.scheme.trim(),
+        isSandbox: sdk.isSandbox,
+      },
+    });
     await openVnPaySdk(toOpenVnPaySdkInput(paymentUrl, sdk));
   } catch (error) {
     if (error instanceof VnPaySdkError) {
@@ -74,34 +87,41 @@ export async function openVnPayPayment({
   return { sessionId };
 }
 
-/**
- * Re-opens VNPay for a previously saved pending session (continue-pay / resume).
- */
 export async function reopenPendingVnPayPayment(
-  pending: {
-    sessionId: string;
-    kind: VnPaySessionKind;
-    businessId?: string;
-    paymentRedirectUrl?: string;
-    vnpaySdk?: {
-      tmnCode: string;
-      scheme: string;
-      isSandbox: boolean;
-    };
-  },
+  pending: PendingVnPaySession,
+  ownerUserId: string,
 ): Promise<{ sessionId: string }> {
+  if (!ownerUserId || pending.ownerUserId !== ownerUserId) {
+    await clearPendingVnPaySession();
+    throw new VnPayPaymentOpenError(
+      'VNPAY_SESSION_OWNER_MISMATCH',
+      'Pending VNPay session belongs to another user.',
+    );
+  }
+
+  const status = await getPaymentSessionStatus(pending.sessionId);
+  if (status.status !== 'PENDING') {
+    if (isTerminalPaymentSessionStatus(status.status)) {
+      await clearPendingVnPaySession();
+    }
+    throw new VnPayPaymentOpenError(
+      'VNPAY_SESSION_NOT_PENDING',
+      'Pending VNPay session is no longer payable.',
+    );
+  }
+
   return openVnPayPayment({
     kind: pending.kind,
     businessId: pending.businessId,
+    ownerUserId,
     result: {
       paymentId: pending.sessionId,
       paymentRedirectUrl: pending.paymentRedirectUrl,
-      vnpaySdk: pending.vnpaySdk ?? null,
+      vnpaySdk: pending.vnpaySdk,
     },
   });
 }
 
-/** Double-tap gate matching the previous PaymentRedirectCoordinator behaviour. */
 export class VnPayPaymentOpenCoordinator {
   private active: Promise<{ sessionId: string }> | null = null;
 

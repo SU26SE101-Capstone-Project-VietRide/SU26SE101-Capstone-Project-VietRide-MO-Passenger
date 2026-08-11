@@ -1,0 +1,2 @@
+-keep class com.vnpay.** { *; }
+-keep interface com.vnpay.** { *; }

@@ -18,6 +18,14 @@ let mockOnline = true;
 let mockAppActive = true;
 let mockUserId: string | undefined = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key === 'errors.api.forbidden'
+      ? 'You do not have permission to access this information.'
+      : key,
+  }),
+}));
+
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => mockFocused,
 }));
@@ -243,6 +251,8 @@ describe('useBookingPaymentReconciliation lifecycle', () => {
 
     expect(mockGetBookingStatus).toHaveBeenCalledTimes(1);
     expect(latest?.phase).toBe('unavailable');
-    expect(latest?.errorMessage).toBe('You cannot access this booking.');
+    expect(latest?.errorMessage).toBe(
+      'You do not have permission to access this information.',
+    );
   });
 });

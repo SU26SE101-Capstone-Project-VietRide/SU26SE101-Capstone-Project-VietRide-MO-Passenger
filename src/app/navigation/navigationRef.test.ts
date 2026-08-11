@@ -19,8 +19,11 @@ jest.mock('@features/auth/store/useAuthStore', () => ({
 
 import {
   discardPendingNotificationOpen,
+  discardPendingPaymentOpen,
   flushPendingNotificationOpen,
+  flushPendingPaymentOpen,
   openNotificationFromSystemTray,
+  openPendingPaymentDestination,
 } from './navigationRef';
 
 const TRIP_ID = '05bad56c-fcb1-4b40-99e1-ae5f3b6e1759';
@@ -36,7 +39,7 @@ describe('notification action navigation', () => {
     mockGetAuthState.mockReturnValue({
       isAuthenticated: true,
       isGuest: false,
-      user: { status: 'ACTIVE', phone: '+84123456789' },
+      user: { id: BOOKING_ID, status: 'ACTIVE', phone: '+84123456789' },
     });
   });
 
@@ -97,5 +100,28 @@ describe('notification action navigation', () => {
     flushPendingNotificationOpen();
 
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('opens a cold parcel payment only for its owner', () => {
+    openPendingPaymentDestination({
+      sessionId: 'payment-1',
+      kind: 'parcel_final',
+      businessId: 'parcel-1',
+      ownerUserId: BOOKING_ID,
+      createdAt: '2026-08-11T00:00:00.000Z',
+      paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+      vnpaySdk: {
+        tmnCode: 'TMN',
+        scheme: 'vietride',
+        isSandbox: true,
+      },
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('Parcel', {
+      screen: 'ParcelDetail',
+      params: { parcelId: 'parcel-1', fromHistory: true },
+    });
+    discardPendingPaymentOpen();
+    flushPendingPaymentOpen();
   });
 });

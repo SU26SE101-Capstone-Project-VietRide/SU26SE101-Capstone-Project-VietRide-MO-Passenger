@@ -178,12 +178,15 @@
   "paymentReturn": {
     "reconcilingTitle": "Confirming payment",
     "reconcilingDescription": "VietRide received the return signal. The result will update only after the system verifies the transaction with VNPay.",
+    "processingTitle": "Payment is processing",
+    "processingDescription": "VietRide has not received the final payment result yet. The session is kept and will update when confirmation arrives.",
     "errors": {
       "mobileAppUpdateRequired": "Please update VietRide to complete VNPay payments.",
       "returnModeInvalid": "This payment channel is not supported. Please try again or contact support.",
       "mobileSdkDisabled": "VNPay mobile payments are temporarily unavailable. Please try again later.",
       "deadlinePassed": "The payment window has expired. Please create a new payment.",
-      "sessionUnavailable": "We could not resume this payment on this device. Open the ticket or parcel detail to pay again."
+      "sessionUnavailable": "We could not resume this payment on this device. Open the ticket or parcel detail to pay again.",
+      "nativeUnavailable": "VNPay is available only in the official VietRide Android build. Please update or install the new APK."
     }
   },
   "nav": {

@@ -1,12 +1,39 @@
-import { pollVnPaySessionStatus } from './reconcileVnPaySession';
-import type { PaymentSessionStatusResult } from './types';
+import {
+  pollVnPaySessionStatus,
+  reconcilePendingVnPaySession,
+} from './reconcileVnPaySession';
+import * as pendingStore from './pendingVnPaySession';
+import type {
+  PaymentSessionStatusResult,
+  PendingVnPaySession,
+} from './types';
 
 jest.mock('./paymentSessionApi', () => ({
   getPaymentSessionStatus: jest.fn(),
 }));
 
+jest.mock('./pendingVnPaySession', () => ({
+  clearPendingVnPaySession: jest.fn(async () => undefined),
+  getPendingVnPaySession: jest.fn(),
+}));
+
+const OWNER_USER_ID = '11111111-1111-4111-8111-111111111111';
+const storedSession: PendingVnPaySession = {
+  sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  kind: 'booking',
+  businessId: 'booking-1',
+  ownerUserId: OWNER_USER_ID,
+  createdAt: '2026-08-11T00:00:00.000Z',
+  paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+  vnpaySdk: {
+    tmnCode: 'TMN',
+    scheme: 'vietride',
+    isSandbox: true,
+  },
+};
+
 describe('pollVnPaySessionStatus', () => {
-  it('stops when session becomes SUCCEEDED', async () => {
+  it('handles late IPN by staying pending before SUCCEEDED', async () => {
     const fetchStatus = jest
       .fn<Promise<PaymentSessionStatusResult>, [string]>()
       .mockResolvedValueOnce({
@@ -44,5 +71,76 @@ describe('pollVnPaySessionStatus', () => {
 
     expect(result?.status).toBe('PENDING');
     expect(fetchStatus).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('reconcilePendingVnPaySession', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(pendingStore.getPendingVnPaySession)
+      .mockResolvedValue(storedSession);
+  });
+
+  it('clears user-switch data before any status request', async () => {
+    const fetchStatus = jest.fn();
+
+    await expect(reconcilePendingVnPaySession({
+      ownerUserId: '22222222-2222-4222-8222-222222222222',
+      fetchStatus,
+    })).resolves.toMatchObject({ cleared: true, status: null });
+
+    expect(fetchStatus).not.toHaveBeenCalled();
+    expect(pendingStore.clearPendingVnPaySession).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears terminal sessions after authoritative status', async () => {
+    const fetchStatus = jest.fn(async () => ({
+      sessionId: storedSession.sessionId,
+      status: 'FAILED' as const,
+    }));
+
+    const result = await reconcilePendingVnPaySession({
+      ownerUserId: OWNER_USER_ID,
+      delaysMs: [0],
+      fetchStatus,
+    });
+
+    expect(result.status?.status).toBe('FAILED');
+    expect(result.cleared).toBe(true);
+    expect(pendingStore.clearPendingVnPaySession).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains PENDING sessions', async () => {
+    const fetchStatus = jest.fn(async () => ({
+      sessionId: storedSession.sessionId,
+      status: 'PENDING' as const,
+    }));
+
+    const result = await reconcilePendingVnPaySession({
+      ownerUserId: OWNER_USER_ID,
+      delaysMs: [0],
+      fetchStatus,
+    });
+
+    expect(result.status?.status).toBe('PENDING');
+    expect(result.cleared).toBe(false);
+    expect(pendingStore.clearPendingVnPaySession).not.toHaveBeenCalled();
+  });
+
+  it('retains the session when retryable requests never resolve', async () => {
+    const fetchStatus = jest.fn(async () => {
+      throw new Error('network');
+    });
+
+    const result = await reconcilePendingVnPaySession({
+      ownerUserId: OWNER_USER_ID,
+      delaysMs: [0, 0],
+      fetchStatus,
+      shouldRetryError: () => true,
+    });
+
+    expect(result.status).toBeNull();
+    expect(result.cleared).toBe(false);
+    expect(pendingStore.clearPendingVnPaySession).not.toHaveBeenCalled();
   });
 });

@@ -27,7 +27,7 @@ import {
 } from '@features/auth';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { AppLaunchScreen } from '@shared/components';
-import { PaymentDeepLinkHandler } from '@app/components/PaymentDeepLinkHandler';
+import { PaymentLifecycleCoordinator } from '@app/components/PaymentLifecycleCoordinator';
 import { createNativeStackOptions, useMotion } from '@shared/motion';
 import { navigationRef } from './navigationRef';
 
@@ -117,7 +117,7 @@ export function RootNavigator(): React.JSX.Element {
 
   return (
     <>
-      <PaymentDeepLinkHandler />
+      <PaymentLifecycleCoordinator />
       <Stack.Navigator
         screenOptions={screenOptions}
       >

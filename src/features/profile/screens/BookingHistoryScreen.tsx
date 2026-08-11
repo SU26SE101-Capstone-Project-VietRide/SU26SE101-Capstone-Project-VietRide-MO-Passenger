@@ -770,18 +770,19 @@ export function BookingHistoryScreen(): React.JSX.Element {
     setOpeningPaymentItemKey(itemKey);
     paymentOpenInFlightRef.current = true;
 
-    void (async () => {
+    (async () => {
       try {
         const pending = await getPendingVnPaySession();
         if (
           !pending?.paymentRedirectUrl
+          || pending?.ownerUserId !== userId
           || !pending.vnpaySdk
           || (pending.businessId && pending.businessId !== itemId)
         ) {
           throw new Error('PENDING_VNPAY_SESSION_UNAVAILABLE');
         }
 
-        await reopenPendingVnPayPayment(pending);
+        await reopenPendingVnPayPayment(pending, userId);
       } catch {
         const pendingPaymentReturn = pendingPaymentReturnRef.current;
         if (pendingPaymentReturn?.itemKey === itemKey) {
@@ -804,7 +805,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
       } finally {
         paymentOpenInFlightRef.current = false;
       }
-    })();
+    })().catch(() => undefined);
   }, [
     isAppActive,
     paymentReturnGate,

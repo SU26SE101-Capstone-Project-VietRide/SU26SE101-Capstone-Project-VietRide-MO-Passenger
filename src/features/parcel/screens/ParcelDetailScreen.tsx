@@ -40,6 +40,7 @@ import { walletKeys } from '@features/profile/api/walletApi';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import {
   openVnPayPayment,
+  assertVnPaySdkAvailable,
   VnPayPaymentOpenCoordinator,
 } from '@shared/payments';
 import type {
@@ -358,7 +359,11 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
   const handleContinuePayment = React.useCallback(() => {
     const charge = lastVnPayChargeRef.current;
-    if (!charge?.paymentRedirectUrl || !charge.vnpaySdk || paymentOpenCoordinator.isRunning) {
+    if (
+      !userId
+      || !charge?.paymentRedirectUrl
+      || !charge.vnpaySdk
+      || paymentOpenCoordinator.isRunning) {
       return;
     }
 
@@ -372,6 +377,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
         },
         kind: paymentStage === 'final' ? 'parcel_final' : 'parcel_deposit',
         businessId: parcelId,
+        ownerUserId: userId,
       })
       .catch(() => {
         Alert.alert(
@@ -379,7 +385,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
           t('parcel.payment.redirectErrorDescription'),
         );
       });
-  }, [parcelId, paymentOpenCoordinator, paymentStage, t]);
+  }, [parcelId, paymentOpenCoordinator, paymentStage, t, userId]);
 
   const handleStartPayment = React.useCallback(async () => {
     if (!paymentStage || isStartingPayment) {
@@ -387,6 +393,19 @@ export function ParcelDetailScreen(): React.JSX.Element {
     }
 
     try {
+    if (selectedPaymentMethod === 'vnpay') {
+      if (!userId) return;
+      try {
+        assertVnPaySdkAvailable();
+      } catch {
+        Alert.alert(
+          t('parcel.payment.redirectErrorTitle'),
+          t('paymentReturn.errors.nativeUnavailable'),
+        );
+        return;
+      }
+    }
+
       const input = {
         parcelId,
         paymentMethod: toBackendPaymentMethod(selectedPaymentMethod),
@@ -417,6 +436,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
             result,
             kind: paymentStage === 'deposit' ? 'parcel_deposit' : 'parcel_final',
             businessId: parcelId,
+            ownerUserId: userId!,
           });
         } catch {
           Alert.alert(
@@ -445,6 +465,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
     paymentStage,
     selectedPaymentMethod,
     t,
+    userId,
   ]);
 
   return (

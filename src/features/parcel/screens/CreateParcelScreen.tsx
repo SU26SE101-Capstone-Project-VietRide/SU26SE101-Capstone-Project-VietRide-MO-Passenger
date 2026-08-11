@@ -55,7 +55,10 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useCurrentCoordinates, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import { openVnPayPayment } from '@shared/payments';
+import {
+  assertVnPaySdkAvailable,
+  openVnPayPayment,
+} from '@shared/payments';
 import {
   addApiCalendarDays,
   toVietnamBusinessDate,
@@ -924,6 +927,21 @@ export function CreateParcelScreen(): React.JSX.Element {
     if (checkoutInFlightRef.current) {
       return;
     }
+    const ownerUserId = user?.id;
+    if (!ownerUserId) return;
+
+    if (backendPaymentMethod === 'VNPAY') {
+      try {
+        assertVnPaySdkAvailable();
+      } catch {
+        Alert.alert(
+          t('parcel.payment.redirectErrorTitle'),
+          t('paymentReturn.errors.nativeUnavailable'),
+        );
+        return;
+      }
+    }
+
     checkoutInFlightRef.current = true;
 
     try {
@@ -1052,6 +1070,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             result: depositPaymentResult,
             kind: 'parcel_deposit',
             businessId: result.parcelId,
+            ownerUserId,
           });
         } catch {
           Alert.alert(

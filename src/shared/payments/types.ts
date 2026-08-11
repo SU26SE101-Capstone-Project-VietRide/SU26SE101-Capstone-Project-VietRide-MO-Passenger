@@ -1,4 +1,4 @@
-/** Shared VNPay MOBILE_SDK contract types (BE v1.72+). */
+/** Shared VNPay MOBILE_SDK contract types (BE v1.73+). */
 
 export type PaymentReturnMode = 'MOBILE_SDK';
 
@@ -43,12 +43,12 @@ export interface VnPayChargeResult {
 
 export interface PendingVnPaySession {
   sessionId: string;
+  ownerUserId: string;
   kind: VnPaySessionKind;
   businessId?: string;
   createdAt: string;
-  /** Optional resume fields so continue-pay can re-open without a fresh charge. */
-  paymentRedirectUrl?: string;
-  vnpaySdk?: VnPaySdkMeta;
+  paymentRedirectUrl: string;
+  vnpaySdk: VnPaySdkMeta;
 }
 
 export const isTerminalPaymentSessionStatus = (

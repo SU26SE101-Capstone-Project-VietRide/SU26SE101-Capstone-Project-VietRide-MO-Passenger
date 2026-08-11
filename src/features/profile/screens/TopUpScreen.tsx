@@ -25,6 +25,7 @@ import {
 } from 'phosphor-react-native';
 
 import type { ProfileStackParamList } from '@app/navigation/types';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 import {
   ApiRequestError,
   getLocalizedApiErrorMessage,
@@ -38,7 +39,10 @@ import {
   spacing,
 } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
-import { openVnPayPayment } from '@shared/payments';
+import {
+  assertVnPaySdkAvailable,
+  openVnPayPayment,
+} from '@shared/payments';
 import { formatVnd } from '@shared/utils/format';
 import { MINIMUM_TOP_UP_AMOUNT } from '../api/walletApi';
 import {
@@ -127,6 +131,7 @@ export function TopUpScreen(): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const bottomTabClearance = useFloatingTabBarContentInset();
   const topUpMutation = useCreateWalletTopUp();
+  const userId = useAuthStore(state => state.user?.id);
   const {
     completePaymentReturn,
     data: topUpResult,
@@ -185,6 +190,19 @@ export function TopUpScreen(): React.JSX.Element {
     ) {
       return;
     }
+    if (!userId) {
+      return;
+    }
+
+    try {
+      assertVnPaySdkAvailable();
+    } catch {
+      Alert.alert(
+        t('topUp.redirectErrorTitle'),
+        t('paymentReturn.errors.nativeUnavailable'),
+      );
+      return;
+    }
 
     submissionInProgressRef.current = true;
     setReturnRefreshStatus(null);
@@ -216,6 +234,7 @@ export function TopUpScreen(): React.JSX.Element {
           result,
           kind: 'topup',
           businessId: result.topUpRequestId,
+          ownerUserId: userId,
         });
       } catch {
         cancelPaymentReturn();
@@ -249,8 +268,8 @@ export function TopUpScreen(): React.JSX.Element {
     isBusy,
     submitTopUp,
     t,
+    userId,
   ]);
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar

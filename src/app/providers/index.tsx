@@ -24,7 +24,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@shared/api/queryClient';
 import { RootNavigator } from '@app/navigation/RootNavigator';
 import {
-  flushPendingNotificationOpen,
+  flushPendingNavigationOpens,
   navigationRef,
 } from '@app/navigation/navigationRef';
 import { useLocations } from '@features/location/hooks/useLocations';
@@ -72,8 +72,8 @@ function ThemedNavigation({
     <NavigationContainer
       ref={navigationRef}
       theme={navigationTheme}
-      onReady={flushPendingNotificationOpen}
-      onStateChange={flushPendingNotificationOpen}
+      onReady={flushPendingNavigationOpens}
+      onStateChange={flushPendingNavigationOpens}
     >
       <StatusBarDynamic />
       <RootNavigator />

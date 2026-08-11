@@ -21,8 +21,14 @@ export {
   VnPayPaymentOpenError,
 } from './openVnPayPayment';
 export {
+  addVnPaySdkPaymentBackListener,
+  assertVnPaySdkAvailable,
+  isVnPaySdkAvailable,
+  mapVnPaySdkResultCode,
   openVnPaySdk,
+  resetVnPaySdkModuleForTests,
   toOpenVnPaySdkInput,
+  VNPAY_RESULT_CODES,
   VnPaySdkError,
 } from './vnPaySdk';
 export {
@@ -37,7 +43,9 @@ export type {
 } from './openVnPayPayment';
 export type {
   OpenVnPaySdkInput,
-  OpenVnPaySdkResult,
+  VnPayPaymentBackEvent,
+  VnPaySdkResult,
+  VnPaySdkResultCode,
 } from './vnPaySdk';
 export type {
   PaymentReturnMode,

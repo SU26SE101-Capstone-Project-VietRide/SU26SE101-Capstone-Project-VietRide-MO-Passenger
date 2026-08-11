@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next';
 import type { BookingStackParamList, RootStackParamList } from '@app/navigation/types';
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { ScannableCodeCard, StatusChip } from '@shared/components';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -41,7 +42,6 @@ import {
 } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
 import {
-  openVnPayPayment,
   VnPayPaymentOpenCoordinator,
 } from '@shared/payments';
 import { useBookingPaymentReconciliation } from '../hooks/useBookingPaymentReconciliation';
@@ -704,6 +704,7 @@ function UnavailableTicket({
 function CheckoutTicketContent(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<DigitalTicketNavigation>();
+  const userId = useAuthStore(state => state.user?.id);
   const paymentOpenCoordinator = useMemo(
     () => new VnPayPaymentOpenCoordinator(),
     [],
@@ -802,7 +803,7 @@ function CheckoutTicketContent(): React.JSX.Element {
   }, [checkPaymentStatus]);
 
   const handleOpenPayment = useCallback(() => {
-    if (!bookingResult || paymentOpenCoordinator.isRunning) return;
+    if (!userId || !bookingResult || paymentOpenCoordinator.isRunning) return;
     if (!bookingResult.paymentRedirectUrl || !bookingResult.vnpaySdk) return;
 
     const businessId =
@@ -815,6 +816,7 @@ function CheckoutTicketContent(): React.JSX.Element {
         result: bookingResult,
         kind: 'booking',
         businessId,
+        ownerUserId: userId,
       })
       .catch(() => {
         Alert.alert(
@@ -822,7 +824,7 @@ function CheckoutTicketContent(): React.JSX.Element {
           t('booking.paymentRedirect.errorDescription'),
         );
       });
-  }, [bookingResult, paymentOpenCoordinator, t]);
+  }, [bookingResult, paymentOpenCoordinator, t, userId]);
 
   const canOpenPayment = Boolean(
     bookingResult?.paymentRedirectUrl && bookingResult?.vnpaySdk,

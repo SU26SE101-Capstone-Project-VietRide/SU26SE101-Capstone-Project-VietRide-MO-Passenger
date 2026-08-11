@@ -91,20 +91,31 @@ export interface ReconcilePendingVnPaySessionResult {
   cleared: boolean;
 }
 
+export type ReconcilePendingVnPaySessionOptions =
+  Omit<PollVnPaySessionOptions, 'sessionId'> & {
+    ownerUserId: string;
+  };
+
 /**
- * Loads the stored pending session (if any), polls once through the delay
- * budget, and clears storage on terminal status.
+ * Reconciles only the signed-in user's stored session. Owner mismatch is
+ * cleared before any status request so accounts can never poll each other.
  */
-export async function reconcilePendingVnPaySession(
-  options: Omit<PollVnPaySessionOptions, 'sessionId'> = {},
-): Promise<ReconcilePendingVnPaySessionResult> {
+export async function reconcilePendingVnPaySession({
+  ownerUserId,
+  ...pollOptions
+}: ReconcilePendingVnPaySessionOptions): Promise<ReconcilePendingVnPaySessionResult> {
   const pending = await getPendingVnPaySession();
   if (!pending) {
     return { pending: null, status: null, cleared: false };
   }
 
+  if (!ownerUserId || pending.ownerUserId !== ownerUserId) {
+    await clearPendingVnPaySession();
+    return { pending, status: null, cleared: true };
+  }
+
   const status = await pollVnPaySessionStatus({
-    ...options,
+    ...pollOptions,
     sessionId: pending.sessionId,
   });
 

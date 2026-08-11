@@ -54,32 +54,6 @@ const baseConfig = {
     },
     allowBackup: false,
     permissions: ['android.permission.POST_NOTIFICATIONS'],
-    intentFilters: [
-      {
-        action: 'VIEW',
-        autoVerify: false,
-        data: [
-          {
-            scheme: 'vietride',
-            host: 'payments',
-            path: '/return',
-          },
-        ],
-        category: ['DEFAULT', 'BROWSABLE'],
-      },
-      {
-        action: 'VIEW',
-        autoVerify: true,
-        data: [
-          {
-            scheme: 'https',
-            host: 'app.vietride.online',
-            path: '/payments/return',
-          },
-        ],
-        category: ['DEFAULT', 'BROWSABLE'],
-      },
-    ],
     blockedPermissions: [
       'android.permission.READ_EXTERNAL_STORAGE',
       'android.permission.WRITE_EXTERNAL_STORAGE',

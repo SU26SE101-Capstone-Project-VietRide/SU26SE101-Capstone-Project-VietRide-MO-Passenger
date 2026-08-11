@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
+import { registerSessionCleanup } from '@shared/session/cleanup';
 import type { PendingVnPaySession, VnPaySessionKind } from './types';
 
 const STORAGE_KEY = 'pendingVnPaySession';
@@ -25,6 +26,7 @@ export function parsePendingVnPaySession(
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     if (!isNonEmptyString(parsed.sessionId)) return null;
+    if (!isNonEmptyString(parsed.ownerUserId)) return null;
     if (
       typeof parsed.kind !== 'string'
       || !SESSION_KINDS.has(parsed.kind as VnPaySessionKind)
@@ -32,38 +34,34 @@ export function parsePendingVnPaySession(
       return null;
     }
     if (!isNonEmptyString(parsed.createdAt)) return null;
+    if (!isNonEmptyString(parsed.paymentRedirectUrl)) return null;
+    if (!parsed.vnpaySdk || typeof parsed.vnpaySdk !== 'object') return null;
+
+    const sdk = parsed.vnpaySdk as Record<string, unknown>;
+    if (
+      !isNonEmptyString(sdk.tmnCode)
+      || !isNonEmptyString(sdk.scheme)
+      || typeof sdk.isSandbox !== 'boolean'
+    ) {
+      return null;
+    }
 
     const businessId = isNonEmptyString(parsed.businessId)
       ? parsed.businessId.trim()
       : undefined;
 
-    const paymentRedirectUrl = isNonEmptyString(parsed.paymentRedirectUrl)
-      ? parsed.paymentRedirectUrl.trim()
-      : undefined;
-
-    let vnpaySdk: PendingVnPaySession['vnpaySdk'];
-    if (parsed.vnpaySdk && typeof parsed.vnpaySdk === 'object') {
-      const sdk = parsed.vnpaySdk as Record<string, unknown>;
-      if (
-        isNonEmptyString(sdk.tmnCode)
-        && isNonEmptyString(sdk.scheme)
-        && typeof sdk.isSandbox === 'boolean'
-      ) {
-        vnpaySdk = {
-          tmnCode: sdk.tmnCode.trim(),
-          scheme: sdk.scheme.trim(),
-          isSandbox: sdk.isSandbox,
-        };
-      }
-    }
-
     return {
       sessionId: parsed.sessionId.trim(),
       kind: parsed.kind as VnPaySessionKind,
       ...(businessId ? { businessId } : {}),
+      ownerUserId: parsed.ownerUserId.trim(),
       createdAt: parsed.createdAt.trim(),
-      ...(paymentRedirectUrl ? { paymentRedirectUrl } : {}),
-      ...(vnpaySdk ? { vnpaySdk } : {}),
+      paymentRedirectUrl: parsed.paymentRedirectUrl.trim(),
+      vnpaySdk: {
+        tmnCode: sdk.tmnCode.trim(),
+        scheme: sdk.scheme.trim(),
+        isSandbox: sdk.isSandbox,
+      },
     };
   } catch {
     return null;
@@ -73,13 +71,29 @@ export function parsePendingVnPaySession(
 export async function savePendingVnPaySession(
   session: Omit<PendingVnPaySession, 'createdAt'> & { createdAt?: string },
 ): Promise<PendingVnPaySession> {
+  const sessionId = session.sessionId.trim();
+  const ownerUserId = session.ownerUserId.trim();
+  const paymentRedirectUrl = session.paymentRedirectUrl.trim();
+  const tmnCode = session.vnpaySdk.tmnCode.trim();
+  const scheme = session.vnpaySdk.scheme.trim();
+  if (!sessionId || !ownerUserId || !paymentRedirectUrl || !tmnCode || !scheme) {
+    throw new Error('PENDING_VNPAY_SESSION_INVALID');
+  }
+
   const next: PendingVnPaySession = {
-    sessionId: session.sessionId.trim(),
+    sessionId,
     kind: session.kind,
     ...(session.businessId?.trim()
       ? { businessId: session.businessId.trim() }
       : {}),
-    createdAt: session.createdAt ?? new Date().toISOString(),
+    ownerUserId,
+    createdAt: session.createdAt?.trim() || new Date().toISOString(),
+    paymentRedirectUrl,
+    vnpaySdk: {
+      tmnCode,
+      scheme,
+      isSandbox: session.vnpaySdk.isSandbox,
+    },
   };
 
   memoryCache = next;
@@ -122,11 +136,14 @@ export async function clearPendingVnPaySession(): Promise<void> {
   try {
     await SecureStore.deleteItemAsync(STORAGE_KEY, STORAGE_OPTIONS);
   } catch {
-    // Best-effort clear; next read will treat missing key as empty.
+    // Best-effort clear; memory stays empty for this process.
   }
 }
 
-/** Test/helper: reset in-memory cache between Jest cases. */
 export function resetPendingVnPaySessionMemory(): void {
   memoryCache = undefined;
 }
+
+registerSessionCleanup('pending-vnpay-session', () => {
+  clearPendingVnPaySession().catch(() => undefined);
+});
