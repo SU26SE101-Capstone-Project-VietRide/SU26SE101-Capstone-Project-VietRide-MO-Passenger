@@ -199,6 +199,14 @@ const nullableRouteStationSchema = z.preprocess(
 
 const tripRouteContextSchema = z.object({
   tripId: z.string().uuid(),
+  tripStatus: z.enum([
+    'SCHEDULED',
+    'BOARDING',
+    'IN_PROGRESS',
+    'COMPLETED',
+    'CANCELLED',
+    'DISRUPTED',
+  ]).optional(),
   geometry: z.object({
     source: z.literal('ROUTE_POLYLINE'),
     points: z.array(trackingRoutePointSchema).min(2).max(1_000),

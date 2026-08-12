@@ -49,6 +49,7 @@ export interface BuildTripRoutePresentationInput {
   originStationName?: string | null;
   destinationStationName?: string | null;
   etas: readonly TrackingEta[];
+  nextEta?: TrackingEta | null;
   plannedStops: readonly PlannedStop[];
   target?: TrackingTarget;
 }
@@ -96,6 +97,7 @@ export const buildTripRoutePresentation = ({
   originStationName,
   destinationStationName,
   etas,
+  nextEta,
   plannedStops,
   target,
 }: BuildTripRoutePresentationInput): TripRoutePresentation => {
@@ -164,11 +166,15 @@ export const buildTripRoutePresentation = ({
       : null;
   const plannedStopsById = new Map(plannedStops.map((stop) => [stop.id, stop]));
   const routeStopIds = new Set(orderedRouteStops.map((stop) => stop.stopId));
-  // Prefer live POI id; fall back to trip-detail destination id for STATION targets.
+  // Prefer live POI ids; trip detail keeps endpoint identity when POIs lack coordinates.
+  const originStationId = originStation?.stationId
+    ?? originPlannedStationId
+    ?? undefined;
   const destinationStationId = destinationStation?.stationId
     ?? destinationPlannedStationId
     ?? undefined;
   const etaByStopId = new Map<string, TrackingEta>();
+  let originEta: TrackingEta | null = null;
   let destinationEta: TrackingEta | null = null;
   let hasEtaRouteMismatch = false;
 
@@ -180,7 +186,8 @@ export const buildTripRoutePresentation = ({
     }
 
     if (eta.targetKind === 'STATION' && eta.stationId) {
-      if (eta.stationId === destinationStationId) destinationEta = eta;
+      if (eta.stationId === originStationId) originEta = eta;
+      else if (eta.stationId === destinationStationId) destinationEta = eta;
       else hasEtaRouteMismatch = true;
     }
   }
@@ -201,8 +208,24 @@ export const buildTripRoutePresentation = ({
       const plannedStop = plannedStopsById.get(stop.stopId);
       return Boolean(plannedStop && !isPlannedStopUpcoming(plannedStop));
     });
-  const liveNextTargetId = firstLiveStopId
-    ?? (destinationEta ? destinationStationId : undefined);
+  const canonicalNextTargetId = nextEta?.targetKind === 'STOP'
+    ? (nextEta.stopId && routeStopIds.has(nextEta.stopId)
+      ? nextEta.stopId
+      : undefined)
+    : nextEta?.targetKind === 'STATION'
+        && nextEta.stationId
+        && (
+          nextEta.stationId === originStationId
+          || nextEta.stationId === destinationStationId
+        )
+      ? nextEta.stationId
+      : undefined;
+  if (nextEta && !canonicalNextTargetId) hasEtaRouteMismatch = true;
+  const liveNextTargetId = nextEta
+    ? canonicalNextTargetId
+    : originEta
+      ? originStationId
+      : firstLiveStopId ?? (destinationEta ? destinationStationId : undefined);
   const nextTargetId = liveNextTargetId
     ?? firstPlannedStopId
     ?? (allRouteStopsKnownComplete
@@ -211,7 +234,11 @@ export const buildTripRoutePresentation = ({
       : undefined);
   const targetId = target?.kind === 'STOP'
     ? (routeStopIds.has(target.stopId) ? target.stopId : undefined)
-    : target?.kind === 'STATION' && target.stationId === destinationStationId
+    : target?.kind === 'STATION'
+        && (
+          target.stationId === originStationId
+          || target.stationId === destinationStationId
+        )
       ? target.stationId
       : undefined;
 
@@ -231,6 +258,24 @@ export const buildTripRoutePresentation = ({
       targetKind: 'STOP',
     };
   });
+  const originPresentation: TripRouteStopPresentation | null = originStation
+    && (
+      originEta
+      || originStation.stationId === nextTargetId
+      || originStation.stationId === targetId
+    )
+    ? {
+        eta: originEta,
+        id: originStation.stationId,
+        isNext: originStation.stationId === nextTargetId,
+        isTarget: originStation.stationId === targetId,
+        key: 'station:' + originStation.stationId,
+        name: originStation.name,
+        plannedArrivalTime: null,
+        sequence: 0,
+        targetKind: 'STATION',
+      }
+    : null;
 
   const destinationPresentation: TripRouteStopPresentation | null = destinationStation
     ? {
@@ -248,9 +293,11 @@ export const buildTripRoutePresentation = ({
         targetKind: 'STATION',
       }
     : null;
-  const upcomingStops = destinationPresentation
-    ? [...stopPresentations, destinationPresentation]
-    : stopPresentations;
+  const upcomingStops = [
+    ...(originPresentation ? [originPresentation] : []),
+    ...stopPresentations,
+    ...(destinationPresentation ? [destinationPresentation] : []),
+  ];
 
   const nextStop = upcomingStops.find((stop) => stop.isNext);
   const targetStop = upcomingStops.find((stop) => stop.isTarget);

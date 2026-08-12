@@ -24,6 +24,15 @@ import type { TrackingPoint } from './trackingApi';
 const TRIP_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_TRIP_ID = '22222222-2222-4222-8222-222222222222';
 const STOP_ID = '33333333-3333-4333-8333-333333333333';
+const ROUTE_CONTEXT = {
+  tripId: TRIP_ID,
+  tripStatus: 'IN_PROGRESS',
+  geometry: null,
+  originStation: null,
+  intermediateStops: [],
+  destinationStation: null,
+} as const;
+const ROUTE_VERSION = '"route-version-1"';
 
 type EventHandler = (...args: unknown[]) => void;
 
@@ -146,6 +155,8 @@ describe('tracking realtime connection', () => {
       tripId: TRIP_ID,
       room: `trip:${TRIP_ID}`,
       scope: 'BOOKING_OWNER',
+      routeContext: ROUTE_CONTEXT,
+      routeVersion: ROUTE_VERSION,
     });
     fire(socket.handlers, 'disconnect', 'transport close');
     socket.connected = true;
@@ -155,13 +166,13 @@ describe('tracking realtime connection', () => {
     expect(socket.emit).toHaveBeenNthCalledWith(
       1,
       'joinTripTracking',
-      { tripId: TRIP_ID },
+      { tripId: TRIP_ID, includeRouteSnapshot: true },
       expect.any(Function),
     );
     expect(socket.emit).toHaveBeenNthCalledWith(
       2,
       'joinTripTracking',
-      { tripId: TRIP_ID },
+      { tripId: TRIP_ID, includeRouteSnapshot: true },
       expect.any(Function),
     );
     expect(statuses).toContain('connected');

@@ -74,6 +74,7 @@ interface LiveMainTripTrackingPanelProps extends TrackingLayoutSlots {
   source?: 'trip';
   tripId: string;
   trackingTarget?: TrackingTarget;
+  fallbackToTripDestinationTarget?: boolean;
   tripStatus?: TripLifecycleStatus;
   sourceTerminal?: boolean;
   terminalMessage?: string;
@@ -289,9 +290,12 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const isShuttle = props.source === 'shuttle';
   const tripId = props.source === 'shuttle' ? props.shuttleTripId : props.tripId;
   const bookingId = props.source === 'shuttle' ? props.bookingId : undefined;
-  const trackingTarget = props.source === 'shuttle'
+  const providedTrackingTarget = props.source === 'shuttle'
     ? undefined
     : props.trackingTarget;
+  const fallbackToTripDestinationTarget = props.source === 'shuttle'
+    ? false
+    : (props.fallbackToTripDestinationTarget ?? false);
   const tripStatus = props.source === 'shuttle' ? undefined : props.tripStatus;
   const sourceTerminal = props.source === 'shuttle'
     ? false
@@ -341,6 +345,22 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       getRefetchInterval: getTripRefetchInterval,
     },
   );
+  const trackingTarget = useMemo<TrackingTarget | undefined>(() => {
+    if (providedTrackingTarget) return providedTrackingTarget;
+    const destinationStationId = tripQuery.data?.destinationStationId;
+    if (
+      fallbackToTripDestinationTarget
+      && destinationStationId
+      && isUuid(destinationStationId)
+    ) {
+      return { kind: 'STATION', stationId: destinationStationId };
+    }
+    return undefined;
+  }, [
+    fallbackToTripDestinationTarget,
+    providedTrackingTarget,
+    tripQuery.data?.destinationStationId,
+  ]);
   const effectiveTripStatus = tripQuery.data?.status ?? tripStatus;
   const tracking = useTripTracking(isShuttle
     ? {
@@ -399,7 +419,8 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const liveNextStopId = !isShuttle && isMainTripEta(nextEta) && nextEta.targetKind === 'STOP'
     ? nextEta.stopId
     : undefined;
-  const nextStopId = liveNextStopId ?? plannedNextStopId;
+  const nextStopId = liveNextStopId
+    ?? (!tracking.latest && !nextEta ? plannedNextStopId : undefined);
   const tripPresentation = useMemo(() => buildTripRoutePresentation({
     context: routeContext,
     allowPlannedFallback: !tracking.latest,
@@ -409,10 +430,12 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     originStationName: tripQuery.data?.departureStation,
     destinationStationName: tripQuery.data?.arrivalStation,
     etas: tracking.latest ? tracking.etas : [],
+    nextEta: isMainTripEta(nextEta) ? nextEta : null,
     plannedStops: tripQuery.data?.stops ?? [],
     target: trackingTarget,
   }), [
     routeContext,
+    nextEta,
     tracking.etas,
     tracking.latest,
     trackingTarget,

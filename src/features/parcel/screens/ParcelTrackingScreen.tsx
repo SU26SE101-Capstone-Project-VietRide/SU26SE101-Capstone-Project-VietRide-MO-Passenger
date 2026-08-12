@@ -217,6 +217,7 @@ export function ParcelTrackingScreen(): React.JSX.Element {
             source="trip"
             tripId={parcel.tripId}
             trackingTarget={trackingTarget}
+            fallbackToTripDestinationTarget={parcel.dropoffStopId == null}
             sourceTerminal={isTrackingTerminal}
             terminalMessage={t('parcel.tracking.transportComplete')}
             refreshing={isRefetching}

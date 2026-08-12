@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -31,6 +31,8 @@ import {
   type TrackingEtaResponse,
   type TrackingLatestResponse,
   type TrackingPoint,
+  type TripRouteContext,
+  type TripRouteContextCache,
   type TrackingTarget,
   isTrackingTarget,
 } from '../api/trackingApi';
@@ -366,6 +368,31 @@ const preferFreshEtaBatch = (
   return newest(incoming) >= newest(current) ? incoming : current;
 };
 
+const getRouteEtaMismatchKey = (
+  context: TripRouteContext,
+  etas: readonly TrackingEta[],
+): string => {
+  const routeTargets = [
+    ...(context.originStation
+      ? [`STATION:${context.originStation.stationId}`]
+      : []),
+    ...context.intermediateStops.map((stop) => `STOP:${stop.stopId}`),
+    ...(context.destinationStation
+      ? [`STATION:${context.destinationStation.stationId}`]
+      : []),
+  ].sort();
+  const routeTargetSet = new Set(routeTargets);
+  const mismatched = etas
+    .map((eta) => eta.targetKind === 'STOP'
+      ? `STOP:${eta.stopId ?? ''}`
+      : `STATION:${eta.stationId ?? ''}`)
+    .filter((target) => !routeTargetSet.has(target))
+    .sort();
+  return mismatched.length > 0
+    ? `${routeTargets.join('|')}=>${mismatched.join('|')}`
+    : '';
+};
+
 const shouldRetryTracking = (failureCount: number, error: unknown): boolean =>
   !isFatalTrackingError(error) && failureCount < 2;
 
@@ -503,6 +530,10 @@ export function useTripTracking(options: UseTripTrackingOptions) {
   );
   const etaBatchKey = useMemo(
     () => trackingKeys.etaBatch(queryUserId, queryTrackingId),
+    [queryTrackingId, queryUserId],
+  );
+  const routeContextKey = useMemo(
+    () => trackingKeys.routeContext(queryUserId, queryTrackingId),
     [queryTrackingId, queryUserId],
   );
 
@@ -856,6 +887,15 @@ export function useTripTracking(options: UseTripTrackingOptions) {
             return { scopeKey, delay };
           });
         },
+        onRouteSnapshot: ({ routeContext, routeVersion }) => {
+          if (disposed) return;
+          queryClient.setQueryData<TripRouteContextCache>(
+            routeContextKey,
+            (current) => current?.etag === routeVersion
+              ? current
+              : { data: routeContext, etag: routeVersion },
+          );
+        },
         onJoinRejected: handleJoinRejected,
         onUnauthorized: handleUnauthorized,
       });
@@ -885,6 +925,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     latestKey,
     pollingEnabled,
     queryClient,
+    routeContextKey,
     scopeKey,
     shuttleEtaKey,
     trackingId,
@@ -929,6 +970,14 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     ]),
     [batchEtas, nextEtaQuery.data?.eta, targetEtaQuery.data?.eta],
   );
+  const routeEtaMismatchKey = useMemo(
+    () => !isShuttle && trackingContext.routeContext
+      ? getRouteEtaMismatchKey(trackingContext.routeContext, etas)
+      : '',
+    [etas, isShuttle, trackingContext.routeContext],
+  );
+  const refreshedRouteMismatchKeyRef = useRef('');
+
   const firstStopEta = useMemo(
     () => etas
       .filter((eta) => eta.targetKind === 'STOP')
@@ -959,6 +1008,16 @@ export function useTripTracking(options: UseTripTrackingOptions) {
   const refetchTargetEta = targetEtaQuery.refetch;
   const refetchEtaBatch = etaBatchQuery.refetch;
   const refetchContext = trackingContext.contextQuery.refetch;
+  useEffect(() => {
+    if (!routeEtaMismatchKey) {
+      refreshedRouteMismatchKeyRef.current = '';
+      return;
+    }
+    if (!queryEnabled || refreshedRouteMismatchKeyRef.current === routeEtaMismatchKey) return;
+    refreshedRouteMismatchKeyRef.current = routeEtaMismatchKey;
+    refetchContext().catch(() => undefined);
+  }, [queryEnabled, refetchContext, routeEtaMismatchKey]);
+
   const refetchAll = useCallback(async (): Promise<void> => {
     if (!queryEnabled) return;
 

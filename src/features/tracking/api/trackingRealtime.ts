@@ -10,12 +10,14 @@ import { isUuid } from '@shared/utils/pathSegment';
 import {
   parseShuttleTrackingEta,
   parseShuttleTrackingPoint,
+  parseTripRouteContext,
   parseTrackingPoint,
   type ShuttleTrackingEta,
   trackingDateTimeSchema,
   trackingEtaSchema,
   type TrackingEta,
   type TrackingPoint,
+  type TripRouteContext,
 } from './trackingApi';
 
 export const TRACKING_SOCKET_PATH = '/tracking/socket.io';
@@ -37,6 +39,7 @@ export type TrackingJoinFailure =
   | 'TRACKING_TRIP_NOT_ACTIVE'
   | 'TRACKING_AUTH_UNAVAILABLE'
   | 'TRACKING_CONTEXT_UNAVAILABLE'
+  | 'TRACKING_ROUTE_CONTEXT_UNAVAILABLE'
   | 'UNAUTHORIZED'
   | 'VALIDATION_ERROR'
   | 'INVALID_ACK';
@@ -49,6 +52,11 @@ export interface TrackingEtaBatchUpdate {
   tripId: string;
   etas: TrackingEta[];
   updatedAt: string;
+}
+
+export interface TrackingRouteSnapshotUpdate {
+  routeContext: TripRouteContext;
+  routeVersion: string;
 }
 
 export type TrackingDelayUpdate =
@@ -78,7 +86,7 @@ interface TrackingServerEvents {
 
 interface TrackingClientEvents {
   joinTripTracking: (
-    payload: { tripId: string },
+    payload: { tripId: string; includeRouteSnapshot?: boolean },
     acknowledgement: (value: unknown) => void,
   ) => void;
   joinShuttleTracking: (
@@ -104,6 +112,7 @@ interface CreateTripTrackingConnectionOptions
   onEtaUpdate: (eta: TrackingEtaUpdate) => void;
   onEtaBatchUpdate?: (update: TrackingEtaBatchUpdate) => void;
   onDelayUpdate: (delay: TrackingDelayUpdate) => void;
+  onRouteSnapshot?: (update: TrackingRouteSnapshotUpdate) => void;
 }
 
 interface CreateShuttleTrackingConnectionOptions
@@ -205,6 +214,16 @@ const joinSuccessSchema = z.object({
   tripId: z.string().uuid(),
   room: z.string().min(1),
   scope: z.string().min(1),
+  routeContext: z.unknown().optional(),
+  routeVersion: z.string().min(1).optional(),
+}).superRefine((value, ctx) => {
+  if ((value.routeContext === undefined) !== (value.routeVersion === undefined)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['routeContext'],
+      message: 'Route context and version must be returned together.',
+    });
+  }
 });
 
 const joinFailureSchema = z.object({
@@ -216,6 +235,7 @@ const joinFailureSchema = z.object({
     'TRACKING_TRIP_NOT_ACTIVE',
     'TRACKING_AUTH_UNAVAILABLE',
     'TRACKING_CONTEXT_UNAVAILABLE',
+    'TRACKING_ROUTE_CONTEXT_UNAVAILABLE',
     'UNAUTHORIZED',
     'VALIDATION_ERROR',
   ]),
@@ -346,6 +366,26 @@ export function createTripTrackingConnection(
           scheduleJoinRetry(requestJoin);
           return;
         }
+        if (!isShuttle) {
+          if (
+            parsed.data.routeContext === undefined
+            || parsed.data.routeVersion === undefined
+          ) {
+            onJoinRejected('INVALID_ACK');
+            scheduleJoinRetry(requestJoin);
+            return;
+          }
+          try {
+            options.onRouteSnapshot?.({
+              routeContext: parseTripRouteContext(parsed.data.routeContext, trackingId),
+              routeVersion: parsed.data.routeVersion,
+            });
+          } catch {
+            onJoinRejected('INVALID_ACK');
+            scheduleJoinRetry(requestJoin);
+            return;
+          }
+        }
         joinAttempt = 0;
         notifyStatus('connected');
         return;
@@ -361,6 +401,7 @@ export function createTripTrackingConnection(
       if (
         failure === 'TRACKING_AUTH_UNAVAILABLE'
         || failure === 'TRACKING_CONTEXT_UNAVAILABLE'
+        || failure === 'TRACKING_ROUTE_CONTEXT_UNAVAILABLE'
         || failure === 'VALIDATION_ERROR'
       ) {
         scheduleJoinRetry(requestJoin);
@@ -381,7 +422,7 @@ export function createTripTrackingConnection(
     } else {
       socketWithTimeout.emit(
         'joinTripTracking',
-        { tripId: trackingId },
+        { tripId: trackingId, includeRouteSnapshot: true },
         handleAcknowledgement,
       );
     }
