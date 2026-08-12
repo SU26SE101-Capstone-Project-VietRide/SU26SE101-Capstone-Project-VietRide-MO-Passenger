@@ -88,12 +88,18 @@ export function useParcelStations(
   isResolvingCurrentLocation = false,
 ) {
   const { t } = useTranslation();
-  const locationId = location?.id.trim() ?? '';
+  // Parcel uses hierarchy scope so a root province/municipality returns both
+  // root-attached stations and stations under active leaves.
+  const locationScopeCode = location?.code.trim() ?? '';
+  const searchScope = {
+    mode: 'hierarchy' as const,
+    locationScopeCode,
+  };
 
   const query = useQuery({
-    queryKey: stationKeys.search(locationId),
-    queryFn: ({ signal }) => searchStations(locationId, signal),
-    enabled: enabled && Boolean(locationId),
+    queryKey: stationKeys.search(searchScope),
+    queryFn: ({ signal }) => searchStations(searchScope, signal),
+    enabled: enabled && Boolean(locationScopeCode),
     staleTime: STATION_STALE_TIME_MS,
     gcTime: STATION_GC_TIME_MS,
     retry: 1,

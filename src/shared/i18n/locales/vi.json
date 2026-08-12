@@ -1012,7 +1012,8 @@
       "next": "Tiếp",
       "nextStep": "Bước tiếp theo",
       "previous": "Trước",
-      "refresh": "Làm mới"
+      "refresh": "Làm mới",
+      "retryPreviousRequest": "Thử lại yêu cầu trước"
     },
     "categories": {
       "documents": "Tài liệu",
@@ -1101,7 +1102,28 @@
       "photoUploadTitle": "Không thể tải ảnh kiện hàng lên",
       "photoUploadDescription": "Không thể chuẩn bị hoặc tải ảnh đã chọn lên. Hãy thử lại hoặc xóa ảnh để tiếp tục mà không có ảnh.",
       "tripAvailabilityChangedTitle": "Tình trạng chuyến đã thay đổi",
-      "tripAvailabilityChangedDescription": "Chuyến đã chọn hoặc giá ước tính đã thay đổi trong lúc xác nhận. Vui lòng chọn lại một chuyến khả dụng."
+      "tripAvailabilityChangedDescription": "Chuyến đã chọn hoặc giá ước tính đã thay đổi trong lúc xác nhận. Vui lòng chọn lại một chuyến khả dụng.",
+      "quoteExpiredTitle": "Báo giá gửi hàng đã hết hạn",
+      "quoteExpiredDescription": "Báo giá có chữ ký đã hết hạn. Hãy làm mới danh sách chuyến và xác nhận lại giá mới trước khi tiếp tục.",
+      "quoteInvalidTitle": "Báo giá gửi hàng không còn hợp lệ",
+      "quoteInvalidDescription": "Báo giá đã chọn không còn khớp với kiện hàng này. Hãy chọn lại chuyến và áp dụng lại voucher nếu cần.",
+      "quotePriceChangedTitle": "Giá gửi hàng đã cập nhật",
+      "quotePriceChangedDescription": "Giá hoặc hạng kích thước do nhà xe xác định đã đổi. Vui lòng chọn lại chuyến để xác nhận báo giá mới.",
+      "ambiguousRequestTitle": "Yêu cầu có thể vẫn đang xử lý",
+      "ambiguousRequestDescription": "Yêu cầu tạo trước đó có thể đã tới máy chủ. Hãy thử lại cùng yêu cầu và không đổi người nhận, kiện hàng, voucher hoặc phương thức thanh toán.",
+      "ambiguousPaymentTitle": "Thanh toán có thể vẫn đang xử lý",
+      "ambiguousPaymentDescription": "Thanh toán cọc có thể đã được bắt đầu. Hãy thử lại cùng yêu cầu thanh toán. Phương thức thanh toán bị khóa cho đến khi xử lý xong.",
+      "retryIntentChanged": "Bạn đã đổi thông tin cần một yêu cầu mới. Hãy giải quyết lần thử trước hoặc quay lại và bắt đầu lại.",
+      "retryNoRetainedRequest": "Không còn yêu cầu gửi hàng trước đó để thử lại.",
+      "codeCollision": "Không cấp được mã kiện hàng. Hãy thử lại với cùng báo giá nếu vẫn còn hạn.",
+      "idempotencyPending": "Một yêu cầu trùng khớp vẫn đang được xử lý. Hãy thử lại cùng yêu cầu.",
+      "paymentSessionUnavailableTitle": "Phiên thanh toán không khả dụng",
+      "paymentSessionUnavailable": "Phiên VNPay này không còn khả dụng trên thiết bị. Hãy bắt đầu thanh toán lại từ chi tiết kiện hàng.",
+      "paymentAlreadyStarted": "Thanh toán đã được bắt đầu. VietRide đang làm mới trạng thái mới nhất.",
+      "voucherRevalidating": "Voucher đang được kiểm tra lại theo báo giá mới. Vui lòng chờ trước khi xác nhận.",
+      "leaveAmbiguousTitle": "Rời yêu cầu này?",
+      "leaveAmbiguousCreateDescription": "Yêu cầu tạo trước đó có thể đã thành công. Hãy kiểm tra lịch sử hoạt động trước khi tạo lại. Rời màn hình sẽ mất exact-retry.",
+      "leaveAmbiguousDepositDescription": "Kiện hàng đã được lưu nhưng thanh toán cọc có thể vẫn đang xử lý. Rời màn hình có thể khiến không retry đúng được. Nên chờ hoặc mở chi tiết kiện hàng sau."
     },
     "form": {
       "photoLabel": "ảnh kiện hàng",
@@ -1206,7 +1228,8 @@
         "enterCode": "Nhập mã ưu đãi để áp dụng.",
         "unavailable": "Mã ưu đãi này không khả dụng cho kiện hàng.",
         "expired": "Mã ưu đãi này đã hết hạn.",
-        "minimumDeposit": "Tiền cọc tối thiểu là {{amount}}."
+        "minimumDeposit": "Giá trị đơn tối thiểu là {{amount}}.",
+        "minimumSpend": "Giá trị đơn tối thiểu là {{amount}}."
       }
     },
     "route": {
@@ -1266,8 +1289,12 @@
       "dimensionsAndWeight": "{{dimensions}} · {{weight}} {{unit}}",
       "paymentDetails": "Chi tiết thanh toán",
       "estimatedShipmentPrice": "Phí vận chuyển dự kiến",
+      "grossPrice": "Phí vận chuyển",
       "depositBeforeDiscount": "Tiền cọc trước ưu đãi",
       "verifiedVoucherDiscount": "Ưu đãi voucher đã xác minh",
+      "serverQuoteDiscount": "Ưu đãi trong báo giá",
+      "totalAfterDiscount": "Tổng sau giảm",
+      "depositPercent": "Tỷ lệ cọc",
       "depositDueNow": "Tiền cọc cần thanh toán",
       "serverPricingHint": "Giá cuối cùng được máy chủ VietRide xác nhận theo chuyến đã chọn.",
       "depositDue": "Tiền cọc cần trả"
@@ -1315,6 +1342,7 @@
     "trips": {
       "operatorUnavailable": "Chưa có thông tin nhà xe",
       "priceSummary": "Cọc {{deposit}} / Dự kiến {{estimated}}",
+      "quoteUnavailable": "Không có báo giá — làm mới danh sách chuyến",
       "departureDate": "Ngày khởi hành",
       "availableTitle": "Chuyến khả dụng",
       "emptyTitle": "Không tìm thấy chuyến nhận gửi hàng",

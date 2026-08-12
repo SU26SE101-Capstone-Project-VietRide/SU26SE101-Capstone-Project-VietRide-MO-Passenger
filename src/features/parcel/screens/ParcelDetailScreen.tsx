@@ -9,7 +9,12 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import {
+  RouteProp,
+  useNavigation,
+  usePreventRemove,
+  useRoute,
+} from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -41,8 +46,18 @@ import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import {
   openVnPayPayment,
   assertVnPaySdkAvailable,
+  getPendingVnPaySession,
   VnPayPaymentOpenCoordinator,
+  type PendingVnPaySession,
 } from '@shared/payments';
+import {
+  isParcelAmbiguousPaymentError,
+  isPaymentAlreadyStartedError,
+} from '../utils/parcelCreateErrors';
+import {
+  matchParcelVnPaySession,
+  parcelPaymentKindForStage,
+} from '../utils/parcelVnPaySession';
 import type {
   ParcelStackParamList,
   RootStackParamList,
@@ -174,16 +189,6 @@ export function ParcelDetailScreen(): React.JSX.Element {
     () => new VnPayPaymentOpenCoordinator(),
     [],
   );
-  const lastVnPayChargeRef = React.useRef<{
-    paymentRedirectUrl: string | null;
-    depositPaymentId?: string | null;
-    balancePaymentId?: string | null;
-    vnpaySdk?: {
-      tmnCode: string;
-      scheme: string;
-      isSandbox: boolean;
-    } | null;
-  } | null>(null);
   const userId = useAuthStore(state => state.user?.id);
   const {
     parcelId,
@@ -196,7 +201,14 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const [paymentSessionActive, setPaymentSessionActive] = React.useState(
     Boolean(paymentRedirectUrl),
   );
+  const [reopenSession, setReopenSession] =
+    React.useState<PendingVnPaySession | null>(null);
+  const [detailAmbiguousRetry, setDetailAmbiguousRetry] = React.useState<{
+    paymentMethod: PaymentMethod;
+  } | null>(null);
   const detailQuery = useParcelDetail(parcelId, paymentSessionActive);
+  const [allowLeaveDespiteRetry, setAllowLeaveDespiteRetry] =
+    React.useState(false);
   const refetchParcelDetail = detailQuery.refetch;
   const depositPaymentMutation = useStartParcelDepositPayment();
   const finalPaymentMutation = useStartParcelFinalPayment();
@@ -211,6 +223,18 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const trackingAvailable = isParcelTrackingEligible(parcel?.status);
   const isSender = Boolean(userId && parcel?.senderUserId === userId);
   const statusPresentation = getParcelStatusPresentation(parcel?.status);
+  const activePaymentId =
+    paymentStage === 'deposit'
+      ? parcel?.depositPaymentId
+      : paymentStage === 'final'
+        ? parcel?.balancePaymentId
+        : null;
+  const expectedVnPayKind = parcelPaymentKindForStage(paymentStage);
+  const paymentProcessing =
+    paymentSessionActive || Boolean(activePaymentId && !reopenSession);
+  const paymentIntentLocked = detailAmbiguousRetry !== null;
+  const lockedDetailPaymentMethod =
+    detailAmbiguousRetry?.paymentMethod ?? selectedPaymentMethod;
   const packageDimensions = parcel
     ? parcel.actualLengthCm !== null
       && parcel.actualWidthCm !== null
@@ -299,6 +323,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
   }, [navigation, parcel?.status, paymentRedirectUrl, paymentStage]);
 
   React.useEffect(() => {
+    if (paymentIntentLocked) {
+      return;
+    }
     if (
       selectedPaymentMethod === 'wallet'
       && !walletBalanceQuery.isLoading
@@ -313,6 +340,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
   }, [
     paymentAmount,
     selectedPaymentMethod,
+    paymentIntentLocked,
     walletBalanceQuery.data?.balance,
     walletBalanceQuery.isError,
     walletBalanceQuery.isLoading,
@@ -353,84 +381,161 @@ export function ParcelDetailScreen(): React.JSX.Element {
     navigation.goBack();
   }, [navigation]);
 
+  usePreventRemove(
+    paymentIntentLocked && !allowLeaveDespiteRetry,
+    ({ data }) => {
+      Alert.alert(
+        t('parcel.errors.leaveAmbiguousTitle'),
+        t('parcel.errors.leaveAmbiguousDepositDescription'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('parcel.exitDraft.discard'),
+            style: 'destructive',
+            onPress: () => {
+              setAllowLeaveDespiteRetry(true);
+              requestAnimationFrame(() => navigation.dispatch(data.action));
+            },
+          },
+        ],
+      );
+    },
+  );
+
   const handleRefreshPayment = React.useCallback(() => {
     refetchParcelDetail().catch(() => undefined);
   }, [refetchParcelDetail]);
 
-  const handleContinuePayment = React.useCallback(() => {
-    const charge = lastVnPayChargeRef.current;
-    if (
-      !userId
-      || !charge?.paymentRedirectUrl
-      || !charge.vnpaySdk
-      || paymentOpenCoordinator.isRunning) {
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!paymentPending || !userId || !expectedVnPayKind) {
+      setReopenSession(null);
+      if (!paymentPending && paymentRedirectUrl) {
+        navigation.setParams({ paymentRedirectUrl: undefined });
+      }
       return;
     }
 
-    paymentOpenCoordinator
-      .open({
-        result: {
-          paymentRedirectUrl: charge.paymentRedirectUrl,
-          depositPaymentId: charge.depositPaymentId,
-          balancePaymentId: charge.balancePaymentId,
-          vnpaySdk: charge.vnpaySdk,
-        },
-        kind: paymentStage === 'final' ? 'parcel_final' : 'parcel_deposit',
-        businessId: parcelId,
-        ownerUserId: userId,
+    getPendingVnPaySession()
+      .then(session => {
+        if (cancelled) return;
+        const matches = matchParcelVnPaySession(session, {
+          ownerUserId: userId,
+          parcelId,
+          kind: expectedVnPayKind,
+        });
+        setReopenSession(matches ? session : null);
+        // Only drop this screen's route hint — never wipe another payment's session.
+        if (!matches && paymentRedirectUrl) {
+          navigation.setParams({ paymentRedirectUrl: undefined });
+        }
       })
       .catch(() => {
-        Alert.alert(
-          t('parcel.payment.redirectErrorTitle'),
-          t('parcel.payment.redirectErrorDescription'),
-        );
+        if (!cancelled) {
+          setReopenSession(null);
+        }
       });
-  }, [parcelId, paymentOpenCoordinator, paymentStage, t, userId]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    expectedVnPayKind,
+    navigation,
+    parcelId,
+    paymentPending,
+    paymentRedirectUrl,
+    paymentSessionActive,
+    userId,
+  ]);
+
+  // Poll while BE already created a payment but we cannot reopen VNPay locally.
+  React.useEffect(() => {
+    if (!paymentPending || !activePaymentId || reopenSession) {
+      return;
+    }
+    setPaymentSessionActive(true);
+  }, [activePaymentId, paymentPending, reopenSession]);
+
+  const handleContinuePayment = React.useCallback(async () => {
+    if (!userId || !expectedVnPayKind || paymentOpenCoordinator.isRunning) {
+      return;
+    }
+
+    try {
+      const session = await getPendingVnPaySession();
+      if (!matchParcelVnPaySession(session, {
+        ownerUserId: userId,
+        parcelId,
+        kind: expectedVnPayKind,
+      })) {
+        setReopenSession(null);
+        navigation.setParams({ paymentRedirectUrl: undefined });
+        Alert.alert(
+          t('parcel.errors.paymentSessionUnavailableTitle'),
+          t('parcel.errors.paymentSessionUnavailable'),
+        );
+        return;
+      }
+
+      await paymentOpenCoordinator.reopen(session, userId);
+    } catch {
+      Alert.alert(
+        t('parcel.payment.redirectErrorTitle'),
+        t('parcel.payment.redirectErrorDescription'),
+      );
+    }
+  }, [
+    expectedVnPayKind,
+    navigation,
+    parcelId,
+    paymentOpenCoordinator,
+    t,
+    userId,
+  ]);
 
   const handleStartPayment = React.useCallback(async () => {
     if (!paymentStage || isStartingPayment) {
       return;
     }
 
+    const methodForRequest = lockedDetailPaymentMethod;
+
     try {
-    if (selectedPaymentMethod === 'vnpay') {
-      if (!userId) return;
-      try {
-        assertVnPaySdkAvailable();
-      } catch {
-        Alert.alert(
-          t('parcel.payment.redirectErrorTitle'),
-          t('paymentReturn.errors.nativeUnavailable'),
-        );
-        return;
+      if (methodForRequest === 'vnpay') {
+        if (!userId) return;
+        try {
+          assertVnPaySdkAvailable();
+        } catch {
+          Alert.alert(
+            t('parcel.payment.redirectErrorTitle'),
+            t('paymentReturn.errors.nativeUnavailable'),
+          );
+          return;
+        }
       }
-    }
 
       const input = {
         parcelId,
-        paymentMethod: toBackendPaymentMethod(selectedPaymentMethod),
+        paymentMethod: toBackendPaymentMethod(methodForRequest),
       };
-      const result = paymentStage === 'deposit'
-        ? await depositPaymentMutation.mutateAsync(input)
-        : await finalPaymentMutation.mutateAsync(input);
+      const result = paymentIntentLocked
+        ? paymentStage === 'deposit'
+          ? await depositPaymentMutation.retryRetainedAsync()
+          : await finalPaymentMutation.retryRetainedAsync()
+        : paymentStage === 'deposit'
+          ? await depositPaymentMutation.mutateAsync(input)
+          : await finalPaymentMutation.mutateAsync(input);
 
+      setDetailAmbiguousRetry(null);
       setPaymentSessionActive(true);
       navigation.setParams({
         paymentRedirectUrl: result.paymentRedirectUrl ?? undefined,
-        preferredPaymentMethod: selectedPaymentMethod,
+        preferredPaymentMethod: methodForRequest,
       });
       invalidatePaymentQueries();
 
-      if (result.paymentRedirectUrl && selectedPaymentMethod === 'vnpay') {
-        lastVnPayChargeRef.current = {
-          paymentRedirectUrl: result.paymentRedirectUrl,
-          depositPaymentId:
-            'depositPaymentId' in result ? result.depositPaymentId : null,
-          balancePaymentId:
-            'balancePaymentId' in result ? result.balancePaymentId : null,
-          vnpaySdk: result.vnpaySdk ?? null,
-        };
-
+      if (result.paymentRedirectUrl && methodForRequest === 'vnpay') {
         try {
           await openVnPayPayment({
             result,
@@ -438,6 +543,16 @@ export function ParcelDetailScreen(): React.JSX.Element {
             businessId: parcelId,
             ownerUserId: userId!,
           });
+          const pending = await getPendingVnPaySession();
+          setReopenSession(
+            matchParcelVnPaySession(pending, {
+              ownerUserId: userId!,
+              parcelId,
+              kind: paymentStage === 'deposit' ? 'parcel_deposit' : 'parcel_final',
+            })
+              ? pending
+              : null,
+          );
         } catch {
           Alert.alert(
             t('parcel.payment.redirectErrorTitle'),
@@ -446,6 +561,21 @@ export function ParcelDetailScreen(): React.JSX.Element {
         }
       }
     } catch (error) {
+      if (isPaymentAlreadyStartedError(error)) {
+        setDetailAmbiguousRetry(null);
+        setPaymentSessionActive(true);
+        await refetchParcelDetail().catch(() => undefined);
+        return;
+      }
+      if (isParcelAmbiguousPaymentError(error)) {
+        setDetailAmbiguousRetry({ paymentMethod: methodForRequest });
+        Alert.alert(
+          t('parcel.errors.ambiguousPaymentTitle'),
+          t('parcel.errors.ambiguousPaymentDescription'),
+        );
+        return;
+      }
+      setDetailAmbiguousRetry(null);
       Alert.alert(
         t('parcel.payment.startErrorTitle'),
         getLocalizedApiErrorMessage(
@@ -460,10 +590,12 @@ export function ParcelDetailScreen(): React.JSX.Element {
     finalPaymentMutation,
     invalidatePaymentQueries,
     isStartingPayment,
+    lockedDetailPaymentMethod,
     navigation,
     parcelId,
+    paymentIntentLocked,
     paymentStage,
-    selectedPaymentMethod,
+    refetchParcelDetail,
     t,
     userId,
   ]);
@@ -770,14 +902,16 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 </Text>
               ) : null}
 
-              {paymentRedirectUrl ? (
+              {reopenSession ? (
                 <Pressable
                   accessibilityRole="button"
                   style={({ pressed }) => [
                     styles.trackButton,
                     pressed ? styles.pressed : null,
                   ]}
-                  onPress={handleContinuePayment}
+                  onPress={() => {
+                    handleContinuePayment().catch(() => undefined);
+                  }}
                 >
                   <CreditCard
                     size={18}
@@ -788,7 +922,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
                     {t('parcel.payment.openVnPayAgain')}
                   </Text>
                 </Pressable>
-              ) : paymentSessionActive ? (
+              ) : paymentProcessing || paymentIntentLocked ? (
                 <View style={styles.verifyingPayment}>
                   <ActivityIndicator
                     size="small"
@@ -796,32 +930,55 @@ export function ParcelDetailScreen(): React.JSX.Element {
                   />
                   <View style={styles.verifyingPaymentCopy}>
                     <Text style={styles.verifyingPaymentTitle}>
-                      {t('parcel.payment.verifyingTitle')}
+                      {paymentIntentLocked
+                        ? t('parcel.errors.ambiguousPaymentTitle')
+                        : t('parcel.payment.verifyingTitle')}
                     </Text>
                     <Text style={styles.verifyingPaymentText}>
-                      {t('parcel.payment.verifyingDescription')}
+                      {paymentIntentLocked
+                        ? t('parcel.errors.ambiguousPaymentDescription')
+                        : t('parcel.payment.verifyingDescription')}
                     </Text>
                   </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    hitSlop={8}
-                    onPress={handleRefreshPayment}
-                  >
-                    <Text style={styles.refreshPaymentText}>
-                      {t('parcel.actions.refresh')}
-                    </Text>
-                  </Pressable>
+                  {paymentIntentLocked ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      disabled={isStartingPayment}
+                      onPress={() => {
+                        handleStartPayment().catch(() => undefined);
+                      }}
+                    >
+                      <Text style={styles.refreshPaymentText}>
+                        {t('parcel.actions.retryPreviousRequest')}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      onPress={handleRefreshPayment}
+                    >
+                      <Text style={styles.refreshPaymentText}>
+                        {t('parcel.actions.refresh')}
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
               ) : (
                 <>
                   <ParcelPaymentMethodSelector
-                    value={selectedPaymentMethod}
-                    onChange={setSelectedPaymentMethod}
+                    value={lockedDetailPaymentMethod}
+                    onChange={method => {
+                      if (!paymentIntentLocked) {
+                        setSelectedPaymentMethod(method);
+                      }
+                    }}
                     requiredAmount={paymentAmount}
                     walletBalance={walletBalanceQuery.data?.balance}
                     walletIsLoading={walletBalanceQuery.isLoading}
                     walletHasError={walletBalanceQuery.isError}
-                    disabled={isStartingPayment}
+                    disabled={isStartingPayment || paymentIntentLocked}
                   />
                   <Pressable
                     accessibilityRole="button"
@@ -832,7 +989,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
                       isStartingPayment ? styles.trackButtonDisabled : null,
                       pressed && !isStartingPayment ? styles.pressed : null,
                     ]}
-                    onPress={handleStartPayment}
+                    onPress={() => {
+                      handleStartPayment().catch(() => undefined);
+                    }}
                   >
                     {isStartingPayment ? (
                       <ActivityIndicator

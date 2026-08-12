@@ -7,7 +7,11 @@ jest.mock('@shared/api/axiosInstance', () => ({
 }));
 
 import type { StationDetail } from '../types';
-import { getStation, searchStations, stationKeys } from './stationApi';
+import {
+  getStation,
+  searchStations,
+  stationKeys,
+} from './stationApi';
 
 const STATION_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OTHER_STATION_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -44,14 +48,48 @@ describe('searchStations', () => {
     });
   });
 
-  it('searches stations by the required location id', async () => {
-    await searchStations(' location-123 ');
+  it('exact mode searches by locationId only', async () => {
+    await searchStations({ mode: 'exact', locationId: ' location-123 ' });
 
     expect(mockGet).toHaveBeenCalledWith('/stations/search', {
       params: {
         locationId: 'location-123',
       },
     });
+    const params = mockGet.mock.calls[0]?.[1]?.params as Record<string, unknown>;
+    expect(params).not.toHaveProperty('locationScopeCode');
+  });
+
+  it('hierarchy mode searches by locationScopeCode only', async () => {
+    await searchStations({ mode: 'hierarchy', locationScopeCode: ' 79 ' });
+
+    expect(mockGet).toHaveBeenCalledWith('/stations/search', {
+      params: {
+        locationScopeCode: '79',
+      },
+    });
+    const params = mockGet.mock.calls[0]?.[1]?.params as Record<string, unknown>;
+    expect(params).not.toHaveProperty('locationId');
+  });
+
+  it('isolates exact and hierarchy query keys', () => {
+    expect(stationKeys.search({ mode: 'exact', locationId: '79' })).toEqual([
+      'stations',
+      'search',
+      'exact',
+      '79',
+    ]);
+    expect(stationKeys.search({ mode: 'hierarchy', locationScopeCode: '79' })).toEqual([
+      'stations',
+      'search',
+      'hierarchy',
+      '79',
+    ]);
+    expect(
+      stationKeys.search({ mode: 'exact', locationId: '79' }),
+    ).not.toEqual(
+      stationKeys.search({ mode: 'hierarchy', locationScopeCode: '79' }),
+    );
   });
 
   it('returns station items from the array response', async () => {
@@ -74,7 +112,9 @@ describe('searchStations', () => {
       },
     });
 
-    await expect(searchStations('location-123')).resolves.toEqual([station]);
+    await expect(
+      searchStations({ mode: 'exact', locationId: 'location-123' }),
+    ).resolves.toEqual([station]);
   });
 });
 

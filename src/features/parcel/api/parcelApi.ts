@@ -1,10 +1,13 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import type { TFunction } from 'i18next';
+import { z } from 'zod';
 import { normalizeIdempotencyKey } from '@shared/api/idempotency';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import type { PromoOffer } from '@shared/utils/promo';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 import { formatVnd } from '@shared/utils/format';
+import { apiInstantSchema } from '@shared/utils/apiTime';
+import { PARCEL_SIZE_CATEGORIES } from '../types';
 import type {
   AvailableParcelTrip,
   AvailableParcelTripsParams,
@@ -22,6 +25,52 @@ import type {
 
 type ParcelPaymentEndpoint = 'deposit-payment' | 'final-payment';
 
+const nonNegativeVndSchema = z.number().int().nonnegative();
+const quoteTokenSchema = z.string().trim().min(1).max(16_384);
+const stationSummarySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+});
+const availableParcelTripSchema = z.object({
+  tripId: z.string().uuid(),
+  routeId: z.string().uuid(),
+  status: z.string(),
+  operatorId: z.string().uuid(),
+  operatorName: z.string(),
+  originStation: stationSummarySchema,
+  destinationStation: stationSummarySchema,
+  departureDateTime: apiInstantSchema,
+  estimatedArrivalTime: apiInstantSchema,
+  quoteToken: quoteTokenSchema.nullable().optional().transform(value => value ?? null),
+  quoteExpiresAt: apiInstantSchema.nullable().optional().transform(value => value ?? null),
+  estimatedSizeCategory: z
+    .enum(PARCEL_SIZE_CATEGORIES)
+    .nullable()
+    .optional()
+    .transform(value => value ?? null),
+  // Rolling v1.75→v1.76: missing money fields stay null; do not default to 0.
+  estimatedGrossPriceVnd: nonNegativeVndSchema
+    .nullable()
+    .optional()
+    .transform(value => value ?? null),
+  estimatedDiscountVnd: nonNegativeVndSchema
+    .nullable()
+    .optional()
+    .transform(value => value ?? null),
+  estimatedPriceVnd: nonNegativeVndSchema,
+  estimatedDepositVnd: nonNegativeVndSchema,
+  depositPercent: z.number().min(0).max(100),
+});
+const availableParcelTripsPageSchema = z.object({
+  items: z.array(availableParcelTripSchema),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  totalItems: z.number().int().nonnegative(),
+  totalPages: z.number().int().nonnegative(),
+  hasNextPage: z.boolean(),
+  hasPreviousPage: z.boolean(),
+});
+
 const getIdempotencyHeaders = (idempotencyKey: string) => ({
   'Idempotency-Key': normalizeIdempotencyKey(idempotencyKey),
 });
@@ -30,9 +79,10 @@ export const parcelKeys = {
   all: ['parcels'] as const,
   user: (userId: string) => [...parcelKeys.all, userId] as const,
   availableTripsRoot: () => [...parcelKeys.all, 'available-trips'] as const,
-  availableTrips: (params: AvailableParcelTripsParams) => {
+  availableTrips: (userId: string, params: AvailableParcelTripsParams) => {
     return [
       ...parcelKeys.availableTripsRoot(),
+      userId,
       {
         originStationId: params.originStationId,
         destinationStationId: params.destinationStationId,
@@ -45,8 +95,18 @@ export const parcelKeys = {
       },
     ] as const;
   },
-  vouchers: (userId: string, params: GetParcelVouchersParams) =>
-    [...parcelKeys.user(userId), 'vouchers', 'available', params] as const,
+  vouchers: (userId: string, params: GetParcelVouchersParams) => [
+    ...parcelKeys.user(userId),
+    'vouchers',
+    'available',
+    {
+      tripId: params.tripId,
+      sizeCategory: params.sizeCategory,
+      paymentMethod: params.paymentMethod,
+      estimatedGrossPriceVnd: params.estimatedGrossPriceVnd,
+      quoteExpiresAt: params.quoteExpiresAt,
+    },
+  ] as const,
   detail: (userId: string, parcelId: string) =>
     [...parcelKeys.user(userId), parcelId, 'detail'] as const,
   received: (userId: string, page: number, pageSize: number) =>
@@ -61,16 +121,26 @@ export async function getAvailableParcelTrips(
     ApiEnvelope<PagedParcelResponse<AvailableParcelTrip>>
   >('/parcels/available-trips', { params, ...(signal ? { signal } : {}) });
 
-  return unwrapApiResponse(response.data);
+  return availableParcelTripsPageSchema.parse(
+    unwrapApiResponse(response.data),
+  );
 }
 
 export async function getAvailableParcelVouchers(
   params: GetParcelVouchersParams,
   signal?: AbortSignal,
 ): Promise<ParcelAvailableVoucher[]> {
+  // Signed-quote path only: BE derives amount from quoteToken.
+  // quoteExpiresAt / estimatedGrossPriceVnd are React Query key metadata only.
+  const requestParams = {
+    tripId: params.tripId,
+    sizeCategory: params.sizeCategory,
+    paymentMethod: params.paymentMethod,
+    quoteToken: params.quoteToken,
+  };
   const response = await apiClient.get<ApiEnvelope<ParcelAvailableVoucher[]>>(
     '/parcels/vouchers/available',
-    { params, ...(signal ? { signal } : {}) },
+    { params: requestParams, ...(signal ? { signal } : {}) },
   );
 
   return unwrapApiResponse(response.data);

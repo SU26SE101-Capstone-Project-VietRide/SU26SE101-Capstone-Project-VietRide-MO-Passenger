@@ -1,3 +1,4 @@
+import i18n from '@shared/i18n';
 import type { ParcelDetail } from '../types';
 import {
   buildParcelMilestones,
@@ -86,9 +87,20 @@ const createParcel = (overrides: Partial<ParcelDetail> = {}): ParcelDetail => ({
 });
 
 describe('parcel tracking presentation', () => {
-  it('formats backend status values without maintaining duplicate labels', () => {
-    expect(formatParcelStatusLabel('DELIVERED_PENDING_CONFIRM')).toBe('Delivered Pending Confirm');
-    expect(formatParcelStatusLabel()).toBe('Pending');
+  const previousLanguage = i18n.language;
+
+  afterEach(async () => {
+    await i18n.changeLanguage(previousLanguage);
+  });
+
+  it('formats backend status values without maintaining duplicate labels', async () => {
+    await i18n.changeLanguage('en');
+    expect(formatParcelStatusLabel('DELIVERED_PENDING_CONFIRM')).toBe(
+      i18n.t('history.status.parcel.deliveryConfirm'),
+    );
+    expect(formatParcelStatusLabel('PENDING')).toBe(
+      i18n.t('history.status.parcel.pending'),
+    );
   });
 
   it('does not claim a loaded parcel is already in transit', () => {

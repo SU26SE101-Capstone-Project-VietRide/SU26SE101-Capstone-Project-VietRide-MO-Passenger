@@ -23,7 +23,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ArrowLeft,
@@ -88,10 +88,12 @@ import {
   useStartParcelDepositPayment,
 } from '../hooks/useParcelQueries';
 import { useParcelPhotoUpload } from '../hooks/useParcelPhotoUpload';
+import { useParcelQuoteLifecycle } from '../hooks/useParcelQuoteLifecycle';
 import { useParcelStations } from '../hooks/useParcelStations';
 import type {
   AvailableParcelTrip,
   CreateParcelPayload,
+  CreateParcelResult,
   ParcelSize,
   Station,
 } from '../types';
@@ -109,13 +111,26 @@ import {
 } from '../components';
 import {
   formatParcelDimensions,
-  getParcelSizeCategory,
   getSmallestParcelSizeForDimensions,
   isParcelSizeAtLeast,
   type ParcelDimensions,
 } from '../config/parcelPackage';
 import { buildCreateParcelPayload } from '../utils/createParcelPayload';
+import {
+  classifyParcelCreateConflict,
+  isAmbiguousRetryActive,
+  isParcelAmbiguousPaymentError,
+  type AmbiguousRetryState,
+} from '../utils/parcelCreateErrors';
 import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
+import {
+  calculateParcelQuotePricing,
+  getParcelQuoteSemanticFingerprint,
+  hasParcelQuoteContract,
+  isParcelQuoteErrorCode,
+  isParcelQuoteUsable,
+  PARCEL_QUOTE_REFRESH_SAFETY_WINDOW_MS,
+} from '../utils/parcelQuote';
 
 type CreateParcelNavProp = NativeStackNavigationProp<
   ParcelStackParamList,
@@ -181,24 +196,27 @@ const TripOptionCard = React.memo(function TripOptionCard({
 }: {
   trip: AvailableParcelTrip;
   selected: boolean;
-  onPress: (tripId: string) => void;
+  onPress: (trip: AvailableParcelTrip) => void;
 }): React.JSX.Element {
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const quoteAvailable = isParcelQuoteUsable(trip);
   const handlePress = useCallback(() => {
-    onPress(trip.tripId);
-  }, [onPress, trip.tripId]);
+    onPress(trip);
+  }, [onPress, trip]);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled: !quoteAvailable }}
+      disabled={!quoteAvailable}
       onPress={handlePress}
       style={({ pressed }) => [
         styles.tripCard,
         selected ? styles.tripCardActive : null,
-        pressed ? styles.pressed : null,
+        !quoteAvailable ? styles.tripCardDisabled : null,
+        pressed && quoteAvailable ? styles.pressed : null,
       ]}
     >
       <View style={[styles.tripIcon, selected ? styles.tripIconActive : null]}>
@@ -220,10 +238,12 @@ const TripOptionCard = React.memo(function TripOptionCard({
           {formatTripTime(trip.estimatedArrivalTime)}
         </Text>
         <Text style={styles.tripPrice}>
-          {t('parcel.trips.priceSummary', {
-            deposit: formatVnd(trip.estimatedDepositVnd),
-            estimated: formatVnd(trip.estimatedPriceVnd),
-          })}
+          {quoteAvailable
+            ? t('parcel.trips.priceSummary', {
+                deposit: formatVnd(trip.estimatedDepositVnd),
+                estimated: formatVnd(trip.estimatedPriceVnd),
+              })
+            : t('parcel.trips.quoteUnavailable')}
         </Text>
       </View>
       {selected ? (
@@ -266,9 +286,11 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   const [step, setStep] = useState(1);
   const [highestStepReached, setHighestStepReached] = useState(1);
-  const [recipientName, setRecipientName] = useState(user?.fullName ?? '');
-  const [recipientPhone, setRecipientPhone] = useState(user?.phone ?? '');
-  const [recipientEmail, setRecipientEmail] = useState(user?.email ?? '');
+  // Recipient starts empty; the sender profile is not applied in this batch
+  // because recipient email may link the parcel to another account.
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [recipientErrors, setRecipientErrors] = useState<{
     name?: string;
     phone?: string;
@@ -280,6 +302,9 @@ export function CreateParcelScreen(): React.JSX.Element {
   const departureDateBase = useMemo(() => toVietnamBusinessDate(), []);
   const [departureOffset, setDepartureOffset] = useState(0);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [selectedQuoteFingerprint, setSelectedQuoteFingerprint] = useState<
+    string | null
+  >(null);
   const [tripPageIndex, setTripPageIndex] = useState(0);
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<PromoOffer | null>(null);
@@ -288,7 +313,18 @@ export function CreateParcelScreen(): React.JSX.Element {
   const [weightDraftValid, setWeightDraftValid] = useState(true);
   const previousTripSearchRef = useRef<string | null>(null);
   const selectedTripIdRef = useRef<string | null>(null);
+  const selectedQuoteFingerprintRef = useRef<string | null>(null);
+  const handledVoucherQuoteErrorAtRef = useRef(0);
   const checkoutInFlightRef = useRef(false);
+  /** Held after ambiguous create/deposit so the user can exact-retry without leaving. */
+  const [ambiguousRetry, setAmbiguousRetry] = useState<AmbiguousRetryState>(null);
+  const [allowLeaveDespiteRetry, setAllowLeaveDespiteRetry] = useState(false);
+  const intentLocked = isAmbiguousRetryActive(ambiguousRetry);
+  const lockedPaymentMethod =
+    ambiguousRetry?.kind === 'deposit'
+      ? ambiguousRetry.paymentMethod
+      : paymentMethod;
+  const lockedBackendPaymentMethod = toBackendPaymentMethod(lockedPaymentMethod);
   const walletBalanceQuery = useWalletBalance(step === 4);
   const hasParcelDraft = Boolean(
     fromLocationCode
@@ -305,24 +341,22 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   const currentLocation = useCurrentCoordinates(step === 1 || step === 2);
 
-  useEffect(() => {
-    if (!recipientName && user?.fullName) {
-      setRecipientName(user.fullName);
-    }
-    if (!recipientPhone && user?.phone) {
-      setRecipientPhone(user.phone);
-    }
-    if (!recipientEmail && user?.email) {
-      setRecipientEmail(user.email);
-    }
-  }, [
-    recipientEmail,
-    recipientName,
-    recipientPhone,
-    user?.email,
-    user?.fullName,
-    user?.phone,
-  ]);
+  const clearTripSelection = useCallback(() => {
+    selectedTripIdRef.current = null;
+    selectedQuoteFingerprintRef.current = null;
+    setSelectedTripId(null);
+    setSelectedQuoteFingerprint(null);
+    setPromoCode('');
+    setAppliedPromo(null);
+    setPromoError(undefined);
+  }, []);
+
+  const handleQuotePriceChanged = useCallback(() => {
+    Alert.alert(
+      t('parcel.errors.quotePriceChangedTitle'),
+      t('parcel.errors.quotePriceChangedDescription'),
+    );
+  }, [t]);
 
   const originLocation = useMemo(() => {
     return (
@@ -379,7 +413,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     : !dimensionsFitSelectedTier
     ? t('parcel.validation.chooseLargerSize')
     : undefined;
-  const sizeCategory = getParcelSizeCategory(packageSize);
   const estimatedWeightKg = packageWeight;
   const departureDate = addApiCalendarDays(
     departureDateBase,
@@ -475,16 +508,17 @@ export function CreateParcelScreen(): React.JSX.Element {
   }, [selectedTripId]);
 
   useEffect(() => {
+    selectedQuoteFingerprintRef.current = selectedQuoteFingerprint;
+  }, [selectedQuoteFingerprint]);
+
+  useEffect(() => {
     const previousFingerprint = previousTripSearchRef.current;
     previousTripSearchRef.current = tripSearchFingerprint;
     if (previousFingerprint && previousFingerprint !== tripSearchFingerprint) {
-      setSelectedTripId(null);
+      clearTripSelection();
       setTripPageIndex(0);
-      setPromoCode('');
-      setAppliedPromo(null);
-      setPromoError(undefined);
     }
-  }, [tripSearchFingerprint]);
+  }, [clearTripSelection, tripSearchFingerprint]);
 
   useEffect(() => {
     if (loadedTripPageCount > 0 && tripPageIndex >= loadedTripPageCount) {
@@ -492,37 +526,31 @@ export function CreateParcelScreen(): React.JSX.Element {
     }
   }, [loadedTripPageCount, tripPageIndex]);
 
-  useEffect(() => {
-    if (
-      availableTripsQuery.isSuccess &&
-      !availableTripsQuery.isFetching &&
-      selectedTripId &&
-      !selectedTrip
-    ) {
-      setSelectedTripId(null);
-      setPromoCode('');
-      setAppliedPromo(null);
-      setPromoError(undefined);
-    }
-  }, [
-    availableTripsQuery.isFetching,
-    availableTripsQuery.isSuccess,
+  useParcelQuoteLifecycle({
+    enabled: step === 4,
     selectedTrip,
-    selectedTripId,
-  ]);
+    selectedFingerprint: selectedQuoteFingerprint,
+    isSearchSuccess: availableTripsQuery.isSuccess,
+    isFetching: availableTripsQuery.isFetching,
+    refetch: refetchAvailableTrips,
+    clearQuoteDependentSelection: clearTripSelection,
+    onPriceChanged: handleQuotePriceChanged,
+  });
 
   const voucherParams = useMemo(() => {
-    if (!selectedTrip) {
+    if (!hasParcelQuoteContract(selectedTrip)) {
       return null;
     }
 
     return {
       tripId: selectedTrip.tripId,
-      sizeCategory,
+      sizeCategory: selectedTrip.estimatedSizeCategory,
       paymentMethod: backendPaymentMethod,
-      orderAmount: selectedTrip.estimatedDepositVnd,
+      quoteToken: selectedTrip.quoteToken,
+      quoteExpiresAt: selectedTrip.quoteExpiresAt,
+      estimatedGrossPriceVnd: selectedTrip.estimatedGrossPriceVnd,
     };
-  }, [backendPaymentMethod, selectedTrip, sizeCategory]);
+  }, [backendPaymentMethod, selectedTrip]);
 
   const vouchersQuery = useAvailableParcelVouchers(voucherParams, step === 4);
   const availablePromos = useMemo(
@@ -549,20 +577,83 @@ export function CreateParcelScreen(): React.JSX.Element {
   }, [appliedPromo?.code, vouchersQuery.data]);
 
   useEffect(() => {
-    if (vouchersQuery.isSuccess && appliedPromo && !selectedVoucher) {
+    // Only drop voucher after a successful revalidation proves the code is gone.
+    // While fetching after quote refresh, keep appliedPromo so we never submit null.
+    if (
+      vouchersQuery.isSuccess
+      && !vouchersQuery.isFetching
+      && appliedPromo
+      && !selectedVoucher
+    ) {
       setAppliedPromo(null);
-      setPromoError(
-        t('parcel.promos.noLongerValid'),
-      );
+      setPromoError(t('parcel.promos.noLongerValid'));
     }
-  }, [appliedPromo, selectedVoucher, t, vouchersQuery.isSuccess]);
-
-  const estimatedPrice = selectedTrip?.estimatedPriceVnd ?? 0;
-  const depositBeforeDiscount = selectedTrip?.estimatedDepositVnd ?? 0;
-  const promoDiscount = selectedVoucher?.discountAmount ?? 0;
-  const depositDue = Math.max(depositBeforeDiscount - promoDiscount, 0);
+  }, [
+    appliedPromo,
+    selectedVoucher,
+    t,
+    vouchersQuery.isFetching,
+    vouchersQuery.isSuccess,
+  ]);
 
   useEffect(() => {
+    if (!vouchersQuery.isError || !vouchersQuery.errorUpdatedAt) {
+      return;
+    }
+    if (handledVoucherQuoteErrorAtRef.current === vouchersQuery.errorUpdatedAt) {
+      return;
+    }
+
+    const voucherErrorCode = toApiError(vouchersQuery.error).code;
+    if (!isParcelQuoteErrorCode(voucherErrorCode)) {
+      return;
+    }
+
+    handledVoucherQuoteErrorAtRef.current = vouchersQuery.errorUpdatedAt;
+
+    if (
+      voucherErrorCode === 'PARCEL_QUOTE_EXPIRED'
+      || voucherErrorCode === 'PARCEL_QUOTE_STALE'
+    ) {
+      setAppliedPromo(null);
+      setPromoCode('');
+      setPromoError(undefined);
+      refetchAvailableTrips().catch(() => undefined);
+      Alert.alert(
+        t('parcel.errors.quoteExpiredTitle'),
+        t('parcel.errors.quoteExpiredDescription'),
+      );
+      return;
+    }
+
+    clearTripSelection();
+    refetchAvailableTrips().catch(() => undefined);
+    Alert.alert(
+      t('parcel.errors.quoteInvalidTitle'),
+      t('parcel.errors.quoteInvalidDescription'),
+    );
+  }, [
+    clearTripSelection,
+    refetchAvailableTrips,
+    t,
+    vouchersQuery.error,
+    vouchersQuery.errorUpdatedAt,
+    vouchersQuery.isError,
+  ]);
+
+  const quotePricing = useMemo(
+    () => calculateParcelQuotePricing(
+      selectedTrip,
+      selectedVoucher?.discountAmount,
+    ),
+    [selectedTrip, selectedVoucher?.discountAmount],
+  );
+  const depositDue = quotePricing.depositDueVnd;
+
+  useEffect(() => {
+    if (intentLocked) {
+      return;
+    }
     if (
       paymentMethod === 'wallet' &&
       !walletBalanceQuery.isLoading &&
@@ -574,12 +665,22 @@ export function CreateParcelScreen(): React.JSX.Element {
     }
   }, [
     depositDue,
+    intentLocked,
     paymentMethod,
     setPaymentMethod,
     walletBalanceQuery.data?.balance,
     walletBalanceQuery.isError,
     walletBalanceQuery.isLoading,
   ]);
+
+  const voucherNeedsRevalidation = Boolean(
+    appliedPromo
+    && (
+      vouchersQuery.isFetching
+      || !vouchersQuery.isSuccess
+      || !selectedVoucher
+    ),
+  );
 
   const createParcelMutation = useCreateParcel();
   const depositPaymentMutation = useStartParcelDepositPayment();
@@ -589,7 +690,49 @@ export function CreateParcelScreen(): React.JSX.Element {
     resetParcelPhotoUpload,
   } = useParcelPhotoUpload();
 
+  const confirmLeaveWithAmbiguousRetry = useCallback(
+    (onLeave: () => void) => {
+      const isDeposit = ambiguousRetry?.kind === 'deposit';
+      Alert.alert(
+        t('parcel.errors.leaveAmbiguousTitle'),
+        isDeposit
+          ? t('parcel.errors.leaveAmbiguousDepositDescription')
+          : t('parcel.errors.leaveAmbiguousCreateDescription'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('parcel.exitDraft.discard'),
+            style: 'destructive',
+            onPress: () => {
+              setAllowLeaveDespiteRetry(true);
+              requestAnimationFrame(onLeave);
+            },
+          },
+        ],
+      );
+    },
+    [ambiguousRetry?.kind, t],
+  );
+
+  const showAmbiguousRetryLockedAlert = useCallback(() => {
+    const isDeposit = ambiguousRetry?.kind === 'deposit';
+    Alert.alert(
+      isDeposit
+        ? t('parcel.errors.ambiguousPaymentTitle')
+        : t('parcel.errors.ambiguousRequestTitle'),
+      isDeposit
+        ? t('parcel.errors.ambiguousPaymentDescription')
+        : t('parcel.errors.ambiguousRequestDescription'),
+      [{ text: t('common.ok') }],
+    );
+  }, [ambiguousRetry?.kind, t]);
+
   const handleBackStep = useCallback(() => {
+    if (intentLocked) {
+      navigation.goBack();
+      return true;
+    }
+
     if (step > 1) {
       setStep(step - 1);
       return true;
@@ -613,7 +756,25 @@ export function CreateParcelScreen(): React.JSX.Element {
       ],
     );
     return true;
-  }, [hasParcelDraft, navigation, step, t]);
+  }, [
+    hasParcelDraft,
+    intentLocked,
+    navigation,
+    step,
+    t,
+  ]);
+
+  const handleStepPress = useCallback((nextStep: number) => {
+    if (intentLocked) {
+      showAmbiguousRetryLockedAlert();
+      return;
+    }
+    setStep(nextStep);
+  }, [intentLocked, showAmbiguousRetryLockedAlert]);
+
+  usePreventRemove(intentLocked && !allowLeaveDespiteRetry, ({ data }) => {
+    confirmLeaveWithAmbiguousRetry(() => navigation.dispatch(data.action));
+  });
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -701,17 +862,27 @@ export function CreateParcelScreen(): React.JSX.Element {
     [setPackage],
   );
 
-  const handleSelectTrip = useCallback((tripId: string) => {
-    if (tripId === selectedTripIdRef.current) {
+  const handleSelectTrip = useCallback((trip: AvailableParcelTrip) => {
+    if (intentLocked || !isParcelQuoteUsable(trip)) {
       return;
     }
 
-    selectedTripIdRef.current = tripId;
+    const fingerprint = getParcelQuoteSemanticFingerprint(trip);
+    if (
+      trip.tripId === selectedTripIdRef.current
+      && fingerprint === selectedQuoteFingerprintRef.current
+    ) {
+      return;
+    }
+
+    selectedTripIdRef.current = trip.tripId;
+    selectedQuoteFingerprintRef.current = fingerprint;
+    setSelectedTripId(trip.tripId);
+    setSelectedQuoteFingerprint(fingerprint);
     setPromoCode('');
     setAppliedPromo(null);
     setPromoError(undefined);
-    setSelectedTripId(tripId);
-  }, []);
+  }, [intentLocked]);
 
   const handlePreviousTripsPage = useCallback(() => {
     setTripPageIndex(currentPage => Math.max(currentPage - 1, 0));
@@ -742,18 +913,30 @@ export function CreateParcelScreen(): React.JSX.Element {
   ]);
 
   const handleChangeTerminals = useCallback(() => {
+    if (intentLocked) {
+      showAmbiguousRetryLockedAlert();
+      return;
+    }
     setStep(1);
-  }, []);
+  }, [intentLocked, showAmbiguousRetryLockedAlert]);
 
   const handleTryNextDate = useCallback(() => {
+    if (intentLocked) {
+      showAmbiguousRetryLockedAlert();
+      return;
+    }
     setDepartureOffset(currentOffset =>
       Math.min(currentOffset + 1, MAX_DEPARTURE_OFFSET),
     );
-  }, []);
+  }, [intentLocked, showAmbiguousRetryLockedAlert]);
 
   const handleDepartureOffsetSelect = useCallback((offset: number) => {
+    if (intentLocked) {
+      showAmbiguousRetryLockedAlert();
+      return;
+    }
     setDepartureOffset(offset);
-  }, []);
+  }, [intentLocked, showAmbiguousRetryLockedAlert]);
 
   const validateCurrentStep = useCallback(() => {
     const validateWholeDraft = step === 4;
@@ -803,12 +986,33 @@ export function CreateParcelScreen(): React.JSX.Element {
       }
     }
     setRecipientErrors({});
-    if (step === 4 && !selectedTrip) {
-      Alert.alert(
-        t('app.name'),
-        t('parcel.validation.selectAvailableTrip'),
-      );
-      return false;
+    if (step === 4) {
+      if (!selectedTrip || !hasParcelQuoteContract(selectedTrip)) {
+        Alert.alert(
+          t('app.name'),
+          t('parcel.validation.selectAvailableTrip'),
+        );
+        return false;
+      }
+      if (!isParcelQuoteUsable(
+        selectedTrip,
+        Date.now(),
+        PARCEL_QUOTE_REFRESH_SAFETY_WINDOW_MS,
+      )) {
+        Alert.alert(
+          t('parcel.errors.quoteExpiredTitle'),
+          t('parcel.errors.quoteExpiredDescription'),
+        );
+        refetchAvailableTrips().catch(() => undefined);
+        return false;
+      }
+      if (voucherNeedsRevalidation) {
+        Alert.alert(
+          t('app.name'),
+          t('parcel.errors.voucherRevalidating'),
+        );
+        return false;
+      }
     }
 
     return true;
@@ -820,15 +1024,17 @@ export function CreateParcelScreen(): React.JSX.Element {
     recipientEmail,
     recipientName,
     recipientPhone,
+    refetchAvailableTrips,
     selectedTrip,
     step,
     t,
+    voucherNeedsRevalidation,
   ]);
 
   const buildCreatePayload = useCallback((
     photoUrl: string | null,
   ): CreateParcelPayload => {
-    if (!selectedTrip) {
+    if (!hasParcelQuoteContract(selectedTrip)) {
       throw new Error(t('parcel.validation.selectTripBeforeCreate'));
     }
 
@@ -842,12 +1048,13 @@ export function CreateParcelScreen(): React.JSX.Element {
 
     return buildCreateParcelPayload({
       tripId: selectedTrip.tripId,
+      quoteToken: selectedTrip.quoteToken,
       dropoffStopId: null,
       bookingId: null,
       itemName: packageCategory || null,
       description:
         descriptionParts.length > 0 ? descriptionParts.join('; ') : null,
-      sizeCategory,
+      sizeCategory: selectedTrip.estimatedSizeCategory,
       lengthCm: dimensions.lengthCm,
       widthCm: dimensions.widthCm,
       heightCm: dimensions.heightCm,
@@ -875,7 +1082,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     recipientPhone,
     selectedTrip,
     selectedVoucher?.code,
-    sizeCategory,
     t,
   ]);
 
@@ -915,12 +1121,16 @@ export function CreateParcelScreen(): React.JSX.Element {
       return;
     }
 
-    if (!validateCurrentStep()) {
+    if (step < 4) {
+      if (!validateCurrentStep()) {
+        return;
+      }
+      advanceStep();
       return;
     }
 
-    if (step < 4) {
-      advanceStep();
+    // Deposit exact-retry keeps parcelId; full step validation is not required.
+    if (ambiguousRetry?.kind !== 'deposit' && !validateCurrentStep()) {
       return;
     }
 
@@ -930,7 +1140,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     const ownerUserId = user?.id;
     if (!ownerUserId) return;
 
-    if (backendPaymentMethod === 'VNPAY') {
+    if (lockedBackendPaymentMethod === 'VNPAY') {
       try {
         assertVnPaySdkAvailable();
       } catch {
@@ -944,9 +1154,91 @@ export function CreateParcelScreen(): React.JSX.Element {
 
     checkoutInFlightRef.current = true;
 
+    const navigateToCreatedParcel = (
+      parcelId: string,
+      paymentRedirectUrl?: string | null,
+      preferredMethod: typeof lockedPaymentMethod = lockedPaymentMethod,
+    ) => {
+      invalidateParcelCheckoutQueries(preferredMethod === 'wallet');
+      setAmbiguousRetry(null);
+      navigation.navigate('ParcelDetail', {
+        parcelId,
+        paymentRedirectUrl: paymentRedirectUrl ?? undefined,
+        preferredPaymentMethod: preferredMethod,
+        ...(dropoffStation?.id
+          ? {
+              trackingTarget: {
+                kind: 'STATION' as const,
+                stationId: dropoffStation.id,
+              },
+            }
+          : {}),
+      });
+    };
+
     try {
+      // Exact-retry deposit only: parcel already exists; never re-upload/create.
+      if (ambiguousRetry?.kind === 'deposit') {
+        const depositParcelId = ambiguousRetry.parcelId;
+        try {
+          const depositPaymentResult =
+            await depositPaymentMutation.retryRetainedAsync();
+          navigateToCreatedParcel(
+            depositParcelId,
+            depositPaymentResult.paymentRedirectUrl,
+            ambiguousRetry.paymentMethod,
+          );
+          if (
+            depositPaymentResult.paymentRedirectUrl
+            && lockedBackendPaymentMethod === 'VNPAY'
+          ) {
+            try {
+              await openVnPayPayment({
+                result: depositPaymentResult,
+                kind: 'parcel_deposit',
+                businessId: depositParcelId,
+                ownerUserId,
+              });
+            } catch {
+              Alert.alert(
+                t('parcel.payment.redirectErrorTitle'),
+                t('parcel.payment.redirectErrorDescription'),
+              );
+            }
+          }
+        } catch (error) {
+          const apiError = toApiError(error);
+          if (apiError.code === 'SESSION_INVALIDATED') {
+            return;
+          }
+          if (isParcelAmbiguousPaymentError(error)) {
+            Alert.alert(
+              t('parcel.errors.ambiguousPaymentTitle'),
+              t('parcel.errors.ambiguousPaymentDescription'),
+            );
+            return;
+          }
+          navigateToCreatedParcel(
+            depositParcelId,
+            null,
+            ambiguousRetry.paymentMethod,
+          );
+          Alert.alert(
+            t('parcel.create.savedTitle'),
+            t('parcel.create.savedPaymentFailed', {
+              error: getLocalizedApiErrorMessage(
+                apiError,
+                t,
+                PARCEL_ERROR_TRANSLATION_KEYS,
+              ),
+            }),
+          );
+        }
+        return;
+      }
+
       let photoUrl: string | null = null;
-      if (photos[0]) {
+      if (ambiguousRetry?.kind !== 'create' && photos[0]) {
         try {
           photoUrl = await uploadParcelPhoto(photos[0]);
         } catch (error) {
@@ -968,21 +1260,71 @@ export function CreateParcelScreen(): React.JSX.Element {
         }
       }
 
-      let result;
+      let result: CreateParcelResult;
       try {
-        result = await createParcelMutation.mutateAsync(
-          buildCreatePayload(photoUrl),
-        );
-      } catch (error) {
-        const apiError = toApiError(error);
-        if (apiError.code === 'SESSION_INVALIDATED') {
+        if (
+          ambiguousRetry?.kind !== 'create'
+          && !isParcelQuoteUsable(
+            selectedTrip,
+            Date.now(),
+            PARCEL_QUOTE_REFRESH_SAFETY_WINDOW_MS,
+          )
+        ) {
+          await refetchAvailableTrips().catch(() => undefined);
+          Alert.alert(
+            t('parcel.errors.quoteExpiredTitle'),
+            t('parcel.errors.quoteExpiredDescription'),
+          );
           return;
         }
-        if (apiError.statusCode === 409) {
-          setSelectedTripId(null);
-          setPromoCode('');
+
+        result = ambiguousRetry?.kind === 'create'
+          ? await createParcelMutation.retryRetainedAsync()
+          : await createParcelMutation.mutateAsync(
+            buildCreatePayload(photoUrl),
+          );
+      } catch (error) {
+        const apiError = toApiError(error);
+        const conflict = classifyParcelCreateConflict(error);
+        if (conflict === 'session') {
+          return;
+        }
+        if (conflict === 'quote_expired') {
           setAppliedPromo(null);
+          setPromoCode('');
           setPromoError(undefined);
+          setAmbiguousRetry(null);
+          await refetchAvailableTrips().catch(() => undefined);
+          Alert.alert(
+            t('parcel.errors.quoteExpiredTitle'),
+            t('parcel.errors.quoteExpiredDescription'),
+          );
+          return;
+        }
+        if (conflict === 'quote_invalid') {
+          setAmbiguousRetry(null);
+          clearTripSelection();
+          await refetchAvailableTrips().catch(() => undefined);
+          Alert.alert(
+            t('parcel.errors.quoteInvalidTitle'),
+            t('parcel.errors.quoteInvalidDescription'),
+          );
+          return;
+        }
+        if (
+          conflict === 'ambiguous'
+          || conflict === 'idempotency_pending'
+        ) {
+          setAmbiguousRetry({ kind: 'create' });
+          Alert.alert(
+            t('parcel.errors.ambiguousRequestTitle'),
+            t('parcel.errors.ambiguousRequestDescription'),
+          );
+          return;
+        }
+        if (conflict === 'trip_freshness') {
+          setAmbiguousRetry(null);
+          clearTripSelection();
           await refetchAvailableTrips().catch(() => undefined);
           Alert.alert(
             t('parcel.errors.tripAvailabilityChangedTitle'),
@@ -990,6 +1332,26 @@ export function CreateParcelScreen(): React.JSX.Element {
           );
           return;
         }
+        if (conflict === 'code_collision') {
+          setAmbiguousRetry(null);
+          Alert.alert(
+            t('app.name'),
+            getLocalizedApiErrorMessage(
+              apiError,
+              t,
+              PARCEL_ERROR_TRANSLATION_KEYS,
+            ),
+          );
+          return;
+        }
+        if (conflict === 'retry_intent_changed') {
+          Alert.alert(
+            t('app.name'),
+            t('parcel.errors.retryIntentChanged'),
+          );
+          return;
+        }
+        setAmbiguousRetry(null);
         Alert.alert(
           t('app.name'),
           getLocalizedApiErrorMessage(
@@ -1011,7 +1373,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         try {
           depositPaymentResult = await depositPaymentMutation.mutateAsync({
             parcelId: result.parcelId,
-            paymentMethod: backendPaymentMethod,
+            paymentMethod: lockedBackendPaymentMethod,
           });
         } catch (error) {
           const apiError = toApiError(error);
@@ -1019,19 +1381,20 @@ export function CreateParcelScreen(): React.JSX.Element {
             return;
           }
 
-          invalidateParcelCheckoutQueries(paymentMethod === 'wallet');
-          navigation.navigate('ParcelDetail', {
-            parcelId: result.parcelId,
-            preferredPaymentMethod: paymentMethod,
-            ...(dropoffStation?.id
-              ? {
-                  trackingTarget: {
-                    kind: 'STATION' as const,
-                    stationId: dropoffStation.id,
-                  },
-                }
-              : {}),
-          });
+          if (isParcelAmbiguousPaymentError(error)) {
+            setAmbiguousRetry({
+              kind: 'deposit',
+              parcelId: result.parcelId,
+              paymentMethod: lockedPaymentMethod,
+            });
+            Alert.alert(
+              t('parcel.errors.ambiguousPaymentTitle'),
+              t('parcel.errors.ambiguousPaymentDescription'),
+            );
+            return;
+          }
+
+          navigateToCreatedParcel(result.parcelId);
           Alert.alert(
             t('parcel.create.savedTitle'),
             t('parcel.create.savedPaymentFailed', {
@@ -1046,24 +1409,14 @@ export function CreateParcelScreen(): React.JSX.Element {
         }
       }
 
-      invalidateParcelCheckoutQueries(paymentMethod === 'wallet');
-      navigation.navigate('ParcelDetail', {
-        parcelId: result.parcelId,
-        paymentRedirectUrl: depositPaymentResult?.paymentRedirectUrl ?? undefined,
-        preferredPaymentMethod: paymentMethod,
-        ...(dropoffStation?.id
-          ? {
-              trackingTarget: {
-                kind: 'STATION' as const,
-                stationId: dropoffStation.id,
-              },
-            }
-          : {}),
-      });
+      navigateToCreatedParcel(
+        result.parcelId,
+        depositPaymentResult?.paymentRedirectUrl,
+      );
 
       if (
         depositPaymentResult?.paymentRedirectUrl
-        && backendPaymentMethod === 'VNPAY'
+        && lockedBackendPaymentMethod === 'VNPAY'
       ) {
         try {
           await openVnPayPayment({
@@ -1084,17 +1437,20 @@ export function CreateParcelScreen(): React.JSX.Element {
     }
   }, [
     advanceStep,
-    backendPaymentMethod,
+    ambiguousRetry,
     buildCreatePayload,
+    clearTripSelection,
     createParcelMutation,
     depositPaymentMutation,
+    lockedBackendPaymentMethod,
+    lockedPaymentMethod,
     dropoffStation?.id,
     invalidateParcelCheckoutQueries,
     navigation,
-    paymentMethod,
     photos,
     refetchAvailableTrips,
     resetParcelPhotoUpload,
+    selectedTrip,
     setPackage,
     step,
     t,
@@ -1103,7 +1459,17 @@ export function CreateParcelScreen(): React.JSX.Element {
     validateCurrentStep,
   ]);
 
+  const handleRetryAmbiguousRequest = useCallback(() => {
+    if (!isAmbiguousRetryActive(ambiguousRetry)) {
+      return;
+    }
+    handleSubmit().catch(() => undefined);
+  }, [ambiguousRetry, handleSubmit]);
+
   const handlePromoCodeChange = useCallback((text: string) => {
+    if (intentLocked) {
+      return;
+    }
     const normalizedCode = text.toUpperCase();
     setPromoCode(normalizedCode);
     setPromoError(undefined);
@@ -1117,10 +1483,14 @@ export function CreateParcelScreen(): React.JSX.Element {
         ? currentPromo
         : null;
     });
-  }, []);
+  }, [intentLocked]);
 
   const handlePromoApply = useCallback(
     (nextCode: string, selectedPromo?: PromoOffer) => {
+      if (intentLocked) {
+        showAmbiguousRetryLockedAlert();
+        return false;
+      }
       const normalizedCode = normalizePromoCode(nextCode);
       const promo =
         selectedPromo || findPromoByCode(availablePromos, normalizedCode);
@@ -1139,10 +1509,13 @@ export function CreateParcelScreen(): React.JSX.Element {
         return false;
       }
 
-      if (promo.minimumSpend && depositBeforeDiscount < promo.minimumSpend) {
+      if (
+        promo.minimumSpend
+        && quotePricing.grossPriceVnd < promo.minimumSpend
+      ) {
         setAppliedPromo(null);
         setPromoError(
-          t('parcel.promos.validation.minimumDeposit', {
+          t('parcel.promos.validation.minimumSpend', {
             amount: formatVnd(promo.minimumSpend),
           }),
         );
@@ -1153,7 +1526,13 @@ export function CreateParcelScreen(): React.JSX.Element {
       setPromoError(undefined);
       return true;
     },
-    [availablePromos, depositBeforeDiscount, t],
+    [
+      availablePromos,
+      intentLocked,
+      quotePricing.grossPriceVnd,
+      showAmbiguousRetryLockedAlert,
+      t,
+    ],
   );
 
   const isStationSelectionStep = step === 1 || step === 2;
@@ -1555,9 +1934,10 @@ export function CreateParcelScreen(): React.JSX.Element {
           packageCategory={packageCategory}
           packageWeightKg={estimatedWeightKg}
           dimensionsLabel={formatParcelDimensions(dimensions)}
-          estimatedPrice={estimatedPrice}
-          depositBeforeDiscount={depositBeforeDiscount}
-          promoDiscount={promoDiscount}
+          grossPrice={quotePricing.grossPriceVnd}
+          discountAmount={quotePricing.discountAmountVnd}
+          totalAfterDiscount={quotePricing.totalAfterDiscountVnd}
+          depositPercent={quotePricing.depositPercent}
           depositDue={depositDue}
           promoCode={promoCode}
           promoApplied={Boolean(selectedVoucher)}
@@ -1573,12 +1953,42 @@ export function CreateParcelScreen(): React.JSX.Element {
               : undefined
           }
           promoError={promoError}
-          paymentMethod={paymentMethod}
-          onPaymentMethodChange={setPaymentMethod}
+          paymentMethod={lockedPaymentMethod}
+          disabled={intentLocked}
+          onPaymentMethodChange={method => {
+            if (!intentLocked) {
+              setPaymentMethod(method);
+            }
+          }}
           walletBalance={walletBalanceQuery.data?.balance}
           walletIsLoading={walletBalanceQuery.isLoading}
           walletHasError={walletBalanceQuery.isError}
         />
+        {ambiguousRetry ? (
+          <View style={styles.ambiguousRetryCard}>
+            <Text style={styles.ambiguousRetryText}>
+              {ambiguousRetry.kind === 'deposit'
+                ? t('parcel.errors.ambiguousPaymentDescription')
+                : t('parcel.errors.ambiguousRequestDescription')}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('parcel.actions.retryPreviousRequest')}
+              disabled={isUploadingParcelPhoto
+                || createParcelMutation.isPending
+                || depositPaymentMutation.isPending}
+              onPress={handleRetryAmbiguousRequest}
+              style={({ pressed }) => [
+                styles.ambiguousRetryButton,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.ambiguousRetryButtonText}>
+                {t('parcel.actions.retryPreviousRequest')}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     );
   };
@@ -1589,9 +1999,15 @@ export function CreateParcelScreen(): React.JSX.Element {
     || depositPaymentMutation.isPending;
   const actionDisabled =
     isSubmitting ||
+    intentLocked ||
     (isStationSelectionStep && !selectedStationForStep) ||
     ((step === 3 || step === 4) && !packageMeasurementsValid) ||
-    (step === 4 && (availableTripsQuery.isLoading || !selectedTrip));
+    (step === 4 && (
+      availableTripsQuery.isLoading
+      || !hasParcelQuoteContract(selectedTrip)
+      || !isParcelQuoteUsable(selectedTrip)
+      || voucherNeedsRevalidation
+    ));
   const actionLabel =
     step === 1
       ? selectedStationForStep
@@ -1681,7 +2097,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         <StepProgressBar
           step={step}
           highestStepReached={highestStepReached}
-          onStepPress={setStep}
+          onStepPress={handleStepPress}
           onCancel={handleBackStep}
           title={routeTitle}
           subtitle={headerSubtitle}
@@ -1867,6 +2283,33 @@ const createStyles = (theme: AppTheme) => ({
   tripCardActive: {
     borderColor: theme.colors.primary,
     backgroundColor: theme.colors.primaryFaded,
+  },
+  tripCardDisabled: {
+    opacity: 0.55,
+  },
+  ambiguousRetryCard: {
+    ...theme.components.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  ambiguousRetryText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
+  },
+  ambiguousRetryButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: theme.colors.primary,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  ambiguousRetryButtonText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textInverse,
   },
   tripIcon: {
     width: 42,

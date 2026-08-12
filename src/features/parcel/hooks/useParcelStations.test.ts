@@ -1,10 +1,14 @@
 import type { StationSearchResult } from '@features/trip/types';
+import i18n from '@shared/i18n';
 import { mapParcelStation } from './useParcelStations';
 
 jest.mock('@features/trip/api/stationApi', () => ({
   searchStations: jest.fn(async () => []),
   stationKeys: {
-    search: (locationId: string) => ['stations', 'search', locationId],
+    search: (scope: { mode: string; locationId?: string; locationScopeCode?: string }) =>
+      scope.mode === 'hierarchy'
+        ? ['stations', 'search', 'hierarchy', scope.locationScopeCode]
+        : ['stations', 'search', 'exact', scope.locationId],
   },
 }));
 
@@ -20,6 +24,12 @@ const station: StationSearchResult = {
 };
 
 describe('mapParcelStation', () => {
+  const previousLanguage = i18n.language;
+
+  afterEach(async () => {
+    await i18n.changeLanguage(previousLanguage);
+  });
+
   it('does not invent distance, closest status, rating, hours, or parcel acceptance', () => {
     expect(mapParcelStation(station, 0)).toEqual({
       id: 'station-1',
@@ -31,7 +41,8 @@ describe('mapParcelStation', () => {
     });
   });
 
-  it('marks the first station closest only when a real distance can be calculated', () => {
+  it('marks the first station closest only when a real distance can be calculated', async () => {
+    await i18n.changeLanguage('en');
     const mapped = mapParcelStation(station, 0, {
       latitude: 10.876,
       longitude: 106.813,
@@ -39,5 +50,15 @@ describe('mapParcelStation', () => {
 
     expect(mapped.isClosest).toBe(true);
     expect(mapped.distance).toMatch(/m away|km away/);
+  });
+
+  it('formats Vietnamese distance labels when locale is vi', async () => {
+    await i18n.changeLanguage('vi');
+    const mapped = mapParcelStation(station, 0, {
+      latitude: 10.876,
+      longitude: 106.813,
+    });
+
+    expect(mapped.distance).toMatch(/Cách .* m|Cách .* km/);
   });
 });

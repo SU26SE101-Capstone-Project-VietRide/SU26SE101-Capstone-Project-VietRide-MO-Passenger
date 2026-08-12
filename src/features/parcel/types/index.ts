@@ -4,7 +4,13 @@ import type {
 } from '@shared/utils/paymentMethod';
 
 export type ParcelSize = 'small' | 'medium' | 'large';
-export type ParcelSizeCategory = 'SMALL' | 'MEDIUM' | 'LARGE' | 'EXTRA_LARGE';
+export const PARCEL_SIZE_CATEGORIES = [
+  'SMALL',
+  'MEDIUM',
+  'LARGE',
+  'EXTRA_LARGE',
+] as const;
+export type ParcelSizeCategory = (typeof PARCEL_SIZE_CATEGORIES)[number];
 export type ParcelPaymentMethod = PaymentMethod;
 export type ParcelBackendPaymentMethod = BackendPaymentMethod;
 export const PARCEL_STATUSES = [
@@ -119,6 +125,13 @@ export interface AvailableParcelTrip {
   };
   departureDateTime: string;
   estimatedArrivalTime: string;
+  quoteToken: string | null;
+  quoteExpiresAt: string | null;
+  estimatedSizeCategory: ParcelSizeCategory | null;
+  /** Null on pre-v1.76 transport; selection requires hasParcelQuoteContract. */
+  estimatedGrossPriceVnd: number | null;
+  /** Null on pre-v1.76 transport; selection requires hasParcelQuoteContract. */
+  estimatedDiscountVnd: number | null;
   estimatedPriceVnd: number;
   estimatedDepositVnd: number;
   depositPercent: number;
@@ -141,12 +154,17 @@ export interface ParcelAvailableVoucher {
 export interface GetParcelVouchersParams {
   tripId: string;
   sizeCategory: ParcelSizeCategory;
-  paymentMethod?: ParcelBackendPaymentMethod;
-  orderAmount?: number;
+  paymentMethod: ParcelBackendPaymentMethod;
+  quoteToken: string;
+  /** Safe query-key metadata; never serialized to the API. */
+  quoteExpiresAt: string;
+  /** Safe query-key metadata; never serialized to the API. */
+  estimatedGrossPriceVnd: number;
 }
 
 export interface CreateParcelPayload {
   tripId: string;
+  quoteToken: string;
   dropoffStopId: string | null;
   bookingId: string | null;
   itemName: string | null;

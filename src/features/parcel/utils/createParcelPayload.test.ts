@@ -4,6 +4,7 @@ describe('buildCreateParcelPayload', () => {
   it('excludes every local preview URI and keeps photoUrl null', () => {
     const payload = buildCreateParcelPayload({
       tripId: 'trip-1',
+      quoteToken: 'opaque.signed-quote',
       dropoffStopId: null,
       bookingId: null,
       itemName: 'Documents',
@@ -29,6 +30,7 @@ describe('buildCreateParcelPayload', () => {
     });
 
     expect(payload.photoUrl).toBeNull();
+    expect(payload.quoteToken).toBe('opaque.signed-quote');
     expect(payload).not.toHaveProperty('localPhotoUris');
     const serializedPayload = JSON.stringify(payload);
     expect(serializedPayload).not.toContain('file://');

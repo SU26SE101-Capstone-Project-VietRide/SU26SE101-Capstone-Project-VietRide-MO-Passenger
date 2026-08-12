@@ -32,6 +32,7 @@ export interface PromoCodeInputProps {
   onChange: (text: string) => void;
   applied: boolean;
   onApplyCode: (code: string, promo?: PromoOffer) => boolean | void;
+  disabled?: boolean;
   promos?: PromoOffer[];
   selectedPromoCode?: string;
   appliedLabel?: string;
@@ -122,6 +123,7 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
   onChange,
   applied,
   onApplyCode,
+  disabled = false,
   promos = [],
   selectedPromoCode,
   appliedLabel,
@@ -207,12 +209,18 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('parcel.promos.openAccessibility')}
-        accessibilityState={{ expanded: pickerVisible, selected: applied }}
+        accessibilityState={{
+          disabled,
+          expanded: pickerVisible,
+          selected: applied,
+        }}
+        disabled={disabled}
         onPress={openPicker}
         style={({ pressed }) => [
           styles.promoTrigger,
           applied ? styles.promoTriggerApplied : null,
-          pressed ? styles.promoTriggerPressed : null,
+          disabled ? styles.promoTriggerDisabled : null,
+          pressed && !disabled ? styles.promoTriggerPressed : null,
         ]}
       >
         <View style={styles.triggerIcon}>
@@ -415,6 +423,9 @@ const createStyles = (theme: AppTheme) => ({
   promoTriggerPressed: {
     opacity: 0.86,
     transform: [{ scale: 0.99 }],
+  },
+  promoTriggerDisabled: {
+    opacity: 0.55,
   },
   triggerIcon: {
     width: 34,

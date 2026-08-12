@@ -25,9 +25,10 @@ export interface PricingBreakdownProps {
   packageCategory: string;
   packageWeightKg: number;
   dimensionsLabel: string;
-  estimatedPrice: number;
-  depositBeforeDiscount: number;
-  promoDiscount: number;
+  grossPrice: number;
+  discountAmount: number;
+  totalAfterDiscount: number;
+  depositPercent: number;
   depositDue: number;
   promoCode: string;
   promoApplied: boolean;
@@ -39,6 +40,7 @@ export interface PricingBreakdownProps {
   promoError?: string;
   paymentMethod: ParcelPaymentMethod;
   onPaymentMethodChange: (method: ParcelPaymentMethod) => void;
+  disabled?: boolean;
   walletBalance?: number;
   walletIsLoading: boolean;
   walletHasError: boolean;
@@ -51,9 +53,10 @@ function PricingBreakdownComponent({
   packageCategory,
   packageWeightKg,
   dimensionsLabel,
-  estimatedPrice,
-  depositBeforeDiscount,
-  promoDiscount,
+  grossPrice,
+  discountAmount,
+  totalAfterDiscount,
+  depositPercent,
   depositDue,
   promoCode,
   promoApplied,
@@ -65,6 +68,7 @@ function PricingBreakdownComponent({
   promoError,
   paymentMethod,
   onPaymentMethodChange,
+  disabled = false,
   walletBalance,
   walletIsLoading,
   walletHasError,
@@ -155,6 +159,7 @@ function PricingBreakdownComponent({
           walletBalance={walletBalance}
           walletIsLoading={walletIsLoading}
           walletHasError={walletHasError}
+          disabled={disabled}
         />
       </View>
 
@@ -163,6 +168,7 @@ function PricingBreakdownComponent({
         onChange={onPromoCodeChange}
         applied={promoApplied}
         onApplyCode={onPromoApplyCode}
+        disabled={disabled}
         promos={availablePromos}
         selectedPromoCode={selectedPromoCode}
         appliedLabel={appliedPromoLabel}
@@ -174,23 +180,31 @@ function PricingBreakdownComponent({
           {t('parcel.summary.paymentDetails')}
         </Text>
         <PriceRow
-          label={t('parcel.summary.estimatedShipmentPrice')}
-          value={estimatedPrice}
+          label={t('parcel.summary.grossPrice')}
+          value={grossPrice}
         />
-        <PriceRow
-          label={t('parcel.summary.depositBeforeDiscount')}
-          value={depositBeforeDiscount}
-        />
-        {promoApplied && promoDiscount > 0 ? (
+        {discountAmount > 0 ? (
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>
-              {t('parcel.summary.verifiedVoucherDiscount')}
+              {promoApplied
+                ? t('parcel.summary.verifiedVoucherDiscount')
+                : t('parcel.summary.serverQuoteDiscount')}
             </Text>
             <Text style={[styles.priceValue, styles.discountValue]}>
-              -{formatVnd(promoDiscount)}
+              -{formatVnd(discountAmount)}
             </Text>
           </View>
         ) : null}
+        <PriceRow
+          label={t('parcel.summary.totalAfterDiscount')}
+          value={totalAfterDiscount}
+        />
+        <View style={styles.priceRow}>
+          <Text style={styles.priceLabel}>
+            {t('parcel.summary.depositPercent')}
+          </Text>
+          <Text style={styles.priceValue}>{depositPercent}%</Text>
+        </View>
         <View style={styles.summaryDivider} />
         <View style={[styles.priceRow, styles.totalRow]}>
           <Text style={styles.totalLabel}>

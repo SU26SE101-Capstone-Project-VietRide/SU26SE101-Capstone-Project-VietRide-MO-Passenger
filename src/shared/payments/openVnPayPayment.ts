@@ -142,4 +142,22 @@ export class VnPayPaymentOpenCoordinator {
 
     return request;
   }
+
+  /** Single-flight reopen from a validated pending session (Detail "Open again"). */
+  reopen(
+    pending: PendingVnPaySession,
+    ownerUserId: string,
+  ): Promise<{ sessionId: string }> {
+    if (this.active) return this.active;
+
+    const request = reopenPendingVnPayPayment(pending, ownerUserId);
+    this.active = request;
+
+    const release = (): void => {
+      if (this.active === request) this.active = null;
+    };
+    request.then(release, release);
+
+    return request;
+  }
 }

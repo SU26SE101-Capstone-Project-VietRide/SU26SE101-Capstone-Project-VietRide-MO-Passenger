@@ -17,6 +17,7 @@ export const buildCreateParcelPayload = (
   draft: CreateParcelDraft,
 ): CreateParcelPayload => ({
   tripId: draft.tripId,
+  quoteToken: draft.quoteToken,
   dropoffStopId: draft.dropoffStopId,
   bookingId: draft.bookingId,
   itemName: draft.itemName,

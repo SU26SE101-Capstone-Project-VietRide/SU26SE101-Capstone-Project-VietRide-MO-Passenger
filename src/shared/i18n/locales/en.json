@@ -1012,7 +1012,8 @@
       "next": "Next",
       "nextStep": "Next Step",
       "previous": "Previous",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "retryPreviousRequest": "Retry previous request"
     },
     "categories": {
       "documents": "Documents",
@@ -1101,7 +1102,28 @@
       "photoUploadTitle": "Could not upload parcel photo",
       "photoUploadDescription": "The selected photo could not be prepared or uploaded. Try again, or remove it to continue without a photo.",
       "tripAvailabilityChangedTitle": "Trip availability changed",
-      "tripAvailabilityChangedDescription": "The selected trip or parcel estimate changed while you were confirming. Please choose an available trip again."
+      "tripAvailabilityChangedDescription": "The selected trip or parcel estimate changed while you were confirming. Please choose an available trip again.",
+      "quoteExpiredTitle": "Parcel quote expired",
+      "quoteExpiredDescription": "The signed price quote expired. Refresh trips and confirm the latest price before continuing.",
+      "quoteInvalidTitle": "Parcel quote is no longer valid",
+      "quoteInvalidDescription": "The selected quote no longer matches this parcel. Choose a trip again and re-apply any voucher.",
+      "quotePriceChangedTitle": "Parcel price updated",
+      "quotePriceChangedDescription": "The operator price or size category changed. Please select a trip again to confirm the new quote.",
+      "ambiguousRequestTitle": "Request may still be processing",
+      "ambiguousRequestDescription": "The previous create request may already be on the server. Retry the same request without changing recipient, package, voucher, or payment method.",
+      "ambiguousPaymentTitle": "Payment request may still be processing",
+      "ambiguousPaymentDescription": "Deposit payment may already have started. Retry the same payment request. Payment method is locked until this is resolved.",
+      "retryIntentChanged": "You changed details that require a new request. Clear the retry state by resolving the previous attempt first, or go back and start over.",
+      "retryNoRetainedRequest": "There is no previous parcel request to retry.",
+      "codeCollision": "Could not allocate a parcel code. Try again with the same quote if it is still valid.",
+      "idempotencyPending": "A matching request is still being processed. Retry the same request.",
+      "paymentSessionUnavailableTitle": "Payment session unavailable",
+      "paymentSessionUnavailable": "This VNPay session is no longer available on this device. Start payment again from parcel details.",
+      "paymentAlreadyStarted": "Payment was already started. VietRide is refreshing the latest status.",
+      "voucherRevalidating": "Your voucher is being re-checked for the latest quote. Wait a moment before confirming.",
+      "leaveAmbiguousTitle": "Leave this request?",
+      "leaveAmbiguousCreateDescription": "The previous create request may already have succeeded. Check your activity history before creating again. Exact retry will be lost if you leave.",
+      "leaveAmbiguousDepositDescription": "Your parcel was saved, but deposit payment may still be processing. Leaving may prevent exact payment retry. Prefer waiting or opening parcel details later."
     },
     "form": {
       "photoLabel": "parcel photo",
@@ -1206,7 +1228,8 @@
         "enterCode": "Enter a promo code to apply.",
         "unavailable": "This promo code is not available for this parcel.",
         "expired": "This promo code has expired.",
-        "minimumDeposit": "Minimum parcel deposit is {{amount}}."
+        "minimumDeposit": "Minimum parcel order amount is {{amount}}.",
+        "minimumSpend": "Minimum parcel order amount is {{amount}}."
       }
     },
     "route": {
@@ -1266,8 +1289,12 @@
       "dimensionsAndWeight": "{{dimensions}} · {{weight}} {{unit}}",
       "paymentDetails": "Payment Details",
       "estimatedShipmentPrice": "Estimated shipment price",
+      "grossPrice": "Shipment price",
       "depositBeforeDiscount": "Deposit before discount",
       "verifiedVoucherDiscount": "Verified voucher discount",
+      "serverQuoteDiscount": "Included discount",
+      "totalAfterDiscount": "Total after discount",
+      "depositPercent": "Deposit rate",
       "depositDueNow": "Deposit due now",
       "serverPricingHint": "Final parcel pricing is confirmed by VietRide's server for the selected trip.",
       "depositDue": "Deposit Due"
@@ -1315,6 +1342,7 @@
     "trips": {
       "operatorUnavailable": "Operator unavailable",
       "priceSummary": "Deposit {{deposit}} / Est. {{estimated}}",
+      "quoteUnavailable": "Quote unavailable — refresh trips",
       "departureDate": "Departure Date",
       "availableTitle": "Available Trips",
       "emptyTitle": "No parcel-enabled trip found",
