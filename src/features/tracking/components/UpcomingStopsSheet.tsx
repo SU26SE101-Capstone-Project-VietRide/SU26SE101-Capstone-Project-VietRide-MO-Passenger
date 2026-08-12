@@ -14,10 +14,7 @@ import {
 } from 'react-native';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { CaretDown, CaretUp } from 'phosphor-react-native';
-import {
-  Gesture,
-  GestureDetector,
-} from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -138,13 +135,18 @@ const FeaturedStopCard = React.memo(function FeaturedStopCardComponent({
       style={[styles.featuredCard, compact ? styles.featuredCardCompact : null]}
       accessibilityRole="summary"
     >
-      <View style={[
-        styles.featuredMarker,
-        compact ? styles.featuredMarkerCompact : null,
-        markerStyleForTone(item.tone, styles),
-      ]}>
+      <View
+        style={[
+          styles.featuredMarker,
+          compact ? styles.featuredMarkerCompact : null,
+          markerStyleForTone(item.tone, styles),
+        ]}
+      >
         <Text
-          style={[styles.featuredMarkerText, markerTextStyleForTone(item.tone, styles)]}
+          style={[
+            styles.featuredMarkerText,
+            markerTextStyleForTone(item.tone, styles),
+          ]}
           numberOfLines={1}
         >
           {item.sequence ?? '•'}
@@ -178,10 +180,18 @@ const FeaturedStopCard = React.memo(function FeaturedStopCardComponent({
           >
             {item.label}
           </Text>
-          <Text style={styles.featuredName} numberOfLines={1} ellipsizeMode="tail">
+          <Text
+            style={styles.featuredName}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {item.name}
           </Text>
-          <Text style={styles.stopDetail} numberOfLines={1} ellipsizeMode="tail">
+          <Text
+            style={styles.stopDetail}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {item.detail}
           </Text>
         </View>
@@ -201,7 +211,10 @@ const UpcomingStopRow = React.memo(function UpcomingStopRowComponent({
     <View style={styles.stopRow} accessibilityRole="summary">
       <View style={[styles.stopMarker, markerStyleForTone(item.tone, styles)]}>
         <Text
-          style={[styles.stopMarkerText, markerTextStyleForTone(item.tone, styles)]}
+          style={[
+            styles.stopMarkerText,
+            markerTextStyleForTone(item.tone, styles),
+          ]}
           numberOfLines={1}
         >
           {item.sequence ?? '•'}
@@ -227,219 +240,244 @@ const UpcomingStopRow = React.memo(function UpcomingStopRowComponent({
   );
 });
 
-const StopSeparator = React.memo(function StopSeparatorComponent(): React.JSX.Element {
-  const styles = useThemedStyles(createStyles);
-  return <View style={styles.separator} />;
-});
+const StopSeparator = React.memo(
+  function StopSeparatorComponent(): React.JSX.Element {
+    const styles = useThemedStyles(createStyles);
+    return <View style={styles.separator} />;
+  },
+);
 
-export const UpcomingStopsSheet = React.memo(function UpcomingStopsSheetComponent({
-  containerHeight,
-  featuredItems,
-  footer,
-  items,
-  onCollapsedHeightChange,
-  onRefresh,
-  refreshing,
-}: UpcomingStopsSheetProps): React.JSX.Element {
-  const { t } = useTranslation();
-  const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState(48);
-  const theme = useTheme();
-  const styles = useThemedStyles(createStyles);
-  const { reduceMotion } = useMotion();
-  const [expanded, setExpanded] = useState(false);
-  const [measuredCollapsedHeight, setMeasuredCollapsedHeight] = useState(
-    DEFAULT_UPCOMING_SHEET_COLLAPSED_HEIGHT,
-  );
-  const { collapsedHeight, collapsedOffset, expandedHeight } = useMemo(
-    () => getUpcomingStopsSheetLayout(containerHeight, measuredCollapsedHeight),
-    [containerHeight, measuredCollapsedHeight],
-  );
-  const isCompactPreview = containerHeight * UPCOMING_SHEET_MAX_COLLAPSED_BODY_RATIO
-    < DEFAULT_UPCOMING_SHEET_COLLAPSED_HEIGHT;
-  const translateY = useSharedValue(collapsedOffset);
-  const panStartY = useSharedValue(collapsedOffset);
+export const UpcomingStopsSheet = React.memo(
+  function UpcomingStopsSheetComponent({
+    containerHeight,
+    featuredItems,
+    footer,
+    items,
+    onCollapsedHeightChange,
+    onRefresh,
+    refreshing,
+  }: UpcomingStopsSheetProps): React.JSX.Element {
+    const { t } = useTranslation();
+    const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState(48);
+    const theme = useTheme();
+    const styles = useThemedStyles(createStyles);
+    const { reduceMotion } = useMotion();
+    const [expanded, setExpanded] = useState(false);
+    const [measuredCollapsedHeight, setMeasuredCollapsedHeight] = useState(
+      DEFAULT_UPCOMING_SHEET_COLLAPSED_HEIGHT,
+    );
+    const { collapsedHeight, collapsedOffset, expandedHeight } = useMemo(
+      () =>
+        getUpcomingStopsSheetLayout(containerHeight, measuredCollapsedHeight),
+      [containerHeight, measuredCollapsedHeight],
+    );
+    const isCompactPreview =
+      containerHeight * UPCOMING_SHEET_MAX_COLLAPSED_BODY_RATIO <
+      DEFAULT_UPCOMING_SHEET_COLLAPSED_HEIGHT;
+    const translateY = useSharedValue(collapsedOffset);
+    const panStartY = useSharedValue(collapsedOffset);
 
-  const commitExpanded = useCallback((nextExpanded: boolean) => {
-    setExpanded(nextExpanded);
-  }, []);
+    const commitExpanded = useCallback((nextExpanded: boolean) => {
+      setExpanded(nextExpanded);
+    }, []);
 
-  useEffect(() => {
-    translateY.value = withTiming(expanded ? 0 : collapsedOffset, {
-      duration: reduceMotion ? 0 : motionTokens.duration.standard,
-    });
-  }, [collapsedOffset, expanded, reduceMotion, translateY]);
-
-  const expandedProgress = useDerivedValue(() => {
-    if (collapsedOffset <= 0) return expanded ? 1 : 0;
-    return 1 - (translateY.value / collapsedOffset);
-  });
-  const sheetAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
-  const expandedAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: expandedProgress.value,
-  }));
-  const collapsedPreviewAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: 1 - expandedProgress.value,
-  }));
-
-  const panGesture = useMemo(() => Gesture.Pan()
-    .onBegin(() => {
-      panStartY.value = translateY.value;
-    })
-    .onUpdate((event) => {
-      const nextValue = panStartY.value + event.translationY;
-      translateY.value = Math.max(0, Math.min(collapsedOffset, nextValue));
-    })
-    .onEnd((event) => {
-      const shouldExpand = event.velocityY < -VELOCITY_SNAP_THRESHOLD
-        || (event.velocityY <= VELOCITY_SNAP_THRESHOLD
-          && translateY.value < collapsedOffset / 2);
-      translateY.value = withTiming(shouldExpand ? 0 : collapsedOffset, {
+    useEffect(() => {
+      translateY.value = withTiming(expanded ? 0 : collapsedOffset, {
         duration: reduceMotion ? 0 : motionTokens.duration.standard,
       });
-      runOnJS(commitExpanded)(shouldExpand);
-    }), [
-    collapsedOffset,
-    commitExpanded,
-    panStartY,
-    reduceMotion,
-    translateY,
-  ]);
+    }, [collapsedOffset, expanded, reduceMotion, translateY]);
 
-  const handleToggle = useCallback(() => {
-    setExpanded((current) => !current);
-  }, []);
-  const handleCollapsedLayout = useCallback((event: LayoutChangeEvent) => {
-    const measuredHeight = Math.ceil(event.nativeEvent.layout.height);
-    setMeasuredCollapsedHeight((current) => (
-      current === measuredHeight ? current : measuredHeight
-    ));
-  }, []);
-  const handleHeaderLayout = useCallback((event: LayoutChangeEvent) => {
-    const measuredHeight = Math.ceil(event.nativeEvent.layout.height);
-    setMeasuredHeaderHeight((current) => (
-      current === measuredHeight ? current : measuredHeight
-    ));
-  }, []);
-  useEffect(() => {
-    onCollapsedHeightChange?.(collapsedHeight);
-  }, [collapsedHeight, onCollapsedHeightChange]);
+    const expandedProgress = useDerivedValue(() => {
+      if (collapsedOffset <= 0) return expanded ? 1 : 0;
+      return 1 - translateY.value / collapsedOffset;
+    });
+    const sheetAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ translateY: translateY.value }],
+    }));
+    const expandedAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: expandedProgress.value,
+    }));
+    const collapsedPreviewAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: 1 - expandedProgress.value,
+    }));
 
-  const renderItem = useCallback<ListRenderItem<UpcomingStopSheetItem>>(
-    ({ item }) => <UpcomingStopRow item={item} styles={styles} />,
-    [styles],
-  );
-  const keyExtractor = useCallback(
-    (item: UpcomingStopSheetItem) => item.id,
-    [],
-  );
-  const listFooter = footer ? (
-    <View style={styles.footer}>{footer}</View>
-  ) : null;
+    const panGesture = useMemo(
+      () =>
+        Gesture.Pan()
+          .onBegin(() => {
+            panStartY.value = translateY.value;
+          })
+          .onUpdate(event => {
+            const nextValue = panStartY.value + event.translationY;
+            translateY.value = Math.max(
+              0,
+              Math.min(collapsedOffset, nextValue),
+            );
+          })
+          .onEnd(event => {
+            const shouldExpand =
+              event.velocityY < -VELOCITY_SNAP_THRESHOLD ||
+              (event.velocityY <= VELOCITY_SNAP_THRESHOLD &&
+                translateY.value < collapsedOffset / 2);
+            translateY.value = withTiming(shouldExpand ? 0 : collapsedOffset, {
+              duration: reduceMotion ? 0 : motionTokens.duration.standard,
+            });
+            runOnJS(commitExpanded)(shouldExpand);
+          }),
+      [collapsedOffset, commitExpanded, panStartY, reduceMotion, translateY],
+    );
 
-  return (
-    <Animated.View
-      pointerEvents="box-none"
-      style={[
-        styles.sheetPosition,
-        { height: expandedHeight },
-        sheetAnimatedStyle,
-      ]}
-    >
-      <View style={styles.sheetSurface}>
-        <View onLayout={handleCollapsedLayout}>
-          <GestureDetector gesture={panGesture}>
-            <View collapsable={false}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(expanded
-                  ? 'tracking.progress.collapseStops'
-                  : 'tracking.progress.expandStops')}
-                accessibilityHint={t('tracking.progress.sheetAccessibilityHint')}
-                onLayout={handleHeaderLayout}
-                accessibilityState={{ expanded }}
-                hitSlop={8}
-                onPress={handleToggle}
-                style={({ pressed }) => [
-                  styles.sheetHeader,
-                  isCompactPreview ? styles.sheetHeaderCompact : null,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <View style={styles.handle} />
-                <Text
-                  style={[styles.sheetTitle, isCompactPreview ? styles.sheetTitleCompact : null]}
-                  numberOfLines={1}
+    const handleToggle = useCallback(() => {
+      setExpanded(current => !current);
+    }, []);
+    const handleCollapsedLayout = useCallback((event: LayoutChangeEvent) => {
+      const measuredHeight = Math.ceil(event.nativeEvent.layout.height);
+      setMeasuredCollapsedHeight(current =>
+        current === measuredHeight ? current : measuredHeight,
+      );
+    }, []);
+    const handleHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+      const measuredHeight = Math.ceil(event.nativeEvent.layout.height);
+      setMeasuredHeaderHeight(current =>
+        current === measuredHeight ? current : measuredHeight,
+      );
+    }, []);
+    useEffect(() => {
+      onCollapsedHeightChange?.(collapsedHeight);
+    }, [collapsedHeight, onCollapsedHeightChange]);
+
+    const renderItem = useCallback<ListRenderItem<UpcomingStopSheetItem>>(
+      ({ item }) => <UpcomingStopRow item={item} styles={styles} />,
+      [styles],
+    );
+    const keyExtractor = useCallback(
+      (item: UpcomingStopSheetItem) => item.id,
+      [],
+    );
+    const listFooter = footer ? (
+      <View style={styles.footer}>{footer}</View>
+    ) : null;
+
+    return (
+      <Animated.View
+        pointerEvents="box-none"
+        style={[
+          styles.sheetPosition,
+          { height: expandedHeight },
+          sheetAnimatedStyle,
+        ]}
+      >
+        <View style={styles.sheetSurface}>
+          <View onLayout={handleCollapsedLayout}>
+            <GestureDetector gesture={panGesture}>
+              <View collapsable={false}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(
+                    expanded
+                      ? 'tracking.progress.collapseStops'
+                      : 'tracking.progress.expandStops',
+                  )}
+                  accessibilityHint={t(
+                    'tracking.progress.sheetAccessibilityHint',
+                  )}
+                  onLayout={handleHeaderLayout}
+                  accessibilityState={{ expanded }}
+                  hitSlop={8}
+                  onPress={handleToggle}
+                  style={({ pressed }) => [
+                    styles.sheetHeader,
+                    isCompactPreview ? styles.sheetHeaderCompact : null,
+                    pressed ? styles.pressed : null,
+                  ]}
                 >
-                  {t('tracking.progress.upcomingStops')}
-                </Text>
-                {expanded ? (
-                  <CaretDown size={20} color={theme.colors.textSecondary} weight="bold" />
-                ) : (
-                  <CaretUp size={20} color={theme.colors.textSecondary} weight="bold" />
-                )}
-              </Pressable>
-            </View>
-          </GestureDetector>
+                  <View style={styles.handle} />
+                  <Text
+                    style={[
+                      styles.sheetTitle,
+                      isCompactPreview ? styles.sheetTitleCompact : null,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {t('tracking.progress.upcomingStops')}
+                  </Text>
+                  {expanded ? (
+                    <CaretDown
+                      size={20}
+                      color={theme.colors.textSecondary}
+                      weight="bold"
+                    />
+                  ) : (
+                    <CaretUp
+                      size={20}
+                      color={theme.colors.textSecondary}
+                      weight="bold"
+                    />
+                  )}
+                </Pressable>
+              </View>
+            </GestureDetector>
+
+            <Animated.View
+              pointerEvents={expanded ? 'none' : 'auto'}
+              accessibilityElementsHidden={expanded}
+              importantForAccessibility={
+                expanded ? 'no-hide-descendants' : 'auto'
+              }
+              style={[
+                collapsedPreviewAnimatedStyle,
+                expanded ? styles.collapsedPreviewHidden : null,
+              ]}
+            >
+              <ScrollView
+                horizontal
+                contentContainerStyle={[
+                  styles.featuredContent,
+                  isCompactPreview ? styles.featuredContentCompact : null,
+                ]}
+                showsHorizontalScrollIndicator={false}
+              >
+                {featuredItems.map(item => (
+                  <FeaturedStopCard
+                    key={item.id}
+                    compact={isCompactPreview}
+                    item={item}
+                    styles={styles}
+                  />
+                ))}
+              </ScrollView>
+            </Animated.View>
+          </View>
 
           <Animated.View
-            pointerEvents={expanded ? 'none' : 'auto'}
-            accessibilityElementsHidden={expanded}
-            importantForAccessibility={expanded ? 'no-hide-descendants' : 'auto'}
+            pointerEvents={expanded ? 'auto' : 'none'}
+            accessibilityElementsHidden={!expanded}
+            importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
             style={[
-              collapsedPreviewAnimatedStyle,
-              expanded ? styles.collapsedPreviewHidden : null,
+              styles.expandedContent,
+              { top: measuredHeaderHeight },
+              expandedAnimatedStyle,
             ]}
           >
-            <ScrollView
-              horizontal
-              contentContainerStyle={[
-                styles.featuredContent,
-                isCompactPreview ? styles.featuredContentCompact : null,
-              ]}
-              showsHorizontalScrollIndicator={false}
-            >
-              {featuredItems.map((item) => (
-                <FeaturedStopCard
-                  key={item.id}
-                  compact={isCompactPreview}
-                  item={item}
-                  styles={styles}
-                />
-              ))}
-            </ScrollView>
+            <FlashList
+              data={items}
+              keyExtractor={keyExtractor}
+              renderItem={renderItem}
+              ItemSeparatorComponent={StopSeparator}
+              ListFooterComponent={listFooter}
+              contentContainerStyle={styles.listContent}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+              showsVerticalScrollIndicator
+            />
           </Animated.View>
         </View>
-
-        <Animated.View
-          pointerEvents={expanded ? 'auto' : 'none'}
-          accessibilityElementsHidden={!expanded}
-          importantForAccessibility={expanded ? 'yes' : 'no-hide-descendants'}
-          style={[
-            styles.expandedContent,
-            { top: measuredHeaderHeight },
-            expandedAnimatedStyle,
-          ]}
-        >
-          <FlashList
-            data={items}
-            keyExtractor={keyExtractor}
-            renderItem={renderItem}
-            ItemSeparatorComponent={StopSeparator}
-            ListFooterComponent={listFooter}
-            contentContainerStyle={styles.listContent}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-            onRefresh={onRefresh}
-            refreshing={refreshing}
-            showsVerticalScrollIndicator
-          />
-        </Animated.View>
-      </View>
-    </Animated.View>
-  );
-});
+      </Animated.View>
+    );
+  },
+);
 
 const createStyles = (theme: AppTheme) => {
   const palette = getTrackingMapPalette(theme.isDark);
@@ -614,7 +652,7 @@ const createStyles = (theme: AppTheme) => {
       fontSize: fontSizes.xs,
     },
     markerTextTarget: {
-      color: palette.targetGlyph,
+      color: palette.markerGlyph,
     },
     markerTextNext: {
       color: '#241A06',

@@ -39,6 +39,7 @@ export const PackageSizeSelector = memo(function PackageSizeSelectorComponent({
   return (
     <>
       <Text style={styles.formLabel}>{t('parcel.packageSize.title')}</Text>
+      <Text style={styles.hint}>{t('parcel.packageSize.hint')}</Text>
       <View style={styles.sizeCardRow}>
         {PARCEL_PACKAGE_SIZE_OPTIONS.map(({ size, labelKey, dimensions }) => {
           const active = packageSize === size;
@@ -98,7 +99,13 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
+  },
+  hint: {
+    marginTop: spacing.xs,
     marginBottom: spacing.sm,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
   },
   sizeCardRow: {
     flexDirection: 'row',

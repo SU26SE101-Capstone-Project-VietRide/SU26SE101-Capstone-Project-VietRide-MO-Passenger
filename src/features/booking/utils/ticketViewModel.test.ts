@@ -197,6 +197,13 @@ const historyItem: PassengerTicketHistoryItem = {
       status: 'ISSUED',
       paidAmount: 250_000,
     }],
+    vehicle: {
+      licensePlate: '51B-123.45',
+      vehicleType: {
+        code: 'LIMOUSINE',
+        displayName: 'Limousine',
+      },
+    },
   },
   parcel: null,
 };
@@ -212,6 +219,8 @@ describe('passenger history ticket view model', () => {
       boardingName: 'Ha Noi',
       alightingName: 'Da Nang',
       routeName: 'Ha Noi - Da Nang Express',
+      busType: 'Limousine',
+      licensePlate: '51B-123.45',
       usesRouteEndpoints: true,
       trackingEnabled: true,
       ticketEntries: [{

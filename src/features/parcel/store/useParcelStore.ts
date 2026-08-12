@@ -33,6 +33,8 @@ interface ParcelStore {
   setFromLocation: (city: string, code: string) => void;
   setToLocation: (city: string, code: string) => void;
   setToDistrict: (district: string) => void;
+  /** Swap origin/destination locations and stations (mirrors booking swapCities). */
+  swapLocations: () => void;
 
   // ─── Package Details ────────────────────────────────
   size: ParcelSize;
@@ -111,6 +113,17 @@ export const useParcelStore = create<ParcelStore>(set => ({
         state.toLocationCode === code ? state.dropoffStation : undefined,
     })),
   setToDistrict: district => set({ toDistrict: district }),
+  swapLocations: () =>
+    set(state => ({
+      fromCity: state.toCity,
+      toCity: state.fromCity,
+      fromLocationCode: state.toLocationCode,
+      toLocationCode: state.fromLocationCode,
+      // District is destination-scoped; clear after swap rather than invent a mapping.
+      toDistrict: '',
+      receivingStation: state.dropoffStation,
+      dropoffStation: state.receivingStation,
+    })),
 
   // ─── Package Details ────────────────────────────────
   size: DEFAULT_PARCEL_SIZE,

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { QrCode, Wallet } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
+import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -255,6 +256,33 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
 
   const promoDiscount = appliedVoucher?.discountAmount ?? voucherDiscountPreview;
   const finalPrice = Math.max(baseFare - promoDiscount, 0);
+  const walletBalanceQuery = useWalletBalance(baseFare > 0);
+  const walletBalance = walletBalanceQuery.data?.balance;
+  const walletHasKnownBalance = typeof walletBalance === 'number';
+  const walletHasEnoughBalance =
+    walletHasKnownBalance && walletBalance >= finalPrice;
+  const walletDisabled =
+    walletBalanceQuery.isLoading
+    || walletBalanceQuery.isError
+    || !walletHasEnoughBalance;
+  const walletSubtitle = walletBalanceQuery.isLoading
+    ? t('booking.paymentScreen.walletCheckingBalance')
+    : walletBalanceQuery.isError || !walletHasKnownBalance
+      ? t('booking.paymentScreen.walletBalanceUnavailable')
+      : walletHasEnoughBalance
+        ? t('booking.paymentScreen.walletBalance', {
+          amount: formatVnd(walletBalance, {
+            display: 'code',
+            clampNegative: true,
+          }),
+        })
+        : t('booking.paymentScreen.walletInsufficientBalance', {
+          amount: formatVnd(walletBalance, {
+            display: 'code',
+            clampNegative: true,
+          }),
+        });
+  const cannotSubmitWallet = paymentMethod === 'wallet' && walletDisabled;
   const isSubmitting = bookingStatus === 'loading';
   const promoInputError = promoError
     ?? (vouchersFailed ? t('booking.vouchers.refreshFailed') : undefined);
@@ -268,6 +296,21 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
     () => getShuttleChangeAddressDirection(bookingError?.code),
     [bookingError?.code],
   );
+
+  useEffect(() => {
+    if (
+      paymentMethod === 'wallet'
+      && !walletBalanceQuery.isLoading
+      && walletDisabled
+    ) {
+      setPaymentMethod('vnpay');
+    }
+  }, [
+    paymentMethod,
+    setPaymentMethod,
+    walletBalanceQuery.isLoading,
+    walletDisabled,
+  ]);
   const isRoundTrip = Boolean(searchParams.isRoundTrip);
   const shuttleEditActions = useMemo<ShuttleEditAction[]>(() => {
     if (!shuttleChangeDirection || !onGoToStep) {
@@ -421,10 +464,10 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
   ]);
 
   const handlePayNow = useCallback(() => {
-    if (!isSubmitting) {
+    if (!isSubmitting && !cannotSubmitWallet) {
       onNext();
     }
-  }, [isSubmitting, onNext]);
+  }, [cannotSubmitWallet, isSubmitting, onNext]);
 
   const handlePromoCodeChange = useCallback((text: string) => {
     const normalizedCode = text.toUpperCase();
@@ -469,7 +512,11 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
   }, [availableVouchers, clearVoucher, setVoucherCode, t]);
 
   const selectVnpay = useCallback(() => setPaymentMethod('vnpay'), [setPaymentMethod]);
-  const selectWallet = useCallback(() => setPaymentMethod('wallet'), [setPaymentMethod]);
+  const selectWallet = useCallback(() => {
+    if (!walletDisabled) {
+      setPaymentMethod('wallet');
+    }
+  }, [setPaymentMethod, walletDisabled]);
 
   return (
     <View style={styles.container}>
@@ -515,7 +562,7 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
           />
         ) : null}
 
-        <View style={styles.bentoSummaryCard}>
+        <View style={styles.bentoSummaryCard} accessibilityRole="radiogroup">
           <Text style={styles.bentoCardHeading}>{t('booking.paymentScreen.method')}</Text>
           <PaymentOption
             selected={paymentMethod === 'vnpay'}
@@ -527,8 +574,9 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
           />
           <PaymentOption
             selected={paymentMethod === 'wallet'}
+            disabled={walletDisabled}
             label={t('booking.paymentScreen.walletLabel')}
-            sub={t('booking.paymentScreen.walletDescription')}
+            sub={walletSubtitle}
             Icon={Wallet}
             iconColor={theme.accents.finance.foreground}
             onSelect={selectWallet}
@@ -607,7 +655,7 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
             ? t('booking.paymentScreen.payWithVnpay')
             : t('booking.paymentScreen.confirmBooking')}
         onPress={handlePayNow}
-        disabled={isSubmitting || baseFare <= 0}
+        disabled={isSubmitting || baseFare <= 0 || cannotSubmitWallet}
       />
     </View>
   );
@@ -615,6 +663,7 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
 
 interface PaymentOptionProps {
   selected: boolean;
+  disabled?: boolean;
   label: string;
   sub: string;
   Icon: React.ElementType;
@@ -624,6 +673,7 @@ interface PaymentOptionProps {
 
 const PaymentOption = memo(function PaymentOptionComponent({
   selected,
+  disabled = false,
   label,
   sub,
   Icon,
@@ -636,11 +686,13 @@ const PaymentOption = memo(function PaymentOptionComponent({
     <Pressable
       accessibilityRole="radio"
       accessibilityLabel={label}
-      accessibilityState={{ checked: selected }}
+      accessibilityState={{ checked: selected, disabled }}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.paymentOption,
         selected ? styles.paymentOptionActive : null,
-        pressed ? styles.paymentOptionPressed : null,
+        disabled ? styles.paymentOptionDisabled : null,
+        pressed && !disabled ? styles.paymentOptionPressed : null,
       ]}
       onPress={onSelect}
     >
@@ -725,6 +777,9 @@ const createStyles = (theme: AppTheme) => ({
   paymentOptionActive: {
     borderColor: theme.colors.primary,
     backgroundColor: theme.colors.primaryFaded,
+  },
+  paymentOptionDisabled: {
+    opacity: 0.55,
   },
   paymentOptionPressed: {
     opacity: 0.86,

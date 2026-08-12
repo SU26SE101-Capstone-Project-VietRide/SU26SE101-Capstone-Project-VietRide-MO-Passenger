@@ -110,9 +110,8 @@ import {
   PricingBreakdown,
 } from '../components';
 import {
+  areParcelDimensionsPositive,
   formatParcelDimensions,
-  getSmallestParcelSizeForDimensions,
-  isParcelSizeAtLeast,
   type ParcelDimensions,
 } from '../config/parcelPackage';
 import { buildCreateParcelPayload } from '../utils/createParcelPayload';
@@ -394,24 +393,14 @@ export function CreateParcelScreen(): React.JSX.Element {
     }),
     [packageHeightCm, packageLengthCm, packageWidthCm],
   );
-  const smallestPackageSize = useMemo(
-    () => getSmallestParcelSizeForDimensions(dimensions),
-    [dimensions],
-  );
-  const dimensionsFitSelectedTier =
-    smallestPackageSize !== null &&
-    isParcelSizeAtLeast(packageSize, smallestPackageSize);
   const packageMeasurementsValid =
     dimensionsDraftValid &&
+    areParcelDimensionsPositive(dimensions) &&
     weightDraftValid &&
-    dimensionsFitSelectedTier &&
     packageWeight > 0;
-  const dimensionsErrorMessage = !dimensionsDraftValid
+  const dimensionsErrorMessage =
+    !dimensionsDraftValid || !areParcelDimensionsPositive(dimensions)
     ? t('parcel.validation.dimensionsPositive')
-    : smallestPackageSize === null
-    ? t('parcel.validation.dimensionsTooLarge')
-    : !dimensionsFitSelectedTier
-    ? t('parcel.validation.chooseLargerSize')
     : undefined;
   const estimatedWeightKg = packageWeight;
   const departureDate = addApiCalendarDays(
@@ -826,19 +815,9 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   const handleDimensionsChange = useCallback(
     (nextDimensions: ParcelDimensions) => {
-      const fittingSize = getSmallestParcelSizeForDimensions(nextDimensions);
-      const shouldPromoteSize =
-        fittingSize !== null &&
-        fittingSize !== packageSize &&
-        isParcelSizeAtLeast(fittingSize, packageSize);
-
-      setPackage(
-        shouldPromoteSize
-          ? { size: fittingSize, ...nextDimensions }
-          : nextDimensions,
-      );
+      setPackage(nextDimensions);
     },
-    [packageSize, setPackage],
+    [setPackage],
   );
 
   const handleWeightChange = useCallback(

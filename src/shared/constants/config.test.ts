@@ -24,6 +24,7 @@ describe('appConfig native capabilities', () => {
       EXPO_PUBLIC_APP_ENV: 'staging',
       EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED: 'false',
       EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED: 'false',
+      EXPO_PUBLIC_MAPBOX_ENABLED: 'false',
       EXPO_PUBLIC_NATIVE_PUSH_ANDROID_ENABLED: 'false',
       EXPO_PUBLIC_NATIVE_PUSH_IOS_ENABLED: 'false',
     };
@@ -36,18 +37,22 @@ describe('appConfig native capabilities', () => {
   it('uses embedded Expo capabilities in release bundles', () => {
     const config = loadConfig({
       googleMaps: { android: true, ios: false },
+      mapbox: { android: true, ios: true },
       pushNotifications: { android: true, ios: false },
     });
 
     expect(config.nativeGoogleMapsEnabled).toEqual({ android: true, ios: false });
+    expect(config.nativeMapboxEnabled).toEqual({ android: true, ios: true });
     expect(config.nativePushNotificationsEnabled).toEqual({ android: true, ios: false });
   });
 
   it('falls back to legacy public flags when embedded capabilities are absent', () => {
     process.env.EXPO_PUBLIC_NATIVE_PUSH_ANDROID_ENABLED = 'true';
+    process.env.EXPO_PUBLIC_MAPBOX_ENABLED = 'true';
     const config = loadConfig();
 
     expect(config.nativePushNotificationsEnabled.android).toBe(true);
     expect(config.nativePushNotificationsEnabled.ios).toBe(false);
+    expect(config.nativeMapboxEnabled).toEqual({ android: true, ios: true });
   });
 });

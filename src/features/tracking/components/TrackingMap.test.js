@@ -40,7 +40,7 @@ jest.mock('@shared/components', () => {
 jest.mock('@shared/constants/config', () => ({
   appConfig: {
     isProd: false,
-    nativeGoogleMapsEnabled: { android: true, ios: true },
+    nativeMapboxEnabled: { android: true, ios: true },
   },
 }));
 
@@ -60,8 +60,8 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key) => key }),
 }));
 
-jest.mock('./NativeTrackingMap', () => ({
-  NativeTrackingMap: () => null,
+jest.mock('./MapboxTrackingMap', () => ({
+  MapboxTrackingMap: () => null,
 }));
 
 const { TrackingMap } = require('./TrackingMap');
@@ -90,7 +90,7 @@ describe('TrackingMap overlays', () => {
       testID: 'tracking-waiting-gps-overlay',
     });
     expect(StyleSheet.flatten(overlay.props.style)).toEqual(expect.objectContaining({
-      bottom: 136,
+      bottom: 164,
       position: 'absolute',
       right: 8,
     }));

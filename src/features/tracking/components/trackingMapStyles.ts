@@ -1,5 +1,3 @@
-import type { MapStyleElement } from 'react-native-maps';
-
 /**
  * Map route/marker palette — aligned to VietRide Liquid Glass brand (teal/mint)
  * instead of generic indigo/sky/orange Tailwind defaults.
@@ -19,7 +17,8 @@ export interface TrackingMapPalette {
   nextHalo: string;
   target: string;
   targetHalo: string;
-  targetGlyph: string;
+  markerGlyph: string;
+  vehicleGlyph: string;
   shuttleTarget: string;
   shuttleStation: string;
   frameBorder: string;
@@ -32,39 +31,38 @@ export interface TrackingMapPalette {
   sequenceText: string;
 }
 
-const freezeMapStyle = (style: MapStyleElement[]): MapStyleElement[] =>
-  Object.freeze(style) as unknown as MapStyleElement[];
-
-const freezePalette = (palette: TrackingMapPalette): Readonly<TrackingMapPalette> =>
-  Object.freeze(palette);
+const freezePalette = (
+  palette: TrackingMapPalette,
+): Readonly<TrackingMapPalette> => Object.freeze(palette);
 
 /**
- * Classic marker family, colors tuned to VietRide liquid teal UI
- * (same pin types: MapPin / Flag / Target — just cleaner tones).
+ * Semantic marker family for the light map: saturated fills keep white glyphs
+ * legible outdoors, while hue + icon shape communicate each role.
  */
 export const TRACKING_MAP_LIGHT_PALETTE = freezePalette({
-  plannedRoute: 'rgba(0, 125, 120, 0.88)',
+  plannedRoute: '#007D78',
   plannedRouteHalo: 'rgba(255, 255, 255, 0.94)',
-  trail: '#1AA8A2',
+  trail: '#627A77',
   trailHalo: 'rgba(255, 255, 255, 0.96)',
-  vehicle: '#E6A800',
-  vehicleHalo: 'rgba(230, 168, 0, 0.28)',
-  // Origin must NOT match plannedRoute teal (#007D78) — blue start vs teal path.
-  origin: '#2F6FED',
-  destination: '#D4544A',
+  vehicle: '#9A6500',
+  vehicleHalo: 'rgba(154, 101, 0, 0.26)',
+
+  origin: '#2457D6',
+  destination: '#B8325A',
   intermediate: '#FFFFFF',
-  intermediateBorder: 'rgba(0, 125, 120, 0.55)',
-  next: '#C98900',
-  nextHalo: 'rgba(201, 137, 0, 0.20)',
-  target: '#5B4BDB',
-  targetHalo: 'rgba(91, 75, 219, 0.22)',
-  targetGlyph: '#FFFFFF',
+  intermediateBorder: '#007D78',
+  next: '#9A6500',
+  nextHalo: 'rgba(154, 101, 0, 0.20)',
+  target: '#5B3FC4',
+  targetHalo: 'rgba(91, 63, 196, 0.22)',
+  markerGlyph: '#FFFFFF',
+  vehicleGlyph: '#FFFFFF',
   shuttleTarget: '#007D78',
   shuttleStation: '#005B57',
   frameBorder: 'rgba(0, 125, 120, 0.22)',
   progressSurface: 'rgba(0, 125, 120, 0.08)',
   trailSurface: 'rgba(26, 168, 162, 0.10)',
-  vehicleSurface: 'rgba(230, 168, 0, 0.12)',
+  vehicleSurface: 'rgba(154, 101, 0, 0.12)',
   legendSurface: 'rgba(255, 255, 255, 0.90)',
   legendBorder: 'rgba(0, 125, 120, 0.16)',
   legendText: '#13211F',
@@ -72,27 +70,29 @@ export const TRACKING_MAP_LIGHT_PALETTE = freezePalette({
 });
 
 export const TRACKING_MAP_DARK_PALETTE = freezePalette({
-  plannedRoute: 'rgba(85, 241, 232, 0.86)',
+  // Dark mode reverses luminance: light fills use a shared charcoal glyph.
+  plannedRoute: '#55F1E8',
   plannedRouteHalo: 'rgba(6, 19, 19, 0.88)',
-  trail: '#55F1E8',
+  trail: '#8FA7A3',
   trailHalo: 'rgba(6, 19, 19, 0.90)',
   vehicle: '#FFD166',
   vehicleHalo: 'rgba(255, 209, 102, 0.28)',
-  // Distinct from plannedRoute mint (#55F1E8).
-  origin: '#7EB6FF',
-  destination: '#FF8F80',
+
+  origin: '#7DB7FF',
+  destination: '#FF8EAA',
   intermediate: 'rgba(20, 38, 38, 0.94)',
-  intermediateBorder: 'rgba(85, 241, 232, 0.55)',
+  intermediateBorder: '#55F1E8',
   next: '#FFD166',
   nextHalo: 'rgba(255, 209, 102, 0.22)',
-  target: '#B8A6FF',
-  targetHalo: 'rgba(184, 166, 255, 0.24)',
-  targetGlyph: '#1A1238',
+  target: '#C1B3FF',
+  targetHalo: 'rgba(193, 179, 255, 0.24)',
+  markerGlyph: '#10201F',
+  vehicleGlyph: '#10201F',
   shuttleTarget: '#55F1E8',
   shuttleStation: '#9FFFF8',
   frameBorder: 'rgba(85, 241, 232, 0.28)',
   progressSurface: 'rgba(85, 241, 232, 0.10)',
-  trailSurface: 'rgba(85, 241, 232, 0.10)',
+  trailSurface: 'rgba(143, 167, 163, 0.12)',
   vehicleSurface: 'rgba(255, 209, 102, 0.12)',
   legendSurface: 'rgba(13, 34, 33, 0.92)',
   legendBorder: 'rgba(184, 255, 249, 0.18)',
@@ -100,327 +100,7 @@ export const TRACKING_MAP_DARK_PALETTE = freezePalette({
   sequenceText: '#9FFFF8',
 });
 
-export const getTrackingMapPalette = (isDark: boolean): Readonly<TrackingMapPalette> =>
+export const getTrackingMapPalette = (
+  isDark: boolean,
+): Readonly<TrackingMapPalette> =>
   isDark ? TRACKING_MAP_DARK_PALETTE : TRACKING_MAP_LIGHT_PALETTE;
-
-/** Soft off-white / mint landscape — pairs with brand teal routes. */
-export const LIQUID_LIGHT_MAP_STYLE = freezeMapStyle([
-  {
-    featureType: 'landscape',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#F2F7F6' }],
-  },
-  {
-    featureType: 'landscape.natural',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#E4F0E6' }],
-  },
-  { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#3D524F' }] },
-  {
-    elementType: 'labels.text.stroke',
-    stylers: [{ color: '#F8FCFB' }, { weight: 3 }],
-  },
-  {
-    featureType: 'administrative',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#D0DDDB' }],
-  },
-  {
-    featureType: 'administrative.locality',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#1A2E2C' }],
-  },
-  {
-    featureType: 'poi',
-    elementType: 'labels',
-    stylers: [{ visibility: 'off' }],
-  },
-  { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-  {
-    featureType: 'poi.park',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#D4EBD6' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#FFFFFF' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#D5E0DE' }],
-  },
-  {
-    featureType: 'road.arterial',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#F4F9F8' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#FFE4B0' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#E8C07A' }],
-  },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  {
-    featureType: 'water',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#C5E6E8' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#4A7A7C' }],
-  },
-]);
-
-/** Deep charcoal-teal canvas for Liquid Dark. */
-export const LIQUID_DARK_MAP_STYLE = freezeMapStyle([
-  {
-    featureType: 'landscape',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#0A1615' }],
-  },
-  {
-    featureType: 'landscape.natural',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#0F221F' }],
-  },
-  { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#B8D4D0' }] },
-  {
-    elementType: 'labels.text.stroke',
-    stylers: [{ color: '#061313' }, { weight: 3 }],
-  },
-  {
-    featureType: 'administrative',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#1F3A37' }],
-  },
-  {
-    featureType: 'administrative.locality',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#E8FFFB' }],
-  },
-  {
-    featureType: 'poi',
-    elementType: 'labels',
-    stylers: [{ visibility: 'off' }],
-  },
-  { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-  {
-    featureType: 'poi.park',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#122B24' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#1A2E2C' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#061313' }],
-  },
-  {
-    featureType: 'road.arterial',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#223A37' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#3D3420' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#5C4E2A' }],
-  },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  {
-    featureType: 'water',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#0A2A32' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#6EB8BC' }],
-  },
-]);
-
-/**
- * Shuttle address picker only — keep liquid canvas but show Google POI pins
- * (restaurants, shops, buildings) so users can tap places without searching.
- * Tracking maps intentionally keep POIs off for clarity.
- */
-export const SHUTTLE_PICKER_LIGHT_MAP_STYLE = freezeMapStyle([
-  {
-    featureType: 'landscape',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#F2F7F6' }],
-  },
-  {
-    featureType: 'landscape.natural',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#E4F0E6' }],
-  },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#3D524F' }] },
-  {
-    elementType: 'labels.text.stroke',
-    stylers: [{ color: '#F8FCFB' }, { weight: 3 }],
-  },
-  {
-    featureType: 'administrative',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#D0DDDB' }],
-  },
-  {
-    featureType: 'administrative.locality',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#1A2E2C' }],
-  },
-  // POI pins + labels stay visible (Google-supplied place data).
-  { featureType: 'poi', stylers: [{ visibility: 'on' }] },
-  { featureType: 'poi.business', stylers: [{ visibility: 'on' }] },
-  {
-    featureType: 'poi',
-    elementType: 'labels.icon',
-    stylers: [{ visibility: 'on' }],
-  },
-  {
-    featureType: 'poi',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#2A4A46' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#D4EBD6' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#FFFFFF' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#D5E0DE' }],
-  },
-  {
-    featureType: 'road.arterial',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#F4F9F8' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#FFE4B0' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#E8C07A' }],
-  },
-  { featureType: 'transit', stylers: [{ visibility: 'simplified' }] },
-  {
-    featureType: 'water',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#C5E6E8' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#4A7A7C' }],
-  },
-]);
-
-export const SHUTTLE_PICKER_DARK_MAP_STYLE = freezeMapStyle([
-  {
-    featureType: 'landscape',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#0A1615' }],
-  },
-  {
-    featureType: 'landscape.natural',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#0F221F' }],
-  },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#B8D4D0' }] },
-  {
-    elementType: 'labels.text.stroke',
-    stylers: [{ color: '#061313' }, { weight: 3 }],
-  },
-  {
-    featureType: 'administrative',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#1F3A37' }],
-  },
-  {
-    featureType: 'administrative.locality',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#E8FFFB' }],
-  },
-  { featureType: 'poi', stylers: [{ visibility: 'on' }] },
-  { featureType: 'poi.business', stylers: [{ visibility: 'on' }] },
-  {
-    featureType: 'poi',
-    elementType: 'labels.icon',
-    stylers: [{ visibility: 'on' }],
-  },
-  {
-    featureType: 'poi',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#C5E8E3' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#122B24' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#1A2E2C' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#061313' }],
-  },
-  {
-    featureType: 'road.arterial',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#223A37' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#3D3420' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#5C4E2A' }],
-  },
-  { featureType: 'transit', stylers: [{ visibility: 'simplified' }] },
-  {
-    featureType: 'water',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#0A2A32' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#6EB8BC' }],
-  },
-]);

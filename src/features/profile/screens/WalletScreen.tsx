@@ -200,7 +200,11 @@ export function WalletScreen(): React.JSX.Element {
     [transactionsData?.pages],
   );
 
-  const handleBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleBack = useCallback(
+    // Prevent an empty Profile child stack from bubbling back into tab history.
+    () => navigation.popTo('ProfileOverview'),
+    [navigation],
+  );
   const handleTopUp = useCallback(
     () => navigation.navigate('TopUp'),
     [navigation],

@@ -13,10 +13,13 @@ import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { resolveAisleAfterColumns } from '@features/trip/types/trip';
 import type { Seat, SeatRow } from '../types';
 
 interface SeatGridProps {
   seatMap: SeatRow[];
+  /** BE `aisles[].afterCol` when present; null/undefined → heuristic fallback. */
+  aisleAfterCols?: number[] | null;
   selectedSeats: Seat[];
   onSeatPress: (seatId: string) => void;
 }
@@ -60,18 +63,6 @@ const getDeckLetter = (deck: number): string => {
   }
 
   return deck.toString();
-};
-
-const getAisleAfterColumn = (columns: number[]): number | null => {
-  if (columns.length <= 1) {
-    return null;
-  }
-
-  if (columns.length <= 3) {
-    return columns[0];
-  }
-
-  return columns[Math.ceil(columns.length / 2) - 1];
 };
 
 const getContinuousColumns = (columns: Set<number>): number[] => {
@@ -338,7 +329,7 @@ const AisleSlot = memo(function AisleSlotComponent({
 interface SeatRowViewProps {
   row: NormalizedRow;
   columns: number[];
-  aisleAfterColumn: number | null;
+  aisleAfterColumns: ReadonlySet<number>;
   aisleWidth: number;
   seatSize: number;
   selectedSeatIds: ReadonlySet<string>;
@@ -350,7 +341,7 @@ const SeatRowView = memo(
   function SeatRowViewComponent({
     row,
     columns,
-    aisleAfterColumn,
+    aisleAfterColumns,
     aisleWidth,
     seatSize,
     selectedSeatIds,
@@ -403,7 +394,7 @@ const SeatRowView = memo(
                   ]}
                 />
               )}
-              {column === aisleAfterColumn ? (
+              {aisleAfterColumns.has(column) ? (
                 <AisleSlot
                   height={seatSize}
                   width={aisleWidth}
@@ -420,7 +411,7 @@ const SeatRowView = memo(
     if (
       previous.row !== next.row ||
       previous.columns !== next.columns ||
-      previous.aisleAfterColumn !== next.aisleAfterColumn ||
+      previous.aisleAfterColumns !== next.aisleAfterColumns ||
       previous.aisleWidth !== next.aisleWidth ||
       previous.seatSize !== next.seatSize ||
       previous.onSeatPress !== next.onSeatPress ||
@@ -439,6 +430,7 @@ const SeatRowView = memo(
 
 export function SeatGrid({
   seatMap,
+  aisleAfterCols = null,
   selectedSeats,
   onSeatPress,
 }: SeatGridProps): React.JSX.Element {
@@ -450,9 +442,20 @@ export function SeatGrid({
   const [requestedDeck, setRequestedDeck] = useState<number | null>(null);
   const activeGroup =
     groups.find(group => group.deck === requestedDeck) ?? groups[0];
-  const columns = activeGroup?.columns ?? [];
-  const aisleAfterColumn = getAisleAfterColumn(columns);
-  const aisleWidth = aisleAfterColumn == null ? 0 : DEFAULT_AISLE_WIDTH;
+  const columns = useMemo(
+    () => activeGroup?.columns ?? [],
+    [activeGroup?.columns],
+  );
+  const resolvedAisleAfterCols = useMemo(
+    () => resolveAisleAfterColumns(columns, aisleAfterCols),
+    [aisleAfterCols, columns],
+  );
+  const aisleAfterColumns = useMemo(
+    () => new Set(resolvedAisleAfterCols),
+    [resolvedAisleAfterCols],
+  );
+  const aisleCount = resolvedAisleAfterCols.length;
+  const aisleWidth = aisleCount === 0 ? 0 : DEFAULT_AISLE_WIDTH;
   const selectedSeatIds = useMemo(
     () => new Set(selectedSeats.map(seat => seat.id)),
     [selectedSeats],
@@ -470,27 +473,27 @@ export function SeatGrid({
   const availableCount = activeGroup
     ? Math.max(0, activeGroup.availableCount - activeSelectedCount)
     : 0;
-  const visibleChildren =
-    columns.length + 1 + (aisleAfterColumn == null ? 0 : 1);
+  const visibleChildren = columns.length + 1 + aisleCount;
   const gapCount = Math.max(0, visibleChildren - 1);
   const cardWidth = Math.min(MAX_CARD_WIDTH, Math.max(0, width - spacing.xxl));
   const innerWidth = Math.max(0, cardWidth - CARD_PADDING * 2);
+  const totalAisleWidth = aisleWidth * aisleCount;
   const seatSize = useMemo(() => {
     if (columns.length === 0) {
       return MAX_SEAT_SIZE;
     }
 
     const availableWidth =
-      innerWidth - ROW_AXIS_WIDTH - aisleWidth - gapCount * SEAT_GAP;
+      innerWidth - ROW_AXIS_WIDTH - totalAisleWidth - gapCount * SEAT_GAP;
     return Math.max(
       MIN_SEAT_SIZE,
       Math.min(MAX_SEAT_SIZE, Math.floor(availableWidth / columns.length)),
     );
-  }, [aisleWidth, columns.length, gapCount, innerWidth]);
+  }, [columns.length, gapCount, innerWidth, totalAisleWidth]);
   const matrixWidth =
     ROW_AXIS_WIDTH +
     columns.length * seatSize +
-    aisleWidth +
+    totalAisleWidth +
     gapCount * SEAT_GAP;
   const handleDeckSelect = useCallback(
     (deck: number) => setRequestedDeck(deck),
@@ -585,7 +588,7 @@ export function SeatGrid({
                     {t('booking.seatMap.columnCode', { column })}
                   </Text>
                 </View>
-                {column === aisleAfterColumn ? (
+                {aisleAfterColumns.has(column) ? (
                   <AisleSlot
                     height={AXIS_HEIGHT}
                     width={aisleWidth}
@@ -600,7 +603,7 @@ export function SeatGrid({
             {activeGroup.rows.map(row => (
               <SeatRowView
                 key={row.key}
-                aisleAfterColumn={aisleAfterColumn}
+                aisleAfterColumns={aisleAfterColumns}
                 aisleWidth={aisleWidth}
                 columns={columns}
                 onSeatPress={onSeatPress}

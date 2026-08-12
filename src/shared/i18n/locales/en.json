@@ -222,6 +222,7 @@
       "to": "Send to",
       "selectOrigin": "Select origin terminal",
       "selectDestination": "Select destination terminal",
+      "swapLocations": "Swap origin and destination",
       "terminalHint": "Choose the terminals where the parcel will be dropped off and collected."
     },
     "recentSearch": {
@@ -770,7 +771,8 @@
       "ticketCode": "Ticket code",
       "ticketCodeInactiveHint": "This ticket is no longer ready for boarding.",
       "ticketPaidAmount": "Paid for this ticket",
-      "busType": "Vehicle",
+      "busType": "Vehicle type",
+      "licensePlate": "License plate",
       "seats": "Seats",
       "tickets": "Tickets",
       "paymentMethod": "Payment method",
@@ -781,6 +783,21 @@
       "grandTotalDue": "Grand total due",
       "roundTripTotal": "Round-trip total",
       "viewBookings": "View bookings",
+      "cancelBookingAccessibility": "Cancel all tickets in this booking",
+      "cancelBooking": "Cancel booking",
+      "cancellingBooking": "Cancelling...",
+      "cancelConfirmationTitle": "Cancel this booking?",
+      "cancelConfirmationDescription": "All {{count}} tickets and seats in this booking will be cancelled.",
+      "cancelRefundNotice": "The refund is calculated from the operator policy and will be credited to your VietRide Wallet after processing.",
+      "cancelRoundTripNote": "This is only one leg of a round trip. The other leg will not be cancelled.",
+      "confirmCancellation": "Confirm cancellation",
+      "cancelSuccessTitle": "Booking cancelled",
+      "cancelSuccessWithRefund": "{{amount}} will be credited to your VietRide Wallet. The transaction may take a little time to appear.",
+      "cancelSuccessNoRefund": "The booking was cancelled. There is no refund due for this booking.",
+      "cancelErrorTitle": "Unable to cancel booking",
+      "cancelNotAvailableDescription": "This booking is no longer eligible for cancellation. Its status may have changed or the trip may have departed.",
+      "cancelNotFound": "This booking could not be found. Return to booking history and refresh the list.",
+      "cancelTripUnavailable": "The trip could not be verified for cancellation. Please try again later.",
       "paymentNotCompleted": "Payment not completed",
       "paymentExpiredDescription": "The payment window expired before the booking was confirmed.",
       "statusChanged": "Booking status changed",
@@ -819,6 +836,10 @@
       "vnpayDescription": "Pay securely in VNPay",
       "walletLabel": "VietRide Wallet",
       "walletDescription": "Pay from your available wallet balance",
+      "walletCheckingBalance": "Checking balance...",
+      "walletBalanceUnavailable": "Balance unavailable",
+      "walletBalance": "Available balance: {{amount}}",
+      "walletInsufficientBalance": "Insufficient balance: {{amount}}",
       "breakdown": "Price breakdown",
       "baseFare": "Estimated ticket fare · {{count}} seat(s)",
       "baseFare_one": "Estimated ticket fare · {{count}} seat",
@@ -998,8 +1019,8 @@
     "parcelDetails": "Parcel Details",
     "otpConfirm": "OTP Confirmation",
     "exitDraft": {
-      "title": "Leave parcel booking?",
-      "description": "Your parcel booking draft will stay on this device, but unsaved recipient and trip choices may be lost.",
+      "title": "Leave booking?",
+      "description": "Your booking draft will stay on this device, but unsaved recipient and trip choices may be lost.",
       "discard": "Leave booking"
     },
     "actions": {
@@ -1055,8 +1076,8 @@
         "createdTitle": "Parcel request created",
         "createdDescription": "Your parcel request is ready for the next delivery step."
       },
-      "dropoffCode": "Terminal drop-off code",
-      "dropoffCodeHint": "Show this exact code at the terminal drop-off.",
+      "dropoffCode": "Terminal parcel code",
+      "dropoffCodeHint": "Show this parcel code or QR at the terminal. Do not use the booking code.",
       "code": {
         "unavailableRequest": "The delivery code is unavailable for this request.",
         "afterFinalPayment": "The delivery code unlocks after final payment is verified.",
@@ -1157,6 +1178,7 @@
     },
     "packageSize": {
       "title": "Package Size",
+      "hint": "Choose a preset to fill the fields, then edit the actual measurements if needed.",
       "options": {
         "small": "Small",
         "medium": "Medium",
@@ -1362,8 +1384,6 @@
     },
     "validation": {
       "dimensionsPositive": "Enter a value greater than 0 for every dimension.",
-      "dimensionsTooLarge": "This parcel is larger than the supported 60 × 45 × 35 cm tier.",
-      "chooseLargerSize": "Choose a larger size tier for these dimensions.",
       "selectOriginStation": "Please select an origin station.",
       "selectDestinationStation": "Please select a destination station.",
       "recipientRequired": "Recipient name and phone number are required.",
@@ -1451,6 +1471,7 @@
     "parcelAccessibility": "Open parcel {{code}}",
     "trackAccessibility": "Track booking {{code}}",
     "track": "Track trip",
+    "vehicle": "Vehicle",
     "continuePayment": "Continue payment",
     "continuePaymentAccessibility": "Continue payment for {{code}}",
     "signInRequiredTitle": "Sign in to view history",
@@ -1614,8 +1635,8 @@
       "unknown": "Delivery method unavailable"
     },
     "parcel": {
-      "dropoffCode": "Terminal drop-off code",
-      "dropoffCodeHint": "Show this exact code at the terminal drop-off."
+      "dropoffCode": "Terminal parcel code",
+      "dropoffCodeHint": "Show this parcel code or QR at the terminal. Do not use the booking code."
     },
     "ticketState": {
       "pendingPayment": "Payment pending",

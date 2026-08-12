@@ -3,7 +3,7 @@ import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
 import {
   type BusTrip,
-  type SeatRow,
+  type SeatMapLayout,
   type TripDetail,
   type TripSearchParams,
   type TripSearchDto,
@@ -80,14 +80,23 @@ export async function getTripDetail(
   return mapTripDetail(unwrapApiResponse(response.data));
 }
 
+export interface TripSeatMapResponseDto {
+  tripId: string;
+  vehicleType: string;
+  seats: SeatDto[];
+  /** BE seat-layout aisles; optional until all deployments emit it. */
+  aisles?: Array<{ afterCol: number } | number> | null;
+}
+
 export async function getSeatMap(
   tripId: string,
   signal?: AbortSignal,
-): Promise<SeatRow[]> {
+): Promise<SeatMapLayout> {
   const tripIdSegment = encodeUuidPathSegment(tripId, 'tripId');
   const path = `/trips/${tripIdSegment}/seat-map`;
   const response = signal
-    ? await apiClient.get<ApiEnvelope<{ tripId: string; vehicleType: string; seats: SeatDto[] }>>(path, { signal })
-    : await apiClient.get<ApiEnvelope<{ tripId: string; vehicleType: string; seats: SeatDto[] }>>(path);
-  return mapSeatMap(unwrapApiResponse(response.data).seats);
+    ? await apiClient.get<ApiEnvelope<TripSeatMapResponseDto>>(path, { signal })
+    : await apiClient.get<ApiEnvelope<TripSeatMapResponseDto>>(path);
+  const data = unwrapApiResponse(response.data);
+  return mapSeatMap(data.seats ?? [], data.aisles);
 }

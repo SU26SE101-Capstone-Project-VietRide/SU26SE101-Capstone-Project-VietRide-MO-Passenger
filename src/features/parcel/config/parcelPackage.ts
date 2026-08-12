@@ -45,8 +45,6 @@ export const PARCEL_PACKAGE_SIZE_OPTIONS: readonly ParcelPackageSizeOption[] =
 export const DEFAULT_PARCEL_SIZE: ParcelSize = 'medium';
 export const DEFAULT_PARCEL_WEIGHT_KG = 2.5;
 
-const PARCEL_SIZE_ORDER: readonly ParcelSize[] = ['small', 'medium', 'large'];
-
 export function roundParcelMeasurement(value: number): number {
   return Number(value.toFixed(2));
 }
@@ -75,33 +73,15 @@ export function getParcelSizeCategory(size: ParcelSize): ParcelSizeCategory {
 }
 
 /**
- * Finds the smallest supported fare tier whose dimension envelope can contain
- * the parcel. Sorting makes the check orientation-independent.
+ * Passenger mirrors the backend contract here: every submitted dimension must
+ * be finite and greater than zero. Small/medium/large remain fill-in presets;
+ * the backend derives the settlement category from the submitted cargo metrics.
  */
-export function getSmallestParcelSizeForDimensions(
+export function areParcelDimensionsPositive(
   dimensions: ParcelDimensions,
-): ParcelSize | null {
-  const parcelEdges = Object.values(dimensions).sort(
-    (left, right) => left - right,
-  );
-
-  return (
-    PARCEL_SIZE_ORDER.find(size => {
-      const sizeEdges = Object.values(
-        PARCEL_PACKAGE_SIZE_CONFIG[size].dimensions,
-      ).sort((left, right) => left - right);
-
-      return parcelEdges.every((edge, index) => edge <= sizeEdges[index]);
-    }) ?? null
-  );
-}
-
-export function isParcelSizeAtLeast(
-  candidate: ParcelSize,
-  current: ParcelSize,
 ): boolean {
-  return (
-    PARCEL_SIZE_ORDER.indexOf(candidate) >= PARCEL_SIZE_ORDER.indexOf(current)
+  return Object.values(dimensions).every(
+    measurement => Number.isFinite(measurement) && measurement > 0,
   );
 }
 

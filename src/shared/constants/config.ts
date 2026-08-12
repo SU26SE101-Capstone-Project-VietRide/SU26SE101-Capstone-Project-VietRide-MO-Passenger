@@ -19,6 +19,10 @@ interface AppConfig {
     android: boolean;
     ios: boolean;
   }>;
+  readonly nativeMapboxEnabled: Readonly<{
+    android: boolean;
+    ios: boolean;
+  }>;
   readonly nativePushNotificationsEnabled: Readonly<{
     android: boolean;
     ios: boolean;
@@ -31,6 +35,10 @@ interface AppConfig {
 
 interface NativeCapabilities {
   readonly googleMaps?: Readonly<{
+    android?: boolean;
+    ios?: boolean;
+  }>;
+  readonly mapbox?: Readonly<{
     android?: boolean;
     ios?: boolean;
   }>;
@@ -121,6 +129,16 @@ export const appConfig: AppConfig = {
     ios: resolveNativeCapability(
       nativeCapabilities?.googleMaps?.ios,
       process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED,
+    ),
+  },
+  nativeMapboxEnabled: {
+    android: resolveNativeCapability(
+      nativeCapabilities?.mapbox?.android,
+      process.env.EXPO_PUBLIC_MAPBOX_ENABLED,
+    ),
+    ios: resolveNativeCapability(
+      nativeCapabilities?.mapbox?.ios,
+      process.env.EXPO_PUBLIC_MAPBOX_ENABLED,
     ),
   },
   nativePushNotificationsEnabled: {

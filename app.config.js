@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { resolveGoogleMapsNativeConfig } = require('./config/googleMapsConfig');
+const { resolveMapboxRuntimeConfig } = require('./config/mapboxConfig');
 const { version: appVersion } = require('./package.json');
 
 const baseConfig = {
@@ -64,6 +65,7 @@ const baseConfig = {
 };
 
 const { androidApiKey, iosApiKey } = resolveGoogleMapsNativeConfig();
+const { enabled: mapboxEnabledForBuild } = resolveMapboxRuntimeConfig();
 const buildPlatform = process.env.EAS_BUILD_PLATFORM;
 const configuredAndroidFirebaseFile = process.env.GOOGLE_SERVICES_ANDROID_FILE?.trim();
 const configuredIosFirebaseFile = process.env.GOOGLE_SERVICE_INFO_PLIST?.trim();
@@ -168,6 +170,10 @@ const nativeCapabilities = {
     android: googleMapsEnabledForBuild && Boolean(androidApiKey),
     ios: googleMapsEnabledForBuild && Boolean(iosApiKey),
   },
+  mapbox: {
+    android: mapboxEnabledForBuild,
+    ios: mapboxEnabledForBuild,
+  },
   pushNotifications: {
     android: hasAndroidFirebaseConfig,
     ios: hasIosFirebaseConfig,
@@ -183,6 +189,12 @@ if (isProduction && buildPlatform === 'android' && !hasAndroidFirebaseConfig) {
 if (isProduction && buildPlatform === 'ios' && !hasIosFirebaseConfig) {
   throw new Error(
     '[Push] GOOGLE_SERVICE_INFO_PLIST is required for a production iOS build.',
+  );
+}
+
+if (isProduction && !mapboxEnabledForBuild) {
+  throw new Error(
+    '[Mapbox] EXPO_PUBLIC_MAPBOX_TOKEN (pk.*) is required for production tracking maps.',
   );
 }
 
@@ -211,6 +223,7 @@ module.exports = {
   },
   plugins: [
     ...baseConfig.plugins,
+    '@rnmapbox/maps',
     [
       './config-plugins/withVietRideGoogleMaps',
       { enabled: googleMapsEnabledForBuild },

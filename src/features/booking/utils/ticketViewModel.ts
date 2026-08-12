@@ -35,6 +35,7 @@ export interface TicketLegViewModel {
   alightingDate?: string;
   isOvernight?: boolean;
   busType?: string;
+  licensePlate?: string;
   seatNumbers: string;
   ticketCount: number;
   totalAmount: number;
@@ -342,8 +343,9 @@ export const buildTicketPages = (model: TicketViewModel): TicketPageViewModel[] 
 
 /**
  * Builds only from fields returned by GET /passenger/history. Values that the
- * facade does not own (payment method, bus type, stop address/id) stay absent
- * so the ticket UI can omit them instead of fabricating details.
+ * facade does not own (payment method, stop address/id) stay absent so the
+ * ticket UI can omit them instead of fabricating details. Vehicle metadata is
+ * sourced only from the nullable ticket.vehicle snapshot returned by BE.
  *
  * HIST-BE-002: originName/destinationName are route endpoints, not the
  * passenger's booked STOP/STATION snapshots. Labels must not claim otherwise.
@@ -401,6 +403,12 @@ export const buildPassengerHistoryTicketViewModel = (
       alightingTime: item.estimatedArrivalTime
         ? formatDateTime(item.estimatedArrivalTime)
         : undefined,
+      ...(item.ticket.vehicle?.vehicleType?.displayName
+        ? { busType: item.ticket.vehicle.vehicleType.displayName }
+        : {}),
+      ...(item.ticket.vehicle?.licensePlate
+        ? { licensePlate: item.ticket.vehicle.licensePlate }
+        : {}),
       seatNumbers: item.ticket.tickets
         .map((ticket) => ticket.seatNumber)
         .join(', ') || translate('common.none'),

@@ -343,6 +343,8 @@ interface BookingStore {
 
   // ─── Seats ───────────────────────────────────────────
   seatMap: SeatRow[];
+  /** BE aisles afterCol list; null → SeatGrid heuristic fallback. */
+  seatMapAisles: number[] | null;
   seatMapStatus: BookingResourceStatus;
   seatMapError: ApiRequestError | null;
   selectedSeats: Seat[];
@@ -498,6 +500,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     currentLeg: 'return',
     // Clear seat map before switching legs to avoid layout flash.
     seatMap: [],
+    seatMapAisles: null,
     seatMapStatus: 'idle' as const,
     seatMapError: null,
     tripDetailStatus: 'idle' as const,
@@ -544,6 +547,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       return {
         currentLeg: leg,
         seatMap: [],
+        seatMapAisles: null,
         seatMapStatus: 'idle' as const,
         seatMapError: null,
         tripDetailStatus: 'idle' as const,
@@ -564,6 +568,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       currentLeg: leg,
       // Clear prior seat map so the next initSeatMap does not flash another trip.
       seatMap: [],
+      seatMapAisles: null,
       seatMapStatus: 'idle' as const,
       seatMapError: null,
       tripDetailStatus: 'idle' as const,
@@ -648,13 +653,16 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     // Dedupe network fetches by trip id while keeping leg-scoped reconcile.
     const uniqueTripIds = [...new Set(targets.map((target) => target.tripId))];
     const seatMapByTripId = new Map<string, SeatRow[] | null>();
+    const seatAislesByTripId = new Map<string, number[] | null>();
 
     await Promise.all(uniqueTripIds.map(async (tripId) => {
       try {
-        const seatRows = await getSeatMap(tripId);
-        seatMapByTripId.set(tripId, seatRows);
+        const layout = await getSeatMap(tripId);
+        seatMapByTripId.set(tripId, layout.rows);
+        seatAislesByTripId.set(tripId, layout.aisleAfterCols);
       } catch {
         seatMapByTripId.set(tripId, null);
+        seatAislesByTripId.set(tripId, null);
       }
     }));
 
@@ -673,6 +681,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       let nextReturn = current.returnState;
       let nextSelectedSeats = current.selectedSeats;
       let nextSeatMap = current.seatMap;
+      let nextSeatMapAisles = current.seatMapAisles;
 
       for (const target of targets) {
         const seatRows = seatMapByTripId.get(target.tripId);
@@ -694,7 +703,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         }
         if (current.selectedTrip?.id === target.tripId) {
           nextSelectedSeats = nextSeats;
-          if (seatRows) nextSeatMap = seatRows;
+          if (seatRows) {
+            nextSeatMap = seatRows;
+            nextSeatMapAisles = seatAislesByTripId.get(target.tripId) ?? null;
+          }
         }
       }
 
@@ -708,6 +720,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         returnState: nextReturn,
         selectedSeats: nextSelectedSeats,
         seatMap: nextSeatMap,
+        seatMapAisles: nextSeatMapAisles,
         seatConflictLegs: nextConflictLegs,
       };
     });
@@ -881,6 +894,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         selectedTrip: trip,
         selectedSeats: [],
         seatMap: [],
+        seatMapAisles: null,
         seatMapStatus: 'idle' as const,
         seatMapError: null,
         tripDetailStatus: 'idle' as const,
@@ -980,6 +994,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
   // ─── Seats ───────────────────────────────────────────
   seatMap: [],
+  seatMapAisles: null,
   seatMapStatus: 'idle',
   seatMapError: null,
   selectedSeats: [],
@@ -991,7 +1006,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     const tripId = selectedTrip.id;
     set({ seatMapStatus: 'loading', seatMapError: null });
     try {
-      const seatRows = await getSeatMap(tripId);
+      const layout = await getSeatMap(tripId);
       if (
         generation !== bookingGeneration
         || requestId !== seatRequestSequence
@@ -1000,10 +1015,11 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         return;
       }
       set((state) => ({
-        seatMap: seatRows,
-        seatMapStatus: seatRows.length === 0 ? 'empty' : 'success',
+        seatMap: layout.rows,
+        seatMapAisles: layout.aisleAfterCols,
+        seatMapStatus: layout.rows.length === 0 ? 'empty' : 'success',
         seatMapError: null,
-        selectedSeats: reconcileSelectedSeats(seatRows, state.selectedSeats),
+        selectedSeats: reconcileSelectedSeats(layout.rows, state.selectedSeats),
       }));
     } catch (error) {
       const apiError = toApiError(error);
@@ -1302,6 +1318,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       returnState: null,
       selectedTrip: null,
       seatMap: [],
+      seatMapAisles: null,
       seatMapStatus: 'idle',
       seatMapError: null,
       tripDetailStatus: 'idle',
@@ -1354,6 +1371,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       trips: [],
       selectedTrip: null,
       seatMap: [],
+      seatMapAisles: null,
       seatMapStatus: 'idle',
       seatMapError: null,
       tripDetailStatus: 'idle',

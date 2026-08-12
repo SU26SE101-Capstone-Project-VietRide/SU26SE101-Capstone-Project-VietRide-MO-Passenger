@@ -53,9 +53,9 @@ interface TrackingMapProps {
   stops?: readonly TrackingMapStop[];
 }
 
-const LazyNativeTrackingMap = React.lazy(async () => {
-  const module = await import('./NativeTrackingMap');
-  return { default: module.NativeTrackingMap };
+const LazyMapboxTrackingMap = React.lazy(async () => {
+  const module = await import('./MapboxTrackingMap');
+  return { default: module.MapboxTrackingMap };
 });
 
 const EMPTY_POINTS: readonly TrackingPoint[] = [];
@@ -69,6 +69,7 @@ const EMPTY_STOPS: readonly TrackingMapStop[] = [];
  * A small absolute floor only avoids a zero-height flash before layout.
  */
 const EMBEDDED_MAP_FLOOR = 120;
+const MAPBOX_ORNAMENT_INSET = 28;
 
 const CONNECTION_PRESENTATION: Record<
   TrackingMapConnectionState,
@@ -82,12 +83,12 @@ const CONNECTION_PRESENTATION: Record<
   waiting: { key: 'tracking.map.waitingGpsOverlay', tone: 'neutral' },
 };
 
-export function isNativeTrackingMapConfigured(): boolean {
+export function isMapboxTrackingConfigured(): boolean {
   if (Platform.OS === 'android') {
-    return appConfig.nativeGoogleMapsEnabled.android;
+    return appConfig.nativeMapboxEnabled.android;
   }
   if (Platform.OS === 'ios') {
-    return appConfig.nativeGoogleMapsEnabled.ios;
+    return appConfig.nativeMapboxEnabled.ios;
   }
   return false;
 }
@@ -161,7 +162,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
     ? Math.max(0, bottomContentInset)
     : 0;
   const waitingOverlayInsetStyle = useMemo(
-    () => ({ bottom: spacing.sm + safeBottomContentInset }),
+    () => ({ bottom: spacing.sm + safeBottomContentInset + MAPBOX_ORNAMENT_INSET }),
     [safeBottomContentInset],
   );
   const hasMapContext = staticMapData.plannedRoute.length > 0
@@ -176,7 +177,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
   let mapCanvas: React.ReactNode;
   let showConnectionChip = false;
 
-  if (!isNativeTrackingMapConfigured()) {
+  if (!isMapboxTrackingConfigured()) {
     mapCanvas = (
       <MapPlaceholder
         title={t('tracking.map.unavailableTitle')}
@@ -205,7 +206,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
           />
         )}
       >
-        <LazyNativeTrackingMap
+        <LazyMapboxTrackingMap
           latest={liveMapData.latest}
           trail={liveMapData.trail}
           plannedRoute={staticMapData.plannedRoute}
@@ -231,7 +232,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
         {mapCanvas}
         {/*
           Overlay zoning (avoid stacking on legend bottom-left):
-          - Top-center: camera segment lives inside NativeTrackingMap
+          - Top-center: camera segment lives inside MapboxTrackingMap
           - Top-left: connected/stale/offline/terminal state
           - Bottom-right: waiting GPS for every tracking layout
           The native map receives bottomContentInset so the sheet never covers

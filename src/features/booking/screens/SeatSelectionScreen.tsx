@@ -27,6 +27,7 @@ export function SeatSelectionScreen({
   const { t } = useTranslation();
   const selectedTrip = useBookingStore(state => state.selectedTrip);
   const seatMap = useBookingStore(state => state.seatMap);
+  const seatMapAisles = useBookingStore(state => state.seatMapAisles);
   const seatMapStatus = useBookingStore(state => state.seatMapStatus);
   const tripDetailStatus = useBookingStore(state => state.tripDetailStatus);
   const selectedSeats = useBookingStore(state => state.selectedSeats);
@@ -156,6 +157,7 @@ export function SeatSelectionScreen({
               ) : null}
               <SeatGrid
                 seatMap={seatMap}
+                aisleAfterCols={seatMapAisles}
                 selectedSeats={selectedSeats}
                 onSeatPress={toggleSeat}
               />

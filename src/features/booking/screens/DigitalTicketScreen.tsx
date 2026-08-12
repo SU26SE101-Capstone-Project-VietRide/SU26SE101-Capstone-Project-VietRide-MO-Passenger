@@ -31,6 +31,7 @@ import type { BookingStackParamList, RootStackParamList } from '@app/navigation/
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { ScannableCodeCard, StatusChip } from '@shared/components';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -45,6 +46,7 @@ import {
   VnPayPaymentOpenCoordinator,
 } from '@shared/payments';
 import { useBookingPaymentReconciliation } from '../hooks/useBookingPaymentReconciliation';
+import { useCancelBooking } from '../hooks/useCancelBooking';
 import { useBookingStore } from '../store/useBookingStore';
 import type { BookingResult, RoundTripResult } from '../types';
 import {
@@ -61,12 +63,19 @@ import {
   getTicketStatusPresentation,
   type TicketStatusPresentation,
 } from '../utils/ticketPresentation';
+import { canCancelBooking } from '../utils/bookingCancellation';
 
 type DigitalTicketRoute = RouteProp<BookingStackParamList, 'DigitalTicket'>;
 type DigitalTicketNavigation = CompositeNavigationProp<
   NativeStackNavigationProp<BookingStackParamList, 'DigitalTicket'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
+const CANCEL_BOOKING_ERROR_TRANSLATION_KEYS = {
+  BOOKING_NOT_CANCELLABLE: 'booking.ticket.cancelNotAvailableDescription',
+  BOOKING_NOT_FOUND: 'booking.ticket.cancelNotFound',
+  TRIP_NOT_FOUND: 'booking.ticket.cancelTripUnavailable',
+} as const;
+
 
 interface TicketViewProps {
   model: TicketViewModel;
@@ -76,6 +85,7 @@ interface TicketViewProps {
   onHome: () => void;
   onTrack: (leg: TicketLegViewModel) => void;
   pendingPaymentActions?: PendingPaymentActions;
+  cancellationActions?: CancellationActions;
 }
 
 interface PendingPaymentActions {
@@ -84,6 +94,11 @@ interface PendingPaymentActions {
   errorMessage?: string;
   onCheck: () => void;
   onOpenPayment?: () => void;
+}
+
+interface CancellationActions {
+  isCancelling: boolean;
+  onCancel: () => void;
 }
 
 interface TicketSelectorProps {
@@ -277,6 +292,7 @@ function TicketView({
   onHome,
   onTrack,
   pendingPaymentActions,
+  cancellationActions,
 }: TicketViewProps): React.JSX.Element {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -565,6 +581,14 @@ function TicketView({
                       </Text>
                     </View>
                   ) : null}
+                  {activeLeg.licensePlate ? (
+                    <View style={styles.gridItem}>
+                      <Text style={styles.specLabel}>{t('booking.ticket.licensePlate')}</Text>
+                      <Text style={styles.specValue} selectable>
+                        {activeLeg.licensePlate}
+                      </Text>
+                    </View>
+                  ) : null}
                   <View style={styles.gridItem}>
                     <Text style={styles.specLabel}>{t('booking.ticket.seats')}</Text>
                     <Text style={styles.specValue}>
@@ -622,6 +646,35 @@ function TicketView({
               {formatVnd(model.totalAmount, { display: 'code', clampNegative: true })}
             </Text>
           </View>
+        ) : null}
+
+        {cancellationActions ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('booking.ticket.cancelBookingAccessibility')}
+            accessibilityState={{
+              busy: cancellationActions.isCancelling,
+              disabled: cancellationActions.isCancelling,
+            }}
+            disabled={cancellationActions.isCancelling}
+            style={({ pressed }) => [
+              styles.cancellationAction,
+              cancellationActions.isCancelling ? styles.actionDisabled : null,
+              pressed ? styles.pressed : null,
+            ]}
+            onPress={cancellationActions.onCancel}
+          >
+            {cancellationActions.isCancelling ? (
+              <ActivityIndicator size="small" color={theme.colors.error} />
+            ) : (
+              <XCircle size={18} color={theme.colors.error} weight="bold" />
+            )}
+            <Text style={styles.cancellationActionText}>
+              {cancellationActions.isCancelling
+                ? t('booking.ticket.cancellingBooking')
+                : t('booking.ticket.cancelBooking')}
+            </Text>
+          </Pressable>
         ) : null}
 
         {source === 'checkout' ? (
@@ -918,13 +971,20 @@ function HistoryTicketContent({
 }): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<DigitalTicketNavigation>();
+  const cancelMutation = useCancelBooking();
+  const effectiveHistoryItem = useMemo(() => {
+    if (!historyItem || cancelMutation.data?.bookingId !== bookingId) {
+      return historyItem;
+    }
+    return { ...historyItem, status: cancelMutation.data.status };
+  }, [bookingId, cancelMutation.data, historyItem]);
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
   const model = useMemo<TicketViewModel | null>(() => {
-    if (historyItem?.id === bookingId) {
-      return buildPassengerHistoryTicketViewModel(historyItem, t);
+    if (effectiveHistoryItem?.id === bookingId) {
+      return buildPassengerHistoryTicketViewModel(effectiveHistoryItem, t);
     }
     return null;
-  }, [bookingId, historyItem, t]);
+  }, [bookingId, effectiveHistoryItem, t]);
 
   const handleTrack = useCallback((leg: TicketLegViewModel) => {
     if (!leg.tripId || !leg.trackingEnabled) return;
@@ -936,6 +996,96 @@ function HistoryTicketContent({
       tripStatus: leg.tripStatus,
     });
   }, [navigation]);
+  const cancellationAvailable = Boolean(
+    effectiveHistoryItem
+    && canCancelBooking(effectiveHistoryItem.status),
+  );
+  const handleConfirmCancel = useCallback(async () => {
+    if (
+      !effectiveHistoryItem
+      || !canCancelBooking(effectiveHistoryItem.status)
+      || cancelMutation.isPending
+    ) {
+      return;
+    }
+
+    try {
+      const result = await cancelMutation.mutateAsync({
+        bookingId: effectiveHistoryItem.id,
+      });
+      Alert.alert(
+        t('booking.ticket.cancelSuccessTitle'),
+        result.refundAmount > 0
+          ? t('booking.ticket.cancelSuccessWithRefund', {
+            amount: formatVnd(result.refundAmount, {
+              display: 'code',
+              clampNegative: true,
+            }),
+          })
+          : t('booking.ticket.cancelSuccessNoRefund'),
+        [{ text: t('common.ok') }],
+      );
+    } catch (error) {
+      Alert.alert(
+        t('booking.ticket.cancelErrorTitle'),
+        getLocalizedApiErrorMessage(
+          error,
+          t,
+          CANCEL_BOOKING_ERROR_TRANSLATION_KEYS,
+        ),
+        [{ text: t('common.ok') }],
+      );
+    }
+  }, [cancelMutation, effectiveHistoryItem, t]);
+  const handleCancel = useCallback(() => {
+    if (
+      !effectiveHistoryItem
+      || !canCancelBooking(effectiveHistoryItem.status)
+      || cancelMutation.isPending
+    ) {
+      return;
+    }
+
+    const confirmationParts = [
+      t('booking.ticket.cancelConfirmationDescription', {
+        count: effectiveHistoryItem.ticket.tickets.length,
+      }),
+      t('booking.ticket.cancelRefundNotice'),
+    ];
+    if (effectiveHistoryItem.ticket.bookingGroupId) {
+      confirmationParts.push(t('booking.ticket.cancelRoundTripNote'));
+    }
+
+    Alert.alert(
+      t('booking.ticket.cancelConfirmationTitle'),
+      confirmationParts.join('\n\n'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('booking.ticket.confirmCancellation'),
+          style: 'destructive',
+          onPress: () => {
+            handleConfirmCancel().catch(() => undefined);
+          },
+        },
+      ],
+    );
+  }, [
+    cancelMutation.isPending,
+    effectiveHistoryItem,
+    handleConfirmCancel,
+    t,
+  ]);
+  const cancellationActions = useMemo<CancellationActions | undefined>(
+    () => cancellationAvailable
+      ? {
+        isCancelling: cancelMutation.isPending,
+        onCancel: handleCancel,
+      }
+      : undefined,
+    [cancelMutation.isPending, cancellationAvailable, handleCancel],
+  );
+
 
   if (!model) {
     return (
@@ -955,6 +1105,7 @@ function HistoryTicketContent({
       onViewBookings={handleBack}
       onHome={handleBack}
       onTrack={handleTrack}
+      cancellationActions={cancellationActions}
     />
   );
 }
@@ -1463,6 +1614,20 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
+  },
+  cancellationAction: {
+    ...theme.components.dangerButton,
+    minHeight: 48,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  cancellationActionText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+    color: theme.colors.error,
   },
   secondaryAction: {
     minHeight: 48,

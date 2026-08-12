@@ -310,6 +310,20 @@ export interface SeatDto {
   disabledReason?: string | null;
 }
 
+/** BE seat-layout / seat-map aisle marker: gap rendered after this 1-indexed column. */
+export interface SeatMapAisleDto {
+  afterCol: number;
+}
+
+/**
+ * FE seat-map model. `aisleAfterCols` is authoritative when non-null;
+ * null means the UI should use the client heuristic fallback.
+ */
+export interface SeatMapLayout {
+  rows: SeatRow[];
+  aisleAfterCols: number[] | null;
+}
+
 const stationCityLabel = (stationName: string): string =>
   stationName.replace('Ben xe ', '').replace('Bến xe ', '');
 
@@ -504,7 +518,76 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
   };
 }
 
-export function mapSeatMap(dtos: SeatDto[]): SeatRow[] {
+/**
+ * Normalize BE `aisles: [{ afterCol }]` (or bare numbers). Empty/invalid → null
+ * so the UI applies heuristic fallback instead of inventing layout.
+ */
+export function normalizeSeatMapAisles(
+  aisles: Array<SeatMapAisleDto | number> | null | undefined,
+): number[] | null {
+  if (!aisles || aisles.length === 0) {
+    return null;
+  }
+
+  const afterCols = aisles
+    .map(entry => (typeof entry === 'number' ? entry : entry?.afterCol))
+    .filter(
+      (value): value is number =>
+        typeof value === 'number'
+        && Number.isInteger(value)
+        && value >= 1,
+    );
+
+  if (afterCols.length === 0) {
+    return null;
+  }
+
+  return [...new Set(afterCols)].sort((left, right) => left - right);
+}
+
+/** Client heuristic when BE does not send aisles (legacy / rolling). */
+export function getHeuristicAisleAfterColumn(columns: number[]): number | null {
+  if (columns.length <= 1) {
+    return null;
+  }
+  if (columns.length <= 3) {
+    return columns[0];
+  }
+  return columns[Math.ceil(columns.length / 2) - 1];
+}
+
+/**
+ * Prefer BE aisles when they actually split the occupied columns; otherwise
+ * fall back to a single heuristic aisle.
+ */
+export function resolveAisleAfterColumns(
+  columns: number[],
+  aisleAfterCols: number[] | null | undefined,
+): number[] {
+  if (columns.length <= 1) {
+    return [];
+  }
+
+  if (aisleAfterCols && aisleAfterCols.length > 0) {
+    const valid = aisleAfterCols.filter(
+      afterCol =>
+        columns.some(column => column <= afterCol)
+        && columns.some(column => column > afterCol),
+    );
+    if (valid.length > 0) {
+      return valid;
+    }
+  }
+
+  const fallback = getHeuristicAisleAfterColumn(columns);
+  return fallback == null ? [] : [fallback];
+}
+
+export function mapSeatMap(
+  dtos: SeatDto[],
+  aisles?: Array<SeatMapAisleDto | number> | null,
+): SeatMapLayout {
+  const aisleAfterCols = normalizeSeatMapAisles(aisles);
   const rows = new Map<string, { rowNumber: number; deck: number; seats: Seat[]; columns: Set<number> }>();
 
   dtos.forEach((dto) => {
@@ -536,21 +619,30 @@ export function mapSeatMap(dtos: SeatDto[]): SeatRow[] {
     row.columns.add(dto.col);
   });
 
-  return Array.from(rows.values())
+  const mappedRows = Array.from(rows.values())
     .sort((a, b) => a.deck - b.deck || a.rowNumber - b.rowNumber)
     .map((data) => {
       const columns = Array.from(data.columns).sort((a, b) => a - b);
-      const maxCol = Math.max(...columns, 1);
-      const aisleAfterCol = maxCol >= 4 ? Math.ceil(maxCol / 2) : maxCol === 3 ? 1 : maxCol;
-      const seats = data.seats.sort((a, b) => (a.col ?? 0) - (b.col ?? 0) || a.label.localeCompare(b.label));
+      // left/right split uses first resolved aisle (or heuristic) for legacy consumers.
+      const splitAfter =
+        resolveAisleAfterColumns(columns, aisleAfterCols)[0]
+        ?? Math.max(...columns, 1);
+      const seats = data.seats.sort(
+        (a, b) => (a.col ?? 0) - (b.col ?? 0) || a.label.localeCompare(b.label),
+      );
 
       return {
         rowLabel: data.rowNumber.toString().padStart(2, '0'),
         rowNumber: data.rowNumber,
         deck: data.deck,
         columns,
-        leftSeats: seats.filter((seat) => (seat.col ?? 0) <= aisleAfterCol),
-        rightSeats: seats.filter((seat) => (seat.col ?? 0) > aisleAfterCol),
+        leftSeats: seats.filter((seat) => (seat.col ?? 0) <= splitAfter),
+        rightSeats: seats.filter((seat) => (seat.col ?? 0) > splitAfter),
       };
     });
+
+  return {
+    rows: mappedRows,
+    aisleAfterCols,
+  };
 }

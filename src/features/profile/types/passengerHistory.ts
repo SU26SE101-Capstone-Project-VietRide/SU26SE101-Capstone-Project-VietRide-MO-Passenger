@@ -25,11 +25,22 @@ export interface PassengerHistoryTicketSummary {
   paidAmount: number;
 }
 
+export interface PassengerHistoryVehicleType {
+  code: string;
+  displayName: string;
+}
+
+export interface PassengerHistoryVehicle {
+  licensePlate: string;
+  vehicleType: PassengerHistoryVehicleType | null;
+}
+
 export interface PassengerTicketHistoryDetails {
   bookingGroupId: string | null;
   tripDirection: 'OUTBOUND' | 'RETURN' | null;
   routeName: string | null;
   tickets: PassengerHistoryTicketSummary[];
+  vehicle: PassengerHistoryVehicle | null;
 }
 
 export interface PassengerParcelHistoryDetails {

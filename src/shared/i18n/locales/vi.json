@@ -222,6 +222,7 @@
       "to": "Gửi đến",
       "selectOrigin": "Chọn bến gửi hàng",
       "selectDestination": "Chọn bến nhận hàng",
+      "swapLocations": "Đổi bến gửi và bến nhận",
       "terminalHint": "Chọn bến nơi kiện hàng được gửi và nhận."
     },
     "recentSearch": {
@@ -771,6 +772,7 @@
       "ticketCodeInactiveHint": "Vé này không còn sẵn sàng để lên xe.",
       "ticketPaidAmount": "Đã thanh toán cho vé này",
       "busType": "Loại xe",
+      "licensePlate": "Biển số xe",
       "seats": "Ghế",
       "tickets": "Số vé",
       "paymentMethod": "Phương thức thanh toán",
@@ -781,6 +783,21 @@
       "grandTotalDue": "Tổng tiền cần trả",
       "roundTripTotal": "Tổng tiền khứ hồi",
       "viewBookings": "Xem lịch sử đặt vé",
+      "cancelBookingAccessibility": "Hủy toàn bộ vé trong lượt đặt này",
+      "cancelBooking": "Hủy lượt đặt vé",
+      "cancellingBooking": "Đang hủy...",
+      "cancelConfirmationTitle": "Hủy lượt đặt vé này?",
+      "cancelConfirmationDescription": "Toàn bộ {{count}} vé và ghế trong lượt đặt này sẽ bị hủy.",
+      "cancelRefundNotice": "Số tiền hoàn thực tế được tính theo chính sách nhà xe và sẽ được chuyển vào Ví VietRide sau khi xử lý.",
+      "cancelRoundTripNote": "Đây chỉ là một chặng của lượt đặt khứ hồi. Chặng còn lại không bị hủy.",
+      "confirmCancellation": "Xác nhận hủy",
+      "cancelSuccessTitle": "Đã hủy lượt đặt vé",
+      "cancelSuccessWithRefund": "{{amount}} sẽ được hoàn vào Ví VietRide. Giao dịch có thể cần thêm thời gian để hiển thị.",
+      "cancelSuccessNoRefund": "Lượt đặt vé đã được hủy. Không có số tiền cần hoàn cho lượt đặt này.",
+      "cancelErrorTitle": "Chưa thể hủy lượt đặt vé",
+      "cancelNotAvailableDescription": "Lượt đặt vé không còn đủ điều kiện hủy. Trạng thái có thể đã thay đổi hoặc chuyến đã khởi hành.",
+      "cancelNotFound": "Không tìm thấy lượt đặt vé này. Hãy quay lại lịch sử và làm mới danh sách.",
+      "cancelTripUnavailable": "Chưa thể xác minh chuyến đi để hủy vé. Vui lòng thử lại sau.",
       "paymentNotCompleted": "Thanh toán chưa hoàn tất",
       "paymentExpiredDescription": "Thời gian thanh toán đã hết trước khi lượt đặt vé được xác nhận.",
       "statusChanged": "Trạng thái đặt vé đã thay đổi",
@@ -819,6 +836,10 @@
       "vnpayDescription": "Thanh toán an toàn trên VNPay",
       "walletLabel": "Ví VietRide",
       "walletDescription": "Thanh toán từ số dư ví khả dụng",
+      "walletCheckingBalance": "Đang kiểm tra số dư...",
+      "walletBalanceUnavailable": "Chưa thể tải số dư",
+      "walletBalance": "Số dư khả dụng: {{amount}}",
+      "walletInsufficientBalance": "Số dư không đủ: {{amount}}",
       "breakdown": "Chi tiết giá",
       "baseFare": "Tạm tính giá vé · {{count}} ghế",
       "baseFare_one": "Tạm tính giá vé · {{count}} ghế",
@@ -1055,8 +1076,8 @@
         "createdTitle": "Đã tạo yêu cầu gửi hàng",
         "createdDescription": "Yêu cầu gửi hàng của bạn đã sẵn sàng cho bước tiếp theo."
       },
-      "dropoffCode": "Mã gửi hàng tại bến",
-      "dropoffCodeHint": "Xuất trình chính xác mã này khi gửi hàng tại bến.",
+      "dropoffCode": "Mã kiện hàng tại bến",
+      "dropoffCodeHint": "Đưa mã kiện hàng này hoặc QR cho nhân viên tại bến. Không dùng mã booking.",
       "code": {
         "unavailableRequest": "Mã giao hàng không khả dụng cho yêu cầu này.",
         "afterFinalPayment": "Mã giao hàng sẽ mở sau khi khoản thanh toán cuối được xác nhận.",
@@ -1157,6 +1178,7 @@
     },
     "packageSize": {
       "title": "Kích thước kiện hàng",
+      "hint": "Chọn một mẫu để điền nhanh, sau đó sửa số đo thực tế nếu cần.",
       "options": {
         "small": "Nhỏ",
         "medium": "Vừa",
@@ -1315,7 +1337,7 @@
       "timelineTitle": "Dòng thời gian đã ghi nhận",
       "timelineDescription": "Thời gian chỉ hiển thị khi dịch vụ đã ghi nhận sự kiện tương ứng.",
       "openStatus": "Theo dõi trạng thái kiện hàng",
-      "startsAfterLoading": "Theo dõi bắt đầu sau khi xếp hàng lên xe",
+      "startsAfterLoading": "Theo dõi trạng thái kiện hàng",
       "timeline": {
         "created": {
           "title": "Đã tạo kiện hàng",
@@ -1362,8 +1384,6 @@
     },
     "validation": {
       "dimensionsPositive": "Mỗi kích thước phải lớn hơn 0.",
-      "dimensionsTooLarge": "Kiện hàng lớn hơn hạng tối đa được hỗ trợ 60 × 45 × 35 cm.",
-      "chooseLargerSize": "Hãy chọn hạng kích thước lớn hơn cho số đo này.",
       "selectOriginStation": "Vui lòng chọn bến gửi.",
       "selectDestinationStation": "Vui lòng chọn bến nhận.",
       "recipientRequired": "Cần nhập tên và số điện thoại người nhận.",
@@ -1451,6 +1471,7 @@
     "parcelAccessibility": "Mở đơn hàng {{code}}",
     "trackAccessibility": "Theo dõi đơn vé {{code}}",
     "track": "Theo dõi chuyến",
+    "vehicle": "Xe",
     "continuePayment": "Tiếp tục thanh toán",
     "continuePaymentAccessibility": "Tiếp tục thanh toán đơn {{code}}",
     "signInRequiredTitle": "Đăng nhập để xem lịch sử",
@@ -1614,8 +1635,8 @@
       "unknown": "Chưa có phương thức giao nhận"
     },
     "parcel": {
-      "dropoffCode": "Mã gửi hàng tại bến",
-      "dropoffCodeHint": "Đưa đúng mã này cho nhân viên tại điểm gửi."
+      "dropoffCode": "Mã kiện hàng tại bến",
+      "dropoffCodeHint": "Đưa mã kiện hàng này hoặc QR cho nhân viên tại bến. Không dùng mã booking."
     },
     "ticketState": {
       "pendingPayment": "Chờ thanh toán",

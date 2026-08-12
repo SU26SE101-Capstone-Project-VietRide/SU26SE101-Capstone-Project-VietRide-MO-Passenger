@@ -1,5 +1,5 @@
 /**
- * ShuttleAddressPickerScreen — map-first Google Places address picker.
+ * ShuttleAddressPickerScreen — Mapbox-first, Google Places-verified address picker.
  *
  * Layout A: stable MapView, floating search, suggestion list + map markers for
  * Google predictions, bottom preview sheet (select CTA), terminal marker,
@@ -27,14 +27,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import MapView, {
-  Marker,
-  PROVIDER_GOOGLE,
-  type LatLng,
-  type MapViewProps,
-  type PoiClickEvent,
-  type Region,
-} from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useNavigation,
@@ -79,11 +71,8 @@ import {
   getGeoDistanceKm,
   isValidGeoCoordinate,
 } from '@shared/utils/geo';
-import {
-  SHUTTLE_PICKER_DARK_MAP_STYLE,
-  SHUTTLE_PICKER_LIGHT_MAP_STYLE,
-  getTrackingMapPalette,
-} from '@features/tracking/components/trackingMapStyles';
+import { getTrackingMapPalette } from '@features/tracking/components/trackingMapStyles';
+import Mapbox from '@shared/maps/mapbox';
 
 import { useBookingStore } from '../store/useBookingStore';
 import {
@@ -102,7 +91,11 @@ const MAX_REFINE_METERS = 300;
 const BIAS_RADIUS_METERS = 5_000;
 const COUNTRY_CODE = 'vn';
 const DEFAULT_DELTA = 0.018;
-const MARKER_TRACKS_VIEW_CHANGES_MS = 500;
+const MIN_ZOOM_LEVEL = 5;
+const MAX_ZOOM_LEVEL = 19;
+const MARKER_ANCHOR = { x: 0.5, y: 1 } as const;
+
+type MapCoordinate = [number, number];
 
 type SelectedPlaceState = {
   placeId: string;
@@ -112,12 +105,35 @@ type SelectedPlaceState = {
   pin: GeoCoordinate;
 };
 
-const toRegion = (coordinate: GeoCoordinate, delta = DEFAULT_DELTA): Region => ({
-  latitude: coordinate.latitude,
-  longitude: coordinate.longitude,
-  latitudeDelta: delta,
-  longitudeDelta: delta,
-});
+const toMapCoordinate = (coordinate: GeoCoordinate): MapCoordinate => [
+  coordinate.longitude,
+  coordinate.latitude,
+];
+
+const zoomLevelForDelta = (delta: number): number => Math.min(
+  MAX_ZOOM_LEVEL,
+  Math.max(MIN_ZOOM_LEVEL, Math.log2(360 / Math.max(delta, 0.0001))),
+);
+
+const getMapboxFeatureLabel = (
+  features: readonly GeoJSON.Feature[],
+): string | null => {
+  const labelKeys = ['name_vi', 'name', 'name_local', 'name_en'] as const;
+
+  for (const feature of features) {
+    const properties = feature.properties;
+    if (!properties) continue;
+
+    for (const key of labelKeys) {
+      const value = properties[key];
+      if (typeof value === 'string' && value.trim().length >= 2) {
+        return value.trim();
+      }
+    }
+  }
+
+  return null;
+};
 
 const normalizeQuery = (value: string): string => value.trim().replace(/\s+/g, ' ');
 
@@ -204,21 +220,20 @@ const PredictionMapMarker = memo(function PredictionMapMarkerComponent({
   const handlePress = useCallback(() => onPress(place.placeId), [onPress, place.placeId]);
 
   return (
-    <Marker
-      coordinate={{
-        latitude: place.latitude,
-        longitude: place.longitude,
-      }}
-      identifier={`prediction-${place.placeId}`}
+    <Mapbox.PointAnnotation
+      id={`prediction-${place.placeId}`}
+      coordinate={[place.longitude, place.latitude]}
       title={place.displayName}
-      description={place.formattedAddress}
-      // Small set of pins (≤5); keep tracking so Android paints custom views.
-      tracksViewChanges
-      onPress={handlePress}
-      zIndex={highlighted ? 20 : 10 + index}
-      accessibilityLabel={place.displayName}
+      snippet={place.formattedAddress}
+      anchor={MARKER_ANCHOR}
+      selected={highlighted}
+      onSelected={handlePress}
     >
       <View
+        collapsable={false}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={place.displayName}
         style={[
           styles.predictionMarker,
           highlighted ? styles.predictionMarkerActive : null,
@@ -238,7 +253,8 @@ const PredictionMapMarker = memo(function PredictionMapMarkerComponent({
           weight="fill"
         />
       </View>
-    </Marker>
+      <Mapbox.Callout title={`${place.displayName}. ${place.formattedAddress}`} />
+    </Mapbox.PointAnnotation>
   );
 });
 
@@ -250,7 +266,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<Route>();
-  const mapPalette = getTrackingMapPalette(theme.isDark);
 
   const {
     leg,
@@ -289,10 +304,13 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     return draft;
   }, [isDropoff, selectedShuttleDropoff, selectedShuttlePickup, stationId]);
 
-  const mapsEnabled = Platform.OS === 'android'
+  const mapboxEnabled = Platform.OS === 'android'
+    ? appConfig.nativeMapboxEnabled.android
+    : appConfig.nativeMapboxEnabled.ios;
+  const googlePlacesEnabled = Platform.OS === 'android'
     ? appConfig.nativeGoogleMapsEnabled.android
     : appConfig.nativeGoogleMapsEnabled.ios;
-  const placesAvailable = mapsEnabled && isNativePlacesAvailable();
+  const placesAvailable = googlePlacesEnabled && isNativePlacesAvailable();
 
   const {
     ensureSession,
@@ -302,9 +320,9 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     controller: placesSession,
   } = usePlacesSession();
 
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<Mapbox.MapView>(null);
+  const cameraRef = useRef<Mapbox.Camera>(null);
   const requestIdRef = useRef(0);
-  const pinTracksViewChangesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [query, setQuery] = useState('');
   const [searchInputActive, setSearchInputActive] = useState(false);
@@ -339,7 +357,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
   });
   /** Policy A: drag refines coordinates only; keep POI name and show badge. */
   const [pinRefined, setPinRefined] = useState(false);
-  const [pinTracksViewChanges, setPinTracksViewChanges] = useState(true);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const searchBiasRef = useRef<GeoCoordinate>(selected?.pin ?? stationCoordinate);
 
@@ -349,32 +366,8 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     [debouncedQuery],
   );
 
-  const initialRegion = useMemo(
-    () => toRegion(selected?.pin ?? stationCoordinate, selected ? 0.01 : DEFAULT_DELTA),
-    // Stable initial region only — do not remount MapView when pin moves.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
-  // Shuttle picker keeps Google POI pins; tracking maps use a quieter style.
-  const mapStyle = theme.isDark
-    ? SHUTTLE_PICKER_DARK_MAP_STYLE
-    : SHUTTLE_PICKER_LIGHT_MAP_STYLE;
-
-  const clearPinTracksTimer = useCallback(() => {
-    if (pinTracksViewChangesTimerRef.current) {
-      clearTimeout(pinTracksViewChangesTimerRef.current);
-      pinTracksViewChangesTimerRef.current = null;
-    }
-  }, []);
-
-  const scheduleStopTrackingViewChanges = useCallback(() => {
-    clearPinTracksTimer();
-    setPinTracksViewChanges(true);
-    pinTracksViewChangesTimerRef.current = setTimeout(() => {
-      setPinTracksViewChanges(false);
-    }, MARKER_TRACKS_VIEW_CHANGES_MS);
-  }, [clearPinTracksTimer]);
+  const initialCoordinate = selected?.pin ?? stationCoordinate;
+  const initialZoomLevel = zoomLevelForDelta(selected ? 0.01 : DEFAULT_DELTA);
 
   useEffect(() => {
     if (currentLeg !== leg) {
@@ -398,10 +391,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     };
   }, []);
 
-  useEffect(() => () => {
-    clearPinTracksTimer();
-    // Session cleanup is owned by usePlacesSession unmount.
-  }, [clearPinTracksTimer]);
 
   useEffect(() => {
     if (selected?.pin) {
@@ -484,10 +473,12 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
   ]);
 
   const animateToCoordinate = useCallback((coordinate: GeoCoordinate, delta = 0.01) => {
-    mapRef.current?.animateToRegion(
-      toRegion(coordinate, delta),
-      reduceMotion ? 0 : 280,
-    );
+    cameraRef.current?.setCamera({
+      centerCoordinate: toMapCoordinate(coordinate),
+      zoomLevel: zoomLevelForDelta(delta),
+      animationDuration: reduceMotion ? 0 : 280,
+      animationMode: reduceMotion ? 'none' : 'easeTo',
+    });
   }, [reduceMotion]);
 
   const closePreviewSheet = useCallback(() => {
@@ -616,30 +607,48 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
   }, [openPreviewSheet]);
 
   /**
-   * Native Google Map POI (restaurant, shop, building…).
-   * Name + lat/lng come from the map tile event — enough to open the sheet
-   * and select without waiting on Place Details.
+   * Mapbox map taps expose screen + geographic coordinates. Query rendered
+   * features at that screen point and only open the sheet for a named POI.
+   * The synthetic id deliberately keeps Google Place verification in charge.
    */
-  const handlePoiClick = useCallback((event: PoiClickEvent) => {
-    const { placeId, name, coordinate } = event.nativeEvent;
+  const handleMapPress = useCallback(async (
+    feature: GeoJSON.Feature<GeoJSON.Point, {
+      screenPointX: number;
+      screenPointY: number;
+    }>,
+  ) => {
+    const [longitude, latitude] = feature.geometry.coordinates;
+    const coordinate = { latitude, longitude };
     if (!isValidGeoCoordinate(coordinate)) {
       return;
     }
 
-    const trimmedId = placeId?.trim() ?? '';
-    // Some map POIs omit placeId; still allow selection via coordinates.
-    const resolvedId = trimmedId.length > 0
-      ? trimmedId
-      : `map-poi:${coordinate.latitude.toFixed(6)},${coordinate.longitude.toFixed(6)}`;
-    const label = name?.trim() || t('booking.shuttlePicker.poiFallbackName');
+    const { screenPointX, screenPointY } = feature.properties;
+    if (!Number.isFinite(screenPointX) || !Number.isFinite(screenPointY)) {
+      return;
+    }
 
-    openPreviewSheet(resolvedId, {
-      displayName: label,
-      formattedAddress: label,
-      latitude: coordinate.latitude,
-      longitude: coordinate.longitude,
-    }).catch(() => undefined);
-  }, [openPreviewSheet, t]);
+    try {
+      const rendered = await mapRef.current?.queryRenderedFeaturesAtPoint([
+        screenPointX,
+        screenPointY,
+      ]);
+      const label = getMapboxFeatureLabel(rendered?.features ?? []);
+      if (!label) {
+        return;
+      }
+
+      const syntheticId = `map-poi:mapbox:${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+      await openPreviewSheet(syntheticId, {
+        displayName: label,
+        formattedAddress: label,
+        latitude,
+        longitude,
+      });
+    } catch {
+      // A style query failure must not create an unverified coordinate draft.
+    }
+  }, [openPreviewSheet]);
 
   const applyResolvedPlace = useCallback((place: ResolvedPlace) => {
     const coordinate = {
@@ -662,9 +671,8 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     setIsSheetResolving(false);
     setIsSearching(false);
     setSearchError(null);
-    scheduleStopTrackingViewChanges();
     animateToCoordinate(coordinate);
-  }, [animateToCoordinate, scheduleStopTrackingViewChanges]);
+  }, [animateToCoordinate]);
 
   const handleSelectSheetPlace = useCallback(async () => {
     if (!sheetPlaceId || isResolving) {
@@ -718,7 +726,7 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     t,
   ]);
 
-  const handleMarkerDragEnd = useCallback((coordinate: LatLng) => {
+  const handleMarkerDragEnd = useCallback((coordinate: GeoCoordinate) => {
     setSelected((current) => {
       if (!current) {
         return current;
@@ -732,7 +740,6 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
       const distanceMeters = distanceKm === null ? null : distanceKm * 1000;
       if (distanceMeters === null || distanceMeters > MAX_REFINE_METERS) {
         setSearchError(t('booking.shuttlePicker.errors.refineTooFar'));
-        scheduleStopTrackingViewChanges();
         // Snap back to the last valid pin.
         animateToCoordinate(current.pin, 0.008);
         return { ...current };
@@ -740,17 +747,20 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
 
       setSearchError(null);
       setPinRefined(true);
-      scheduleStopTrackingViewChanges();
       // Keep displayName + formattedAddress — drag only refines coordinates.
       return {
         ...current,
-        pin: {
-          latitude: coordinate.latitude,
-          longitude: coordinate.longitude,
-        },
+        pin: coordinate,
       };
     });
-  }, [animateToCoordinate, scheduleStopTrackingViewChanges, t]);
+  }, [animateToCoordinate, t]);
+
+  const handleMapboxMarkerDragEnd = useCallback((
+    feature: GeoJSON.Feature<GeoJSON.Point>,
+  ) => {
+    const [longitude, latitude] = feature.geometry.coordinates;
+    handleMarkerDragEnd({ latitude, longitude });
+  }, [handleMarkerDragEnd]);
 
   const serviceAddress = useMemo(() => {
     if (!selected) {
@@ -837,14 +847,9 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     navigation.goBack();
   }, [endPlacesSessionOwned, navigation]);
 
-  const onMapReady = useCallback<NonNullable<MapViewProps['onMapReady']>>(() => {
-    if (selected) {
-      animateToCoordinate(selected.pin, 0.01);
-      scheduleStopTrackingViewChanges();
-      return;
-    }
-    animateToCoordinate(stationCoordinate, DEFAULT_DELTA);
-  }, [animateToCoordinate, scheduleStopTrackingViewChanges, selected, stationCoordinate]);
+  const handleMapReady = useCallback(() => {
+    animateToCoordinate(selected?.pin ?? stationCoordinate, selected ? 0.01 : DEFAULT_DELTA);
+  }, [animateToCoordinate, selected, stationCoordinate]);
 
   const showSuggestions = searchInputActive && (
     predictions.length > 0
@@ -886,11 +891,21 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
       top: 0,
       left: 0,
       right: 0,
-      // Keep Google's native logo/legal attribution above the bottom sheet.
+      // Keep Mapbox logo/legal attribution and selected POIs above the sheet.
       // The fallback also protects the first layout before onLayout fires.
       bottom: Math.max(confirmCardHeight + bottomOffset + spacing.sm, 220),
     }),
     [bottomOffset, confirmCardHeight],
+  );
+  const cameraPadding = useMemo(() => ({
+    paddingTop: mapPadding.top,
+    paddingRight: mapPadding.right,
+    paddingBottom: mapPadding.bottom,
+    paddingLeft: mapPadding.left,
+  }), [mapPadding]);
+  const mapboxOrnamentPosition = useMemo(
+    () => ({ bottom: mapPadding.bottom + spacing.xs }),
+    [mapPadding.bottom],
   );
   const containerPadStyle = useMemo(
     () => ({
@@ -900,54 +915,65 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     [bottomOffset, insets.top],
   );
 
-  const stationMarkerCoordinate = useMemo(
-    () => stationCoordinate,
-    [stationCoordinate],
-  );
   const selectedPinCoordinate = selected?.pin;
   const sheetVisible = Boolean(sheetPlaceId);
 
   return (
     <View style={styles.root}>
-      {mapsEnabled ? (
-        <MapView
+      {mapboxEnabled ? (
+        <Mapbox.MapView
           ref={mapRef}
           style={styles.map}
-          provider={PROVIDER_GOOGLE}
-          initialRegion={initialRegion}
-          mapPadding={mapPadding}
-          customMapStyle={mapStyle}
-          googleRenderer="LATEST"
-          mapType="standard"
-          userInterfaceStyle={theme.isDark ? 'dark' : 'light'}
-          loadingEnabled
-          loadingBackgroundColor={theme.colors.surfaceAlt}
-          loadingIndicatorColor={mapPalette.shuttleStation}
-          moveOnMarkerPress={false}
+          styleURL={theme.isDark ? Mapbox.StyleURL.Dark : Mapbox.StyleURL.Street}
+          scaleBarEnabled={false}
+          logoEnabled
+          logoPosition={{ ...mapboxOrnamentPosition, left: spacing.sm }}
+          attributionEnabled
+          attributionPosition={{ ...mapboxOrnamentPosition, right: spacing.sm }}
+          compassEnabled={false}
           pitchEnabled={false}
           rotateEnabled={false}
-          showsBuildings
-          showsCompass={false}
-          showsIndoorLevelPicker={false}
-          showsIndoors={false}
-          showsMyLocationButton={false}
-          showsPointsOfInterest
-          showsTraffic={false}
-          showsUserLocation={false}
-          toolbarEnabled={false}
-          poiClickEnabled
-          onPoiClick={handlePoiClick}
-          onMapReady={onMapReady}
+          onPress={handleMapPress}
+          onDidFinishLoadingMap={handleMapReady}
           accessibilityLabel={t('booking.shuttlePicker.mapAccessibility')}
+          testID="shuttle-picker-mapbox-map"
         >
-          <Marker
-            coordinate={stationMarkerCoordinate}
-            title={stationName}
-            description={t('booking.shuttlePicker.terminalMarker')}
-            pinColor={mapPalette.shuttleStation}
-            tracksViewChanges={false}
-            identifier="shuttle-terminal"
+          <Mapbox.Camera
+            ref={cameraRef}
+            minZoomLevel={MIN_ZOOM_LEVEL}
+            maxZoomLevel={MAX_ZOOM_LEVEL}
+            padding={cameraPadding}
+            defaultSettings={{
+              centerCoordinate: toMapCoordinate(initialCoordinate),
+              zoomLevel: initialZoomLevel,
+              pitch: 0,
+              heading: 0,
+              padding: cameraPadding,
+            }}
           />
+
+          <Mapbox.PointAnnotation
+            id="shuttle-terminal"
+            coordinate={toMapCoordinate(stationCoordinate)}
+            title={stationName}
+            snippet={t('booking.shuttlePicker.terminalMarker')}
+            anchor={MARKER_ANCHOR}
+          >
+            <View
+              collapsable={false}
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={`${stationName}. ${t('booking.shuttlePicker.terminalMarker')}`}
+              style={styles.terminalMarker}
+              testID="shuttle-terminal-marker"
+            >
+              <MapPin size={20} color="#FFFFFF" weight="fill" />
+            </View>
+            <Mapbox.Callout
+              title={`${stationName}. ${t('booking.shuttlePicker.terminalMarker')}`}
+            />
+          </Mapbox.PointAnnotation>
+
           {predictionMarkers.map(({ place, index }) => (
             <PredictionMapMarker
               key={place.placeId}
@@ -957,20 +983,33 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
               onPress={handlePredictionMarkerPress}
             />
           ))}
+
           {selectedPinCoordinate && predictionMarkers.length === 0 ? (
-            <Marker
-              coordinate={selectedPinCoordinate}
+            <Mapbox.PointAnnotation
+              id="shuttle-selected"
+              coordinate={toMapCoordinate(selectedPinCoordinate)}
               draggable
               title={selected?.displayName}
-              description={t('booking.shuttlePicker.pinGuidance')}
-              pinColor={theme.isDark ? '#FB923C' : '#F97316'}
-              tracksViewChanges={pinTracksViewChanges}
-              identifier="shuttle-selected"
-              onDragStart={() => setPinTracksViewChanges(true)}
-              onDragEnd={(event) => handleMarkerDragEnd(event.nativeEvent.coordinate)}
-            />
+              snippet={t('booking.shuttlePicker.pinGuidance')}
+              anchor={MARKER_ANCHOR}
+              onDragEnd={handleMapboxMarkerDragEnd}
+            >
+              <View
+                collapsable={false}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={`${selected?.displayName}. ${t('booking.shuttlePicker.pinGuidance')}`}
+                style={styles.selectedMarker}
+                testID="shuttle-selected-marker"
+              >
+                <MapPin size={22} color="#FFFFFF" weight="fill" />
+              </View>
+              <Mapbox.Callout
+                title={`${selected?.displayName}. ${t('booking.shuttlePicker.pinGuidance')}`}
+              />
+            </Mapbox.PointAnnotation>
           ) : null}
-        </MapView>
+        </Mapbox.MapView>
       ) : (
         <View style={[styles.map, styles.mapFallback]}>
           <Text style={styles.mapFallbackText}>
@@ -1518,6 +1557,30 @@ const createStyles = (theme: AppTheme) => ({
   },
   confirmButton: {
     marginTop: spacing.xs,
+  },
+  terminalMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    borderCurve: 'continuous' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: getTrackingMapPalette(theme.isDark).shuttleStation,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    ...theme.effects.floatingShadow,
+  },
+  selectedMarker: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    borderCurve: 'continuous' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: theme.isDark ? '#FB923C' : '#F97316',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    ...theme.effects.floatingShadow,
   },
   predictionMarker: {
     alignItems: 'center' as const,

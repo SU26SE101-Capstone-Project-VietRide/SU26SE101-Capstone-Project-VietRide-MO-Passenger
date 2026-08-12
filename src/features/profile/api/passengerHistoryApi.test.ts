@@ -1,6 +1,9 @@
 import { apiClient } from '@shared/api/axiosInstance';
 import type { ApiSuccessEnvelope } from '@shared/api/errors';
-import { getPassengerHistory } from './passengerHistoryApi';
+import {
+  getPassengerHistory,
+  parsePassengerHistoryPage,
+} from './passengerHistoryApi';
 
 jest.mock('@shared/api/axiosInstance', () => ({
   apiClient: { get: jest.fn() },
@@ -60,5 +63,61 @@ describe('passengerHistoryApi', () => {
     })).rejects.toThrow(/from must be before to/);
 
     expect(getMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the nested vehicle summary returned for ticket history', () => {
+    const page = parsePassengerHistoryPage({
+      ...emptyPage,
+      items: [{
+        id: '11111111-1111-4111-8111-111111111111',
+        code: 'BK-VEHICLE-01',
+        tripId: '22222222-2222-4222-8222-222222222222',
+        createdAt: '2026-08-12T03:00:00Z',
+        totalAmount: 350_000,
+        originName: 'Ho Chi Minh City',
+        destinationName: 'Da Lat',
+        departureDateTime: '2026-08-13T01:00:00Z',
+        estimatedArrivalTime: '2026-08-13T07:00:00Z',
+        paymentRedirectUrl: null,
+        trackingTarget: null,
+        type: 'TICKET',
+        status: 'CONFIRMED',
+        ticket: {
+          bookingGroupId: null,
+          tripDirection: 'OUTBOUND',
+          routeName: 'Ho Chi Minh City - Da Lat',
+          tickets: [{
+            ticketId: '33333333-3333-4333-8333-333333333333',
+            ticketCode: 'VT-VEHICLE-01',
+            seatNumber: 'A01',
+            status: 'ISSUED',
+            paidAmount: 350_000,
+          }],
+          vehicle: {
+            licensePlate: '51B-123.45',
+            vehicleType: {
+              code: 'LIMOUSINE',
+              displayName: 'Limousine',
+            },
+          },
+        },
+        parcel: null,
+      }],
+      totalItems: 1,
+      totalPages: 1,
+    }, 'TICKET');
+
+    expect(page.items[0]).toMatchObject({
+      type: 'TICKET',
+      ticket: {
+        vehicle: {
+          licensePlate: '51B-123.45',
+          vehicleType: {
+            code: 'LIMOUSINE',
+            displayName: 'Limousine',
+          },
+        },
+      },
+    });
   });
 });

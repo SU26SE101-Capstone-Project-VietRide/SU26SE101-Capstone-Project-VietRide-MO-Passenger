@@ -35,6 +35,7 @@ import {
   Package,
   Ticket,
   User,
+  Van,
   WarningCircle,
 } from 'phosphor-react-native';
 
@@ -179,6 +180,14 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
       || t('common.notAvailable'),
     [item.ticket.tickets, t],
   );
+  const vehicleSummary = useMemo(() => {
+    const vehicle = item.ticket.vehicle;
+    if (!vehicle) return null;
+    return [
+      vehicle.vehicleType?.displayName,
+      vehicle.licensePlate,
+    ].filter(Boolean).join(' · ');
+  }, [item.ticket.vehicle]);
   const handleOpen = useCallback(() => onOpen(item), [item, onOpen]);
   const handleTrack = useCallback(
     () => onTrack(item.tripId, item.id, item.trackingTarget),
@@ -282,6 +291,14 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
           <Text style={styles.seatSummary} numberOfLines={1}>
             {t('history.seats')}: {seatNumbers}
           </Text>
+          {vehicleSummary ? (
+            <View style={styles.vehicleDetailItem}>
+              <Van size={16} color={theme.colors.textSecondary} weight="duotone" />
+              <Text style={styles.detailValueText} numberOfLines={1}>
+                {t('bookingHistory.vehicle')}: {vehicleSummary}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </Pressable>
 
@@ -1306,6 +1323,13 @@ const createStyles = (theme: AppTheme) => ({
       : theme.colors.surfaceAlt,
   },
   detailItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.xs,
+  },
+  vehicleDetailItem: {
+    flexBasis: '100%' as const,
+    minWidth: 0,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: spacing.xs,

@@ -2,12 +2,14 @@ import { apiClient } from '@shared/api/axiosInstance';
 import type { ApiSuccessEnvelope } from '@shared/api/errors';
 import type {
   BookingResult,
+  CancelBookingResult,
   CreateBookingPayload,
   CreateRoundTripPayload,
   RoundTripResult,
 } from '../types';
 import {
   bookingKeys,
+  cancelBooking,
   createBooking,
   createRoundTripBooking,
   getBookingStatus,
@@ -24,6 +26,7 @@ const postMock = jest.mocked(apiClient.post);
 const getMock = jest.mocked(apiClient.get);
 const ONE_WAY_IDEMPOTENCY_KEY = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const ROUND_TRIP_IDEMPOTENCY_KEY = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const CANCEL_IDEMPOTENCY_KEY = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
 const oneWayPayload: CreateBookingPayload = {
   tripId: '11111111-1111-4111-8111-111111111111',
@@ -123,6 +126,39 @@ describe('bookingApi create contracts', () => {
     expect(JSON.stringify(postMock.mock.calls[0][1])).not.toMatch(
       /passenger|fullName|phone|email|idNumber|idempotencyKey/i,
     );
+  });
+
+  it('cancels a booking with a header-only idempotency key', async () => {
+    const cancelResult: CancelBookingResult = {
+      bookingId: oneWayResult.bookingId,
+      status: 'CANCELLED',
+      refundAmount: 180_000,
+      refundMethod: 'WALLET',
+    };
+    postMock.mockResolvedValueOnce({
+      data: { ...successEnvelope(cancelResult), statusCode: 200 },
+    });
+
+    await expect(cancelBooking(
+      oneWayResult.bookingId,
+      { reason: 'USER_INITIATED' },
+      CANCEL_IDEMPOTENCY_KEY,
+    )).resolves.toBe(cancelResult);
+
+    expect(postMock).toHaveBeenCalledWith(
+      `/bookings/${oneWayResult.bookingId}/cancel`,
+      { reason: 'USER_INITIATED' },
+      { headers: { 'Idempotency-Key': CANCEL_IDEMPOTENCY_KEY } },
+    );
+  });
+
+  it('rejects an invalid cancellation path before networking', async () => {
+    await expect(cancelBooking(
+      '../another-booking',
+      { reason: 'USER_INITIATED' },
+      CANCEL_IDEMPOTENCY_KEY,
+    )).rejects.toThrow('Invalid booking ID.');
+    expect(postMock).not.toHaveBeenCalled();
   });
 
   it('rejects a blank idempotency key before networking', async () => {

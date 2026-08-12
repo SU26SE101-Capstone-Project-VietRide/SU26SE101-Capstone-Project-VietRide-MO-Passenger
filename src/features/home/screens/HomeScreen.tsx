@@ -113,6 +113,7 @@ export function HomeScreen(): React.JSX.Element {
   const toCity = useParcelStore(state => state.toCity);
   const fromLocationCode = useParcelStore(state => state.fromLocationCode);
   const toLocationCode = useParcelStore(state => state.toLocationCode);
+  const swapParcelLocations = useParcelStore(state => state.swapLocations);
   const canStartParcel = Boolean(
     fromLocationCode && toLocationCode && fromLocationCode !== toLocationCode,
   );
@@ -171,9 +172,10 @@ export function HomeScreen(): React.JSX.Element {
   }, [clearRecentSearches]);
 
   const handleWalletPress = useCallback(() => {
-    navigation.navigate('Main', {
-      screen: 'Profile',
-      params: { screen: 'Wallet' },
+    // Seed ProfileOverview under direct Wallet entries for reliable system back.
+    navigation.navigate('Profile', {
+      screen: 'Wallet',
+      initial: false,
     });
   }, [navigation]);
 
@@ -543,26 +545,40 @@ export function HomeScreen(): React.JSX.Element {
                 >
                   {t('home.parcel.to')}
                 </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('home.parcel.selectDestination')}
-                  style={styles.selectorField}
-                  onPress={() => openParcelCityPicker('to')}
-                >
-                  <PaperPlaneTilt
-                    size={18}
-                    color={theme.colors.primary}
-                    weight="bold"
-                  />
-                  <Text
-                    style={
-                      toCity ? styles.selectorText : styles.selectorPlaceholder
-                    }
-                    numberOfLines={1}
+                <View style={styles.toRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('home.parcel.selectDestination')}
+                    style={[styles.selectorField, styles.selectorFieldGrow]}
+                    onPress={() => openParcelCityPicker('to')}
                   >
-                    {toCity || t('home.parcel.selectDestination')}
-                  </Text>
-                </Pressable>
+                    <PaperPlaneTilt
+                      size={18}
+                      color={theme.colors.primary}
+                      weight="bold"
+                    />
+                    <Text
+                      style={
+                        toCity ? styles.selectorText : styles.selectorPlaceholder
+                      }
+                      numberOfLines={1}
+                    >
+                      {toCity || t('home.parcel.selectDestination')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('home.parcel.swapLocations')}
+                    onPress={swapParcelLocations}
+                    style={styles.swapBtn}
+                  >
+                    <ArrowsDownUp
+                      size={18}
+                      color={theme.colors.primary}
+                      weight="bold"
+                    />
+                  </Pressable>
+                </View>
                 <Text style={styles.parcelRouteHint}>
                   {t('home.parcel.terminalHint')}
                 </Text>

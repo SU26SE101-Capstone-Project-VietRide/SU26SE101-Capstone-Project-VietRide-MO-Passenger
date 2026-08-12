@@ -42,6 +42,14 @@ const paymentRedirectUrlSchema = z.string()
 const statusTokenSchema = z.string().trim().min(1).max(100)
   .regex(/^[A-Z0-9_]+$/, 'Invalid status token.');
 
+const passengerHistoryVehicleSchema = z.object({
+  licensePlate: z.string().trim().min(1).max(50),
+  vehicleType: z.object({
+    code: z.string().trim().min(1).max(50),
+    displayName: z.string().trim().min(1).max(200),
+  }).nullable(),
+});
+
 /**
  * BE may serialize the inactive id as null (e.g. STOP with stationId:null).
  * Accept both ids as optional/nullable, enforce XOR, transform to clean union.
@@ -131,6 +139,9 @@ const ticketHistoryItemSchema = z.object({
       status: statusTokenSchema,
       paidAmount: moneySchema,
     })).max(5),
+    // Current BE always serializes this nullable field. Defaulting null keeps
+    // the app compatible while Passenger and BE are deployed independently.
+    vehicle: passengerHistoryVehicleSchema.nullable().default(null),
   }),
   parcel: z.null(),
 });

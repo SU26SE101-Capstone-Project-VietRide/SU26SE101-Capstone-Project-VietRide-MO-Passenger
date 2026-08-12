@@ -7,6 +7,8 @@ import type {
   CreateRoundTripPayload, 
   BookingResult,
   BookingStatusResult,
+  CancelBookingPayload,
+  CancelBookingResult,
   RoundTripResult,
   AvailableVoucherItem,
   GetAvailableVouchersParams,
@@ -40,6 +42,20 @@ export async function getBookingStatus(
   const response = await apiClient.get<ApiEnvelope<BookingStatusResult>>(
     `/bookings/${safeBookingId}`,
     signal ? { signal } : undefined,
+  );
+  return unwrapApiResponse(response.data);
+}
+
+export async function cancelBooking(
+  bookingId: string,
+  payload: CancelBookingPayload,
+  idempotencyKey: string,
+): Promise<CancelBookingResult> {
+  const safeBookingId = encodeUuidPathSegment(bookingId, 'booking ID');
+  const response = await apiClient.post<ApiEnvelope<CancelBookingResult>>(
+    `/bookings/${safeBookingId}/cancel`,
+    payload,
+    withIdempotencyKey(idempotencyKey),
   );
   return unwrapApiResponse(response.data);
 }

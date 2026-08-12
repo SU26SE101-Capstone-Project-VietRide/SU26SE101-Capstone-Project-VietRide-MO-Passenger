@@ -158,6 +158,19 @@ export interface BookingStatusResult {
   status: BookingStatus;
 }
 
+export type CancelBookingReason = 'USER_INITIATED' | 'STOP_DISABLED_REFUSED';
+
+export interface CancelBookingPayload {
+  reason: CancelBookingReason;
+}
+
+export interface CancelBookingResult {
+  bookingId: string;
+  status: 'CANCELLED';
+  refundAmount: number;
+  refundMethod: 'WALLET';
+}
+
 export interface BookingTicketResult {
   ticketId: string;
   ticketCode: string;
