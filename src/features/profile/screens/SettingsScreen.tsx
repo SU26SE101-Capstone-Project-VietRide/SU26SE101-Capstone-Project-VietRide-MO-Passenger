@@ -19,7 +19,6 @@ import {
   Info,
   LockKey,
   Palette,
-  ShieldCheck,
   Translate,
 } from 'phosphor-react-native';
 
@@ -404,30 +403,6 @@ export function SettingsScreen(): React.JSX.Element {
           </View>
         </View>
 
-        {/* Section 3: Privacy & About */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <ShieldCheck size={18} color={theme.colors.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>{t('settings.legal.title')}</Text>
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.legalRow}>
-              <View style={styles.legalTextContainer}>
-                <Text style={styles.settingLabel}>{t('settings.legal.terms')}</Text>
-              </View>
-            </View>
-
-            <View style={styles.rowDivider} />
-
-            <View style={styles.legalRow}>
-              <View style={styles.legalTextContainer}>
-                <Text style={styles.settingLabel}>{t('settings.legal.privacy')}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
         {/* Support Note */}
         <View style={styles.supportNote}>
           <Info size={16} color={theme.colors.textTertiary} style={styles.supportNoteIcon} />
@@ -557,15 +532,6 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
     marginTop: 2,
     lineHeight: 15,
-  },
-  legalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  legalTextContainer: {
-    flex: 1,
   },
   supportNote: {
     flexDirection: 'row',

@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import {
-  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -13,10 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
-  DeviceMobile,
   Key,
-  ShieldCheck,
-  WarningCircle,
 } from 'phosphor-react-native';
 
 import type { ProfileStackParamList } from '@app/navigation/types';
@@ -41,11 +37,6 @@ export function SecurityScreen(): React.JSX.Element {
   const handleTabBarScroll = useTabBarScrollBehavior();
   const bottomTabClearance = useFloatingTabBarContentInset();
   const user = useAuthStore((state) => state.user);
-  const platformLabel = Platform.select({
-    ios: 'iOS',
-    android: 'Android',
-    default: t('security.mobilePlatform'),
-  });
   const accountStatus = useMemo(() => {
     switch (user?.status) {
       case 'ACTIVE':
@@ -90,18 +81,6 @@ export function SecurityScreen(): React.JSX.Element {
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}
       >
-        <View style={styles.heroCard}>
-          <View style={styles.heroIcon}>
-            <ShieldCheck size={28} color={theme.colors.primary} weight="fill" />
-          </View>
-          <View style={styles.heroTextWrap}>
-            <Text style={styles.heroTitle}>{t('security.heroTitle')}</Text>
-            <Text style={styles.heroText}>
-              {t('security.heroDescription')}
-            </Text>
-          </View>
-        </View>
-
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('security.accountSection')}</Text>
           <View style={styles.card}>
@@ -137,38 +116,6 @@ export function SecurityScreen(): React.JSX.Element {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('security.currentDeviceSection')}</Text>
-          <View style={styles.card}>
-            <View style={styles.deviceRow}>
-              <View style={styles.deviceIcon}>
-                <DeviceMobile size={22} color={theme.colors.primary} weight="fill" />
-              </View>
-              <View style={styles.deviceCopy}>
-                <Text style={styles.deviceTitle}>
-                  {t('security.deviceName', { platform: platformLabel })}
-                </Text>
-                <Text style={styles.deviceMeta}>{t('security.currentSession')}</Text>
-              </View>
-              <View style={styles.liveBadge}>
-                <Text style={styles.liveBadgeText}>{t('security.active')}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('security.moreControlsSection')}</Text>
-          <View style={styles.card}>
-            <View style={styles.emptyState}>
-              <WarningCircle size={24} color={theme.colors.warning} weight="fill" />
-              <Text style={styles.emptyTitle}>{t('security.moreControlsUnavailableTitle')}</Text>
-              <Text style={styles.emptyText}>
-                {t('security.moreControlsUnavailableDescription')}
-              </Text>
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -220,37 +167,6 @@ const createStyles = (theme: AppTheme) => ({
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-  },
-  heroCard: {
-    ...theme.components.elevatedCard,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    flexDirection: 'row',
-    marginBottom: spacing.xl,
-  },
-  heroIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.primaryFaded,
-    marginRight: spacing.md,
-  },
-  heroTextWrap: {
-    flex: 1,
-  },
-  heroTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
-    color: theme.colors.textPrimary,
-  },
-  heroText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    lineHeight: 18,
-    color: theme.colors.textSecondary,
-    marginTop: spacing.xs,
   },
   section: {
     marginBottom: spacing.xl,
@@ -328,65 +244,5 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
     marginLeft: spacing.sm,
-  },
-  deviceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  deviceIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.primaryFaded,
-    marginRight: spacing.md,
-  },
-  deviceCopy: {
-    flex: 1,
-  },
-  deviceTitle: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.md,
-    color: theme.colors.textPrimary,
-  },
-  deviceMeta: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  liveBadge: {
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    backgroundColor: theme.colors.primaryFaded,
-  },
-  liveBadgeText: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.primary,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-  },
-  emptyTitle: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.md,
-    color: theme.colors.textPrimary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  emptyText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    lineHeight: 18,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.xs,
   },
 });

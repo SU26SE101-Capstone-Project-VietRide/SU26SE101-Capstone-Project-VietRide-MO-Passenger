@@ -1484,25 +1484,9 @@
   "security": {
     "title": "Account security",
     "accountSecurity": "Account security",
-    "heroTitle": "Your account is protected",
-    "heroDescription": "Review your account status and the security capabilities available in this release.",
     "accountSection": "Account",
     "loginEmail": "Sign-in email",
     "accountStatus": "Account status",
-    "mobilePlatform": "Mobile",
-    "currentDeviceSection": "Current device",
-    "deviceName": "VietRide on {{platform}}",
-    "currentSession": "This device",
-    "active": "Active",
-    "signedInDevicesSection": "Signed-in devices",
-    "moreControlsSection": "More security controls",
-    "moreControlsUnavailableTitle": "No additional security controls yet",
-    "moreControlsUnavailableDescription": "Device management and login history are not supported in this release.",
-    "sessionsUnavailableTitle": "Device management unavailable",
-    "sessionsUnavailableDescription": "The backend does not provide a passenger session-management endpoint yet.",
-    "recentLoginsSection": "Recent sign-ins",
-    "activityUnavailableTitle": "Sign-in history unavailable",
-    "activityUnavailableDescription": "Recent account activity will appear here when the backend supports it.",
     "unavailable": "Unavailable",
     "unavailableTitle": "Security feature unavailable",
     "unavailableDescription": "This security capability is not supported by the current backend contract.",
@@ -1568,7 +1552,7 @@
     "security": {
       "title": "Security",
       "accountTitle": "Account security",
-      "accountDescription": "Review your account and current device"
+      "accountDescription": "Review your account security information"
     },
     "notifications": {
       "title": "Notifications",
@@ -1589,11 +1573,6 @@
       "remindersChannel": "VietRide reminders",
       "fallbackTitle": "New VietRide update",
       "fallbackBody": "Open VietRide to view the latest information."
-    },
-    "legal": {
-      "title": "Privacy and legal",
-      "terms": "Terms of service",
-      "privacy": "Privacy policy"
     }
   },
   "history": {

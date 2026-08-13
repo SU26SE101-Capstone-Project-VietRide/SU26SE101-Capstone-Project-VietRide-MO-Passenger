@@ -1484,25 +1484,9 @@
   "security": {
     "title": "Bảo mật tài khoản",
     "accountSecurity": "Bảo mật tài khoản",
-    "heroTitle": "Tài khoản của bạn được bảo vệ",
-    "heroDescription": "Kiểm tra trạng thái tài khoản và các tính năng bảo mật có trong phiên bản này.",
     "accountSection": "Tài khoản",
     "loginEmail": "Email đăng nhập",
     "accountStatus": "Trạng thái tài khoản",
-    "mobilePlatform": "Điện thoại",
-    "currentDeviceSection": "Thiết bị hiện tại",
-    "deviceName": "VietRide trên {{platform}}",
-    "currentSession": "Thiết bị này",
-    "active": "Đang hoạt động",
-    "signedInDevicesSection": "Thiết bị đã đăng nhập",
-    "moreControlsSection": "Tùy chọn bảo mật khác",
-    "moreControlsUnavailableTitle": "Chưa có thêm tùy chọn bảo mật",
-    "moreControlsUnavailableDescription": "Quản lý thiết bị và lịch sử đăng nhập chưa được hỗ trợ trong phiên bản này.",
-    "sessionsUnavailableTitle": "Chưa hỗ trợ quản lý thiết bị",
-    "sessionsUnavailableDescription": "Backend hiện chưa cung cấp API quản lý phiên đăng nhập cho hành khách.",
-    "recentLoginsSection": "Lần đăng nhập gần đây",
-    "activityUnavailableTitle": "Chưa có lịch sử đăng nhập",
-    "activityUnavailableDescription": "Hoạt động tài khoản gần đây sẽ xuất hiện khi backend hỗ trợ.",
     "unavailable": "Chưa hỗ trợ",
     "unavailableTitle": "Tính năng bảo mật chưa khả dụng",
     "unavailableDescription": "Tính năng bảo mật này chưa được backend hiện tại hỗ trợ.",
@@ -1568,7 +1552,7 @@
     "security": {
       "title": "Bảo mật",
       "accountTitle": "Bảo mật tài khoản",
-      "accountDescription": "Kiểm tra tài khoản và thiết bị hiện tại"
+      "accountDescription": "Kiểm tra thông tin bảo mật tài khoản"
     },
     "notifications": {
       "title": "Thông báo",
@@ -1589,11 +1573,6 @@
       "remindersChannel": "Lời nhắc VietRide",
       "fallbackTitle": "VietRide có cập nhật mới",
       "fallbackBody": "Mở VietRide để xem thông tin mới nhất."
-    },
-    "legal": {
-      "title": "Quyền riêng tư và pháp lý",
-      "terms": "Điều khoản dịch vụ",
-      "privacy": "Chính sách quyền riêng tư"
     }
   },
   "history": {
