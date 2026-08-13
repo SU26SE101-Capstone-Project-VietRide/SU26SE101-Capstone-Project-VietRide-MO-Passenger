@@ -34,15 +34,17 @@ export type AuthStackParamList = {
 export type BookingStackParamList = {
   PopularRoutes: { intent?: BookingEntryIntent } | undefined;
   CityPicker: { mode: 'from' | 'to' };
-  DatePicker: {
-    mode?: 'departure' | 'return';
-    next?: 'search';
-    intent?: BookingEntryIntent;
-  } | undefined;
+  DatePicker:
+    | {
+        mode?: 'departure' | 'return';
+        next?: 'search';
+        intent?: BookingEntryIntent;
+      }
+    | undefined;
   CreateTicketBooking: { intent: BookingEntryIntent } | undefined;
   /**
-   * Map-first Shuttle address picker. Params are strictly serializable —
-   * no navigation callbacks. `stationId` is local draft metadata only.
+   * Google Places-only Shuttle address picker. Params are strictly serializable;
+   * station coordinates bias autocomplete around the terminal.
    */
   ShuttleAddressPicker: {
     leg: 'outbound' | 'return';

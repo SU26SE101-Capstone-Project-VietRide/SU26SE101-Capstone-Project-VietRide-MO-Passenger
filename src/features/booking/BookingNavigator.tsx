@@ -13,7 +13,7 @@ import { CityPickerScreen } from './screens/CityPickerScreen';
 import { DatePicker } from './screens/DatePickerScreen';
 import { CreateTicketBookingScreen } from './screens/CreateTicketBookingScreen';
 import { DigitalTicketScreen } from './screens/DigitalTicketScreen';
-import { ShuttleAddressPickerScreen } from './screens/ShuttleAddressPickerScreen';
+import { ShuttlePlacesAddressPickerScreen } from './screens/ShuttlePlacesAddressPickerScreen';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { createNativeStackOptions, useMotion } from '@shared/motion';
 
@@ -39,7 +39,7 @@ export function BookingNavigator(): React.JSX.Element {
       />
       <Stack.Screen
         name="ShuttleAddressPicker"
-        component={ShuttleAddressPickerScreen}
+        component={ShuttlePlacesAddressPickerScreen}
         options={{
           headerShown: false,
           animation: reduceMotion ? 'none' : 'slide_from_bottom',

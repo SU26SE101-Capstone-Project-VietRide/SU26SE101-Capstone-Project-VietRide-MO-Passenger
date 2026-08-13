@@ -3,6 +3,11 @@ import type { Location } from '@features/location/types/location';
 export type ChatMessageRole = 'user' | 'assistant';
 export type ChatMessageStatus = 'complete' | 'streaming' | 'error' | 'cancelled';
 export type ChatFeedbackRating = -1 | 1;
+export interface RagFriendlyCitation {
+  title: string;
+  section: string | null;
+}
+
 
 export interface ChatBookingDraft {
   origin?: Location;
@@ -19,7 +24,7 @@ export interface ChatMessage {
   createdAt: number;
   status: ChatMessageStatus;
   assistantMessageId?: string;
-  citedChunkIds?: string[];
+  citations?: RagFriendlyCitation[];
   feedback?: ChatFeedbackRating;
   bookingDraft?: ChatBookingDraft;
 }
@@ -37,7 +42,7 @@ export interface RagChatDoneData {
   conversationId: string;
   userMessageId: string;
   assistantMessageId: string;
-  citedChunkIds: string[];
+  citations: RagFriendlyCitation[];
 }
 
 export interface RagChatErrorData {

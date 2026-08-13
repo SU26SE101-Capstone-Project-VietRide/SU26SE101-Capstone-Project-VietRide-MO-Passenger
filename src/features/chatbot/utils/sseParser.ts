@@ -1,11 +1,11 @@
 import { ApiRequestError } from '@shared/api/errors';
 import { isUuid } from '@shared/utils/pathSegment';
 import {
-  MAX_CITED_CHUNKS,
+  MAX_RAG_CITATIONS,
   MAX_SSE_EVENT_BYTES,
   MAX_SSE_PENDING_LINE_BYTES,
 } from '../constants/chatLimits';
-import type { RagChatSseEvent } from '../types/chatbot';
+import type { RagChatSseEvent, RagFriendlyCitation } from '../types/chatbot';
 import { createChatStreamLimitError } from './chatStreamError';
 
 interface SseWireEvent {
@@ -49,6 +49,39 @@ const utf8ByteLength = (value: string): number => {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+const parseFriendlyCitations = (value: unknown): RagFriendlyCitation[] | null => {
+  if (!Array.isArray(value)) return null;
+  if (value.length > MAX_RAG_CITATIONS) {
+    throw createChatStreamLimitError();
+  }
+
+  const citations: RagFriendlyCitation[] = [];
+  const seen = new Set<string>();
+
+  for (const item of value) {
+    if (
+      !isRecord(item)
+      || typeof item.title !== 'string'
+      || !item.title.trim()
+      || (item.section !== null && typeof item.section !== 'string')
+    ) {
+      throw protocolError('Nguồn tham khảo từ trợ lý không hợp lệ.');
+    }
+
+    const title = item.title.trim();
+    const section =
+      typeof item.section === 'string' && item.section.trim()
+        ? item.section.trim()
+        : null;
+    const key = JSON.stringify([title, section]);
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    citations.push({ title, section });
+  }
+
+  return citations;
+};
 
 export const parseRagChatSseEvent = (
   wireEvent: SseWireEvent,
@@ -82,9 +115,12 @@ export const parseRagChatSseEvent = (
     return { event: 'error', data: { code: data.code, message: data.message } };
   }
 
+  const citations = parseFriendlyCitations(data.citations);
+  const hasLegacyChunkIds = Array.isArray(data.citedChunkIds);
+
   if (
-    Array.isArray(data.citedChunkIds)
-    && data.citedChunkIds.length > MAX_CITED_CHUNKS
+    hasLegacyChunkIds
+    && data.citedChunkIds.length > MAX_RAG_CITATIONS
   ) {
     throw createChatStreamLimitError();
   }
@@ -93,8 +129,8 @@ export const parseRagChatSseEvent = (
     !isUuid(data.conversationId)
     || !isUuid(data.userMessageId)
     || !isUuid(data.assistantMessageId)
-    || !Array.isArray(data.citedChunkIds)
-    || !data.citedChunkIds.every(isUuid)
+    || (citations === null && !hasLegacyChunkIds)
+    || (hasLegacyChunkIds && !data.citedChunkIds.every(isUuid))
   ) {
     throw protocolError('Thông tin hoàn tất hội thoại không hợp lệ.');
   }
@@ -105,7 +141,8 @@ export const parseRagChatSseEvent = (
       conversationId: data.conversationId,
       userMessageId: data.userMessageId,
       assistantMessageId: data.assistantMessageId,
-      citedChunkIds: data.citedChunkIds,
+      // Rolling-deploy compatibility: old BE UUIDs are validated then discarded.
+      citations: citations ?? [],
     },
   };
 };

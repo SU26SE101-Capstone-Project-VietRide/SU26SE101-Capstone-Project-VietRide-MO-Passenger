@@ -1,9 +1,8 @@
 /**
- * ShuttlePickupSheet — navigation entry into the map-first Shuttle address picker.
+ * ShuttlePickupSheet — navigation entry into the Places-only Shuttle address picker.
  *
  * Kept as the shared entry point so Pickup and Dropoff continue to call one
- * component. The legacy geocoding modal is intentionally replaced; verified
- * Places selection now lives on ShuttleAddressPickerScreen.
+ * component. Verified Places selection lives on the dedicated address screen.
  */
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -37,14 +36,14 @@ export function ShuttlePickupSheet({
   onClose,
 }: ShuttlePickupSheetProps): null {
   const navigation = useNavigation<BookingNav>();
-  const currentLeg = useBookingStore((state) => state.currentLeg);
+  const currentLeg = useBookingStore(state => state.currentLeg);
   const lastOpenedRef = useRef(false);
 
   const openPicker = useCallback(() => {
     if (
-      typeof stationLatitude !== 'number'
-      || typeof stationLongitude !== 'number'
-      || !isValidGeoCoordinate({
+      typeof stationLatitude !== 'number' ||
+      typeof stationLongitude !== 'number' ||
+      !isValidGeoCoordinate({
         latitude: stationLatitude,
         longitude: stationLongitude,
       })

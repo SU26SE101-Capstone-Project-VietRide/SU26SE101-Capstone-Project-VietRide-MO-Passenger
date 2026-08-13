@@ -245,7 +245,7 @@ export function useChatSession() {
         ...current,
         status: 'complete',
         assistantMessageId: done.assistantMessageId,
-        citedChunkIds: done.citedChunkIds,
+        citations: done.citations,
       }));
       return true;
     } catch (error) {

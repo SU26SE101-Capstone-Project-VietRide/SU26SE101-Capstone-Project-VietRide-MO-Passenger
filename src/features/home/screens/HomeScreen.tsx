@@ -47,8 +47,8 @@ import {
 import { PromotionsSection } from '../components/PromotionsSection';
 import { RecentParcelsSection } from '../components/RecentParcelsSection';
 import { WalletSummaryCard } from '../components/WalletSummaryCard';
-import { formatDate } from '@shared/utils/format';
 import { toTripSearchDate } from '../../booking/utils/searchParams';
+import { formatTicketSearchDate } from '../../booking/utils/ticketSearchDate';
 
 type HomeNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Home'>,
@@ -56,7 +56,7 @@ type HomeNavigationProp = CompositeNavigationProp<
 >;
 
 export function HomeScreen(): React.JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation<HomeNavigationProp>();
   const user = useAuthStore(state => state.user);
   const theme = useTheme();
@@ -69,21 +69,28 @@ export function HomeScreen(): React.JSX.Element {
 
   // Booking flow state/actions
   const searchParams = useBookingStore(state => state.searchParams);
+  const appLanguage = i18n.resolvedLanguage ?? i18n.language;
   const departureDateLabel = useMemo(() => {
     try {
-      return formatDate(toTripSearchDate(searchParams.date));
+      return formatTicketSearchDate(
+        toTripSearchDate(searchParams.date),
+        appLanguage,
+      );
     } catch {
       return '';
     }
-  }, [searchParams.date]);
+  }, [appLanguage, searchParams.date]);
   const returnDateLabel = useMemo(() => {
     if (!searchParams.returnDate) return '';
     try {
-      return formatDate(toTripSearchDate(searchParams.returnDate));
+      return formatTicketSearchDate(
+        toTripSearchDate(searchParams.returnDate),
+        appLanguage,
+      );
     } catch {
       return '';
     }
-  }, [searchParams.returnDate]);
+  }, [appLanguage, searchParams.returnDate]);
   const swapCities = useBookingStore(state => state.swapCities);
   const setSearchParams = useBookingStore(state => state.setSearchParams);
   const {

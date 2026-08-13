@@ -18,6 +18,11 @@ describe('Homepage booking entry contract', () => {
     expect(popularRoutesSource).toContain("next: 'search'");
   });
 
+  it('formats only the Home ticket-search dates with the dedicated locale formatter', () => {
+    expect(homeSource).toContain('formatTicketSearchDate');
+    expect(homeSource.match(/formatTicketSearchDate\(/g)).toHaveLength(2);
+  });
+
   it('keeps Home promotions readable and horizontally scrollable without card actions', () => {
     expect(homeSource).toContain('<PromotionsSection />');
     expect(promotionsSource).toContain('<View\n      accessible');
