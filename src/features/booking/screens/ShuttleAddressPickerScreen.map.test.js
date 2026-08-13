@@ -29,4 +29,23 @@ describe('ShuttleAddressPickerScreen map provider contract', () => {
     expect(screenSource).toContain('mapboxOrnamentPosition');
     expect(screenSource).toContain('padding={cameraPadding}');
   });
+
+  it('offers an explicit current-location action for pickup only', () => {
+    expect(screenSource).toContain('testID="shuttle-use-current-location"');
+    expect(screenSource).toContain('{!isDropoff ? (');
+    expect(screenSource).toContain('requestForegroundLocationPermission');
+    expect(screenSource).toContain('getCurrentCoordinates');
+    expect(screenSource).toContain('reverseGeocodeCoordinates');
+    expect(screenSource).toContain('formatStreetAddressForPlaceSearch');
+    expect(screenSource).toContain('searchBiasRef.current = coordinates');
+    expect(screenSource).toContain(
+      'setQuery(addressQuery.slice(0, SHUTTLE_ADDRESS_MAX_LENGTH))',
+    );
+    expect(screenSource).toContain('setSearchInputActive(true)');
+    expect(screenSource).not.toContain('map-poi:device:');
+    expect(screenSource).not.toContain('geocodedAddress.name');
+    expect(screenSource).toContain('testID="shuttle-current-location-marker"');
+    expect(screenSource.indexOf('requestForegroundLocationPermission()'))
+      .toBeLessThan(screenSource.indexOf('getCurrentCoordinates({'));
+  });
 });

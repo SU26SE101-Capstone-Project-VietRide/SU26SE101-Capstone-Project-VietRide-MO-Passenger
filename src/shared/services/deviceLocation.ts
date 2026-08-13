@@ -224,3 +224,54 @@ export const formatGeocodedAddress = (address: GeocodedAddress): string => {
   appendUniqueAddressPart(parts, address.country);
   return parts.join(', ');
 };
+
+/**
+ * Build a precise address query for Google Places without using the native
+ * geocoder's POI/name field. The name can describe a nearby shop or building,
+ * while Shuttle requires an address that Google Places can verify again.
+ */
+export const formatStreetAddressForPlaceSearch = (
+  address: GeocodedAddress,
+): string => {
+  const streetLine = [address.streetNumber, address.street]
+    .map(value => value?.trim() ?? '')
+    .filter(Boolean)
+    .join(' ');
+
+  if (streetLine) {
+    const parts: string[] = [];
+    appendUniqueAddressPart(parts, streetLine);
+    appendUniqueAddressPart(parts, address.district);
+    appendUniqueAddressPart(parts, address.subregion);
+    appendUniqueAddressPart(parts, address.city);
+    appendUniqueAddressPart(parts, address.region);
+    appendUniqueAddressPart(parts, address.postalCode);
+    appendUniqueAddressPart(parts, address.country);
+    return parts.join(', ');
+  }
+
+  const formattedAddress = address.formattedAddress?.trim();
+  if (!formattedAddress) {
+    return '';
+  }
+
+  const nativeName = address.name?.trim().toLocaleLowerCase();
+  if (!nativeName) {
+    return formattedAddress;
+  }
+
+  const addressParts = formattedAddress
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean);
+  if (addressParts.length < 2) {
+    return formattedAddress;
+  }
+
+  const withoutNativeName = addressParts.filter(
+    part => part.toLocaleLowerCase() !== nativeName,
+  );
+  return withoutNativeName.length > 0
+    ? withoutNativeName.join(', ')
+    : formattedAddress;
+};

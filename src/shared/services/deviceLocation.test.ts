@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import {
   DeviceLocationError,
   formatGeocodedAddress,
+  formatStreetAddressForPlaceSearch,
   geocodeAddress,
   getCurrentCoordinates,
   requestForegroundLocationPermission,
@@ -156,6 +157,45 @@ describe('deviceLocation', () => {
     expect(formatGeocodedAddress(address)).toBe(
       '1 Lê Lợi, Quận 1, Thành phố Hồ Chí Minh, Việt Nam',
     );
+  });
+
+  it('builds a precise Places query without using the native POI name', () => {
+    expect(
+      formatStreetAddressForPlaceSearch({
+        city: 'Thành phố Hồ Chí Minh',
+        district: 'Phường Bến Thành',
+        streetNumber: '87',
+        street: 'Lý Tự Trọng',
+        region: 'Thành phố Hồ Chí Minh',
+        subregion: 'Quận 1',
+        country: 'Việt Nam',
+        postalCode: '700000',
+        name: 'Cửa hàng gần vị trí hiện tại',
+        isoCountryCode: 'VN',
+        formattedAddress:
+          'Cửa hàng gần vị trí hiện tại, 87 Lý Tự Trọng, Quận 1',
+      }),
+    ).toBe(
+      '87 Lý Tự Trọng, Phường Bến Thành, Quận 1, Thành phố Hồ Chí Minh, 700000, Việt Nam',
+    );
+  });
+
+  it('removes the native POI name from a formatted-address fallback', () => {
+    expect(
+      formatStreetAddressForPlaceSearch({
+        city: null,
+        district: null,
+        streetNumber: null,
+        street: null,
+        region: null,
+        subregion: null,
+        country: null,
+        postalCode: null,
+        name: 'VietRide Coffee',
+        isoCountryCode: 'VN',
+        formattedAddress: 'VietRide Coffee, 12 Nguyễn Huệ, Quận 1, Hồ Chí Minh',
+      }),
+    ).toBe('12 Nguyễn Huệ, Quận 1, Hồ Chí Minh');
   });
 
   it('fails before native reverse geocoding for out-of-range coordinates', async () => {

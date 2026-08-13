@@ -19,6 +19,7 @@ import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -36,6 +37,7 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ArrowLeft,
+  GpsFix,
   MagnifyingGlass,
   MapPin,
   X,
@@ -66,6 +68,14 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
+import {
+  DeviceLocationError,
+  formatStreetAddressForPlaceSearch,
+  getCurrentCoordinates,
+  isDeviceLocationError,
+  requestForegroundLocationPermission,
+  reverseGeocodeCoordinates,
+} from '@shared/services/deviceLocation';
 import type { GeoCoordinate } from '@shared/types/common';
 import {
   getGeoDistanceKm,
@@ -103,6 +113,11 @@ type SelectedPlaceState = {
   formattedAddress: string;
   origin: GeoCoordinate;
   pin: GeoCoordinate;
+};
+
+type CurrentLocationSearchState = {
+  address: string;
+  coordinate: GeoCoordinate;
 };
 
 const toMapCoordinate = (coordinate: GeoCoordinate): MapCoordinate => [
@@ -323,6 +338,7 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
   const mapRef = useRef<Mapbox.MapView>(null);
   const cameraRef = useRef<Mapbox.Camera>(null);
   const requestIdRef = useRef(0);
+  const locationRequestIdRef = useRef(0);
 
   const [query, setQuery] = useState('');
   const [searchInputActive, setSearchInputActive] = useState(false);
@@ -334,6 +350,10 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
   const [isSheetResolving, setIsSheetResolving] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [currentLocationSearch, setCurrentLocationSearch] =
+    useState<CurrentLocationSearchState | null>(null);
+  const [locationError, setLocationError] = useState<DeviceLocationError | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [confirmCardHeight, setConfirmCardHeight] = useState(0);
   const [bannerError, setBannerError] = useState<string | null>(
@@ -389,6 +409,10 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
       showSub.remove();
       hideSub.remove();
     };
+  }, []);
+
+  useEffect(() => () => {
+    locationRequestIdRef.current += 1;
   }, []);
 
 
@@ -606,6 +630,81 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     openPreviewSheet(placeId).catch(() => undefined);
   }, [openPreviewSheet]);
 
+  const handleUseCurrentLocation = useCallback(async () => {
+    if (isDropoff || isLocating || isResolving || !placesAvailable) {
+      return;
+    }
+
+    const requestId = locationRequestIdRef.current + 1;
+    locationRequestIdRef.current = requestId;
+    Keyboard.dismiss();
+    setLocationError(null);
+    setSearchError(null);
+    setIsLocating(true);
+
+    try {
+      await requestForegroundLocationPermission();
+      const coordinates = await getCurrentCoordinates({
+        onLastKnownCoordinates: (lastKnownCoordinates) => {
+          if (locationRequestIdRef.current === requestId) {
+            animateToCoordinate(lastKnownCoordinates, 0.008);
+          }
+        },
+      });
+      const geocodedAddress = await reverseGeocodeCoordinates(coordinates);
+      const addressQuery =
+        formatStreetAddressForPlaceSearch(geocodedAddress).trim();
+      if (!addressQuery) {
+        throw new DeviceLocationError('address-not-found');
+      }
+      if (locationRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      requestIdRef.current += 1;
+      searchBiasRef.current = coordinates;
+      setSelected(null);
+      setPinRefined(false);
+      setCurrentLocationSearch({
+        address: addressQuery,
+        coordinate: coordinates,
+      });
+      setQuery(addressQuery.slice(0, SHUTTLE_ADDRESS_MAX_LENGTH));
+      setSearchInputActive(true);
+      setPredictions([]);
+      setPreviewByPlaceId({});
+      setSheetPlaceId(null);
+      setIsSheetResolving(false);
+      setIsSearching(false);
+      animateToCoordinate(coordinates, 0.008);
+    } catch (error) {
+      if (locationRequestIdRef.current !== requestId) {
+        return;
+      }
+      setLocationError(
+        isDeviceLocationError(error)
+          ? error
+          : new DeviceLocationError('position-unavailable'),
+      );
+    } finally {
+      if (locationRequestIdRef.current === requestId) {
+        setIsLocating(false);
+      }
+    }
+  }, [
+    animateToCoordinate,
+    isDropoff,
+    isLocating,
+    isResolving,
+    placesAvailable,
+  ]);
+
+  const handleOpenLocationSettings = useCallback(() => {
+    Linking.openSettings().catch(() => {
+      setLocationError(new DeviceLocationError('permission-denied', false));
+    });
+  }, []);
+
   /**
    * Mapbox map taps expose screen + geographic coordinates. Query rendered
    * features at that screen point and only open the sheet for a named POI.
@@ -671,6 +770,7 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     setIsSheetResolving(false);
     setIsSearching(false);
     setSearchError(null);
+    setCurrentLocationSearch(null);
     animateToCoordinate(coordinate);
   }, [animateToCoordinate]);
 
@@ -834,12 +934,16 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
     setIsSheetResolving(false);
     setIsSearching(false);
     setSearchError(null);
+    setLocationError(null);
+    setCurrentLocationSearch(null);
   }, []);
 
   const handleQueryChange = useCallback((value: string) => {
     setQuery(value);
     setSearchInputActive(true);
     setSheetPlaceId(null);
+    setLocationError(null);
+    setCurrentLocationSearch(null);
   }, []);
 
   const handleBack = useCallback(() => {
@@ -984,6 +1088,26 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
             />
           ))}
 
+          {currentLocationSearch ? (
+            <Mapbox.PointAnnotation
+              id="shuttle-current-location"
+              coordinate={toMapCoordinate(currentLocationSearch.coordinate)}
+              title={currentLocationSearch.address}
+              anchor={MARKER_ANCHOR}
+            >
+              <View
+                collapsable={false}
+                accessible
+                accessibilityRole="image"
+                accessibilityLabel={currentLocationSearch.address}
+                style={styles.currentLocationMarker}
+                testID="shuttle-current-location-marker"
+              >
+                <GpsFix size={22} color="#FFFFFF" weight="fill" />
+              </View>
+            </Mapbox.PointAnnotation>
+          ) : null}
+
           {selectedPinCoordinate && predictionMarkers.length === 0 ? (
             <Mapbox.PointAnnotation
               id="shuttle-selected"
@@ -1082,6 +1206,66 @@ export function ShuttleAddressPickerScreen(): React.JSX.Element {
                 </Pressable>
               ) : null}
             </View>
+
+            {!isDropoff ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('booking.shuttlePicker.useCurrentLocation')}
+                accessibilityHint={t('booking.shuttlePicker.currentLocationPrivacy')}
+                accessibilityState={{
+                  disabled: isLocating || isResolving || !placesAvailable,
+                  busy: isLocating,
+                }}
+                disabled={isLocating || isResolving || !placesAvailable}
+                onPress={() => {
+                  handleUseCurrentLocation().catch(() => undefined);
+                }}
+                style={({ pressed }) => [
+                  styles.currentLocationButton,
+                  pressed ? styles.pressed : null,
+                  isLocating || isResolving || !placesAvailable
+                    ? styles.currentLocationButtonDisabled
+                    : null,
+                ]}
+                testID="shuttle-use-current-location"
+              >
+                {isLocating ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <GpsFix size={19} color={theme.colors.primary} weight="duotone" />
+                )}
+                <View style={styles.currentLocationCopy}>
+                  <Text style={styles.currentLocationLabel}>
+                    {t(isLocating
+                      ? 'booking.shuttlePicker.locatingCurrentLocation'
+                      : 'booking.shuttlePicker.useCurrentLocation')}
+                  </Text>
+                  <Text style={styles.currentLocationHint} numberOfLines={2}>
+                    {t('booking.shuttlePicker.currentLocationPrivacy')}
+                  </Text>
+                </View>
+              </Pressable>
+            ) : null}
+
+            {locationError ? (
+              <View style={styles.locationErrorRow} accessibilityLiveRegion="polite">
+                <Text style={styles.locationErrorText}>
+                  {t(`booking.shuttle.locationErrors.${locationError.code}`)}
+                </Text>
+                {locationError.code === 'permission-denied'
+                  && locationError.canAskAgain === false ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handleOpenLocationSettings}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.locationSettingsAction}>
+                        {t('common.openSettings')}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+              </View>
+            ) : null}
 
             {bannerError ? (
               <Text style={styles.bannerError} accessibilityLiveRegion="polite">
@@ -1402,6 +1586,54 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },
+  currentLocationButton: {
+    minHeight: 52,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
+    backgroundColor: theme.colors.primaryFaded,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  currentLocationButtonDisabled: {
+    opacity: 0.62,
+  },
+  currentLocationCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  currentLocationLabel: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
+  },
+  currentLocationHint: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: 16,
+    color: theme.colors.textSecondary,
+  },
+  locationErrorRow: {
+    gap: spacing.xs,
+  },
+  locationErrorText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
+    color: theme.colors.error,
+  },
+  locationSettingsAction: {
+    alignSelf: 'flex-start' as const,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+    textDecorationLine: 'underline' as const,
+  },
   clearButton: {
     width: 28,
     height: 28,
@@ -1578,6 +1810,18 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     backgroundColor: theme.isDark ? '#FB923C' : '#F97316',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    ...theme.effects.floatingShadow,
+  },
+  currentLocationMarker: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    borderCurve: 'continuous' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: theme.colors.primary,
     borderWidth: 3,
     borderColor: '#FFFFFF',
     ...theme.effects.floatingShadow,
