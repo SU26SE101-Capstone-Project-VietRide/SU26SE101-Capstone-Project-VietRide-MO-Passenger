@@ -9,8 +9,6 @@ import {
   ActivityIndicator,
   Alert,
   BackHandler,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -36,7 +34,7 @@ import {
 import { FlashList } from '@shopify/flash-list';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { Input, PhotoPicker } from '@shared/components';
+import { AppKeyboardAwareScrollView, Input, PhotoPicker } from '@shared/components';
 import {
   getLocalizedApiErrorMessage,
   toApiError,
@@ -2083,9 +2081,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         />
         <StepHeaderWithMascot step={step} />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={insets.top}
+        <View
           style={styles.keyboardAvoidingView}
         >
         {isStationListReady ? (
@@ -2099,15 +2095,14 @@ export function CreateParcelScreen(): React.JSX.Element {
             showsVerticalScrollIndicator={false}
           />
         ) : (
-          <ScrollView
+          <AppKeyboardAwareScrollView
             style={styles.scrollContainer}
             contentContainerStyle={scrollContentStyle}
-            automaticallyAdjustKeyboardInsets
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             {renderStep()}
-          </ScrollView>
+          </AppKeyboardAwareScrollView>
         )}
 
         <View style={actionBarStyle}>
@@ -2157,7 +2152,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             )}
           </Pressable>
         </View>
-        </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </View>
   );

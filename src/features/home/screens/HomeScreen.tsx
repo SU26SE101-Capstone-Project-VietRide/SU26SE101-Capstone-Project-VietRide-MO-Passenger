@@ -3,7 +3,6 @@ import {
   Alert,
   View,
   Text,
-  ScrollView,
   Pressable,
   StatusBar,
 } from 'react-native';
@@ -25,7 +24,7 @@ import type {
   MainTabParamList,
   RootStackParamList,
 } from '@app/navigation/types';
-import { ProfileHeader } from '@shared/components';
+import { AppKeyboardAwareScrollView, ProfileHeader } from '@shared/components';
 import { useNotificationUnreadCount } from '../hooks/useNotifications';
 import { useBookingStore } from '../../booking/store/useBookingStore';
 import { useBookingDiscovery } from '../../booking/hooks/useBookingDiscovery';
@@ -274,7 +273,7 @@ export function HomeScreen(): React.JSX.Element {
       />
 
       {/* Main Content Area */}
-      <ScrollView
+      <AppKeyboardAwareScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
@@ -642,7 +641,7 @@ export function HomeScreen(): React.JSX.Element {
             onViewAll={handleViewAllParcels}
           />
         )}
-      </ScrollView>
+      </AppKeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

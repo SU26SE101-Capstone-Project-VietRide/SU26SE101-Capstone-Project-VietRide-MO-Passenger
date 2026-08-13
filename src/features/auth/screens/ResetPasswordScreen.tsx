@@ -6,10 +6,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StatusBar,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   AppState,
 } from 'react-native';
@@ -28,7 +25,7 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import { Input, Button } from '@shared/components';
+import { AppKeyboardAwareScrollView, Input, Button } from '@shared/components';
 import { useApiError, useThemedStyles } from '@shared/hooks';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { formatCountdown } from '@shared/utils/format';
@@ -195,12 +192,11 @@ export function ResetPasswordScreen(): React.JSX.Element {
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-        <KeyboardAvoidingView
+        <View
           style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           {completed ? (
-            <ScrollView
+            <AppKeyboardAwareScrollView
               showsVerticalScrollIndicator={false}
               contentInsetAdjustmentBehavior="automatic"
               contentContainerStyle={styles.successScroll}
@@ -234,9 +230,9 @@ export function ResetPasswordScreen(): React.JSX.Element {
                   style={styles.backButton}
                 />
               </View>
-            </ScrollView>
+            </AppKeyboardAwareScrollView>
           ) : (
-            <ScrollView
+            <AppKeyboardAwareScrollView
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               contentInsetAdjustmentBehavior="automatic"
@@ -343,9 +339,9 @@ export function ResetPasswordScreen(): React.JSX.Element {
                   fullWidth
                 />
               </View>
-            </ScrollView>
+            </AppKeyboardAwareScrollView>
           )}
-        </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </View>
   );

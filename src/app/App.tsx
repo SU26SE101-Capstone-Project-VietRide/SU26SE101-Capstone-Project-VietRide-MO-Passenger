@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { AppProviders } from '@app/providers';
 import { useNetworkStatus } from '@shared/hooks';
 import { LoadingOverlay } from '@shared/components/LoadingOverlay';
@@ -31,9 +32,11 @@ export default function App(): React.JSX.Element {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <AppProviders isAppReady={fontsLoaded || Boolean(fontError)}>
-        <AppContent />
-      </AppProviders>
+      <KeyboardProvider>
+        <AppProviders isAppReady={fontsLoaded || Boolean(fontError)}>
+          <AppContent />
+        </AppProviders>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

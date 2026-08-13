@@ -48,6 +48,7 @@ const baseConfig = {
   },
   android: {
     package: 'com.vietride.passenger',
+    softwareKeyboardLayoutMode: 'resize',
     icon: './src/assets/images/app_icon.png',
     adaptiveIcon: {
       foregroundImage: './src/assets/images/app_icon_adaptive_foreground.png',

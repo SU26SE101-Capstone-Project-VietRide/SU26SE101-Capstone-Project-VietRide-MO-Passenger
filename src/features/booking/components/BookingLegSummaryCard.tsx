@@ -31,6 +31,59 @@ interface ShuttleRequestSummaryProps {
   hint: string;
 }
 
+interface EditableSectionHeaderProps {
+  label: string;
+  onEdit?: () => void;
+}
+
+const distinctAddress = (
+  name: string | undefined,
+  address: string | undefined,
+): string | null => {
+  const normalizedAddress = address?.trim();
+  if (!normalizedAddress) return null;
+
+  const normalizedName = name?.trim();
+  return normalizedName?.localeCompare(normalizedAddress, undefined, {
+    sensitivity: 'accent',
+  }) === 0
+    ? null
+    : normalizedAddress;
+};
+
+const EditableSectionHeader = memo(function EditableSectionHeaderComponent({
+  label,
+  onEdit,
+}: EditableSectionHeaderProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.sectionHeaderRow}>
+      <Text style={styles.sectionTitle}>{label}</Text>
+      {onEdit ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('booking.checkout.editField', { field: label })}
+          hitSlop={8}
+          onPress={onEdit}
+          style={({ pressed }) => [
+            styles.editButton,
+            pressed ? styles.editButtonPressed : null,
+          ]}
+        >
+          <PencilSimple
+            size={15}
+            weight="bold"
+            color={theme.accents.ticket.foreground}
+          />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+});
+
 const ShuttleRequestSummary = memo(function ShuttleRequestSummaryComponent({
   address,
   label,
@@ -42,7 +95,11 @@ const ShuttleRequestSummary = memo(function ShuttleRequestSummaryComponent({
   return (
     <View style={styles.shuttleBlock}>
       <View style={[styles.locationIconBox, styles.shuttleIconBox]}>
-        <Van size={18} weight="duotone" color={theme.accents.assistant.foreground} />
+        <Van
+          size={18}
+          weight="duotone"
+          color={theme.accents.assistant.foreground}
+        />
       </View>
       <View style={styles.locationCopy}>
         <Text style={styles.locationLabel}>{label}</Text>
@@ -53,156 +110,191 @@ const ShuttleRequestSummary = memo(function ShuttleRequestSummaryComponent({
   );
 });
 
-export const BookingLegSummaryCard = memo(function BookingLegSummaryCardComponent({
-  title,
-  leg,
-  onEditTrip,
-  onEditSeats,
-  onEditPickup,
-  onEditDropoff,
-}: BookingLegSummaryCardProps): React.JSX.Element | null {
-  const { t } = useTranslation();
-  const theme = useTheme();
-  const styles = useThemedStyles(createStyles);
-  const { trip, seats, pickUp, dropOff, shuttlePickup, shuttleDropoff } = leg;
+export const BookingLegSummaryCard = memo(
+  function BookingLegSummaryCardComponent({
+    title,
+    leg,
+    onEditTrip,
+    onEditSeats,
+    onEditPickup,
+    onEditDropoff,
+  }: BookingLegSummaryCardProps): React.JSX.Element | null {
+    const { t } = useTranslation();
+    const theme = useTheme();
+    const styles = useThemedStyles(createStyles);
+    const { trip, seats, pickUp, dropOff, shuttlePickup, shuttleDropoff } = leg;
+    const pickupAddress = distinctAddress(pickUp?.name, pickUp?.address);
+    const dropoffAddress = distinctAddress(dropOff?.name, dropOff?.address);
 
-  if (!trip) return null;
+    if (!trip) return null;
 
-  return (
-    <SectionCard>
-      <View style={styles.cardHeaderRow}>
+    return (
+      <SectionCard>
         <Text style={styles.cardTitle}>{title}</Text>
-        {onEditTrip ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('booking.checkout.editLeg', { leg: title })}
-            hitSlop={8}
-            style={({ pressed }) => [
-              styles.editButton,
-              pressed ? styles.editButtonPressed : null,
-            ]}
-            onPress={onEditTrip}
-          >
-            <PencilSimple
-              size={14}
-              weight="bold"
-              color={theme.accents.ticket.foreground}
+
+        <View style={[styles.stepSection, styles.firstStepSection]}>
+          <EditableSectionHeader
+            label={t('booking.steps.trip')}
+            onEdit={onEditTrip}
+          />
+          <InfoRow
+            label={t('booking.checkout.route')}
+            value={`${trip.departureCity || t('common.notAvailable')} → ${
+              trip.arrivalCity || t('common.notAvailable')
+            }`}
+          />
+          <InfoRow
+            label={t('booking.checkout.departureTime')}
+            value={trip.departureTime || t('common.notAvailable')}
+            style={styles.lastInfoRow}
+          />
+        </View>
+
+        <View style={styles.stepSection}>
+          <EditableSectionHeader
+            label={t('booking.checkout.seats')}
+            onEdit={onEditSeats}
+          />
+          <Text style={styles.sectionValue}>
+            {seats.map(seat => seat.label || seat.id).join(', ') ||
+              t('common.none')}
+          </Text>
+        </View>
+
+        <View style={styles.stepSection}>
+          <EditableSectionHeader
+            label={t('booking.steps.pickup')}
+            onEdit={onEditPickup}
+          />
+          {shuttlePickup ? (
+            <ShuttleRequestSummary
+              address={shuttlePickup.address}
+              label={t('booking.checkout.shuttleRequest')}
+              hint={t('booking.checkout.shuttleAwaiting')}
             />
-          </Pressable>
-        ) : null}
-      </View>
-
-      <View style={styles.editActions}>
-        {([
-          { label: t('booking.checkout.route'), action: onEditTrip },
-          { label: t('booking.checkout.seats'), action: onEditSeats },
-          { label: t('booking.steps.pickup'), action: onEditPickup },
-          { label: t('booking.steps.dropoff'), action: onEditDropoff },
-        ] satisfies Array<{ label: string; action?: () => void }>).map(({ label, action }) => action ? (
-          <Pressable
-            key={label}
-            accessibilityRole="button"
-            accessibilityLabel={t('booking.checkout.editField', { field: label })}
-            onPress={action}
-            style={({ pressed }) => [
-              styles.editChip,
-              pressed ? styles.editButtonPressed : null,
-            ]}
+          ) : null}
+          <View
+            style={shuttlePickup ? styles.locationBlockAfterShuttle : undefined}
           >
-            <Text style={styles.editChipText}>{label}</Text>
-          </Pressable>
-        ) : null)}
-      </View>
-
-      <InfoRow
-        label={t('booking.checkout.route')}
-        value={`${trip.departureCity || t('common.notAvailable')} → ${trip.arrivalCity || t('common.notAvailable')}`}
-      />
-      <InfoRow
-        label={t('booking.checkout.departureTime')}
-        value={trip.departureTime || t('common.notAvailable')}
-      />
-      <InfoRow
-        label={t('booking.checkout.seats')}
-        value={seats.map((seat) => seat.label || seat.id).join(', ') || t('common.none')}
-        showDivider
-      />
-
-      {shuttlePickup ? (
-        <ShuttleRequestSummary
-          address={shuttlePickup.address}
-          label={t('booking.checkout.shuttleRequest')}
-          hint={t('booking.checkout.shuttleAwaiting')}
-        />
-      ) : null}
-
-      <View style={styles.locationBlock}>
-        <View style={styles.locationSurface}>
-          <View style={styles.locationIconBox}>
-            <MapPinLine size={18} weight="duotone" color={theme.accents.ticket.foreground} />
-          </View>
-          <View style={styles.locationCopy}>
-            <Text style={styles.locationLabel}>
-              {t('booking.checkout.boardingAt', {
-                time: pickUp?.time || t('common.notAvailable'),
-              })}
-            </Text>
-            <Text style={styles.locationValue}>
-              {pickUp?.name || t('booking.checkout.selectPickup')}
-            </Text>
+            <View style={styles.locationSurface}>
+              <View style={styles.locationIconBox}>
+                <MapPinLine
+                  size={18}
+                  weight="duotone"
+                  color={theme.accents.ticket.foreground}
+                />
+              </View>
+              <View style={styles.locationCopy}>
+                <Text style={styles.locationLabel}>
+                  {t('booking.checkout.boardingAt', {
+                    time: pickUp?.time || t('common.notAvailable'),
+                  })}
+                </Text>
+                <Text style={styles.locationValue}>
+                  {pickUp?.name || t('booking.checkout.selectPickup')}
+                </Text>
+                {pickupAddress ? (
+                  <Text style={styles.address}>{pickupAddress}</Text>
+                ) : null}
+              </View>
+            </View>
           </View>
         </View>
-        {pickUp?.address ? <Text style={styles.address}>{pickUp.address}</Text> : null}
-      </View>
 
-      <View style={styles.locationBlockLarge}>
-        <View style={styles.locationSurface}>
-          <View style={styles.locationIconBox}>
-            <MapPinLine size={18} weight="duotone" color={theme.accents.ticket.foreground} />
-          </View>
-          <View style={styles.locationCopy}>
-            <Text style={styles.locationLabel}>
-              {t('booking.checkout.alightingAt', {
-                time: dropOff?.time || t('common.notAvailable'),
-              })}
-            </Text>
-            <Text style={styles.locationValue}>
-              {dropOff?.name || t('booking.checkout.selectDropoff')}
-            </Text>
+        <View style={[styles.stepSection, styles.lastStepSection]}>
+          <EditableSectionHeader
+            label={t('booking.steps.dropoff')}
+            onEdit={onEditDropoff}
+          />
+          {shuttleDropoff ? (
+            <ShuttleRequestSummary
+              address={shuttleDropoff.address}
+              label={t('booking.checkout.shuttleDropoffRequest')}
+              hint={t('booking.checkout.shuttleAwaiting')}
+            />
+          ) : null}
+          <View
+            style={
+              shuttleDropoff ? styles.locationBlockAfterShuttle : undefined
+            }
+          >
+            <View style={styles.locationSurface}>
+              <View style={styles.locationIconBox}>
+                <MapPinLine
+                  size={18}
+                  weight="duotone"
+                  color={theme.accents.ticket.foreground}
+                />
+              </View>
+              <View style={styles.locationCopy}>
+                <Text style={styles.locationLabel}>
+                  {t('booking.checkout.alightingAt', {
+                    time: dropOff?.time || t('common.notAvailable'),
+                  })}
+                </Text>
+                <Text style={styles.locationValue}>
+                  {dropOff?.name || t('booking.checkout.selectDropoff')}
+                </Text>
+                {dropoffAddress ? (
+                  <Text style={styles.address}>{dropoffAddress}</Text>
+                ) : null}
+              </View>
+            </View>
           </View>
         </View>
-        {dropOff?.address ? <Text style={styles.address}>{dropOff.address}</Text> : null}
-      </View>
-
-      {shuttleDropoff ? (
-        <ShuttleRequestSummary
-          address={shuttleDropoff.address}
-          label={t('booking.checkout.shuttleDropoffRequest')}
-          hint={t('booking.checkout.shuttleAwaiting')}
-        />
-      ) : null}
-    </SectionCard>
-  );
-});
+      </SectionCard>
+    );
+  },
+);
 
 const createStyles = (theme: AppTheme) => ({
-  cardHeaderRow: {
+  cardTitle: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.md,
+    color: theme.colors.textPrimary,
+    marginBottom: spacing.lg,
+  },
+  stepSection: {
+    paddingVertical: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: theme.effects.contentBorder,
+  },
+  firstStepSection: {
+    paddingTop: 0,
+    borderTopWidth: 0,
+  },
+  lastStepSection: {
+    paddingBottom: 0,
+  },
+  sectionHeaderRow: {
+    minHeight: 36,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
     gap: spacing.md,
     marginBottom: spacing.md,
   },
-  cardTitle: {
+  sectionTitle: {
     flex: 1,
     fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
+  },
+  sectionValue: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    lineHeight: fontSizes.sm * 1.45,
+    color: theme.colors.textPrimary,
+  },
+  lastInfoRow: {
+    marginBottom: 0,
   },
   editButton: {
     width: 36,
     height: 36,
+    flexShrink: 0,
     borderRadius: borderRadius.full,
+    borderCurve: 'continuous' as const,
     backgroundColor: theme.accents.ticket.soft,
     borderWidth: 1,
     borderColor: theme.accents.ticket.border,
@@ -213,31 +305,8 @@ const createStyles = (theme: AppTheme) => ({
     opacity: 0.8,
     transform: [{ scale: 0.96 }],
   },
-  editActions: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  editChip: {
-    minHeight: 44,
-    justifyContent: 'center' as const,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    backgroundColor: theme.accents.ticket.soft,
-    borderWidth: 1,
-    borderColor: theme.accents.ticket.border,
-  },
-  editChipText: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
-    color: theme.accents.ticket.foreground,
-  },
-  locationBlock: {
+  locationBlockAfterShuttle: {
     marginTop: spacing.md,
-  },
-  locationBlockLarge: {
-    marginTop: spacing.lg,
   },
   locationSurface: {
     flexDirection: 'row' as const,
@@ -254,7 +323,6 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center' as const,
     gap: spacing.md,
     padding: spacing.md,
-    marginTop: spacing.md,
     borderRadius: borderRadius.lg,
     backgroundColor: theme.accents.assistant.soft,
     borderWidth: 1,
@@ -295,7 +363,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   address: {
-    marginTop: spacing.sm,
+    marginTop: spacing.xxs,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     lineHeight: 18,

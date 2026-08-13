@@ -6,10 +6,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  Platform,
   StatusBar,
-  KeyboardAvoidingView,
-  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -25,7 +22,7 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import { Input, Button } from '@shared/components';
+import { AppKeyboardAwareScrollView, Input, Button } from '@shared/components';
 import { useApiError, useThemedStyles } from '@shared/hooks';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import type { AuthStackParamList } from '@app/navigation/types';
@@ -119,11 +116,10 @@ export function ForgotPasswordScreen(): React.JSX.Element {
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-        <KeyboardAvoidingView
+        <View
           style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <ScrollView
+          <AppKeyboardAwareScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             contentInsetAdjustmentBehavior="automatic"
@@ -175,8 +171,8 @@ export function ForgotPasswordScreen(): React.JSX.Element {
                 fullWidth
               />
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </AppKeyboardAwareScrollView>
+        </View>
       </SafeAreaView>
     </View>
   );

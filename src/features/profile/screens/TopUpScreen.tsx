@@ -2,10 +2,7 @@ import React, { memo, useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -30,6 +27,7 @@ import {
   ApiRequestError,
   getLocalizedApiErrorMessage,
 } from '@shared/api/errors';
+import { AppKeyboardAwareScrollView } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useFloatingTabBarContentInset, useThemedStyles } from '@shared/hooks';
 import {
@@ -293,12 +291,10 @@ export function TopUpScreen(): React.JSX.Element {
         <View style={styles.headerSpacer} />
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <View
         style={styles.keyboardAvoidingView}
       >
-        <ScrollView
-          automaticallyAdjustKeyboardInsets
+        <AppKeyboardAwareScrollView
           contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
           scrollIndicatorInsets={{ bottom: bottomTabClearance }}
           contentInsetAdjustmentBehavior="automatic"
@@ -432,8 +428,8 @@ export function TopUpScreen(): React.JSX.Element {
           <Text style={styles.vnpayNote}>
             {t('topUp.vnpayNote')}
           </Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </AppKeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

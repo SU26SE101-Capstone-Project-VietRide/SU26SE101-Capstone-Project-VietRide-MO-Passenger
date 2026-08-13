@@ -6,6 +6,8 @@ module.exports = {
   moduleNameMapper: {
     '\\.(ttf|otf|png|jpg|jpeg|webp)$': '<rootDir>/__mocks__/assetMock.js',
     '^expo-secure-store$': '<rootDir>/__mocks__/expo-secure-store.js',
+    '^react-native-keyboard-controller$':
+      'react-native-keyboard-controller/jest',
     '^@react-native-async-storage/async-storage$':
       '@react-native-async-storage/async-storage/jest/async-storage-mock',
   },

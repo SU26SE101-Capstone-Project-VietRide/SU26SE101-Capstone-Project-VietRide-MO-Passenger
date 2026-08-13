@@ -578,9 +578,7 @@ export function SeatGrid({
       {activeGroup ? (
         <View style={[styles.matrix, { width: matrixWidth }]}>
           <View style={styles.axisRow}>
-            <View style={styles.rowAxisSlot}>
-              <Text style={styles.axisLabel}>{t('booking.seatMap.rowAxis')}</Text>
-            </View>
+            <View style={styles.rowAxisSlot} />
             {columns.map(column => (
               <React.Fragment key={`axis-${column}`}>
                 <View style={[styles.columnAxisSlot, { width: seatSize }]}>

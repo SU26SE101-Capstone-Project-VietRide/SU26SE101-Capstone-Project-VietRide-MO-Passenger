@@ -6,10 +6,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StatusBar,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,7 +25,7 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import { Input, Button } from '@shared/components';
+import { AppKeyboardAwareScrollView, Input, Button } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useApiError, useThemedStyles } from '@shared/hooks';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
@@ -183,11 +180,10 @@ export function LoginScreen(): React.JSX.Element {
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-        <KeyboardAvoidingView
+        <View
           style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <ScrollView
+          <AppKeyboardAwareScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
@@ -305,14 +301,14 @@ export function LoginScreen(): React.JSX.Element {
               />
             </View>
 
-          </ScrollView>
+          </AppKeyboardAwareScrollView>
 
           <AuthFooter
             prompt={t('auth.loginFlow.noAccount')}
             actionLabel={t('auth.loginFlow.signUp')}
             onAction={() => navigation.navigate('Register')}
           />
-        </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </View>
   );

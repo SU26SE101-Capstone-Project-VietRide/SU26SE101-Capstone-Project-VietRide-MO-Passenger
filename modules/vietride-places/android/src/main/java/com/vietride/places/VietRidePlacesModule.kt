@@ -11,6 +11,7 @@ import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
+import com.google.android.libraries.places.api.net.PlacesStatusCodes
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
@@ -311,19 +312,19 @@ class VietRidePlacesModule : Module() {
         8 -> PlacesCodedException("UNAVAILABLE", "Places is temporarily unavailable.")
         13 -> PlacesCodedException("UNAVAILABLE", "Places is temporarily unavailable.")
         STATUS_CANCELLED -> PlacesCodedException("UNAVAILABLE", "Places request was cancelled.")
-        STATUS_OVER_QUERY_LIMIT -> PlacesCodedException("QUOTA", "Places quota has been exceeded.")
-        STATUS_REQUEST_DENIED -> PlacesCodedException(
+        PlacesStatusCodes.OVER_QUERY_LIMIT -> PlacesCodedException("QUOTA", "Places quota has been exceeded.")
+        PlacesStatusCodes.REQUEST_DENIED -> PlacesCodedException(
           "CONFIGURATION",
           "Google Places is not configured for this build.",
         )
         // Common when a Maps POI placeId is not resolvable via Place Details.
-        STATUS_NOT_FOUND -> PlacesCodedException(
+        PlacesStatusCodes.NOT_FOUND -> PlacesCodedException(
           "INVALID_PLACE",
           "Place was not found (status ${error.statusCode}).",
         )
-        STATUS_INVALID_REQUEST -> PlacesCodedException(
+        PlacesStatusCodes.INVALID_REQUEST -> PlacesCodedException(
           "INVALID_PLACE",
-          "Invalid Place Details request (status ${error.statusCode}).",
+          "Invalid Google Places request (status ${error.statusCode}).",
         )
         else -> PlacesCodedException(
           "UNAVAILABLE",
@@ -353,10 +354,6 @@ class VietRidePlacesModule : Module() {
     private const val ANDROID_MAPS_API_KEY_META = "com.google.android.geo.API_KEY"
     private const val GOOGLE_MAPS_USAGE_ATTRIBUTION_ID = "gmp_git_agentskills_v1"
     private const val STATUS_CANCELLED = 16
-    private const val STATUS_OVER_QUERY_LIMIT = 9001
-    private const val STATUS_REQUEST_DENIED = 9011
-    private const val STATUS_INVALID_REQUEST = 9007
-    private const val STATUS_NOT_FOUND = 9013
     private const val DEFAULT_BIAS_RADIUS_METERS = 5_000.0
     private const val DEFAULT_MAX_RESULTS = 5
     private val PLACE_FIELDS = listOf(

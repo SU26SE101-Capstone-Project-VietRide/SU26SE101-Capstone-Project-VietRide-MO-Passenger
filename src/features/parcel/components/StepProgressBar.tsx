@@ -145,6 +145,8 @@ function StepProgressBarComponent({
                   )}
                 </View>
                 <Text
+                  ellipsizeMode="tail"
+                  numberOfLines={2}
                   style={[
                     styles.stepLabel,
                     isActive ? styles.stepLabelActive : null,
@@ -229,6 +231,7 @@ const createStyles = (theme: AppTheme) => ({
       ? theme.effects.glassSurfaceSoft
       : theme.colors.surfaceAlt,
     overflow: 'hidden',
+    marginHorizontal: '12.5%',
     marginBottom: spacing.sm,
   },
   progressBarActive: {
@@ -245,8 +248,10 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: -10,
   },
   stepContainer: {
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
-    width: 44,
+    paddingHorizontal: spacing.xxs,
   },
   stepBubble: {
     width: 24,
@@ -274,11 +279,15 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textInverse,
   },
   stepLabel: {
+    width: '100%',
+    minHeight: fontSizes.xs * 2.6,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
+    lineHeight: fontSizes.xs * 1.3,
     color: theme.colors.primary,
-    marginTop: 4,
+    marginTop: spacing.xs,
     opacity: 0.7,
+    textAlign: 'center',
   },
   stepLabelActive: {
     fontFamily: fontFamilies.bold,

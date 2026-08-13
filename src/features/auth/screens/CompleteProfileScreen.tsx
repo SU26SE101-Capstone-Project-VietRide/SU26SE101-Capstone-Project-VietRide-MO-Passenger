@@ -1,7 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  ScrollView,
   StatusBar,
   Text,
   View,
@@ -12,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import { completeProfile } from '@features/profile/api/profileApi';
 import { ApiRequestError, toApiError } from '@shared/api/errors';
-import { Button, Input } from '@shared/components';
+import { AppKeyboardAwareScrollView, Button, Input } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import {
   fontFamilies,
@@ -91,11 +89,10 @@ export function CompleteProfileScreen(): React.JSX.Element {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
-      <KeyboardAvoidingView
-        behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined}
+      <View
         style={styles.keyboardView}
       >
-        <ScrollView
+        <AppKeyboardAwareScrollView
           contentContainerStyle={styles.scrollContent}
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
@@ -135,8 +132,8 @@ export function CompleteProfileScreen(): React.JSX.Element {
               style={styles.button}
             />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </AppKeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

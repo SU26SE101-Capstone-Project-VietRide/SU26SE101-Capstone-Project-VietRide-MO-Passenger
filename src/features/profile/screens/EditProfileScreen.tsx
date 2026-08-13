@@ -3,9 +3,6 @@ import {
   View,
   Text,
   Pressable,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   StatusBar,
   Alert,
 } from 'react-native';
@@ -24,7 +21,7 @@ import {
 } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { Button, Input, UserAvatar } from '@shared/components';
+import { AppKeyboardAwareScrollView, Button, Input, UserAvatar } from '@shared/components';
 import {
   ApiRequestError,
   getLocalizedApiErrorMessage,
@@ -229,8 +226,7 @@ export function EditProfileScreen(): React.JSX.Element {
         backgroundColor={theme.colors.background}
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <View
         style={styles.keyboardView}
       >
         <View style={styles.topBar}>
@@ -246,7 +242,7 @@ export function EditProfileScreen(): React.JSX.Element {
           <View style={styles.topBarRightPlaceholder} />
         </View>
 
-        <ScrollView
+        <AppKeyboardAwareScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.scrollContent,
@@ -331,8 +327,8 @@ export function EditProfileScreen(): React.JSX.Element {
             fullWidth
             style={styles.saveButton}
           />
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </AppKeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }

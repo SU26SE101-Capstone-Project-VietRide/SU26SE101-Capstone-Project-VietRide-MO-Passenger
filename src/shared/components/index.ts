@@ -6,6 +6,10 @@ export { Button } from './Button';
 export { Input } from './Input';
 export { LoadingOverlay } from './LoadingOverlay';
 export { AppLaunchScreen } from './AppLaunchScreen';
+export {
+  AppKeyboardAwareScrollView,
+  type AppKeyboardAwareScrollViewProps,
+} from './AppKeyboardAwareScrollView';
 export { ScannableCodeCard } from './ScannableCodeCard';
 export { StatusChip, type StatusChipTone } from './StatusChip';
 export { VectorImage } from './VectorImage';

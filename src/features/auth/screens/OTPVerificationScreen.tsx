@@ -11,9 +11,6 @@ import {
   TextInput,
   StatusBar,
   Pressable,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   NativeSyntheticEvent,
   TextInputKeyPressEventData,
   AppState,
@@ -34,7 +31,7 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import { Button } from '@shared/components';
+import { AppKeyboardAwareScrollView, Button } from '@shared/components';
 import { useApiError, useThemedStyles } from '@shared/hooks';
 import { getTokenSessionEpoch } from '@shared/utils/storage';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -253,11 +250,10 @@ export function OTPVerificationScreen(): React.JSX.Element {
 
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-        <KeyboardAvoidingView
+        <View
           style={styles.keyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <ScrollView
+          <AppKeyboardAwareScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.scrollContent,
@@ -362,14 +358,14 @@ export function OTPVerificationScreen(): React.JSX.Element {
                 fullWidth
               />
             </View>
-          </ScrollView>
+          </AppKeyboardAwareScrollView>
 
           <AuthFooter
             prompt={footerQuestion}
             actionLabel={t('common.back')}
             onAction={() => navigation.goBack()}
           />
-        </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </View>
   );

@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   Text,
   View,
@@ -15,7 +12,7 @@ import { useMutation } from '@tanstack/react-query';
 import { ArrowLeft, LockKey, ShieldCheck } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Button, Input } from '@shared/components';
+import { AppKeyboardAwareScrollView, Button, Input } from '@shared/components';
 import { getLocalizedApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import {
@@ -98,8 +95,7 @@ export function ChangePasswordScreen(): React.JSX.Element {
         backgroundColor={theme.colors.background}
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <View
         style={styles.keyboardView}
       >
         <View style={styles.topBar}>
@@ -115,7 +111,7 @@ export function ChangePasswordScreen(): React.JSX.Element {
           <View style={styles.topBarRightPlaceholder} />
         </View>
 
-        <ScrollView
+        <AppKeyboardAwareScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[
@@ -204,8 +200,8 @@ export function ChangePasswordScreen(): React.JSX.Element {
               {t('security.changePassword.backendNote')}
             </Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </AppKeyboardAwareScrollView>
+      </View>
     </SafeAreaView>
   );
 }
