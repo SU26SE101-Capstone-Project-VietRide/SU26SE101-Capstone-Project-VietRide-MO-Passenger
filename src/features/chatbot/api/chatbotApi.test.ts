@@ -23,7 +23,7 @@ const ASSISTANT_MESSAGE_ID = '55555555-5555-4555-8555-555555555555';
 
 const doneFrame = [
   'event: done',
-  `data: {"conversationId":"${CONVERSATION_ID}","userMessageId":"${USER_MESSAGE_ID}","assistantMessageId":"${ASSISTANT_MESSAGE_ID}","citedChunkIds":[]}`,
+  `data: {"conversationId":"${CONVERSATION_ID}","userMessageId":"${USER_MESSAGE_ID}","assistantMessageId":"${ASSISTANT_MESSAGE_ID}","citations":[{"title":"Passenger policy","section":null}]}`,
   '',
   '',
 ].join('\n');
@@ -66,39 +66,45 @@ describe('chatbotApi', () => {
   });
 
   it('streams tokens, returns done metadata, and stops reading at the terminal event', async () => {
-    const stream = makeStreamResponse([
-      `event: token\ndata: {"content":"Xin chào"}\n\n${doneFrame}`,
-    ], true);
+    const stream = makeStreamResponse(
+      [`event: token\ndata: {"content":"Xin chào"}\n\n${doneFrame}`],
+      true,
+    );
     mockAuthenticatedFetch.mockResolvedValue(stream.response);
     const onToken = jest.fn();
 
-    await expect(streamChat(
-      { message: '  chính sách vé  ', conversationId: CONVERSATION_ID },
-      { onToken },
-      new AbortController().signal,
-    )).resolves.toEqual({
+    await expect(
+      streamChat(
+        { message: '  chính sách vé  ', conversationId: CONVERSATION_ID },
+        { onToken },
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual({
       conversationId: CONVERSATION_ID,
       userMessageId: USER_MESSAGE_ID,
       assistantMessageId: ASSISTANT_MESSAGE_ID,
-      citedChunkIds: [],
+      citations: [{ title: 'Passenger policy', section: null }],
     });
 
     expect(onToken).toHaveBeenCalledWith('Xin chào');
     expect(stream.read).toHaveBeenCalledTimes(1);
     expect(stream.cancel).toHaveBeenCalledTimes(1);
     expect(stream.releaseLock).toHaveBeenCalledTimes(1);
-    expect(mockAuthenticatedFetch).toHaveBeenCalledWith('/rag/chat', expect.objectContaining({
-      method: 'POST',
-      headers: expect.objectContaining({
-        'Idempotency-Key': expect.stringMatching(
-          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-        ),
+    expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+      '/rag/chat',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Idempotency-Key': expect.stringMatching(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+          ),
+        }),
+        body: JSON.stringify({
+          message: '  chính sách vé  ',
+          conversationId: CONVERSATION_ID,
+        }),
       }),
-      body: JSON.stringify({
-        message: '  chính sách vé  ',
-        conversationId: CONVERSATION_ID,
-      }),
-    }));
+    );
   });
 
   it('rejects an SSE error event even though HTTP succeeded', async () => {
@@ -107,11 +113,13 @@ describe('chatbotApi', () => {
     ]);
     mockAuthenticatedFetch.mockResolvedValue(stream.response);
 
-    await expect(streamChat(
-      { message: 'policy' },
-      { onToken: jest.fn() },
-      new AbortController().signal,
-    )).rejects.toMatchObject({ code: 'RAG_PROVIDER_UNAVAILABLE' });
+    await expect(
+      streamChat(
+        { message: 'policy' },
+        { onToken: jest.fn() },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'RAG_PROVIDER_UNAVAILABLE' });
   });
 
   it('rejects an incomplete stream that ends without done or error', async () => {
@@ -120,11 +128,13 @@ describe('chatbotApi', () => {
     ]);
     mockAuthenticatedFetch.mockResolvedValue(stream.response);
 
-    await expect(streamChat(
-      { message: 'policy' },
-      { onToken: jest.fn() },
-      new AbortController().signal,
-    )).rejects.toMatchObject({ code: 'RAG_STREAM_INTERRUPTED' });
+    await expect(
+      streamChat(
+        { message: 'policy' },
+        { onToken: jest.fn() },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'RAG_STREAM_INTERRUPTED' });
   });
 
   it('reports activity for comments and unknown heartbeat events', async () => {
@@ -137,11 +147,13 @@ describe('chatbotApi', () => {
     const onActivity = jest.fn();
     const onToken = jest.fn();
 
-    await expect(streamChat(
-      { message: 'policy' },
-      { onActivity, onToken },
-      new AbortController().signal,
-    )).resolves.toMatchObject({ conversationId: CONVERSATION_ID });
+    await expect(
+      streamChat(
+        { message: 'policy' },
+        { onActivity, onToken },
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({ conversationId: CONVERSATION_ID });
 
     expect(onActivity).toHaveBeenCalledTimes(3);
     expect(onToken).not.toHaveBeenCalled();
@@ -151,17 +163,20 @@ describe('chatbotApi', () => {
     const oversizedToken = JSON.stringify({
       content: 'x'.repeat(MAX_ASSISTANT_CHARACTERS + 1),
     });
-    const stream = makeStreamResponse([
-      `event: token\ndata: ${oversizedToken}\n\n`,
-    ], true);
+    const stream = makeStreamResponse(
+      [`event: token\ndata: ${oversizedToken}\n\n`],
+      true,
+    );
     mockAuthenticatedFetch.mockResolvedValue(stream.response);
     const onToken = jest.fn();
 
-    await expect(streamChat(
-      { message: 'policy' },
-      { onToken },
-      new AbortController().signal,
-    )).rejects.toMatchObject({ code: 'RAG_STREAM_LIMIT_EXCEEDED' });
+    await expect(
+      streamChat(
+        { message: 'policy' },
+        { onToken },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'RAG_STREAM_LIMIT_EXCEEDED' });
 
     expect(onToken).not.toHaveBeenCalled();
     expect(stream.cancel).toHaveBeenCalledTimes(1);
@@ -169,16 +184,19 @@ describe('chatbotApi', () => {
   });
 
   it('bounds raw stream bytes even when the payload contains only discarded comments', async () => {
-    const stream = makeStreamResponse([
-      `:${'x'.repeat(MAX_SSE_STREAM_BYTES)}\n`,
-    ], true);
+    const stream = makeStreamResponse(
+      [`:${'x'.repeat(MAX_SSE_STREAM_BYTES)}\n`],
+      true,
+    );
     mockAuthenticatedFetch.mockResolvedValue(stream.response);
 
-    await expect(streamChat(
-      { message: 'policy' },
-      { onToken: jest.fn() },
-      new AbortController().signal,
-    )).rejects.toMatchObject({ code: 'RAG_STREAM_LIMIT_EXCEEDED' });
+    await expect(
+      streamChat(
+        { message: 'policy' },
+        { onToken: jest.fn() },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'RAG_STREAM_LIMIT_EXCEEDED' });
 
     expect(stream.cancel).toHaveBeenCalledTimes(1);
     expect(stream.releaseLock).toHaveBeenCalledTimes(1);
@@ -192,18 +210,25 @@ describe('chatbotApi', () => {
       json: async () => ({
         success: false,
         statusCode: 429,
-        error: { code: 'RAG_RATE_LIMIT_EXCEEDED', message: 'Too many requests' },
+        error: {
+          code: 'RAG_RATE_LIMIT_EXCEEDED',
+          message: 'Too many requests',
+        },
       }),
     });
 
-    await expect(streamChat(
-      { message: 'policy' },
-      { onToken: jest.fn() },
-      new AbortController().signal,
-    )).rejects.toEqual(expect.objectContaining({
-      code: 'RAG_RATE_LIMIT_EXCEEDED',
-      statusCode: 429,
-    }));
+    await expect(
+      streamChat(
+        { message: 'policy' },
+        { onToken: jest.fn() },
+        new AbortController().signal,
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        code: 'RAG_RATE_LIMIT_EXCEEDED',
+        statusCode: 429,
+      }),
+    );
   });
 
   it('submits feedback through the existing API client and unwraps the envelope', async () => {
@@ -220,7 +245,9 @@ describe('chatbotApi', () => {
       data: { success: true, statusCode: 201, data: feedback },
     });
 
-    await expect(submitChatFeedback(ASSISTANT_MESSAGE_ID, 1)).resolves.toEqual(feedback);
+    await expect(submitChatFeedback(ASSISTANT_MESSAGE_ID, 1)).resolves.toEqual(
+      feedback,
+    );
     expect(mockPost).toHaveBeenCalledWith(
       `/rag/messages/${ASSISTANT_MESSAGE_ID}/feedback`,
       { rating: 1 },

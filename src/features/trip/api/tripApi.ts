@@ -16,7 +16,8 @@ import {
 
 export const tripKeys = {
   all: ['trips'] as const,
-  search: (params: TripSearchParams) => [...tripKeys.all, 'search', params] as const,
+  search: (params: TripSearchParams) =>
+    [...tripKeys.all, 'search', params] as const,
   detail: (tripId: string) => [...tripKeys.all, tripId, 'detail'] as const,
   seats: (tripId: string) => [...tripKeys.all, tripId, 'seats'] as const,
 };
@@ -30,7 +31,10 @@ export function toTripSearchQuery(
     passengerCount: params.passengerCount,
   };
 
-  const set = (key: keyof TripSearchParams, value: string | number | boolean | undefined) => {
+  const set = (
+    key: keyof TripSearchParams,
+    value: string | number | boolean | undefined,
+  ) => {
     if (value === undefined || value === '') return;
     q[key] = value;
   };
@@ -52,15 +56,17 @@ export async function searchTrips(
   params: TripSearchParams,
   signal?: AbortSignal,
 ): Promise<BusTrip[]> {
-  const response = await apiClient.get<ApiEnvelope<{
-    items: TripSearchDto[];
-    page: number;
-    pageSize: number;
-    totalItems: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  }>>('/trips/search', {
+  const response = await apiClient.get<
+    ApiEnvelope<{
+      items: TripSearchDto[];
+      page: number;
+      pageSize: number;
+      totalItems: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    }>
+  >('/trips/search', {
     params: toTripSearchQuery(params),
     ...(signal ? { signal } : {}),
   });
@@ -84,7 +90,7 @@ export interface TripSeatMapResponseDto {
   tripId: string;
   vehicleType: string;
   seats: SeatDto[];
-  /** BE seat-layout aisles; optional until all deployments emit it. */
+  /** BE seat-layout aisles; missing during a rolling deploy normalizes to no aisle. */
   aisles?: Array<{ afterCol: number } | number> | null;
 }
 

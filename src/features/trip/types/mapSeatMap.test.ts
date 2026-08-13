@@ -5,7 +5,9 @@ import {
   type SeatDto,
 } from './trip';
 
-const seats = (items: Array<Partial<SeatDto> & Pick<SeatDto, 'seatNumber' | 'row' | 'col'>>): SeatDto[] =>
+const seats = (
+  items: Array<Partial<SeatDto> & Pick<SeatDto, 'seatNumber' | 'row' | 'col'>>,
+): SeatDto[] =>
   items.map(item => ({
     status: 'AVAILABLE',
     deck: 1,
@@ -13,28 +15,27 @@ const seats = (items: Array<Partial<SeatDto> & Pick<SeatDto, 'seatNumber' | 'row
   }));
 
 describe('normalizeSeatMapAisles', () => {
-  it('returns null when aisles are missing or empty', () => {
-    expect(normalizeSeatMapAisles(null)).toBeNull();
-    expect(normalizeSeatMapAisles([])).toBeNull();
-    expect(normalizeSeatMapAisles([{ afterCol: 0 }])).toBeNull();
+  it('returns an empty authoritative layout when aisles are missing or invalid', () => {
+    expect(normalizeSeatMapAisles(null)).toEqual([]);
+    expect(normalizeSeatMapAisles([])).toEqual([]);
+    expect(normalizeSeatMapAisles([{ afterCol: 0 }])).toEqual([]);
   });
 
   it('accepts BE afterCol objects and bare numbers', () => {
-    expect(normalizeSeatMapAisles([{ afterCol: 2 }, { afterCol: 1 }, 2])).toEqual([
-      1,
-      2,
-    ]);
+    expect(
+      normalizeSeatMapAisles([{ afterCol: 2 }, { afterCol: 1 }, 2]),
+    ).toEqual([1, 2]);
   });
 });
 
 describe('resolveAisleAfterColumns', () => {
-  it('prefers valid BE aisles over the heuristic', () => {
+  it('uses valid BE aisles without adding a heuristic', () => {
     expect(resolveAisleAfterColumns([1, 2, 3, 4], [1])).toEqual([1]);
-    expect(resolveAisleAfterColumns([1, 2, 3, 4], null)).toEqual([2]);
+    expect(resolveAisleAfterColumns([1, 2, 3, 4], [])).toEqual([]);
   });
 
-  it('falls back when BE aisles do not split occupied columns', () => {
-    expect(resolveAisleAfterColumns([1, 2], [9])).toEqual([1]);
+  it('drops invalid BE aisles instead of inventing one', () => {
+    expect(resolveAisleAfterColumns([1, 2], [9])).toEqual([]);
   });
 });
 
@@ -60,7 +61,7 @@ describe('mapSeatMap', () => {
     ]);
   });
 
-  it('uses null aisles when BE omits them (heuristic stays in the UI resolver)', () => {
+  it('uses no aisle when BE omits the authoritative layout', () => {
     const layout = mapSeatMap(
       seats([
         { seatNumber: 'A1', row: 1, col: 1 },
@@ -70,8 +71,8 @@ describe('mapSeatMap', () => {
       ]),
     );
 
-    expect(layout.aisleAfterCols).toBeNull();
-    expect(layout.rows[0].leftSeats).toHaveLength(2);
-    expect(layout.rows[0].rightSeats).toHaveLength(2);
+    expect(layout.aisleAfterCols).toEqual([]);
+    expect(layout.rows[0].leftSeats).toHaveLength(4);
+    expect(layout.rows[0].rightSeats).toHaveLength(0);
   });
 });

@@ -1476,20 +1476,21 @@
     },
     "changePassword": {
       "title": "Đổi mật khẩu",
-      "unavailableDescription": "Tài khoản này hiện chưa hỗ trợ đổi mật khẩu.",
+      "description": "Cập nhật mật khẩu và đăng nhập lại trên các thiết bị của bạn.",
       "protectTitle": "Chọn mật khẩu mạnh",
-      "protectDescription": "Hãy dùng mật khẩu bạn không sử dụng ở dịch vụ khác.",
+      "protectDescription": "Hãy dùng mật khẩu bạn không sử dụng ở dịch vụ khác. Tất cả thiết bị sẽ đăng xuất sau khi cập nhật.",
       "currentPassword": "Mật khẩu hiện tại",
       "newPassword": "Mật khẩu mới",
       "confirmPassword": "Xác nhận mật khẩu mới",
       "submit": "Cập nhật mật khẩu",
       "successTitle": "Đã cập nhật mật khẩu",
-      "successDescription": "Mật khẩu của bạn đã được thay đổi thành công.",
+      "successDescription": "Mật khẩu đã được đổi và tất cả phiên đã đăng xuất. Hãy đăng nhập lại bằng mật khẩu mới.",
       "errorTitle": "Không thể đổi mật khẩu",
       "backendNote": "Mật khẩu chỉ được gửi qua API bảo mật đã xác thực và không được lưu trong state của ứng dụng."
     },
     "validation": {
       "currentPasswordRequired": "Hãy nhập mật khẩu hiện tại.",
+      "currentPasswordIncorrect": "Mật khẩu hiện tại không đúng.",
       "passwordMin": "Mật khẩu phải có ít nhất 8 ký tự.",
       "passwordMax": "Mật khẩu quá dài.",
       "passwordLetter": "Mật khẩu phải có ít nhất một chữ cái.",
@@ -1785,6 +1786,11 @@
     "passengerCount_one": "{{count}} khách",
     "passengerCount_other": "{{count}} khách",
     "completeProfileAction": "Bổ sung số điện thoại",
+    "citations": {
+      "title": "Nguồn tham khảo ({{count}})",
+      "expandAccessibility": "Hiện nguồn tham khảo của câu trả lời",
+      "collapseAccessibility": "Ẩn nguồn tham khảo của câu trả lời"
+    },
     "quickActions": {
       "refund": "Hủy vé & hoàn tiền",
       "booking": "Đặt vé",

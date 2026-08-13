@@ -1,4 +1,5 @@
 import React from 'react';
+import { Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
 import type { ChatMessage, ChatMessageStatus } from '../types/chatbot';
@@ -25,6 +26,10 @@ const mockTheme = {
 };
 
 jest.mock('react-i18next', () => ({
+  initReactI18next: {
+    type: '3rdParty',
+    init: jest.fn(),
+  },
   useTranslation: () => ({
     i18n: { language: 'en' },
     t: (key: string) => key,
@@ -36,18 +41,25 @@ jest.mock('@shared/contexts/ThemeContext', () => ({
 }));
 
 jest.mock('@shared/hooks', () => ({
-  useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) => factory(mockTheme),
+  useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) =>
+    factory(mockTheme),
 }));
 
 jest.mock('phosphor-react-native', () => ({
   ArrowRight: () => null,
+  BookOpenText: () => null,
+  CaretDown: () => null,
   Robot: () => null,
   ThumbsDown: () => null,
   ThumbsUp: () => null,
   Ticket: () => null,
 }));
 
-const makeAssistantMessage = (status: ChatMessageStatus): ChatMessage => ({
+const makeAssistantMessage = (
+  status: ChatMessageStatus,
+  citations?: ChatMessage['citations'],
+): ChatMessage => ({
+  citations,
   id: `assistant-${status}`,
   role: 'assistant',
   content: 'Response',
@@ -56,13 +68,16 @@ const makeAssistantMessage = (status: ChatMessageStatus): ChatMessage => ({
   bookingDraft: { isReadyToSearch: false },
 });
 
-const renderMessage = async (status: ChatMessageStatus) => {
+const renderMessage = async (
+  status: ChatMessageStatus,
+  citations?: ChatMessage['citations'],
+) => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
   await act(async () => {
     renderer = ReactTestRenderer.create(
       <ChatMessageBubble
-        message={makeAssistantMessage(status)}
+        message={makeAssistantMessage(status, citations)}
         isFeedbackPending={false}
         onBookingPress={jest.fn()}
         onRate={jest.fn()}
@@ -77,21 +92,51 @@ describe('ChatMessageBubble', () => {
   it('shows booking only after the assistant response completes', async () => {
     const renderer = await renderMessage('complete');
 
-    expect(renderer.root.findAllByProps({
-      accessibilityLabel: 'chatbot.bookingAction',
-    }).length).toBeGreaterThan(0);
+    expect(
+      renderer.root.findAllByProps({
+        accessibilityLabel: 'chatbot.bookingAction',
+      }).length,
+    ).toBeGreaterThan(0);
+
+    await act(async () => renderer.unmount());
+  });
+  it('keeps friendly citations collapsed until the user expands them', async () => {
+    const renderer = await renderMessage('complete', [
+      { title: 'Passenger policy', section: 'Refunds' },
+    ]);
+
+    const expandButton = renderer.root.findByProps({
+      accessibilityLabel: 'chatbot.citations.expandAccessibility',
+    });
+    const visibleText = () =>
+      renderer.root.findAllByType(Text).map(node => node.props.children);
+
+    expect(visibleText()).not.toContain('Passenger policy — Refunds');
+
+    await act(async () => {
+      expandButton.props.onPress();
+    });
+
+    expect(visibleText()).toContain('Passenger policy — Refunds');
+    expect(
+      renderer.root.findAllByProps({
+        accessibilityLabel: 'chatbot.citations.collapseAccessibility',
+      }).length,
+    ).toBeGreaterThan(0);
 
     await act(async () => renderer.unmount());
   });
 
   it.each<ChatMessageStatus>(['streaming', 'error', 'cancelled'])(
     'hides booking when the assistant response is %s',
-    async (status) => {
+    async status => {
       const renderer = await renderMessage(status);
 
-      expect(renderer.root.findAllByProps({
-        accessibilityLabel: 'chatbot.bookingAction',
-      })).toHaveLength(0);
+      expect(
+        renderer.root.findAllByProps({
+          accessibilityLabel: 'chatbot.bookingAction',
+        }),
+      ).toHaveLength(0);
 
       await act(async () => renderer.unmount());
     },

@@ -18,7 +18,11 @@ export type TripStopLifecycleStatus = 'PENDING' | 'ARRIVED' | 'SKIPPED';
 export type EtaEstimateQuality = 'TRAFFIC_AWARE' | 'FALLBACK';
 
 export type NetworkSeatStatus = 'AVAILABLE' | 'HELD' | 'BOOKED' | 'UNAVAILABLE';
-export type SeatPresentationStatus = 'available' | 'selected' | 'sold' | 'unavailable';
+export type SeatPresentationStatus =
+  | 'available'
+  | 'selected'
+  | 'sold'
+  | 'unavailable';
 
 /**
  * BE SearchTripsQuery query string (TripsController.SearchAsync).
@@ -315,13 +319,10 @@ export interface SeatMapAisleDto {
   afterCol: number;
 }
 
-/**
- * FE seat-map model. `aisleAfterCols` is authoritative when non-null;
- * null means the UI should use the client heuristic fallback.
- */
+/** FE seat-map model. `aisleAfterCols` is the authoritative BE layout. */
 export interface SeatMapLayout {
   rows: SeatRow[];
-  aisleAfterCols: number[] | null;
+  aisleAfterCols: number[];
 }
 
 const stationCityLabel = (stationName: string): string =>
@@ -361,13 +362,14 @@ const mapSearchServicePoints = (
 ): TripSearchServicePoint[] => {
   if (!Array.isArray(points)) return [];
   return points
-    .filter((point) => (
-      (point.type === 'STATION' || point.type === 'STOP')
-      && typeof point.name === 'string'
-      && point.name.trim().length > 0
-      && Number.isFinite(point.orderIndex)
-    ))
-    .map((point) => ({
+    .filter(
+      point =>
+        (point.type === 'STATION' || point.type === 'STOP') &&
+        typeof point.name === 'string' &&
+        point.name.trim().length > 0 &&
+        Number.isFinite(point.orderIndex),
+    )
+    .map(point => ({
       type: point.type,
       stationId: point.stationId ?? null,
       stopId: point.stopId ?? null,
@@ -456,8 +458,8 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     surchargePeriodId: dto.surchargePeriodId ?? null,
     surchargePeriodName: dto.surchargePeriodName ?? null,
     seatsLeft: dto.seatSummary.availableSeats,
-    allowPickup: dto.stops.some((stop) => Boolean(stop.allowPickup)),
-    allowDropoff: dto.stops.some((stop) => Boolean(stop.allowDropoff)),
+    allowPickup: dto.stops.some(stop => Boolean(stop.allowPickup)),
+    allowDropoff: dto.stops.some(stop => Boolean(stop.allowDropoff)),
     busType: null,
     busLabel: null,
     estimatedDurationMinutes,
@@ -471,18 +473,20 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
     arrivalCity: stationCityLabel(dto.destinationStation.name),
     pickupPoints: [],
     dropoffPoints: [],
-    stops: (dto.stops || []).map((stop) => {
+    stops: (dto.stops || []).map(stop => {
       const latitude = stop.latitude;
       const longitude = stop.longitude;
-      const hasValidCoordinates = typeof latitude === 'number'
-        && typeof longitude === 'number'
-        && isValidGeoCoordinate({
+      const hasValidCoordinates =
+        typeof latitude === 'number' &&
+        typeof longitude === 'number' &&
+        isValidGeoCoordinate({
           latitude,
           longitude,
         });
-      const estimatedDurationFromOriginMinutes = resolveStopDurationFromOriginMinutes(
-        stop.estimatedDurationFromOriginMinutes,
-      );
+      const estimatedDurationFromOriginMinutes =
+        resolveStopDurationFromOriginMinutes(
+          stop.estimatedDurationFromOriginMinutes,
+        );
 
       return {
         id: stop.stopId ?? stop.id ?? '',
@@ -492,7 +496,8 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
         address: stop.address ?? null,
         latitude: hasValidCoordinates ? latitude : null,
         longitude: hasValidCoordinates ? longitude : null,
-        estimatedArrivalTime: stop.estimatedArrivalTime ?? stop.arrivalTime ?? null,
+        estimatedArrivalTime:
+          stop.estimatedArrivalTime ?? stop.arrivalTime ?? null,
         estimatedDurationFromOriginMinutes,
         time: resolveStopDisplayTime({
           estimatedArrivalTime: stop.estimatedArrivalTime,
@@ -510,7 +515,8 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
         fareFromThisStop: stop.fareFromThisStop,
         effectiveFare: stop.effectiveFare,
         surchargePercent: stop.surchargePercent,
-        surchargeAmount: normalizeMoneyAmount(stop.surchargeAmount) ?? undefined,
+        surchargeAmount:
+          normalizeMoneyAmount(stop.surchargeAmount) ?? undefined,
         surchargePeriodId: stop.surchargePeriodId ?? null,
         surchargePeriodName: stop.surchargePeriodName ?? null,
       };
@@ -519,68 +525,44 @@ export function mapTripDetail(dto: TripDetailDto): TripDetail {
 }
 
 /**
- * Normalize BE `aisles: [{ afterCol }]` (or bare numbers). Empty/invalid → null
- * so the UI applies heuristic fallback instead of inventing layout.
+ * Normalize BE `aisles: [{ afterCol }]` (or bare numbers).
+ * Missing, empty, or invalid values mean the vehicle has no aisle.
  */
 export function normalizeSeatMapAisles(
   aisles: Array<SeatMapAisleDto | number> | null | undefined,
-): number[] | null {
+): number[] {
   if (!aisles || aisles.length === 0) {
-    return null;
+    return [];
   }
 
   const afterCols = aisles
     .map(entry => (typeof entry === 'number' ? entry : entry?.afterCol))
     .filter(
       (value): value is number =>
-        typeof value === 'number'
-        && Number.isInteger(value)
-        && value >= 1,
+        typeof value === 'number' && Number.isInteger(value) && value >= 1,
     );
 
   if (afterCols.length === 0) {
-    return null;
+    return [];
   }
 
   return [...new Set(afterCols)].sort((left, right) => left - right);
 }
 
-/** Client heuristic when BE does not send aisles (legacy / rolling). */
-export function getHeuristicAisleAfterColumn(columns: number[]): number | null {
-  if (columns.length <= 1) {
-    return null;
-  }
-  if (columns.length <= 3) {
-    return columns[0];
-  }
-  return columns[Math.ceil(columns.length / 2) - 1];
-}
-
-/**
- * Prefer BE aisles when they actually split the occupied columns; otherwise
- * fall back to a single heuristic aisle.
- */
+/** Keep only authoritative BE aisles that actually split occupied columns. */
 export function resolveAisleAfterColumns(
   columns: number[],
-  aisleAfterCols: number[] | null | undefined,
+  aisleAfterCols: number[],
 ): number[] {
-  if (columns.length <= 1) {
+  if (columns.length <= 1 || aisleAfterCols.length === 0) {
     return [];
   }
 
-  if (aisleAfterCols && aisleAfterCols.length > 0) {
-    const valid = aisleAfterCols.filter(
-      afterCol =>
-        columns.some(column => column <= afterCol)
-        && columns.some(column => column > afterCol),
-    );
-    if (valid.length > 0) {
-      return valid;
-    }
-  }
-
-  const fallback = getHeuristicAisleAfterColumn(columns);
-  return fallback == null ? [] : [fallback];
+  return aisleAfterCols.filter(
+    afterCol =>
+      columns.some(column => column <= afterCol) &&
+      columns.some(column => column > afterCol),
+  );
 }
 
 export function mapSeatMap(
@@ -588,9 +570,12 @@ export function mapSeatMap(
   aisles?: Array<SeatMapAisleDto | number> | null,
 ): SeatMapLayout {
   const aisleAfterCols = normalizeSeatMapAisles(aisles);
-  const rows = new Map<string, { rowNumber: number; deck: number; seats: Seat[]; columns: Set<number> }>();
+  const rows = new Map<
+    string,
+    { rowNumber: number; deck: number; seats: Seat[]; columns: Set<number> }
+  >();
 
-  dtos.forEach((dto) => {
+  dtos.forEach(dto => {
     const deck = dto.deck ?? 1;
     const key = `${deck}:${dto.row}`;
 
@@ -621,12 +606,12 @@ export function mapSeatMap(
 
   const mappedRows = Array.from(rows.values())
     .sort((a, b) => a.deck - b.deck || a.rowNumber - b.rowNumber)
-    .map((data) => {
+    .map(data => {
       const columns = Array.from(data.columns).sort((a, b) => a - b);
-      // left/right split uses first resolved aisle (or heuristic) for legacy consumers.
+      // left/right split uses the first authoritative aisle for legacy consumers.
       const splitAfter =
-        resolveAisleAfterColumns(columns, aisleAfterCols)[0]
-        ?? Math.max(...columns, 1);
+        resolveAisleAfterColumns(columns, aisleAfterCols)[0] ??
+        Math.max(...columns, 1);
       const seats = data.seats.sort(
         (a, b) => (a.col ?? 0) - (b.col ?? 0) || a.label.localeCompare(b.label),
       );
@@ -636,8 +621,8 @@ export function mapSeatMap(
         rowNumber: data.rowNumber,
         deck: data.deck,
         columns,
-        leftSeats: seats.filter((seat) => (seat.col ?? 0) <= splitAfter),
-        rightSeats: seats.filter((seat) => (seat.col ?? 0) > splitAfter),
+        leftSeats: seats.filter(seat => (seat.col ?? 0) <= splitAfter),
+        rightSeats: seats.filter(seat => (seat.col ?? 0) > splitAfter),
       };
     });
 

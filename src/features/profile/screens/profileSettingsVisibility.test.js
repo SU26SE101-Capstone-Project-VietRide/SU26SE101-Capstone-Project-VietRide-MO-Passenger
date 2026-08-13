@@ -7,6 +7,10 @@ const readScreen = (fileName) =>
 describe('profile settings visibility', () => {
   const settingsSource = readScreen('SettingsScreen.tsx');
   const securitySource = readScreen('SecurityScreen.tsx');
+  const navigatorSource = fs.readFileSync(
+    path.join(__dirname, '..', 'ProfileNavigator.tsx'),
+    'utf8',
+  );
 
   it('removes the privacy and legal section while keeping account security', () => {
     expect(settingsSource).toContain("t('settings.security.accountTitle')");
@@ -20,6 +24,16 @@ describe('profile settings visibility', () => {
     expect(securitySource).toContain("t('security.accountStatus')");
     expect(securitySource).toContain("t('security.changePassword.title')");
 
+    expect(securitySource).toContain("t('security.changePassword.description')");
+    expect(securitySource).toContain("navigation.navigate('ChangePassword')");
+    expect(securitySource).not.toContain('changePassword.unavailableDescription');
+    expect(securitySource).not.toContain(
+      'PROFILE_SECURITY_CAPABILITIES.changePassword',
+    );
+    expect(navigatorSource).toContain(
+      'name="ChangePassword" component={ChangePasswordScreen}',
+    );
+    expect(navigatorSource).not.toContain('ChangePasswordRoute');
     expect(securitySource).not.toContain('security.hero');
     expect(securitySource).not.toContain('security.currentDeviceSection');
     expect(securitySource).not.toContain('security.moreControlsSection');

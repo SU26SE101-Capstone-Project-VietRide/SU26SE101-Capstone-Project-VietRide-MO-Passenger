@@ -1,0 +1,34 @@
+[
+  {
+    "caseId": "AUTH-03",
+    "testFile": "tests/functional/automated/authentication.functional.test.ts"
+  },
+  {
+    "caseId": "AUTH-07",
+    "testFile": "tests/functional/automated/authentication.functional.test.ts"
+  },
+  {
+    "caseId": "AUTH-14",
+    "testFile": "tests/functional/automated/authentication.functional.test.ts"
+  },
+  {
+    "caseId": "TKT-06",
+    "testFile": "tests/functional/automated/core-rules.functional.test.ts"
+  },
+  {
+    "caseId": "TKT-08",
+    "testFile": "tests/functional/automated/core-rules.functional.test.ts"
+  },
+  {
+    "caseId": "SHUT-03",
+    "testFile": "tests/functional/automated/core-rules.functional.test.ts"
+  },
+  {
+    "caseId": "PROF-06",
+    "testFile": "tests/functional/automated/core-rules.functional.test.ts"
+  },
+  {
+    "caseId": "PAY-11",
+    "testFile": "tests/functional/automated/core-rules.functional.test.ts"
+  }
+]

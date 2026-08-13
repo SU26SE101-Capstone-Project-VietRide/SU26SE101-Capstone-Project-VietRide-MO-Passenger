@@ -22,7 +22,10 @@ import type {
 } from '../types';
 import type { TripDetail } from '../../trip/types';
 import { searchTrips, getSeatMap, getTripDetail } from '../../trip/api/tripApi';
-import { createBooking as apiCreateBooking, createRoundTripBooking } from '../api/bookingApi';
+import {
+  createBooking as apiCreateBooking,
+  createRoundTripBooking,
+} from '../api/bookingApi';
 import {
   ApiRequestError,
   isAmbiguousIdempotentRequestError,
@@ -115,9 +118,9 @@ const buildTerminalDropOff = (trip: BusTrip): DropOffPoint => ({
 const buildPickUpPoints = (trip: TripDetail): PickUpPoint[] => [
   buildTerminalPickUp(trip),
   ...trip.stops
-    .filter((stop) => stop.id && stop.isActive !== false && stop.allowPickup)
+    .filter(stop => stop.id && stop.isActive !== false && stop.allowPickup)
     .sort((a, b) => a.orderIndex - b.orderIndex)
-    .map((stop) => ({
+    .map(stop => ({
       id: `stop-${stop.id}`,
       stopId: stop.id,
       name: stop.name,
@@ -131,14 +134,17 @@ const buildPickUpPoints = (trip: TripDetail): PickUpPoint[] => [
     })),
 ];
 
-const buildDropOffPoints = (trip: TripDetail, selectedPickUp?: PickUpPoint | null): DropOffPoint[] => {
+const buildDropOffPoints = (
+  trip: TripDetail,
+  selectedPickUp?: PickUpPoint | null,
+): DropOffPoint[] => {
   const pickupOrderIndex = selectedPickUp?.orderIndex ?? 0;
 
   return [
     ...trip.stops
-      .filter((stop) => stop.id && stop.isActive !== false && stop.allowDropoff)
+      .filter(stop => stop.id && stop.isActive !== false && stop.allowDropoff)
       .sort((a, b) => a.orderIndex - b.orderIndex)
-      .map((stop) => {
+      .map(stop => {
         const isBeforeOrAtPickup = stop.orderIndex <= pickupOrderIndex;
         return {
           id: `stop-${stop.id}`,
@@ -147,7 +153,9 @@ const buildDropOffPoints = (trip: TripDetail, selectedPickUp?: PickUpPoint | nul
           address: stop.address?.trim() ?? '',
           time: stop.time,
           estimatedArrivalTime: stop.estimatedArrivalTime ?? null,
-          status: isBeforeOrAtPickup ? 'disabled' as const : 'available' as const,
+          status: isBeforeOrAtPickup
+            ? ('disabled' as const)
+            : ('available' as const),
           disabledReasonKey: isBeforeOrAtPickup
             ? 'booking.stops.dropoffMustFollowPickup'
             : undefined,
@@ -183,7 +191,7 @@ const reconcileSelectedSeats = (
     }
   }
 
-  return selectedSeats.flatMap((selectedSeat) => {
+  return selectedSeats.flatMap(selectedSeat => {
     const refreshedSeat = availableSeats.get(selectedSeat.id);
     return refreshedSeat
       ? [{ ...refreshedSeat, status: 'selected' as const }]
@@ -277,9 +285,10 @@ export const extractConflictedSeatLabels = (
 
   for (const fieldError of error.fields) {
     const field = fieldError.field.trim().toLowerCase();
-    const isSeatField = field === 'seatnumbers'
-      || field === 'outbound.seatnumbers'
-      || field === 'return.seatnumbers';
+    const isSeatField =
+      field === 'seatnumbers' ||
+      field === 'outbound.seatnumbers' ||
+      field === 'return.seatnumbers';
     if (!isSeatField) continue;
 
     if (fieldError.values?.length) {
@@ -298,7 +307,11 @@ type ReturnState = BookingLegDraft;
 interface BookingStore {
   // ─── Search ──────────────────────────────────────────
   searchParams: SearchParams & { isRoundTrip?: boolean; returnDate?: string };
-  setSearchParams: (params: Partial<SearchParams & { isRoundTrip?: boolean; returnDate?: string }>) => void;
+  setSearchParams: (
+    params: Partial<
+      SearchParams & { isRoundTrip?: boolean; returnDate?: string }
+    >,
+  ) => void;
   applySearchPrefill: (params: BookingSearchPrefill) => void;
   swapCities: () => void;
 
@@ -343,8 +356,8 @@ interface BookingStore {
 
   // ─── Seats ───────────────────────────────────────────
   seatMap: SeatRow[];
-  /** BE aisles afterCol list; null → SeatGrid heuristic fallback. */
-  seatMapAisles: number[] | null;
+  /** Authoritative BE aisles afterCol list; empty means no aisle. */
+  seatMapAisles: number[];
   seatMapStatus: BookingResourceStatus;
   seatMapError: ApiRequestError | null;
   selectedSeats: Seat[];
@@ -404,8 +417,8 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     isRoundTrip: false,
     returnDate: '',
   },
-  setSearchParams: (params) =>
-    set((state) => {
+  setSearchParams: params =>
+    set(state => {
       const nextParams = { ...params };
 
       if (params.passengers !== undefined) {
@@ -413,9 +426,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       }
 
       if (
-        params.from !== undefined
-        && params.from !== state.searchParams.from
-        && params.originLocationCode === undefined
+        params.from !== undefined &&
+        params.from !== state.searchParams.from &&
+        params.originLocationCode === undefined
       ) {
         nextParams.originLocationCode = '';
         nextParams.originWardCode = '';
@@ -423,9 +436,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         nextParams.originStationName = '';
       }
       if (
-        params.to !== undefined
-        && params.to !== state.searchParams.to
-        && params.destinationLocationCode === undefined
+        params.to !== undefined &&
+        params.to !== state.searchParams.to &&
+        params.destinationLocationCode === undefined
       ) {
         nextParams.destinationLocationCode = '';
         nextParams.destinationWardCode = '';
@@ -433,9 +446,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         nextParams.destinationStationName = '';
       }
       if (
-        params.originLocationCode !== undefined
-        && params.originLocationCode !== state.searchParams.originLocationCode
-        && params.originStationId === undefined
+        params.originLocationCode !== undefined &&
+        params.originLocationCode !== state.searchParams.originLocationCode &&
+        params.originStationId === undefined
       ) {
         nextParams.originStationId = '';
         if (params.originWardCode === undefined) {
@@ -444,9 +457,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         nextParams.originStationName = '';
       }
       if (
-        params.destinationLocationCode !== undefined
-        && params.destinationLocationCode !== state.searchParams.destinationLocationCode
-        && params.destinationStationId === undefined
+        params.destinationLocationCode !== undefined &&
+        params.destinationLocationCode !==
+          state.searchParams.destinationLocationCode &&
+        params.destinationStationId === undefined
       ) {
         nextParams.destinationStationId = '';
         if (params.destinationWardCode === undefined) {
@@ -459,12 +473,12 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         searchParams: { ...state.searchParams, ...nextParams },
       };
     }),
-  applySearchPrefill: (params) => {
+  applySearchPrefill: params => {
     get().resetBooking();
     get().setSearchParams(params);
   },
   swapCities: () =>
-    set((state) => ({
+    set(state => ({
       searchParams: {
         ...state.searchParams,
         from: state.searchParams.to,
@@ -485,113 +499,126 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   outboundState: null,
   returnState: null,
   highestStepReached: 1,
-  setHighestStep: (step) => set((state) => ({
-    highestStepReached: Math.max(state.highestStepReached, step)
-  })),
-  saveOutboundLeg: () => set((state) => ({
-    outboundState: {
-      trip: state.selectedTrip,
-      seats: state.selectedSeats,
-      pickUp: state.selectedPickUp,
-      dropOff: state.selectedDropOff,
-      shuttlePickup: state.selectedShuttlePickup,
-      shuttleDropoff: state.selectedShuttleDropoff,
-    },
-    currentLeg: 'return',
-    // Clear seat map before switching legs to avoid layout flash.
-    seatMap: [],
-    seatMapAisles: null,
-    seatMapStatus: 'idle' as const,
-    seatMapError: null,
-    tripDetailStatus: 'idle' as const,
-    tripDetailError: null,
-    selectedTrip: null,
-    selectedSeats: [],
-    selectedPickUp: null,
-    selectedDropOff: null,
-    selectedShuttlePickup: null,
-    selectedShuttleDropoff: null,
-    pickUpPoints: [],
-    dropOffPoints: [],
-    seatConflictLegs: state.seatConflictLegs.filter((leg) => leg !== 'outbound'),
-    highestStepReached: OUTBOUND_STEPS + 1, // After outbound (steps 1-4), unlock step 5 (return TripResults)
-  })),
-  saveReturnLeg: () => set((state) => ({
-    returnState: {
-      trip: state.selectedTrip,
-      seats: state.selectedSeats,
-      pickUp: state.selectedPickUp,
-      dropOff: state.selectedDropOff,
-      shuttlePickup: state.selectedShuttlePickup,
-      shuttleDropoff: state.selectedShuttleDropoff,
-    },
-    seatConflictLegs: state.seatConflictLegs.filter((leg) => leg !== 'return'),
-    highestStepReached: OUTBOUND_STEPS + RETURN_STEPS + 1, // After return (steps 5-8), unlock step 9 (Checkout)
-  })),
-  saveOneWayLeg: () => set((state) => ({
-    outboundState: {
-      trip: state.selectedTrip,
-      seats: state.selectedSeats,
-      pickUp: state.selectedPickUp,
-      dropOff: state.selectedDropOff,
-      shuttlePickup: state.selectedShuttlePickup,
-      shuttleDropoff: state.selectedShuttleDropoff,
-    },
-    currentLeg: 'outbound',
-    seatConflictLegs: state.seatConflictLegs.filter((leg) => leg !== 'outbound'),
-    highestStepReached: Math.max(state.highestStepReached, 5),
-  })),
-  restoreLegForEdit: (leg) => set((state) => {
-    const snapshot = leg === 'outbound' ? state.outboundState : state.returnState;
-    if (!snapshot?.trip) {
-      return {
-        currentLeg: leg,
-        seatMap: [],
-        seatMapAisles: null,
-        seatMapStatus: 'idle' as const,
-        seatMapError: null,
-        tripDetailStatus: 'idle' as const,
-        tripDetailError: null,
-        bookingError: null,
-        bookingStatus: 'idle' as const,
-      };
-    }
-
-    const pickUpPoints = snapshot.trip === state.selectedTrip
-      ? state.pickUpPoints
-      : [buildTerminalPickUp(snapshot.trip)];
-    const dropOffPoints = snapshot.trip === state.selectedTrip
-      ? state.dropOffPoints
-      : [buildTerminalDropOff(snapshot.trip)];
-
-    return {
-      currentLeg: leg,
-      // Clear prior seat map so the next initSeatMap does not flash another trip.
+  setHighestStep: step =>
+    set(state => ({
+      highestStepReached: Math.max(state.highestStepReached, step),
+    })),
+  saveOutboundLeg: () =>
+    set(state => ({
+      outboundState: {
+        trip: state.selectedTrip,
+        seats: state.selectedSeats,
+        pickUp: state.selectedPickUp,
+        dropOff: state.selectedDropOff,
+        shuttlePickup: state.selectedShuttlePickup,
+        shuttleDropoff: state.selectedShuttleDropoff,
+      },
+      currentLeg: 'return',
+      // Clear seat map before switching legs to avoid layout flash.
       seatMap: [],
-      seatMapAisles: null,
+      seatMapAisles: [],
       seatMapStatus: 'idle' as const,
       seatMapError: null,
       tripDetailStatus: 'idle' as const,
       tripDetailError: null,
-      selectedTrip: snapshot.trip,
-      selectedSeats: snapshot.seats,
-      selectedPickUp: snapshot.pickUp,
-      selectedDropOff: snapshot.dropOff,
-      selectedShuttlePickup: snapshot.shuttlePickup ?? null,
-      selectedShuttleDropoff: snapshot.shuttleDropoff ?? null,
-      pickUpPoints,
-      dropOffPoints,
-      // Clear stale checkout error so Payment does not keep blocking UI after edit.
-      bookingError: null,
-      bookingStatus: 'idle' as const,
-    };
-  }),
+      selectedTrip: null,
+      selectedSeats: [],
+      selectedPickUp: null,
+      selectedDropOff: null,
+      selectedShuttlePickup: null,
+      selectedShuttleDropoff: null,
+      pickUpPoints: [],
+      dropOffPoints: [],
+      seatConflictLegs: state.seatConflictLegs.filter(
+        leg => leg !== 'outbound',
+      ),
+      highestStepReached: OUTBOUND_STEPS + 1, // After outbound (steps 1-4), unlock step 5 (return TripResults)
+    })),
+  saveReturnLeg: () =>
+    set(state => ({
+      returnState: {
+        trip: state.selectedTrip,
+        seats: state.selectedSeats,
+        pickUp: state.selectedPickUp,
+        dropOff: state.selectedDropOff,
+        shuttlePickup: state.selectedShuttlePickup,
+        shuttleDropoff: state.selectedShuttleDropoff,
+      },
+      seatConflictLegs: state.seatConflictLegs.filter(leg => leg !== 'return'),
+      highestStepReached: OUTBOUND_STEPS + RETURN_STEPS + 1, // After return (steps 5-8), unlock step 9 (Checkout)
+    })),
+  saveOneWayLeg: () =>
+    set(state => ({
+      outboundState: {
+        trip: state.selectedTrip,
+        seats: state.selectedSeats,
+        pickUp: state.selectedPickUp,
+        dropOff: state.selectedDropOff,
+        shuttlePickup: state.selectedShuttlePickup,
+        shuttleDropoff: state.selectedShuttleDropoff,
+      },
+      currentLeg: 'outbound',
+      seatConflictLegs: state.seatConflictLegs.filter(
+        leg => leg !== 'outbound',
+      ),
+      highestStepReached: Math.max(state.highestStepReached, 5),
+    })),
+  restoreLegForEdit: leg =>
+    set(state => {
+      const snapshot =
+        leg === 'outbound' ? state.outboundState : state.returnState;
+      if (!snapshot?.trip) {
+        return {
+          currentLeg: leg,
+          seatMap: [],
+          seatMapAisles: [],
+          seatMapStatus: 'idle' as const,
+          seatMapError: null,
+          tripDetailStatus: 'idle' as const,
+          tripDetailError: null,
+          bookingError: null,
+          bookingStatus: 'idle' as const,
+        };
+      }
+
+      const pickUpPoints =
+        snapshot.trip === state.selectedTrip
+          ? state.pickUpPoints
+          : [buildTerminalPickUp(snapshot.trip)];
+      const dropOffPoints =
+        snapshot.trip === state.selectedTrip
+          ? state.dropOffPoints
+          : [buildTerminalDropOff(snapshot.trip)];
+
+      return {
+        currentLeg: leg,
+        // Clear prior seat map so the next initSeatMap does not flash another trip.
+        seatMap: [],
+        seatMapAisles: [],
+        seatMapStatus: 'idle' as const,
+        seatMapError: null,
+        tripDetailStatus: 'idle' as const,
+        tripDetailError: null,
+        selectedTrip: snapshot.trip,
+        selectedSeats: snapshot.seats,
+        selectedPickUp: snapshot.pickUp,
+        selectedDropOff: snapshot.dropOff,
+        selectedShuttlePickup: snapshot.shuttlePickup ?? null,
+        selectedShuttleDropoff: snapshot.shuttleDropoff ?? null,
+        pickUpPoints,
+        dropOffPoints,
+        // Clear stale checkout error so Payment does not keep blocking UI after edit.
+        bookingError: null,
+        bookingStatus: 'idle' as const,
+      };
+    }),
   seatConflictLegs: [],
-  clearSeatConflictLeg: (leg) => set((state) => ({
-    seatConflictLegs: state.seatConflictLegs.filter((item) => item !== leg),
-  })),
+  clearSeatConflictLeg: leg =>
+    set(state => ({
+      seatConflictLegs: state.seatConflictLegs.filter(item => item !== leg),
+    })),
   clearAllSeatConflicts: () => set({ seatConflictLegs: [] }),
-  handleSeatUnavailableConflict: async (error) => {
+  handleSeatUnavailableConflict: async error => {
     const generation = bookingGeneration;
     const state = get();
     const isRoundTrip = Boolean(state.searchParams.isRoundTrip);
@@ -599,11 +626,11 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     // BE v1.63+: field-scoped legs. Fallback both RT legs only when fields missing/unknown.
     const conflictLegs = resolveSeatConflictLegsFromError(isRoundTrip, error);
     const conflictedLabels = new Set(
-      extractConflictedSeatLabels(error).map((label) => label.toUpperCase()),
+      extractConflictedSeatLabels(error).map(label => label.toUpperCase()),
     );
     const dropConflicted = (seats: Seat[]): Seat[] => {
       if (conflictedLabels.size === 0) return seats;
-      return seats.filter((seat) => {
+      return seats.filter(seat => {
         const label = String(seat.label || seat.id).toUpperCase();
         return !conflictedLabels.has(label);
       });
@@ -651,20 +678,22 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     }
 
     // Dedupe network fetches by trip id while keeping leg-scoped reconcile.
-    const uniqueTripIds = [...new Set(targets.map((target) => target.tripId))];
+    const uniqueTripIds = [...new Set(targets.map(target => target.tripId))];
     const seatMapByTripId = new Map<string, SeatRow[] | null>();
-    const seatAislesByTripId = new Map<string, number[] | null>();
+    const seatAislesByTripId = new Map<string, number[]>();
 
-    await Promise.all(uniqueTripIds.map(async (tripId) => {
-      try {
-        const layout = await getSeatMap(tripId);
-        seatMapByTripId.set(tripId, layout.rows);
-        seatAislesByTripId.set(tripId, layout.aisleAfterCols);
-      } catch {
-        seatMapByTripId.set(tripId, null);
-        seatAislesByTripId.set(tripId, null);
-      }
-    }));
+    await Promise.all(
+      uniqueTripIds.map(async tripId => {
+        try {
+          const layout = await getSeatMap(tripId);
+          seatMapByTripId.set(tripId, layout.rows);
+          seatAislesByTripId.set(tripId, layout.aisleAfterCols);
+        } catch {
+          seatMapByTripId.set(tripId, null);
+          seatAislesByTripId.set(tripId, []);
+        }
+      }),
+    );
 
     if (generation !== bookingGeneration) {
       return;
@@ -672,7 +701,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
     const nextConflictLegs = conflictLegs;
 
-    set((current) => {
+    set(current => {
       if (generation !== bookingGeneration) {
         return current;
       }
@@ -688,14 +717,19 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         let nextSeats: Seat[];
         if (seatRows) {
           // Reconcile by tripId + seatNumber; never merge same labels across legs.
-          nextSeats = dropConflicted(reconcileSelectedSeats(seatRows, target.seats));
+          nextSeats = dropConflicted(
+            reconcileSelectedSeats(seatRows, target.seats),
+          );
         } else {
           // Refresh failed: still drop authoritative conflicted labels so user
           // cannot resubmit the same 409 seats.
           nextSeats = dropConflicted(target.seats);
         }
 
-        if (target.leg === 'outbound' && nextOutbound?.trip?.id === target.tripId) {
+        if (
+          target.leg === 'outbound' &&
+          nextOutbound?.trip?.id === target.tripId
+        ) {
           nextOutbound = { ...nextOutbound, seats: nextSeats };
         }
         if (target.leg === 'return' && nextReturn?.trip?.id === target.tripId) {
@@ -705,7 +739,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           nextSelectedSeats = nextSeats;
           if (seatRows) {
             nextSeatMap = seatRows;
-            nextSeatMapAisles = seatAislesByTripId.get(target.tripId) ?? null;
+            nextSeatMapAisles = seatAislesByTripId.get(target.tripId) ?? [];
           }
         }
       }
@@ -741,35 +775,55 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       const isReturnLeg = currentLeg === 'return';
       // Map booking store → BE's 9 search query fields.
       const originStationId = (
-        isReturnLeg ? searchParams.destinationStationId : searchParams.originStationId
+        isReturnLeg
+          ? searchParams.destinationStationId
+          : searchParams.originStationId
       ).trim();
       const destinationStationId = (
-        isReturnLeg ? searchParams.originStationId : searchParams.destinationStationId
+        isReturnLeg
+          ? searchParams.originStationId
+          : searchParams.destinationStationId
       ).trim();
       const originProvinceCode = (
-        isReturnLeg ? searchParams.destinationLocationCode : searchParams.originLocationCode
+        isReturnLeg
+          ? searchParams.destinationLocationCode
+          : searchParams.originLocationCode
       ).trim();
       const destinationProvinceCode = (
-        isReturnLeg ? searchParams.originLocationCode : searchParams.destinationLocationCode
+        isReturnLeg
+          ? searchParams.originLocationCode
+          : searchParams.destinationLocationCode
       ).trim();
       const originWardCode = (
-        isReturnLeg ? searchParams.destinationWardCode : searchParams.originWardCode
+        isReturnLeg
+          ? searchParams.destinationWardCode
+          : searchParams.originWardCode
       ).trim();
       const destinationWardCode = (
-        isReturnLeg ? searchParams.originWardCode : searchParams.destinationWardCode
+        isReturnLeg
+          ? searchParams.originWardCode
+          : searchParams.destinationWardCode
       ).trim();
       const hasStationPair = Boolean(originStationId && destinationStationId);
-      const hasProvincePair = Boolean(originProvinceCode && destinationProvinceCode);
+      const hasProvincePair = Boolean(
+        originProvinceCode && destinationProvinceCode,
+      );
       if (!hasStationPair && !hasProvincePair) {
-        throw new BookingSearchValidationError('Please select both departure and destination provinces.');
+        throw new BookingSearchValidationError(
+          'Please select both departure and destination provinces.',
+        );
       }
 
-      const requestedDate = isReturnLeg ? searchParams.returnDate : searchParams.date;
+      const requestedDate = isReturnLeg
+        ? searchParams.returnDate
+        : searchParams.date;
       const departureDate = toTripSearchDate(requestedDate ?? '');
       if (isReturnLeg) {
         const outboundDate = toTripSearchDate(searchParams.date);
         if (departureDate < outboundDate) {
-          throw new BookingSearchValidationError('Return date must be on or after the departure date.');
+          throw new BookingSearchValidationError(
+            'Return date must be on or after the departure date.',
+          );
         }
       }
       const passengerCount = normalizeBookingSeatCount(searchParams.passengers);
@@ -784,16 +838,21 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         departureDate,
         passengerCount,
       ].join('|');
-      const keepPreviousResults = get().lastTripSearchFingerprint === searchFingerprint;
+      const keepPreviousResults =
+        get().lastTripSearchFingerprint === searchFingerprint;
       set({
         tripResultsStatus: 'loading',
         ...(keepPreviousResults ? {} : { trips: [] }),
       });
 
-      let outboundConstraint = isReturnLeg ? get().outboundState?.trip ?? null : null;
+      let outboundConstraint = isReturnLeg
+        ? get().outboundState?.trip ?? null
+        : null;
       if (isReturnLeg) {
         if (!outboundConstraint) {
-          throw new BookingSearchValidationError('Complete the outbound trip before selecting a return trip.');
+          throw new BookingSearchValidationError(
+            'Complete the outbound trip before selecting a return trip.',
+          );
         }
 
         // Search responses omit ReturnRouteId. Normally the outbound detail has
@@ -801,19 +860,26 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         // closes the fast-tap race without adding a second request in the common path.
         if (outboundConstraint.returnRouteId === undefined) {
           const detail = await getTripDetail(outboundConstraint.id);
-          if (generation !== bookingGeneration || requestId !== searchRequestSequence) {
+          if (
+            generation !== bookingGeneration ||
+            requestId !== searchRequestSequence
+          ) {
             return;
           }
 
           const latestOutboundState = get().outboundState;
-          if (!latestOutboundState?.trip || latestOutboundState.trip.id !== outboundConstraint.id) {
+          if (
+            !latestOutboundState?.trip ||
+            latestOutboundState.trip.id !== outboundConstraint.id
+          ) {
             return;
           }
 
           outboundConstraint = {
             ...outboundConstraint,
             ...detail,
-            operatorBadge: outboundConstraint.operatorBadge || detail.operatorBadge,
+            operatorBadge:
+              outboundConstraint.operatorBadge || detail.operatorBadge,
             busLabel: outboundConstraint.busLabel || detail.busLabel,
             busType: detail.busType || outboundConstraint.busType,
           };
@@ -855,12 +921,18 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
             },
       );
 
-      if (generation !== bookingGeneration || requestId !== searchRequestSequence) {
+      if (
+        generation !== bookingGeneration ||
+        requestId !== searchRequestSequence
+      ) {
         return;
       }
-      const eligibleTrips = isReturnLeg && outboundConstraint
-        ? discoveredTrips.filter((trip) => isEligibleReturnTrip(trip, outboundConstraint))
-        : discoveredTrips;
+      const eligibleTrips =
+        isReturnLeg && outboundConstraint
+          ? discoveredTrips.filter(trip =>
+              isEligibleReturnTrip(trip, outboundConstraint),
+            )
+          : discoveredTrips;
 
       set({
         tripResultsStatus: eligibleTrips.length === 0 ? 'empty' : 'success',
@@ -868,7 +940,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         lastTripSearchFingerprint: searchFingerprint,
       });
     } catch (error) {
-      if (generation !== bookingGeneration || requestId !== searchRequestSequence) {
+      if (
+        generation !== bookingGeneration ||
+        requestId !== searchRequestSequence
+      ) {
         return;
       }
       if (__DEV__ && !(error instanceof BookingSearchValidationError)) {
@@ -883,10 +958,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   selectedTrip: null,
   tripDetailStatus: 'idle',
   tripDetailError: null,
-  selectTrip: (trip) => {
+  selectTrip: trip => {
     detailRequestSequence += 1;
     seatRequestSequence += 1;
-    set((state) => {
+    set(state => {
       const terminalPickUp = buildTerminalPickUp(trip);
       const terminalDropOff = buildTerminalDropOff(trip);
 
@@ -894,7 +969,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         selectedTrip: trip,
         selectedSeats: [],
         seatMap: [],
-        seatMapAisles: null,
+        seatMapAisles: [],
         seatMapStatus: 'idle' as const,
         seatMapError: null,
         tripDetailStatus: 'idle' as const,
@@ -933,21 +1008,27 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       };
       const nextPickUpPoints = buildPickUpPoints(enrichedTrip);
       const nextSelectedPickUp = selectedPickUp
-        ? nextPickUpPoints.find((point) => point.id === selectedPickUp.id) ?? nextPickUpPoints[0]
+        ? nextPickUpPoints.find(point => point.id === selectedPickUp.id) ??
+          nextPickUpPoints[0]
         : nextPickUpPoints[0];
-      const nextDropOffPoints = buildDropOffPoints(enrichedTrip, nextSelectedPickUp);
+      const nextDropOffPoints = buildDropOffPoints(
+        enrichedTrip,
+        nextSelectedPickUp,
+      );
       const terminalDropOff = buildTerminalDropOff(enrichedTrip);
       const matchedDropOff = selectedDropOff
-        ? nextDropOffPoints.find((point) => point.id === selectedDropOff.id)
+        ? nextDropOffPoints.find(point => point.id === selectedDropOff.id)
         : null;
-      const nextSelectedDropOff = matchedDropOff && matchedDropOff.status !== 'disabled'
-        ? matchedDropOff
-        : nextDropOffPoints.find((point) => point.id === terminalDropOff.id) ?? terminalDropOff;
+      const nextSelectedDropOff =
+        matchedDropOff && matchedDropOff.status !== 'disabled'
+          ? matchedDropOff
+          : nextDropOffPoints.find(point => point.id === terminalDropOff.id) ??
+            terminalDropOff;
 
       if (
-        generation !== bookingGeneration
-        || requestId !== detailRequestSequence
-        || get().selectedTrip?.id !== tripId
+        generation !== bookingGeneration ||
+        requestId !== detailRequestSequence ||
+        get().selectedTrip?.id !== tripId
       ) {
         return;
       }
@@ -958,34 +1039,34 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         dropOffPoints: nextDropOffPoints,
         selectedPickUp: nextSelectedPickUp,
         selectedDropOff: nextSelectedDropOff,
-        selectedShuttlePickup: (
-          nextSelectedPickUp.stationId === enrichedTrip.originStationId
-          && get().selectedShuttlePickup?.stationId === enrichedTrip.originStationId
-        )
-          ? get().selectedShuttlePickup
-          : null,
-        selectedShuttleDropoff: (
-          nextSelectedDropOff.stationId === enrichedTrip.destinationStationId
-          && get().selectedShuttleDropoff?.stationId === enrichedTrip.destinationStationId
-        )
-          ? get().selectedShuttleDropoff
-          : null,
+        selectedShuttlePickup:
+          nextSelectedPickUp.stationId === enrichedTrip.originStationId &&
+          get().selectedShuttlePickup?.stationId ===
+            enrichedTrip.originStationId
+            ? get().selectedShuttlePickup
+            : null,
+        selectedShuttleDropoff:
+          nextSelectedDropOff.stationId === enrichedTrip.destinationStationId &&
+          get().selectedShuttleDropoff?.stationId ===
+            enrichedTrip.destinationStationId
+            ? get().selectedShuttleDropoff
+            : null,
         tripDetailStatus: 'success',
         tripDetailError: null,
       });
     } catch (error) {
       const apiError = toApiError(error);
       if (
-        generation === bookingGeneration
-        && requestId === detailRequestSequence
-        && get().selectedTrip?.id === tripId
+        generation === bookingGeneration &&
+        requestId === detailRequestSequence &&
+        get().selectedTrip?.id === tripId
       ) {
         set({ tripDetailStatus: 'error', tripDetailError: apiError });
       }
       if (
-        __DEV__
-        && generation === bookingGeneration
-        && requestId === detailRequestSequence
+        __DEV__ &&
+        generation === bookingGeneration &&
+        requestId === detailRequestSequence
       ) {
         console.warn(`[Booking] Trip detail failed (${apiError.code}).`);
       }
@@ -994,7 +1075,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
 
   // ─── Seats ───────────────────────────────────────────
   seatMap: [],
-  seatMapAisles: null,
+  seatMapAisles: [],
   seatMapStatus: 'idle',
   seatMapError: null,
   selectedSeats: [],
@@ -1008,13 +1089,13 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     try {
       const layout = await getSeatMap(tripId);
       if (
-        generation !== bookingGeneration
-        || requestId !== seatRequestSequence
-        || get().selectedTrip?.id !== tripId
+        generation !== bookingGeneration ||
+        requestId !== seatRequestSequence ||
+        get().selectedTrip?.id !== tripId
       ) {
         return;
       }
-      set((state) => ({
+      set(state => ({
         seatMap: layout.rows,
         seatMapAisles: layout.aisleAfterCols,
         seatMapStatus: layout.rows.length === 0 ? 'empty' : 'success',
@@ -1024,35 +1105,37 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     } catch (error) {
       const apiError = toApiError(error);
       if (
-        generation === bookingGeneration
-        && requestId === seatRequestSequence
-        && get().selectedTrip?.id === tripId
+        generation === bookingGeneration &&
+        requestId === seatRequestSequence &&
+        get().selectedTrip?.id === tripId
       ) {
         set({ seatMapStatus: 'error', seatMapError: apiError });
       }
       if (
-        __DEV__
-        && generation === bookingGeneration
-        && requestId === seatRequestSequence
+        __DEV__ &&
+        generation === bookingGeneration &&
+        requestId === seatRequestSequence
       ) {
         console.warn(`[Booking] Seat map failed (${apiError.code}).`);
       }
     }
   },
-  toggleSeat: (seatId) =>
-    set((state) => {
-      const selectedIndex = state.selectedSeats.findIndex((seat) => seat.id === seatId);
+  toggleSeat: seatId =>
+    set(state => {
+      const selectedIndex = state.selectedSeats.findIndex(
+        seat => seat.id === seatId,
+      );
       if (selectedIndex >= 0) {
         return {
-          selectedSeats: state.selectedSeats.filter((seat) => seat.id !== seatId),
+          selectedSeats: state.selectedSeats.filter(seat => seat.id !== seatId),
         };
       }
 
       let targetSeat: Seat | undefined;
       for (const row of state.seatMap) {
         targetSeat =
-          row.leftSeats.find((seat) => seat.id === seatId) ??
-          row.rightSeats.find((seat) => seat.id === seatId);
+          row.leftSeats.find(seat => seat.id === seatId) ??
+          row.rightSeats.find(seat => seat.id === seatId);
         if (targetSeat) break;
       }
 
@@ -1078,56 +1161,71 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   pickUpPoints: [],
   selectedPickUp: null,
   selectedShuttlePickup: null,
-  setSelectedShuttlePickup: (pickup) => set({ selectedShuttlePickup: pickup }),
-  selectPickUp: (point) => set((state) => {
-    const selectedTripWithStops = state.selectedTrip as TripDetail | null;
-    if (!selectedTripWithStops?.stops?.length) {
+  setSelectedShuttlePickup: pickup => set({ selectedShuttlePickup: pickup }),
+  selectPickUp: point =>
+    set(state => {
+      const selectedTripWithStops = state.selectedTrip as TripDetail | null;
+      if (!selectedTripWithStops?.stops?.length) {
+        return {
+          selectedPickUp: point,
+          selectedShuttlePickup:
+            point.stationId === state.selectedTrip?.originStationId
+              ? state.selectedShuttlePickup
+              : null,
+        };
+      }
+
+      const nextDropOffPoints = buildDropOffPoints(
+        selectedTripWithStops,
+        point,
+      );
+      const currentDropOff = state.selectedDropOff
+        ? nextDropOffPoints.find(
+            candidate => candidate.id === state.selectedDropOff?.id,
+          )
+        : null;
+      const terminalDropOff = buildTerminalDropOff(selectedTripWithStops);
+      const nextSelectedDropOff =
+        currentDropOff && currentDropOff.status !== 'disabled'
+          ? currentDropOff
+          : nextDropOffPoints.find(
+              candidate => candidate.id === terminalDropOff.id,
+            ) ?? terminalDropOff;
+
       return {
         selectedPickUp: point,
-        selectedShuttlePickup: point.stationId === state.selectedTrip?.originStationId
-          ? state.selectedShuttlePickup
-          : null,
+        dropOffPoints: nextDropOffPoints,
+        selectedDropOff: nextSelectedDropOff,
+        selectedShuttlePickup:
+          point.stationId === state.selectedTrip?.originStationId
+            ? state.selectedShuttlePickup
+            : null,
+        selectedShuttleDropoff:
+          nextSelectedDropOff.stationId ===
+          state.selectedTrip?.destinationStationId
+            ? state.selectedShuttleDropoff
+            : null,
       };
-    }
-
-    const nextDropOffPoints = buildDropOffPoints(selectedTripWithStops, point);
-    const currentDropOff = state.selectedDropOff
-      ? nextDropOffPoints.find((candidate) => candidate.id === state.selectedDropOff?.id)
-      : null;
-    const terminalDropOff = buildTerminalDropOff(selectedTripWithStops);
-    const nextSelectedDropOff = currentDropOff && currentDropOff.status !== 'disabled'
-      ? currentDropOff
-      : nextDropOffPoints.find((candidate) => candidate.id === terminalDropOff.id) ?? terminalDropOff;
-
-    return {
-      selectedPickUp: point,
-      dropOffPoints: nextDropOffPoints,
-      selectedDropOff: nextSelectedDropOff,
-      selectedShuttlePickup: point.stationId === state.selectedTrip?.originStationId
-        ? state.selectedShuttlePickup
-        : null,
-      selectedShuttleDropoff:
-        nextSelectedDropOff.stationId === state.selectedTrip?.destinationStationId
-          ? state.selectedShuttleDropoff
-          : null,
-    };
-  }),
+    }),
 
   // ─── Drop-off ────────────────────────────────────────
   dropOffPoints: [],
   selectedDropOff: null,
   selectedShuttleDropoff: null,
-  setSelectedShuttleDropoff: (dropoff) => set({ selectedShuttleDropoff: dropoff }),
-  selectDropOff: (point) => set((state) => ({
-    selectedDropOff: point,
-    selectedShuttleDropoff: point.stationId === state.selectedTrip?.destinationStationId
-      ? state.selectedShuttleDropoff
-      : null,
-  })),
+  setSelectedShuttleDropoff: dropoff =>
+    set({ selectedShuttleDropoff: dropoff }),
+  selectDropOff: point =>
+    set(state => ({
+      selectedDropOff: point,
+      selectedShuttleDropoff:
+        point.stationId === state.selectedTrip?.destinationStationId
+          ? state.selectedShuttleDropoff
+          : null,
+    })),
 
   // ─── Payment ─────────────────────────────────────────
   paymentMethod: 'vnpay',
-  setPaymentMethod: (method) => set({ paymentMethod: method }),
+  setPaymentMethod: method => set({ paymentMethod: method }),
   voucherCode: '',
   voucherDiscountPreview: 0,
   setVoucherCode: (code, discountPreview = 0) =>
@@ -1156,13 +1254,25 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         const paymentMethod = toBackendPaymentMethod(state.paymentMethod);
         const voucherCode = state.voucherCode || undefined;
 
-        if (state.searchParams.isRoundTrip && (!state.outboundState || !state.returnState)) {
-          throw new Error('Please complete both outbound and return trip details.');
+        if (
+          state.searchParams.isRoundTrip &&
+          (!state.outboundState || !state.returnState)
+        ) {
+          throw new Error(
+            'Please complete both outbound and return trip details.',
+          );
         }
 
-        if (state.searchParams.isRoundTrip && state.outboundState && state.returnState) {
+        if (
+          state.searchParams.isRoundTrip &&
+          state.outboundState &&
+          state.returnState
+        ) {
           const payload = {
-            outbound: buildBookingLegPayload(state.outboundState, 'Outbound trip'),
+            outbound: buildBookingLegPayload(
+              state.outboundState,
+              'Outbound trip',
+            ),
             return: buildBookingLegPayload(state.returnState, 'Return trip'),
             voucherCode,
             paymentMethod,
@@ -1212,37 +1322,40 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         });
         return result;
       } catch (error: unknown) {
-        const apiError = generation === bookingGeneration
-          ? toApiError(error)
-          : staleBookingSessionError();
+        const apiError =
+          generation === bookingGeneration
+            ? toApiError(error)
+            : staleBookingSessionError();
 
         if (generation === bookingGeneration) {
           if (!isAmbiguousIdempotentRequestError(apiError)) {
             bookingIdempotency.reset();
           }
           if (shouldInvalidateShuttleDrafts(apiError)) {
-            set((current) => ({
+            set(current => ({
               selectedShuttlePickup: null,
               selectedShuttleDropoff: null,
               outboundState: current.outboundState
                 ? {
-                  ...current.outboundState,
-                  shuttlePickup: null,
-                  shuttleDropoff: null,
-                }
+                    ...current.outboundState,
+                    shuttlePickup: null,
+                    shuttleDropoff: null,
+                  }
                 : null,
               returnState: current.returnState
                 ? {
-                  ...current.returnState,
-                  shuttlePickup: null,
-                  shuttleDropoff: null,
-                }
+                    ...current.returnState,
+                    shuttlePickup: null,
+                    shuttleDropoff: null,
+                  }
                 : null,
             }));
           }
           if (__DEV__ && apiError.code !== 'BOOKING_SEAT_COUNT_INVALID') {
             console.warn(
-              `[Booking] Submission failed (${apiError.code}, ${apiError.statusCode ?? 'no-status'}).`,
+              `[Booking] Submission failed (${apiError.code}, ${
+                apiError.statusCode ?? 'no-status'
+              }).`,
             );
           }
           set({
@@ -1251,7 +1364,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
           });
           // Definitive 409 seat conflict: refresh maps, never auto-retry submit.
           if (apiError.code === 'BOOKING_SEAT_UNAVAILABLE') {
-            get().handleSeatUnavailableConflict(apiError).catch(() => undefined);
+            get()
+              .handleSeatUnavailableConflict(apiError)
+              .catch(() => undefined);
           }
         }
         throw apiError;
@@ -1282,28 +1397,30 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
     const selectedLegAmount = selectedTrip
       ? getLegFareTotal(selectedTrip, selectedSeats, selectedPickUp)
       : 0;
-    const outboundAmount = currentLeg === 'outbound' && selectedTrip
-      ? selectedLegAmount
-      : outboundState?.trip
+    const outboundAmount =
+      currentLeg === 'outbound' && selectedTrip
+        ? selectedLegAmount
+        : outboundState?.trip
         ? getLegFareTotal(
-          outboundState.trip,
-          outboundState.seats,
-          outboundState.pickUp,
-        )
+            outboundState.trip,
+            outboundState.seats,
+            outboundState.pickUp,
+          )
         : 0;
 
     if (!searchParams.isRoundTrip) {
       return outboundAmount;
     }
 
-    const returnAmount = currentLeg === 'return' && selectedTrip
-      ? selectedLegAmount
-      : returnState?.trip
+    const returnAmount =
+      currentLeg === 'return' && selectedTrip
+        ? selectedLegAmount
+        : returnState?.trip
         ? getLegFareTotal(
-          returnState.trip,
-          returnState.seats,
-          returnState.pickUp,
-        )
+            returnState.trip,
+            returnState.seats,
+            returnState.pickUp,
+          )
         : 0;
 
     return outboundAmount + returnAmount;
@@ -1318,7 +1435,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       returnState: null,
       selectedTrip: null,
       seatMap: [],
-      seatMapAisles: null,
+      seatMapAisles: [],
       seatMapStatus: 'idle',
       seatMapError: null,
       tripDetailStatus: 'idle',
@@ -1371,7 +1488,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       trips: [],
       selectedTrip: null,
       seatMap: [],
-      seatMapAisles: null,
+      seatMapAisles: [],
       seatMapStatus: 'idle',
       seatMapError: null,
       tripDetailStatus: 'idle',

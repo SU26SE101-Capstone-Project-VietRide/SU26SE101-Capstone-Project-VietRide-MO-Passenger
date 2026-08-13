@@ -18,8 +18,8 @@ import type { Seat, SeatRow } from '../types';
 
 interface SeatGridProps {
   seatMap: SeatRow[];
-  /** BE `aisles[].afterCol` when present; null/undefined → heuristic fallback. */
-  aisleAfterCols?: number[] | null;
+  /** Authoritative BE `aisles[].afterCol`; empty means no aisle. */
+  aisleAfterCols: number[];
   selectedSeats: Seat[];
   onSeatPress: (seatId: string) => void;
 }
@@ -196,9 +196,10 @@ const DeckButton = memo(function DeckButtonComponent({
 }: DeckButtonProps): React.JSX.Element {
   const { t } = useTranslation();
   const handlePress = useCallback(() => onSelect(deck), [deck, onSelect]);
-  const deckName = deck === 1
-    ? t('booking.seatMap.lowerDeck')
-    : deck === 2
+  const deckName =
+    deck === 1
+      ? t('booking.seatMap.lowerDeck')
+      : deck === 2
       ? t('booking.seatMap.upperDeck')
       : t('booking.seatMap.deckName', { deck: getDeckLetter(deck) });
 
@@ -255,13 +256,19 @@ const SeatButton = memo(function SeatButtonComponent({
   const seatStatus = isUnavailable
     ? t('booking.seats.unavailable')
     : isSold
-      ? t('booking.seats.sold')
-      : isSelected
-        ? t('booking.seats.selected')
-        : t('booking.seats.available');
+    ? t('booking.seats.sold')
+    : isSelected
+    ? t('booking.seats.selected')
+    : t('booking.seats.available');
   const accessibilityLabel = disabledReason
-    ? `${t('booking.seatMap.seatAccessibility', { seat: label, status: seatStatus })}. ${disabledReason}`
-    : t('booking.seatMap.seatAccessibility', { seat: label, status: seatStatus });
+    ? `${t('booking.seatMap.seatAccessibility', {
+        seat: label,
+        status: seatStatus,
+      })}. ${disabledReason}`
+    : t('booking.seatMap.seatAccessibility', {
+        seat: label,
+        status: seatStatus,
+      });
 
   return (
     <Pressable
@@ -275,7 +282,9 @@ const SeatButton = memo(function SeatButtonComponent({
       style={({ pressed }) => [
         styles.seat,
         { width: size, height: size },
-        presentation === 'available' && !isSelected ? styles.seatAvailable : null,
+        presentation === 'available' && !isSelected
+          ? styles.seatAvailable
+          : null,
         isSelected ? styles.seatSelected : null,
         isSold ? styles.seatSold : null,
         isUnavailable ? styles.seatUnavailable : null,
@@ -375,10 +384,10 @@ const SeatRowView = memo(
                     selectedSeatIds.has(seat.id)
                       ? 'selected'
                       : seat.status === 'available'
-                        ? 'available'
-                        : seat.status === 'sold'
-                          ? 'sold'
-                          : 'unavailable'
+                      ? 'available'
+                      : seat.status === 'sold'
+                      ? 'sold'
+                      : 'unavailable'
                   }
                   disabledReason={seat.disabledReason}
                   label={seat.label}
@@ -430,7 +439,7 @@ const SeatRowView = memo(
 
 export function SeatGrid({
   seatMap,
-  aisleAfterCols = null,
+  aisleAfterCols,
   selectedSeats,
   onSeatPress,
 }: SeatGridProps): React.JSX.Element {
@@ -519,19 +528,19 @@ export function SeatGrid({
             <Text style={styles.deckEyebrow}>
               {activeGroup
                 ? t('booking.seatMap.deckEyebrow', {
-                  deck: getDeckLetter(activeGroup.deck),
-                })
+                    deck: getDeckLetter(activeGroup.deck),
+                  })
                 : t('booking.seatMap.title')}
             </Text>
             <Text numberOfLines={1} style={styles.deckTitle}>
               {activeGroup
-                ? (activeGroup.deck === 1
+                ? activeGroup.deck === 1
                   ? t('booking.seatMap.lowerDeck')
                   : activeGroup.deck === 2
-                    ? t('booking.seatMap.upperDeck')
-                    : t('booking.seatMap.deckName', {
+                  ? t('booking.seatMap.upperDeck')
+                  : t('booking.seatMap.deckName', {
                       deck: getDeckLetter(activeGroup.deck),
-                    }))
+                    })
                 : t('booking.seatMap.noDeck')}
             </Text>
           </View>
@@ -555,7 +564,9 @@ export function SeatGrid({
       <View style={styles.statsRow}>
         <View style={styles.selectedStat}>
           <Text style={styles.statLabel}>
-            {t('booking.seatMap.selectedCount', { count: selectedSeats.length })}
+            {t('booking.seatMap.selectedCount', {
+              count: selectedSeats.length,
+            })}
           </Text>
           <Text
             adjustsFontSizeToFit
@@ -615,288 +626,291 @@ export function SeatGrid({
         </View>
       ) : (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>{t('booking.seatMap.unavailable')}</Text>
+          <Text style={styles.emptyStateText}>
+            {t('booking.seatMap.unavailable')}
+          </Text>
         </View>
       )}
     </View>
   );
 }
 
-const createStyles = (theme: AppTheme) => ({
-  container: {
-    ...theme.components.card,
-    width: '100%',
-    maxWidth: MAX_CARD_WIDTH,
-    alignSelf: 'center',
-    overflow: 'hidden',
-    paddingHorizontal: CARD_PADDING,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
-    borderRadius: borderRadius.xl,
-    borderCurve: 'continuous',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  deckIdentity: {
-    minWidth: 0,
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  frontIcon: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    backgroundColor: theme.colors.primaryFaded,
-    borderRadius: borderRadius.md,
-    borderCurve: 'continuous',
-  },
-  deckCopy: {
-    minWidth: 0,
-    flex: 1,
-    gap: spacing.xxs,
-  },
-  deckEyebrow: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.primary,
-  },
-  deckTitle: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: theme.colors.textPrimary,
-  },
-  deckSwitcher: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 0,
-    gap: spacing.xs,
-    padding: spacing.xs,
-    backgroundColor: theme.effects.contentSurfaceSoft,
-    borderWidth: 1,
-    borderColor: theme.effects.contentBorder,
-    borderRadius: borderRadius.md,
-    borderCurve: 'continuous',
-  },
-  deckButton: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.sm,
-    borderCurve: 'continuous',
-  },
-  deckButtonActive: {
-    backgroundColor: theme.colors.primary,
-  },
-  deckButtonPressed: {
-    opacity: 0.8,
-  },
-  deckButtonText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textSecondary,
-  },
-  deckButtonTextActive: {
-    color: theme.colors.textInverse,
-  },
-  statsRow: {
-    minHeight: 62,
-    marginHorizontal: -CARD_PADDING,
-    paddingHorizontal: CARD_PADDING,
-    paddingVertical: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: theme.effects.contentSurfaceSoft,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.effects.contentBorder,
-  },
-  selectedStat: {
-    minWidth: 0,
-    flex: 1,
-    gap: spacing.xs,
-  },
-  availableStat: {
-    flexShrink: 0,
-    alignItems: 'flex-end',
-    gap: spacing.xs,
-  },
-  statDivider: {
-    width: 1,
-    height: 34,
-    backgroundColor: theme.colors.divider,
-  },
-  statLabel: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textTertiary,
-  },
-  statValue: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
-  },
-  statPlaceholder: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textDisabled,
-  },
-  availableValue: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.lg,
-    color: theme.colors.primary,
-  },
-  matrix: {
-    alignSelf: 'center',
-    paddingTop: spacing.md,
-  },
-  axisRow: {
-    height: AXIS_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SEAT_GAP,
-  },
-  rowAxisSlot: {
-    width: ROW_AXIS_WIDTH,
-    height: AXIS_HEIGHT,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    paddingLeft: spacing.xs,
-  },
-  columnAxisSlot: {
-    height: AXIS_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  axisLabel: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textTertiary,
-  },
-  rows: {
-    gap: spacing.sm,
-  },
-  seatRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SEAT_GAP,
-  },
-  rowBadge: {
-    width: ROW_AXIS_WIDTH,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    paddingLeft: spacing.xs,
-    flexShrink: 0,
-  },
-  rowBadgeText: {
-    maxWidth: ROW_AXIS_WIDTH - spacing.xs,
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-  },
-  aisleColumn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  aisleTrack: {
-    width: 1,
-    height: '76%',
-    borderLeftWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: theme.colors.textTertiary,
-    opacity: 0.28,
-  },
-  seat: {
-    position: 'relative',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.4,
-    borderRadius: borderRadius.md,
-    borderCurve: 'continuous',
-  },
-  seatAvailable: {
-    backgroundColor: theme.effects.contentSurfaceElevated,
-    borderColor: theme.effects.contentBorderStrong,
-  },
-  seatSelected: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  seatSold: {
-    backgroundColor: theme.effects.contentSurfaceSoft,
-    borderColor: theme.colors.divider,
-    opacity: 0.58,
-  },
-  seatUnavailable: {
-    backgroundColor: theme.colors.errorLight,
-    borderColor: theme.colors.error,
-    opacity: 0.72,
-  },
-  seatPressed: {
-    opacity: 0.76,
-    transform: [{ scale: 0.97 }],
-  },
-  seatPillow: {
-    position: 'absolute',
-    top: 7,
-    left: 9,
-    right: 9,
-    height: 6,
-    backgroundColor: theme.colors.primaryFaded,
-    borderRadius: borderRadius.full,
-    borderCurve: 'continuous',
-  },
-  seatPillowSelected: {
-    backgroundColor: theme.effects.glassHighlight,
-  },
-  seatPillowSold: {
-    backgroundColor: theme.colors.divider,
-  },
-  seatPillowUnavailable: {
-    backgroundColor: theme.colors.error,
-    opacity: 0.45,
-  },
-  seatLabel: {
-    maxWidth: '90%',
-    marginTop: spacing.sm,
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
-  },
-  seatLabelCompact: {
-    fontSize: fontSizes.xs,
-  },
-  seatLabelSelected: {
-    color: theme.colors.textInverse,
-  },
-  seatLabelSold: {
-    color: theme.colors.textDisabled,
-  },
-  seatLabelUnavailable: {
-    color: theme.colors.error,
-  },
-  emptySlot: {
-    flexShrink: 0,
-  },
-  emptyState: {
-    minHeight: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyStateText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textTertiary,
-  },
-} as const);
+const createStyles = (theme: AppTheme) =>
+  ({
+    container: {
+      ...theme.components.card,
+      width: '100%',
+      maxWidth: MAX_CARD_WIDTH,
+      alignSelf: 'center',
+      overflow: 'hidden',
+      paddingHorizontal: CARD_PADDING,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.lg,
+      borderRadius: borderRadius.xl,
+      borderCurve: 'continuous',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingBottom: spacing.md,
+    },
+    deckIdentity: {
+      minWidth: 0,
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    frontIcon: {
+      width: 38,
+      height: 38,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+      backgroundColor: theme.colors.primaryFaded,
+      borderRadius: borderRadius.md,
+      borderCurve: 'continuous',
+    },
+    deckCopy: {
+      minWidth: 0,
+      flex: 1,
+      gap: spacing.xxs,
+    },
+    deckEyebrow: {
+      fontFamily: fontFamilies.semiBold,
+      fontSize: fontSizes.xs,
+      color: theme.colors.primary,
+    },
+    deckTitle: {
+      fontFamily: fontFamilies.bold,
+      fontSize: fontSizes.md,
+      color: theme.colors.textPrimary,
+    },
+    deckSwitcher: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexShrink: 0,
+      gap: spacing.xs,
+      padding: spacing.xs,
+      backgroundColor: theme.effects.contentSurfaceSoft,
+      borderWidth: 1,
+      borderColor: theme.effects.contentBorder,
+      borderRadius: borderRadius.md,
+      borderCurve: 'continuous',
+    },
+    deckButton: {
+      width: 34,
+      height: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: borderRadius.sm,
+      borderCurve: 'continuous',
+    },
+    deckButtonActive: {
+      backgroundColor: theme.colors.primary,
+    },
+    deckButtonPressed: {
+      opacity: 0.8,
+    },
+    deckButtonText: {
+      fontFamily: fontFamilies.bold,
+      fontSize: fontSizes.sm,
+      color: theme.colors.textSecondary,
+    },
+    deckButtonTextActive: {
+      color: theme.colors.textInverse,
+    },
+    statsRow: {
+      minHeight: 62,
+      marginHorizontal: -CARD_PADDING,
+      paddingHorizontal: CARD_PADDING,
+      paddingVertical: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      backgroundColor: theme.effects.contentSurfaceSoft,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: theme.effects.contentBorder,
+    },
+    selectedStat: {
+      minWidth: 0,
+      flex: 1,
+      gap: spacing.xs,
+    },
+    availableStat: {
+      flexShrink: 0,
+      alignItems: 'flex-end',
+      gap: spacing.xs,
+    },
+    statDivider: {
+      width: 1,
+      height: 34,
+      backgroundColor: theme.colors.divider,
+    },
+    statLabel: {
+      fontFamily: fontFamilies.semiBold,
+      fontSize: fontSizes.xs,
+      color: theme.colors.textTertiary,
+    },
+    statValue: {
+      fontFamily: fontFamilies.bold,
+      fontSize: fontSizes.sm,
+      color: theme.colors.textPrimary,
+    },
+    statPlaceholder: {
+      fontFamily: fontFamilies.medium,
+      fontSize: fontSizes.sm,
+      color: theme.colors.textDisabled,
+    },
+    availableValue: {
+      fontFamily: fontFamilies.bold,
+      fontSize: fontSizes.lg,
+      color: theme.colors.primary,
+    },
+    matrix: {
+      alignSelf: 'center',
+      paddingTop: spacing.md,
+    },
+    axisRow: {
+      height: AXIS_HEIGHT,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SEAT_GAP,
+    },
+    rowAxisSlot: {
+      width: ROW_AXIS_WIDTH,
+      height: AXIS_HEIGHT,
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      paddingLeft: spacing.xs,
+    },
+    columnAxisSlot: {
+      height: AXIS_HEIGHT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    axisLabel: {
+      fontFamily: fontFamilies.semiBold,
+      fontSize: fontSizes.xs,
+      color: theme.colors.textTertiary,
+    },
+    rows: {
+      gap: spacing.sm,
+    },
+    seatRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SEAT_GAP,
+    },
+    rowBadge: {
+      width: ROW_AXIS_WIDTH,
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      paddingLeft: spacing.xs,
+      flexShrink: 0,
+    },
+    rowBadgeText: {
+      maxWidth: ROW_AXIS_WIDTH - spacing.xs,
+      fontFamily: fontFamilies.bold,
+      fontSize: fontSizes.xs,
+      color: theme.colors.textSecondary,
+    },
+    aisleColumn: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    aisleTrack: {
+      width: 1,
+      height: '76%',
+      borderLeftWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: theme.colors.textTertiary,
+      opacity: 0.28,
+    },
+    seat: {
+      position: 'relative',
+      flexShrink: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.4,
+      borderRadius: borderRadius.md,
+      borderCurve: 'continuous',
+    },
+    seatAvailable: {
+      backgroundColor: theme.effects.contentSurfaceElevated,
+      borderColor: theme.effects.contentBorderStrong,
+    },
+    seatSelected: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+    seatSold: {
+      backgroundColor: theme.effects.contentSurfaceSoft,
+      borderColor: theme.colors.divider,
+      opacity: 0.58,
+    },
+    seatUnavailable: {
+      backgroundColor: theme.colors.errorLight,
+      borderColor: theme.colors.error,
+      opacity: 0.72,
+    },
+    seatPressed: {
+      opacity: 0.76,
+      transform: [{ scale: 0.97 }],
+    },
+    seatPillow: {
+      position: 'absolute',
+      top: 7,
+      left: 9,
+      right: 9,
+      height: 6,
+      backgroundColor: theme.colors.primaryFaded,
+      borderRadius: borderRadius.full,
+      borderCurve: 'continuous',
+    },
+    seatPillowSelected: {
+      backgroundColor: theme.effects.glassHighlight,
+    },
+    seatPillowSold: {
+      backgroundColor: theme.colors.divider,
+    },
+    seatPillowUnavailable: {
+      backgroundColor: theme.colors.error,
+      opacity: 0.45,
+    },
+    seatLabel: {
+      maxWidth: '90%',
+      marginTop: spacing.sm,
+      fontFamily: fontFamilies.bold,
+      fontSize: fontSizes.sm,
+      color: theme.colors.textPrimary,
+    },
+    seatLabelCompact: {
+      fontSize: fontSizes.xs,
+    },
+    seatLabelSelected: {
+      color: theme.colors.textInverse,
+    },
+    seatLabelSold: {
+      color: theme.colors.textDisabled,
+    },
+    seatLabelUnavailable: {
+      color: theme.colors.error,
+    },
+    emptySlot: {
+      flexShrink: 0,
+    },
+    emptyState: {
+      minHeight: 180,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyStateText: {
+      fontFamily: fontFamilies.medium,
+      fontSize: fontSizes.sm,
+      color: theme.colors.textTertiary,
+    },
+  } as const);

@@ -33,8 +33,8 @@ export interface ChangePasswordPayload {
 }
 
 export interface ChangePasswordResponse {
-  success: boolean;
-  changedAt?: string;
+  userId: string;
+  sessionsRevoked: boolean;
 }
 
 export interface LoginSessionDto {
@@ -66,7 +66,9 @@ const PROFILE_ENDPOINTS = {
   changePassword: '/auth/change-password',
   sessions: '/auth/sessions',
 } as const;
-const completeProfileIdempotency = new IdempotencyKeyTracker('complete-profile');
+const completeProfileIdempotency = new IdempotencyKeyTracker(
+  'complete-profile',
+);
 
 const mapLoginSession = (dto: LoginSessionDto): LoginSession => ({
   id: dto.id,
@@ -83,7 +85,9 @@ const userFromEnvelope = (data: ApiEnvelope<AuthUserDto>): User =>
   mapAuthUser(unwrapApiResponse(data));
 
 export async function getProfile(): Promise<User> {
-  const response = await apiClient.get<ApiEnvelope<AuthUserDto>>(PROFILE_ENDPOINTS.me);
+  const response = await apiClient.get<ApiEnvelope<AuthUserDto>>(
+    PROFILE_ENDPOINTS.me,
+  );
   return userFromEnvelope(response.data);
 }
 

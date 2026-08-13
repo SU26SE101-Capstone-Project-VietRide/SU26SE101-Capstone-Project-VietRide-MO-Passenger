@@ -1476,20 +1476,21 @@
     },
     "changePassword": {
       "title": "Change password",
-      "unavailableDescription": "Password changes are not enabled for this account yet.",
+      "description": "Update your password and sign in again on your devices.",
       "protectTitle": "Choose a strong password",
-      "protectDescription": "Use a password you do not reuse on other services.",
+      "protectDescription": "Use a password you do not reuse on other services. All devices will be signed out after the update.",
       "currentPassword": "Current password",
       "newPassword": "New password",
       "confirmPassword": "Confirm new password",
       "submit": "Update password",
       "successTitle": "Password updated",
-      "successDescription": "Your password has been changed successfully.",
+      "successDescription": "Your password was changed and all sessions were signed out. Sign in again with your new password.",
       "errorTitle": "Could not change password",
       "backendNote": "Your password is sent only through the authenticated secure API and is never stored in app state."
     },
     "validation": {
       "currentPasswordRequired": "Enter your current password.",
+      "currentPasswordIncorrect": "The current password is incorrect.",
       "passwordMin": "Password must contain at least 8 characters.",
       "passwordMax": "Password is too long.",
       "passwordLetter": "Password must contain at least one letter.",
@@ -1785,6 +1786,11 @@
     "passengerCount_one": "{{count}} passenger",
     "passengerCount_other": "{{count}} passengers",
     "completeProfileAction": "Add phone number",
+    "citations": {
+      "title": "Sources ({{count}})",
+      "expandAccessibility": "Show sources for this answer",
+      "collapseAccessibility": "Hide sources for this answer"
+    },
     "quickActions": {
       "refund": "Cancellation & refund",
       "booking": "Book a ticket",

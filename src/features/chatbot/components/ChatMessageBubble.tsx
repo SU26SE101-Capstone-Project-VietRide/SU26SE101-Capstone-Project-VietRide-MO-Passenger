@@ -1,15 +1,12 @@
-import React, { memo, useCallback } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import React, { memo, useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
   Robot,
   ThumbsDown,
+  BookOpenText,
+  CaretDown,
   ThumbsUp,
   Ticket,
 } from 'phosphor-react-native';
@@ -54,12 +51,16 @@ function ChatMessageBubbleComponent({
   const styles = useThemedStyles(createStyles);
   const isUser = message.role === 'user';
   const language = i18n.language.startsWith('vi') ? 'vi' : 'en';
-  const timeLabel = formatTime(message.createdAt, language === 'vi' ? 'vi-VN' : 'en-US');
-  const canRate = Boolean(
-    !isUser
-    && message.status === 'complete'
-    && message.assistantMessageId,
+  const timeLabel = formatTime(
+    message.createdAt,
+    language === 'vi' ? 'vi-VN' : 'en-US',
   );
+  const canRate = Boolean(
+    !isUser && message.status === 'complete' && message.assistantMessageId,
+  );
+  const citations =
+    !isUser && message.status === 'complete' ? message.citations ?? [] : [];
+  const [citationsExpanded, setCitationsExpanded] = useState(false);
 
   const handlePositiveRating = useCallback(() => {
     if (message.assistantMessageId) {
@@ -76,7 +77,13 @@ function ChatMessageBubbleComponent({
   const handleBookingPress = useCallback(() => {
     if (message.bookingDraft) onBookingPress(message.bookingDraft);
   }, [message.bookingDraft, onBookingPress]);
-  const handleRetry = useCallback(() => onRetry?.(message.id), [message.id, onRetry]);
+  const handleRetry = useCallback(
+    () => onRetry?.(message.id),
+    [message.id, onRetry],
+  );
+  const handleToggleCitations = useCallback(() => {
+    setCitationsExpanded(current => !current);
+  }, []);
 
   return (
     <View style={[styles.row, isUser ? styles.userRow : styles.assistantRow]}>
@@ -87,15 +94,19 @@ function ChatMessageBubbleComponent({
       ) : null}
 
       <View style={styles.messageColumn}>
-        <View style={[
-          styles.bubble,
-          isUser ? styles.userBubble : styles.assistantBubble,
-        ]}>
+        <View
+          style={[
+            styles.bubble,
+            isUser ? styles.userBubble : styles.assistantBubble,
+          ]}
+        >
           {message.content ? (
-            <Text style={[
-              styles.messageText,
-              isUser ? styles.userMessageText : styles.assistantMessageText,
-            ]}>
+            <Text
+              style={[
+                styles.messageText,
+                isUser ? styles.userMessageText : styles.assistantMessageText,
+              ]}
+            >
               {message.content}
             </Text>
           ) : null}
@@ -104,28 +115,41 @@ function ChatMessageBubbleComponent({
             <View style={styles.streamingRow}>
               <ActivityIndicator size="small" color={theme.colors.primary} />
               {message.content ? (
-                <Text style={styles.streamingText}>{t('chatbot.responding')}</Text>
+                <Text style={styles.streamingText}>
+                  {t('chatbot.responding')}
+                </Text>
               ) : null}
             </View>
           ) : null}
 
           {message.status === 'error' && message.content ? (
             <View style={styles.errorRecoveryRow}>
-              <Text style={styles.statusText}>{t('chatbot.responseInterrupted')}</Text>
-              {onRetry ? <Pressable
-                accessibilityRole="button"
-                onPress={handleRetry}
-                style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
-              >
-                <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
-              </Pressable> : null}
+              <Text style={styles.statusText}>
+                {t('chatbot.responseInterrupted')}
+              </Text>
+              {onRetry ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleRetry}
+                  style={({ pressed }) => [
+                    styles.retryButton,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Text style={styles.retryButtonText}>
+                    {t('common.retry')}
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
 
-          <Text style={[
-            styles.timeText,
-            isUser ? styles.userTimeText : styles.assistantTimeText,
-          ]}>
+          <Text
+            style={[
+              styles.timeText,
+              isUser ? styles.userTimeText : styles.assistantTimeText,
+            ]}
+          >
             {timeLabel}
           </Text>
         </View>
@@ -144,19 +168,85 @@ function ChatMessageBubbleComponent({
               <Ticket size={19} color={theme.colors.primary} weight="fill" />
             </View>
             <View style={styles.bookingTextBlock}>
-              <Text style={styles.bookingTitle}>{t('chatbot.bookingSuggestion')}</Text>
+              <Text style={styles.bookingTitle}>
+                {t('chatbot.bookingSuggestion')}
+              </Text>
               <Text style={styles.bookingSummary} numberOfLines={2}>
                 {message.bookingDraft.origin && message.bookingDraft.destination
                   ? `${message.bookingDraft.origin.name} → ${message.bookingDraft.destination.name}`
                   : t('chatbot.completeBookingDetails')}
-                {message.bookingDraft.date ? ` · ${message.bookingDraft.date}` : ''}
+                {message.bookingDraft.date
+                  ? ` · ${message.bookingDraft.date}`
+                  : ''}
                 {message.bookingDraft.passengers
-                  ? ` · ${t('chatbot.passengerCount', { count: message.bookingDraft.passengers })}`
+                  ? ` · ${t('chatbot.passengerCount', {
+                      count: message.bookingDraft.passengers,
+                    })}`
                   : ''}
               </Text>
             </View>
             <ArrowRight size={18} color={theme.colors.primary} weight="bold" />
           </Pressable>
+        ) : null}
+
+        {citations.length > 0 ? (
+          <View style={styles.citationsCard}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(
+                citationsExpanded
+                  ? 'chatbot.citations.collapseAccessibility'
+                  : 'chatbot.citations.expandAccessibility',
+              )}
+              accessibilityState={{ expanded: citationsExpanded }}
+              onPress={handleToggleCitations}
+              style={({ pressed }) => [
+                styles.citationsToggle,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <View style={styles.citationsTitleRow}>
+                <BookOpenText
+                  size={17}
+                  color={theme.colors.primary}
+                  weight="bold"
+                />
+                <Text style={styles.citationsTitle}>
+                  {t('chatbot.citations.title', { count: citations.length })}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.citationsChevron,
+                  citationsExpanded ? styles.citationsChevronExpanded : null,
+                ]}
+              >
+                <CaretDown
+                  size={16}
+                  color={theme.colors.primary}
+                  weight="bold"
+                />
+              </View>
+            </Pressable>
+
+            {citationsExpanded ? (
+              <View style={styles.citationsList}>
+                {citations.map((citation, index) => (
+                  <View
+                    key={`${citation.title}:${citation.section ?? ''}:${index}`}
+                    style={styles.citationRow}
+                  >
+                    <Text style={styles.citationBullet}>•</Text>
+                    <Text style={styles.citationText}>
+                      {citation.section
+                        ? `${citation.title} — ${citation.section}`
+                        : citation.title}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
         ) : null}
 
         {canRate ? (
@@ -165,7 +255,10 @@ function ChatMessageBubbleComponent({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('chatbot.helpfulYes')}
-              accessibilityState={{ selected: message.feedback === 1, disabled: isFeedbackPending }}
+              accessibilityState={{
+                selected: message.feedback === 1,
+                disabled: isFeedbackPending,
+              }}
               disabled={isFeedbackPending}
               onPress={handlePositiveRating}
               style={({ pressed }) => [
@@ -176,14 +269,21 @@ function ChatMessageBubbleComponent({
             >
               <ThumbsUp
                 size={15}
-                color={message.feedback === 1 ? theme.colors.textInverse : theme.colors.textSecondary}
+                color={
+                  message.feedback === 1
+                    ? theme.colors.textInverse
+                    : theme.colors.textSecondary
+                }
                 weight={message.feedback === 1 ? 'fill' : 'regular'}
               />
             </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('chatbot.helpfulNo')}
-              accessibilityState={{ selected: message.feedback === -1, disabled: isFeedbackPending }}
+              accessibilityState={{
+                selected: message.feedback === -1,
+                disabled: isFeedbackPending,
+              }}
               disabled={isFeedbackPending}
               onPress={handleNegativeRating}
               style={({ pressed }) => [
@@ -194,7 +294,11 @@ function ChatMessageBubbleComponent({
             >
               <ThumbsDown
                 size={15}
-                color={message.feedback === -1 ? theme.colors.textInverse : theme.colors.textSecondary}
+                color={
+                  message.feedback === -1
+                    ? theme.colors.textInverse
+                    : theme.colors.textSecondary
+                }
                 weight={message.feedback === -1 ? 'fill' : 'regular'}
               />
             </Pressable>
@@ -331,6 +435,68 @@ const createStyles = (theme: AppTheme) => ({
     lineHeight: 17,
     color: theme.colors.textSecondary,
     marginTop: 2,
+  },
+  citationsCard: {
+    marginTop: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.primaryFaded,
+    overflow: 'hidden' as const,
+  },
+  citationsToggle: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  citationsTitleRow: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  citationsTitle: {
+    flexShrink: 1,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
+  },
+  citationsChevron: {
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  citationsChevronExpanded: {
+    transform: [{ rotate: '180deg' }],
+  },
+  citationsList: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  citationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  citationBullet: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+    lineHeight: 19,
+    color: theme.colors.primary,
+  },
+  citationText: {
+    flex: 1,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
+    color: theme.colors.textSecondary,
   },
   feedbackRow: {
     flexDirection: 'row',

@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  StatusBar,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
@@ -21,6 +15,7 @@ import {
   useThemedStyles,
 } from '@shared/hooks';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 import type { AppTheme } from '@shared/theme';
 import { changePassword } from '../api/profileApi';
 import {
@@ -34,6 +29,7 @@ import {
 export function ChangePasswordScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation();
+  const logout = useAuthStore(state => state.logout);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
@@ -41,7 +37,9 @@ export function ChangePasswordScreen(): React.JSX.Element {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [errors, setErrors] = useState<Partial<Record<ChangePasswordField, string>>>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<ChangePasswordField, string>>
+  >({});
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -63,27 +61,38 @@ export function ChangePasswordScreen(): React.JSX.Element {
         newPassword: parsed.data.newPassword,
       });
     },
-    onSuccess: (response) => {
+    onSuccess: async response => {
       if (!response) {
         return;
       }
 
+      await logout();
+
       Alert.alert(
         t('security.changePassword.successTitle'),
         t('security.changePassword.successDescription'),
-        [{ text: t('common.ok'), onPress: () => navigation.goBack() }],
+        [{ text: t('common.ok') }],
+        { cancelable: false },
       );
     },
-    onError: (error) => {
+    onError: error => {
       const apiError = toApiError(error);
+      const currentPasswordIncorrect =
+        apiError.code === 'AUTH_INVALID_CREDENTIALS';
 
-      if (apiError.fields.length > 0) {
+      if (currentPasswordIncorrect) {
+        setErrors({
+          currentPassword: 'security.validation.currentPasswordIncorrect',
+        });
+      } else if (apiError.fields.length > 0) {
         setErrors(apiProfileFieldErrors<ChangePasswordField>(apiError.fields));
       }
 
       Alert.alert(
         t('security.changePassword.errorTitle'),
-        getLocalizedApiErrorMessage(apiError, t),
+        currentPasswordIncorrect
+          ? t('security.validation.currentPasswordIncorrect')
+          : getLocalizedApiErrorMessage(apiError, t),
       );
     },
   });
@@ -95,9 +104,7 @@ export function ChangePasswordScreen(): React.JSX.Element {
         backgroundColor={theme.colors.background}
       />
 
-      <View
-        style={styles.keyboardView}
-      >
+      <View style={styles.keyboardView}>
         <View style={styles.topBar}>
           <Pressable
             accessibilityRole="button"
@@ -107,7 +114,9 @@ export function ChangePasswordScreen(): React.JSX.Element {
           >
             <ArrowLeft size={24} color={theme.colors.textPrimary} />
           </Pressable>
-          <Text style={styles.topBarTitle}>{t('security.changePassword.title')}</Text>
+          <Text style={styles.topBarTitle}>
+            {t('security.changePassword.title')}
+          </Text>
           <View style={styles.topBarRightPlaceholder} />
         </View>
 
@@ -124,7 +133,11 @@ export function ChangePasswordScreen(): React.JSX.Element {
         >
           <View style={styles.infoCard}>
             <View style={styles.infoIcon}>
-              <ShieldCheck size={22} color={theme.colors.primary} weight="fill" />
+              <ShieldCheck
+                size={22}
+                color={theme.colors.primary}
+                weight="fill"
+              />
             </View>
             <View style={styles.infoTextWrap}>
               <Text style={styles.infoTitle}>
@@ -140,10 +153,10 @@ export function ChangePasswordScreen(): React.JSX.Element {
             <Input
               label={t('security.changePassword.currentPassword')}
               value={currentPassword}
-              onChangeText={(text) => {
+              onChangeText={text => {
                 setCurrentPassword(text);
                 if (errors.currentPassword) {
-                  setErrors((prev) => ({ ...prev, currentPassword: undefined }));
+                  setErrors(prev => ({ ...prev, currentPassword: undefined }));
                 }
               }}
               secureTextEntry
@@ -156,10 +169,10 @@ export function ChangePasswordScreen(): React.JSX.Element {
             <Input
               label={t('security.changePassword.newPassword')}
               value={newPassword}
-              onChangeText={(text) => {
+              onChangeText={text => {
                 setNewPassword(text);
                 if (errors.newPassword) {
-                  setErrors((prev) => ({ ...prev, newPassword: undefined }));
+                  setErrors(prev => ({ ...prev, newPassword: undefined }));
                 }
               }}
               secureTextEntry
@@ -172,10 +185,10 @@ export function ChangePasswordScreen(): React.JSX.Element {
             <Input
               label={t('security.changePassword.confirmPassword')}
               value={confirmPassword}
-              onChangeText={(text) => {
+              onChangeText={text => {
                 setConfirmPassword(text);
                 if (errors.confirmPassword) {
-                  setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                  setErrors(prev => ({ ...prev, confirmPassword: undefined }));
                 }
               }}
               secureTextEntry
@@ -221,7 +234,9 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.effects.isLiquid ? theme.effects.contentBorder : theme.colors.divider,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
     backgroundColor: theme.effects.isLiquid
       ? theme.effects.contentSurfaceElevated
       : theme.colors.surface,

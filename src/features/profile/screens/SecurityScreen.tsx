@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   Key,
+  CaretRight,
 } from 'phosphor-react-native';
 
 import type { ProfileStackParamList } from '@app/navigation/types';
@@ -25,7 +26,6 @@ import {
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { PROFILE_SECURITY_CAPABILITIES } from '../config/securityCapabilities';
 
 type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -92,12 +92,9 @@ export function SecurityScreen(): React.JSX.Element {
             <InfoRow label={t('security.accountStatus')} value={accountStatus} />
             <View style={styles.rowDivider} />
             <Pressable
-              style={[styles.actionRow, styles.disabledAction]}
-              disabled={!PROFILE_SECURITY_CAPABILITIES.changePassword}
+              style={styles.actionRow}
               accessibilityRole="button"
-              accessibilityState={{
-                disabled: !PROFILE_SECURITY_CAPABILITIES.changePassword,
-              }}
+              accessibilityLabel={t('security.changePassword.title')}
               onPress={() => navigation.navigate('ChangePassword')}
             >
               <View style={styles.actionLeft}>
@@ -107,11 +104,11 @@ export function SecurityScreen(): React.JSX.Element {
                 <View style={styles.actionCopy}>
                   <Text style={styles.actionLabel}>{t('security.changePassword.title')}</Text>
                   <Text style={styles.actionDesc}>
-                    {t('security.changePassword.unavailableDescription')}
+                    {t('security.changePassword.description')}
                   </Text>
                 </View>
               </View>
-              <Text style={styles.unavailableLabel}>{t('security.unavailable')}</Text>
+              <CaretRight size={18} color={theme.colors.textTertiary} weight="bold" />
             </Pressable>
           </View>
         </View>
@@ -208,9 +205,6 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  disabledAction: {
-    opacity: 0.72,
-  },
   actionLeft: {
     flex: 1,
     flexDirection: 'row',
@@ -238,11 +232,5 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
     marginTop: spacing.xxs,
-  },
-  unavailableLabel: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textTertiary,
-    marginLeft: spacing.sm,
   },
 });

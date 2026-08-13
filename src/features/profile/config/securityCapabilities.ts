@@ -3,7 +3,6 @@
  * current public passenger backend contract.
  */
 export const PROFILE_SECURITY_CAPABILITIES = Object.freeze({
-  changePassword: false,
   loginSessions: false,
   loginActivity: false,
 });

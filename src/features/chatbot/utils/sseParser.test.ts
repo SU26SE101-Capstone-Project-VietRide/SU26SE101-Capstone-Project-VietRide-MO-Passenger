@@ -1,6 +1,6 @@
 import { ApiRequestError } from '@shared/api/errors';
 import {
-  MAX_CITED_CHUNKS,
+  MAX_RAG_CITATIONS,
   MAX_SSE_EVENT_BYTES,
   MAX_SSE_PENDING_LINE_BYTES,
 } from '../constants/chatLimits';
@@ -20,25 +20,27 @@ const WIRE_PAYLOAD = [
   'data: {"content":" VietRide"}',
   '',
   'event: done',
-  `data: {"conversationId":"${CONVERSATION_ID}","userMessageId":"${USER_MESSAGE_ID}","assistantMessageId":"${ASSISTANT_MESSAGE_ID}","citedChunkIds":["${CHUNK_ID}"]}`,
+  `data: {"conversationId":"${CONVERSATION_ID}","userMessageId":"${USER_MESSAGE_ID}","assistantMessageId":"${ASSISTANT_MESSAGE_ID}","citations":[{"title":"Chính sách vé","section":"Đổi vé"}]}`,
   '',
   '',
 ].join('\n');
 
 const collectEvents = (chunks: string[]): RagChatSseEvent[] => {
   const events: RagChatSseEvent[] = [];
-  const parser = new SseParser((wireEvent) => {
+  const parser = new SseParser(wireEvent => {
     const event = parseRagChatSseEvent(wireEvent);
     if (event) events.push(event);
   });
 
-  chunks.forEach((chunk) => parser.feed(chunk));
+  chunks.forEach(chunk => parser.feed(chunk));
   parser.finish();
   return events;
 };
 
-const makeCitationId = (index: number): string =>
-  `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
+const makeCitation = (index: number) => ({
+  title: `Source ${index + 1}`,
+  section: index % 2 === 0 ? `Section ${index + 1}` : null,
+});
 
 describe('SseParser', () => {
   it('parses multiple token events and the terminal done event', () => {
@@ -51,7 +53,7 @@ describe('SseParser', () => {
           conversationId: CONVERSATION_ID,
           userMessageId: USER_MESSAGE_ID,
           assistantMessageId: ASSISTANT_MESSAGE_ID,
-          citedChunkIds: [CHUNK_ID],
+          citations: [{ title: 'Chính sách vé', section: 'Đổi vé' }],
         },
       },
     ]);
@@ -78,13 +80,37 @@ describe('SseParser', () => {
   });
 
   it('surfaces malformed JSON as a typed protocol error', () => {
-    expect(() => collectEvents(['event: token\ndata: nope\n\n'])).toThrow(ApiRequestError);
+    expect(() => collectEvents(['event: token\ndata: nope\n\n'])).toThrow(
+      ApiRequestError,
+    );
   });
 
   it('rejects an invalid done payload', () => {
-    expect(() => collectEvents([
-      'event: done\ndata: {"conversationId":"not-a-uuid"}\n\n',
-    ])).toThrow('Thông tin hoàn tất hội thoại không hợp lệ.');
+    expect(() =>
+      collectEvents(['event: done\ndata: {"conversationId":"not-a-uuid"}\n\n']),
+    ).toThrow('Thông tin hoàn tất hội thoại không hợp lệ.');
+  });
+
+  it('validates and discards legacy citation UUIDs during a rolling deploy', () => {
+    const event = parseRagChatSseEvent({
+      event: 'done',
+      data: JSON.stringify({
+        conversationId: CONVERSATION_ID,
+        userMessageId: USER_MESSAGE_ID,
+        assistantMessageId: ASSISTANT_MESSAGE_ID,
+        citedChunkIds: [CHUNK_ID],
+      }),
+    });
+
+    expect(event).toEqual({
+      event: 'done',
+      data: {
+        conversationId: CONVERSATION_ID,
+        userMessageId: USER_MESSAGE_ID,
+        assistantMessageId: ASSISTANT_MESSAGE_ID,
+        citations: [],
+      },
+    });
   });
 
   it('ignores forward-compatible unknown event names', () => {
@@ -94,27 +120,36 @@ describe('SseParser', () => {
   it('bounds an unterminated SSE line by its UTF-8 byte length', () => {
     const parser = new SseParser(jest.fn());
 
-    expect(() => parser.feed('x'.repeat(MAX_SSE_PENDING_LINE_BYTES))).not.toThrow();
-    expect(() => parser.feed('x')).toThrow(expect.objectContaining({
-      code: 'RAG_STREAM_LIMIT_EXCEEDED',
-    }));
+    expect(() =>
+      parser.feed('x'.repeat(MAX_SSE_PENDING_LINE_BYTES)),
+    ).not.toThrow();
+    expect(() => parser.feed('x')).toThrow(
+      expect.objectContaining({
+        code: 'RAG_STREAM_LIMIT_EXCEEDED',
+      }),
+    );
   });
 
   it('bounds cumulative bytes across all lines in a single SSE event', () => {
     const parser = new SseParser(jest.fn());
     const eventLineBytes = 'event: token\n'.length;
     const firstDataLine = `data: ${'x'.repeat(30_000)}\n`;
-    const finalDataValueLength = MAX_SSE_EVENT_BYTES
-      - eventLineBytes
-      - firstDataLine.length
-      - 'data: \n'.length;
+    const finalDataValueLength =
+      MAX_SSE_EVENT_BYTES -
+      eventLineBytes -
+      firstDataLine.length -
+      'data: \n'.length;
 
     parser.feed('event: token\n');
     parser.feed(firstDataLine);
-    expect(() => parser.feed(`data: ${'x'.repeat(finalDataValueLength)}\n`)).not.toThrow();
-    expect(() => parser.feed(': overflow\n')).toThrow(expect.objectContaining({
-      code: 'RAG_STREAM_LIMIT_EXCEEDED',
-    }));
+    expect(() =>
+      parser.feed(`data: ${'x'.repeat(finalDataValueLength)}\n`),
+    ).not.toThrow();
+    expect(() => parser.feed(': overflow\n')).toThrow(
+      expect.objectContaining({
+        code: 'RAG_STREAM_LIMIT_EXCEEDED',
+      }),
+    );
   });
 
   it('resets the event byte budget after a blank-line dispatch', () => {
@@ -137,25 +172,27 @@ describe('SseParser', () => {
       event: 'done',
       data: JSON.stringify({
         ...baseDonePayload,
-        citedChunkIds: Array.from(
-          { length: MAX_CITED_CHUNKS },
-          (_, index) => makeCitationId(index),
+        citations: Array.from({ length: MAX_RAG_CITATIONS }, (_, index) =>
+          makeCitation(index),
         ),
       }),
     });
 
     expect(accepted?.event).toBe('done');
-    expect(() => parseRagChatSseEvent({
-      event: 'done',
-      data: JSON.stringify({
-        ...baseDonePayload,
-        citedChunkIds: Array.from(
-          { length: MAX_CITED_CHUNKS + 1 },
-          (_, index) => makeCitationId(index),
-        ),
+    expect(() =>
+      parseRagChatSseEvent({
+        event: 'done',
+        data: JSON.stringify({
+          ...baseDonePayload,
+          citations: Array.from({ length: MAX_RAG_CITATIONS + 1 }, (_, index) =>
+            makeCitation(index),
+          ),
+        }),
       }),
-    })).toThrow(expect.objectContaining({
-      code: 'RAG_STREAM_LIMIT_EXCEEDED',
-    }));
+    ).toThrow(
+      expect.objectContaining({
+        code: 'RAG_STREAM_LIMIT_EXCEEDED',
+      }),
+    );
   });
 });

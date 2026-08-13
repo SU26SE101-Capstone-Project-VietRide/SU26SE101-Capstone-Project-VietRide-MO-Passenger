@@ -31,11 +31,11 @@ const utf8ByteLength = (value: string): number => {
     } else if (codeUnit <= 0x7ff) {
       bytes += 2;
     } else if (
-      codeUnit >= 0xd800
-      && codeUnit <= 0xdbff
-      && index + 1 < value.length
-      && value.charCodeAt(index + 1) >= 0xdc00
-      && value.charCodeAt(index + 1) <= 0xdfff
+      codeUnit >= 0xd800 &&
+      codeUnit <= 0xdbff &&
+      index + 1 < value.length &&
+      value.charCodeAt(index + 1) >= 0xdc00 &&
+      value.charCodeAt(index + 1) <= 0xdfff
     ) {
       bytes += 4;
       index += 1;
@@ -49,7 +49,9 @@ const utf8ByteLength = (value: string): number => {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
-const parseFriendlyCitations = (value: unknown): RagFriendlyCitation[] | null => {
+const parseFriendlyCitations = (
+  value: unknown,
+): RagFriendlyCitation[] | null => {
   if (!Array.isArray(value)) return null;
   if (value.length > MAX_RAG_CITATIONS) {
     throw createChatStreamLimitError();
@@ -60,10 +62,10 @@ const parseFriendlyCitations = (value: unknown): RagFriendlyCitation[] | null =>
 
   for (const item of value) {
     if (
-      !isRecord(item)
-      || typeof item.title !== 'string'
-      || !item.title.trim()
-      || (item.section !== null && typeof item.section !== 'string')
+      !isRecord(item) ||
+      typeof item.title !== 'string' ||
+      !item.title.trim() ||
+      (item.section !== null && typeof item.section !== 'string')
     ) {
       throw protocolError('Nguồn tham khảo từ trợ lý không hợp lệ.');
     }
@@ -116,21 +118,20 @@ export const parseRagChatSseEvent = (
   }
 
   const citations = parseFriendlyCitations(data.citations);
-  const hasLegacyChunkIds = Array.isArray(data.citedChunkIds);
+  const legacyChunkIds = Array.isArray(data.citedChunkIds)
+    ? data.citedChunkIds
+    : null;
 
-  if (
-    hasLegacyChunkIds
-    && data.citedChunkIds.length > MAX_RAG_CITATIONS
-  ) {
+  if (legacyChunkIds && legacyChunkIds.length > MAX_RAG_CITATIONS) {
     throw createChatStreamLimitError();
   }
 
   if (
-    !isUuid(data.conversationId)
-    || !isUuid(data.userMessageId)
-    || !isUuid(data.assistantMessageId)
-    || (citations === null && !hasLegacyChunkIds)
-    || (hasLegacyChunkIds && !data.citedChunkIds.every(isUuid))
+    !isUuid(data.conversationId) ||
+    !isUuid(data.userMessageId) ||
+    !isUuid(data.assistantMessageId) ||
+    (citations === null && !legacyChunkIds) ||
+    (legacyChunkIds && !legacyChunkIds.every(isUuid))
   ) {
     throw protocolError('Thông tin hoàn tất hội thoại không hợp lệ.');
   }
