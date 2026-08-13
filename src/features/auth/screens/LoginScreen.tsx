@@ -53,8 +53,6 @@ export function LoginScreen(): React.JSX.Element {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<ScreenRouteProp>();
   const setSession = useAuthStore((state) => state.setSession);
-  const continueAsGuest = useAuthStore((state) => state.continueAsGuest);
-  const isGuest = useAuthStore((state) => state.isGuest);
   const authError = useAuthStore((state) => state.authError);
   const clearAuthError = useAuthStore((state) => state.clearAuthError);
   const theme = useTheme();
@@ -69,7 +67,6 @@ export function LoginScreen(): React.JSX.Element {
   const [email, setEmail] = useState(route.params?.email ?? '');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<LoginFormErrors>({});
-  const [isGuestPending, setIsGuestPending] = useState(false);
   const authErrorMessage = useMemo(
     () => authError
       ? getLocalizedApiErrorMessage(authError, t, AUTH_ERROR_TRANSLATION_KEYS)
@@ -122,32 +119,6 @@ export function LoginScreen(): React.JSX.Element {
     }
   }, [clearAuthError, clearError, email, handleError, loginMutation, password, setSession]);
 
-  const handleContinueAsGuest = useCallback(async () => {
-    clearError();
-    clearAuthError();
-
-    if (isGuest) {
-      navigation.getParent()?.goBack();
-      return;
-    }
-
-    setIsGuestPending(true);
-
-    try {
-      await continueAsGuest();
-    } catch (error) {
-      setIsGuestPending(false);
-      handleError(error);
-    }
-  }, [
-    clearAuthError,
-    clearError,
-    continueAsGuest,
-    handleError,
-    isGuest,
-    navigation,
-  ]);
-
   const handleGoogleLogin = useCallback(async () => {
     clearError();
     clearAuthError();
@@ -155,7 +126,7 @@ export function LoginScreen(): React.JSX.Element {
   }, [clearAuthError, clearError, signInWithGoogle]);
 
   const isSubmitDisabled =
-    !email.trim() || !password || loginMutation.isPending || isGuestPending || isGoogleLoginPending;
+    !email.trim() || !password || loginMutation.isPending || isGoogleLoginPending;
 
   return (
     <View style={styles.root}>
@@ -265,12 +236,12 @@ export function LoginScreen(): React.JSX.Element {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('auth.loginFlow.google')}
-                accessibilityState={{ disabled: loginMutation.isPending || isGuestPending || isGoogleLoginPending, busy: isGoogleLoginPending }}
-                disabled={loginMutation.isPending || isGuestPending || isGoogleLoginPending}
+                accessibilityState={{ disabled: loginMutation.isPending || isGoogleLoginPending, busy: isGoogleLoginPending }}
+                disabled={loginMutation.isPending || isGoogleLoginPending}
                 onPress={handleGoogleLogin}
                 style={({ pressed }) => [
                   styles.googleButton,
-                  pressed && !(loginMutation.isPending || isGuestPending || isGoogleLoginPending) ? styles.pressed : null,
+                  pressed && !(loginMutation.isPending || isGoogleLoginPending) ? styles.pressed : null,
                   isGoogleLoginPending ? styles.disabledGoogleButton : null,
                 ]}
               >
@@ -281,24 +252,6 @@ export function LoginScreen(): React.JSX.Element {
                     : t('auth.loginFlow.google')}
                 </Text>
               </Pressable>
-
-              <View style={styles.guestDivider}>
-                <View style={[styles.dividerLine, { backgroundColor: theme.colors.divider }]} />
-                <Text style={[styles.guestDividerText, { color: theme.colors.textTertiary }]}>
-                  {t('common.or')}
-                </Text>
-                <View style={[styles.dividerLine, { backgroundColor: theme.colors.divider }]} />
-              </View>
-
-              <Button
-                title={isGuest ? t('common.back') : t('auth.loginFlow.continueAsGuest')}
-                onPress={handleContinueAsGuest}
-                disabled={loginMutation.isPending || isGuestPending || isGoogleLoginPending}
-                loading={isGuestPending}
-                variant="outline"
-                size="md"
-                fullWidth
-              />
             </View>
 
           </AppKeyboardAwareScrollView>
@@ -395,23 +348,6 @@ const createStyles = (theme: AppTheme) => ({
   },
   disabledGoogleButton: {
     opacity: 0.55,
-  },
-  guestDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.md,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: theme.colors.divider,
-  },
-  guestDividerText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textTertiary,
-    marginHorizontal: spacing.sm,
-    textTransform: 'uppercase',
   },
   pressed: {
     opacity: 0.75,

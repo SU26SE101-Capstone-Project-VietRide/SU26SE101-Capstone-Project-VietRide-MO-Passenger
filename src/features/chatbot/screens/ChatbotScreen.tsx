@@ -1,6 +1,5 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -68,6 +67,7 @@ export function ChatbotScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const listRef = useRef<FlashListRef<ChatMessage> | null>(null);
+  const [quickActionsDismissed, setQuickActionsDismissed] = useState(false);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const applySearchPrefill = useBookingStore((state) => state.applySearchPrefill);
@@ -111,7 +111,6 @@ export function ChatbotScreen(): React.JSX.Element {
   const statusLabel = useMemo(() => {
     if (!isOnline) return t('chatbot.offline');
     if (isStreaming) return t('chatbot.responding');
-    if (availability === 'guest') return t('chatbot.signInRequired');
     if (availability === 'phoneRequired') return t('chatbot.profileRequired');
     return t('chatbot.online');
   }, [availability, isOnline, isStreaming, t]);
@@ -164,23 +163,20 @@ export function ChatbotScreen(): React.JSX.Element {
   }, [messages, sendMessage]);
 
   const handleSend = useCallback((message: string) => {
+    setQuickActionsDismissed(true);
     sendMessage(message).catch(() => undefined);
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   }, [sendMessage]);
 
   const handleAccessPress = useCallback(() => {
-    if (availability === 'guest') {
-      navigation.navigate('Auth', { screen: 'Login' });
-      return;
-    }
-
     navigation.navigate('Main', {
       screen: 'Profile',
       params: { screen: 'EditProfile' },
     });
-  }, [availability, navigation]);
+  }, [navigation]);
 
   const handleQuickAction = useCallback((action: QuickAction) => {
+    setQuickActionsDismissed(true);
     if (action.id === 'booking') {
       handleBookingPress({ isReadyToSearch: false });
     } else if (action.id === 'history') {
@@ -215,10 +211,15 @@ export function ChatbotScreen(): React.JSX.Element {
     />
   ), [handleBookingPress, handleRate, handleRetryMessage, pendingFeedbackId]);
 
+  const handleResetConversation = useCallback(() => {
+    setQuickActionsDismissed(false);
+    resetConversation();
+  }, [resetConversation]);
+
   const handleNewConversation = useCallback(() => {
     const hasConversationContent = messages.some((message) => message.id !== 'welcome');
     if (!hasConversationContent) {
-      resetConversation();
+      handleResetConversation();
       return;
     }
     Alert.alert(
@@ -226,14 +227,23 @@ export function ChatbotScreen(): React.JSX.Element {
       t('chatbot.newConversationConfirmDescription'),
       [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('chatbot.newConversation'), style: 'destructive', onPress: resetConversation },
+        {
+          text: t('chatbot.newConversation'),
+          style: 'destructive',
+          onPress: handleResetConversation,
+        },
       ],
     );
-  }, [messages, resetConversation, t]);
+  }, [handleResetConversation, messages, t]);
 
   const listExtraData = useMemo(
     () => ({ pendingFeedbackId, language: i18n.language }),
     [i18n.language, pendingFeedbackId],
+  );
+  const showQuickActions = Boolean(
+    !quickActionsDismissed
+    && messages.length === 1
+    && messages[0]?.id === 'welcome',
   );
 
   return (
@@ -243,115 +253,109 @@ export function ChatbotScreen(): React.JSX.Element {
         backgroundColor={theme.colors.background}
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
-        style={styles.keyboardView}
-      >
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('common.cancel')}
-            onPress={() => navigation.goBack()}
-            style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
-          >
-            <ArrowLeft size={22} color={theme.colors.textPrimary} />
-          </Pressable>
+      <View style={styles.header}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.cancel')}
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
+        >
+          <ArrowLeft size={22} color={theme.colors.textPrimary} />
+        </Pressable>
 
-          <View style={styles.botInfo}>
-            <View style={styles.botAvatar}>
-              <Robot size={20} color={theme.colors.textInverse} weight="fill" />
-            </View>
-            <View>
-              <Text style={styles.botName}>{t('chatbot.title')}</Text>
-              <View style={styles.statusRow}>
-                <View style={[
-                  styles.statusDot,
-                  !isOnline || availability !== 'ready' ? styles.statusDotMuted : null,
-                ]} />
-                <Text style={styles.botStatus}>{statusLabel}</Text>
-              </View>
+        <View style={styles.botInfo}>
+          <View style={styles.botAvatar}>
+            <Robot size={20} color={theme.colors.textInverse} weight="fill" />
+          </View>
+          <View>
+            <Text style={styles.botName}>{t('chatbot.title')}</Text>
+            <View style={styles.statusRow}>
+              <View style={[
+                styles.statusDot,
+                !isOnline || availability !== 'ready' ? styles.statusDotMuted : null,
+              ]} />
+              <Text style={styles.botStatus}>{statusLabel}</Text>
             </View>
           </View>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('chatbot.newConversation')}
-            onPress={handleNewConversation}
-            style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
-          >
-            <NotePencil size={21} color={theme.colors.primary} weight="bold" />
-          </Pressable>
         </View>
 
-        <FlashList
-          ref={listRef}
-          data={messages}
-          extraData={listExtraData}
-          keyExtractor={keyExtractor}
-          getItemType={getItemType}
-          renderItem={renderMessage}
-          maintainVisibleContentPosition={maintainVisibleContentPosition}
-          contentContainerStyle={styles.messageListContent}
-          keyboardDismissMode="interactive"
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('chatbot.newConversation')}
+          onPress={handleNewConversation}
+          style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
+        >
+          <NotePencil size={21} color={theme.colors.primary} weight="bold" />
+        </Pressable>
+      </View>
 
-        {feedbackError ? (
-          <Text style={styles.feedbackError}>{feedbackError}</Text>
+      <FlashList
+        ref={listRef}
+        style={styles.messageList}
+        data={messages}
+        extraData={listExtraData}
+        keyExtractor={keyExtractor}
+        getItemType={getItemType}
+        renderItem={renderMessage}
+        maintainVisibleContentPosition={maintainVisibleContentPosition}
+        contentContainerStyle={styles.messageListContent}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        ListFooterComponent={showQuickActions ? (
+          <View style={styles.quickActionsContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.quickActionsContent}
+            >
+              {quickActions.map((action) => {
+                const Icon = action.icon;
+                const isPolicyDisabled = action.id === 'policy'
+                  && (availability !== 'ready' || !isOnline || isStreaming);
+
+                return (
+                  <Pressable
+                    key={action.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={action.label}
+                    accessibilityState={{ disabled: isPolicyDisabled }}
+                    disabled={isPolicyDisabled}
+                    onPress={() => handleQuickAction(action)}
+                    style={({ pressed }) => [
+                      styles.quickAction,
+                      isPolicyDisabled ? styles.quickActionDisabled : null,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Icon size={16} color={theme.colors.primary} weight="bold" />
+                    <Text style={styles.quickActionLabel}>{action.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
         ) : null}
+      />
 
-        {availability !== 'ready' ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleAccessPress}
-            style={({ pressed }) => [
-              styles.accessButton,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <Text style={styles.accessButtonText}>
-              {availability === 'guest'
-                ? t('chatbot.signInAction')
-                : t('chatbot.completeProfileAction')}
-            </Text>
-          </Pressable>
-        ) : null}
+      {feedbackError ? (
+        <Text style={styles.feedbackError}>{feedbackError}</Text>
+      ) : null}
 
-        <View style={styles.quickActionsContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickActionsContent}
-          >
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-              const isPolicyDisabled = action.id === 'policy'
-                && (availability !== 'ready' || !isOnline || isStreaming);
+      {availability !== 'ready' ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleAccessPress}
+          style={({ pressed }) => [
+            styles.accessButton,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Text style={styles.accessButtonText}>{t('chatbot.completeProfileAction')}</Text>
+        </Pressable>
+      ) : null}
 
-              return (
-                <Pressable
-                  key={action.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={action.label}
-                  accessibilityState={{ disabled: isPolicyDisabled }}
-                  disabled={isPolicyDisabled}
-                  onPress={() => handleQuickAction(action)}
-                  style={({ pressed }) => [
-                    styles.quickAction,
-                    isPolicyDisabled ? styles.quickActionDisabled : null,
-                    pressed ? styles.pressed : null,
-                  ]}
-                >
-                  <Icon size={16} color={theme.colors.primary} weight="bold" />
-                  <Text style={styles.quickActionLabel}>{action.label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-
+      <KeyboardAvoidingView behavior="padding" style={styles.composerKeyboardView}>
         <ChatComposer
           disabled={availability !== 'ready' || !isOnline}
           isStreaming={isStreaming}
@@ -369,8 +373,12 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  keyboardView: {
+  composerKeyboardView: {
+    flexShrink: 0,
+  },
+  messageList: {
     flex: 1,
+    minHeight: 0,
   },
   header: {
     minHeight: 64,
@@ -431,7 +439,7 @@ const createStyles = (theme: AppTheme) => ({
   messageListContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.xl,
   },
   feedbackError: {
     fontFamily: fontFamilies.medium,
@@ -456,17 +464,10 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textInverse,
   },
   quickActionsContainer: {
-    borderTopWidth: 1,
-    borderTopColor: theme.effects.isLiquid
-      ? theme.effects.contentBorderStrong
-      : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.contentSurfaceElevated
-      : theme.colors.surface,
-    paddingVertical: spacing.sm,
+    paddingBottom: spacing.lg,
   },
   quickActionsContent: {
-    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xs,
     gap: spacing.sm,
   },
   quickAction: {

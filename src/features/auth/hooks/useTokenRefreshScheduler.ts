@@ -13,11 +13,10 @@ import { useAuthStore } from '../store/useAuthStore';
 
 export function useTokenRefreshScheduler(): void {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const isGuest = useAuthStore((state) => state.isGuest);
   const userStatus = useAuthStore((state) => state.user?.status);
 
   useEffect(() => {
-    if (!isAuthenticated || isGuest || userStatus !== 'ACTIVE') {
+    if (!isAuthenticated || userStatus !== 'ACTIVE') {
       return undefined;
     }
 
@@ -106,5 +105,5 @@ export function useTokenRefreshScheduler(): void {
       clearRefreshTimer();
       subscription.remove();
     };
-  }, [isAuthenticated, isGuest, userStatus]);
+  }, [isAuthenticated, userStatus]);
 }

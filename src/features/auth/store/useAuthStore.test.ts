@@ -94,10 +94,17 @@ describe('auth store account boundaries', () => {
     useAuthStore.setState({
       user: null,
       isAuthenticated: false,
-      isGuest: false,
       isAuthLoading: false,
       authError: null,
     });
+  });
+
+  it('does not expose a guest access mode', () => {
+    const state = useAuthStore.getState();
+
+    expect(state).not.toHaveProperty('isGuest');
+    expect(state).not.toHaveProperty('isGuestHandoffActive');
+    expect(state).not.toHaveProperty('continueAsGuest');
   });
 
   it('clears all private query and feature state before caching a new account', async () => {
@@ -114,7 +121,6 @@ describe('auth store account boundaries', () => {
     expect(useAuthStore.getState()).toMatchObject({
       user: account,
       isAuthenticated: true,
-      isGuest: false,
     });
   });
 
@@ -127,7 +133,6 @@ describe('auth store account boundaries', () => {
     useAuthStore.setState({
       user: account,
       isAuthenticated: true,
-      isGuest: false,
       isAuthLoading: false,
       authError: null,
     });
@@ -144,7 +149,6 @@ describe('auth store account boundaries', () => {
     expect(useAuthStore.getState()).toMatchObject({
       user: null,
       isAuthenticated: false,
-      isGuest: false,
     });
   });
 
@@ -199,7 +203,6 @@ describe('auth store account boundaries', () => {
     useAuthStore.setState({
       user: account,
       isAuthenticated: true,
-      isGuest: false,
       isAuthLoading: false,
       authError: null,
     });

@@ -55,52 +55,16 @@ export function ProfileOverviewScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<ProfileNavProp>();
   const user = useAuthStore((state) => state.user);
-  const isGuest = useAuthStore((state) => state.isGuest);
   const logout = useAuthStore((state) => state.logout);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
   const bottomTabClearance = useFloatingTabBarContentInset();
-  const displayName = user?.fullName ?? (
-    isGuest
-      ? t('profile.guestName')
-      : t('profile.passengerName')
-  );
-  const displayPhone = user?.phone ?? (
-    isGuest
-      ? t('profile.signInToSaveTrips')
-      : t('profile.phoneUnavailable')
-  );
+  const displayName = user?.fullName ?? t('profile.passengerName');
+  const displayPhone = user?.phone ?? t('profile.phoneUnavailable');
   const isVerified = user?.status === 'ACTIVE';
-  const handleRequireAccount = useCallback(() => {
-    if (!isGuest) {
-      return true;
-    }
-
-    Alert.alert(
-      t('profile.signInRequiredTitle'),
-      t('profile.signInRequiredDescription'),
-      [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-        },
-        {
-          text: t('auth.login'),
-          onPress: () => navigation.navigate('Auth', { screen: 'Login' }),
-        },
-      ],
-    );
-
-    return false;
-  }, [isGuest, navigation, t]);
 
   const handleLogout = useCallback(async () => {
-    if (isGuest) {
-      navigation.navigate('Auth', { screen: 'Login' });
-      return;
-    }
-
     Alert.alert(
       t('auth.logout'),
       t('profile.logoutConfirm'),
@@ -118,20 +82,16 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         },
       ]
     );
-  }, [isGuest, logout, navigation, t]);
+  }, [logout, t]);
 
   const profileMenuItems = useMemo(() => [
     {
       id: 'edit-profile',
       title: t('profile.editProfile'),
       icon: User,
-      onPress: () => {
-        if (handleRequireAccount()) {
-          navigation.navigate('EditProfile');
-        }
-      },
+      onPress: () => navigation.navigate('EditProfile'),
     },
-    ...(isProfileWalletEntryPointEnabled() && !isGuest ? [{
+    ...(isProfileWalletEntryPointEnabled() ? [{
       id: 'wallet',
       title: t('profile.wallet'),
       icon: Wallet,
@@ -158,7 +118,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
         navigation.navigate('Chatbot');
       },
     },
-  ], [handleRequireAccount, isGuest, navigation, t]);
+  ], [navigation, t]);
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
@@ -201,29 +161,27 @@ export function ProfileOverviewScreen(): React.JSX.Element {
                 >
                   {displayName}
                 </Text>
-                {!isGuest ? (
-                  <View style={styles.verifyBadgeSlot} testID="profile-verification-badge">
-                    {isVerified ? (
-                      <CheckCircle
-                        size={18}
-                        color={theme.colors.success}
-                        weight="fill"
-                      />
-                    ) : (
-                      <WarningCircle
-                        size={18}
-                        color={theme.colors.warning}
-                        weight="fill"
-                      />
-                    )}
-                  </View>
-                ) : null}
+                <View style={styles.verifyBadgeSlot} testID="profile-verification-badge">
+                  {isVerified ? (
+                    <CheckCircle
+                      size={18}
+                      color={theme.colors.success}
+                      weight="fill"
+                    />
+                  ) : (
+                    <WarningCircle
+                      size={18}
+                      color={theme.colors.warning}
+                      weight="fill"
+                    />
+                  )}
+                </View>
               </View>
               <View style={styles.phoneRow}>
                 <Phone size={14} color={theme.colors.textSecondary} style={styles.phoneIcon} />
                 <Text style={styles.phoneText}>{displayPhone}</Text>
               </View>
-              {!isGuest && !isVerified && user?.email ? (
+              {!isVerified && user?.email ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t('profile.verifyAccount')}
@@ -275,18 +233,15 @@ export function ProfileOverviewScreen(): React.JSX.Element {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={isGuest ? t('profile.signInRegister') : t('auth.logout')}
+          accessibilityLabel={t('auth.logout')}
           style={({ pressed }) => [
             styles.logoutButton,
-            isGuest ? styles.signInButton : null,
             pressed ? styles.pressed : null,
           ]}
           onPress={handleLogout}
         >
-          <SignOut size={20} color={isGuest ? theme.colors.primary : theme.colors.error} weight="bold" />
-          <Text style={[styles.logoutText, isGuest ? styles.signInText : null]}>
-            {isGuest ? t('profile.signInRegister') : t('auth.logout')}
-          </Text>
+          <SignOut size={20} color={theme.colors.error} weight="bold" />
+          <Text style={styles.logoutText}>{t('auth.logout')}</Text>
         </Pressable>
 
         <Text style={styles.versionText}>
@@ -435,17 +390,11 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.md,
     marginBottom: spacing.xl,
   },
-  signInButton: {
-    ...theme.components.secondaryButton,
-  },
   logoutText: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.md,
     color: theme.colors.error,
     marginLeft: spacing.sm,
-  },
-  signInText: {
-    color: theme.colors.primary,
   },
   versionText: {
     fontFamily: fontFamilies.regular,

@@ -67,7 +67,6 @@ describe('wallet top-up coordination', () => {
     useAuthStore.setState({
       user,
       isAuthenticated: true,
-      isGuest: false,
       isAuthLoading: false,
       authError: null,
     });
@@ -77,7 +76,6 @@ describe('wallet top-up coordination', () => {
     useAuthStore.setState({
       user: null,
       isAuthenticated: false,
-      isGuest: false,
       isAuthLoading: false,
       authError: null,
     });

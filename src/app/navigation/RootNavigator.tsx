@@ -2,11 +2,10 @@
  * Root Navigator — Switches between Auth and Main flows
  *
  * Uses the auth store to determine which navigator to render.
- * When the user is authenticated or browsing as guest, Main (tabs) is shown;
- * otherwise Auth (login/register) is shown.
+ * Only authenticated users with a completed phone profile can enter Main.
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 
@@ -29,41 +28,21 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { AppLaunchScreen } from '@shared/components';
 import { PaymentLifecycleCoordinator } from '@app/components/PaymentLifecycleCoordinator';
 import { createNativeStackOptions, useMotion } from '@shared/motion';
-import { navigationRef } from './navigationRef';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const renderAuthScreen = (
-  mode: 'guest' | 'signed-out',
-  reduceMotion: boolean,
-): React.JSX.Element => (
+const renderAuthScreen = (): React.JSX.Element => (
   <Stack.Screen
     name="Auth"
-    navigationKey={mode === 'guest' ? 'guest-auth' : 'signed-out-auth'}
+    navigationKey="signed-out-auth"
     component={AuthNavigator}
-    options={mode === 'guest'
-      ? {
-          presentation: 'fullScreenModal',
-          animation: reduceMotion ? 'none' : 'slide_from_bottom',
-        }
-      : undefined}
   />
 );
 
-const renderCompleteProfileScreen = (
-  asGuestHandoff: boolean,
-  reduceMotion: boolean,
-): React.JSX.Element => (
+const renderCompleteProfileScreen = (): React.JSX.Element => (
   <Stack.Screen
     name="CompleteProfile"
     component={CompleteProfileScreen}
-    options={asGuestHandoff
-      ? {
-          presentation: 'fullScreenModal',
-          animation: reduceMotion ? 'none' : 'slide_from_bottom',
-          gestureEnabled: false,
-        }
-      : undefined}
   />
 );
 
@@ -73,10 +52,6 @@ export function RootNavigator(): React.JSX.Element {
   useTokenRefreshScheduler();
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const isGuest = useAuthStore((state) => state.isGuest);
-  const isGuestHandoffActive = useAuthStore(
-    (state) => state.isGuestHandoffActive,
-  );
   const isAuthLoading = useAuthStore((state) => state.isAuthLoading);
   const user = useAuthStore((state) => state.user);
   const theme = useTheme();
@@ -92,24 +67,7 @@ export function RootNavigator(): React.JSX.Element {
     [reduceMotion, theme],
   );
   const needsPhoneCompletion = isAuthenticated && Boolean(user && !user.phone);
-  const canEnterApp = isGuest || (isAuthenticated && Boolean(user?.phone));
-  const shouldKeepGuestRouteMounted = needsPhoneCompletion && isGuestHandoffActive;
-
-  useEffect(() => {
-    if (!shouldKeepGuestRouteMounted) return undefined;
-
-    const frame = requestAnimationFrame(() => {
-      if (
-        navigationRef.isReady()
-        && navigationRef.getRootState().routeNames.includes('CompleteProfile')
-        && navigationRef.getCurrentRoute()?.name !== 'CompleteProfile'
-      ) {
-        navigationRef.navigate('CompleteProfile');
-      }
-    });
-
-    return () => cancelAnimationFrame(frame);
-  }, [shouldKeepGuestRouteMounted]);
+  const canEnterApp = isAuthenticated && Boolean(user?.phone);
 
   if (isAuthLoading || (isAuthenticated && !user)) {
     return <AppLaunchScreen message={t('app.restoringSession')} />;
@@ -121,9 +79,9 @@ export function RootNavigator(): React.JSX.Element {
       <Stack.Navigator
         screenOptions={screenOptions}
       >
-        {needsPhoneCompletion && !shouldKeepGuestRouteMounted ? (
-          renderCompleteProfileScreen(false, reduceMotion)
-        ) : canEnterApp || shouldKeepGuestRouteMounted ? (
+        {needsPhoneCompletion ? (
+          renderCompleteProfileScreen()
+        ) : canEnterApp ? (
           <>
             <Stack.Screen name="Main" component={MainTabNavigator} />
             <Stack.Screen name="Booking" component={BookingNavigator} />
@@ -140,13 +98,9 @@ export function RootNavigator(): React.JSX.Element {
               name="NotificationDetail"
               component={NotificationDetailScreen}
             />
-            {isGuest ? renderAuthScreen('guest', reduceMotion) : null}
-            {shouldKeepGuestRouteMounted
-              ? renderCompleteProfileScreen(true, reduceMotion)
-              : null}
           </>
         ) : (
-          renderAuthScreen('signed-out', reduceMotion)
+          renderAuthScreen()
         )}
       </Stack.Navigator>
     </>

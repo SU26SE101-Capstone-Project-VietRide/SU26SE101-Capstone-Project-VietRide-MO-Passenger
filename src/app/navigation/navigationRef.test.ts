@@ -38,7 +38,6 @@ describe('notification action navigation', () => {
     mockGetRootState.mockReturnValue({ routeNames: ['Main', 'Tracking', 'Parcel'] });
     mockGetAuthState.mockReturnValue({
       isAuthenticated: true,
-      isGuest: false,
       user: { id: BOOKING_ID, status: 'ACTIVE', phone: '+84123456789' },
     });
   });

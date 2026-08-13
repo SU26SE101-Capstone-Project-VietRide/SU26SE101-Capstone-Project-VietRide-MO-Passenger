@@ -16,10 +16,9 @@ let pendingPaymentDestination: PendingVnPaySession | null = null;
 
 const canOpenAuthenticatedRoute = (): boolean => {
   if (!navigationRef.isReady()) return false;
-  const { isAuthenticated, isGuest, user } = useAuthStore.getState();
+  const { isAuthenticated, user } = useAuthStore.getState();
   if (
     !isAuthenticated
-    || isGuest
     || user?.status !== 'ACTIVE'
     || !user.phone
   ) {

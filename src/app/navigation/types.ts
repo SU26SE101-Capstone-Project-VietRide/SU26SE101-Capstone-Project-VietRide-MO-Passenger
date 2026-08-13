@@ -34,7 +34,11 @@ export type AuthStackParamList = {
 export type BookingStackParamList = {
   PopularRoutes: { intent?: BookingEntryIntent } | undefined;
   CityPicker: { mode: 'from' | 'to' };
-  DatePicker: { mode?: 'departure' | 'return' } | undefined;
+  DatePicker: {
+    mode?: 'departure' | 'return';
+    next?: 'search';
+    intent?: BookingEntryIntent;
+  } | undefined;
   CreateTicketBooking: { intent: BookingEntryIntent } | undefined;
   /**
    * Map-first Shuttle address picker. Params are strictly serializable —

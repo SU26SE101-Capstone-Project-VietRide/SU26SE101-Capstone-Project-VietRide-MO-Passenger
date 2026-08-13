@@ -9,7 +9,6 @@ import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { ArrowRight, Package, Truck } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useReceivedParcels } from '@features/parcel/hooks/useParcelQueries';
 import type { ReceivedParcel } from '@features/parcel/types';
 import { getParcelStatusPresentation } from '@features/parcel/utils/parcelPresentation';
@@ -133,7 +132,6 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const isGuest = useAuthStore((state) => state.isGuest);
   const safePageSize = normalizePageSize(pageSize);
   const parcelsQuery = useReceivedParcels(1, safePageSize);
   const refetchParcels = parcelsQuery.refetch;
@@ -161,19 +159,7 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
   ), [onParcelPress, t]);
 
   let content: React.ReactNode;
-  if (isGuest) {
-    content = (
-      <View
-        style={styles.stateBox}
-        accessibilityLabel={t('home.parcels.signInAccessibility')}
-      >
-        <Text style={styles.stateTitle}>{t('home.parcels.signInTitle')}</Text>
-        <Text style={styles.stateText}>
-          {t('home.parcels.signInDescription')}
-        </Text>
-      </View>
-    );
-  } else if (parcelsQuery.isLoading) {
+  if (parcelsQuery.isLoading) {
     content = (
       <View
         style={styles.stateBox}
@@ -222,7 +208,7 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{title ?? t('home.parcels.title')}</Text>
-        {onViewAll && !isGuest ? (
+        {onViewAll ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('home.parcels.viewAllAccessibility')}

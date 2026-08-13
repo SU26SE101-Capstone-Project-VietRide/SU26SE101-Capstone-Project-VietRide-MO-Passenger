@@ -118,14 +118,17 @@ export const toRecentSearchInput = (
 export const recentSearchToPrefill = (
   search: RecentSearch,
   now = new Date(),
-): { status: 'applied'; prefill: BookingSearchPrefill } | {
-  status: 'past_date' | 'invalid_date';
+): {
+  status: 'applied' | 'past_date' | 'invalid_date';
+  prefill: BookingSearchPrefill;
 } => {
   const date = resolveRecentSearchDate(search, now);
-  if (date.status !== 'valid') return date;
+  const selectableDate = date.status === 'valid'
+    ? toTripSearchDate(date.date, now)
+    : toVietnamBusinessDate(now);
 
   return {
-    status: 'applied',
+    status: date.status === 'valid' ? 'applied' : date.status,
     prefill: {
       from: search.fromName,
       to: search.toName,
@@ -137,7 +140,7 @@ export const recentSearchToPrefill = (
       destinationStationId: '',
       originStationName: '',
       destinationStationName: '',
-      date: toTripSearchDate(date.date, now),
+      date: selectableDate,
       passengers: search.passengers,
       isRoundTrip: false,
       returnDate: '',

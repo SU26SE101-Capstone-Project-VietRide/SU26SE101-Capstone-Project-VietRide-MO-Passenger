@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import type { ListRenderItem } from 'react-native';
 import { ArrowLeft, MagnifyingGlass, MapPin } from 'phosphor-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -43,26 +44,14 @@ const LocationOption = memo(function LocationOption({
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const typeLabel =
-    location.type === 'MUNICIPALITY'
-      ? t('parcel.locations.municipality')
-      : t('parcel.locations.province');
-  const details = disabled
-    ? t('parcel.locations.alreadySelected')
-    : t('parcel.locations.typeAndCode', {
-        type: typeLabel,
-        code: location.code,
-      });
+  const disabledHint = t('parcel.locations.alreadySelected');
   const handlePress = useCallback(() => {
     onSelect(location);
   }, [location, onSelect]);
 
   return (
     <Pressable
-      accessibilityLabel={t('parcel.locations.itemAccessibility', {
-        name: location.name,
-        details,
-      })}
+      accessibilityLabel={disabled ? `${location.name}. ${disabledHint}` : location.name}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
@@ -78,7 +67,7 @@ const LocationOption = memo(function LocationOption({
       </View>
       <View style={styles.itemTextWrap}>
         <Text style={styles.itemName}>{location.name}</Text>
-        <Text style={styles.itemRegion}>{details}</Text>
+        {disabled ? <Text style={styles.itemRegion}>{disabledHint}</Text> : null}
       </View>
     </Pressable>
   );
@@ -116,10 +105,7 @@ export function ParcelCityPicker(): React.JSX.Element {
     }
 
     return activeLocations.filter(location => {
-      return (
-        normalizeLocationSearchText(location.name).includes(normalizedQuery) ||
-        normalizeLocationSearchText(location.code).includes(normalizedQuery)
-      );
+      return normalizeLocationSearchText(location.name).includes(normalizedQuery);
     });
   }, [locations, query]);
 
@@ -219,64 +205,67 @@ export function ParcelCityPicker(): React.JSX.Element {
 
   return (
     <View style={[styles.safe, { paddingTop: insets.top }]}>
-      <View style={styles.headerRow}>
-        <Pressable
-          accessibilityLabel={t('common.back')}
-          accessibilityRole="button"
-          onPress={() => navigation.goBack()}
-          style={({ pressed }) => [
-            styles.headerButton,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <ArrowLeft size={22} color={theme.colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>
-          {mode === 'from'
-            ? t('parcel.locations.originTitle')
-            : t('parcel.locations.destinationTitle')}
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <KeyboardAvoidingView behavior="padding" style={styles.keyboardContainer}>
+        <View style={styles.headerRow}>
+          <Pressable
+            accessibilityLabel={t('common.back')}
+            accessibilityRole="button"
+            onPress={() => navigation.goBack()}
+            style={({ pressed }) => [
+              styles.headerButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <ArrowLeft size={22} color={theme.colors.textPrimary} />
+          </Pressable>
+          <Text style={styles.headerTitle}>
+            {mode === 'from'
+              ? t('parcel.locations.originTitle')
+              : t('parcel.locations.destinationTitle')}
+          </Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-      <View style={styles.searchBox}>
-        <MagnifyingGlass
-          size={16}
-          color={theme.colors.textTertiary}
-          weight="bold"
-        />
-        <TextInput
-          accessibilityLabel={t('parcel.locations.searchAccessibility')}
-          style={styles.searchInput}
-          placeholder={t('parcel.locations.searchPlaceholder')}
-          placeholderTextColor={theme.colors.textTertiary}
-          value={query}
-          onChangeText={setQuery}
-          autoFocus
-          returnKeyType="search"
-        />
-      </View>
+        <View style={styles.searchBox}>
+          <MagnifyingGlass
+            size={16}
+            color={theme.colors.textTertiary}
+            weight="bold"
+          />
+          <TextInput
+            accessibilityLabel={t('parcel.locations.searchAccessibility')}
+            style={styles.searchInput}
+            placeholder={t('parcel.locations.searchPlaceholder')}
+            placeholderTextColor={theme.colors.textTertiary}
+            value={query}
+            onChangeText={setQuery}
+            autoFocus
+            returnKeyType="search"
+          />
+        </View>
 
-      <FlatList
-        data={filteredLocations}
-        keyExtractor={locationKeyExtractor}
-        contentContainerStyle={styles.list}
-        renderItem={renderLocation}
-        ListEmptyComponent={listEmpty}
-        initialNumToRender={12}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        maxToRenderPerBatch={12}
-        removeClippedSubviews={process.env.EXPO_OS === 'android'}
-        showsVerticalScrollIndicator={false}
-        windowSize={7}
-      />
+        <FlatList
+          data={filteredLocations}
+          keyExtractor={locationKeyExtractor}
+          contentContainerStyle={styles.list}
+          renderItem={renderLocation}
+          ListEmptyComponent={listEmpty}
+          initialNumToRender={12}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          maxToRenderPerBatch={12}
+          removeClippedSubviews={process.env.EXPO_OS === 'android'}
+          showsVerticalScrollIndicator={false}
+          windowSize={7}
+        />
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const createStyles = (theme: AppTheme) => ({
   safe: { flex: 1, backgroundColor: theme.colors.background },
+  keyboardContainer: { flex: 1 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',

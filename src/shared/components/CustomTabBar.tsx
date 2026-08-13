@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { View, Pressable, Text } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
   Easing,
@@ -17,7 +17,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useTranslation } from 'react-i18next';
 import { House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native';
 
-import { fontFamilies, fontSizes, spacing } from '@shared/theme';
+import { spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import { useMotion } from '@shared/motion';
@@ -25,6 +25,10 @@ import { useTabBarStore } from '@shared/store/useTabBarStore';
 import type { AppTheme } from '@shared/theme';
 import { APP_LOGO } from '@shared/constants/assets';
 import { FLOATING_TAB_BAR_HEIGHT } from '@shared/constants/layout';
+import {
+  getNotificationBadgePresentation,
+  NotificationCountBadge,
+} from './NotificationCountBadge';
 
 export const CUSTOM_TAB_BAR_BASE_HEIGHT = FLOATING_TAB_BAR_HEIGHT;
 const TAB_BAR_COLLAPSE_DURATION_MS = 320;
@@ -127,11 +131,9 @@ export function CustomTabBar({
           const badgeValue = route.name === 'Notification'
             ? descriptors[route.key]?.options.tabBarBadge
             : undefined;
-          const badgeCount = Number(badgeValue);
-          const hasNotificationBadge = Number.isFinite(badgeCount) && badgeCount > 0;
-          const badgeLabel = badgeCount > 99 ? '99+' : String(Math.floor(badgeCount));
-          const tabAccessibilityLabel = hasNotificationBadge
-            ? `${label}. ${t('notification.unreadCount', { count: badgeCount })}`
+          const badgePresentation = getNotificationBadgePresentation(Number(badgeValue));
+          const tabAccessibilityLabel = badgePresentation
+            ? `${label}. ${t('notification.unreadCount', { count: badgePresentation.count })}`
             : label;
 
           return (
@@ -177,21 +179,17 @@ export function CustomTabBar({
                       weight={isFocused ? 'fill' : 'regular'}
                       color={isFocused ? theme.colors.textInverse : theme.colors.textSecondary}
                     />
-                    {hasNotificationBadge ? (
-                      <View
-                        pointerEvents="none"
-                        accessible={false}
-                        accessibilityElementsHidden
-                        importantForAccessibility="no-hide-descendants"
-                        style={[
-                          styles.notificationBadge,
-                          isFocused
-                            ? styles.notificationBadgeActive
-                            : styles.notificationBadgeInactive,
-                        ]}
-                      >
-                        <Text style={styles.notificationBadgeText}>{badgeLabel}</Text>
-                      </View>
+                    {badgePresentation ? (
+                      <NotificationCountBadge
+                        backgroundColor={theme.colors.error}
+                        borderColor={isFocused
+                          ? theme.colors.primary
+                          : theme.effects.isLiquid
+                            ? theme.effects.tabBarSurface
+                            : '#FFFFFF'}
+                        count={badgePresentation.count}
+                        style={styles.notificationBadgePosition}
+                      />
                     ) : null}
                   </View>
                   {isFocused ? <View style={styles.activeDot} /> : <View style={styles.dotSpacer} />}
@@ -329,35 +327,11 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  notificationBadge: {
+  notificationBadgePosition: {
     position: 'absolute',
     top: -6,
     right: -12,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    borderRadius: 9,
-    borderCurve: 'continuous',
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.error,
     zIndex: 3,
-  },
-  notificationBadgeActive: {
-    borderColor: theme.colors.primary,
-  },
-  notificationBadgeInactive: {
-    borderColor: theme.effects.isLiquid ? theme.effects.tabBarSurface : '#FFFFFF',
-  },
-  notificationBadgeText: {
-    color: '#FFFFFF',
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs,
-    lineHeight: 12,
-    letterSpacing: -0.2,
-    includeFontPadding: false,
-    textAlign: 'center',
   },
   activeDot: {
     width: 4,

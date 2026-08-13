@@ -36,7 +36,6 @@ let mockAuthState = {
     email: 'an@example.com',
     status: 'ACTIVE',
   },
-  isGuest: false,
   logout: jest.fn(async () => undefined),
 };
 
@@ -130,7 +129,6 @@ describe('ProfileOverviewScreen identity layout', () => {
         email: 'passenger@example.com',
         status: 'ACTIVE',
       },
-      isGuest: false,
       logout: jest.fn(async () => undefined),
     };
   });
@@ -187,19 +185,4 @@ describe('ProfileOverviewScreen identity layout', () => {
     await act(async () => renderer.unmount());
   });
 
-  it('does not render an account-status badge for a guest', async () => {
-    mockAuthState = {
-      user: null as unknown as typeof mockAuthState.user,
-      isGuest: true,
-      logout: jest.fn(async () => undefined),
-    };
-    const renderer = await renderProfile();
-    const name = renderer.root.findByProps({ testID: 'profile-display-name' });
-
-    expect(name.props.numberOfLines).toBe(1);
-    expect(name.props.ellipsizeMode).toBe('tail');
-    expect(renderer.root.findAllByProps({ testID: 'profile-verification-badge' })).toHaveLength(0);
-
-    await act(async () => renderer.unmount());
-  });
 });

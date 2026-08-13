@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { Bell, Package, SignIn, Tag, Ticket, Van } from 'phosphor-react-native';
+import { Bell, Package, Tag, Ticket, Van } from 'phosphor-react-native';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
@@ -189,7 +189,6 @@ export function NotificationScreen(): React.JSX.Element {
   const isNarrowHeader = viewportWidth < 380;
   const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.user?.id);
-  const isGuest = useAuthStore((state) => state.isGuest);
   const handleTabBarScroll = useTabBarScrollBehavior();
   const bottomTabClearance = useFloatingTabBarContentInset();
   const notificationsQuery = useNotifications(DEFAULT_NOTIFICATION_LIST_PARAMS);
@@ -261,10 +260,6 @@ export function NotificationScreen(): React.JSX.Element {
     navigation.navigate('NotificationDetail', { notification: item });
   }, [navigation]);
 
-  const handleSignIn = useCallback(() => {
-    navigation.navigate('Auth', { screen: 'Login' });
-  }, [navigation]);
-
   const handleMarkAllRead = useCallback(() => {
     if (unreadCount <= 0 || isMarkingAll) return;
     resetMarkAll();
@@ -287,26 +282,6 @@ export function NotificationScreen(): React.JSX.Element {
   );
 
   const renderEmptyState = useCallback(() => {
-    if (isGuest) {
-      return (
-        <View style={styles.emptyContainer}>
-          <SignIn size={48} color={theme.colors.primary} weight="duotone" />
-          <Text style={styles.emptyText}>{t('notification.signInRequired')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('notification.signInAction')}
-            onPress={handleSignIn}
-            style={({ pressed }) => [
-              styles.retryButton,
-              pressed ? styles.pressedRow : null,
-            ]}
-          >
-            <Text style={styles.retryText}>{t('notification.signInAction')}</Text>
-          </Pressable>
-        </View>
-      );
-    }
-
     if (isInitialLoading) {
       return (
         <View style={styles.emptyContainer}>
@@ -343,8 +318,6 @@ export function NotificationScreen(): React.JSX.Element {
     );
   }, [
     handleRefresh,
-    handleSignIn,
-    isGuest,
     isInitialLoading,
     isNotificationsError,
     notifications.length,
@@ -424,9 +397,7 @@ export function NotificationScreen(): React.JSX.Element {
               {t('notification.title')}
             </Text>
             <Text style={styles.headerSubtitle} numberOfLines={2}>
-              {isGuest
-                ? t('notification.signInSubtitle')
-                : unreadCount > 0
+              {unreadCount > 0
                 ? t('notification.unreadCount', { count: unreadCount })
                 : t('notification.allCaughtUp')}
             </Text>
@@ -487,7 +458,7 @@ export function NotificationScreen(): React.JSX.Element {
           notifications.length === 0 ? styles.emptyListContent : null,
           { paddingBottom: bottomTabClearance },
         ]}
-        onRefresh={isGuest ? undefined : handleRefresh}
+        onRefresh={handleRefresh}
         refreshing={isRefreshing}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.4}

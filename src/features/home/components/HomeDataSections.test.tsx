@@ -1,5 +1,4 @@
 import React from 'react';
-import { Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
 import { PromotionsSection } from './PromotionsSection';
@@ -7,7 +6,6 @@ import { RecentParcelsSection } from './RecentParcelsSection';
 
 const mockUseHomePromotions = jest.fn();
 const mockUseReceivedParcels = jest.fn();
-let mockIsGuest = false;
 
 const mockTheme = {
   colors: {
@@ -41,10 +39,8 @@ jest.mock('@shared/hooks', () => ({
   useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) => factory(mockTheme),
 }));
 
-jest.mock('@features/auth/store/useAuthStore', () => ({
-  useAuthStore: (selector: (state: { isGuest: boolean }) => unknown) => selector({
-    isGuest: mockIsGuest,
-  }),
+jest.mock('@shared/components', () => ({
+  StatusChip: () => null,
 }));
 
 jest.mock('../hooks/useHomePromotions', () => ({
@@ -89,10 +85,9 @@ jest.mock('@shopify/flash-list', () => {
 describe('Home data sections', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockIsGuest = false;
   });
 
-  it('renders promotions from the booking API hook and emits primitive identifiers', async () => {
+  it('renders promotions as scroll-only content without a press action', async () => {
     mockUseHomePromotions.mockReturnValue({
       data: [{
         voucherId: 'voucher-1',
@@ -107,22 +102,18 @@ describe('Home data sections', () => {
       isPending: false,
       refetch: jest.fn(),
     });
-    const onPromotionPress = jest.fn();
     let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
     await act(async () => {
       renderer = ReactTestRenderer.create(
-        <PromotionsSection onPromotionPress={onPromotionPress} />,
+        <PromotionsSection />,
       );
     });
-    await act(async () => {
-      renderer!.root.findByProps({
-        accessibilityLabel: 'Ride offer, code RIDE20',
-      }).props.onPress();
-    });
+    const promotion = renderer!.root.findByProps({ accessible: true });
 
     expect(mockUseHomePromotions).toHaveBeenCalledWith('BOOKING');
-    expect(onPromotionPress).toHaveBeenCalledWith('voucher-1', 'RIDE20');
+    expect(promotion.props.accessibilityRole).toBeUndefined();
+    expect(promotion.props.onPress).toBeUndefined();
 
     await act(async () => renderer!.unmount());
   });
@@ -158,9 +149,11 @@ describe('Home data sections', () => {
       );
     });
     await act(async () => {
-      renderer!.root.findByProps({
-        accessibilityLabel: 'Parcel VR-001, In Transit',
-      }).props.onPress();
+      const parcelCard = renderer!.root.findAll((node) => (
+        node.props.accessibilityRole === 'button'
+        && typeof node.props.onPress === 'function'
+      ))[0];
+      parcelCard.props.onPress();
     });
 
     expect(mockUseReceivedParcels).toHaveBeenCalledWith(1, 5);
@@ -169,33 +162,4 @@ describe('Home data sections', () => {
     await act(async () => renderer!.unmount());
   });
 
-  it('shows a sign-in-required state for guests instead of an empty parcel state', async () => {
-    mockIsGuest = true;
-    mockUseReceivedParcels.mockReturnValue({
-      data: undefined,
-      isError: false,
-      isLoading: false,
-      refetch: jest.fn(),
-    });
-    let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
-    const onViewAll = jest.fn();
-
-    await act(async () => {
-      renderer = ReactTestRenderer.create(
-        <RecentParcelsSection onViewAll={onViewAll} />,
-      );
-    });
-
-    expect(renderer!.root.findByProps({
-      accessibilityLabel: 'Sign in required for recent parcels',
-    })).toBeDefined();
-    expect(renderer!.root.findAllByType(Text).some(
-      (node) => node.props.children === 'No received parcels yet',
-    )).toBe(false);
-    expect(renderer!.root.findAllByProps({
-      accessibilityLabel: 'View all received parcels',
-    })).toHaveLength(0);
-
-    await act(async () => renderer!.unmount());
-  });
 });

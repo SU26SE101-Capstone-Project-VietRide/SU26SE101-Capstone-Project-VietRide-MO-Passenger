@@ -22,25 +22,22 @@ import { StreamTimeoutController } from '../utils/streamTimeoutController';
 const MAX_MESSAGES_IN_MEMORY = 100;
 const TOKEN_FLUSH_INTERVAL_MS = 50;
 
-export type ChatAvailability = 'ready' | 'guest' | 'phoneRequired';
+export type ChatAvailability = 'ready' | 'phoneRequired';
 
 const createLocalId = (sequence: number): string => `${Date.now()}-${sequence}`;
 
 export function useChatSession() {
   const { t } = useTranslation();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const phone = useAuthStore((state) => state.user?.phone);
   const isOnline = useAppStore((state) => state.isOnline);
   const { data: locations = [] } = useLocations();
 
   const availability = useMemo<ChatAvailability>(() => {
-    if (!isAuthenticated) return 'guest';
     if (!phone) return 'phoneRequired';
     return 'ready';
-  }, [isAuthenticated, phone]);
+  }, [phone]);
 
   const welcomeContent = useMemo(() => {
-    if (availability === 'guest') return t('chatbot.welcomeGuest');
     if (availability === 'phoneRequired') return t('chatbot.welcomePhoneRequired');
     return t('chatbot.welcome');
   }, [availability, t]);

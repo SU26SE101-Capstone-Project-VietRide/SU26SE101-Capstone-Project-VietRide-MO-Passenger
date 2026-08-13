@@ -162,15 +162,21 @@ describe('notification actions', () => {
       params: { shuttleTripId: SHUTTLE_TRIP_ID },
     });
 
-    expect(getNotificationNavigationIntent(action, {
+    const firstIntent = getNotificationNavigationIntent(action, {
       bookingId: BOOKING_ID,
       shuttleTripId: SHUTTLE_TRIP_ID,
-    })?.bookingId).toBe(BOOKING_ID);
+    });
+    expect(firstIntent?.type).toBe('shuttle-tracking');
+    expect(firstIntent?.type === 'shuttle-tracking' ? firstIntent.bookingId : undefined)
+      .toBe(BOOKING_ID);
 
-    expect(getNotificationNavigationIntent(action, {
+    const secondIntent = getNotificationNavigationIntent(action, {
       bookingId: BOOKING_ID_B,
       shuttleTripId: SHUTTLE_TRIP_ID,
-    })?.bookingId).toBe(BOOKING_ID_B);
+    });
+    expect(secondIntent?.type).toBe('shuttle-tracking');
+    expect(secondIntent?.type === 'shuttle-tracking' ? secondIntent.bookingId : undefined)
+      .toBe(BOOKING_ID_B);
 
     expect(parseFcmNotificationAction({
       actionType: 'OPEN_SHUTTLE_TRACKING',

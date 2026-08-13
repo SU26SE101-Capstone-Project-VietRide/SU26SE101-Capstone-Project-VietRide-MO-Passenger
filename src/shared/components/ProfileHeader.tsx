@@ -11,6 +11,10 @@ import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { UserAvatar } from '@shared/components/UserAvatar';
 import type { AppTheme } from '@shared/theme';
 import type { RootStackParamList } from '@app/navigation/types';
+import {
+  getNotificationBadgePresentation,
+  NotificationCountBadge,
+} from './NotificationCountBadge';
 
 export interface ProfileHeaderProps {
   showBackButton?: boolean;
@@ -44,16 +48,10 @@ export function ProfileHeader({
     || t('shared.profileHeader.defaultUserName');
   const resolvedGreeting = greeting ?? t('shared.profileHeader.greeting');
   const shouldShowGreeting = isAuthenticated && resolvedUserName.trim().length > 0;
-  const normalizedNotificationBadgeCount = Number.isFinite(notificationBadgeCount)
-    ? Math.max(0, Math.floor(notificationBadgeCount))
-    : 0;
-  const hasNotificationBadge = normalizedNotificationBadgeCount > 0;
-  const notificationBadgeLabel = normalizedNotificationBadgeCount > 99
-    ? '99+'
-    : String(normalizedNotificationBadgeCount);
-  const notificationAccessibilityLabel = hasNotificationBadge
+  const notificationBadge = getNotificationBadgePresentation(notificationBadgeCount);
+  const notificationAccessibilityLabel = notificationBadge
     ? `${t('profile.notifications')}. ${t('notification.unreadCount', {
-        count: normalizedNotificationBadgeCount,
+        count: notificationBadge.count,
       })}`
     : t('profile.notifications');
 
@@ -133,18 +131,15 @@ export function ProfileHeader({
         >
           <View style={styles.notificationIconAnchor}>
             <Bell size={22} color={theme.colors.textPrimary} />
-            {hasNotificationBadge ? (
-              <View
-                pointerEvents="none"
-                accessible={false}
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                style={styles.notificationBadge}
-              >
-                <Text style={styles.notificationBadgeText}>
-                  {notificationBadgeLabel}
-                </Text>
-              </View>
+            {notificationBadge ? (
+              <NotificationCountBadge
+                backgroundColor={theme.colors.error}
+                borderColor={theme.effects.isLiquid
+                  ? theme.effects.glassSurfaceStrong
+                  : theme.colors.surfaceAlt}
+                count={notificationBadge.count}
+                style={styles.notificationBadgePosition}
+              />
             ) : null}
           </View>
         </Pressable>
@@ -220,32 +215,11 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  notificationBadge: {
+  notificationBadgePosition: {
     position: 'absolute',
     top: -7,
     right: -9,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    borderRadius: 9,
-    borderCurve: 'continuous',
-    borderWidth: 1.5,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.error,
     zIndex: 2,
-  },
-  notificationBadgeText: {
-    color: '#FFFFFF',
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs,
-    lineHeight: 12,
-    letterSpacing: -0.2,
-    includeFontPadding: false,
-    textAlign: 'center',
   },
   pressed: {
     opacity: 0.8,

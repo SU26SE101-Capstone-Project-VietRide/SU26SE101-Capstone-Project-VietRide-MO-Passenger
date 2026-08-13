@@ -27,6 +27,9 @@ import {
 import { toVietnamBusinessDate } from '@shared/utils/apiTime';
 import { toTripSearchDate } from '../utils/searchParams';
 import { formatMonthYear } from '@shared/utils/format';
+import { useBookingDiscovery } from '../hooks/useBookingDiscovery';
+import { DEFAULT_BOOKING_ENTRY_INTENT } from '../utils/bookingDiscovery';
+import { resolveDatePickerContinuation } from '../utils/datePickerContinuation';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'DatePicker'>;
 type DatePickerRouteProp = RouteProp<BookingStackParamList, 'DatePicker'>;
@@ -64,6 +67,7 @@ export function DatePicker(): React.JSX.Element {
   const route = useRoute<DatePickerRouteProp>();
   const searchParams = useBookingStore((state) => state.searchParams);
   const setSearchParams = useBookingStore((state) => state.setSearchParams);
+  const { saveCurrentSearch } = useBookingDiscovery();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
@@ -143,6 +147,27 @@ export function DatePicker(): React.JSX.Element {
         date: toLocalIsoDate(selectedDate),
         ...(shouldClearReturnDate ? { returnDate: '' } : {}),
       });
+    }
+
+    const continuation = resolveDatePickerContinuation({
+      isRoundTrip: Boolean(searchParams.isRoundTrip),
+      mode,
+      next: route.params?.next,
+    });
+    if (continuation === 'select_return') {
+      navigation.replace('DatePicker', {
+        mode: 'return',
+        next: 'search',
+        intent: route.params?.intent ?? DEFAULT_BOOKING_ENTRY_INTENT,
+      });
+      return;
+    }
+    if (continuation === 'search') {
+      saveCurrentSearch().catch(() => undefined);
+      navigation.replace('CreateTicketBooking', {
+        intent: route.params?.intent ?? DEFAULT_BOOKING_ENTRY_INTENT,
+      });
+      return;
     }
     navigation.goBack();
   };

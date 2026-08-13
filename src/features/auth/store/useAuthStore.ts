@@ -34,15 +34,11 @@ import { mapAuthUser, type AuthSession, type AuthUserDto, type User } from '../t
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
-  isGuest: boolean;
-  /** Keeps the guest route mounted only while a newly signed-in user completes phone gating. */
-  isGuestHandoffActive: boolean;
   isAuthLoading: boolean;
   authError: ApiRequestError | null;
 
   setSession: (session: AuthSession) => Promise<void>;
   setUser: (user: User, expectedSessionEpoch: number) => boolean;
-  continueAsGuest: () => Promise<void>;
   setAuthLoading: (loading: boolean) => void;
   clearAuthError: () => void;
   resetAuthState: () => void;
@@ -54,16 +50,12 @@ interface AuthState {
 const unauthenticatedState = {
   user: null,
   isAuthenticated: false,
-  isGuest: false,
-  isGuestHandoffActive: false,
   isAuthLoading: false,
   authError: null,
 } satisfies Pick<
   AuthState,
   | 'user'
   | 'isAuthenticated'
-  | 'isGuest'
-  | 'isGuestHandoffActive'
   | 'isAuthLoading'
   | 'authError'
 >;
@@ -134,13 +126,10 @@ const authSessionFromRefreshBundle = async (
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
-  isGuest: false,
-  isGuestHandoffActive: false,
   isAuthLoading: true,
   authError: null,
 
   setSession: async (session) => {
-    const preserveGuestDrafts = get().isGuest;
     const sessionEpoch = beginTokenSession();
     const stored = await setToken(
       session.accessToken,
@@ -161,13 +150,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw new Error('The authentication session was superseded by a newer session.');
     }
 
-    if (preserveGuestDrafts) {
-      // Signing in from guest mode changes identity, but it must not erase the
-      // booking/parcel intent that led the passenger to authenticate.
-      queryClient.clear();
-    } else {
-      clearSessionData();
-    }
+    clearSessionData();
     // Both primary login endpoints return the login-safe user projection,
     // including avatarUrl when present. Keep that response as the first
     // app-frame profile without an extra /users/me round trip.
@@ -176,8 +159,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({
       user: session.user,
       isAuthenticated: true,
-      isGuest: false,
-      isGuestHandoffActive: preserveGuestDrafts && !session.user.phone,
       isAuthLoading: false,
       authError: null,
     });
@@ -188,7 +169,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (
       !isTokenSessionEpochCurrent(expectedSessionEpoch)
       || !current.isAuthenticated
-      || current.isGuest
       || current.user?.id !== user.id
     ) {
       return false;
@@ -203,35 +183,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({
       user,
       isAuthenticated: true,
-      isGuest: false,
-      isGuestHandoffActive: current.isGuestHandoffActive && !user.phone,
       isAuthLoading: false,
       authError: null,
     });
     return true;
-  },
-
-  continueAsGuest: async () => {
-    const clearPromise = clearToken();
-    const guestSessionEpoch = getTokenSessionEpoch();
-    const cleared = await clearPromise;
-    if (!isTokenSessionEpochCurrent(guestSessionEpoch)) {
-      return;
-    }
-
-    if (!cleared) {
-      throw new Error('Unable to clear the previous local authentication session.');
-    }
-
-    clearSessionData();
-    set({
-      user: null,
-      isAuthenticated: false,
-      isGuest: true,
-      isGuestHandoffActive: false,
-      isAuthLoading: false,
-      authError: null,
-    });
   },
 
   setAuthLoading: (loading) => set({ isAuthLoading: loading }),
@@ -322,8 +277,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         user,
         isAuthenticated: true,
-        isGuest: false,
-        isGuestHandoffActive: false,
         isAuthLoading: false,
         authError: null,
       });
@@ -338,8 +291,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({
           user: cachedUser,
           isAuthenticated: true,
-          isGuest: false,
-          isGuestHandoffActive: false,
           isAuthLoading: false,
           authError: toApiError(error),
         });
@@ -360,8 +311,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({
           user: session.user,
           isAuthenticated: true,
-          isGuest: false,
-          isGuestHandoffActive: false,
           isAuthLoading: false,
           authError: null,
         });
@@ -389,8 +338,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         user: cachedUser,
         isAuthenticated: true,
-        isGuest: false,
-        isGuestHandoffActive: false,
         isAuthLoading: false,
         authError: toApiError(error),
       });
@@ -436,8 +383,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         user: session.user,
         isAuthenticated: true,
-        isGuest: false,
-        isGuestHandoffActive: get().isGuestHandoffActive && !session.user.phone,
         isAuthLoading: false,
         authError: null,
       });
@@ -472,7 +417,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    const preserveGuestDrafts = get().isGuest;
     const logoutSessionEpoch = getTokenSessionEpoch();
     const tokenBundle = await getTokenBundle();
     if (!isTokenSessionEpochCurrent(logoutSessionEpoch)) {
@@ -496,11 +440,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     if (isTokenSessionEpochCurrent(clearedSessionEpoch)) {
-      if (preserveGuestDrafts) {
-        queryClient.clear();
-      } else {
-        clearSessionData();
-      }
+      clearSessionData();
       set({
         ...unauthenticatedState,
         authError: cleared

@@ -79,7 +79,6 @@ export function PopularRoutesScreen(): React.JSX.Element {
     popularRoutesLoading,
     popularRoutesError,
     applyPopularRoute,
-    saveCurrentSearch,
   } = useBookingDiscovery();
 
   const filteredRoutes = useMemo(() => {
@@ -94,11 +93,12 @@ export function PopularRoutesScreen(): React.JSX.Element {
 
   const handleRoutePress = useCallback((originCode: string, destinationCode: string) => {
     if (applyPopularRoute(originCode, destinationCode) !== 'applied') return;
-    saveCurrentSearch().catch(() => undefined);
-    navigation.navigate('CreateTicketBooking', {
+    navigation.navigate('DatePicker', {
+      mode: 'departure',
+      next: 'search',
       intent: route.params?.intent ?? DEFAULT_BOOKING_ENTRY_INTENT,
     });
-  }, [applyPopularRoute, navigation, route.params?.intent, saveCurrentSearch]);
+  }, [applyPopularRoute, navigation, route.params?.intent]);
 
   const renderRoute = useCallback(({ item }: ListRenderItemInfo<PopularRouteShortcut>) => (
     <PopularRouteRow route={item} onPress={handleRoutePress} />

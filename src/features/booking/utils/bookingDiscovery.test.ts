@@ -122,7 +122,7 @@ describe('booking discovery actions', () => {
     });
   });
 
-  it('does not apply an expired recent search to the booking store', () => {
+  it('keeps an expired recent route but resets its date for explicit selection', () => {
     expect(recentSearchToPrefill({
       id: 'old',
       fromCode: 'HN',
@@ -132,7 +132,14 @@ describe('booking discovery actions', () => {
       date: '13/07/2026',
       passengers: 1,
       savedAt: new Date('2026-07-13T00:00:00+07:00').getTime(),
-    }, new Date('2026-07-14T00:00:00+07:00'))).toEqual({ status: 'past_date' });
+    }, new Date('2026-07-14T00:00:00+07:00'))).toMatchObject({
+      status: 'past_date',
+      prefill: {
+        from: 'Hà Nội',
+        to: 'Đà Nẵng',
+        date: '2026-07-14',
+      },
+    });
   });
 
   it('resets before carrying a pending voucher to the existing validator', () => {

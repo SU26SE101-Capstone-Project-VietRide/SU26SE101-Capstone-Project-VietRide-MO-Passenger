@@ -9,13 +9,9 @@ export function useAuthInitializer(): void {
 
   useEffect(() => {
     setUnauthorizedHandler((error) => {
-      const { isGuest, resetAuthState } = useAuthStore.getState();
-
-      if (!isGuest) {
-        resetAuthState();
-        if (error) {
-          useAuthStore.setState({ authError: toApiError(error) });
-        }
+      useAuthStore.getState().resetAuthState();
+      if (error) {
+        useAuthStore.setState({ authError: toApiError(error) });
       }
     });
 

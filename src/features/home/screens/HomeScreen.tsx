@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
   View,
   Text,
   Pressable,
@@ -96,15 +95,12 @@ export function HomeScreen(): React.JSX.Element {
     recentSearchesLoading,
     applyPopularRoute,
     applyRecentSearch,
-    saveCurrentSearch,
     clearRecentSearches,
   } = useBookingDiscovery();
   const walletBalanceQuery = useWalletBalance();
-  const canSearchTickets = Boolean(
+  const canChooseTicketDate = Boolean(
     searchParams.originLocationCode &&
-      searchParams.destinationLocationCode &&
-      searchParams.date &&
-      (!searchParams.isRoundTrip || searchParams.returnDate),
+      searchParams.destinationLocationCode,
   );
 
   // Parcel flow state/actions
@@ -122,23 +118,21 @@ export function HomeScreen(): React.JSX.Element {
   }, [navigation]);
 
   const handleTicketSearch = useCallback(() => {
-    saveCurrentSearch().catch(() => undefined);
     navigation.navigate('Booking', {
-      screen: 'CreateTicketBooking',
-      params: { intent: { type: 'search' } },
+      screen: 'DatePicker',
+      params: { mode: 'departure', next: 'search', intent: { type: 'search' } },
     });
-  }, [navigation, saveCurrentSearch]);
+  }, [navigation]);
 
   const handlePopularRoutePress = useCallback(
     (originCode: string, destinationCode: string) => {
       if (applyPopularRoute(originCode, destinationCode) !== 'applied') return;
-      saveCurrentSearch().catch(() => undefined);
       navigation.navigate('Booking', {
-        screen: 'CreateTicketBooking',
-        params: { intent: { type: 'search' } },
+        screen: 'DatePicker',
+        params: { mode: 'departure', next: 'search', intent: { type: 'search' } },
       });
     },
-    [applyPopularRoute, navigation, saveCurrentSearch],
+    [applyPopularRoute, navigation],
   );
 
   const handleViewAllPopularRoutes = useCallback(() => {
@@ -148,22 +142,14 @@ export function HomeScreen(): React.JSX.Element {
   const handleRecentSearchPress = useCallback(
     (searchId: string) => {
       const result = applyRecentSearch(searchId);
-      if (result === 'applied') {
+      if (result !== 'not_found') {
         navigation.navigate('Booking', {
-          screen: 'CreateTicketBooking',
-          params: { intent: { type: 'search' } },
+          screen: 'DatePicker',
+          params: { mode: 'departure', next: 'search', intent: { type: 'search' } },
         });
-        return;
-      }
-
-      if (result === 'past_date' || result === 'invalid_date') {
-        Alert.alert(
-          t('home.recentSearch.dateUnavailableTitle'),
-          t('home.recentSearch.dateUnavailableDescription'),
-        );
       }
     },
-    [applyRecentSearch, navigation, t],
+    [applyRecentSearch, navigation],
   );
 
   const handleClearRecentSearches = useCallback(() => {
@@ -177,22 +163,6 @@ export function HomeScreen(): React.JSX.Element {
       initial: false,
     });
   }, [navigation]);
-
-  const handlePromotionPress = useCallback(
-    (voucherId: string, code: string) => {
-      if (!voucherId || !code) return;
-      navigation.navigate('Booking', {
-        screen: 'CreateTicketBooking',
-        params: {
-          intent: {
-            type: 'promotion',
-            pendingVoucher: { voucherId, code },
-          },
-        },
-      });
-    },
-    [navigation],
-  );
 
   const handleRecentParcelPress = useCallback(
     (parcelId: string, tripId: string) => {
@@ -495,14 +465,14 @@ export function HomeScreen(): React.JSX.Element {
 
                 <Pressable
                   onPress={handleTicketSearch}
-                  disabled={!canSearchTickets}
+                  disabled={!canChooseTicketDate}
                   accessibilityRole="button"
                   accessibilityLabel={t('home.ticket.searchBuses')}
-                  accessibilityState={{ disabled: !canSearchTickets }}
+                  accessibilityState={{ disabled: !canChooseTicketDate }}
                   style={({ pressed }) => [
                     styles.searchButton,
-                    !canSearchTickets ? styles.searchButtonDisabled : null,
-                    pressed && canSearchTickets ? styles.pressed : null,
+                    !canChooseTicketDate ? styles.searchButtonDisabled : null,
+                    pressed && canChooseTicketDate ? styles.pressed : null,
                   ]}
                 >
                   <Text style={styles.searchButtonText}>{t('home.ticket.searchBuses')}</Text>
@@ -633,7 +603,7 @@ export function HomeScreen(): React.JSX.Element {
               onSearchPress={handleRecentSearchPress}
               onClear={handleClearRecentSearches}
             />
-            <PromotionsSection onPromotionPress={handlePromotionPress} />
+            <PromotionsSection />
           </>
         ) : (
           <RecentParcelsSection

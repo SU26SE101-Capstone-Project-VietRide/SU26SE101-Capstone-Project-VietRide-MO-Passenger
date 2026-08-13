@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
@@ -94,9 +95,6 @@ const LocationRow = memo(function LocationRow({
       </View>
       <View style={styles.itemTextWrap}>
         <Text style={styles.itemName}>{location.name}</Text>
-        <Text style={styles.itemRegion}>
-          {t('booking.locations.typeAndCode', { type: typeLabel, code: location.code })}
-        </Text>
       </View>
       {chevron ? (
         <View style={styles.itemArrow}>
@@ -135,10 +133,7 @@ export function CityPickerScreen(): React.JSX.Element {
   const filterByQuery = useCallback((rows: Location[]) => {
     const q = normalizeLocationSearchText(query);
     if (!q) return rows;
-    return rows.filter((row) => (
-      normalizeLocationSearchText(row.name).includes(q)
-      || normalizeLocationSearchText(row.code).includes(q)
-    ));
+    return rows.filter((row) => normalizeLocationSearchText(row.name).includes(q));
   }, [query]);
 
   const provinceRows = useMemo(
@@ -253,92 +248,95 @@ export function CityPickerScreen(): React.JSX.Element {
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('common.back')}
-            onPress={onBack}
-            style={({ pressed }) => [styles.backBtn, pressed ? styles.pressed : null]}
-          >
-            <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
-          </Pressable>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {step === 'ward'
-              ? t('booking.locations.wardTitle')
-              : mode === 'from'
-                ? t('booking.locations.departureTitle')
-                : t('booking.locations.destinationTitle')}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        {step === 'ward' && province ? (
-          <View style={styles.provinceChip}>
-            <Buildings size={14} color={theme.colors.primary} weight="fill" />
-            <Text style={styles.provinceChipText} numberOfLines={1}>
-              {province.name} · {province.code}
+        <KeyboardAvoidingView behavior="padding" style={styles.keyboardContainer}>
+          <View style={styles.header}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.back')}
+              onPress={onBack}
+              style={({ pressed }) => [styles.backBtn, pressed ? styles.pressed : null]}
+            >
+              <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
+            </Pressable>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {step === 'ward'
+                ? t('booking.locations.wardTitle')
+                : mode === 'from'
+                  ? t('booking.locations.departureTitle')
+                  : t('booking.locations.destinationTitle')}
             </Text>
+            <View style={styles.headerSpacer} />
           </View>
-        ) : null}
 
-        <Text style={styles.stepHint}>
-          {step === 'province'
-            ? t('booking.locations.stepProvinceHint')
-            : t('booking.locations.stepWardHint')}
-        </Text>
+          {step === 'ward' && province ? (
+            <View style={styles.provinceChip}>
+              <Buildings size={14} color={theme.colors.primary} weight="fill" />
+              <Text style={styles.provinceChipText} numberOfLines={1}>
+                {province.name}
+              </Text>
+            </View>
+          ) : null}
 
-        <View style={styles.searchBox}>
-          <MagnifyingGlass size={16} color={theme.colors.textTertiary} weight="bold" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder={
-              step === 'ward'
-                ? t('booking.locations.searchWardPlaceholder')
-                : t('booking.locations.searchPlaceholder')
-            }
-            placeholderTextColor={theme.colors.textTertiary}
-            value={query}
-            onChangeText={setQuery}
-            autoFocus={step === 'province'}
-            returnKeyType="search"
-          />
-        </View>
+          <Text style={styles.stepHint}>
+            {step === 'province'
+              ? t('booking.locations.stepProvinceHint')
+              : t('booking.locations.stepWardHint')}
+          </Text>
 
-        <FlashList
-          data={list}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={styles.list}
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item }: ListRenderItemInfo<Location>) => (
-            <LocationRow
-              location={item}
-              onSelect={step === 'province' ? onPickProvince : onPickWard}
-              chevron={step === 'province'}
+          <View style={styles.searchBox}>
+            <MagnifyingGlass size={16} color={theme.colors.textTertiary} weight="bold" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={
+                step === 'ward'
+                  ? t('booking.locations.searchWardPlaceholder')
+                  : t('booking.locations.searchPlaceholder')
+              }
+              placeholderTextColor={theme.colors.textTertiary}
+              value={query}
+              onChangeText={setQuery}
+              autoFocus={step === 'province'}
+              returnKeyType="search"
             />
-          )}
-          ListHeaderComponent={
-            step === 'ward' && province && !active.isLoading && !active.isError ? (
-              <Pressable
-                onPress={onPickEntireProvince}
-                style={({ pressed }) => [styles.entireProvinceRow, pressed ? styles.pressed : null]}
-                accessibilityRole="button"
-              >
-                <View style={styles.entireProvinceIcon}>
-                  <MapTrifold size={18} color={theme.colors.primary} weight="fill" />
-                </View>
-                <View style={styles.itemTextWrap}>
-                  <Text style={styles.itemName}>
-                    {t('booking.locations.entireProvince', { province: province.name })}
-                  </Text>
-                  <Text style={styles.itemRegion}>
-                    {t('booking.locations.entireProvinceHint')}
-                  </Text>
-                </View>
-              </Pressable>
-            ) : null
-          }
-          ListEmptyComponent={empty}
-        />
+          </View>
+
+          <FlashList
+            data={list}
+            keyExtractor={keyExtractor}
+            contentContainerStyle={styles.list}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            renderItem={({ item }: ListRenderItemInfo<Location>) => (
+              <LocationRow
+                location={item}
+                onSelect={step === 'province' ? onPickProvince : onPickWard}
+                chevron={step === 'province'}
+              />
+            )}
+            ListHeaderComponent={
+              step === 'ward' && province && !active.isLoading && !active.isError ? (
+                <Pressable
+                  onPress={onPickEntireProvince}
+                  style={({ pressed }) => [styles.entireProvinceRow, pressed ? styles.pressed : null]}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.entireProvinceIcon}>
+                    <MapTrifold size={18} color={theme.colors.primary} weight="fill" />
+                  </View>
+                  <View style={styles.itemTextWrap}>
+                    <Text style={styles.itemName}>
+                      {t('booking.locations.entireProvince', { province: province.name })}
+                    </Text>
+                    <Text style={styles.itemRegion}>
+                      {t('booking.locations.entireProvinceHint')}
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : null
+            }
+            ListEmptyComponent={empty}
+          />
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -350,6 +348,7 @@ const createStyles = (theme: AppTheme) => ({
     position: 'absolute' as const, top: 0, left: 0, right: 0, height: 300, zIndex: 0,
   },
   container: { flex: 1, backgroundColor: 'transparent' },
+  keyboardContainer: { flex: 1 },
   header: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,

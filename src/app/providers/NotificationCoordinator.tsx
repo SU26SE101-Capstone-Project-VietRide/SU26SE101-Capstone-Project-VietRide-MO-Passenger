@@ -48,7 +48,6 @@ export function NotificationCoordinator(): null {
   const isOnline = useNetworkStatus();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const isGuest = useAuthStore((state) => state.isGuest);
   const isAuthLoading = useAuthStore((state) => state.isAuthLoading);
   const hasHydrated = useAppStore((state) => state.hasHydrated);
   const pushNotificationsEnabled = useAppStore(
@@ -77,7 +76,6 @@ export function NotificationCoordinator(): null {
     hasHydrated
     && !isAuthLoading
     && isAuthenticated
-    && !isGuest
     && user?.status === 'ACTIVE'
     && user.phone,
   );

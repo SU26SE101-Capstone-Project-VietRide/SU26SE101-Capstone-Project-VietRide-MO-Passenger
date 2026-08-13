@@ -62,13 +62,9 @@ export function useBookingDiscovery() {
     if (!search) return 'not_found';
 
     const result = recentSearchToPrefill(search);
-    if (result.status !== 'applied') return result.status;
-
     applyPrefill(result.prefill);
-    const normalized = toRecentSearchInput(useBookingStore.getState().searchParams);
-    if (normalized) saveRecentSearch(normalized).catch(() => undefined);
-    return 'applied';
-  }, [applyPrefill, recentItems, saveRecentSearch]);
+    return result.status;
+  }, [applyPrefill, recentItems]);
 
   const saveCurrentSearch = useCallback(async (): Promise<DiscoveryActionResult> => {
     const input = toRecentSearchInput(useBookingStore.getState().searchParams);

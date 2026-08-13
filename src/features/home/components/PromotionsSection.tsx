@@ -1,12 +1,11 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   Text,
   View,
 } from 'react-native';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
-import { ArrowRight, Tag } from 'phosphor-react-native';
+import { Tag } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
 import type { PromotionItem } from '@features/booking/types';
@@ -31,28 +30,21 @@ interface PromotionCardProps {
   code: string;
   expiresAt: string;
   name: string;
-  onPress?: (voucherId: string, code: string) => void;
   type: string;
   value: number;
-  voucherId: string;
 }
 
 const PromotionCard = memo(function PromotionCardItem({
   code,
   expiresAt,
   name,
-  onPress,
   type,
   value,
-  voucherId,
 }: PromotionCardProps): React.JSX.Element {
   const { i18n, t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const intlLocale = toIntlLocale(i18n.resolvedLanguage);
-  const handlePress = useCallback(() => {
-    onPress?.(voucherId, code);
-  }, [code, onPress, voucherId]);
   const expiresLabel = useMemo(
     () => formatDate(expiresAt, intlLocale) || expiresAt,
     [expiresAt, intlLocale],
@@ -67,15 +59,10 @@ const PromotionCard = memo(function PromotionCardItem({
   );
 
   return (
-    <Pressable
-      accessibilityRole={onPress ? 'button' : undefined}
+    <View
+      accessible
       accessibilityLabel={t('home.promotions.cardAccessibility', { name, code })}
-      disabled={!onPress}
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.card,
-        pressed ? styles.pressed : null,
-      ]}
+      style={styles.card}
     >
       <View style={styles.cardHeader}>
         <View style={styles.iconBox}>
@@ -86,25 +73,20 @@ const PromotionCard = memo(function PromotionCardItem({
       <Text style={styles.cardTitle} numberOfLines={2}>{name}</Text>
       <View style={styles.codeRow}>
         <Text style={styles.codeLabel} numberOfLines={1}>{code}</Text>
-        {onPress ? (
-          <ArrowRight size={16} color={theme.colors.primary} weight="bold" />
-        ) : null}
       </View>
       <Text style={styles.expiryLabel}>
         {t('home.promotions.validUntil', { date: expiresLabel })}
       </Text>
-    </Pressable>
+    </View>
   );
 });
 
 export interface PromotionsSectionProps {
-  onPromotionPress?: (voucherId: string, code: string) => void;
   service?: HomePromotionService;
   title?: string;
 }
 
 export const PromotionsSection = memo(function PromotionsSectionComponent({
-  onPromotionPress,
   service = 'BOOKING',
   title,
 }: PromotionsSectionProps): React.JSX.Element {
@@ -112,23 +94,16 @@ export const PromotionsSection = memo(function PromotionsSectionComponent({
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const promotionsQuery = useHomePromotions(service);
-  const refetchPromotions = promotionsQuery.refetch;
-
-  const handleRetry = useCallback(() => {
-    refetchPromotions().catch(() => undefined);
-  }, [refetchPromotions]);
 
   const renderPromotion: ListRenderItem<PromotionItem> = useCallback(({ item }) => (
     <PromotionCard
       code={item.code}
       expiresAt={item.validUntil}
       name={item.name}
-      onPress={onPromotionPress}
       type={item.type}
       value={item.value}
-      voucherId={item.voucherId}
     />
-  ), [onPromotionPress]);
+  ), []);
 
   let content: React.ReactNode;
   if (promotionsQuery.isPending) {
@@ -146,14 +121,6 @@ export const PromotionsSection = memo(function PromotionsSectionComponent({
       <View style={styles.stateBox}>
         <Text style={styles.stateTitle}>{t('home.promotions.unavailableTitle')}</Text>
         <Text style={styles.stateText}>{t('home.promotions.unavailableDescription')}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('home.promotions.retryAccessibility')}
-          onPress={handleRetry}
-          style={styles.retryButton}
-        >
-          <Text style={styles.retryText}>{t('common.retry')}</Text>
-        </Pressable>
       </View>
     );
   } else if (promotionsQuery.data.length === 0) {
@@ -282,20 +249,5 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     textAlign: 'center' as const,
-  },
-  retryButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: theme.colors.primary,
-  },
-  retryText: {
-    color: theme.colors.textInverse,
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
-  },
-  pressed: {
-    opacity: 0.86,
-    transform: [{ scale: 0.98 }],
   },
 });
