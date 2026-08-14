@@ -98,6 +98,10 @@ const DEFAULT_TRIP_FILTERS: TripFilterState = {
   priceRange: 'all',
 };
 
+// Temporarily hidden until trip-result filters are backed by the server.
+// Keep the filter UI and client-side implementation intact for re-enabling later.
+const SHOW_TRIP_FILTER_BUTTON = false;
+
 const timeSlotOptions: Array<{ labelKey: string; value: TripTimeSlot; helper?: string }> = [
   { labelKey: 'booking.filters.time.any', value: 'all' },
   { labelKey: 'booking.filters.time.morning', value: 'morning', helper: '05:00 - 11:59' },
@@ -745,7 +749,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
           </View>
 
           <View style={[styles.headerSide, styles.headerSideRight]}>
-            {isTripSelectionStep ? (
+            {SHOW_TRIP_FILTER_BUTTON && isTripSelectionStep ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('booking.filters.openAccessibility')}
@@ -777,7 +781,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
       </SafeAreaView>
 
       <TripFilterSheet
-        visible={filterVisible}
+        visible={SHOW_TRIP_FILTER_BUTTON && filterVisible}
         filters={tripFilters}
         operatorOptions={operatorOptions}
         onApply={handleApplyFilters}

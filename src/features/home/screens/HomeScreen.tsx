@@ -49,6 +49,7 @@ import { RecentParcelsSection } from '../components/RecentParcelsSection';
 import { WalletSummaryCard } from '../components/WalletSummaryCard';
 import { toTripSearchDate } from '../../booking/utils/searchParams';
 import { formatTicketSearchDate } from '../../booking/utils/ticketSearchDate';
+import { resolveHomeTicketSearchContinuation } from '../../booking/utils/homeTicketSearchContinuation';
 
 type HomeNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Home'>,
@@ -102,6 +103,7 @@ export function HomeScreen(): React.JSX.Element {
     recentSearchesLoading,
     applyPopularRoute,
     applyRecentSearch,
+    saveCurrentSearch,
     clearRecentSearches,
   } = useBookingDiscovery();
   const walletBalanceQuery = useWalletBalance();
@@ -125,11 +127,30 @@ export function HomeScreen(): React.JSX.Element {
   }, [navigation]);
 
   const handleTicketSearch = useCallback(() => {
-    navigation.navigate('Booking', {
-      screen: 'DatePicker',
-      params: { mode: 'departure', next: 'search', intent: { type: 'search' } },
+    const continuation = resolveHomeTicketSearchContinuation({
+      departureDate: searchParams.date,
+      returnDate: searchParams.returnDate,
+      isRoundTrip: Boolean(searchParams.isRoundTrip),
     });
-  }, [navigation]);
+
+    if (continuation !== 'search') {
+      navigation.navigate('Booking', {
+        screen: 'DatePicker',
+        params: {
+          mode: continuation === 'select_return' ? 'return' : 'departure',
+          next: 'search',
+          intent: { type: 'search' },
+        },
+      });
+      return;
+    }
+
+    saveCurrentSearch().catch(() => undefined);
+    navigation.navigate('Booking', {
+      screen: 'CreateTicketBooking',
+      params: { intent: { type: 'search' } },
+    });
+  }, [navigation, saveCurrentSearch, searchParams.date, searchParams.isRoundTrip, searchParams.returnDate]);
 
   const handlePopularRoutePress = useCallback(
     (originCode: string, destinationCode: string) => {
