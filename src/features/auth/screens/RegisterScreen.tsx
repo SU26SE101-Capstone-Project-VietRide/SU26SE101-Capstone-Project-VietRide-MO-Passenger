@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation } from '@tanstack/react-query';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
 import {
@@ -288,32 +288,16 @@ export function RegisterScreen(): React.JSX.Element {
                 </Text>
               ) : null}
 
-              <Text style={[styles.termsText, { color: theme.colors.textTertiary }]}>
-                <Trans
-                  i18nKey="auth.registerFlow.agreement"
-                  components={{
-                    terms: (
-                      <Text
-                        style={[styles.termsLink, { color: theme.colors.primary }]}
-                      />
-                    ),
-                    privacy: (
-                      <Text
-                        style={[styles.termsLink, { color: theme.colors.primary }]}
-                      />
-                    ),
-                  }}
+              <View style={styles.submitWrap}>
+                <Button
+                  title={t('auth.createAccount')}
+                  onPress={handleRegister}
+                  disabled={isSubmitDisabled}
+                  loading={registerMutation.isPending}
+                  size="lg"
+                  fullWidth
                 />
-              </Text>
-
-              <Button
-                title={t('auth.createAccount')}
-                onPress={handleRegister}
-                disabled={isSubmitDisabled}
-                loading={registerMutation.isPending}
-                size="lg"
-                fullWidth
-              />
+              </View>
             </View>
 
           </AppKeyboardAwareScrollView>
@@ -375,17 +359,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.error,
     marginBottom: spacing.sm,
   },
-  termsText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textTertiary,
-    textAlign: 'center',
+  submitWrap: {
     marginTop: spacing.md,
-    marginBottom: spacing.lg,
-    lineHeight: fontSizes.sm * 1.5,
-  },
-  termsLink: {
-    color: theme.colors.primary,
-    fontFamily: fontFamilies.medium,
   },
 });

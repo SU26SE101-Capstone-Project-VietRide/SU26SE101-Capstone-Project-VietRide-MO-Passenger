@@ -1,4 +1,0 @@
-interface:
-  display_name: "Brainstorming"
-  short_description: "Clarify intent, constraints, risks, and approach"
-  default_prompt: "Use $brainstorming to frame the task before implementation."
