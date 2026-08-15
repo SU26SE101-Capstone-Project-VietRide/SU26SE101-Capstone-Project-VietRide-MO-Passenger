@@ -35,6 +35,16 @@ jest.mock('@shared/hooks', () => ({
   useNetworkStatus: () => mockOnline,
 }));
 
+const mockPaymentBackRemove = jest.fn();
+const mockPaymentBackHandler: { current?: () => void } = {};
+
+jest.mock('@shared/payments', () => ({
+  addVnPaySdkPaymentBackListener: (handler: () => void) => {
+    mockPaymentBackHandler.current = handler;
+    return { remove: mockPaymentBackRemove };
+  },
+}));
+
 jest.mock('@features/auth/store/useAuthStore', () => ({
   useAuthStore: (selector: (state: { user: { id: string } | null }) => unknown) =>
     selector({ user: mockUserId ? { id: mockUserId } : null }),

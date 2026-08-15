@@ -28,10 +28,12 @@ interface ParcelStore {
   toDistrict: string;
   fromLocationCode: string;
   toLocationCode: string;
+  fromWardCode: string;
+  toWardCode: string;
   setFromCity: (city: string) => void;
   setToCity: (city: string) => void;
-  setFromLocation: (city: string, code: string) => void;
-  setToLocation: (city: string, code: string) => void;
+  setFromLocation: (city: string, code: string, wardCode?: string) => void;
+  setToLocation: (city: string, code: string, wardCode?: string) => void;
   setToDistrict: (district: string) => void;
   /** Swap origin/destination locations and stations (mirrors booking swapCities). */
   swapLocations: () => void;
@@ -84,10 +86,13 @@ export const useParcelStore = create<ParcelStore>(set => ({
   toDistrict: '',
   fromLocationCode: '',
   toLocationCode: '',
+  fromWardCode: '',
+  toWardCode: '',
   setFromCity: city =>
     set({
       fromCity: city,
       fromLocationCode: '',
+      fromWardCode: '',
       receivingStation: undefined,
     }),
   setToCity: city =>
@@ -95,22 +100,31 @@ export const useParcelStore = create<ParcelStore>(set => ({
       toCity: city,
       toDistrict: '',
       toLocationCode: '',
+      toWardCode: '',
       dropoffStation: undefined,
     }),
-  setFromLocation: (city, code) =>
+  setFromLocation: (city, code, wardCode = '') =>
     set(state => ({
       fromCity: city,
       fromLocationCode: code,
+      fromWardCode: wardCode,
       receivingStation:
-        state.fromLocationCode === code ? state.receivingStation : undefined,
+        state.fromLocationCode === code && state.fromWardCode === wardCode
+          ? state.receivingStation
+          : undefined,
     })),
-  setToLocation: (city, code) =>
+  setToLocation: (city, code, wardCode = '') =>
     set(state => ({
       toCity: city,
-      toDistrict: state.toLocationCode === code ? state.toDistrict : '',
+      toDistrict: state.toLocationCode === code && state.toWardCode === wardCode
+        ? state.toDistrict
+        : '',
       toLocationCode: code,
+      toWardCode: wardCode,
       dropoffStation:
-        state.toLocationCode === code ? state.dropoffStation : undefined,
+        state.toLocationCode === code && state.toWardCode === wardCode
+          ? state.dropoffStation
+          : undefined,
     })),
   setToDistrict: district => set({ toDistrict: district }),
   swapLocations: () =>
@@ -119,6 +133,8 @@ export const useParcelStore = create<ParcelStore>(set => ({
       toCity: state.fromCity,
       fromLocationCode: state.toLocationCode,
       toLocationCode: state.fromLocationCode,
+      fromWardCode: state.toWardCode,
+      toWardCode: state.fromWardCode,
       // District is destination-scoped; clear after swap rather than invent a mapping.
       toDistrict: '',
       receivingStation: state.dropoffStation,
@@ -157,6 +173,8 @@ export const useParcelStore = create<ParcelStore>(set => ({
       toDistrict: '',
       fromLocationCode: '',
       toLocationCode: '',
+      fromWardCode: '',
+      toWardCode: '',
       size: DEFAULT_PARCEL_SIZE,
       weight: DEFAULT_PARCEL_WEIGHT_KG,
       ...DEFAULT_DIMENSIONS,

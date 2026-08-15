@@ -22,6 +22,19 @@ export const VNPAY_SESSION_POLL_DELAYS_MS = [
   4_000,
 ] as const;
 
+/** Longer foreground window after an explicit VNPay cancel/fail so IPN can land. */
+export const VNPAY_CANCEL_POLL_DELAYS_MS = [
+  0,
+  400,
+  800,
+  1_200,
+  1_800,
+  2_400,
+  3_000,
+  4_000,
+  5_000,
+] as const;
+
 type Wait = (delayMs: number) => Promise<void>;
 
 const wait: Wait = (delayMs) =>

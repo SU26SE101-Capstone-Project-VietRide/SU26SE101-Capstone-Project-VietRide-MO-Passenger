@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { ApiRequestError, getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { useIsAppActive, useNetworkStatus } from '@shared/hooks';
+import { addVnPaySdkPaymentBackListener } from '@shared/payments';
 import { bookingKeys, getBookingStatus } from '../api/bookingApi';
 import type { BookingResult, BookingStatus, RoundTripResult } from '../types';
 import {
@@ -146,6 +147,13 @@ export function useBookingPaymentReconciliation(
     checkNow().catch(() => undefined);
     return cancelReconciliation;
   }, [canReconcile, cancelReconciliation, checkNow, resolution.phase]);
+
+  useEffect(() => {
+    const subscription = addVnPaySdkPaymentBackListener(() => {
+      checkNow().catch(() => undefined);
+    });
+    return () => subscription?.remove();
+  }, [checkNow]);
 
   const errorMessage = !isOnline
     ? t('booking.paymentStatus.offline')

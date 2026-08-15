@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -19,12 +19,10 @@ import {
 } from '@shopify/flash-list';
 import {
   ArrowLeft,
-  MapPin,
+  CurrencyCircleDollar,
   NotePencil,
-  Package,
   Robot,
   ShieldCheck,
-  Ticket,
 } from 'phosphor-react-native';
 
 import type { RootStackParamList } from '@app/navigation/types';
@@ -41,6 +39,7 @@ import {
 } from '@shared/theme';
 import { ChatComposer, ChatMessageBubble } from '../components';
 import { useChatSession } from '../hooks/useChatSession';
+import { useChatSessionStore } from '../store/useChatSessionStore';
 import type {
   ChatBookingDraft,
   ChatFeedbackRating,
@@ -49,9 +48,9 @@ import type {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chatbot'>;
 interface QuickAction {
-  id: 'policy' | 'booking' | 'history' | 'parcel';
+  id: string;
   label: string;
-  prompt?: string;
+  prompt: string;
   icon: React.ComponentType<{ size: number; color: string; weight?: 'regular' | 'fill' | 'bold' }>;
 }
 
@@ -67,7 +66,8 @@ export function ChatbotScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const listRef = useRef<FlashListRef<ChatMessage> | null>(null);
-  const [quickActionsDismissed, setQuickActionsDismissed] = useState(false);
+  const quickActionsDismissed = useChatSessionStore((state) => state.quickActionsDismissed);
+  const setQuickActionsDismissed = useChatSessionStore((state) => state.setQuickActionsDismissed);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const applySearchPrefill = useBookingStore((state) => state.applySearchPrefill);
@@ -92,19 +92,10 @@ export function ChatbotScreen(): React.JSX.Element {
       icon: ShieldCheck,
     },
     {
-      id: 'booking',
-      label: t('chatbot.quickActions.booking'),
-      icon: Ticket,
-    },
-    {
-      id: 'history',
-      label: t('chatbot.quickActions.tracking'),
-      icon: MapPin,
-    },
-    {
-      id: 'parcel',
-      label: t('chatbot.quickActions.parcel'),
-      icon: Package,
+      id: 'ticketRefund',
+      label: t('chatbot.quickActions.ticketRefund'),
+      prompt: t('chatbot.prompts.ticketRefund'),
+      icon: CurrencyCircleDollar,
     },
   ], [t]);
 
@@ -176,30 +167,9 @@ export function ChatbotScreen(): React.JSX.Element {
   }, [navigation]);
 
   const handleQuickAction = useCallback((action: QuickAction) => {
-    setQuickActionsDismissed(true);
-    if (action.id === 'booking') {
-      handleBookingPress({ isReadyToSearch: false });
-    } else if (action.id === 'history') {
-      navigation.navigate('Main', {
-        screen: 'BookingHistory',
-        params: { initialTab: 'ticket' },
-      });
-    } else if (action.id === 'parcel') {
-      navigation.navigate('Parcel', {
-        screen: 'CityPicker',
-        params: { mode: 'from', next: 'to' },
-      });
-    } else if (action.prompt && availability === 'ready' && isOnline && !isStreaming) {
-      handleSend(action.prompt);
-    }
-  }, [
-    availability,
-    handleBookingPress,
-    handleSend,
-    isOnline,
-    isStreaming,
-    navigation,
-  ]);
+    if (availability !== 'ready' || !isOnline || isStreaming) return;
+    handleSend(action.prompt);
+  }, [availability, handleSend, isOnline, isStreaming]);
 
   const renderMessage = useCallback(({ item }: ListRenderItemInfo<ChatMessage>) => (
     <ChatMessageBubble
@@ -311,20 +281,19 @@ export function ChatbotScreen(): React.JSX.Element {
             >
               {quickActions.map((action) => {
                 const Icon = action.icon;
-                const isPolicyDisabled = action.id === 'policy'
-                  && (availability !== 'ready' || !isOnline || isStreaming);
+                const isPromptDisabled = availability !== 'ready' || !isOnline || isStreaming;
 
                 return (
                   <Pressable
                     key={action.id}
                     accessibilityRole="button"
                     accessibilityLabel={action.label}
-                    accessibilityState={{ disabled: isPolicyDisabled }}
-                    disabled={isPolicyDisabled}
+                    accessibilityState={{ disabled: isPromptDisabled }}
+                    disabled={isPromptDisabled}
                     onPress={() => handleQuickAction(action)}
                     style={({ pressed }) => [
                       styles.quickAction,
-                      isPolicyDisabled ? styles.quickActionDisabled : null,
+                      isPromptDisabled ? styles.quickActionDisabled : null,
                       pressed ? styles.pressed : null,
                     ]}
                   >

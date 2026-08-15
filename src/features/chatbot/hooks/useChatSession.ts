@@ -16,6 +16,7 @@ import type {
   ChatMessage,
   ChatMessageStatus,
 } from '../types/chatbot';
+import { useChatSessionStore } from '../store/useChatSessionStore';
 import { extractBookingDraft } from '../utils/bookingIntent';
 import { StreamTimeoutController } from '../utils/streamTimeoutController';
 
@@ -50,8 +51,11 @@ export function useChatSession() {
     status: 'complete',
   }), [welcomeContent]);
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [createWelcomeMessage()]);
-  const [conversationId, setConversationId] = useState<string>();
+  const messages = useChatSessionStore((state) => state.messages);
+  const conversationId = useChatSessionStore((state) => state.conversationId);
+  const setMessages = useChatSessionStore((state) => state.setMessages);
+  const setConversationId = useChatSessionStore((state) => state.setConversationId);
+  const resetSession = useChatSessionStore((state) => state.reset);
   const [isStreaming, setIsStreaming] = useState(false);
   const [pendingFeedbackId, setPendingFeedbackId] = useState<string>();
   const [feedbackError, setFeedbackError] = useState<string>();
@@ -67,19 +71,20 @@ export function useChatSession() {
   const streamTimeoutRef = useRef<StreamTimeoutController | undefined>(undefined);
   const cancelledByUserRef = useRef(false);
   const timedOutRef = useRef(false);
-  const bookingDraftRef = useRef<ChatBookingDraft | undefined>(undefined);
+  const bookingDraftRef = useRef<ChatBookingDraft | undefined>(
+    useChatSessionStore.getState().bookingDraft,
+  );
   const feedbackSequenceRef = useRef(0);
   const pendingFeedbackIdRef = useRef<string | undefined>(undefined);
   const chatIdempotencyRef = useRef(new IdempotencyKeyTracker('rag-chat'));
 
   const updateMessage = useCallback(
     (id: string, update: (message: ChatMessage) => ChatMessage) => {
-      if (!mountedRef.current) return;
       setMessages((current) =>
         current.map((message) => (message.id === id ? update(message) : message)),
       );
     },
-    [],
+    [setMessages],
   );
 
   const clearStreamTimers = useCallback(() => {
@@ -180,7 +185,10 @@ export function useChatSession() {
       new Date(),
       bookingDraftRef.current,
     );
-    if (bookingDraft) bookingDraftRef.current = bookingDraft;
+    if (bookingDraft) {
+      bookingDraftRef.current = bookingDraft;
+      useChatSessionStore.getState().setBookingDraft(bookingDraft);
+    }
 
     cancelledByUserRef.current = false;
     timedOutRef.current = false;
@@ -224,11 +232,11 @@ export function useChatSession() {
         request,
         {
           onActivity: () => {
-            if (sequence !== requestSequence.current || !mountedRef.current) return;
+            if (sequence !== requestSequence.current) return;
             streamTimeoutRef.current?.markActivity();
           },
           onToken: (content) => {
-            if (sequence !== requestSequence.current || !mountedRef.current) return;
+            if (sequence !== requestSequence.current) return;
             pendingTokenTextRef.current += content;
             scheduleTokenFlush();
           },
@@ -237,7 +245,7 @@ export function useChatSession() {
         idempotencyKey,
       );
 
-      if (sequence !== requestSequence.current || !mountedRef.current) return false;
+      if (sequence !== requestSequence.current) return false;
       chatIdempotencyRef.current.reset();
       flushPendingTokens();
       setConversationId(done.conversationId);
@@ -249,7 +257,7 @@ export function useChatSession() {
       }));
       return true;
     } catch (error) {
-      if (sequence !== requestSequence.current || !mountedRef.current) return false;
+      if (sequence !== requestSequence.current) return false;
 
       const apiError = toApiError(error);
       if (!isAmbiguousIdempotentRequestError(apiError, {
@@ -310,13 +318,14 @@ export function useChatSession() {
     activeAssistantIdRef.current = undefined;
     isStreamingRef.current = false;
     setIsStreaming(false);
-    setConversationId(undefined);
     setFeedbackError(undefined);
     feedbackSequenceRef.current += 1;
     pendingFeedbackIdRef.current = undefined;
     setPendingFeedbackId(undefined);
+    resetSession();
     setMessages([createWelcomeMessage()]);
-  }, [clearStreamTimers, createWelcomeMessage]);
+    useChatSessionStore.getState().setQuickActionsDismissed(false);
+  }, [clearStreamTimers, createWelcomeMessage, resetSession, setMessages]);
 
   const rateMessage = useCallback(async (
     messageId: string,
@@ -347,10 +356,11 @@ export function useChatSession() {
 
   useEffect(() => {
     setMessages((current) => {
+      if (current.length === 0) return [createWelcomeMessage()];
       if (current.length !== 1 || current[0].id !== 'welcome') return current;
       return [createWelcomeMessage()];
     });
-  }, [createWelcomeMessage]);
+  }, [createWelcomeMessage, setMessages]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -359,10 +369,31 @@ export function useChatSession() {
       requestSequence.current += 1;
       feedbackSequenceRef.current += 1;
       pendingFeedbackIdRef.current = undefined;
+
+      const assistantId = activeAssistantIdRef.current;
+      if (isStreamingRef.current && assistantId) {
+        const pending = pendingTokenTextRef.current;
+        pendingTokenTextRef.current = '';
+        useChatSessionStore.getState().setMessages((current) =>
+          current.map((message) => {
+            if (message.id !== assistantId) return message;
+            const content = `${message.content}${pending}`;
+            return {
+              ...message,
+              content: content || t('chatbot.cancelledResponse'),
+              status: 'cancelled',
+            };
+          }),
+        );
+      }
+
       controllerRef.current?.abort();
+      controllerRef.current = undefined;
       clearStreamTimers();
+      activeAssistantIdRef.current = undefined;
+      isStreamingRef.current = false;
     };
-  }, [clearStreamTimers]);
+  }, [clearStreamTimers, t]);
 
   return {
     availability,

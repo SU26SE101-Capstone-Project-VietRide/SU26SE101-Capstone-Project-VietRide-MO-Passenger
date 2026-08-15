@@ -14,11 +14,17 @@ import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi'
 import { walletKeys } from '@features/profile/api/walletApi';
 import {
   addVnPaySdkPaymentBackListener,
+  getPendingVnPaySession,
   reconcilePendingVnPaySession,
+  VNPAY_CANCEL_POLL_DELAYS_MS,
   type PendingVnPaySession,
+  type VnPaySdkResult,
 } from '@shared/payments';
 
 type PaymentWakeSignal = 'cold-start' | 'native-payment-back' | 'app-active';
+
+const isAbandonedSdkResult = (result: VnPaySdkResult | undefined): boolean =>
+  result === 'CANCELLED' || result === 'FAILED';
 
 export function PaymentLifecycleCoordinator(): null {
   const queryClient = useQueryClient();
@@ -50,18 +56,37 @@ export function PaymentLifecycleCoordinator(): null {
     Promise.all(invalidations).catch(() => undefined);
   }, [queryClient]);
 
-  const wakePaymentLifecycle = useCallback((signal: PaymentWakeSignal): void => {
+  const wakePaymentLifecycle = useCallback((
+    signal: PaymentWakeSignal,
+    sdkResult?: VnPaySdkResult,
+  ): void => {
     if (!userId || activeReconciliationRef.current) return;
 
     const ownerUserId = userId;
-    const request = reconcilePendingVnPaySession({
-      ownerUserId,
-      isCurrent: () => useAuthStore.getState().user?.id === ownerUserId,
-    })
+    const abandoned = isAbandonedSdkResult(sdkResult);
+    const request = Promise.resolve()
+      .then(async () => {
+        if (signal === 'native-payment-back') {
+          const pending = await getPendingVnPaySession();
+          if (
+            pending
+            && pending.ownerUserId === ownerUserId
+            && useAuthStore.getState().user?.id === ownerUserId
+          ) {
+            invalidatePaymentOwner(ownerUserId, pending);
+          }
+        }
+
+        return reconcilePendingVnPaySession({
+          ownerUserId,
+          isCurrent: () => useAuthStore.getState().user?.id === ownerUserId,
+          ...(abandoned ? { delaysMs: VNPAY_CANCEL_POLL_DELAYS_MS } : {}),
+        });
+      })
       .then((result) => {
         if (useAuthStore.getState().user?.id !== ownerUserId) return;
 
-        if (result.pending && result.cleared && result.status) {
+        if (result.pending) {
           invalidatePaymentOwner(ownerUserId, result.pending);
         }
 
@@ -73,7 +98,8 @@ export function PaymentLifecycleCoordinator(): null {
         }
 
         if (
-          result.pending
+          !abandoned
+          && result.pending
           && (!result.status || result.status.status === 'PENDING')
         ) {
           Alert.alert(
@@ -111,8 +137,8 @@ export function PaymentLifecycleCoordinator(): null {
   }, [userId, wakePaymentLifecycle]);
 
   useEffect(() => {
-    const subscription = addVnPaySdkPaymentBackListener(() => {
-      wakePaymentLifecycle('native-payment-back');
+    const subscription = addVnPaySdkPaymentBackListener((event) => {
+      wakePaymentLifecycle('native-payment-back', event?.result);
     });
     return () => subscription?.remove();
   }, [wakePaymentLifecycle]);

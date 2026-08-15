@@ -1165,16 +1165,31 @@
     "locations": {
       "municipality": "Thành phố trực thuộc trung ương",
       "province": "Tỉnh",
+      "ward": "Phường",
+      "commune": "Xã",
+      "specialZone": "Đặc khu",
       "alreadySelected": "Đã được chọn",
       "typeAndCode": "{{type}} - {{code}}",
       "itemAccessibility": "{{name}}. {{details}}",
+      "locationAccessibility": "{{name}}, {{type}}",
       "loading": "Đang tải địa điểm...",
+      "loadingWards": "Đang tải phường/xã...",
       "loadError": "Không thể tải địa điểm.",
       "emptySearch": "Không tìm thấy địa điểm phù hợp.",
+      "noMatches": "Không có tỉnh/thành phù hợp.",
+      "noWardMatches": "Không có phường/xã phù hợp.",
       "originTitle": "Tỉnh/thành gửi",
       "destinationTitle": "Tỉnh/thành nhận",
-      "searchAccessibility": "Tìm tỉnh hoặc thành phố",
-      "searchPlaceholder": "Tìm tỉnh hoặc thành phố..."
+      "wardTitle": "Chọn phường / xã",
+      "searchAccessibility": "Tìm địa điểm",
+      "searchPlaceholder": "Tìm tỉnh hoặc thành phố...",
+      "searchWardPlaceholder": "Tìm phường, xã hoặc đặc khu",
+      "stepProvinceHint": "Bước 1/2 · Chọn tỉnh hoặc thành phố",
+      "stepWardHint": "Bước 2/2 · Chọn phường/xã, hoặc toàn tỉnh",
+      "entireProvince": "Toàn {{province}}",
+      "entireProvinceHint": "Tìm mọi bến trong tỉnh/thành này. Có thể gửi trong cùng tỉnh nếu chọn bến khác.",
+      "entireProvinceAccessibility": "Chọn toàn {{province}}",
+      "wardInProvince": "{{ward}}, {{province}}"
     },
     "packageSize": {
       "title": "Kích thước kiện hàng",
@@ -1829,12 +1844,11 @@
     },
     "quickActions": {
       "refund": "Hủy vé & hoàn tiền",
-      "booking": "Đặt vé",
-      "tracking": "Vé của tôi",
-      "parcel": "Gửi hàng"
+      "ticketRefund": "Chính sách hoàn vé"
     },
     "prompts": {
-      "refund": "Chính sách hủy vé và hoàn tiền của VietRide như thế nào?"
+      "refund": "Chính sách hủy vé và hoàn tiền của VietRide như thế nào?",
+      "ticketRefund": "Chính sách hoàn vé của VietRide là gì?"
     },
     "errors": {
       "phoneRequired": "Vui lòng bổ sung số điện thoại trong hồ sơ trước khi dùng trợ lý.",

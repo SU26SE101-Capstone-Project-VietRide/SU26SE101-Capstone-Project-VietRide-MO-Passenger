@@ -1,7 +1,6 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   Text,
   TextInput,
@@ -9,13 +8,26 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import type { ListRenderItem } from 'react-native';
-import { ArrowLeft, MagnifyingGlass, MapPin } from 'phosphor-react-native';
+import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import {
+  ArrowLeft,
+  Buildings,
+  MagnifyingGlass,
+  MapPin,
+  MapTrifold,
+} from 'phosphor-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useLocations } from '@features/location/hooks/useLocations';
+import {
+  useLocationChildren,
+  useLocations,
+} from '@features/location/hooks/useLocations';
 import type { Location } from '@features/location/types/location';
+import {
+  isLocationLeafType,
+  isLocationRootType,
+} from '@features/location/types/location';
 import type { ParcelStackParamList } from '@app/navigation/types';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -27,48 +39,70 @@ import { useParcelStore } from '../store/useParcelStore';
 
 type NavProp = NativeStackNavigationProp<ParcelStackParamList, 'CityPicker'>;
 type RouteProps = RouteProp<ParcelStackParamList, 'CityPicker'>;
+type Step = 'province' | 'ward';
 
 const locationKeyExtractor = (item: Location) => item.id;
 
+const typeKey = (type: Location['type']): string => {
+  switch (type) {
+    case 'MUNICIPALITY': return 'parcel.locations.municipality';
+    case 'PROVINCE': return 'parcel.locations.province';
+    case 'WARD': return 'parcel.locations.ward';
+    case 'COMMUNE': return 'parcel.locations.commune';
+    case 'SPECIAL_ZONE': return 'parcel.locations.specialZone';
+    default: return 'parcel.locations.province';
+  }
+};
+
 interface LocationOptionProps {
   location: Location;
-  disabled: boolean;
+  chevron: boolean;
   onSelect: (location: Location) => void;
 }
 
 const LocationOption = memo(function LocationOption({
   location,
-  disabled,
+  chevron,
   onSelect,
 }: LocationOptionProps): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const disabledHint = t('parcel.locations.alreadySelected');
+  const typeLabel = t(typeKey(location.type));
   const handlePress = useCallback(() => {
     onSelect(location);
   }, [location, onSelect]);
 
   return (
     <Pressable
-      accessibilityLabel={disabled ? `${location.name}. ${disabledHint}` : location.name}
+      accessibilityLabel={t('parcel.locations.locationAccessibility', {
+        name: location.name,
+        type: typeLabel,
+      })}
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
       onPress={handlePress}
-      style={({ pressed }) => [
-        styles.item,
-        disabled ? styles.itemDisabled : null,
-        pressed && !disabled ? styles.pressed : null,
-      ]}
+      style={({ pressed }) => [styles.item, pressed ? styles.pressed : null]}
     >
       <View style={styles.itemIcon}>
-        <MapPin size={16} color={theme.colors.primary} weight="fill" />
+        {isLocationRootType(location.type) ? (
+          <Buildings size={16} color={theme.colors.primary} weight="fill" />
+        ) : (
+          <MapPin size={16} color={theme.colors.primary} weight="fill" />
+        )}
       </View>
       <View style={styles.itemTextWrap}>
         <Text style={styles.itemName}>{location.name}</Text>
-        {disabled ? <Text style={styles.itemRegion}>{disabledHint}</Text> : null}
       </View>
+      {chevron ? (
+        <View style={styles.itemArrow}>
+          <ArrowLeft
+            size={16}
+            color={theme.colors.textTertiary}
+            weight="bold"
+            style={styles.arrowForward}
+          />
+        </View>
+      ) : null}
     </Pressable>
   );
 });
@@ -80,99 +114,131 @@ export function ParcelCityPicker(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
-  const {
-    data: locations = [],
-    isLoading,
-    isError,
-    isFetching,
-    refetch,
-  } = useLocations();
-  const fromLocationCode = useParcelStore(state => state.fromLocationCode);
-  const toLocationCode = useParcelStore(state => state.toLocationCode);
   const setFromLocation = useParcelStore(state => state.setFromLocation);
   const setToLocation = useParcelStore(state => state.setToLocation);
+  const [step, setStep] = useState<Step>('province');
+  const [province, setProvince] = useState<Location | null>(null);
   const [query, setQuery] = useState('');
   const mode = route.params.mode;
-  const oppositeLocationCode =
-    mode === 'from' ? toLocationCode : fromLocationCode;
 
-  const filteredLocations = useMemo(() => {
-    const activeLocations = locations.filter(location => location.isActive);
+  const rootsQuery = useLocations();
+  const wardsQuery = useLocationChildren(step === 'ward' ? province?.code : undefined);
+
+  useEffect(() => {
+    setQuery('');
+  }, [step]);
+
+  const filterByQuery = useCallback((rows: Location[]) => {
     const normalizedQuery = normalizeLocationSearchText(query);
+    if (!normalizedQuery) return rows;
+    return rows.filter((row) =>
+      normalizeLocationSearchText(row.name).includes(normalizedQuery),
+    );
+  }, [query]);
 
-    if (!normalizedQuery) {
-      return activeLocations;
+  const provinceRows = useMemo(
+    () => filterByQuery(
+      (rootsQuery.data ?? []).filter((location) =>
+        location.isActive && isLocationRootType(location.type),
+      ),
+    ),
+    [filterByQuery, rootsQuery.data],
+  );
+
+  const wardRows = useMemo(
+    () => filterByQuery(
+      (wardsQuery.data ?? []).filter((location) =>
+        location.isActive && isLocationLeafType(location.type),
+      ),
+    ),
+    [filterByQuery, wardsQuery.data],
+  );
+
+  const finish = useCallback((root: Location, leaf: Location | null) => {
+    const label = leaf
+      ? t('parcel.locations.wardInProvince', { ward: leaf.name, province: root.name })
+      : root.name;
+
+    if (mode === 'from') {
+      setFromLocation(label, root.code, leaf?.code ?? '');
+    } else {
+      setToLocation(label, root.code, leaf?.code ?? '');
     }
 
-    return activeLocations.filter(location => {
-      return normalizeLocationSearchText(location.name).includes(normalizedQuery);
-    });
-  }, [locations, query]);
+    if (route.params.next === 'to') {
+      navigation.replace('CityPicker', { mode: 'to', next: 'create' });
+      return;
+    }
+    if (route.params.next === 'create') {
+      navigation.replace('CreateParcel');
+      return;
+    }
 
-  const onSelectLocation = useCallback(
-    (location: Location) => {
-      if (location.code === oppositeLocationCode) {
-        return;
-      }
+    navigation.goBack();
+  }, [mode, navigation, route.params.next, setFromLocation, setToLocation, t]);
 
-      if (mode === 'from') {
-        setFromLocation(location.name, location.code);
-      } else {
-        setToLocation(location.name, location.code);
-      }
+  const onPickProvince = useCallback((row: Location) => {
+    setProvince(row);
+    setStep('ward');
+  }, []);
 
-      if (route.params.next === 'to') {
-        navigation.replace('CityPicker', { mode: 'to', next: 'create' });
-        return;
-      }
-      if (route.params.next === 'create') {
-        navigation.replace('CreateParcel');
-        return;
-      }
+  const onPickWard = useCallback((row: Location) => {
+    if (province) finish(province, row);
+  }, [finish, province]);
 
-      navigation.goBack();
-    },
-    [mode, navigation, oppositeLocationCode, route.params.next, setFromLocation, setToLocation],
-  );
+  const onPickEntireProvince = useCallback(() => {
+    if (province) finish(province, null);
+  }, [finish, province]);
 
-  const renderLocation = useCallback<ListRenderItem<Location>>(
-    ({ item }) => (
-      <LocationOption
-        disabled={item.code === oppositeLocationCode}
-        location={item}
-        onSelect={onSelectLocation}
-      />
-    ),
-    [onSelectLocation, oppositeLocationCode],
-  );
+  const onBack = useCallback(() => {
+    if (step === 'ward') {
+      setStep('province');
+      setProvince(null);
+      return;
+    }
+    navigation.goBack();
+  }, [navigation, step]);
+
+  const active = step === 'province' ? rootsQuery : wardsQuery;
+  const list = step === 'province' ? provinceRows : wardRows;
+
+  const renderLocation = useCallback(({ item }: ListRenderItemInfo<Location>) => (
+    <LocationOption
+      chevron={step === 'province'}
+      location={item}
+      onSelect={step === 'province' ? onPickProvince : onPickWard}
+    />
+  ), [onPickProvince, onPickWard, step]);
 
   const listEmpty = useMemo(() => {
-    if (isLoading) {
+    if (active.isLoading) {
       return (
         <View style={styles.stateContainer}>
           <ActivityIndicator color={theme.colors.primary} />
           <Text style={styles.empty}>
-            {t('parcel.locations.loading')}
+            {step === 'ward'
+              ? t('parcel.locations.loadingWards')
+              : t('parcel.locations.loading')}
           </Text>
         </View>
       );
     }
 
-    if (isError) {
+    if (active.isError) {
       return (
         <View style={styles.stateContainer}>
           <Text style={styles.empty}>
             {t('parcel.locations.loadError')}
           </Text>
           <Pressable
-            onPress={() => refetch()}
-            disabled={isFetching}
+            onPress={() => active.refetch()}
+            disabled={active.isFetching}
             style={({ pressed }) => [
               styles.retryButton,
               pressed ? styles.pressed : null,
             ]}
           >
-            {isFetching ? (
+            {active.isFetching ? (
               <ActivityIndicator
                 size="small"
                 color={theme.colors.textInverse}
@@ -189,19 +255,12 @@ export function ParcelCityPicker(): React.JSX.Element {
 
     return (
       <Text style={styles.empty}>
-        {t('parcel.locations.emptySearch')}
+        {step === 'ward'
+          ? t('parcel.locations.noWardMatches')
+          : t('parcel.locations.noMatches')}
       </Text>
     );
-  }, [
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-    styles,
-    t,
-    theme.colors.primary,
-    theme.colors.textInverse,
-  ]);
+  }, [active, step, styles, t, theme.colors.primary, theme.colors.textInverse]);
 
   return (
     <View style={[styles.safe, { paddingTop: insets.top }]}>
@@ -210,7 +269,7 @@ export function ParcelCityPicker(): React.JSX.Element {
           <Pressable
             accessibilityLabel={t('common.back')}
             accessibilityRole="button"
-            onPress={() => navigation.goBack()}
+            onPress={onBack}
             style={({ pressed }) => [
               styles.headerButton,
               pressed ? styles.pressed : null,
@@ -218,13 +277,30 @@ export function ParcelCityPicker(): React.JSX.Element {
           >
             <ArrowLeft size={22} color={theme.colors.textPrimary} />
           </Pressable>
-          <Text style={styles.headerTitle}>
-            {mode === 'from'
-              ? t('parcel.locations.originTitle')
-              : t('parcel.locations.destinationTitle')}
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {step === 'ward'
+              ? t('parcel.locations.wardTitle')
+              : mode === 'from'
+                ? t('parcel.locations.originTitle')
+                : t('parcel.locations.destinationTitle')}
           </Text>
           <View style={styles.headerSpacer} />
         </View>
+
+        {step === 'ward' && province ? (
+          <View style={styles.provinceChip}>
+            <Buildings size={14} color={theme.colors.primary} weight="fill" />
+            <Text style={styles.provinceChipText} numberOfLines={1}>
+              {province.name}
+            </Text>
+          </View>
+        ) : null}
+
+        <Text style={styles.stepHint}>
+          {step === 'province'
+            ? t('parcel.locations.stepProvinceHint')
+            : t('parcel.locations.stepWardHint')}
+        </Text>
 
         <View style={styles.searchBox}>
           <MagnifyingGlass
@@ -235,28 +311,55 @@ export function ParcelCityPicker(): React.JSX.Element {
           <TextInput
             accessibilityLabel={t('parcel.locations.searchAccessibility')}
             style={styles.searchInput}
-            placeholder={t('parcel.locations.searchPlaceholder')}
+            placeholder={
+              step === 'ward'
+                ? t('parcel.locations.searchWardPlaceholder')
+                : t('parcel.locations.searchPlaceholder')
+            }
             placeholderTextColor={theme.colors.textTertiary}
             value={query}
             onChangeText={setQuery}
-            autoFocus
+            autoFocus={step === 'province'}
             returnKeyType="search"
           />
         </View>
 
-        <FlatList
-          data={filteredLocations}
+        <FlashList
+          data={list}
           keyExtractor={locationKeyExtractor}
           contentContainerStyle={styles.list}
           renderItem={renderLocation}
+          ListHeaderComponent={
+            step === 'ward' && province && !active.isLoading && !active.isError ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('parcel.locations.entireProvinceAccessibility', {
+                  province: province.name,
+                })}
+                onPress={onPickEntireProvince}
+                style={({ pressed }) => [
+                  styles.entireProvinceRow,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <View style={styles.entireProvinceIcon}>
+                  <MapTrifold size={16} color={theme.colors.primary} weight="fill" />
+                </View>
+                <View style={styles.itemTextWrap}>
+                  <Text style={styles.itemName}>
+                    {t('parcel.locations.entireProvince', { province: province.name })}
+                  </Text>
+                  <Text style={styles.itemRegion}>
+                    {t('parcel.locations.entireProvinceHint')}
+                  </Text>
+                </View>
+              </Pressable>
+            ) : null
+          }
           ListEmptyComponent={listEmpty}
-          initialNumToRender={12}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          maxToRenderPerBatch={12}
-          removeClippedSubviews={process.env.EXPO_OS === 'android'}
           showsVerticalScrollIndicator={false}
-          windowSize={7}
         />
       </KeyboardAvoidingView>
     </View>
@@ -267,9 +370,9 @@ const createStyles = (theme: AppTheme) => ({
   safe: { flex: 1, backgroundColor: theme.colors.background },
   keyboardContainer: { flex: 1 },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
@@ -280,14 +383,42 @@ const createStyles = (theme: AppTheme) => ({
     height: 38,
   },
   headerTitle: {
+    flex: 1,
+    marginHorizontal: spacing.sm,
+    textAlign: 'center' as const,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
   },
   headerSpacer: { width: 38 },
+  provinceChip: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    alignSelf: 'flex-start' as const,
+    gap: spacing.xs,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  provinceChipText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
+    maxWidth: 240,
+  },
+  stepHint: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
+  },
   searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     gap: spacing.sm,
     marginHorizontal: spacing.lg,
     paddingHorizontal: spacing.md,
@@ -311,23 +442,42 @@ const createStyles = (theme: AppTheme) => ({
   },
   list: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
   item: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     gap: spacing.md,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.divider,
   },
-  itemDisabled: {
-    opacity: 0.45,
+  itemArrow: {
+    width: 20,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  arrowForward: { transform: [{ rotate: '180deg' }] },
+  entireProvinceRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.divider,
+  },
+  entireProvinceIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.primaryFaded,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   itemIcon: {
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
     backgroundColor: theme.colors.primaryFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   itemTextWrap: { flex: 1 },
   itemName: {
@@ -342,7 +492,7 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: 2,
   },
   stateContainer: {
-    alignItems: 'center',
+    alignItems: 'center' as const,
     gap: spacing.md,
     marginTop: spacing.xxl,
   },
@@ -352,8 +502,8 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.md,
     backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   retryText: {
     fontFamily: fontFamilies.bold,
@@ -364,7 +514,7 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
     color: theme.colors.textTertiary,
-    textAlign: 'center',
+    textAlign: 'center' as const,
     marginTop: spacing.xxl,
   },
   pressed: {

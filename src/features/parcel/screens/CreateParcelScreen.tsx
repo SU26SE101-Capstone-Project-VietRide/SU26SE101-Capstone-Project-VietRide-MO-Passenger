@@ -50,7 +50,6 @@ import {
 import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
 import { walletKeys } from '@features/profile/api/walletApi';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
-import { useLocations } from '@features/location/hooks/useLocations';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useCurrentCoordinates, useThemedStyles } from '@shared/hooks';
@@ -78,7 +77,6 @@ import {
   findPromoByCode,
   normalizePromoCode,
 } from '@shared/utils/promo';
-import { findLocationByName } from '@features/location/utils/locationSearch';
 import { useParcelStore } from '../store/useParcelStore';
 import { mapParcelVoucherToPromo, parcelKeys } from '../api/parcelApi';
 import {
@@ -265,6 +263,8 @@ export function CreateParcelScreen(): React.JSX.Element {
   const toCity = useParcelStore(state => state.toCity);
   const fromLocationCode = useParcelStore(state => state.fromLocationCode);
   const toLocationCode = useParcelStore(state => state.toLocationCode);
+  const fromWardCode = useParcelStore(state => state.fromWardCode);
+  const toWardCode = useParcelStore(state => state.toWardCode);
   const receivingStation = useParcelStore(state => state.receivingStation);
   const dropoffStation = useParcelStore(state => state.dropoffStation);
   const packageSize = useParcelStore(state => state.size);
@@ -282,8 +282,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     state => state.setReceivingStation,
   );
   const setDropoffStation = useParcelStore(state => state.setDropoffStation);
-  const { data: locations = [] } = useLocations();
-
   const [step, setStep] = useState(1);
   const [highestStepReached, setHighestStepReached] = useState(1);
   // Recipient starts empty; the sender profile is not applied in this batch
@@ -358,30 +356,17 @@ export function CreateParcelScreen(): React.JSX.Element {
     );
   }, [t]);
 
-  const originLocation = useMemo(() => {
-    return (
-      locations.find(location => location.code === fromLocationCode) ??
-      findLocationByName(locations, fromCity) ??
-      null
-    );
-  }, [fromCity, fromLocationCode, locations]);
-
-  const destinationLocation = useMemo(() => {
-    return (
-      locations.find(location => location.code === toLocationCode) ??
-      findLocationByName(locations, toCity) ??
-      null
-    );
-  }, [locations, toCity, toLocationCode]);
+  const originScopeCode = (fromWardCode || fromLocationCode).trim();
+  const destinationScopeCode = (toWardCode || toLocationCode).trim();
 
   const originStationsQuery = useParcelStations(
-    originLocation,
+    originScopeCode,
     step === 1,
     currentLocation.coords,
     currentLocation.isResolving,
   );
   const destinationStationsQuery = useParcelStations(
-    destinationLocation,
+    destinationScopeCode,
     step === 2,
     currentLocation.coords,
     currentLocation.isResolving,
@@ -1532,7 +1517,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           ),
     [destinationStationsQuery.stations, originStationsQuery.stations, receivingStation?.id, step],
   );
-  const stationStepLocation = step === 1 ? originLocation : destinationLocation;
+  const stationStepLocation = step === 1 ? originScopeCode : destinationScopeCode;
   const missingLocation = !stationStepLocation;
   const selectedStationForStep =
     step === 1 ? receivingStation : step === 2 ? dropoffStation : undefined;
@@ -1628,7 +1613,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           <Text style={styles.stateText}>
             {stationStepLocation
               ? t('parcel.stations.emptyInLocation', {
-                  location: stationStepLocation.name,
+                  location: step === 1 ? fromCity : toCity,
                 })
               : t('parcel.stations.emptyDescription')}
           </Text>

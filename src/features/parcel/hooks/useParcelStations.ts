@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import type { Location } from '@features/location/types/location';
 import { searchStations, stationKeys } from '@features/trip/api/stationApi';
 import type { StationSearchResult } from '@features/trip/types';
 import type { CurrentCoordinates } from '@shared/hooks/useCurrentCoordinates';
@@ -82,15 +81,15 @@ export const mapParcelStation = (
 };
 
 export function useParcelStations(
-  location: Location | null,
+  locationScopeCodeInput: string | null | undefined,
   enabled = true,
   currentCoordinates: CurrentCoordinates | null = null,
   isResolvingCurrentLocation = false,
 ) {
   const { t } = useTranslation();
-  // Parcel uses hierarchy scope so a root province/municipality returns both
-  // root-attached stations and stations under active leaves.
-  const locationScopeCode = location?.code.trim() ?? '';
+  // Hierarchy scope: a province returns root + leaf stations; a ward/commune
+  // returns only stations under that leaf so same-province routes can differ.
+  const locationScopeCode = locationScopeCodeInput?.trim() ?? '';
   const searchScope = {
     mode: 'hierarchy' as const,
     locationScopeCode,

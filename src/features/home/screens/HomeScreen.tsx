@@ -118,9 +118,7 @@ export function HomeScreen(): React.JSX.Element {
   const fromLocationCode = useParcelStore(state => state.fromLocationCode);
   const toLocationCode = useParcelStore(state => state.toLocationCode);
   const swapParcelLocations = useParcelStore(state => state.swapLocations);
-  const canStartParcel = Boolean(
-    fromLocationCode && toLocationCode && fromLocationCode !== toLocationCode,
-  );
+  const canStartParcel = Boolean(fromLocationCode && toLocationCode);
 
   const handleNotificationPress = useCallback(() => {
     navigation.navigate('Notification');

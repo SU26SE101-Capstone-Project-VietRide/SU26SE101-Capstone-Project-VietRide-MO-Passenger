@@ -8,7 +8,7 @@ const mockAppStateRemove = jest.fn();
 const mockOpenPendingPaymentDestination = jest.fn();
 const mockDiscardPendingPaymentOpen = jest.fn();
 const mockReconcilePendingVnPaySession = jest.fn();
-let mockNativeHandler: (() => void) | undefined;
+let mockNativeHandler: ((event?: { result?: string }) => void) | undefined;
 let mockAppStateHandler: ((state: string) => void) | undefined;
 
 const mockAuthState = {
@@ -45,13 +45,17 @@ jest.mock('@features/profile/api/walletApi', () => ({
   walletKeys: { user: (userId: string) => ['wallet', userId] },
 }));
 
+const mockGetPendingVnPaySession = jest.fn();
+
 jest.mock('@shared/payments', () => ({
-  addVnPaySdkPaymentBackListener: (handler: () => void) => {
+  addVnPaySdkPaymentBackListener: (handler: (event?: { result?: string }) => void) => {
     mockNativeHandler = handler;
     return { remove: mockNativeRemove };
   },
+  getPendingVnPaySession: () => mockGetPendingVnPaySession(),
   reconcilePendingVnPaySession: (...args: unknown[]) =>
     mockReconcilePendingVnPaySession(...args),
+  VNPAY_CANCEL_POLL_DELAYS_MS: [0, 400],
 }));
 
 import { PaymentLifecycleCoordinator } from './PaymentLifecycleCoordinator';
@@ -59,6 +63,7 @@ import { PaymentLifecycleCoordinator } from './PaymentLifecycleCoordinator';
 describe('PaymentLifecycleCoordinator', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetPendingVnPaySession.mockResolvedValue(null);
     mockNativeHandler = undefined;
     mockAppStateHandler = undefined;
     jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
@@ -124,6 +129,58 @@ describe('PaymentLifecycleCoordinator', () => {
     ReactTestRenderer.act(() => renderer!.unmount());
     expect(mockNativeRemove).toHaveBeenCalledTimes(1);
     expect(mockAppStateRemove).toHaveBeenCalledTimes(1);
+    queryClient.clear();
+  });
+
+  it('refetches ticket and parcel owner queries after VNPay cancel', async () => {
+    const pending = {
+      sessionId: '33333333-3333-4333-8333-333333333333',
+      ownerUserId: mockAuthState.user.id,
+      kind: 'booking' as const,
+      createdAt: '2026-08-15T00:00:00.000Z',
+      paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+      vnpaySdk: { tmnCode: 'tmn', scheme: 'vietride', isSandbox: true },
+    };
+    mockReconcilePendingVnPaySession.mockResolvedValue({
+      pending: null,
+      status: null,
+      cleared: false,
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <QueryClientProvider client={queryClient}>
+          <PaymentLifecycleCoordinator />
+        </QueryClientProvider>,
+      );
+    });
+
+    mockGetPendingVnPaySession.mockResolvedValue(pending);
+    mockReconcilePendingVnPaySession.mockResolvedValue({
+      pending,
+      status: { sessionId: pending.sessionId, status: 'EXPIRED' },
+      cleared: true,
+    });
+
+    await ReactTestRenderer.act(async () => {
+      mockNativeHandler?.({ result: 'CANCELLED' });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockReconcilePendingVnPaySession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        delaysMs: [0, 400],
+      }),
+    );
+    expect(invalidateSpy).toHaveBeenCalled();
+
+    ReactTestRenderer.act(() => renderer!.unmount());
     queryClient.clear();
   });
 });

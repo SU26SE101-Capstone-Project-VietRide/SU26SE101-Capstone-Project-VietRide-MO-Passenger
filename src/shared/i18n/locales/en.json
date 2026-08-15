@@ -1165,16 +1165,31 @@
     "locations": {
       "municipality": "Municipality",
       "province": "Province",
+      "ward": "Ward",
+      "commune": "Commune",
+      "specialZone": "Special zone",
       "alreadySelected": "Already selected",
       "typeAndCode": "{{type}} - {{code}}",
       "itemAccessibility": "{{name}}. {{details}}",
+      "locationAccessibility": "{{name}}, {{type}}",
       "loading": "Loading locations...",
+      "loadingWards": "Loading wards and communes...",
       "loadError": "Could not load locations.",
       "emptySearch": "No matching locations found.",
+      "noMatches": "No matching provinces or cities.",
+      "noWardMatches": "No matching wards or communes.",
       "originTitle": "Origin Province",
       "destinationTitle": "Destination Province",
-      "searchAccessibility": "Search provinces and cities",
-      "searchPlaceholder": "Search province or city..."
+      "wardTitle": "Choose ward / commune",
+      "searchAccessibility": "Search locations",
+      "searchPlaceholder": "Search province or city...",
+      "searchWardPlaceholder": "Search ward, commune, or special zone",
+      "stepProvinceHint": "Step 1/2 · Choose a province or city",
+      "stepWardHint": "Step 2/2 · Choose a ward/commune, or the whole province",
+      "entireProvince": "All of {{province}}",
+      "entireProvinceHint": "Find every station in this province. Same-province sending is allowed if you pick a different station.",
+      "entireProvinceAccessibility": "Select all of {{province}}",
+      "wardInProvince": "{{ward}}, {{province}}"
     },
     "packageSize": {
       "title": "Package Size",
@@ -1829,12 +1844,11 @@
     },
     "quickActions": {
       "refund": "Cancellation & refund",
-      "booking": "Book a ticket",
-      "tracking": "My bookings",
-      "parcel": "Send a parcel"
+      "ticketRefund": "Ticket refund policy"
     },
     "prompts": {
-      "refund": "What is VietRide's ticket cancellation and refund policy?"
+      "refund": "What is VietRide's ticket cancellation and refund policy?",
+      "ticketRefund": "What is VietRide's ticket refund policy?"
     },
     "errors": {
       "phoneRequired": "Please add a phone number to your profile before using the assistant.",

@@ -36,6 +36,7 @@ export {
   isSuccessfulPaymentSession,
   pollVnPaySessionStatus,
   reconcilePendingVnPaySession,
+  VNPAY_CANCEL_POLL_DELAYS_MS,
   VNPAY_SESSION_POLL_DELAYS_MS,
 } from './reconcileVnPaySession';
 export type {
