@@ -531,12 +531,12 @@
       "changeReturnPickupAddress": "Đổi điểm đón chiều về",
       "changeReturnDropoffAddress": "Đổi điểm trả chiều về",
       "errors": {
-        "configuration": "Google Places chưa được cấu hình cho bản dựng này. Hãy bật Places API (New) rồi build lại custom development client.",
+        "configuration": "Tìm địa chỉ chưa sẵn sàng trên bản ứng dụng này. Hãy cập nhật ứng dụng hoặc thử lại sau.",
         "offline": "Hãy kết nối mạng để tìm địa chỉ.",
         "noResults": "Không tìm thấy địa điểm phù hợp. Hãy thử từ khóa khác.",
         "quota": "Tìm địa chỉ đang bị giới hạn tạm thời. Vui lòng thử lại sau.",
         "unavailable": "Tìm địa chỉ tạm thời không khả dụng. Vui lòng thử lại.",
-        "unsupported": "Tìm địa chỉ trung chuyển cần bản dựng VietRide tùy chỉnh (development/release). Expo Go không được hỗ trợ.",
+        "unsupported": "Tìm địa chỉ chưa khả dụng trên bản ứng dụng này. Hãy cập nhật VietRide.",
         "invalidPlace": "Không xác minh được địa điểm này. Hãy chọn kết quả khác.",
         "session": "Phiên tìm kiếm đã hết hạn. Hãy tìm lại."
       }
@@ -669,7 +669,7 @@
       "comingSoon": "Sắp có",
       "vehicleComingSoonAccessibility": "Bộ lọc loại xe sắp ra mắt",
       "vehicleDisabledTitle": "Chưa thể lọc theo loại xe",
-      "vehicleDisabledDescription": "Dữ liệu tìm chuyến hiện tại chưa cung cấp metadata loại xe đủ tin cậy.",
+      "vehicleDisabledDescription": "Hiện chưa lọc được theo loại xe. Bạn vẫn có thể lọc theo giờ và giá.",
       "fare": "Giá vé",
       "reset": "Đặt lại",
       "applyFilters": "Áp dụng bộ lọc",
@@ -956,7 +956,7 @@
     "map": {
       "unavailableTitle": "Bản đồ chưa khả dụng",
       "unavailableProduction": "Bản đồ trực tiếp chưa khả dụng trong bản dựng này.",
-      "unavailableDevelopment": "Hãy cấu hình bản dựng bản đồ native hợp lệ để bật bản đồ.",
+      "unavailableDevelopment": "Bản đồ trực tiếp chưa sẵn sàng trên bản ứng dụng này.",
       "waitingTitle": "Đang chờ vị trí",
       "waitingMessage": "Tài xế chưa gửi điểm GPS cho chuyến đi này.",
       "waitingShuttleMessage": "Tài xế trung chuyển chưa gửi điểm GPS.",
@@ -1111,7 +1111,7 @@
     "district": {
       "title": "Giao hàng theo quận/huyện",
       "unavailableTitle": "Chưa khả dụng",
-      "unavailableDescription": "Hiện tại dịch vụ gửi hàng chỉ hỗ trợ nhận tại bến. Chọn quận/huyện sẽ được mở khi backend cung cấp dữ liệu vùng phục vụ."
+      "unavailableDescription": "Hiện chỉ nhận hàng tại bến. Giao tận quận/huyện sẽ được mở sau."
     },
     "errors": {
       "loadData": "Không thể tải dữ liệu. Vui lòng kiểm tra kết nối.",
@@ -1209,7 +1209,7 @@
       "payBefore": "Thanh toán trước {{deadline}}",
       "openVnPayAgain": "Mở lại VNPay",
       "verifyingTitle": "Đang xác minh thanh toán",
-      "verifyingDescription": "VietRide đang chờ backend xác nhận.",
+      "verifyingDescription": "VietRide đang xác nhận thanh toán. Vui lòng đợi trong giây lát.",
       "starting": "Đang bắt đầu thanh toán…",
       "payWithWallet": "Thanh toán bằng ví",
       "continueToVnPay": "Tiếp tục đến VNPay"
@@ -1502,7 +1502,7 @@
     "accountStatus": "Trạng thái tài khoản",
     "unavailable": "Chưa hỗ trợ",
     "unavailableTitle": "Tính năng bảo mật chưa khả dụng",
-    "unavailableDescription": "Tính năng bảo mật này chưa được backend hiện tại hỗ trợ.",
+    "unavailableDescription": "Tính năng bảo mật này chưa mở trên ứng dụng.",
     "status": {
       "active": "Đang hoạt động",
       "pendingEmailVerification": "Cần xác minh email",
@@ -1522,7 +1522,7 @@
       "successTitle": "Đã cập nhật mật khẩu",
       "successDescription": "Mật khẩu đã được đổi và tất cả phiên đã đăng xuất. Hãy đăng nhập lại bằng mật khẩu mới.",
       "errorTitle": "Không thể đổi mật khẩu",
-      "backendNote": "Mật khẩu chỉ được gửi qua API bảo mật đã xác thực và không được lưu trong state của ứng dụng."
+      "backendNote": "Mật khẩu được gửi an toàn và không lưu trên điện thoại."
     },
     "validation": {
       "currentPasswordRequired": "Hãy nhập mật khẩu hiện tại.",
@@ -1538,7 +1538,7 @@
   },
   "settings": {
     "title": "Cài đặt",
-    "securityNote": "Một số tùy chọn phụ thuộc vào hỗ trợ của backend và thiết bị.",
+    "securityNote": "Một số tùy chọn phụ thuộc vào phiên bản ứng dụng và thiết bị.",
     "language": {
       "title": "Ngôn ngữ",
       "vietnamese": "Tiếng Việt",
@@ -1671,34 +1671,34 @@
     "comingSoonAccessibility": "{{title}}, sắp ra mắt",
     "comingSoonHint": "Mở thông tin về tính năng chưa khả dụng",
     "generic": {
-      "title": "Thanh toán được bảo vệ",
-      "description": "Tính năng tài chính này chưa có trong phiên bản hiện tại.",
-      "safety": "VietRide không thu thập số thẻ hoặc CVV trong các trường dữ liệu do ứng dụng quản lý."
+      "title": "Tính năng chưa mở",
+      "description": "Tính năng này chưa có trong phiên bản hiện tại.",
+      "safety": "VietRide không yêu cầu bạn nhập số thẻ hoặc mã CVV trên màn hình này."
     },
     "walletUnavailable": {
       "title": "Ví chưa khả dụng",
-      "description": "Backend hiện tại chưa cung cấp contract ví cần thiết cho màn hình này.",
-      "safety": "Không có thông tin thanh toán nào được thu thập khi ví chưa khả dụng."
+      "description": "Ví chưa mở trên ứng dụng. Bạn vẫn có thể thanh toán khi đặt vé hoặc gửi hàng.",
+      "safety": "Không thu thập thông tin thẻ khi ví chưa mở."
     },
     "topUpUnavailable": {
       "title": "Nạp tiền chưa khả dụng",
-      "description": "Backend hiện tại chưa cung cấp luồng nạp tiền vào ví được hỗ trợ.",
-      "safety": "Không có thanh toán nào được tạo khi chưa có luồng backend được hỗ trợ."
+      "description": "Chưa nạp tiền vào ví được trên ứng dụng.",
+      "safety": "Không có khoản thanh toán nào được tạo từ màn hình này."
     },
     "withdraw": {
       "title": "Rút tiền",
-      "description": "Tính năng rút tiền đang chờ contract chi trả được backend hỗ trợ.",
-      "safety": "Màn hình này không thu thập tài khoản ngân hàng hoặc thông tin nhận tiền."
+      "description": "Rút tiền về tài khoản ngân hàng chưa mở trên ứng dụng.",
+      "safety": "Màn hình này không yêu cầu số tài khoản ngân hàng."
     },
     "savedPayments": {
       "title": "Phương thức thanh toán đã lưu",
-      "description": "Thanh toán đã lưu cần contract quản lý phương thức thanh toán dạng token.",
-      "safety": "VietRide không lưu số thẻ hoặc CVV thô."
+      "description": "Lưu thẻ để thanh toán lần sau chưa mở trên ứng dụng.",
+      "safety": "VietRide không lưu số thẻ hoặc mã CVV."
     },
     "addPaymentMethod": {
       "title": "Thêm phương thức thanh toán",
-      "description": "Việc thêm phương thức thanh toán cần luồng hosted đạt chuẩn PCI hoặc SDK native của nhà cung cấp.",
-      "safety": "Thông tin thẻ chỉ được thu thập bởi nhà cung cấp thanh toán đã được chứng nhận."
+      "description": "Thêm thẻ mới chưa mở trên ứng dụng.",
+      "safety": "Thông tin thẻ chỉ được nhập trên trang thanh toán an toàn."
     }
   },
   "wallet": {

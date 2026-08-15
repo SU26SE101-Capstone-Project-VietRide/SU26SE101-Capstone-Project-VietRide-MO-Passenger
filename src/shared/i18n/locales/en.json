@@ -531,12 +531,12 @@
       "changeReturnPickupAddress": "Change return pickup",
       "changeReturnDropoffAddress": "Change return drop-off",
       "errors": {
-        "configuration": "Google Places is not configured for this build. Rebuild a custom development client after enabling Places API (New).",
+        "configuration": "Address search is not ready in this app version. Update the app or try again later.",
         "offline": "Connect to the internet to search for addresses.",
         "noResults": "No matching places were found. Try a different search.",
         "quota": "Address search is temporarily limited. Please try again later.",
         "unavailable": "Address search is temporarily unavailable. Please try again.",
-        "unsupported": "Shuttle address search requires a custom VietRide development or release build. Expo Go is not supported.",
+        "unsupported": "Address search is not available in this app version. Please update VietRide.",
         "invalidPlace": "That place could not be verified. Choose another result.",
         "session": "The search session expired. Try searching again."
       }
@@ -669,7 +669,7 @@
       "comingSoon": "Coming soon",
       "vehicleComingSoonAccessibility": "Vehicle type filter is coming soon",
       "vehicleDisabledTitle": "Vehicle filtering is not available yet",
-      "vehicleDisabledDescription": "The current trip-search response does not provide reliable vehicle metadata.",
+      "vehicleDisabledDescription": "Filtering by vehicle type is not available yet. You can still filter by time and fare.",
       "fare": "Fare",
       "reset": "Reset",
       "applyFilters": "Apply filters",
@@ -956,7 +956,7 @@
     "map": {
       "unavailableTitle": "Map unavailable",
       "unavailableProduction": "Live map is not available in this build.",
-      "unavailableDevelopment": "Configure an eligible native map build to enable the map.",
+      "unavailableDevelopment": "Live map is not ready in this app version.",
       "waitingTitle": "Waiting for location",
       "waitingMessage": "The driver has not published a GPS point for this trip yet.",
       "waitingShuttleMessage": "The shuttle driver has not published a GPS point yet.",
@@ -1111,7 +1111,7 @@
     "district": {
       "title": "District delivery",
       "unavailableTitle": "Not available yet",
-      "unavailableDescription": "Parcel delivery currently supports terminal pickup only. District selection will be enabled when the backend provides service-area data."
+      "unavailableDescription": "Parcels can only be picked up at the terminal for now. District delivery will open later."
     },
     "errors": {
       "loadData": "Failed to load data. Please check your connection.",
@@ -1152,7 +1152,7 @@
       "photoHelper": "The photo is optimized on-device, then uploaded securely when you confirm the parcel.",
       "estimatedValueLabel": "Estimated Value (Optional)",
       "estimatedValuePlaceholder": "Enter package value (VND)",
-      "estimatedValueHint": "Used only as parcel description metadata.",
+      "estimatedValueHint": "Used only to describe the parcel.",
       "estimatedValueMetadata": "Estimated value: {{value}} VND",
       "recipientTitle": "Recipient",
       "fullNameLabel": "Full Name",
@@ -1209,7 +1209,7 @@
       "payBefore": "Pay before {{deadline}}",
       "openVnPayAgain": "Open VNPay again",
       "verifyingTitle": "Verifying payment",
-      "verifyingDescription": "VietRide is waiting for backend confirmation.",
+      "verifyingDescription": "VietRide is confirming your payment. This may take a moment.",
       "starting": "Starting payment…",
       "payWithWallet": "Pay with Wallet",
       "continueToVnPay": "Continue to VNPay"
@@ -1502,7 +1502,7 @@
     "accountStatus": "Account status",
     "unavailable": "Unavailable",
     "unavailableTitle": "Security feature unavailable",
-    "unavailableDescription": "This security capability is not supported by the current backend contract.",
+    "unavailableDescription": "This security feature is not available in the app yet.",
     "status": {
       "active": "Active",
       "pendingEmailVerification": "Email verification required",
@@ -1522,7 +1522,7 @@
       "successTitle": "Password updated",
       "successDescription": "Your password was changed and all sessions were signed out. Sign in again with your new password.",
       "errorTitle": "Could not change password",
-      "backendNote": "Your password is sent only through the authenticated secure API and is never stored in app state."
+      "backendNote": "Your password is sent securely and is not stored on this phone."
     },
     "validation": {
       "currentPasswordRequired": "Enter your current password.",
@@ -1538,7 +1538,7 @@
   },
   "settings": {
     "title": "Settings",
-    "securityNote": "Some preferences depend on backend and device support.",
+    "securityNote": "Some options depend on this app version and your device.",
     "language": {
       "title": "Language",
       "vietnamese": "Tiếng Việt",
@@ -1671,34 +1671,34 @@
     "comingSoonAccessibility": "{{title}}, coming soon",
     "comingSoonHint": "Opens information about this unavailable feature",
     "generic": {
-      "title": "Payments are protected",
-      "description": "This financial feature is not available in this release.",
-      "safety": "VietRide never collects raw card numbers or CVV in app-owned fields."
+      "title": "Not available yet",
+      "description": "This feature is not in the current app version.",
+      "safety": "VietRide does not ask for your card number or CVV on this screen."
     },
     "walletUnavailable": {
       "title": "Wallet unavailable",
-      "description": "The current backend does not provide the wallet contract required by this screen.",
-      "safety": "No payment credentials are collected while wallet access is unavailable."
+      "description": "Wallet is not available in the app yet. You can still pay when booking a ticket or sending a parcel.",
+      "safety": "No card details are collected while wallet is closed."
     },
     "topUpUnavailable": {
       "title": "Top-up unavailable",
-      "description": "The current backend does not provide a supported wallet top-up flow.",
-      "safety": "No payment is created until a supported backend flow is available."
+      "description": "You cannot top up your wallet in the app yet.",
+      "safety": "No payment is created from this screen."
     },
     "withdraw": {
       "title": "Withdraw funds",
-      "description": "Withdrawal is waiting for a supported payout contract from the backend.",
-      "safety": "No bank account or payout credentials are collected on this screen."
+      "description": "Withdrawing to a bank account is not available in the app yet.",
+      "safety": "This screen does not ask for a bank account number."
     },
     "savedPayments": {
       "title": "Saved payment methods",
-      "description": "Saved payments require a supported tokenized payment-method contract.",
-      "safety": "VietRide never stores raw card numbers or CVV."
+      "description": "Saving a card for later payments is not available in the app yet.",
+      "safety": "VietRide does not store your card number or CVV."
     },
     "addPaymentMethod": {
       "title": "Add payment method",
-      "description": "Adding a payment method requires a PCI-compliant hosted flow or native provider SDK.",
-      "safety": "Card details must be collected only by the certified payment provider."
+      "description": "Adding a new card is not available in the app yet.",
+      "safety": "Card details are only entered on a secure payment page."
     }
   },
   "wallet": {

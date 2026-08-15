@@ -1034,7 +1034,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       isShareOperationPending={isShareOperationPending}
       isSharing={isSharing}
       isTerminal={tracking.isTerminal}
-      latest={tracking.latest}
       onRetry={handleRetry}
       onRevokeTripShare={handleRevokeTripShare}
       onShareTrip={handleShareTrip}
@@ -1043,7 +1042,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       terminalMessage={terminalMessage}
       transientError={Boolean(transientError)}
       {...(tracking.delay ? { delayMinutes: tracking.delay.delayMinutes } : {})}
-      trailPointCount={tracking.trailPoints.length}
     />
   );
   const canRenderTripSheet = Boolean(
@@ -1473,17 +1471,6 @@ const createStyles = (theme: AppTheme) => {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     lineHeight: 18,
-    color: theme.colors.textTertiary,
-  },
-  diagnosticsCard: {
-    ...theme.components.surface,
-    gap: spacing.xs,
-    padding: spacing.sm,
-    borderRadius: borderRadius.md,
-  },
-  diagnosticsText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
   },
   detailsFooter: {

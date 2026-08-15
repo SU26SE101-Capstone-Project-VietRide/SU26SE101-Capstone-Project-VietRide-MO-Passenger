@@ -25,7 +25,6 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import type { TrackingPoint } from '../api/trackingApi';
 import { getTrackingMapPalette } from './trackingMapStyles';
 
 interface TrackingDetailsContentProps {
@@ -38,7 +37,6 @@ interface TrackingDetailsContentProps {
   isShareOperationPending: boolean;
   isSharing: boolean;
   isTerminal: boolean;
-  latest: TrackingPoint | null;
   onRetry: () => void;
   onRevokeTripShare: () => void;
   onShareTrip: () => void;
@@ -47,7 +45,6 @@ interface TrackingDetailsContentProps {
   terminalMessage?: string;
   transientError: boolean;
   delayMinutes?: number;
-  trailPointCount: number;
 }
 
 export const TrackingDetailsContent = React.memo(
@@ -62,7 +59,6 @@ export const TrackingDetailsContent = React.memo(
     isShareOperationPending,
     isSharing,
     isTerminal,
-    latest,
     onRetry,
     onRevokeTripShare,
     onShareTrip,
@@ -70,7 +66,6 @@ export const TrackingDetailsContent = React.memo(
     targetInsight,
     terminalMessage,
     transientError,
-    trailPointCount,
   }: TrackingDetailsContentProps): React.JSX.Element {
     const { t } = useTranslation();
     const theme = useTheme();
@@ -233,17 +228,6 @@ export const TrackingDetailsContent = React.memo(
             <Text style={styles.neutralBannerText}>
               {t('tracking.progress.routeUnavailable')}
             </Text>
-          </View>
-        ) : null}
-
-        {__DEV__ ? (
-          <View style={styles.diagnosticsCard}>
-            <Text style={styles.diagnosticsText}>
-              {latest
-                ? `${latest.latitude.toFixed(6)}, ${latest.longitude.toFixed(6)}`
-                : t('common.notAvailable')}
-            </Text>
-            <Text style={styles.diagnosticsText}>{`trail=${trailPointCount}`}</Text>
           </View>
         ) : null}
 
@@ -441,17 +425,6 @@ const createStyles = (theme: AppTheme) => {
     },
     shareButtonDisabled: {
       opacity: 0.5,
-    },
-    diagnosticsCard: {
-      ...theme.components.surface,
-      gap: spacing.xs,
-      padding: spacing.sm,
-      borderRadius: borderRadius.md,
-    },
-    diagnosticsText: {
-      fontFamily: fontFamilies.regular,
-      fontSize: fontSizes.xs,
-      color: theme.colors.textTertiary,
     },
     detailsFooter: {
       gap: spacing.md,

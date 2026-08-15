@@ -56,14 +56,12 @@ const createProps = (overrides: Record<string, unknown> = {}) => ({
   isShareOperationPending: false,
   isSharing: false,
   isTerminal: false,
-  latest: null,
   onRetry: jest.fn(),
   onRevokeTripShare: jest.fn(),
   onShareTrip: jest.fn(),
   routeUnavailable: false,
   targetInsight: null,
   transientError: false,
-  trailPointCount: 0,
   ...overrides,
 });
 
