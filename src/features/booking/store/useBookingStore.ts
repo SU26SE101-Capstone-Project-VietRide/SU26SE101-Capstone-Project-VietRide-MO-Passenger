@@ -50,7 +50,6 @@ import {
   RETURN_STEPS,
 } from '../utils/bookingSteps';
 import { getLegFareTotal } from '../utils/bookingPricing';
-import { isEligibleReturnTrip } from '../utils/roundTripEligibility';
 
 export {
   CHECKOUT_STEP,
@@ -845,62 +844,6 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         ...(keepPreviousResults ? {} : { trips: [] }),
       });
 
-      let outboundConstraint = isReturnLeg
-        ? get().outboundState?.trip ?? null
-        : null;
-      if (isReturnLeg) {
-        if (!outboundConstraint) {
-          throw new BookingSearchValidationError(
-            'Complete the outbound trip before selecting a return trip.',
-          );
-        }
-
-        // Search responses omit ReturnRouteId. Normally the outbound detail has
-        // already enriched the snapshot while choosing seats; this guarded fetch
-        // closes the fast-tap race without adding a second request in the common path.
-        if (outboundConstraint.returnRouteId === undefined) {
-          const detail = await getTripDetail(outboundConstraint.id);
-          if (
-            generation !== bookingGeneration ||
-            requestId !== searchRequestSequence
-          ) {
-            return;
-          }
-
-          const latestOutboundState = get().outboundState;
-          if (
-            !latestOutboundState?.trip ||
-            latestOutboundState.trip.id !== outboundConstraint.id
-          ) {
-            return;
-          }
-
-          outboundConstraint = {
-            ...outboundConstraint,
-            ...detail,
-            operatorBadge:
-              outboundConstraint.operatorBadge || detail.operatorBadge,
-            busLabel: outboundConstraint.busLabel || detail.busLabel,
-            busType: detail.busType || outboundConstraint.busType,
-          };
-          set({
-            outboundState: {
-              ...latestOutboundState,
-              trip: outboundConstraint,
-            },
-          });
-        }
-
-        if (!outboundConstraint.returnRouteId?.trim()) {
-          set({
-            tripResultsStatus: 'empty',
-            trips: [],
-            lastTripSearchFingerprint: searchFingerprint,
-          });
-          return;
-        }
-      }
-
       const discoveredTrips = await searchTrips(
         hasStationPair
           ? {
@@ -927,16 +870,9 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       ) {
         return;
       }
-      const eligibleTrips =
-        isReturnLeg && outboundConstraint
-          ? discoveredTrips.filter(trip =>
-              isEligibleReturnTrip(trip, outboundConstraint),
-            )
-          : discoveredTrips;
-
       set({
-        tripResultsStatus: eligibleTrips.length === 0 ? 'empty' : 'success',
-        trips: eligibleTrips,
+        tripResultsStatus: discoveredTrips.length === 0 ? 'empty' : 'success',
+        trips: discoveredTrips,
         lastTripSearchFingerprint: searchFingerprint,
       });
     } catch (error) {

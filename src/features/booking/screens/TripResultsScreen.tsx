@@ -3,7 +3,7 @@
  * Visual style: matches Parcel home (gradient bg, card surfaces, mint palette)
  */
 
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { ActivityIndicator, Pressable, View, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FlashList } from '@shopify/flash-list';
@@ -15,7 +15,7 @@ import type { AppTheme } from '@shared/theme';
 import { LoadingState, EmptyState, ErrorState } from '../components';
 import { TripCard } from '../components/TripCard';
 import { useBookingStore } from '../store/useBookingStore';
-import type { BusTrip, TripFilterState, TripPriceRange, TripTimeSlot } from '../types';
+import type { BusTrip, TripFilterState } from '../types';
 
 interface TripResultsStepProps {
   onNext: (step: number) => void;
@@ -24,76 +24,9 @@ interface TripResultsStepProps {
   onClearFilters?: () => void;
 }
 
-const defaultFilters: TripFilterState = {
-  operatorBadge: 'all',
-  timeSlot: 'all',
-  priceRange: 'all',
-};
-
-const isFilterActive = (filters: TripFilterState): boolean => {
-  return filters.operatorBadge !== 'all'
-    || filters.timeSlot !== 'all'
-    || filters.priceRange !== 'all';
-};
-
-const parseDepartureHour = (time: string): number => {
-  const [hour] = time.split(':');
-  return Number.parseInt(hour, 10);
-};
-
-const matchesTimeSlot = (trip: BusTrip, timeSlot: TripTimeSlot): boolean => {
-  if (timeSlot === 'all') {
-    return true;
-  }
-
-  const hour = parseDepartureHour(trip.departureTime);
-
-  if (Number.isNaN(hour)) {
-    return true;
-  }
-
-  switch (timeSlot) {
-    case 'morning':
-      return hour >= 5 && hour < 12;
-    case 'afternoon':
-      return hour >= 12 && hour < 17;
-    case 'evening':
-      return hour >= 17 && hour < 22;
-    case 'night':
-      return hour >= 22 || hour < 5;
-    default:
-      return true;
-  }
-};
-
-const matchesPriceRange = (trip: BusTrip, priceRange: TripPriceRange): boolean => {
-  switch (priceRange) {
-    case 'under_350k':
-      return trip.effectiveFare < 350000;
-    case '350k_450k':
-      return trip.effectiveFare >= 350000 && trip.effectiveFare <= 450000;
-    case 'over_450k':
-      return trip.effectiveFare > 450000;
-    default:
-      return true;
-  }
-};
-
-const filterTrips = (trips: BusTrip[], filters: TripFilterState): BusTrip[] => {
-  return trips.filter((trip) => {
-    const matchesOperator = filters.operatorBadge === 'all'
-      || trip.operatorBadge === filters.operatorBadge;
-    return matchesOperator
-      && matchesTimeSlot(trip, filters.timeSlot)
-      && matchesPriceRange(trip, filters.priceRange);
-  });
-};
-
 export function TripResultsScreen({
   onNext,
   autoSearchEnabled,
-  filters = defaultFilters,
-  onClearFilters,
 }: TripResultsStepProps): React.JSX.Element {
   const { t } = useTranslation();
   const {
@@ -115,8 +48,6 @@ export function TripResultsScreen({
   })));
   const styles = useThemedStyles(createStyles);
   const theme = useTheme();
-  const hasActiveFilters = isFilterActive(filters);
-  const visibleTrips = useMemo(() => filterTrips(trips, filters), [filters, trips]);
   const hasLoadedTrips = trips.length > 0;
 
   useEffect(() => {
@@ -166,26 +97,20 @@ export function TripResultsScreen({
         />
       );
     }
-    if (visibleTrips.length === 0) {
+    if (trips.length === 0) {
       return (
         <EmptyState
-          title={hasActiveFilters
-            ? t('booking.results.noFilterMatchesTitle')
-            : t('booking.results.noRidesTitle')}
-          subtitle={hasActiveFilters
-            ? t('booking.results.noFilterMatchesDescription')
-            : t('booking.results.noRidesDescription')}
-          actionLabel={hasActiveFilters
-            ? t('booking.filters.clear')
-            : t('booking.results.searchAgain')}
-          onAction={hasActiveFilters && onClearFilters ? onClearFilters : handleRetry}
+          title={t('booking.results.noRidesTitle')}
+          subtitle={t('booking.results.noRidesDescription')}
+          actionLabel={t('booking.results.searchAgain')}
+          onAction={handleRetry}
         />
       );
     }
 
     return (
       <FlashList
-        data={visibleTrips}
+        data={trips}
         keyExtractor={keyExtractor}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}

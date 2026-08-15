@@ -14,6 +14,8 @@ import {
   Text,
   TextInput,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -136,6 +138,7 @@ type CreateParcelNavProp = NativeStackNavigationProp<
 
 const DATE_OFFSETS = Array.from({ length: 30 }, (_, index) => index);
 const MAX_DEPARTURE_OFFSET = DATE_OFFSETS.length - 1;
+const TRIP_LOAD_MORE_THRESHOLD_PX = 160;
 
 const formatTripTime = (dateLike: string): string => {
   return formatDateTime(dateLike) || dateLike;
@@ -302,13 +305,13 @@ export function CreateParcelScreen(): React.JSX.Element {
   const [selectedQuoteFingerprint, setSelectedQuoteFingerprint] = useState<
     string | null
   >(null);
-  const [tripPageIndex, setTripPageIndex] = useState(0);
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<PromoOffer | null>(null);
   const [promoError, setPromoError] = useState<string | undefined>(undefined);
   const [dimensionsDraftValid, setDimensionsDraftValid] = useState(true);
   const [weightDraftValid, setWeightDraftValid] = useState(true);
   const previousTripSearchRef = useRef<string | null>(null);
+  const tripLoadMoreInFlightRef = useRef(false);
   const selectedTripIdRef = useRef<string | null>(null);
   const selectedQuoteFingerprintRef = useRef<string | null>(null);
   const handledVoucherQuoteErrorAtRef = useRef(0);
@@ -441,6 +444,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const fetchNextTripsPage = availableTripsQuery.fetchNextPage;
   const hasNextTripsPage = availableTripsQuery.hasNextPage;
   const isFetchingNextTripsPage = availableTripsQuery.isFetchingNextPage;
+  const isFetchNextTripsPageError = availableTripsQuery.isFetchNextPageError;
   const tripPages = availableTripsQuery.data?.pages;
   const availableTrips = useMemo(() => {
     const tripById = new Map<string, AvailableParcelTrip>();
@@ -449,17 +453,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     });
     return Array.from(tripById.values());
   }, [tripPages]);
-  const visibleTrips = useMemo(() => {
-    const tripById = new Map<string, AvailableParcelTrip>();
-    tripPages?.[tripPageIndex]?.items.forEach(trip => {
-      tripById.set(trip.tripId, trip);
-    });
-    return Array.from(tripById.values());
-  }, [tripPageIndex, tripPages]);
-  const loadedTripPageCount = tripPages?.length ?? 0;
-  const canGoToPreviousTripPage = tripPageIndex > 0;
-  const canGoToNextTripPage =
-    tripPageIndex + 1 < loadedTripPageCount || Boolean(hasNextTripsPage);
   const emptyTripPrimaryDisabled =
     isFetchingNextTripsPage ||
     (!hasNextTripsPage && departureOffset >= MAX_DEPARTURE_OFFSET);
@@ -501,17 +494,11 @@ export function CreateParcelScreen(): React.JSX.Element {
   useEffect(() => {
     const previousFingerprint = previousTripSearchRef.current;
     previousTripSearchRef.current = tripSearchFingerprint;
+    tripLoadMoreInFlightRef.current = false;
     if (previousFingerprint && previousFingerprint !== tripSearchFingerprint) {
       clearTripSelection();
-      setTripPageIndex(0);
     }
   }, [clearTripSelection, tripSearchFingerprint]);
-
-  useEffect(() => {
-    if (loadedTripPageCount > 0 && tripPageIndex >= loadedTripPageCount) {
-      setTripPageIndex(loadedTripPageCount - 1);
-    }
-  }, [loadedTripPageCount, tripPageIndex]);
 
   useParcelQuoteLifecycle({
     enabled: step === 4,
@@ -861,32 +848,47 @@ export function CreateParcelScreen(): React.JSX.Element {
     setPromoError(undefined);
   }, [intentLocked]);
 
-  const handlePreviousTripsPage = useCallback(() => {
-    setTripPageIndex(currentPage => Math.max(currentPage - 1, 0));
-  }, []);
-
-  const handleNextTripsPage = useCallback(() => {
-    const nextPageIndex = tripPageIndex + 1;
-    if (nextPageIndex < loadedTripPageCount) {
-      setTripPageIndex(nextPageIndex);
+  const requestNextTripsPage = useCallback(() => {
+    if (
+      !hasNextTripsPage
+      || isFetchingNextTripsPage
+      || tripLoadMoreInFlightRef.current
+    ) {
       return;
     }
 
-    if (hasNextTripsPage && !isFetchingNextTripsPage) {
-      fetchNextTripsPage()
-        .then(result => {
-          if (result.data?.pages[nextPageIndex]) {
-            setTripPageIndex(nextPageIndex);
-          }
-        })
-        .catch(() => undefined);
+    tripLoadMoreInFlightRef.current = true;
+    fetchNextTripsPage()
+      .catch(() => undefined)
+      .finally(() => {
+        tripLoadMoreInFlightRef.current = false;
+      });
+  }, [fetchNextTripsPage, hasNextTripsPage, isFetchingNextTripsPage]);
+
+  const handleContentScroll = useCallback((
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    if (
+      step !== 4
+      || !hasNextTripsPage
+      || isFetchingNextTripsPage
+      || isFetchNextTripsPageError
+    ) {
+      return;
+    }
+
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromEnd =
+      contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    if (distanceFromEnd <= TRIP_LOAD_MORE_THRESHOLD_PX) {
+      requestNextTripsPage();
     }
   }, [
-    fetchNextTripsPage,
     hasNextTripsPage,
+    isFetchNextTripsPageError,
     isFetchingNextTripsPage,
-    loadedTripPageCount,
-    tripPageIndex,
+    requestNextTripsPage,
+    step,
   ]);
 
   const handleChangeTerminals = useCallback(() => {
@@ -1674,9 +1676,9 @@ export function CreateParcelScreen(): React.JSX.Element {
 
       {availableTripsQuery.isLoading ? (
         <ParcelSkeleton type="summary" count={2} />
-      ) : availableTripsQuery.isError ? (
+      ) : availableTripsQuery.isError && availableTrips.length === 0 ? (
         <ErrorView onRetry={handleRetryAvailableTrips} />
-      ) : visibleTrips.length === 0 ? (
+      ) : availableTrips.length === 0 ? (
         <View style={styles.stateBoxCompact}>
           <Clock size={24} color={theme.colors.textTertiary} weight="duotone" />
           <Text style={styles.stateTitle}>
@@ -1715,7 +1717,7 @@ export function CreateParcelScreen(): React.JSX.Element {
               accessibilityState={{ disabled: emptyTripPrimaryDisabled }}
               disabled={emptyTripPrimaryDisabled}
               onPress={
-                hasNextTripsPage ? handleNextTripsPage : handleTryNextDate
+                hasNextTripsPage ? requestNextTripsPage : handleTryNextDate
               }
               style={({ pressed }) => [
                 styles.emptyTripPrimaryButton,
@@ -1741,7 +1743,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           </View>
         </View>
       ) : (
-        visibleTrips.map(trip => (
+        availableTrips.map(trip => (
           <TripOptionCard
             key={trip.tripId}
             trip={trip}
@@ -1750,50 +1752,29 @@ export function CreateParcelScreen(): React.JSX.Element {
           />
         ))
       )}
-      {loadedTripPageCount > 1 || hasNextTripsPage ? (
-        <View style={styles.tripPaginationRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canGoToPreviousTripPage }}
-            disabled={!canGoToPreviousTripPage}
-            onPress={handlePreviousTripsPage}
-            style={({ pressed }) => [
-              styles.tripPageButton,
-              !canGoToPreviousTripPage ? styles.tripPageButtonDisabled : null,
-              pressed && canGoToPreviousTripPage ? styles.pressed : null,
-            ]}
-          >
-            <Text style={styles.tripPageButtonText}>
-              {t('parcel.actions.previous')}
-            </Text>
-          </Pressable>
-          <Text style={styles.tripPageIndicator}>
-            {t('parcel.pagination.page', { page: tripPageIndex + 1 })}
+      {availableTrips.length > 0 && isFetchingNextTripsPage ? (
+        <View style={styles.tripLoadMoreFooter} accessibilityRole="progressbar">
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text style={styles.tripLoadMoreText}>
+            {t('parcel.trips.loadingMore')}
+          </Text>
+        </View>
+      ) : null}
+
+      {availableTrips.length > 0 && isFetchNextTripsPageError && hasNextTripsPage ? (
+        <View style={styles.tripLoadMoreFooter} accessibilityRole="alert">
+          <Text style={styles.tripLoadMoreText}>
+            {t('parcel.trips.loadMoreFailed')}
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{
-              disabled: !canGoToNextTripPage || isFetchingNextTripsPage,
-            }}
-            disabled={!canGoToNextTripPage || isFetchingNextTripsPage}
-            onPress={handleNextTripsPage}
-            style={({ pressed }) => [
-              styles.tripPageButton,
-              !canGoToNextTripPage || isFetchingNextTripsPage
-                ? styles.tripPageButtonDisabled
-                : null,
-              pressed && canGoToNextTripPage && !isFetchingNextTripsPage
-                ? styles.pressed
-                : null,
-            ]}
+            accessibilityLabel={t('parcel.trips.retryLoadMore')}
+            onPress={requestNextTripsPage}
+            hitSlop={8}
           >
-            {isFetchingNextTripsPage ? (
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-            ) : (
-              <Text style={styles.tripPageButtonText}>
-                {t('parcel.actions.next')}
-              </Text>
-            )}
+            <Text style={styles.tripLoadMoreAction}>
+              {t('parcel.trips.retryLoadMore')}
+            </Text>
           </Pressable>
         </View>
       ) : null}
@@ -2100,6 +2081,8 @@ export function CreateParcelScreen(): React.JSX.Element {
             contentContainerStyle={scrollContentStyle}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            onScroll={handleContentScroll}
+            scrollEventThrottle={16}
           >
             {renderStep()}
           </AppKeyboardAwareScrollView>
@@ -2323,38 +2306,23 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.primary,
     marginTop: 4,
   },
-  tripPaginationRow: {
+  tripLoadMoreFooter: {
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  tripPageButton: {
-    minWidth: 88,
-    minHeight: 48,
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primaryFaded,
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
   },
-  tripPageButtonDisabled: {
-    opacity: 0.45,
+  tripLoadMoreText: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
   },
-  tripPageButtonText: {
+  tripLoadMoreAction: {
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
     color: theme.colors.primary,
-  },
-  tripPageIndicator: {
-    flex: 1,
-    textAlign: 'center',
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
   },
   stateBox: {
     ...theme.components.card,

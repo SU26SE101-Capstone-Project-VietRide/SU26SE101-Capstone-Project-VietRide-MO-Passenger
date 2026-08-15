@@ -1343,7 +1343,10 @@
       "tryNextDay": "Thử ngày tiếp theo",
       "operatorDeparture": "{{operator}} · {{departure}}",
       "availableCount_one": "Có {{count}} chuyến khả dụng",
-      "availableCount_other": "Có {{count}} chuyến khả dụng"
+      "availableCount_other": "Có {{count}} chuyến khả dụng",
+      "loadingMore": "Đang tải thêm chuyến…",
+      "loadMoreFailed": "Không tải thêm được chuyến.",
+      "retryLoadMore": "Thử lại"
     },
     "units": {
       "cm": "cm",

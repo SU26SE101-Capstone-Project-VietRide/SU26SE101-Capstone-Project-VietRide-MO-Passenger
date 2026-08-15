@@ -1343,7 +1343,10 @@
       "tryNextDay": "Try next day",
       "operatorDeparture": "{{operator}} · {{departure}}",
       "availableCount_one": "{{count}} trip available",
-      "availableCount_other": "{{count}} trips available"
+      "availableCount_other": "{{count}} trips available",
+      "loadingMore": "Loading more trips…",
+      "loadMoreFailed": "Could not load more trips.",
+      "retryLoadMore": "Try again"
     },
     "units": {
       "cm": "cm",
