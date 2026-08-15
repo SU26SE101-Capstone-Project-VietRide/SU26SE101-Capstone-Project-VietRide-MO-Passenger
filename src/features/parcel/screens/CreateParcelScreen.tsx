@@ -950,7 +950,12 @@ export function CreateParcelScreen(): React.JSX.Element {
         requestAnimationFrame(() => recipientPhoneRef.current?.focus());
         return false;
       }
-      if (recipientEmail.trim() && !isValidEmail(recipientEmail)) {
+      if (!recipientEmail.trim()) {
+        setRecipientErrors({ email: t('parcel.validation.recipientEmailRequired') });
+        requestAnimationFrame(() => recipientEmailRef.current?.focus());
+        return false;
+      }
+      if (!isValidEmail(recipientEmail)) {
         setRecipientErrors({ email: t('parcel.validation.invalidRecipientEmail') });
         requestAnimationFrame(() => recipientEmailRef.current?.focus());
         return false;
@@ -1042,7 +1047,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       recipient: {
         fullName: recipientName.trim(),
         phoneNumber: normalizeVietnamPhone(recipientPhone),
-        email: recipientEmail.trim() || null,
+        email: recipientEmail.trim(),
       },
       deliveryMethod: 'TERMINAL_PICKUP',
       paymentMethod: backendPaymentMethod,
@@ -1871,6 +1876,7 @@ export function CreateParcelScreen(): React.JSX.Element {
               maxLength={255}
               value={recipientEmail}
               error={recipientErrors.email}
+              required
               onChangeText={(value) => {
                 setRecipientEmail(value);
                 if (recipientErrors.email) setRecipientErrors((current) => ({ ...current, email: undefined }));

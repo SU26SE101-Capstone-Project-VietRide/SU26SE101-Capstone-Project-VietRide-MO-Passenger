@@ -1127,7 +1127,7 @@
       "fullNamePlaceholder": "Recipient full name",
       "phoneLabel": "Phone Number",
       "phonePlaceholder": "Recipient phone number",
-      "emailLabel": "Email (Optional)",
+      "emailLabel": "Email",
       "emailPlaceholder": "recipient@example.com"
     },
     "locations": {
@@ -1357,9 +1357,10 @@
       "dimensionsPositive": "Enter a value greater than 0 for every dimension.",
       "selectOriginStation": "Please select an origin station.",
       "selectDestinationStation": "Please select a destination station.",
-      "recipientRequired": "Recipient name and phone number are required.",
+      "recipientRequired": "Recipient name, phone number, and email are required.",
       "recipientNameRequired": "Enter the recipient name.",
       "recipientPhoneRequired": "Enter the recipient phone number.",
+      "recipientEmailRequired": "Enter the recipient email address.",
       "invalidVietnamPhone": "Enter a valid Vietnam phone number.",
       "invalidRecipientEmail": "Enter a valid recipient email address.",
       "invalidMeasurements": "Enter a valid package weight and dimensions.",

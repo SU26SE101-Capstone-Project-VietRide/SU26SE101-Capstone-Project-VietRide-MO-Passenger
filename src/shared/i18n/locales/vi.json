@@ -1127,7 +1127,7 @@
       "fullNamePlaceholder": "Họ tên người nhận",
       "phoneLabel": "Số điện thoại",
       "phonePlaceholder": "Số điện thoại người nhận",
-      "emailLabel": "Email (không bắt buộc)",
+      "emailLabel": "Email",
       "emailPlaceholder": "nguoinhan@example.com"
     },
     "locations": {
@@ -1357,9 +1357,10 @@
       "dimensionsPositive": "Mỗi kích thước phải lớn hơn 0.",
       "selectOriginStation": "Vui lòng chọn bến gửi.",
       "selectDestinationStation": "Vui lòng chọn bến nhận.",
-      "recipientRequired": "Cần nhập tên và số điện thoại người nhận.",
+      "recipientRequired": "Cần nhập tên, số điện thoại và email người nhận.",
       "recipientNameRequired": "Nhập tên người nhận.",
       "recipientPhoneRequired": "Nhập số điện thoại người nhận.",
+      "recipientEmailRequired": "Nhập email người nhận.",
       "invalidVietnamPhone": "Nhập số điện thoại Việt Nam hợp lệ.",
       "invalidRecipientEmail": "Nhập email người nhận hợp lệ.",
       "invalidMeasurements": "Nhập khối lượng và kích thước kiện hàng hợp lệ.",
