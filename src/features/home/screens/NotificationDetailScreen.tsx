@@ -53,6 +53,9 @@ export function NotificationDetailScreen(): React.JSX.Element {
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
   const handleRelatedAction = useCallback(() => {
     switch (actionIntent?.type) {
+      case 'booking-pending-action':
+        navigation.navigate('BookingPendingAction', actionIntent.pendingAction);
+        return;
       case 'booking-history':
         navigation.navigate('Main', {
           screen: 'BookingHistory',
@@ -90,6 +93,8 @@ export function NotificationDetailScreen(): React.JSX.Element {
 
   const relatedActionLabel = useMemo(() => {
     switch (actionIntent?.type) {
+      case 'booking-pending-action':
+        return t('notification.reviewTripChange');
       case 'booking-history':
         return t('notification.viewBookingHistory');
       case 'trip-tracking':

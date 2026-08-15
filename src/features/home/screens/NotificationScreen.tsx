@@ -31,11 +31,13 @@ import {
   notificationKeys,
   type NotificationItemDto,
 } from '../api/notificationApi';
+import { getNotificationNavigationIntent } from '@shared/notifications/notificationAction';
 import {
   DEFAULT_NOTIFICATION_LIST_PARAMS,
   flattenNotificationPages,
   trimNotificationInfiniteToFirstPage,
   useMarkAllNotificationsRead,
+  useMarkNotificationRead,
   useNotificationUnreadCount,
   useNotifications,
 } from '../hooks/useNotifications';
@@ -194,6 +196,7 @@ export function NotificationScreen(): React.JSX.Element {
   const notificationsQuery = useNotifications(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const unreadCountQuery = useNotificationUnreadCount();
   const markAllMutation = useMarkAllNotificationsRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
+  const { mutate: markRead } = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const {
     data: notificationsData,
     error: notificationsError,
@@ -257,8 +260,17 @@ export function NotificationScreen(): React.JSX.Element {
       return;
     }
 
+    const pendingIntent = getNotificationNavigationIntent(item.action, item.data);
+    if (pendingIntent?.type === 'booking-pending-action') {
+      if (!item.readAt) {
+        markRead(item.id);
+      }
+      navigation.navigate('BookingPendingAction', pendingIntent.pendingAction);
+      return;
+    }
+
     navigation.navigate('NotificationDetail', { notification: item });
-  }, [navigation]);
+  }, [markRead, navigation]);
 
   const handleMarkAllRead = useCallback(() => {
     if (unreadCount <= 0 || isMarkingAll) return;

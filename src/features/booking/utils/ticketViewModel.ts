@@ -9,6 +9,7 @@ import i18n from '@shared/i18n';
 import type {
   BookingResult,
   BookingTicketResult,
+  BookingVehicle,
   BusTrip,
   DropOffPoint,
   PaymentMethod,
@@ -114,6 +115,7 @@ interface BuildLegInput extends BookingLegDraft {
   totalAmount: number;
   trackingEnabled: boolean;
   translate: Translate;
+  vehicle?: BookingVehicle | null;
 }
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -133,6 +135,7 @@ const buildLeg = ({
   dropOff,
   shuttlePickup,
   shuttleDropoff,
+  vehicle,
 }: BuildLegInput): TicketLegViewModel => {
   const boardingTimestamp = pickUp?.estimatedArrivalTime ?? trip?.departureDateTime;
   const alightingTimestamp = dropOff?.estimatedArrivalTime ?? trip?.estimatedArrivalDateTime;
@@ -164,7 +167,10 @@ const buildLeg = ({
   alightingTime: dropOff?.time || undefined,
   alightingDate: alightingDate || undefined,
   isOvernight: Boolean(boardingDate && alightingDate && boardingDate !== alightingDate),
-  busType: trip?.busType || translate('booking.ticket.notReported'),
+  busType: vehicle?.vehicleType?.displayName
+    || trip?.busType
+    || translate('booking.ticket.notReported'),
+  ...(vehicle?.licensePlate ? { licensePlate: vehicle.licensePlate } : {}),
   seatNumbers: tickets
     .map((ticket) => ticket.seatNumber.trim())
     .filter(Boolean)
@@ -233,6 +239,7 @@ export const buildCheckoutTicketViewModel = ({
           dropOff: outboundState?.dropOff ?? null,
           shuttlePickup: outboundState?.shuttlePickup ?? null,
           shuttleDropoff: outboundState?.shuttleDropoff ?? null,
+          vehicle: bookingResult.outbound.vehicle,
         }),
         buildLeg({
           label: translate('booking.header.return'),
@@ -247,6 +254,7 @@ export const buildCheckoutTicketViewModel = ({
           dropOff: returnState?.dropOff ?? null,
           shuttlePickup: returnState?.shuttlePickup ?? null,
           shuttleDropoff: returnState?.shuttleDropoff ?? null,
+          vehicle: bookingResult.return.vehicle,
         }),
       ],
     };
@@ -268,6 +276,7 @@ export const buildCheckoutTicketViewModel = ({
       dropOff: selectedDropOff,
       shuttlePickup: selectedShuttlePickup ?? null,
       shuttleDropoff: selectedShuttleDropoff ?? null,
+      vehicle: bookingResult.vehicle,
     })],
   };
 };

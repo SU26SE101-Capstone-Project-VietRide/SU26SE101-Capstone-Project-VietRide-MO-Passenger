@@ -20,17 +20,25 @@ import { z } from 'zod';
 
 const PENDING_NOTIFICATION_OPEN_KEY = 'vietride.notifications.pending-open.v1';
 
+export type PendingNotificationOpen = {
+  action: NotificationAction;
+  data?: unknown;
+};
+
 const storedPendingNotificationOpenSchema = z.object({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2)]),
   action: notificationActionSchema,
+  data: z.unknown().optional(),
 }).strict();
 
 export const queuePendingNotificationOpen = (
   action: NotificationAction = NONE_NOTIFICATION_ACTION,
+  data?: unknown,
 ): Promise<void> => (
   AsyncStorage.setItem(PENDING_NOTIFICATION_OPEN_KEY, JSON.stringify({
-    version: 1,
+    version: 2,
     action,
+    ...(data === undefined ? {} : { data }),
   }))
 );
 
@@ -38,22 +46,26 @@ export const clearPendingNotificationOpen = (): Promise<void> => (
   AsyncStorage.removeItem(PENDING_NOTIFICATION_OPEN_KEY)
 );
 
-export const consumePendingNotificationOpen = async (): Promise<NotificationAction | null> => {
+export const consumePendingNotificationOpen = async (): Promise<PendingNotificationOpen | null> => {
   const pending = await AsyncStorage.getItem(PENDING_NOTIFICATION_OPEN_KEY);
   if (pending == null) return null;
   await AsyncStorage.removeItem(PENDING_NOTIFICATION_OPEN_KEY);
 
   // Migrate the legacy boolean marker. It still represents a real tap, but
   // has no validated semantic destination, so it safely opens the inbox.
-  if (pending === '1') return NONE_NOTIFICATION_ACTION;
+  if (pending === '1') return { action: NONE_NOTIFICATION_ACTION };
 
   try {
     const parsed = storedPendingNotificationOpenSchema.safeParse(
       JSON.parse(pending) as unknown,
     );
-    return parsed.success ? parsed.data.action : NONE_NOTIFICATION_ACTION;
+    if (!parsed.success) return { action: NONE_NOTIFICATION_ACTION };
+    return {
+      action: parsed.data.action,
+      ...(parsed.data.data === undefined ? {} : { data: parsed.data.data }),
+    };
   } catch {
-    return NONE_NOTIFICATION_ACTION;
+    return { action: NONE_NOTIFICATION_ACTION };
   }
 };
 
@@ -62,6 +74,7 @@ export const registerNotificationBackgroundHandlers = (): void => {
     if (isNotificationPressEvent(event)) {
       await queuePendingNotificationOpen(
         parseFcmNotificationAction(event.detail.notification?.data),
+        event.detail.notification?.data,
       );
     }
   });

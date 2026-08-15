@@ -99,7 +99,7 @@ describe('bookingApi create contracts', () => {
 
     await expect(
       createBooking(oneWayPayload, ` ${ONE_WAY_IDEMPOTENCY_KEY} `),
-    ).resolves.toBe(oneWayResult);
+    ).resolves.toEqual({ ...oneWayResult, vehicle: null });
 
     expect(postMock).toHaveBeenCalledWith(
       '/bookings',
@@ -111,12 +111,33 @@ describe('bookingApi create contracts', () => {
     );
   });
 
+  it('keeps the history vehicle DTO from create booking', async () => {
+    const vehicle = {
+      licensePlate: '51B-123.45',
+      vehicleType: {
+        code: 'LIMOUSINE',
+        displayName: 'Limousine',
+      },
+    };
+    postMock.mockResolvedValueOnce({
+      data: successEnvelope({ ...oneWayResult, vehicle }),
+    });
+
+    await expect(
+      createBooking(oneWayPayload, ONE_WAY_IDEMPOTENCY_KEY),
+    ).resolves.toEqual({ ...oneWayResult, vehicle });
+  });
+
   it('uses the same header-only idempotency contract for round trips', async () => {
     postMock.mockResolvedValueOnce({ data: successEnvelope(roundTripResult) });
 
     await expect(
       createRoundTripBooking(roundTripPayload, ROUND_TRIP_IDEMPOTENCY_KEY),
-    ).resolves.toBe(roundTripResult);
+    ).resolves.toEqual({
+      ...roundTripResult,
+      outbound: { ...roundTripResult.outbound, vehicle: null },
+      return: { ...roundTripResult.return, vehicle: null },
+    });
 
     expect(postMock).toHaveBeenCalledWith(
       '/bookings/round-trip',

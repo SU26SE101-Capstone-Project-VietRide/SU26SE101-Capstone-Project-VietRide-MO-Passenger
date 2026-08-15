@@ -6,7 +6,9 @@
 
 import type { BusType, BusTrip } from '../../trip/types/trip';
 import type { PaymentMethod as SharedPaymentMethod } from '@shared/utils/paymentMethod';
+import type { PassengerHistoryVehicle } from '@features/profile/types';
 export type { BusType, BusTrip };
+export type BookingVehicle = PassengerHistoryVehicle;
 
 // ─── Trip Filters ────────────────────────────────────────
 export type TripTimeSlot = 'all' | 'morning' | 'afternoon' | 'evening' | 'night';
@@ -138,6 +140,8 @@ export interface BookingResult {
   paymentReturnMode?: 'MOBILE_SDK' | string | null;
   vnpaySdk?: VnPaySdkMeta | null;
   tickets: BookingTicketResult[];
+  /** Same DTO as GET /passenger/history ticket.vehicle. Null when Trip has no plate. */
+  vehicle?: BookingVehicle | null;
 }
 
 export type BookingCreationStatus = 'PENDING_PAYMENT' | 'CONFIRMED';
@@ -189,6 +193,7 @@ export interface RoundTripResult {
     totalAmount: number;
     discountAmount: number;
     tickets: BookingTicketResult[];
+    vehicle?: BookingVehicle | null;
   };
   return: {
     bookingId: string;
@@ -196,6 +201,7 @@ export interface RoundTripResult {
     totalAmount: number;
     discountAmount: number;
     tickets: BookingTicketResult[];
+    vehicle?: BookingVehicle | null;
   };
   grandTotal: number;
   paymentId: string | null;

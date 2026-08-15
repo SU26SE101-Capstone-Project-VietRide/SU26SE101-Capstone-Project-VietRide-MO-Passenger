@@ -76,6 +76,32 @@ describe('notification action navigation', () => {
     expect(mockNavigate).toHaveBeenCalledWith('Main', { screen: 'Notification' });
   });
 
+  it('opens the pending-action screen when flattened FCM data has resolve ids', () => {
+    const ACTION_ID = '33333333-3333-4333-8333-333333333333';
+    openNotificationFromSystemTray(
+      {
+        type: 'OPEN_TRIP_DETAIL',
+        params: { tripId: TRIP_ID },
+      },
+      {
+        bookingId: BOOKING_ID,
+        pendingActionId: ACTION_ID,
+        severity: 'MEDIUM',
+        deadline: '2026-08-16T10:00:00+07:00',
+      },
+    );
+
+    expect(mockNavigate).toHaveBeenCalledWith('BookingPendingAction', {
+      bookingId: BOOKING_ID,
+      pendingActionId: ACTION_ID,
+      reason: 'SCHEDULE_CHANGE',
+      severity: 'MEDIUM',
+      refundPercent: 50,
+      deadline: '2026-08-16T10:00:00+07:00',
+      candidateStops: [],
+    });
+  });
+
   it('waits for navigation readiness before opening', () => {
     mockIsReady.mockReturnValue(false);
     openNotificationFromSystemTray({ type: 'OPEN_WALLET', params: {} });

@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+import {
+  parseBookingPendingActionOpen,
+  type BookingPendingActionOpen,
+} from './bookingPendingAction';
 import { isUuid } from '@shared/utils/pathSegment';
 
 const uuidParamsSchema = (key: 'bookingId' | 'tripId' | 'parcelId' | 'shuttleTripId') => (
@@ -142,6 +146,7 @@ export const parseFcmNotificationAction = (
 
 export type NotificationNavigationIntent =
   | { type: 'booking-history' }
+  | { type: 'booking-pending-action'; pendingAction: BookingPendingActionOpen }
   | { type: 'trip-tracking'; tripId: string }
   | { type: 'parcel-detail'; parcelId: string }
   | { type: 'wallet' }
@@ -156,6 +161,11 @@ export const getNotificationNavigationIntent = (
   action: NotificationAction,
   data?: unknown,
 ): NotificationNavigationIntent | null => {
+  const pendingAction = parseBookingPendingActionOpen(data);
+  if (pendingAction) {
+    return { type: 'booking-pending-action', pendingAction };
+  }
+
   switch (action.type) {
     case 'OPEN_BOOKING_DETAIL':
       // Public BE currently has no exact passenger ticket-detail seam.

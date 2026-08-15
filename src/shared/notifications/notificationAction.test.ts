@@ -122,6 +122,37 @@ describe('notification actions', () => {
     expect(getNotificationNavigationIntent(NONE_NOTIFICATION_ACTION)).toBeNull();
   });
 
+  it('opens the pending-action screen from schedule-change notification data', () => {
+    const ACTION_ID = '33333333-3333-4333-8333-333333333333';
+    expect(getNotificationNavigationIntent(
+      parseNotificationAction({
+        type: 'OPEN_TRIP_DETAIL',
+        params: { tripId: TRIP_ID },
+      }),
+      {
+        bookingId: BOOKING_ID,
+        pendingActionId: ACTION_ID,
+        severity: 'MAJOR',
+        deadline: '2026-08-16T10:00:00+07:00',
+        oldDeparture: '2026-08-20T08:00:00+07:00',
+        newDeparture: '2026-08-21T08:00:00+07:00',
+      },
+    )).toEqual({
+      type: 'booking-pending-action',
+      pendingAction: {
+        bookingId: BOOKING_ID,
+        pendingActionId: ACTION_ID,
+        reason: 'SCHEDULE_CHANGE',
+        severity: 'MAJOR',
+        refundPercent: 100,
+        deadline: '2026-08-16T10:00:00+07:00',
+        oldDeparture: '2026-08-20T08:00:00+07:00',
+        newDeparture: '2026-08-21T08:00:00+07:00',
+        candidateStops: [],
+      },
+    });
+  });
+
   it('enriches shuttle bookingId from FCM data when action.params omit it', () => {
     // Mirrors BE fcm-push.worker: actionParams only shuttleTripId, bookingId flattened.
     expect(parseFcmNotificationAction({

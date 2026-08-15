@@ -17,6 +17,7 @@ import { ParcelNavigator } from '@features/parcel';
 import { ChatbotScreen } from '@features/chatbot';
 import { TrackingScreen } from '@features/tracking';
 import { NotificationDetailScreen } from '@features/home/screens/NotificationDetailScreen';
+import { BookingPendingActionScreen } from '@features/booking/screens/BookingPendingActionScreen';
 import {
   useAuthInitializer,
   useAuthStore,
@@ -97,6 +98,10 @@ export function RootNavigator(): React.JSX.Element {
             <Stack.Screen
               name="NotificationDetail"
               component={NotificationDetailScreen}
+            />
+            <Stack.Screen
+              name="BookingPendingAction"
+              component={BookingPendingActionScreen}
             />
           </>
         ) : (

@@ -11,6 +11,7 @@ import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import type { TripLifecycleStatus } from '@features/trip/types';
 import type { PaymentMethod } from '@shared/utils/paymentMethod';
 import type { NotificationItemDto } from '@features/home/api/notificationApi';
+import type { BookingPendingActionOpen } from '@shared/notifications/bookingPendingAction';
 
 // ─── Auth Stack ───────────────────────────────────────────
 export type AuthStackParamList = {
@@ -142,6 +143,7 @@ export type RootStackParamList = {
         bookingId?: string;
       };
   NotificationDetail: { notification: NotificationItemDto };
+  BookingPendingAction: BookingPendingActionOpen;
 };
 
 // ─── Declaration merging for useNavigation type safety ────

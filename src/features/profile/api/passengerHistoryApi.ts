@@ -42,7 +42,7 @@ const paymentRedirectUrlSchema = z.string()
 const statusTokenSchema = z.string().trim().min(1).max(100)
   .regex(/^[A-Z0-9_]+$/, 'Invalid status token.');
 
-const passengerHistoryVehicleSchema = z.object({
+export const passengerHistoryVehicleSchema = z.object({
   licensePlate: z.string().trim().min(1).max(50),
   vehicleType: z.object({
     code: z.string().trim().min(1).max(50),

@@ -15,6 +15,13 @@ import type {
   PromotionItem
 } from '../types';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
+import { passengerHistoryVehicleSchema } from '@features/profile/api/passengerHistoryApi';
+import type { BookingVehicle } from '../types';
+
+export const parseBookingVehicle = (value: unknown): BookingVehicle | null => {
+  const parsed = passengerHistoryVehicleSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+};
 
 const withIdempotencyKey = (idempotencyKey: string) => {
   return {
@@ -70,7 +77,11 @@ export async function createBooking(
     body,
     withIdempotencyKey(idempotencyKey),
   );
-  return unwrapApiResponse(response.data);
+  const result = unwrapApiResponse(response.data);
+  return {
+    ...result,
+    vehicle: parseBookingVehicle(result.vehicle),
+  };
 }
 
 export async function createRoundTripBooking(
@@ -83,7 +94,18 @@ export async function createRoundTripBooking(
     body,
     withIdempotencyKey(idempotencyKey),
   );
-  return unwrapApiResponse(response.data);
+  const result = unwrapApiResponse(response.data);
+  return {
+    ...result,
+    outbound: {
+      ...result.outbound,
+      vehicle: parseBookingVehicle(result.outbound.vehicle),
+    },
+    return: {
+      ...result.return,
+      vehicle: parseBookingVehicle(result.return.vehicle),
+    },
+  };
 }
 
 export async function getAvailableVouchers(

@@ -91,6 +91,7 @@ export function NotificationCoordinator(): null {
       if (isEligible && isNotificationPressEvent(event)) {
         openNotificationFromSystemTray(
           parseFcmNotificationAction(event.detail.notification?.data),
+          event.detail.notification?.data,
         );
       }
     });
@@ -114,7 +115,7 @@ export function NotificationCoordinator(): null {
       }
       if (cancelled) return;
       if (pending) {
-        openNotificationFromSystemTray(pending);
+        openNotificationFromSystemTray(pending.action, pending.data);
         return;
       }
 
@@ -122,9 +123,10 @@ export function NotificationCoordinator(): null {
       try {
         const initial = await getInitialLocalNotification();
         if (!cancelled && initial) {
-          openNotificationFromSystemTray(parseFcmNotificationAction(
+          openNotificationFromSystemTray(
+            parseFcmNotificationAction(initial.notification.data),
             initial.notification.data,
-          ));
+          );
         }
       } catch {
         // The Firebase initial-open path below remains available.
@@ -315,6 +317,7 @@ export function NotificationCoordinator(): null {
       refreshNotificationInbox();
       openNotificationFromSystemTray(
         parseFcmNotificationAction(message.data),
+        message.data,
       );
     };
     const unsubscribeForeground = subscribeToForegroundRemoteMessages((message) => {

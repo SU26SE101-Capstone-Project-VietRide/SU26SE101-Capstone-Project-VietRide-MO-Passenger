@@ -142,6 +142,39 @@ describe('checkout ticket view model', () => {
     expect(model?.legs[0].label).not.toBe(model?.legs[1].label);
   });
 
+  it('shows create-booking vehicle plate and type on the ticket immediately', () => {
+    const model = buildCheckoutTicketViewModel({
+      bookingResult: {
+        bookingId: '77777777-7777-4777-8777-777777777777',
+        bookingCode: 'VR-ONE',
+        status: 'CONFIRMED',
+        totalAmount: 250_000,
+        discountAmount: 0,
+        paymentId: null,
+        paymentRedirectUrl: null,
+        tickets: [makeTicket('A01')],
+        vehicle: {
+          licensePlate: '51B-123.45',
+          vehicleType: {
+            code: 'LIMOUSINE',
+            displayName: 'Limousine',
+          },
+        },
+      },
+      paymentMethod: 'wallet',
+      selectedTrip: outboundTrip,
+      selectedPickUp: makePoint('Ha Noi', '08:00'),
+      selectedDropOff: makePoint('Da Nang', '12:00'),
+      outboundState: null,
+      returnState: null,
+    });
+
+    expect(model?.legs[0]).toMatchObject({
+      busType: 'Limousine',
+      licensePlate: '51B-123.45',
+    });
+  });
+
   it('does not invent Shuttle data for a leg without a local checkout request', () => {
     const model = buildRoundTrip(pendingRoundTrip);
 

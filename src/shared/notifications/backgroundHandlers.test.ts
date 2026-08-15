@@ -48,7 +48,7 @@ describe('notification background open persistence', () => {
 
     await queuePendingNotificationOpen(action);
 
-    await expect(consumePendingNotificationOpen()).resolves.toEqual(action);
+    await expect(consumePendingNotificationOpen()).resolves.toEqual({ action });
     await expect(consumePendingNotificationOpen()).resolves.toBeNull();
   });
 
@@ -66,18 +66,18 @@ describe('notification background open persistence', () => {
   it('migrates the legacy pending-open marker to a safe inbox fallback', async () => {
     await AsyncStorage.setItem(PENDING_NOTIFICATION_OPEN_KEY, '1');
 
-    await expect(consumePendingNotificationOpen()).resolves.toEqual(
-      NONE_NOTIFICATION_ACTION,
-    );
+    await expect(consumePendingNotificationOpen()).resolves.toEqual({
+      action: NONE_NOTIFICATION_ACTION,
+    });
     await expect(AsyncStorage.getItem(PENDING_NOTIFICATION_OPEN_KEY)).resolves.toBeNull();
   });
 
   it('consumes corrupt persisted state as a one-time inbox fallback', async () => {
     await AsyncStorage.setItem(PENDING_NOTIFICATION_OPEN_KEY, '{malformed');
 
-    await expect(consumePendingNotificationOpen()).resolves.toEqual(
-      NONE_NOTIFICATION_ACTION,
-    );
+    await expect(consumePendingNotificationOpen()).resolves.toEqual({
+      action: NONE_NOTIFICATION_ACTION,
+    });
     await expect(consumePendingNotificationOpen()).resolves.toBeNull();
   });
 
@@ -100,8 +100,15 @@ describe('notification background open persistence', () => {
     });
 
     await expect(consumePendingNotificationOpen()).resolves.toEqual({
-      type: 'OPEN_TRIP_TRACKING',
-      params: { tripId: TRIP_ID },
+      action: {
+        type: 'OPEN_TRIP_TRACKING',
+        params: { tripId: TRIP_ID },
+      },
+      data: {
+        actionType: 'OPEN_TRIP_TRACKING',
+        actionParams: JSON.stringify({ tripId: TRIP_ID }),
+        deepLink: 'vietride://untrusted',
+      },
     });
   });
 
@@ -122,8 +129,12 @@ describe('notification background open persistence', () => {
       },
     });
 
-    await expect(consumePendingNotificationOpen()).resolves.toEqual(
-      NONE_NOTIFICATION_ACTION,
-    );
+    await expect(consumePendingNotificationOpen()).resolves.toEqual({
+      action: NONE_NOTIFICATION_ACTION,
+      data: {
+        actionType: 'OPEN_UNTRUSTED_LINK',
+        actionParams: JSON.stringify({ deepLink: 'vietride://untrusted' }),
+      },
+    });
   });
 });

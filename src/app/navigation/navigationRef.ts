@@ -12,6 +12,7 @@ import type { RootStackParamList } from './types';
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 let pendingNotificationAction: NotificationAction | null = null;
+let pendingNotificationData: unknown;
 let pendingPaymentDestination: PendingVnPaySession | null = null;
 
 const canOpenAuthenticatedRoute = (): boolean => {
@@ -27,9 +28,15 @@ const canOpenAuthenticatedRoute = (): boolean => {
   return navigationRef.getRootState().routeNames.includes('Main');
 };
 
-const navigateToNotificationAction = (action: NotificationAction): void => {
-  const intent = getNotificationNavigationIntent(action);
+const navigateToNotificationAction = (
+  action: NotificationAction,
+  data?: unknown,
+): void => {
+  const intent = getNotificationNavigationIntent(action, data);
   switch (intent?.type) {
+    case 'booking-pending-action':
+      navigationRef.navigate('BookingPendingAction', intent.pendingAction);
+      return;
     case 'booking-history':
       navigationRef.navigate('Main', {
         screen: 'BookingHistory',
@@ -70,19 +77,24 @@ export const flushPendingNotificationOpen = (): void => {
   if (!pendingNotificationAction || !canOpenAuthenticatedRoute()) return;
 
   const action = pendingNotificationAction;
+  const data = pendingNotificationData;
   pendingNotificationAction = null;
-  navigateToNotificationAction(action);
+  pendingNotificationData = undefined;
+  navigateToNotificationAction(action, data);
 };
 
 export const openNotificationFromSystemTray = (
   action: NotificationAction = NONE_NOTIFICATION_ACTION,
+  data?: unknown,
 ): void => {
   pendingNotificationAction = action;
+  pendingNotificationData = data;
   flushPendingNotificationOpen();
 };
 
 export const discardPendingNotificationOpen = (): void => {
   pendingNotificationAction = null;
+  pendingNotificationData = undefined;
 };
 
 export const openNotificationInboxFromSystemTray = (): void => {
