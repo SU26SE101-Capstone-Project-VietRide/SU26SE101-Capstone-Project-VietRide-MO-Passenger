@@ -1506,7 +1506,11 @@
       "all": "Tất cả",
       "confirmed": "Đã xác nhận",
       "completed": "Hoàn tất",
-      "cancelled": "Đã hủy"
+      "cancelled": "Đã hủy",
+      "pendingPayment": "Chờ thanh toán",
+      "inTransit": "Đang vận chuyển",
+      "delivered": "Đã giao",
+      "expired": "Hết hạn"
     }
   },
   "security": {

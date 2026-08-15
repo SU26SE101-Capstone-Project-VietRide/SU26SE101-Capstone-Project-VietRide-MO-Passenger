@@ -37,6 +37,10 @@ import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
 import { toVietnamBusinessDate } from '@shared/utils/apiTime';
 import { toTripSearchDate } from '../utils/searchParams';
 import {
+  resolveTripSearchRequest,
+  toTripSearchFingerprint,
+} from '../utils/resolveTripSearchRequest';
+import {
   MAX_BOOKING_SEATS,
   normalizeBookingSeatCount,
 } from '../constants/bookingLimits';
@@ -769,45 +773,35 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   searchTrips: async () => {
     const generation = bookingGeneration;
     const requestId = ++searchRequestSequence;
-    const { searchParams, currentLeg } = get();
+    const { searchParams, currentLeg, outboundState } = get();
     try {
       const isReturnLeg = currentLeg === 'return';
-      // Map booking store → BE's 9 search query fields.
-      const originStationId = (
-        isReturnLeg
-          ? searchParams.destinationStationId
-          : searchParams.originStationId
-      ).trim();
-      const destinationStationId = (
-        isReturnLeg
-          ? searchParams.originStationId
-          : searchParams.destinationStationId
-      ).trim();
-      const originProvinceCode = (
-        isReturnLeg
-          ? searchParams.destinationLocationCode
-          : searchParams.originLocationCode
-      ).trim();
-      const destinationProvinceCode = (
-        isReturnLeg
-          ? searchParams.originLocationCode
-          : searchParams.destinationLocationCode
-      ).trim();
-      const originWardCode = (
-        isReturnLeg
-          ? searchParams.destinationWardCode
-          : searchParams.originWardCode
-      ).trim();
-      const destinationWardCode = (
-        isReturnLeg
-          ? searchParams.originWardCode
-          : searchParams.destinationWardCode
-      ).trim();
-      const hasStationPair = Boolean(originStationId && destinationStationId);
-      const hasProvincePair = Boolean(
-        originProvinceCode && destinationProvinceCode,
-      );
-      if (!hasStationPair && !hasProvincePair) {
+      const resolvedSearch = resolveTripSearchRequest({
+        isReturnLeg,
+        locations: {
+          originStationId: searchParams.originStationId,
+          destinationStationId: searchParams.destinationStationId,
+          originLocationCode: searchParams.originLocationCode,
+          destinationLocationCode: searchParams.destinationLocationCode,
+          originWardCode: searchParams.originWardCode,
+          destinationWardCode: searchParams.destinationWardCode,
+        },
+        outboundTrip: outboundState?.trip,
+      });
+      if (!resolvedSearch.ok) {
+        if (resolvedSearch.reason === 'collapsed-return-scope') {
+          set({
+            tripResultsStatus: 'empty',
+            trips: [],
+            lastTripSearchFingerprint: [
+              currentLeg,
+              'collapsed-return-scope',
+              searchParams.originLocationCode,
+              searchParams.destinationLocationCode,
+            ].join('|'),
+          });
+          return;
+        }
         throw new BookingSearchValidationError(
           'Please select both departure and destination provinces.',
         );
@@ -828,12 +822,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       const passengerCount = normalizeBookingSeatCount(searchParams.passengers);
       const searchFingerprint = [
         currentLeg,
-        originStationId,
-        destinationStationId,
-        originProvinceCode,
-        originWardCode,
-        destinationProvinceCode,
-        destinationWardCode,
+        toTripSearchFingerprint(resolvedSearch.request),
         departureDate,
         passengerCount,
       ].join('|');
@@ -845,19 +834,24 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       });
 
       const discoveredTrips = await searchTrips(
-        hasStationPair
+        resolvedSearch.request.kind === 'station-pair'
           ? {
-              originStationId,
-              destinationStationId,
+              originStationId: resolvedSearch.request.originStationId,
+              destinationStationId: resolvedSearch.request.destinationStationId,
               departureDate,
               passengerCount,
             }
           : {
-              originProvinceCode,
-              destinationProvinceCode,
-              ...(originWardCode ? { originLocationCode: originWardCode } : {}),
-              ...(destinationWardCode
-                ? { destinationLocationCode: destinationWardCode }
+              originProvinceCode: resolvedSearch.request.originProvinceCode,
+              destinationProvinceCode: resolvedSearch.request.destinationProvinceCode,
+              ...(resolvedSearch.request.originLocationCode
+                ? { originLocationCode: resolvedSearch.request.originLocationCode }
+                : {}),
+              ...(resolvedSearch.request.destinationLocationCode
+                ? {
+                    destinationLocationCode:
+                      resolvedSearch.request.destinationLocationCode,
+                  }
                 : {}),
               departureDate,
               passengerCount,

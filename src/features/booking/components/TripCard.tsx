@@ -15,6 +15,7 @@ import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
 import type { BusTrip } from '../types';
+import { useBookingStore } from '../store/useBookingStore';
 
 interface TripCardProps {
   trip: BusTrip;
@@ -25,11 +26,13 @@ interface TripCardProps {
 export const TripCard = memo(function TripCardComponent({
   trip,
   onPress,
-  isSelected = false,
+  isSelected,
 }: TripCardProps): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const selectedFromStore = useBookingStore((state) => state.selectedTrip?.id === trip.id);
+  const selected = isSelected ?? selectedFromStore;
   const seatsUrgent = trip.seatsLeft <= 5;
   const handlePress = useCallback(() => onPress(trip), [onPress, trip]);
 
@@ -41,11 +44,11 @@ export const TripCard = memo(function TripCardComponent({
         departure: trip.departureTime,
         arrival: trip.arrivalTime,
       })}
-      accessibilityState={{ selected: isSelected }}
+      accessibilityState={{ selected: selected }}
       onPress={handlePress}
       style={({ pressed }) => [
         styles.card,
-        isSelected ? styles.cardSelected : null,
+        selected ? styles.cardSelected : null,
         pressed ? styles.pressed : null,
       ]}
     >

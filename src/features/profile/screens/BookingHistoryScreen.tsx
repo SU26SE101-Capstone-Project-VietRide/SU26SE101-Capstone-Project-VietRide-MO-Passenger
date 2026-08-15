@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -86,6 +87,13 @@ import type {
 type HistoryTab = 'ticket' | 'parcel';
 type HistoryPaymentType = 'TICKET' | 'PARCEL';
 type TicketFilter = 'ALL' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+type ParcelFilter =
+  | 'ALL'
+  | 'PENDING_PAYMENT'
+  | 'IN_TRANSIT'
+  | 'DELIVERY_CONFIRMED'
+  | 'CANCELLED'
+  | 'EXPIRED';
 type BookingHistoryRoute = RouteProp<MainTabParamList, 'BookingHistory'>;
 type BookingHistoryNavigation = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'BookingHistory'>,
@@ -117,19 +125,23 @@ const getRouteLabel = (
   return originName ?? destinationName ?? unavailableLabel;
 };
 
-interface TicketFilterChipProps {
+interface HistoryFilterChipProps<TFilter extends string> {
   label: string;
   selected: boolean;
-  value: TicketFilter;
-  onSelect: (value: TicketFilter) => void;
+  value: TFilter;
+  compact?: boolean;
+  onSelect: (value: TFilter) => void;
 }
 
-const TicketFilterChip = memo(function TicketFilterChipComponent({
+const HistoryFilterChip = memo(function HistoryFilterChipComponent<
+  TFilter extends string,
+>({
   label,
   selected,
   value,
+  compact = false,
   onSelect,
-}: TicketFilterChipProps): React.JSX.Element {
+}: HistoryFilterChipProps<TFilter>): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const handlePress = useCallback(() => onSelect(value), [onSelect, value]);
 
@@ -139,14 +151,20 @@ const TicketFilterChip = memo(function TicketFilterChipComponent({
       accessibilityLabel={label}
       accessibilityState={{ selected }}
       onPress={handlePress}
-      style={[styles.filterTab, selected ? styles.activeFilterTab : null]}
+      style={[
+        styles.filterTab,
+        compact ? styles.filterTabCompact : null,
+        selected ? styles.activeFilterTab : null,
+      ]}
     >
       <Text style={[styles.filterLabel, selected ? styles.activeFilterLabel : null]}>
         {label}
       </Text>
     </Pressable>
   );
-});
+}) as <TFilter extends string>(
+  props: HistoryFilterChipProps<TFilter>,
+) => React.JSX.Element;
 
 interface TicketHistoryRowProps {
   item: PassengerTicketHistoryItem;
@@ -633,7 +651,9 @@ export function BookingHistoryScreen(): React.JSX.Element {
     route.params?.initialTab ?? 'ticket',
   );
   const [ticketFilter, setTicketFilter] = useState<TicketFilter>('ALL');
+  const [parcelFilter, setParcelFilter] = useState<ParcelFilter>('ALL');
   const selectedTicketStatus = ticketFilter === 'ALL' ? undefined : ticketFilter;
+  const selectedParcelStatus = parcelFilter === 'ALL' ? undefined : parcelFilter;
   const ticketQuery = usePassengerHistory(
     {
       type: 'TICKET',
@@ -645,6 +665,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const parcelQuery = usePassengerHistory(
     {
       type: 'PARCEL',
+      ...(selectedParcelStatus ? { status: selectedParcelStatus } : {}),
       pageSize: PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
     },
     activeTab === 'parcel',
@@ -992,32 +1013,81 @@ export function BookingHistoryScreen(): React.JSX.Element {
 
         {activeTab === 'ticket' ? (
           <View style={styles.filterContainer}>
-            <TicketFilterChip
+            <HistoryFilterChip
               label={t('bookingHistory.filters.all')}
               value="ALL"
               selected={ticketFilter === 'ALL'}
               onSelect={setTicketFilter}
             />
-            <TicketFilterChip
+            <HistoryFilterChip
               label={t('bookingHistory.filters.confirmed')}
               value="CONFIRMED"
               selected={ticketFilter === 'CONFIRMED'}
               onSelect={setTicketFilter}
             />
-            <TicketFilterChip
+            <HistoryFilterChip
               label={t('bookingHistory.filters.completed')}
               value="COMPLETED"
               selected={ticketFilter === 'COMPLETED'}
               onSelect={setTicketFilter}
             />
-            <TicketFilterChip
+            <HistoryFilterChip
               label={t('bookingHistory.filters.cancelled')}
               value="CANCELLED"
               selected={ticketFilter === 'CANCELLED'}
               onSelect={setTicketFilter}
             />
           </View>
-        ) : null}
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.parcelFilterContent}
+          >
+            <HistoryFilterChip
+              compact
+              label={t('bookingHistory.filters.all')}
+              value="ALL"
+              selected={parcelFilter === 'ALL'}
+              onSelect={setParcelFilter}
+            />
+            <HistoryFilterChip
+              compact
+              label={t('bookingHistory.filters.pendingPayment')}
+              value="PENDING_PAYMENT"
+              selected={parcelFilter === 'PENDING_PAYMENT'}
+              onSelect={setParcelFilter}
+            />
+            <HistoryFilterChip
+              compact
+              label={t('bookingHistory.filters.inTransit')}
+              value="IN_TRANSIT"
+              selected={parcelFilter === 'IN_TRANSIT'}
+              onSelect={setParcelFilter}
+            />
+            <HistoryFilterChip
+              compact
+              label={t('bookingHistory.filters.delivered')}
+              value="DELIVERY_CONFIRMED"
+              selected={parcelFilter === 'DELIVERY_CONFIRMED'}
+              onSelect={setParcelFilter}
+            />
+            <HistoryFilterChip
+              compact
+              label={t('bookingHistory.filters.cancelled')}
+              value="CANCELLED"
+              selected={parcelFilter === 'CANCELLED'}
+              onSelect={setParcelFilter}
+            />
+            <HistoryFilterChip
+              compact
+              label={t('bookingHistory.filters.expired')}
+              value="EXPIRED"
+              selected={parcelFilter === 'EXPIRED'}
+              onSelect={setParcelFilter}
+            />
+          </ScrollView>
+        )}
       </View>
 
       {activeTab === 'ticket' ? (
@@ -1134,6 +1204,11 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.sm,
     backgroundColor: theme.colors.transparent,
   },
+  parcelFilterContent: {
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   filterTab: {
     flex: 1,
     minHeight: 38,
@@ -1142,6 +1217,10 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.xs,
     borderRadius: BR.full,
     borderCurve: 'continuous' as const,
+  },
+  filterTabCompact: {
+    flex: 0,
+    paddingHorizontal: spacing.md,
   },
   activeFilterTab: { backgroundColor: theme.colors.primaryFaded },
   filterLabel: {

@@ -51,6 +51,23 @@ describe('passengerHistoryApi', () => {
     });
   });
 
+  it('forwards parcel status to the server without inventing extra filters', async () => {
+    getMock.mockResolvedValueOnce({ data: successEnvelope(emptyPage) });
+
+    await expect(getPassengerHistory({
+      type: 'PARCEL',
+      status: 'IN_TRANSIT',
+    })).resolves.toEqual(emptyPage);
+    expect(getMock).toHaveBeenCalledWith('/passenger/history', {
+      params: {
+        type: 'PARCEL',
+        status: 'IN_TRANSIT',
+        page: 1,
+        pageSize: 10,
+      },
+    });
+  });
+
   it('rejects offsetless or non-increasing ranges before a request', async () => {
     await expect(getPassengerHistory({
       type: 'TICKET',

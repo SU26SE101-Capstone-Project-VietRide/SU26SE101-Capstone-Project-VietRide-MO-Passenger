@@ -24,6 +24,8 @@ interface TripResultsStepProps {
   onClearFilters?: () => void;
 }
 
+const tripKeyExtractor = (item: BusTrip): string => item.id;
+
 export function TripResultsScreen({
   onNext,
   autoSearchEnabled,
@@ -34,7 +36,6 @@ export function TripResultsScreen({
     trips,
     searchTrips,
     selectTrip,
-    selectedTrip,
     currentLeg,
     searchParams,
   } = useBookingStore(useShallow((state) => ({
@@ -42,7 +43,6 @@ export function TripResultsScreen({
     trips: state.trips,
     searchTrips: state.searchTrips,
     selectTrip: state.selectTrip,
-    selectedTrip: state.selectedTrip,
     currentLeg: state.currentLeg,
     searchParams: state.searchParams,
   })));
@@ -68,16 +68,11 @@ export function TripResultsScreen({
     searchTrips();
   }, [searchTrips]);
 
-  const keyExtractor = useCallback((item: BusTrip) => item.id, []);
   const renderTrip = useCallback(
     ({ item }: { item: BusTrip }) => (
-      <TripCard
-        trip={item}
-        onPress={handleTripPress}
-        isSelected={selectedTrip?.id === item.id}
-      />
+      <TripCard trip={item} onPress={handleTripPress} />
     ),
-    [handleTripPress, selectedTrip?.id],
+    [handleTripPress],
   );
 
   const renderContent = () => {
@@ -111,7 +106,7 @@ export function TripResultsScreen({
     return (
       <FlashList
         data={trips}
-        keyExtractor={keyExtractor}
+        keyExtractor={tripKeyExtractor}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         renderItem={renderTrip}

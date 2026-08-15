@@ -126,6 +126,65 @@ describe('booking trip search', () => {
     });
   });
 
+  it('reverses the selected outbound stations when return search is same-city all wards', async () => {
+    useBookingStore.setState({
+      currentLeg: 'return',
+      searchParams: {
+        ...searchParams,
+        from: 'Ho Chi Minh City',
+        to: 'Ho Chi Minh City',
+        originLocationCode: '79',
+        destinationLocationCode: '79',
+        originStationId: '',
+        destinationStationId: '',
+        originStationName: '',
+        destinationStationName: '',
+      },
+      outboundState: {
+        trip: {
+          id: 'outbound-trip',
+          originStationId: 'mien-dong',
+          destinationStationId: 'binh-duong',
+        } as never,
+        seats: [],
+        pickUp: null,
+        dropOff: null,
+        shuttlePickup: null,
+        shuttleDropoff: null,
+      },
+    });
+
+    await useBookingStore.getState().searchTrips();
+
+    expect(mockSearchTrips).toHaveBeenCalledWith({
+      originStationId: 'binh-duong',
+      destinationStationId: 'mien-dong',
+      departureDate: '2026-07-14',
+      passengerCount: 3,
+    });
+  });
+
+  it('does not repeat the outbound hierarchy query when return scopes collapse', async () => {
+    useBookingStore.setState({
+      currentLeg: 'return',
+      searchParams: {
+        ...searchParams,
+        originLocationCode: '79',
+        destinationLocationCode: '79',
+        originStationId: '',
+        destinationStationId: '',
+        originStationName: '',
+        destinationStationName: '',
+      },
+      outboundState: null,
+    });
+
+    await useBookingStore.getState().searchTrips();
+
+    expect(mockSearchTrips).not.toHaveBeenCalled();
+    expect(useBookingStore.getState().tripResultsStatus).toBe('empty');
+  });
+
   it('does not search a return leg before the outbound date', async () => {
     useBookingStore.setState({
       currentLeg: 'return',
