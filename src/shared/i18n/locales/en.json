@@ -1749,6 +1749,7 @@
     "customPlaceholder": "Enter amount",
     "presetAccessibility": "Select {{amount}}",
     "minimumHint": "Minimum top-up is {{amount}}",
+    "invalidAmount": "Enter a valid amount of at least 10,000 VND.",
     "confirm": "Continue with VNPay",
     "awaitingReturn": "Waiting for payment",
     "openAgain": "Open payment again",

@@ -15,7 +15,7 @@ import type {
   PassengerHistoryType,
 } from '../types';
 
-export const PASSENGER_HISTORY_DEFAULT_PAGE_SIZE = 20;
+export const PASSENGER_HISTORY_DEFAULT_PAGE_SIZE = 10;
 export const PASSENGER_HISTORY_MAX_PAGE_SIZE = 100;
 
 const rfc3339Schema = apiInstantSchema;

@@ -1749,6 +1749,7 @@
     "customPlaceholder": "Nhập số tiền",
     "presetAccessibility": "Chọn {{amount}}",
     "minimumHint": "Số tiền nạp tối thiểu là {{amount}}",
+    "invalidAmount": "Nhập số tiền hợp lệ, tối thiểu 10.000 ₫.",
     "confirm": "Tiếp tục với VNPay",
     "awaitingReturn": "Đang chờ thanh toán",
     "openAgain": "Mở lại trang thanh toán",

@@ -48,6 +48,10 @@ import {
   useCreateWalletTopUp,
   useWalletRefreshOnPaymentReturn,
 } from '../hooks/useWallet';
+import {
+  resolveTopUpAmount,
+  type TopUpAmountIssue,
+} from '../utils/topUpAmount';
 
 type TopUpNavigation = NativeStackNavigationProp<
   ProfileStackParamList,
@@ -69,11 +73,26 @@ const TOP_UP_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
 };
 
 const getTopUpErrorMessage = (error: unknown, t: TFunction): string => {
+  if (error instanceof ApiRequestError && error.code === 'WALLET_TOP_UP_AMOUNT_TOO_LOW') {
+    return t('topUp.minimumHint', {
+      amount: formatVnd(MINIMUM_TOP_UP_AMOUNT),
+    });
+  }
+
   return getLocalizedApiErrorMessage(
     error,
     t,
     TOP_UP_ERROR_TRANSLATION_KEYS,
   );
+};
+
+const getAmountIssueMessage = (issue: TopUpAmountIssue, t: TFunction): string => {
+  if (issue === 'belowMinimum') {
+    return t('topUp.minimumHint', {
+      amount: formatVnd(MINIMUM_TOP_UP_AMOUNT),
+    });
+  }
+  return t('topUp.invalidAmount');
 };
 
 interface PresetAmountButtonProps {
@@ -139,6 +158,7 @@ export function TopUpScreen(): React.JSX.Element {
   const submissionInProgressRef = useRef(false);
   const [selectedPreset, setSelectedPreset] = useState<number | null>(100_000);
   const [customAmount, setCustomAmount] = useState('');
+  const [amountTouched, setAmountTouched] = useState(false);
   const [returnRefreshStatus, setReturnRefreshStatus] = useState<
     'success' | 'error' | null
   >(null);
@@ -154,14 +174,12 @@ export function TopUpScreen(): React.JSX.Element {
     isAwaitingReturn,
   } = paymentReturn;
 
-  const parsedCustomAmount = customAmount.length > 0
-    ? Number.parseInt(customAmount, 10)
-    : 0;
-  const amount = customAmount.length > 0
-    ? parsedCustomAmount
-    : (selectedPreset ?? 0);
-  const isAmountValid = Number.isSafeInteger(amount)
-    && amount >= MINIMUM_TOP_UP_AMOUNT;
+  const { amount, issue } = resolveTopUpAmount(customAmount, selectedPreset);
+  const isAmountValid = issue === null;
+  const showAmountError = Boolean(issue) && (
+    amountTouched || customAmount.length > 0
+  );
+  const amountErrorMessage = issue ? getAmountIssueMessage(issue, t) : undefined;
   const isBusy = isTopUpPending || isAwaitingReturn;
   const pendingRequestId = topUpResult?.topUpRequestId;
 
@@ -169,11 +187,13 @@ export function TopUpScreen(): React.JSX.Element {
   const handlePresetSelect = useCallback((nextAmount: number) => {
     setSelectedPreset(nextAmount);
     setCustomAmount('');
+    setAmountTouched(false);
     setReturnRefreshStatus(null);
   }, []);
   const handleCustomAmountChange = useCallback((value: string) => {
     const digitsOnly = value.replace(/\D/g, '');
     setCustomAmount(digitsOnly);
+    setAmountTouched(true);
     if (digitsOnly.length > 0) {
       setSelectedPreset(null);
     }
@@ -181,11 +201,15 @@ export function TopUpScreen(): React.JSX.Element {
   }, []);
 
   const handleTopUp = useCallback(async () => {
-    if (
-      !isAmountValid
-      || isBusy
-      || submissionInProgressRef.current
-    ) {
+    if (isBusy || submissionInProgressRef.current) {
+      return;
+    }
+    if (!isAmountValid) {
+      setAmountTouched(true);
+      Alert.alert(
+        t('topUp.errorTitle'),
+        amountErrorMessage ?? t('topUp.invalidAmount'),
+      );
       return;
     }
     if (!userId) {
@@ -259,6 +283,7 @@ export function TopUpScreen(): React.JSX.Element {
     }
   }, [
     amount,
+    amountErrorMessage,
     armPaymentReturn,
     cancelPaymentReturn,
     completePaymentReturn,
@@ -342,17 +367,13 @@ export function TopUpScreen(): React.JSX.Element {
               numberOfLines={1}
               style={[
                 styles.amountValue,
-                amount > 0 && !isAmountValid ? styles.amountValueError : null,
+                showAmountError ? styles.amountValueError : null,
               ]}
             >
               {amount > 0 ? formatVnd(amount) : t('common.notAvailable')}
             </Text>
-            {amount > 0 && !isAmountValid ? (
-              <Text style={styles.amountHint}>
-                {t('topUp.minimumHint', {
-                  amount: formatVnd(MINIMUM_TOP_UP_AMOUNT),
-                })}
-              </Text>
+            {showAmountError && amountErrorMessage ? (
+              <Text style={styles.amountHint}>{amountErrorMessage}</Text>
             ) : null}
           </View>
 
@@ -384,15 +405,26 @@ export function TopUpScreen(): React.JSX.Element {
             placeholder={t('topUp.customPlaceholder')}
             placeholderTextColor={theme.colors.textTertiary}
             returnKeyType="done"
-            style={styles.customInput}
+            style={[
+              styles.customInput,
+              showAmountError ? styles.customInputError : styles.customInputSpaced,
+            ]}
             value={customAmount}
           />
+          {showAmountError && amountErrorMessage ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={styles.customInputHint}
+            >
+              {amountErrorMessage}
+            </Text>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('topUp.confirm')}
-            accessibilityState={{ disabled: !isAmountValid || isBusy }}
-            disabled={!isAmountValid || isBusy}
+            accessibilityState={{ disabled: isBusy }}
+            disabled={isBusy}
             onPress={handleTopUp}
             style={({ pressed }) => [
               styles.submitButton,
@@ -584,7 +616,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   customInput: {
     minHeight: 52,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.md,
     borderWidth: 1.5,
     borderColor: theme.effects.isLiquid
@@ -598,6 +630,18 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.effects.isLiquid
       ? theme.effects.fieldSurface
       : theme.colors.surface,
+  },
+  customInputSpaced: {
+    marginBottom: spacing.xl,
+  },
+  customInputError: {
+    borderColor: theme.colors.error,
+  },
+  customInputHint: {
+    marginBottom: spacing.xl,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.error,
   },
   submitButton: {
     minHeight: 56,

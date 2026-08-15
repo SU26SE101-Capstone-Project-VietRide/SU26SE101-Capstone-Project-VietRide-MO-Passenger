@@ -18,7 +18,7 @@ const successEnvelope = <T>(data: T): ApiSuccessEnvelope<T> => ({
 const emptyPage = {
   items: [],
   page: 1,
-  pageSize: 20,
+  pageSize: 10,
   totalItems: 0,
   totalPages: 0,
   hasNextPage: false,
@@ -46,7 +46,7 @@ describe('passengerHistoryApi', () => {
         from: '2026-07-20T08:00:00Z',
         to: '2026-07-20T16:00:00+07:00',
         page: 1,
-        pageSize: 20,
+        pageSize: 10,
       },
     });
   });
