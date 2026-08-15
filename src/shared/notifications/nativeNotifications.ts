@@ -23,7 +23,14 @@ import {
   type RemoteMessage,
 } from '@react-native-firebase/messaging';
 
+import { NOTIFICATION_LARGE_ICON } from '@shared/constants/assets';
 import { appConfig } from '@shared/constants/config';
+
+const ANDROID_NOTIFICATION_ICON = {
+  smallIcon: 'ic_stat_notification',
+  largeIcon: NOTIFICATION_LARGE_ICON,
+  color: '#007D78',
+} as const;
 
 export const UPDATES_CHANNEL_ID = 'vietride-updates';
 export const REMINDERS_CHANNEL_ID = 'vietride-reminders';
@@ -178,6 +185,7 @@ export const scheduleDailyReminder = async ({
       data: { notificationKind: 'daily-reminder' },
       android: {
         channelId: REMINDERS_CHANNEL_ID,
+        ...ANDROID_NOTIFICATION_ICON,
         pressAction: { id: 'open-notifications' },
       },
       ios: { sound: 'default' },
@@ -207,7 +215,7 @@ export const displayForegroundRemoteNotification = async (
     data: toNotifeeData(message.data),
     android: {
       channelId: UPDATES_CHANNEL_ID,
-      color: '#007D78',
+      ...ANDROID_NOTIFICATION_ICON,
       pressAction: { id: 'open-notifications' },
     },
     ios: {

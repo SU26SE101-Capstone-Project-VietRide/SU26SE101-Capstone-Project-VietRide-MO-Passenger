@@ -18,7 +18,7 @@ describe('province and city picker UX contract', () => {
     '%s picker uses Keyboard Controller to keep the list above the keyboard',
     (_, source) => {
       expect(source).toContain("from 'react-native-keyboard-controller'");
-      expect(source).toContain('<KeyboardAvoidingView behavior="padding"');
+      expect(source).toContain('behavior="translate-with-padding"');
       expect(source).toContain('keyboardDismissMode="on-drag"');
     },
   );

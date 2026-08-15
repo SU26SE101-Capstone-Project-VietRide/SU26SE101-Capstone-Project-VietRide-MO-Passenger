@@ -324,7 +324,10 @@ export function ChatbotScreen(): React.JSX.Element {
         </Pressable>
       ) : null}
 
-      <KeyboardAvoidingView behavior="padding" style={styles.composerKeyboardView}>
+      <KeyboardAvoidingView
+        behavior="translate-with-padding"
+        style={styles.composerKeyboardView}
+      >
         <ChatComposer
           disabled={availability !== 'ready' || !isOnline}
           isStreaming={isStreaming}

@@ -1,7 +1,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -256,7 +255,7 @@ export const PromoCodeInput = memo(function PromoCodeInputComponent({
         onRequestClose={closePicker}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior="translate-with-padding"
           style={styles.modalRoot}
         >
           <Pressable

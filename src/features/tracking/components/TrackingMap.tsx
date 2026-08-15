@@ -1,10 +1,11 @@
-import React, { Suspense, useMemo, type ReactNode } from 'react';
+import React, { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { MapPin } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { StatusChip, type StatusChipTone } from '@shared/components';
 import { appConfig } from '@shared/constants/config';
+import { ensureMapboxReady } from '@shared/maps/mapbox';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks/useThemedStyles';
 import {
@@ -127,6 +128,21 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
 }: TrackingMapProps): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const [mapEngineReady, setMapEngineReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    ensureMapboxReady()
+      .then((ready) => {
+        if (!cancelled) setMapEngineReady(ready);
+      })
+      .catch(() => {
+        if (!cancelled) setMapEngineReady(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const inputTrail = trail ?? points ?? EMPTY_POINTS;
   const inputMarkers = useMemo<readonly TrackingMapMarker[]>(() => (
     markers ?? (stops.length > 0
@@ -184,6 +200,13 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
         message={appConfig.isProd
           ? t('tracking.map.unavailableProduction')
           : t('tracking.map.unavailableDevelopment')}
+      />
+    );
+  } else if (!mapEngineReady) {
+    mapCanvas = (
+      <MapPlaceholder
+        title={t('tracking.map.loadingTitle')}
+        message={t('tracking.map.loadingMessage')}
       />
     );
   } else if (!liveMapData.latest && !hasMapContext) {

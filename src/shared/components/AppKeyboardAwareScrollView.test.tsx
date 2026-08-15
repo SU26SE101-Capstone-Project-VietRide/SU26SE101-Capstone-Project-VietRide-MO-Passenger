@@ -20,6 +20,8 @@ describe('AppKeyboardAwareScrollView', () => {
     const scrollView = renderer!.root.findByType(ScrollView);
 
     expect(scrollView.props.automaticallyAdjustKeyboardInsets).toBe(false);
+    expect(scrollView.props.disableScrollOnKeyboardHide).toBe(true);
+    expect(scrollView.props.extraKeyboardSpace).toBe(0);
     expect(scrollView.props.bottomOffset).toBe(spacing.xxl);
     expect(scrollView.props.keyboardShouldPersistTaps).toBe('handled');
     expect(scrollView.props.keyboardDismissMode).toBe(

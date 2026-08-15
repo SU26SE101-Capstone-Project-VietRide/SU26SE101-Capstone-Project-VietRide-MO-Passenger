@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
@@ -12,6 +12,8 @@ import {
   getBookingStepConfiguration,
   OUTBOUND_STEPS,
 } from '../utils/bookingSteps';
+
+const STEP_SLOT_WIDTH = 48;
 
 interface BookingProgressBarProps {
   step: number;
@@ -69,6 +71,29 @@ export const BookingProgressBar = ({
 
   const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
   const stepLabel = t(getStepLabelKey(step, isRoundTrip));
+  const scrollRef = useRef<ScrollView>(null);
+  const viewportWidthRef = useRef(0);
+  const contentWidthRef = useRef(0);
+
+  const scrollCurrentStepIntoView = useCallback(() => {
+    const viewportWidth = viewportWidthRef.current;
+    const contentWidth = contentWidthRef.current;
+    if (viewportWidth <= 0 || contentWidth <= 0 || totalSteps <= 0) {
+      return;
+    }
+
+    const slotWidth = contentWidth / totalSteps;
+    const target = (step - 0.5) * slotWidth - viewportWidth / 2;
+    const maxOffset = Math.max(0, contentWidth - viewportWidth);
+    scrollRef.current?.scrollTo({
+      x: Math.min(maxOffset, Math.max(0, target)),
+      animated: true,
+    });
+  }, [step, totalSteps]);
+
+  useEffect(() => {
+    scrollCurrentStepIntoView();
+  }, [scrollCurrentStepIntoView]);
 
   // Determine leg for visual styling
   const isReturnStep = (s: number) => isRoundTrip && s > OUTBOUND_STEPS && s < checkoutStep;
@@ -83,6 +108,30 @@ export const BookingProgressBar = ({
           <Text style={styles.stepLabel}>{stepLabel}</Text>
         </View>
 
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          nestedScrollEnabled
+          bounces={false}
+          overScrollMode="never"
+          showsHorizontalScrollIndicator={isRoundTrip}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.trackContent}
+          onLayout={(event) => {
+            viewportWidthRef.current = event.nativeEvent.layout.width;
+            scrollCurrentStepIntoView();
+          }}
+          onContentSizeChange={(width) => {
+            contentWidthRef.current = width;
+            scrollCurrentStepIntoView();
+          }}
+        >
+        <View
+          style={[
+            styles.trackInner,
+            { minWidth: totalSteps * STEP_SLOT_WIDTH },
+          ]}
+        >
         {isRoundTrip ? (
           <View style={styles.legLabels} accessibilityRole="summary">
             <Text style={[styles.legLabel, styles.legLabelMain]}>
@@ -162,6 +211,8 @@ export const BookingProgressBar = ({
             );
           })}
         </View>
+        </View>
+        </ScrollView>
       </View>
     </View>
   );
@@ -176,6 +227,13 @@ const createStyles = (theme: AppTheme) => ({
   },
   progressContainer: {
     marginTop: spacing.xs,
+  },
+  trackContent: {
+    flexGrow: 1,
+    paddingTop: spacing.xs,
+  },
+  trackInner: {
+    flexGrow: 1,
   },
   stepLabelContainer: {
     alignItems: 'center',
@@ -220,7 +278,8 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: -16,
   },
   stepBubbleContainer: {
-    minWidth: 44,
+    width: STEP_SLOT_WIDTH,
+    minWidth: STEP_SLOT_WIDTH,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',

@@ -4,7 +4,7 @@
 
 export { appConfig } from './config';
 export { isDemoMode, resolveDemoMode } from './demoMode';
-export { APP_LOGO } from './assets';
+export { APP_LOGO, NOTIFICATION_LARGE_ICON } from './assets';
 export { TOKEN_SERVICE_KEY } from './auth';
 
 

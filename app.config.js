@@ -12,6 +12,11 @@ const baseConfig = {
   scheme: 'vietride',
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
+  icon: './src/assets/images/app_logo_placeholder.png',
+  notification: {
+    icon: './src/assets/images/app_logo_placeholder.png',
+    color: '#007D78',
+  },
   splash: {
     image: './src/assets/images/app_logo_placeholder.png',
     resizeMode: 'contain',
@@ -45,13 +50,14 @@ const baseConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.vietride.passenger',
+    icon: './src/assets/images/app_logo_placeholder.png',
   },
   android: {
     package: 'com.vietride.passenger',
     softwareKeyboardLayoutMode: 'resize',
-    icon: './src/assets/images/app_icon.png',
+    icon: './src/assets/images/app_logo_placeholder.png',
     adaptiveIcon: {
-      foregroundImage: './src/assets/images/app_icon_adaptive_foreground.png',
+      foregroundImage: './src/assets/images/app_logo_placeholder.png',
       backgroundColor: '#EFF7F8',
     },
     allowBackup: false,

@@ -264,7 +264,10 @@ export function ParcelCityPicker(): React.JSX.Element {
 
   return (
     <View style={[styles.safe, { paddingTop: insets.top }]}>
-      <KeyboardAvoidingView behavior="padding" style={styles.keyboardContainer}>
+      <KeyboardAvoidingView
+        behavior="translate-with-padding"
+        style={styles.keyboardContainer}
+      >
         <View style={styles.headerRow}>
           <Pressable
             accessibilityLabel={t('common.back')}

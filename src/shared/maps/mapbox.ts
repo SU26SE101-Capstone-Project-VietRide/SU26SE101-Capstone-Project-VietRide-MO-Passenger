@@ -4,10 +4,37 @@ import Mapbox from '@rnmapbox/maps';
 // download/admin tokens must stay in local or EAS native-build credentials.
 const publicAccessToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN?.trim();
 
-if (publicAccessToken?.startsWith('pk.')) {
-  // Run once when the shared adapter is initialized.
-  // eslint-disable-next-line no-void
-  void Mapbox.setAccessToken(publicAccessToken);
+let readyPromise: Promise<boolean> | null = null;
+
+const hasPublicToken = (): boolean =>
+  Boolean(publicAccessToken?.startsWith('pk.'));
+
+/**
+ * MapView crashes natively if it mounts before setAccessToken resolves —
+ * common on the first tracking open in an Expo development client.
+ */
+export function ensureMapboxReady(): Promise<boolean> {
+  if (readyPromise) {
+    return readyPromise;
+  }
+
+  if (!hasPublicToken() || !publicAccessToken) {
+    readyPromise = Promise.resolve(false);
+    return readyPromise;
+  }
+
+  readyPromise = Mapbox.setAccessToken(publicAccessToken)
+    .then(() => {
+      Mapbox.setTelemetryEnabled(false);
+      return true;
+    })
+    .catch(() => false);
+
+  return readyPromise;
+}
+
+export function preloadMapbox(): void {
+  void ensureMapboxReady();
 }
 
 export default Mapbox;

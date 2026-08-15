@@ -248,7 +248,10 @@ export function CityPickerScreen(): React.JSX.Element {
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
-        <KeyboardAvoidingView behavior="padding" style={styles.keyboardContainer}>
+        <KeyboardAvoidingView
+          behavior="translate-with-padding"
+          style={styles.keyboardContainer}
+        >
           <View style={styles.header}>
             <Pressable
               accessibilityRole="button"

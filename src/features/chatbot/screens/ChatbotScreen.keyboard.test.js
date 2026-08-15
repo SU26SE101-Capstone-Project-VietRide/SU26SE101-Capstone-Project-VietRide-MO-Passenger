@@ -9,7 +9,7 @@ const screenSource = fs.readFileSync(
 describe('ChatbotScreen keyboard layout contract', () => {
   it('enables Keyboard Controller avoidance on both platforms', () => {
     expect(screenSource).toContain('<KeyboardAvoidingView');
-    expect(screenSource).toContain('behavior="padding"');
+    expect(screenSource).toContain('behavior="translate-with-padding"');
     expect(screenSource).toContain('style={styles.composerKeyboardView}');
     expect(screenSource).not.toContain(
       "Platform.OS === 'ios' ? 'padding' : undefined",

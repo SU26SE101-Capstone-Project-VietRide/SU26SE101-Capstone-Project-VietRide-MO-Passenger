@@ -454,7 +454,7 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
       />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
-          behavior="padding"
+          behavior="translate-with-padding"
           style={styles.keyboardContainer}
         >
           <View style={styles.header}>

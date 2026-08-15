@@ -64,6 +64,11 @@ jest.mock('./MapboxTrackingMap', () => ({
   MapboxTrackingMap: () => null,
 }));
 
+jest.mock('@shared/maps/mapbox', () => ({
+  ensureMapboxReady: () => Promise.resolve(true),
+  preloadMapbox: () => undefined,
+}));
+
 const { TrackingMap } = require('./TrackingMap');
 
 describe('TrackingMap overlays', () => {

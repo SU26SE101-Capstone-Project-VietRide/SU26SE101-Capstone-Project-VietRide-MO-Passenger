@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -9,8 +9,12 @@ import { LoadingOverlay } from '@shared/components/LoadingOverlay';
 import { useAppStore } from '@shared/store';
 
 function AppContent(): React.JSX.Element {
-  // Initialize network monitoring
   useNetworkStatus();
+  useEffect(() => {
+    void import('@shared/maps/mapbox').then((module) => {
+      module.preloadMapbox();
+    });
+  }, []);
 
   const isGlobalLoading = useAppStore((state) => state.isGlobalLoading);
 
@@ -32,7 +36,11 @@ export default function App(): React.JSX.Element {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <KeyboardProvider>
+      <KeyboardProvider
+        statusBarTranslucent
+        navigationBarTranslucent
+        preserveEdgeToEdge
+      >
         <AppProviders isAppReady={fontsLoaded || Boolean(fontError)}>
           <AppContent />
         </AppProviders>

@@ -35,6 +35,8 @@ export const AppKeyboardAwareScrollView = forwardRef<
       ref={ref}
       automaticallyAdjustKeyboardInsets={false}
       bottomOffset={bottomOffset}
+      disableScrollOnKeyboardHide
+      extraKeyboardSpace={0}
       keyboardDismissMode={
         keyboardDismissMode ??
         (Platform.OS === 'ios' ? 'interactive' : 'on-drag')

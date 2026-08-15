@@ -18,9 +18,13 @@ android {
   }
 }
 
+repositories {
+  maven { url uri("${projectDir}/repo") }
+}
+
 dependencies {
   implementation "com.android.support:support-v4:28.0.0"
-  implementation files("repo/com/vnpay/merchant/1.0.25/merchant-1.0.25.aar")
+  implementation "com.vnpay:merchant:1.0.25"
   implementation "com.google.code.gson:gson:2.8.9"
   implementation "com.squareup.okhttp3:okhttp:4.9.2"
 }

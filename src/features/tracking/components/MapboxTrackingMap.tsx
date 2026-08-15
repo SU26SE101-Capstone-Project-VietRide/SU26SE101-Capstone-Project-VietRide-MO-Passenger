@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import {
   Crosshair,
   FlagCheckered,
@@ -753,6 +753,7 @@ export const MapboxTrackingMap = React.memo(
           styleURL={
             theme.isDark ? Mapbox.StyleURL.Dark : Mapbox.StyleURL.Street
           }
+          {...(Platform.OS === 'android' ? { surfaceView: !__DEV__ } : {})}
           scaleBarEnabled={false}
           logoEnabled
           logoPosition={{ ...mapboxOrnamentPosition, left: spacing.sm }}
