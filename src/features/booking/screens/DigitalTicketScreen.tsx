@@ -66,7 +66,10 @@ import {
   getTicketStatusPresentation,
   type TicketStatusPresentation,
 } from '../utils/ticketPresentation';
-import { canCancelBooking } from '../utils/bookingCancellation';
+import {
+  canCancelBooking,
+  parseDepartureMs,
+} from '../utils/bookingCancellation';
 
 type DigitalTicketRoute = RouteProp<BookingStackParamList, 'DigitalTicket'>;
 type DigitalTicketNavigation = CompositeNavigationProp<
@@ -1018,9 +1021,14 @@ function HistoryTicketContent({
       tripStatus: leg.tripStatus,
     });
   }, [navigation]);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const liveTripQuery = useTripDetail(effectiveHistoryItem?.tripId, {
     enabled: Boolean(
-      effectiveHistoryItem && canCancelBooking(effectiveHistoryItem.status),
+      effectiveHistoryItem && canCancelBooking({
+        bookingStatus: effectiveHistoryItem.status,
+        departureDateTime: effectiveHistoryItem.departureDateTime,
+        nowMs,
+      }),
     ),
     staleTimeMs: 15_000,
     getRefetchInterval: (trip) => (
@@ -1030,27 +1038,52 @@ function HistoryTicketContent({
     ),
   });
   const liveTripStatus = liveTripQuery.data?.status ?? model?.legs[0]?.tripStatus;
+  const departureDateTime = liveTripQuery.data?.departureDateTime
+    ?? effectiveHistoryItem?.departureDateTime;
+  const cancelEligibility = useMemo(() => ({
+    bookingStatus: effectiveHistoryItem?.status ?? '',
+    tripStatus: liveTripStatus,
+    departureDateTime,
+    nowMs,
+  }), [
+    departureDateTime,
+    effectiveHistoryItem?.status,
+    liveTripStatus,
+    nowMs,
+  ]);
   const waitingForLiveTripStatus = Boolean(
     effectiveHistoryItem
-    && canCancelBooking(effectiveHistoryItem.status)
+    && canCancelBooking({
+      bookingStatus: effectiveHistoryItem.status,
+      departureDateTime,
+      nowMs,
+    })
     && liveTripQuery.isPending
     && !liveTripStatus,
   );
   const cancellationAvailable = Boolean(
     effectiveHistoryItem
     && !waitingForLiveTripStatus
-    && canCancelBooking({
-      bookingStatus: effectiveHistoryItem.status,
-      tripStatus: liveTripStatus,
-    }),
+    && canCancelBooking(cancelEligibility),
   );
+
+  useEffect(() => {
+    const departureMs = parseDepartureMs(departureDateTime);
+    if (departureMs === null || departureMs <= nowMs) {
+      return undefined;
+    }
+
+    const waitMs = Math.min(departureMs - Date.now(), 2_147_483_647);
+    const timeoutId = setTimeout(() => {
+      setNowMs(Date.now());
+    }, waitMs);
+    return () => clearTimeout(timeoutId);
+  }, [departureDateTime, nowMs]);
+
   const handleConfirmCancel = useCallback(async () => {
     if (
       !effectiveHistoryItem
-      || !canCancelBooking({
-        bookingStatus: effectiveHistoryItem.status,
-        tripStatus: liveTripStatus,
-      })
+      || !canCancelBooking(cancelEligibility)
       || cancelMutation.isPending
     ) {
       return;
@@ -1083,14 +1116,11 @@ function HistoryTicketContent({
         [{ text: t('common.ok') }],
       );
     }
-  }, [cancelMutation, effectiveHistoryItem, liveTripStatus, t]);
+  }, [cancelEligibility, cancelMutation, effectiveHistoryItem, t]);
   const handleCancel = useCallback(() => {
     if (
       !effectiveHistoryItem
-      || !canCancelBooking({
-        bookingStatus: effectiveHistoryItem.status,
-        tripStatus: liveTripStatus,
-      })
+      || !canCancelBooking(cancelEligibility)
       || cancelMutation.isPending
     ) {
       return;
@@ -1121,10 +1151,10 @@ function HistoryTicketContent({
       ],
     );
   }, [
+    cancelEligibility,
     cancelMutation.isPending,
     effectiveHistoryItem,
     handleConfirmCancel,
-    liveTripStatus,
     t,
   ]);
   const cancellationActions = useMemo<CancellationActions | undefined>(

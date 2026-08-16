@@ -53,9 +53,27 @@ describe('booking cancellation eligibility', () => {
     })).toBe(true);
   });
 
-  it('does not hide cancel from departure time alone when trip status is unknown', () => {
+  it('does not hide cancel from an unknown departure time', () => {
     expect(canCancelBooking({
       bookingStatus: 'CONFIRMED',
+    })).toBe(true);
+  });
+
+  it('hides cancel once departure time has passed, even if the trip is still scheduled', () => {
+    expect(canCancelBooking({
+      bookingStatus: 'CONFIRMED',
+      tripStatus: 'SCHEDULED',
+      departureDateTime: '2026-08-17T14:45:00+07:00',
+      nowMs: Date.parse('2026-08-17T14:56:00+07:00'),
+    })).toBe(false);
+  });
+
+  it('keeps cancel before departure while the trip is still scheduled', () => {
+    expect(canCancelBooking({
+      bookingStatus: 'CONFIRMED',
+      tripStatus: 'SCHEDULED',
+      departureDateTime: '2026-08-17T14:45:00+07:00',
+      nowMs: Date.parse('2026-08-17T14:30:00+07:00'),
     })).toBe(true);
   });
 });
