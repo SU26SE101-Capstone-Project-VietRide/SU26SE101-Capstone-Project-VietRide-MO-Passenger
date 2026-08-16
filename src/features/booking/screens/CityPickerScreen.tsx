@@ -304,6 +304,7 @@ export function CityPickerScreen(): React.JSX.Element {
           </View>
 
           <FlashList
+            key={step}
             data={list}
             keyExtractor={keyExtractor}
             contentContainerStyle={styles.list}

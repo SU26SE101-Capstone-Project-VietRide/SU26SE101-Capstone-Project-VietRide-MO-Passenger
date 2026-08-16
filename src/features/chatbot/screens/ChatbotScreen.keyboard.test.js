@@ -28,4 +28,11 @@ describe('ChatbotScreen keyboard layout contract', () => {
     expect(screenSource).toContain('setQuickActionsDismissed(true)');
     expect(screenSource).toContain("messages[0]?.id === 'welcome'");
   });
+
+  it('opens on the latest chat, not the top of an empty list', () => {
+    expect(screenSource).toContain("justifyContent: 'flex-end'");
+    expect(screenSource).toContain('flexGrow: 1');
+    expect(screenSource).toContain('onLoad={handleListReady}');
+    expect(screenSource).toContain('scrollToEnd');
+  });
 });

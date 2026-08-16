@@ -7,13 +7,13 @@ import {
 } from './notificationCopy';
 
 const translations: Record<string, string> = {
-  'notification.codes.CHECK_IN': 'check-in',
-  'notification.codes.CHECKED_IN': 'checked in',
-  'notification.codes.CHECK_IN_TIMEOUT': 'missed the check-in deadline',
-  'notification.codes.PICKED_UP': 'picked up',
-  'notification.codes.ACTIVE': 'active',
-  'notification.codes.DRIVER': 'the driver',
-  'notification.codes.unknown': 'an updated status',
+  'notification.codes.CHECK_IN': 'Check-in',
+  'notification.codes.CHECKED_IN': 'Checked in',
+  'notification.codes.CHECK_IN_TIMEOUT': 'Missed the check-in deadline',
+  'notification.codes.PICKED_UP': 'Picked up',
+  'notification.codes.ACTIVE': 'Active',
+  'notification.codes.DRIVER': 'The driver',
+  'notification.codes.unknown': 'An updated status',
   'notification.refs.yourTicket': 'your ticket',
   'notification.refs.yourParcel': 'your parcel',
   'notification.refs.yourTrip': 'your trip',
@@ -40,12 +40,12 @@ const translate = ((key: string, options?: Record<string, string>) => {
 
 describe('notificationCopy', () => {
   it('translates BE status and reason codes instead of showing raw enums', () => {
-    expect(localizeNotificationCode('CHECK_IN', translate)).toBe('check-in');
-    expect(localizeNotificationCode('checked_in', translate)).toBe('checked in');
+    expect(localizeNotificationCode('CHECK_IN', translate)).toBe('Check-in');
+    expect(localizeNotificationCode('checked_in', translate)).toBe('Checked in');
     expect(replaceNotificationCodes(
       'Cập nhật trung chuyển: PICKED_UP. Lý do: CHECK_IN_TIMEOUT.',
       translate,
-    )).toBe('Cập nhật trung chuyển: picked up. Lý do: missed the check-in deadline.');
+    )).toBe('Cập nhật trung chuyển: Picked up. Lý do: Missed the check-in deadline.');
   });
 
   it('rebuilds shuttle lifecycle copy from the notification type', () => {
@@ -68,7 +68,7 @@ describe('notificationCopy', () => {
       data: { parcelCode: 'VRP-1', reason: 'CHECK_IN_TIMEOUT' },
     }, translate)).toEqual({
       title: 'Parcel rejected',
-      body: 'VRP-1 was rejected. Reason: missed the check-in deadline.',
+      body: 'VRP-1 was rejected. Reason: Missed the check-in deadline.',
     });
   });
 
@@ -80,7 +80,7 @@ describe('notificationCopy', () => {
       data: { resourceRole: 'DRIVER', status: 'ACTIVE' },
     }, translate)).toEqual({
       title: 'Trip could not start',
-      body: 'the driver is still active on another trip. Resolve the assignment before trying again.',
+      body: 'The driver is still Active on another trip. Resolve the assignment before trying again.',
     });
   });
 
@@ -90,8 +90,8 @@ describe('notificationCopy', () => {
       title: 'Cập nhật: CHECK_IN',
       body: 'Vé #VR-1 chuyển sang CHECKED_IN.',
     }, translate)).toEqual({
-      title: 'Cập nhật: check-in',
-      body: 'Vé #VR-1 chuyển sang checked in.',
+      title: 'Cập nhật: Check-in',
+      body: 'Vé #VR-1 chuyển sang Checked in.',
     });
   });
 

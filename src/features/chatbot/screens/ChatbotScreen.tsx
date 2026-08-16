@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -154,11 +154,29 @@ export function ChatbotScreen(): React.JSX.Element {
     }
   }, [messages, sendMessage]);
 
+  const alignToLatest = useCallback((animated: boolean) => {
+    listRef.current?.scrollToEnd({ animated });
+  }, []);
+
+  const handleListReady = useCallback(() => {
+    alignToLatest(false);
+  }, [alignToLatest]);
+
+  const isWelcomeOnly = Boolean(
+    messages.length === 1 && messages[0]?.id === 'welcome',
+  );
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const frame = requestAnimationFrame(() => alignToLatest(false));
+    return () => cancelAnimationFrame(frame);
+  }, [alignToLatest, isWelcomeOnly, messages.length]);
+
   const handleSend = useCallback((message: string) => {
     setQuickActionsDismissed(true);
     sendMessage(message).catch(() => undefined);
-    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-  }, [sendMessage]);
+    requestAnimationFrame(() => alignToLatest(true));
+  }, [alignToLatest, sendMessage]);
 
   const handleAccessPress = useCallback(() => {
     navigation.navigate('Main', {
@@ -275,6 +293,7 @@ export function ChatbotScreen(): React.JSX.Element {
         renderItem={renderMessage}
         maintainVisibleContentPosition={maintainVisibleContentPosition}
         contentContainerStyle={styles.messageListContent}
+        onLoad={handleListReady}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -420,6 +439,8 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   messageListContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
     paddingBottom: spacing.xl,

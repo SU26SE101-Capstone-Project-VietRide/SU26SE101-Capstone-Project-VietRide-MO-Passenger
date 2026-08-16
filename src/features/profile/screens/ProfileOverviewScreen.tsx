@@ -23,7 +23,6 @@ import {
   CheckCircle,
   WarningCircle,
   Wallet,
-  Scroll,
 } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
@@ -109,12 +108,6 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       title: t('profile.settings'),
       icon: Gear,
       onPress: () => navigation.navigate('Settings'),
-    },
-    {
-      id: 'policies',
-      title: t('profile.policies'),
-      icon: Scroll,
-      onPress: () => navigation.navigate('PolicyList'),
     },
     {
       id: 'help-support',

@@ -128,6 +128,12 @@ export function ParcelCityPicker(): React.JSX.Element {
     setQuery('');
   }, [step]);
 
+  useEffect(() => {
+    setStep('province');
+    setProvince(null);
+    setQuery('');
+  }, [mode]);
+
   const filterByQuery = useCallback((rows: Location[]) => {
     const normalizedQuery = normalizeLocationSearchText(query);
     if (!normalizedQuery) return rows;
@@ -328,6 +334,7 @@ export function ParcelCityPicker(): React.JSX.Element {
         </View>
 
         <FlashList
+          key={step}
           data={list}
           keyExtractor={locationKeyExtractor}
           contentContainerStyle={styles.list}

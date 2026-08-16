@@ -6,6 +6,7 @@ const readScreen = (fileName) =>
 
 describe('profile settings visibility', () => {
   const settingsSource = readScreen('SettingsScreen.tsx');
+  const overviewSource = readScreen('ProfileOverviewScreen.tsx');
   const securitySource = readScreen('SecurityScreen.tsx');
   const navigatorSource = fs.readFileSync(
     path.join(__dirname, '..', 'ProfileNavigator.tsx'),
@@ -18,6 +19,11 @@ describe('profile settings visibility', () => {
     expect(settingsSource).toContain("navigate('PolicyList')");
     expect(settingsSource).not.toContain('settings.legal.');
     expect(settingsSource).not.toContain('ShieldCheck');
+  });
+
+  it('does not duplicate policies on the profile overview', () => {
+    expect(overviewSource).not.toContain("t('profile.policies')");
+    expect(overviewSource).not.toContain("navigate('PolicyList')");
   });
 
   it('keeps only the account section on the security screen', () => {

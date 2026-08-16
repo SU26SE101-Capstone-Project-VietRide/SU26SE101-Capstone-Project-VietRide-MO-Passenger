@@ -20,6 +20,7 @@ describe('province and city picker UX contract', () => {
       expect(source).toContain("from 'react-native-keyboard-controller'");
       expect(source).toContain('behavior="translate-with-padding"');
       expect(source).toContain('keyboardDismissMode="on-drag"');
+      expect(source).toContain('key={step}');
     },
   );
 
