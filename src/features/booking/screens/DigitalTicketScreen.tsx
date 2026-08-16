@@ -29,6 +29,8 @@ import { useTranslation } from 'react-i18next';
 
 import type { BookingStackParamList, RootStackParamList } from '@app/navigation/types';
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
+import { useQueryClient } from '@tanstack/react-query';
+import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
@@ -786,7 +788,26 @@ function CheckoutTicketContent(): React.JSX.Element {
     bookingResult: state.bookingResult,
   })));
   const paymentReconciliation = useBookingPaymentReconciliation(bookingResult);
+  const queryClient = useQueryClient();
+  const markCheckoutBookingConfirmed = useBookingStore(
+    state => state.markCheckoutBookingConfirmed,
+  );
   const checkPaymentStatus = paymentReconciliation.checkNow;
+
+  useEffect(() => {
+    if (paymentReconciliation.phase !== 'confirmed') return;
+    markCheckoutBookingConfirmed();
+    if (userId) {
+      queryClient.invalidateQueries({
+        queryKey: passengerHistoryKeys.user(userId),
+      }).catch(() => undefined);
+    }
+  }, [
+    markCheckoutBookingConfirmed,
+    paymentReconciliation.phase,
+    queryClient,
+    userId,
+  ]);
 
   const effectiveBookingResult = useMemo<BookingResult | RoundTripResult | null>(() => {
     if (

@@ -48,6 +48,7 @@ import {
   buildBookingLegPayload,
   type BookingLegDraft,
 } from '../utils/bookingPayload';
+import { confirmCheckoutBookingResult } from '../utils/ticketViewModel';
 import {
   getTotalSteps,
   OUTBOUND_STEPS,
@@ -457,6 +458,7 @@ interface BookingStore {
   bookingPaymentMethod: PaymentMethod | null;
   bookingError: ApiRequestError | null;
   createBooking: () => Promise<BookingSubmissionResult>;
+  markCheckoutBookingConfirmed: () => void;
 
   // ─── Reset ───────────────────────────────────────────
   resetFlowPreservingSearch: () => void;
@@ -1237,6 +1239,14 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   bookingResult: null,
   bookingPaymentMethod: null,
   bookingError: null,
+  markCheckoutBookingConfirmed: () => set((state) => {
+    if (!state.bookingResult || state.bookingResult.status === 'CONFIRMED') {
+      return state;
+    }
+    return {
+      bookingResult: confirmCheckoutBookingResult(state.bookingResult),
+    };
+  }),
   createBooking: () => {
     if (activeBookingSubmission) {
       return activeBookingSubmission;

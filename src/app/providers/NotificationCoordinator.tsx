@@ -10,6 +10,7 @@ import {
 } from '@app/navigation/navigationRef';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { notificationKeys } from '@features/home/api/notificationApi';
+import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
 import { localizeNotificationCopy } from '@features/home/utils/notificationCopy';
 import { useIsAppActive, useNetworkStatus } from '@shared/hooks';
 import {
@@ -314,8 +315,24 @@ export function NotificationCoordinator(): null {
     const refreshNotificationInbox = (): void => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.user(userId) });
     };
+    const refreshPassengerHistory = (notificationType: string): void => {
+      if (
+        notificationType === 'BOOKING_CONFIRMED'
+        || notificationType === 'BOOKING_CREATED'
+        || notificationType === 'BOOKING_CANCELLED'
+        || notificationType === 'BOOKING_REFUNDED'
+      ) {
+        queryClient.invalidateQueries({
+          queryKey: passengerHistoryKeys.user(userId),
+        }).catch(() => undefined);
+      }
+    };
     const handleOpen = (message: RemoteMessage): void => {
       refreshNotificationInbox();
+      const openedType = typeof message.data?.notificationType === 'string'
+        ? message.data.notificationType
+        : '';
+      refreshPassengerHistory(openedType);
       openNotificationFromSystemTray(
         parseFcmNotificationAction(message.data),
         message.data,
@@ -326,6 +343,7 @@ export function NotificationCoordinator(): null {
       const notificationType = typeof message.data?.notificationType === 'string'
         ? message.data.notificationType
         : '';
+      refreshPassengerHistory(notificationType);
       const copy = localizeNotificationCopy({
         type: notificationType,
         title: message.notification?.title ?? '',

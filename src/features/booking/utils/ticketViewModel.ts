@@ -122,6 +122,40 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 const defaultTranslate: Translate = (key, options) => i18n.t(key, options);
 
+/** After VNPay IPN, checkout still holds the create payload (tickets PENDING_PAYMENT). */
+export const promotePaidCheckoutTickets = (
+  tickets: readonly BookingTicketResult[],
+): BookingTicketResult[] => tickets.map(ticket => (
+  ticket.status === 'PENDING_PAYMENT'
+    ? { ...ticket, status: 'ISSUED' }
+    : ticket
+));
+
+export const confirmCheckoutBookingResult = (
+  result: BookingResult | RoundTripResult,
+): BookingResult | RoundTripResult => {
+  if (result.status === 'CONFIRMED') return result;
+  if ('bookingGroupId' in result) {
+    return {
+      ...result,
+      status: 'CONFIRMED',
+      outbound: {
+        ...result.outbound,
+        tickets: promotePaidCheckoutTickets(result.outbound.tickets),
+      },
+      return: {
+        ...result.return,
+        tickets: promotePaidCheckoutTickets(result.return.tickets),
+      },
+    };
+  }
+  return {
+    ...result,
+    status: 'CONFIRMED',
+    tickets: promotePaidCheckoutTickets(result.tickets),
+  };
+};
+
 const buildLeg = ({
   label,
   reference,
@@ -205,16 +239,25 @@ export const buildCheckoutTicketViewModel = ({
   if (!bookingResult || !getBookingReference(bookingResult)) return null;
 
   const isPendingPayment = bookingResult.status === 'PENDING_PAYMENT';
-  const trackingEnabled = bookingResult.status === 'CONFIRMED';
+  const isConfirmed = bookingResult.status === 'CONFIRMED';
+  const trackingEnabled = isConfirmed;
   const normalizedPaymentMethod = paymentMethod === 'wallet' ? 'WALLET' : 'VNPAY';
   const shared = {
-    title: translate('booking.ticket.confirmationTitle'),
+    title: translate(
+      isConfirmed
+        ? 'booking.ticket.detailTitle'
+        : 'booking.ticket.confirmationTitle',
+    ),
     statusTitle: isPendingPayment
       ? translate('booking.ticket.paymentPending')
-      : translate('booking.ticket.bookingCreated'),
+      : isConfirmed
+        ? translate('booking.ticket.confirmed')
+        : translate('booking.ticket.bookingCreated'),
     statusMessage: isPendingPayment
       ? translate('booking.ticket.completePayment')
-      : translate('booking.ticket.bookingRecorded'),
+      : isConfirmed
+        ? translate('booking.ticket.showReferenceWhenBoarding')
+        : translate('booking.ticket.bookingRecorded'),
     isPendingPayment,
     isDemo: false,
     paymentMethod: normalizedPaymentMethod,
@@ -230,7 +273,9 @@ export const buildCheckoutTicketViewModel = ({
           label: translate('booking.header.outbound'),
           reference: bookingResult.outbound.bookingCode,
           bookingId: bookingResult.outbound.bookingId,
-          tickets: bookingResult.outbound.tickets,
+          tickets: isConfirmed
+            ? promotePaidCheckoutTickets(bookingResult.outbound.tickets)
+            : bookingResult.outbound.tickets,
           totalAmount: bookingResult.outbound.totalAmount,
           trackingEnabled,
           translate,
@@ -245,7 +290,9 @@ export const buildCheckoutTicketViewModel = ({
           label: translate('booking.header.return'),
           reference: bookingResult.return.bookingCode,
           bookingId: bookingResult.return.bookingId,
-          tickets: bookingResult.return.tickets,
+          tickets: isConfirmed
+            ? promotePaidCheckoutTickets(bookingResult.return.tickets)
+            : bookingResult.return.tickets,
           totalAmount: bookingResult.return.totalAmount,
           trackingEnabled,
           translate,
@@ -267,7 +314,9 @@ export const buildCheckoutTicketViewModel = ({
       label: translate('booking.header.trip'),
       reference: bookingResult.bookingCode,
       bookingId: bookingResult.bookingId,
-      tickets: bookingResult.tickets,
+      tickets: isConfirmed
+        ? promotePaidCheckoutTickets(bookingResult.tickets)
+        : bookingResult.tickets,
       totalAmount: bookingResult.totalAmount,
       trackingEnabled,
       translate,

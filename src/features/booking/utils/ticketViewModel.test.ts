@@ -182,6 +182,38 @@ describe('checkout ticket view model', () => {
     expect(model?.legs[1]).not.toHaveProperty('shuttlePickupAddress');
   });
 
+  it('promotes paid checkout tickets and confirmed copy after VNPay settles', () => {
+    const translate = (key: string) => key;
+    const model = buildCheckoutTicketViewModel({
+      bookingResult: {
+        bookingId: '77777777-7777-4777-8777-777777777777',
+        bookingCode: 'VR-ONE',
+        status: 'CONFIRMED',
+        totalAmount: 250_000,
+        discountAmount: 0,
+        paymentId: null,
+        paymentRedirectUrl: null,
+        tickets: [{
+          ...makeTicket('A01'),
+          status: 'PENDING_PAYMENT',
+        }],
+      },
+      paymentMethod: 'vnpay',
+      selectedTrip: outboundTrip,
+      selectedPickUp: makePoint('Ha Noi', '08:00'),
+      selectedDropOff: makePoint('Da Nang', '12:00'),
+      outboundState: null,
+      returnState: null,
+    }, translate);
+
+    expect(model?.statusTitle).toBe('booking.ticket.confirmed');
+    expect(model?.statusMessage).toBe('booking.ticket.showReferenceWhenBoarding');
+    expect(model?.isPendingPayment).toBe(false);
+    expect(model?.legs[0].ticketEntries?.[0]?.status).toBe('ISSUED');
+    expect(canShowBoardingQr(model?.legs[0].ticketEntries?.[0]?.status, model?.isPendingPayment))
+      .toBe(true);
+  });
+
   it('uses canonical status, not redirect URL presence, for pending and tracking state', () => {
     const confirmed = buildRoundTrip({
       ...pendingRoundTrip,

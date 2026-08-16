@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import {
+  useFocusEffect,
   useNavigation,
   useRoute,
   type CompositeNavigationProp,
@@ -955,6 +956,23 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const refreshParcels = useCallback(() => {
     refetchParcels().catch(() => undefined);
   }, [refetchParcels]);
+  useFocusEffect(
+    useCallback(() => {
+      if (activeTab === 'ticket' && ticketQuery.isFetched) {
+        refreshTickets();
+        return;
+      }
+      if (activeTab === 'parcel' && parcelQuery.isFetched) {
+        refreshParcels();
+      }
+    }, [
+      activeTab,
+      parcelQuery.isFetched,
+      refreshParcels,
+      refreshTickets,
+      ticketQuery.isFetched,
+    ]),
+  );
   const loadMoreTickets = useCallback(() => {
     if (hasNextTicketPage && !isFetchingNextTicketPage) {
       fetchNextTicketPage().catch(() => undefined);
