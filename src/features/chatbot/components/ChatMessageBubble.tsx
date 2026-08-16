@@ -1,15 +1,14 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
   ThumbsDown,
-  BookOpenText,
-  CaretDown,
   ThumbsUp,
   Ticket,
 } from 'phosphor-react-native';
+import { ChatMarkdownText } from './ChatMarkdownText';
 
 import { APP_LOGO } from '@shared/constants/assets';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -59,9 +58,6 @@ function ChatMessageBubbleComponent({
   const canRate = Boolean(
     !isUser && message.status === 'complete' && message.assistantMessageId,
   );
-  const citations =
-    !isUser && message.status === 'complete' ? message.citations ?? [] : [];
-  const [citationsExpanded, setCitationsExpanded] = useState(false);
 
   const handlePositiveRating = useCallback(() => {
     if (message.assistantMessageId) {
@@ -82,9 +78,6 @@ function ChatMessageBubbleComponent({
     () => onRetry?.(message.id),
     [message.id, onRetry],
   );
-  const handleToggleCitations = useCallback(() => {
-    setCitationsExpanded(current => !current);
-  }, []);
 
   return (
     <View style={[styles.row, isUser ? styles.userRow : styles.assistantRow]}>
@@ -107,14 +100,16 @@ function ChatMessageBubbleComponent({
           ]}
         >
           {message.content ? (
-            <Text
-              style={[
-                styles.messageText,
-                isUser ? styles.userMessageText : styles.assistantMessageText,
-              ]}
-            >
-              {message.content}
-            </Text>
+            isUser ? (
+              <Text style={[styles.messageText, styles.userMessageText]}>
+                {message.content}
+              </Text>
+            ) : (
+              <ChatMarkdownText
+                text={message.content}
+                style={[styles.messageText, styles.assistantMessageText]}
+              />
+            )
           ) : null}
 
           {message.status === 'streaming' ? (
@@ -193,66 +188,6 @@ function ChatMessageBubbleComponent({
             </View>
             <ArrowRight size={18} color={theme.colors.primary} weight="bold" />
           </Pressable>
-        ) : null}
-
-        {citations.length > 0 ? (
-          <View style={styles.citationsCard}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(
-                citationsExpanded
-                  ? 'chatbot.citations.collapseAccessibility'
-                  : 'chatbot.citations.expandAccessibility',
-              )}
-              accessibilityState={{ expanded: citationsExpanded }}
-              onPress={handleToggleCitations}
-              style={({ pressed }) => [
-                styles.citationsToggle,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <View style={styles.citationsTitleRow}>
-                <BookOpenText
-                  size={17}
-                  color={theme.colors.primary}
-                  weight="bold"
-                />
-                <Text style={styles.citationsTitle}>
-                  {t('chatbot.citations.title', { count: citations.length })}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.citationsChevron,
-                  citationsExpanded ? styles.citationsChevronExpanded : null,
-                ]}
-              >
-                <CaretDown
-                  size={16}
-                  color={theme.colors.primary}
-                  weight="bold"
-                />
-              </View>
-            </Pressable>
-
-            {citationsExpanded ? (
-              <View style={styles.citationsList}>
-                {citations.map((citation, index) => (
-                  <View
-                    key={`${citation.title}:${citation.section ?? ''}:${index}`}
-                    style={styles.citationRow}
-                  >
-                    <Text style={styles.citationBullet}>•</Text>
-                    <Text style={styles.citationText}>
-                      {citation.section
-                        ? `${citation.title} — ${citation.section}`
-                        : citation.title}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </View>
         ) : null}
 
         {canRate ? (
@@ -446,68 +381,6 @@ const createStyles = (theme: AppTheme) => ({
     lineHeight: 17,
     color: theme.colors.textSecondary,
     marginTop: 2,
-  },
-  citationsCard: {
-    marginTop: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.primaryFaded,
-    overflow: 'hidden' as const,
-  },
-  citationsToggle: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  citationsTitleRow: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  citationsTitle: {
-    flexShrink: 1,
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primary,
-  },
-  citationsChevron: {
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  citationsChevronExpanded: {
-    transform: [{ rotate: '180deg' }],
-  },
-  citationsList: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  citationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.xs,
-  },
-  citationBullet: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    lineHeight: 19,
-    color: theme.colors.primary,
-  },
-  citationText: {
-    flex: 1,
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    lineHeight: 18,
-    color: theme.colors.textSecondary,
   },
   feedbackRow: {
     flexDirection: 'row',

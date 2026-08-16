@@ -100,29 +100,23 @@ describe('ChatMessageBubble', () => {
 
     await act(async () => renderer.unmount());
   });
-  it('keeps friendly citations collapsed until the user expands them', async () => {
+  it('hides retrieval sources from the passenger', async () => {
     const renderer = await renderMessage('complete', [
       { title: 'Passenger policy', section: 'Refunds' },
     ]);
 
-    const expandButton = renderer.root.findByProps({
-      accessibilityLabel: 'chatbot.citations.expandAccessibility',
-    });
-    const visibleText = () =>
-      renderer.root.findAllByType(Text).map(node => node.props.children);
+    const visibleText = renderer.root
+      .findAllByType(Text)
+      .flatMap(node => node.props.children)
+      .join(' ');
 
-    expect(visibleText()).not.toContain('Passenger policy — Refunds');
-
-    await act(async () => {
-      expandButton.props.onPress();
-    });
-
-    expect(visibleText()).toContain('Passenger policy — Refunds');
+    expect(visibleText).not.toContain('Passenger policy');
+    expect(visibleText).not.toContain('Refunds');
     expect(
       renderer.root.findAllByProps({
-        accessibilityLabel: 'chatbot.citations.collapseAccessibility',
-      }).length,
-    ).toBeGreaterThan(0);
+        accessibilityLabel: 'chatbot.citations.expandAccessibility',
+      }),
+    ).toHaveLength(0);
 
     await act(async () => renderer.unmount());
   });
