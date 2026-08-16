@@ -31,6 +31,7 @@ import type { BookingStackParamList, RootStackParamList } from '@app/navigation/
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
+import { useTripDetail } from '@features/trip/hooks/useTripDetail';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
@@ -1017,14 +1018,39 @@ function HistoryTicketContent({
       tripStatus: leg.tripStatus,
     });
   }, [navigation]);
+  const liveTripQuery = useTripDetail(effectiveHistoryItem?.tripId, {
+    enabled: Boolean(
+      effectiveHistoryItem && canCancelBooking(effectiveHistoryItem.status),
+    ),
+    staleTimeMs: 15_000,
+    getRefetchInterval: (trip) => (
+      trip?.status === 'SCHEDULED' || trip?.status === 'BOARDING'
+        ? 15_000
+        : false
+    ),
+  });
+  const liveTripStatus = liveTripQuery.data?.status ?? model?.legs[0]?.tripStatus;
+  const waitingForLiveTripStatus = Boolean(
+    effectiveHistoryItem
+    && canCancelBooking(effectiveHistoryItem.status)
+    && liveTripQuery.isPending
+    && !liveTripStatus,
+  );
   const cancellationAvailable = Boolean(
     effectiveHistoryItem
-    && canCancelBooking(effectiveHistoryItem.status),
+    && !waitingForLiveTripStatus
+    && canCancelBooking({
+      bookingStatus: effectiveHistoryItem.status,
+      tripStatus: liveTripStatus,
+    }),
   );
   const handleConfirmCancel = useCallback(async () => {
     if (
       !effectiveHistoryItem
-      || !canCancelBooking(effectiveHistoryItem.status)
+      || !canCancelBooking({
+        bookingStatus: effectiveHistoryItem.status,
+        tripStatus: liveTripStatus,
+      })
       || cancelMutation.isPending
     ) {
       return;
@@ -1057,11 +1083,14 @@ function HistoryTicketContent({
         [{ text: t('common.ok') }],
       );
     }
-  }, [cancelMutation, effectiveHistoryItem, t]);
+  }, [cancelMutation, effectiveHistoryItem, liveTripStatus, t]);
   const handleCancel = useCallback(() => {
     if (
       !effectiveHistoryItem
-      || !canCancelBooking(effectiveHistoryItem.status)
+      || !canCancelBooking({
+        bookingStatus: effectiveHistoryItem.status,
+        tripStatus: liveTripStatus,
+      })
       || cancelMutation.isPending
     ) {
       return;
@@ -1095,6 +1124,7 @@ function HistoryTicketContent({
     cancelMutation.isPending,
     effectiveHistoryItem,
     handleConfirmCancel,
+    liveTripStatus,
     t,
   ]);
   const cancellationActions = useMemo<CancellationActions | undefined>(
