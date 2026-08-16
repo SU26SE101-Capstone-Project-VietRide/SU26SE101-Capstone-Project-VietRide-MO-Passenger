@@ -31,6 +31,18 @@ describe('CreateParcel recipient privacy policy', () => {
     expect(screenSource).not.toContain('Use my contact details');
   });
 
+  it('marks name, phone, and email as required in the recipient form', () => {
+    expect(screenSource).toMatch(
+      /label=\{t\('parcel\.form\.fullNameLabel'\)\}[\s\S]*?required/,
+    );
+    expect(screenSource).toMatch(
+      /label=\{t\('parcel\.form\.phoneLabel'\)\}[\s\S]*?required/,
+    );
+    expect(screenSource).toMatch(
+      /label=\{t\('parcel\.form\.emailLabel'\)\}[\s\S]*?required/,
+    );
+  });
+
   it('requires recipient email before continuing', () => {
     expect(screenSource).toContain("t('parcel.validation.recipientEmailRequired')");
     expect(screenSource).toMatch(

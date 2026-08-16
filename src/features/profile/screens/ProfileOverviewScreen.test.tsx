@@ -73,6 +73,7 @@ jest.mock('phosphor-react-native', () => {
     CheckCircle: icon('verified-icon'),
     WarningCircle: icon('warning-icon'),
     Wallet: icon('wallet-icon'),
+    Scroll: icon('scroll-icon'),
   };
 });
 

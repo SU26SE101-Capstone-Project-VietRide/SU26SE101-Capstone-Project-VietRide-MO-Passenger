@@ -78,6 +78,14 @@ import {
   PaymentReturnGate,
 } from '@shared/utils/paymentRedirect';
 import { PASSENGER_HISTORY_DEFAULT_PAGE_SIZE } from '../api/passengerHistoryApi';
+import {
+  PARCEL_HISTORY_FILTER_LABEL_KEYS,
+  PASSENGER_PARCEL_HISTORY_FILTERS,
+  PASSENGER_TICKET_HISTORY_FILTERS,
+  TICKET_HISTORY_FILTER_LABEL_KEYS,
+  type ParcelHistoryFilter,
+  type TicketHistoryFilter,
+} from '../config/passengerHistoryFilters';
 import { usePassengerHistory } from '../hooks/usePassengerHistory';
 import type {
   PassengerParcelHistoryItem,
@@ -86,14 +94,6 @@ import type {
 
 type HistoryTab = 'ticket' | 'parcel';
 type HistoryPaymentType = 'TICKET' | 'PARCEL';
-type TicketFilter = 'ALL' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
-type ParcelFilter =
-  | 'ALL'
-  | 'PENDING_PAYMENT'
-  | 'IN_TRANSIT'
-  | 'DELIVERY_CONFIRMED'
-  | 'CANCELLED'
-  | 'EXPIRED';
 type BookingHistoryRoute = RouteProp<MainTabParamList, 'BookingHistory'>;
 type BookingHistoryNavigation = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'BookingHistory'>,
@@ -165,6 +165,66 @@ const HistoryFilterChip = memo(function HistoryFilterChipComponent<
 }) as <TFilter extends string>(
   props: HistoryFilterChipProps<TFilter>,
 ) => React.JSX.Element;
+
+interface HistoryFilterBarProps<TFilter extends string> {
+  selected: TFilter;
+  options: readonly { value: TFilter; labelKey: string }[];
+  onSelect: (value: TFilter) => void;
+}
+
+const HistoryFilterBar = memo(function HistoryFilterBarComponent<
+  TFilter extends string,
+>({
+  selected,
+  options,
+  onSelect,
+}: HistoryFilterBarProps<TFilter>): React.JSX.Element {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.filterContent}
+    >
+      {options.map(option => (
+        <HistoryFilterChip
+          key={option.value}
+          compact
+          label={t(option.labelKey)}
+          value={option.value}
+          selected={selected === option.value}
+          onSelect={onSelect}
+        />
+      ))}
+    </ScrollView>
+  );
+}) as <TFilter extends string>(
+  props: HistoryFilterBarProps<TFilter>,
+) => React.JSX.Element;
+
+const TICKET_FILTER_OPTIONS: readonly {
+  value: TicketHistoryFilter;
+  labelKey: string;
+}[] = [
+  { value: 'ALL', labelKey: TICKET_HISTORY_FILTER_LABEL_KEYS.ALL },
+  ...PASSENGER_TICKET_HISTORY_FILTERS.map(value => ({
+    value,
+    labelKey: TICKET_HISTORY_FILTER_LABEL_KEYS[value],
+  })),
+];
+
+const PARCEL_FILTER_OPTIONS: readonly {
+  value: ParcelHistoryFilter;
+  labelKey: string;
+}[] = [
+  { value: 'ALL', labelKey: PARCEL_HISTORY_FILTER_LABEL_KEYS.ALL },
+  ...PASSENGER_PARCEL_HISTORY_FILTERS.map(value => ({
+    value,
+    labelKey: PARCEL_HISTORY_FILTER_LABEL_KEYS[value],
+  })),
+];
 
 interface TicketHistoryRowProps {
   item: PassengerTicketHistoryItem;
@@ -507,6 +567,7 @@ interface HistoryEmptyStateProps {
   kind: HistoryTab;
   isAuthenticated: boolean;
   isPending: boolean;
+  isFiltered: boolean;
   error: unknown;
   onRetry: () => void;
   onSignIn: () => void;
@@ -516,6 +577,7 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
   kind,
   isAuthenticated,
   isPending,
+  isFiltered,
   error,
   onRetry,
   onSignIn,
@@ -577,19 +639,26 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
     );
   }
 
+  const emptyTitle = kind === 'ticket'
+    ? t(isFiltered
+      ? 'bookingHistory.emptyTicketsFilteredTitle'
+      : 'bookingHistory.emptyTicketsTitle')
+    : t(isFiltered
+      ? 'bookingHistory.emptyParcelsFilteredTitle'
+      : 'bookingHistory.emptyParcelsTitle');
+  const emptyDescription = kind === 'ticket'
+    ? t(isFiltered
+      ? 'bookingHistory.emptyTicketsFilteredDescription'
+      : 'bookingHistory.emptyTicketsDescription')
+    : t(isFiltered
+      ? 'bookingHistory.emptyParcelsFilteredDescription'
+      : 'bookingHistory.emptyParcelsDescription');
+
   return (
     <View style={styles.emptyContainer} accessibilityRole="summary">
       <Icon size={48} color={theme.colors.textTertiary} weight="thin" />
-      <Text style={styles.emptyTitle}>
-        {kind === 'ticket'
-          ? t('bookingHistory.emptyTicketsTitle')
-          : t('bookingHistory.emptyParcelsTitle')}
-      </Text>
-      <Text style={styles.emptyText}>
-        {kind === 'ticket'
-          ? t('bookingHistory.emptyTicketsDescription')
-          : t('bookingHistory.emptyParcelsDescription')}
-      </Text>
+      <Text style={styles.emptyTitle}>{emptyTitle}</Text>
+      <Text style={styles.emptyText}>{emptyDescription}</Text>
     </View>
   );
 });
@@ -650,8 +719,8 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<HistoryTab>(
     route.params?.initialTab ?? 'ticket',
   );
-  const [ticketFilter, setTicketFilter] = useState<TicketFilter>('ALL');
-  const [parcelFilter, setParcelFilter] = useState<ParcelFilter>('ALL');
+  const [ticketFilter, setTicketFilter] = useState<TicketHistoryFilter>('ALL');
+  const [parcelFilter, setParcelFilter] = useState<ParcelHistoryFilter>('ALL');
   const selectedTicketStatus = ticketFilter === 'ALL' ? undefined : ticketFilter;
   const selectedParcelStatus = parcelFilter === 'ALL' ? undefined : parcelFilter;
   const ticketQuery = usePassengerHistory(
@@ -902,21 +971,39 @@ export function BookingHistoryScreen(): React.JSX.Element {
       kind="ticket"
       isAuthenticated={Boolean(userId)}
       isPending={isTicketPending}
+      isFiltered={ticketFilter !== 'ALL'}
       error={isTicketError ? ticketError : null}
       onRetry={refreshTickets}
       onSignIn={handleSignIn}
     />
-  ), [handleSignIn, isTicketError, isTicketPending, refreshTickets, ticketError, userId]);
+  ), [
+    handleSignIn,
+    isTicketError,
+    isTicketPending,
+    refreshTickets,
+    ticketError,
+    ticketFilter,
+    userId,
+  ]);
   const parcelEmpty = useMemo(() => (
     <HistoryEmptyState
       kind="parcel"
       isAuthenticated={Boolean(userId)}
       isPending={isParcelPending}
+      isFiltered={parcelFilter !== 'ALL'}
       error={isParcelError ? parcelError : null}
       onRetry={refreshParcels}
       onSignIn={handleSignIn}
     />
-  ), [handleSignIn, isParcelError, isParcelPending, parcelError, refreshParcels, userId]);
+  ), [
+    handleSignIn,
+    isParcelError,
+    isParcelPending,
+    parcelError,
+    parcelFilter,
+    refreshParcels,
+    userId,
+  ]);
   const ticketFooter = useMemo(
     () => <PaginationFooter loading={isFetchingNextTicketPage} />,
     [isFetchingNextTicketPage],
@@ -1012,81 +1099,17 @@ export function BookingHistoryScreen(): React.JSX.Element {
         </View>
 
         {activeTab === 'ticket' ? (
-          <View style={styles.filterContainer}>
-            <HistoryFilterChip
-              label={t('bookingHistory.filters.all')}
-              value="ALL"
-              selected={ticketFilter === 'ALL'}
-              onSelect={setTicketFilter}
-            />
-            <HistoryFilterChip
-              label={t('bookingHistory.filters.confirmed')}
-              value="CONFIRMED"
-              selected={ticketFilter === 'CONFIRMED'}
-              onSelect={setTicketFilter}
-            />
-            <HistoryFilterChip
-              label={t('bookingHistory.filters.completed')}
-              value="COMPLETED"
-              selected={ticketFilter === 'COMPLETED'}
-              onSelect={setTicketFilter}
-            />
-            <HistoryFilterChip
-              label={t('bookingHistory.filters.cancelled')}
-              value="CANCELLED"
-              selected={ticketFilter === 'CANCELLED'}
-              onSelect={setTicketFilter}
-            />
-          </View>
+          <HistoryFilterBar
+            selected={ticketFilter}
+            options={TICKET_FILTER_OPTIONS}
+            onSelect={setTicketFilter}
+          />
         ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.parcelFilterContent}
-          >
-            <HistoryFilterChip
-              compact
-              label={t('bookingHistory.filters.all')}
-              value="ALL"
-              selected={parcelFilter === 'ALL'}
-              onSelect={setParcelFilter}
-            />
-            <HistoryFilterChip
-              compact
-              label={t('bookingHistory.filters.pendingPayment')}
-              value="PENDING_PAYMENT"
-              selected={parcelFilter === 'PENDING_PAYMENT'}
-              onSelect={setParcelFilter}
-            />
-            <HistoryFilterChip
-              compact
-              label={t('bookingHistory.filters.inTransit')}
-              value="IN_TRANSIT"
-              selected={parcelFilter === 'IN_TRANSIT'}
-              onSelect={setParcelFilter}
-            />
-            <HistoryFilterChip
-              compact
-              label={t('bookingHistory.filters.delivered')}
-              value="DELIVERY_CONFIRMED"
-              selected={parcelFilter === 'DELIVERY_CONFIRMED'}
-              onSelect={setParcelFilter}
-            />
-            <HistoryFilterChip
-              compact
-              label={t('bookingHistory.filters.cancelled')}
-              value="CANCELLED"
-              selected={parcelFilter === 'CANCELLED'}
-              onSelect={setParcelFilter}
-            />
-            <HistoryFilterChip
-              compact
-              label={t('bookingHistory.filters.expired')}
-              value="EXPIRED"
-              selected={parcelFilter === 'EXPIRED'}
-              onSelect={setParcelFilter}
-            />
-          </ScrollView>
+          <HistoryFilterBar
+            selected={parcelFilter}
+            options={PARCEL_FILTER_OPTIONS}
+            onSelect={setParcelFilter}
+          />
         )}
       </View>
 
@@ -1197,14 +1220,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
   },
   activeMainTabText: { color: theme.colors.textInverse },
-  filterContainer: {
-    flexDirection: 'row' as const,
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: theme.colors.transparent,
-  },
-  parcelFilterContent: {
+  filterContent: {
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

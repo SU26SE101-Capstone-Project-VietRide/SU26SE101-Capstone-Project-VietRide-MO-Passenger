@@ -6,6 +6,7 @@ import {
   hasParcelQuoteContract,
   isParcelQuoteErrorCode,
   isParcelQuoteUsable,
+  pickLowestFareParcelTrip,
 } from './parcelQuote';
 
 const trip = (overrides: Partial<AvailableParcelTrip> = {}): AvailableParcelTrip => ({
@@ -37,6 +38,38 @@ const trip = (overrides: Partial<AvailableParcelTrip> = {}): AvailableParcelTrip
 
 describe('parcel quote lifecycle', () => {
   const nowMs = Date.parse('2026-08-12T07:00:00+07:00');
+
+  it('defaults to the cheapest usable trip and keeps a stable tie-break', () => {
+    const expensive = trip({
+      tripId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      estimatedPriceVnd: 180_000,
+      estimatedGrossPriceVnd: 180_000,
+    });
+    const cheapLater = trip({
+      tripId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      estimatedPriceVnd: 120_000,
+      estimatedGrossPriceVnd: 120_000,
+      departureDateTime: '2026-08-12T10:00:00+07:00',
+    });
+    const cheapEarlier = trip({
+      tripId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      estimatedPriceVnd: 120_000,
+      estimatedGrossPriceVnd: 120_000,
+      departureDateTime: '2026-08-12T08:30:00+07:00',
+    });
+    const unusable = trip({
+      tripId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      estimatedPriceVnd: 10_000,
+      estimatedGrossPriceVnd: 10_000,
+      quoteToken: null,
+    });
+
+    expect(pickLowestFareParcelTrip(
+      [expensive, unusable, cheapLater, cheapEarlier],
+      nowMs,
+    )?.tripId).toBe(cheapEarlier.tripId);
+    expect(pickLowestFareParcelTrip([unusable], nowMs)).toBeNull();
+  });
 
   it('fails closed when authoritative quote fields are missing', () => {
     expect(hasParcelQuoteContract(trip({ quoteToken: null }))).toBe(false);

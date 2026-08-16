@@ -64,8 +64,11 @@ import type { GeoCoordinate } from '@shared/types/common';
 
 import { useBookingStore } from '../store/useBookingStore';
 import {
+  checkShuttleAddressAgainstStation,
   composeShuttleServiceAddress,
   SHUTTLE_ADDRESS_MAX_LENGTH,
+  SHUTTLE_MAX_ROAD_DISTANCE_KM,
+  SHUTTLE_MAX_ROAD_DISTANCE_METERS,
   validateShuttleService,
 } from '../utils/shuttle';
 
@@ -78,7 +81,7 @@ type PickerRoute = RouteProp<BookingStackParamList, 'ShuttleAddressPicker'>;
 const SEARCH_DEBOUNCE_MS = 280;
 const MIN_QUERY_LENGTH = 3;
 const MAX_PREDICTIONS = 5;
-const BIAS_RADIUS_METERS = 5_000;
+const BIAS_RADIUS_METERS = SHUTTLE_MAX_ROAD_DISTANCE_METERS;
 const COUNTRY_CODE = 'vn';
 
 const normalizeQuery = (value: string): string =>
@@ -326,6 +329,24 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
         return false;
       }
 
+      const range = checkShuttleAddressAgainstStation(
+        validation.value,
+        stationCoordinate,
+      );
+      if (!range.ok) {
+        setSearchError(
+          range.reason === 'TOO_FAR'
+            ? t(
+              isDropoff
+                ? 'booking.shuttlePicker.errors.tooFarFromDestination'
+                : 'booking.shuttlePicker.errors.tooFarFromDeparture',
+              { station: stationName, limitKm: SHUTTLE_MAX_ROAD_DISTANCE_KM },
+            )
+            : t('booking.shuttlePicker.errors.invalidPlace'),
+        );
+        return false;
+      }
+
       const draft = { stationId, ...validation.value };
       if (isDropoff) setSelectedShuttleDropoff(draft);
       else setSelectedShuttlePickup(draft);
@@ -339,7 +360,9 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
       navigation,
       setSelectedShuttleDropoff,
       setSelectedShuttlePickup,
+      stationCoordinate,
       stationId,
+      stationName,
       t,
     ],
   );

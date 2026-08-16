@@ -9,7 +9,10 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import {
+  useNavigation,
+  type CompositeNavigationProp,
+} from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,6 +22,7 @@ import {
   Info,
   LockKey,
   Palette,
+  Scroll,
   Translate,
 } from 'phosphor-react-native';
 
@@ -36,11 +40,14 @@ import {
   getNotificationPermissionState,
   openSystemNotificationSettings,
 } from '@shared/notifications';
-import type { ProfileStackParamList } from '@app/navigation/types';
-
-type SettingsNavigationProp = NativeStackNavigationProp<
+import type {
   ProfileStackParamList,
-  'Settings'
+  RootStackParamList,
+} from '@app/navigation/types';
+
+type SettingsNavigationProp = CompositeNavigationProp<
+  NativeStackNavigationProp<ProfileStackParamList, 'Settings'>,
+  NativeStackNavigationProp<RootStackParamList>
 >;
 
 export function SettingsScreen(): React.JSX.Element {
@@ -134,6 +141,10 @@ export function SettingsScreen(): React.JSX.Element {
   );
   const handleSecuritySettings = useCallback(
     () => navigation.navigate('SecuritySettings'),
+    [navigation],
+  );
+  const handlePublishedPolicies = useCallback(
+    () => navigation.navigate('PolicyList'),
     [navigation],
   );
   const handlePushNotificationsChange = useCallback((enabled: boolean) => {
@@ -309,6 +320,31 @@ export function SettingsScreen(): React.JSX.Element {
                 <Text style={styles.settingLabel}>{t('settings.appearance.themeTitle')}</Text>
                 <Text style={styles.settingDesc}>
                   {t('settings.appearance.themeDescription')}
+                </Text>
+              </View>
+              <CaretRight size={16} color={theme.colors.textTertiary} weight="bold" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Section: Published policies */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Scroll size={18} color={theme.colors.primary} style={styles.sectionIcon} />
+            <Text style={styles.sectionTitle}>{t('settings.policies.title')}</Text>
+          </View>
+
+          <View style={styles.card}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('settings.policies.entryTitle')}
+              style={({ pressed }) => [styles.settingRow, pressed ? styles.pressed : null]}
+              onPress={handlePublishedPolicies}
+            >
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingLabel}>{t('settings.policies.entryTitle')}</Text>
+                <Text style={styles.settingDesc}>
+                  {t('settings.policies.entryDescription')}
                 </Text>
               </View>
               <CaretRight size={16} color={theme.colors.textTertiary} weight="bold" />

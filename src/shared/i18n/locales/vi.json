@@ -299,6 +299,230 @@
       "hoursCompact_other": "{{count}} giờ",
       "daysCompact_one": "{{count}} ngày",
       "daysCompact_other": "{{count}} ngày"
+    },
+    "refs": {
+      "yourTicket": "vé của bạn",
+      "yourParcel": "đơn gửi hàng của bạn",
+      "yourTrip": "chuyến xe của bạn",
+      "vehicle": "xe được phân công",
+      "unspecifiedReason": "không có lý do đi kèm",
+      "pickupHint": " (điểm đón thứ {{pickupOrder}})",
+      "refundHint": " Số tiền hoàn: {{amount}} VND."
+    },
+    "codes": {
+      "unknown": "trạng thái mới",
+      "CHECK_IN": "check-in",
+      "CHECKED_IN": "đã check-in",
+      "CHECK_IN_TIMEOUT": "không check-in đúng hạn",
+      "FINAL_PAYMENT_TIMEOUT": "không thanh toán số dư đúng hạn",
+      "AUTO_UNFULFILLED_CUTOFF": "không sắp xếp được xe trung chuyển kịp giờ",
+      "PENDING_SEAT_ASSIGNMENT": "cần chọn lại ghế",
+      "CAPACITY_EXCEEDED": "chuyến đã hết chỗ hàng",
+      "PENDING_OPERATOR_REVIEW": "chờ xem xét",
+      "PENDING_PAYMENT": "chờ thanh toán",
+      "PENDING": "đang chờ",
+      "PENDING_ADDITIONAL_PAYMENT": "cần thanh toán thêm",
+      "RESERVED": "đã giữ chỗ",
+      "PENDING_FINAL_PAYMENT": "cần thanh toán số dư",
+      "READY_TO_LOAD": "sẵn sàng lên xe",
+      "LOADED": "đã lên xe",
+      "IN_TRANSIT": "đang trên đường",
+      "PENDING_TRANSFER_CONFIRM": "chờ xác nhận chuyển chuyến",
+      "TRANSFER_ESCALATED": "chuyển chuyến cần xử lý",
+      "UNLOADED": "đã tới bến đích",
+      "DELIVERED_PENDING_CONFIRM": "chờ xác nhận giao hàng",
+      "DELIVERY_CONFIRMED": "đã giao thành công",
+      "DELIVERY_REJECTED": "người nhận từ chối hàng",
+      "RETURN_INITIATED": "bắt đầu hoàn trả",
+      "RETURNED": "đã hoàn trả",
+      "PENDING_OPERATOR_ACTION": "chờ nhà xe xử lý",
+      "PENDING_CONFIRM": "chờ xác nhận",
+      "CONFIRMED": "đã xác nhận",
+      "COMPLETED": "đã hoàn tất",
+      "CANCELLED": "đã hủy",
+      "REJECTED": "đã từ chối",
+      "EXPIRED": "đã hết hạn",
+      "REFUNDED": "đã hoàn tiền",
+      "DISRUPTED": "bị gián đoạn",
+      "DELAYED": "bị trễ",
+      "NO_SHOW": "không lên xe",
+      "PARTIAL_NO_SHOW": "sử dụng một phần",
+      "SCHEDULED": "đã lên lịch",
+      "BOARDING": "đang lên xe",
+      "IN_PROGRESS": "đang chạy",
+      "PICKED_UP": "đã đón",
+      "DELIVERED": "đã trả khách",
+      "ACTIVE": "đang hoạt động",
+      "INACTIVE": "ngưng hoạt động",
+      "DRIVER": "tài xế",
+      "ASSISTANT": "phụ xe",
+      "VEHICLE": "xe",
+      "INBOUND_TO_STATION": "về bến",
+      "OUTBOUND_FROM_STATION": "từ bến",
+      "WARNING_60": "cảnh báo trung chuyển khẩn",
+      "WARNING_120": "cảnh báo trung chuyển"
+    },
+    "types": {
+      "BOOKING_CONFIRMED": {
+        "title": "Đặt vé thành công",
+        "body": "Vé {{bookingRef}} đã được xác nhận."
+      },
+      "BOOKING_CREATED": {
+        "title": "Đã tạo đặt vé",
+        "body": "Vé {{bookingRef}} đã được tạo và đang chờ thanh toán."
+      },
+      "BOOKING_CANCELLED": {
+        "title": "Vé đã bị hủy",
+        "body": "Vé {{bookingRef}} đã bị hủy. Lý do: {{reason}}."
+      },
+      "BOOKING_DISRUPTED": {
+        "title": "Chuyến đi bị gián đoạn",
+        "body": "Vé {{bookingRef}} bị gián đoạn. Số tiền hoàn dự kiến: {{amount}} VND."
+      },
+      "BOOKING_REFUNDED": {
+        "title": "Hoàn tiền vé thành công",
+        "body": "Khoản hoàn tiền cho vé {{bookingRef}} đã được ghi nhận.{{refundHint}}"
+      },
+      "PASSENGER_NO_SHOW": {
+        "title": "Bị ghi nhận không lên xe",
+        "body": "Vé {{bookingRef}} đã được đánh dấu không lên xe."
+      },
+      "TRIP_BOARDING_REMINDER": {
+        "title": "Nhắc lên xe",
+        "body": "{{routeName}} đã sẵn sàng cho hành khách lên xe."
+      },
+      "TRIP_VEHICLE_APPROACHING": {
+        "title": "Xe đang đến gần",
+        "body": "Xe của {{routeName}} đang đến điểm đón của bạn."
+      },
+      "TRIP_ROUTE_CHANGED": {
+        "title": "Tuyến đã thay đổi",
+        "body": "Tuyến của {{routeName}} đã thay đổi. Hãy kiểm tra điểm đón mới."
+      },
+      "TRIP_SCHEDULE_CHANGED": {
+        "title": "Lịch chuyến đã thay đổi",
+        "body": "Giờ khởi hành của {{routeName}} đã thay đổi. Hãy kiểm tra lịch mới."
+      },
+      "TRIP_CANCELLED": {
+        "title": "Chuyến đã bị hủy",
+        "body": "{{routeName}} đã bị hủy."
+      },
+      "TRIP_DELAYED": {
+        "title": "Chuyến bị trễ",
+        "body": "{{routeName}} đang chạy trễ hơn dự kiến."
+      },
+      "TRIP_DISRUPTED": {
+        "title": "Chuyến bị gián đoạn",
+        "body": "{{routeName}} đã bị gián đoạn."
+      },
+      "STOP_DISABLED": {
+        "title": "Điểm đón đã đổi",
+        "body": "Điểm đón ban đầu không còn hiệu lực. Hãy chọn điểm đón thay thế."
+      },
+      "VEHICLE_SUBSTITUTED": {
+        "title": "Đã sắp xe thay thế",
+        "body": "{{routeName}} đã được gán xe thay thế ({{licensePlate}})."
+      },
+      "VEHICLE_SWAPPED": {
+        "title": "Đã đổi xe",
+        "body": "Xe của {{routeName}} đã đổi thành {{licensePlate}}."
+      },
+      "PARCEL_RESERVED": {
+        "title": "Đã giữ chỗ gửi hàng",
+        "body": "{{parcelRef}} đã được giữ chỗ."
+      },
+      "PARCEL_LOADED": {
+        "title": "Hàng đã lên xe",
+        "body": "{{parcelRef}} đã được tải lên xe."
+      },
+      "PARCEL_IN_TRANSIT": {
+        "title": "Cập nhật đơn gửi hàng",
+        "body": "{{parcelRef}} có cập nhật vận chuyển mới."
+      },
+      "PARCEL_DELIVERED_PENDING_CONFIRM": {
+        "title": "Chờ xác nhận giao hàng",
+        "body": "{{parcelRef}} đã tới và đang chờ xác nhận giao hàng."
+      },
+      "PARCEL_REJECTED": {
+        "title": "Đơn gửi hàng bị từ chối",
+        "body": "{{parcelRef}} đã bị từ chối. Lý do: {{reason}}."
+      },
+      "PARCEL_RETURNED": {
+        "title": "Hàng đang được hoàn trả",
+        "body": "{{parcelRef}} đang được hoàn trả."
+      },
+      "PARCEL_REVIEW_REQUESTED": {
+        "title": "Cần xem xét đơn gửi hàng",
+        "body": "{{parcelRef}} đang chờ nhân viên vận hành xem xét."
+      },
+      "PARCEL_REVIEW_APPROVED": {
+        "title": "Đơn gửi hàng đã được duyệt",
+        "body": "{{parcelRef}} đã được duyệt. Hãy thanh toán tiền cọc để tiếp tục."
+      },
+      "PARCEL_FINAL_PAYMENT_REQUIRED": {
+        "title": "Cần thanh toán số dư đơn gửi hàng",
+        "body": "{{parcelRef}} vẫn còn số dư cần thanh toán."
+      },
+      "PARCEL_SETTLEMENT_RECOVERED": {
+        "title": "Đính chính trạng thái đơn gửi hàng",
+        "body": "{{parcelRef}} đã được khôi phục về trạng thái {{status}}."
+      },
+      "WALLET_CREDITED": {
+        "title": "Ví đã được cộng tiền",
+        "body": "Ví VietRide của bạn vừa được cộng {{amount}} VND."
+      },
+      "WALLET_DEBITED": {
+        "title": "Ví đã bị trừ tiền",
+        "body": "Ví VietRide của bạn vừa bị trừ {{amount}} VND."
+      },
+      "SHUTTLE_ASSIGNED": {
+        "title": "Đã xếp chuyến trung chuyển",
+        "body": "Xe trung chuyển {{licensePlate}} sẽ đón bạn{{pickupHint}}."
+      },
+      "SHUTTLE_CANCELLED": {
+        "title": "Chuyến trung chuyển đã hủy",
+        "body": "Chuyến trung chuyển của bạn đã bị hủy."
+      },
+      "SHUTTLE_PICKED_UP": {
+        "title": "Đã đón trung chuyển",
+        "body": "Xe trung chuyển đã đón bạn."
+      },
+      "SHUTTLE_DELIVERED": {
+        "title": "Đã trả khách trung chuyển",
+        "body": "Xe trung chuyển đã trả bạn."
+      },
+      "SHUTTLE_NO_SHOW": {
+        "title": "Trung chuyển ghi nhận không lên xe",
+        "body": "Chuyến trung chuyển đã ghi nhận bạn không lên xe."
+      },
+      "SHUTTLE_COMPLETED": {
+        "title": "Đã hoàn tất trung chuyển",
+        "body": "Chuyến trung chuyển của bạn đã hoàn tất."
+      },
+      "SHUTTLE_UNFULFILLED": {
+        "title": "Không thể bố trí xe trung chuyển",
+        "body": "Vui lòng tự di chuyển đến bến khởi hành để kịp chuyến chính."
+      },
+      "SHUTTLE_WARNING": {
+        "title": "Còn khách chờ trung chuyển",
+        "body": "Vẫn còn hành khách chưa được xếp xe trung chuyển."
+      },
+      "TRIP_ASSIGNMENT_START_BLOCKED": {
+        "title": "Không thể bắt đầu chuyến",
+        "body": "{{role}} vẫn đang {{status}} ở một chuyến khác. Hãy xử lý phân công trước khi thử lại."
+      },
+      "DRIVER_STOP_DEPARTED_WITH_PENDING": {
+        "title": "Còn khách tại điểm dừng",
+        "body": "Chuyến đã rời điểm dừng trong khi vẫn còn hành khách đang chờ."
+      },
+      "OFF_ROUTE_ALERT": {
+        "title": "Xe lệch tuyến",
+        "body": "{{routeName}} có vẻ đã rời tuyến dự kiến."
+      },
+      "TRIP_DELAYED_ALERT": {
+        "title": "Chuyến bị trễ",
+        "body": "{{routeName}} đang chạy trễ hơn lịch."
+      }
     }
   },
   "booking": {
@@ -538,7 +762,9 @@
         "unavailable": "Tìm địa chỉ tạm thời không khả dụng. Vui lòng thử lại.",
         "unsupported": "Tìm địa chỉ chưa khả dụng trên bản ứng dụng này. Hãy cập nhật VietRide.",
         "invalidPlace": "Không xác minh được địa điểm này. Hãy chọn kết quả khác.",
-        "session": "Phiên tìm kiếm đã hết hạn. Hãy tìm lại."
+        "session": "Phiên tìm kiếm đã hết hạn. Hãy tìm lại.",
+        "tooFarFromDeparture": "Địa chỉ này cách {{station}} hơn {{limitKm}} km. Hãy chọn điểm đón gần bến đầu hơn cho chiều đi.",
+        "tooFarFromDestination": "Địa chỉ này cách {{station}} hơn {{limitKm}} km. Hãy chọn điểm trả gần bến cuối hơn cho chiều về."
       }
     },
     "shuttle": {
@@ -576,7 +802,8 @@
         "stationCoordinates": "Bến này chưa có tọa độ bản đồ đã xác minh."
       },
       "apiErrors": {
-        "distanceExceeded": "Địa chỉ nằm ngoài phạm vi trung chuyển 5 km của bến. Hãy sửa địa chỉ rồi thử lại.",
+        "distanceExceeded": "Địa chỉ cách bến hơn {{limitKm}} km. Hãy chọn địa chỉ trung chuyển gần hơn rồi thử lại.",
+        "unprocessable": "Địa chỉ trung chuyển chưa được chấp nhận. Hãy chọn địa chỉ đã xác minh và gần bến hơn.",
         "distanceUnavailable": "Dịch vụ tính khoảng cách đường bộ đang tạm gián đoạn. Địa chỉ vẫn được giữ lại để bạn thử lại.",
         "cutoffPassed": "Đã quá thời hạn gửi yêu cầu trung chuyển cho chuyến này.",
         "stationUnsupported": "Bến đã chọn không còn hỗ trợ dịch vụ trung chuyển này.",
@@ -629,7 +856,9 @@
       "alightingAt": "Xuống xe · {{time}}",
       "selectDropoff": "Chọn điểm trả",
       "departureTrip": "Chuyến chiều đi",
-      "returnTrip": "Chuyến chiều về"
+      "returnTrip": "Chuyến chiều về",
+      "viewPolicies": "Xem chính sách nhà xe",
+      "viewPoliciesAccessibility": "Xem chính sách của {{operator}}"
     },
     "locations": {
       "municipality": "Thành phố",
@@ -1102,7 +1331,7 @@
     },
     "dimensions": {
       "title": "Kích thước chính xác",
-      "hint": "Dùng để kiểm tra sức chứa của chuyến. Hạng cước sẽ tự động nâng khi cần.",
+      "hint": "Dùng để kiểm tra sức chứa của chuyến. Mỗi cạnh tối thiểu 5 cm.",
       "length": "Dài",
       "width": "Rộng",
       "height": "Cao",
@@ -1193,7 +1422,7 @@
     },
     "packageSize": {
       "title": "Kích thước kiện hàng",
-      "hint": "Chọn một mẫu để điền nhanh, sau đó sửa số đo thực tế nếu cần.",
+      "hint": "Chọn nhanh. Chip sẽ đổi theo số đo bạn nhập bên dưới.",
       "options": {
         "small": "Nhỏ",
         "medium": "Vừa",
@@ -1401,7 +1630,7 @@
       "lb": "lb"
     },
     "validation": {
-      "dimensionsPositive": "Mỗi kích thước phải lớn hơn 0.",
+      "dimensionsPositive": "Mỗi cạnh phải từ 5 cm trở lên.",
       "selectOriginStation": "Vui lòng chọn bến gửi.",
       "selectDestinationStation": "Vui lòng chọn bến nhận.",
       "recipientRequired": "Cần nhập tên, số điện thoại và email người nhận.",
@@ -1430,6 +1659,7 @@
     "language": "Ngôn ngữ",
     "notifications": "Thông báo",
     "helpSupport": "Hỗ trợ",
+    "policies": "Điều khoản & chính sách",
     "title": "Hồ sơ",
     "passengerName": "Hành khách VietRide",
     "phoneUnavailable": "Chưa có số điện thoại",
@@ -1497,8 +1727,12 @@
     "unavailableDescription": "Không thể tải lịch sử đặt dịch vụ của bạn.",
     "emptyTicketsTitle": "Chưa có vé xe",
     "emptyTicketsDescription": "Các chuyến bạn đặt sẽ xuất hiện tại đây.",
+    "emptyTicketsFilteredTitle": "Không có vé ở trạng thái này",
+    "emptyTicketsFilteredDescription": "Các vé khác vẫn nằm trong Tất cả.",
     "emptyParcelsTitle": "Chưa có đơn hàng",
     "emptyParcelsDescription": "Các kiện hàng bạn gửi sẽ xuất hiện tại đây.",
+    "emptyParcelsFilteredTitle": "Không có đơn ở trạng thái này",
+    "emptyParcelsFilteredDescription": "Các đơn khác vẫn nằm trong Tất cả.",
     "staleDescription": "Đang hiển thị dữ liệu đã lưu vì lần cập nhật mới nhất thất bại.",
     "ticketsTab": "Vé xe",
     "parcelsTab": "Gửi hàng",
@@ -1510,7 +1744,10 @@
       "pendingPayment": "Chờ thanh toán",
       "inTransit": "Đang vận chuyển",
       "delivered": "Đã giao",
-      "expired": "Hết hạn"
+      "expired": "Hết hạn",
+      "disrupted": "Gián đoạn",
+      "refunded": "Đã hoàn tiền",
+      "noShow": "Không lên xe"
     }
   },
   "security": {
@@ -1587,6 +1824,11 @@
       "accountTitle": "Bảo mật tài khoản",
       "accountDescription": "Kiểm tra thông tin bảo mật tài khoản"
     },
+    "policies": {
+      "title": "Chính sách",
+      "entryTitle": "Điều khoản và chính sách",
+      "entryDescription": "Đọc chính sách dành cho hành khách VietRide"
+    },
     "notifications": {
       "title": "Thông báo",
       "systemPush": "Thông báo trên thiết bị",
@@ -1606,6 +1848,50 @@
       "remindersChannel": "Lời nhắc VietRide",
       "fallbackTitle": "VietRide có cập nhật mới",
       "fallbackBody": "Mở VietRide để xem thông tin mới nhất."
+    }
+  },
+  "policy": {
+    "list": {
+      "title": "Điều khoản & chính sách",
+      "operatorTitle": "Chính sách nhà xe",
+      "loading": "Đang tải chính sách...",
+      "unavailableTitle": "Không tải được chính sách",
+      "emptyTitle": "Chưa có chính sách",
+      "emptyPlatformDescription": "VietRide chưa công bố chính sách dành cho hành khách.",
+      "emptyOperatorDescription": "Nhà xe này chưa có chính sách riêng. Chính sách nền tảng vẫn áp dụng."
+    },
+    "detail": {
+      "title": "Chính sách",
+      "loading": "Đang tải chính sách...",
+      "unavailableTitle": "Không tìm thấy chính sách",
+      "emptyContent": "Chính sách này chưa có nội dung.",
+      "version": "Phiên bản {{version}} · {{date}}",
+      "versionOnly": "Phiên bản {{version}}"
+    },
+    "sections": {
+      "platform": "Chính sách VietRide",
+      "operator": "Chính sách {{operator}}",
+      "operatorFallback": "Nhà xe này"
+    },
+    "source": {
+      "platform": "VietRide",
+      "operator": "Nhà xe"
+    },
+    "updatedOn": "Cập nhật {{date}}",
+    "itemAccessibility": "{{title}}, {{category}}, {{source}}",
+    "categories": {
+      "REFUND": "Hoàn vé",
+      "LUGGAGE": "Hành lý",
+      "CANCELLATION": "Hủy vé",
+      "NO_SHOW": "Không lên xe",
+      "PRIVACY": "Quyền riêng tư",
+      "TERMS": "Điều khoản",
+      "PAYMENT": "Thanh toán",
+      "SHUTTLE": "Trung chuyển",
+      "PARCEL": "Gửi hàng"
+    },
+    "errors": {
+      "notFound": "Chính sách này không còn hiệu lực."
     }
   },
   "history": {

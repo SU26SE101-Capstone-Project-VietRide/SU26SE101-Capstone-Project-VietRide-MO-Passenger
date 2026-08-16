@@ -6,11 +6,15 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { View, Text, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
+import type { RootStackParamList } from '@app/navigation/types';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { isUuid } from '@shared/utils/pathSegment';
 import { useBookingStore } from '../store/useBookingStore';
 import {
   BookingLegSummaryCard,
@@ -23,12 +27,15 @@ interface CheckoutStepProps {
   onGoToStep: (step: number) => void;
 }
 
+type CheckoutNavigation = NativeStackNavigationProp<RootStackParamList>;
+
 export function CheckoutScreen({
   onNext,
   onGoToStep,
 }: CheckoutStepProps): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const navigation = useNavigation<CheckoutNavigation>();
   const {
     selectedSeats,
     selectedTrip,
@@ -112,6 +119,39 @@ export function CheckoutScreen({
     restoreLegForEdit('return');
     onGoToStep(step);
   }, [onGoToStep, restoreLegForEdit]);
+  const openOperatorPolicies = useCallback((
+    operatorId: string | undefined,
+    operatorName: string | undefined,
+  ) => {
+    if (!operatorId || !isUuid(operatorId)) return;
+    navigation.navigate('PolicyList', {
+      operatorId,
+      ...(operatorName ? { operatorName } : {}),
+    });
+  }, [navigation]);
+  const openOneWayPolicies = useCallback(() => {
+    openOperatorPolicies(selectedTrip?.operatorId, selectedTrip?.operatorBadge);
+  }, [openOperatorPolicies, selectedTrip?.operatorBadge, selectedTrip?.operatorId]);
+  const openOutboundPolicies = useCallback(() => {
+    openOperatorPolicies(
+      outboundState?.trip?.operatorId,
+      outboundState?.trip?.operatorBadge,
+    );
+  }, [
+    openOperatorPolicies,
+    outboundState?.trip?.operatorBadge,
+    outboundState?.trip?.operatorId,
+  ]);
+  const openReturnPolicies = useCallback(() => {
+    openOperatorPolicies(
+      returnState?.trip?.operatorId,
+      returnState?.trip?.operatorBadge,
+    );
+  }, [
+    openOperatorPolicies,
+    returnState?.trip?.operatorBadge,
+    returnState?.trip?.operatorId,
+  ]);
 
   return (
     <View style={styles.container}>
@@ -133,6 +173,11 @@ export function CheckoutScreen({
               onEditSeats={() => editOneWay(2)}
               onEditPickup={() => editOneWay(3)}
               onEditDropoff={() => editOneWay(4)}
+              onViewPolicies={
+                selectedTrip?.operatorId && isUuid(selectedTrip.operatorId)
+                  ? openOneWayPolicies
+                  : undefined
+              }
             />
           ) : null}
 
@@ -145,6 +190,12 @@ export function CheckoutScreen({
               onEditSeats={() => editOutbound(2)}
               onEditPickup={() => editOutbound(3)}
               onEditDropoff={() => editOutbound(4)}
+              onViewPolicies={
+                outboundState.trip?.operatorId
+                  && isUuid(outboundState.trip.operatorId)
+                  ? openOutboundPolicies
+                  : undefined
+              }
             />
           ) : null}
 
@@ -157,6 +208,11 @@ export function CheckoutScreen({
               onEditSeats={() => editReturn(6)}
               onEditPickup={() => editReturn(7)}
               onEditDropoff={() => editReturn(8)}
+              onViewPolicies={
+                returnState.trip?.operatorId && isUuid(returnState.trip.operatorId)
+                  ? openReturnPolicies
+                  : undefined
+              }
             />
           ) : null}
         </ScrollView>

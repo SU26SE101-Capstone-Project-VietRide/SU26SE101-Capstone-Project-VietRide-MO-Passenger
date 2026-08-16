@@ -204,6 +204,64 @@ describe('booking submission serialization', () => {
     expect(useBookingStore.getState().selectedShuttlePickup).toBeNull();
   });
 
+  it('writes a closer shuttle address through the snapshot used at checkout', async () => {
+    const farPickup = {
+      stationId: trip.originStationId,
+      address: 'Far address',
+      latitude: 10.9,
+      longitude: 106.9,
+    };
+    const nearPickup = {
+      stationId: trip.originStationId,
+      address: '12 Nguyen Hue',
+      latitude: 10.7769,
+      longitude: 106.7009,
+    };
+    const pickup = useBookingStore.getState().selectedPickUp;
+    const dropoff = useBookingStore.getState().selectedDropOff;
+    const selectedSeats = useBookingStore.getState().selectedSeats;
+
+    useBookingStore.setState((state) => ({
+      searchParams: { ...state.searchParams, isRoundTrip: true },
+      currentLeg: 'outbound',
+      bookingError: new ApiRequestError({
+        message: 'Request failed with status code 422',
+        code: 'SHUTTLE_DISTANCE_EXCEEDED',
+        statusCode: 422,
+      }),
+      bookingStatus: 'error',
+      selectedShuttlePickup: farPickup,
+      outboundState: {
+        trip,
+        seats: selectedSeats,
+        pickUp: pickup,
+        dropOff: dropoff,
+        shuttlePickup: farPickup,
+      },
+      returnState: {
+        trip: returnTrip,
+        seats: [{ id: 'B02', label: 'B02', status: 'selected' }],
+        pickUp: dropoff,
+        dropOff: pickup,
+      },
+    }));
+
+    useBookingStore.getState().setSelectedShuttlePickup(nearPickup);
+
+    expect(useBookingStore.getState().bookingError).toBeNull();
+    expect(useBookingStore.getState().selectedShuttlePickup).toEqual(nearPickup);
+    expect(useBookingStore.getState().outboundState?.shuttlePickup).toEqual(nearPickup);
+
+    await useBookingStore.getState().createBooking();
+
+    const [payload] = mockCreateRoundTripBooking.mock.calls[0];
+    expect(payload.outbound.shuttlePickup).toEqual({
+      address: '12 Nguyen Hue',
+      latitude: 10.7769,
+      longitude: 106.7009,
+    });
+  });
+
   it('fails safely and removes stale Shuttle requests after the BE cutoff response', async () => {
     useBookingStore.setState({
       selectedShuttlePickup: {

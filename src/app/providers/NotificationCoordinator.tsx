@@ -10,6 +10,7 @@ import {
 } from '@app/navigation/navigationRef';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { notificationKeys } from '@features/home/api/notificationApi';
+import { localizeNotificationCopy } from '@features/home/utils/notificationCopy';
 import { useIsAppActive, useNetworkStatus } from '@shared/hooks';
 import {
   cancelDailyReminder,
@@ -322,8 +323,24 @@ export function NotificationCoordinator(): null {
     };
     const unsubscribeForeground = subscribeToForegroundRemoteMessages((message) => {
       refreshNotificationInbox();
+      const notificationType = typeof message.data?.notificationType === 'string'
+        ? message.data.notificationType
+        : '';
+      const copy = localizeNotificationCopy({
+        type: notificationType,
+        title: message.notification?.title ?? '',
+        body: message.notification?.body ?? '',
+        data: message.data,
+      }, t);
       ensureNotificationChannels(channelLabels)
-        .then(() => displayForegroundRemoteNotification(message, {
+        .then(() => displayForegroundRemoteNotification({
+          ...message,
+          notification: {
+            ...message.notification,
+            title: copy.title || message.notification?.title,
+            body: copy.body || message.notification?.body,
+          },
+        }, {
           title: t('settings.notifications.fallbackTitle'),
           body: t('settings.notifications.fallbackBody'),
         }))

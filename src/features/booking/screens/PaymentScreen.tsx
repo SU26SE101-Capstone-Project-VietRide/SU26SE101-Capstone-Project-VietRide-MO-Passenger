@@ -22,6 +22,7 @@ import type { AvailableVoucherItem } from '../types';
 import { buildBookingSeatBadges } from '../utils/seatPresentation';
 import {
   getShuttleChangeAddressDirection,
+  getUserFacingShuttleErrorMessage,
   SHUTTLE_ERROR_TRANSLATION_KEYS,
 } from '../utils/shuttle';
 import { getLegFareTotal } from '../utils/bookingPricing';
@@ -287,9 +288,15 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
   const promoInputError = promoError
     ?? (vouchersFailed ? t('booking.vouchers.refreshFailed') : undefined);
   const bookingErrorMessage = useMemo(
-    () => bookingError
-      ? getLocalizedApiErrorMessage(bookingError, t, SHUTTLE_ERROR_TRANSLATION_KEYS)
-      : null,
+    () => {
+      if (!bookingError) return null;
+      return getUserFacingShuttleErrorMessage(bookingError, t)
+        ?? getLocalizedApiErrorMessage(
+          bookingError,
+          t,
+          SHUTTLE_ERROR_TRANSLATION_KEYS,
+        );
+    },
     [bookingError, t],
   );
   const shuttleChangeDirection = useMemo(

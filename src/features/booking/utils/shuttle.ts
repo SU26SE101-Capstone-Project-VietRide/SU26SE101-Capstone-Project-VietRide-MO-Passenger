@@ -1,5 +1,6 @@
 import { ApiRequestError } from '@shared/api/errors';
 import {
+  getGeoDistanceKm,
   isValidGeoCoordinate,
   isValidLatitude,
   isValidLongitude,
@@ -16,6 +17,9 @@ import type { StationDetail } from '@features/trip/types';
 
 export const SHUTTLE_ADDRESS_MAX_LENGTH = 500;
 export const SHUTTLE_REQUEST_CUTOFF_MINUTES = 30;
+/** Matches Trip `ShuttleDistancePolicy.DefaultMaxDistanceMeters` (inclusive). */
+export const SHUTTLE_MAX_ROAD_DISTANCE_KM = 10;
+export const SHUTTLE_MAX_ROAD_DISTANCE_METERS = SHUTTLE_MAX_ROAD_DISTANCE_KM * 1_000;
 
 export type ShuttleServiceStatus = 'loading' | 'available' | 'unavailable' | 'error';
 
@@ -125,6 +129,34 @@ export const validateShuttleService = (
     },
     error: null,
   };
+};
+
+export type ShuttleStationDistanceCheck =
+  | { ok: true; distanceMeters: number }
+  | { ok: false; reason: 'TOO_FAR'; distanceMeters: number }
+  | { ok: false; reason: 'COORDINATES' };
+
+/**
+ * Client pre-check against the same 10 km cap BE uses for Google Routes.
+ * Straight-line distance is never shorter than road distance, so a miss here
+ * will also fail `SHUTTLE_DISTANCE_EXCEEDED`. Pickup compares to the origin
+ * station; drop-off compares to the destination station.
+ */
+export const checkShuttleAddressAgainstStation = (
+  address: Pick<ShuttleServicePayload, 'latitude' | 'longitude'>,
+  station: Pick<{ latitude: number; longitude: number }, 'latitude' | 'longitude'>,
+): ShuttleStationDistanceCheck => {
+  const distanceKm = getGeoDistanceKm(address, station);
+  if (distanceKm === null) {
+    return { ok: false, reason: 'COORDINATES' };
+  }
+
+  const distanceMeters = distanceKm * 1_000;
+  if (distanceMeters > SHUTTLE_MAX_ROAD_DISTANCE_METERS) {
+    return { ok: false, reason: 'TOO_FAR', distanceMeters };
+  }
+
+  return { ok: true, distanceMeters };
 };
 
 export const validateShuttlePickup = validateShuttleService;
@@ -315,6 +347,33 @@ export const SHUTTLE_DRAFT_PRESERVING_ERROR_CODES = new Set([
   'SHUTTLE_PICKUP_INVALID',
   'SHUTTLE_DROPOFF_INVALID',
 ]);
+
+export const getUserFacingShuttleErrorMessage = (
+  error: { code: string; message?: string; statusCode?: number } | null | undefined,
+  translate: (key: string, options?: Record<string, unknown>) => string,
+): string | null => {
+  if (!error) return null;
+
+  if (
+    error.code === 'SHUTTLE_DISTANCE_EXCEEDED'
+    || /SHUTTLE_DISTANCE_EXCEEDED/i.test(error.message ?? '')
+  ) {
+    return translate('booking.shuttle.apiErrors.distanceExceeded', {
+      limitKm: SHUTTLE_MAX_ROAD_DISTANCE_KM,
+    });
+  }
+
+  const mappedKey = SHUTTLE_ERROR_TRANSLATION_KEYS[error.code];
+  if (mappedKey) {
+    return translate(mappedKey, { limitKm: SHUTTLE_MAX_ROAD_DISTANCE_KM });
+  }
+
+  if (error.statusCode === 422) {
+    return translate('booking.shuttle.apiErrors.unprocessable');
+  }
+
+  return null;
+};
 
 export const getShuttleChangeAddressDirection = (
   errorCode: string | null | undefined,

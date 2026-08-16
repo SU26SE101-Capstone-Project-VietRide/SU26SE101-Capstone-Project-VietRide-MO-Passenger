@@ -23,6 +23,7 @@ interface BookingLegSummaryCardProps {
   onEditSeats?: () => void;
   onEditPickup?: () => void;
   onEditDropoff?: () => void;
+  onViewPolicies?: () => void;
 }
 
 interface ShuttleRequestSummaryProps {
@@ -118,6 +119,7 @@ export const BookingLegSummaryCard = memo(
     onEditSeats,
     onEditPickup,
     onEditDropoff,
+    onViewPolicies,
   }: BookingLegSummaryCardProps): React.JSX.Element | null {
     const { t } = useTranslation();
     const theme = useTheme();
@@ -146,8 +148,25 @@ export const BookingLegSummaryCard = memo(
           <InfoRow
             label={t('booking.checkout.departureTime')}
             value={trip.departureTime || t('common.notAvailable')}
-            style={styles.lastInfoRow}
+            style={onViewPolicies ? undefined : styles.lastInfoRow}
           />
+          {onViewPolicies ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('booking.checkout.viewPoliciesAccessibility', {
+                operator: trip.operatorBadge || t('policy.sections.operatorFallback'),
+              })}
+              onPress={onViewPolicies}
+              style={({ pressed }) => [
+                styles.policyLink,
+                pressed ? styles.policyLinkPressed : null,
+              ]}
+            >
+              <Text style={styles.policyLinkText}>
+                {t('booking.checkout.viewPolicies')}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={styles.stepSection}>
@@ -288,6 +307,20 @@ const createStyles = (theme: AppTheme) => ({
   },
   lastInfoRow: {
     marginBottom: 0,
+  },
+  policyLink: {
+    alignSelf: 'flex-start' as const,
+    marginTop: spacing.md,
+    minHeight: 36,
+    justifyContent: 'center' as const,
+  },
+  policyLinkPressed: {
+    opacity: 0.8,
+  },
+  policyLinkText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.accents.ticket.foreground,
   },
   editButton: {
     width: 36,

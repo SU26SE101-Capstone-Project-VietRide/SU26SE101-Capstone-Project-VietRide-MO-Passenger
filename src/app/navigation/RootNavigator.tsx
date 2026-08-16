@@ -16,6 +16,7 @@ import { BookingNavigator } from '@features/booking';
 import { ParcelNavigator } from '@features/parcel';
 import { ChatbotScreen } from '@features/chatbot';
 import { TrackingScreen } from '@features/tracking';
+import { PolicyDetailScreen, PolicyListScreen } from '@features/policy';
 import { NotificationDetailScreen } from '@features/home/screens/NotificationDetailScreen';
 import { BookingPendingActionScreen } from '@features/booking/screens/BookingPendingActionScreen';
 import {
@@ -103,6 +104,8 @@ export function RootNavigator(): React.JSX.Element {
               name="BookingPendingAction"
               component={BookingPendingActionScreen}
             />
+            <Stack.Screen name="PolicyList" component={PolicyListScreen} />
+            <Stack.Screen name="PolicyDetail" component={PolicyDetailScreen} />
           </>
         ) : (
           renderAuthScreen()

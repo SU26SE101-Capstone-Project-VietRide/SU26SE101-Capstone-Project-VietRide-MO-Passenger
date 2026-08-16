@@ -14,6 +14,7 @@ import { useThemedStyles } from '@shared/hooks';
 import { getNotificationNavigationIntent } from '@shared/notifications/notificationAction';
 import { formatDateTime, toIntlLocale } from '@shared/utils/format';
 import { DEFAULT_NOTIFICATION_LIST_PARAMS, useMarkNotificationRead } from '../hooks/useNotifications';
+import { localizeNotificationCopy } from '../utils/notificationCopy';
 import {
   getNotificationKind,
 } from '../utils/notificationPresentation';
@@ -30,6 +31,10 @@ export function NotificationDetailScreen(): React.JSX.Element {
   const { notification } = route.params;
   const { mutate: markRead } = useMarkNotificationRead(DEFAULT_NOTIFICATION_LIST_PARAMS);
   const kind = getNotificationKind(notification.type);
+  const copy = useMemo(
+    () => localizeNotificationCopy(notification, t),
+    [notification, t],
+  );
   // Pass notification.data so shuttle tracking can resolve bookingId when
   // action.params only has shuttleTripId (current BE + existing inbox rows).
   const actionIntent = useMemo(
@@ -148,11 +153,11 @@ export function NotificationDetailScreen(): React.JSX.Element {
           </Text>
         </View>
 
-        <Text style={styles.title}>{notification.title}</Text>
+        <Text style={styles.title}>{copy.title}</Text>
         {timestamp ? <Text style={styles.timestamp}>{timestamp}</Text> : null}
 
         <View style={styles.messageCard}>
-          <Text style={styles.message}>{notification.body}</Text>
+          <Text style={styles.message}>{copy.body}</Text>
         </View>
 
         {actionIntent && relatedActionLabel ? (

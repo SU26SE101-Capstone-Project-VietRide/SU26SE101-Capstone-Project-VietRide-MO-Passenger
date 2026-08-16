@@ -35,6 +35,16 @@ describe('Shuttle Places-only address picker contract', () => {
     expect(pickerSource).not.toContain('PointAnnotation');
   });
 
+  it('rejects an address farther than the BE 10 km station cap before saving', () => {
+    expect(pickerSource).toContain('BIAS_RADIUS_METERS = SHUTTLE_MAX_ROAD_DISTANCE_METERS');
+    expect(pickerSource).toContain('checkShuttleAddressAgainstStation');
+    expect(pickerSource).toContain('tooFarFromDeparture');
+    expect(pickerSource).toContain('tooFarFromDestination');
+    expect(pickerSource).toContain('limitKm: SHUTTLE_MAX_ROAD_DISTANCE_KM');
+    expect(pickerSource).not.toContain('5_000');
+    expect(pickerSource).not.toContain('5 km');
+  });
+
   it('treats tapping a verified prediction as the complete selection action', () => {
     expect(pickerSource).toContain('const saveResolvedPlace = useCallback');
     expect(pickerSource).toContain('setSelectedShuttlePickup(draft)');

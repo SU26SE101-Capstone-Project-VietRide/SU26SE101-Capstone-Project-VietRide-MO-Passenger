@@ -41,6 +41,7 @@ import {
   useNotificationUnreadCount,
   useNotifications,
 } from '../hooks/useNotifications';
+import { localizeNotificationCopy } from '../utils/notificationCopy';
 import {
   formatNotificationRelativeTime,
   getNotificationKind,
@@ -279,18 +280,21 @@ export function NotificationScreen(): React.JSX.Element {
   }, [isMarkingAll, markAllRead, resetMarkAll, unreadCount]);
 
   const renderNotificationItem = useCallback(
-    ({ item }: { item: NotificationItemDto }) => (
-      <NotificationRow
-        id={item.id}
-        type={item.type}
-        title={item.title}
-        body={item.body}
-        createdAt={item.createdAt}
-        readAt={item.readAt}
-        onPress={handleNotificationPress}
-      />
-    ),
-    [handleNotificationPress],
+    ({ item }: { item: NotificationItemDto }) => {
+      const copy = localizeNotificationCopy(item, t);
+      return (
+        <NotificationRow
+          id={item.id}
+          type={item.type}
+          title={copy.title}
+          body={copy.body}
+          createdAt={item.createdAt}
+          readAt={item.readAt}
+          onPress={handleNotificationPress}
+        />
+      );
+    },
+    [handleNotificationPress, t],
   );
 
   const renderEmptyState = useCallback(() => {

@@ -21,11 +21,12 @@ import {
   ArrowLeft,
   CurrencyCircleDollar,
   NotePencil,
-  Robot,
   ShieldCheck,
 } from 'phosphor-react-native';
+import { Image } from 'expo-image';
 
 import type { RootStackParamList } from '@app/navigation/types';
+import { APP_LOGO } from '@shared/constants/assets';
 import { useBookingStore } from '@features/booking/store/useBookingStore';
 import type { BookingSearchPrefill } from '@features/booking/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -235,7 +236,12 @@ export function ChatbotScreen(): React.JSX.Element {
 
         <View style={styles.botInfo}>
           <View style={styles.botAvatar}>
-            <Robot size={20} color={theme.colors.textInverse} weight="fill" />
+            <Image
+              source={APP_LOGO}
+              style={styles.botAvatarImage}
+              contentFit="cover"
+              transition={0}
+            />
           </View>
           <View>
             <Text style={styles.botName}>{t('chatbot.title')}</Text>
@@ -378,10 +384,15 @@ const createStyles = (theme: AppTheme) => ({
     width: 38,
     height: 38,
     borderRadius: borderRadius.full,
-    backgroundColor: theme.colors.primary,
+    overflow: 'hidden' as const,
+    backgroundColor: theme.colors.surfaceAlt,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     marginRight: spacing.sm,
+  },
+  botAvatarImage: {
+    width: 38,
+    height: 38,
   },
   botName: {
     fontFamily: fontFamilies.bold,

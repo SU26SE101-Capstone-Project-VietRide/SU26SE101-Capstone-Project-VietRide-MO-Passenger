@@ -71,6 +71,45 @@ export const isParcelQuoteUsable = (
   hasParcelQuoteContract(trip)
   && getParcelQuoteRemainingMs(trip.quoteExpiresAt, nowMs) > minimumRemainingMs;
 
+/**
+ * Default checkout trip: lowest quoted fare among usable trips.
+ * Ties break on earlier departure, then stable tripId.
+ */
+export const pickLowestFareParcelTrip = (
+  trips: readonly AvailableParcelTrip[],
+  nowMs = Date.now(),
+): AvailableParcelTrip | null => {
+  let winner: AvailableParcelTrip | null = null;
+
+  for (const trip of trips) {
+    if (!isParcelQuoteUsable(trip, nowMs)) continue;
+    if (!winner) {
+      winner = trip;
+      continue;
+    }
+    if (trip.estimatedPriceVnd < winner.estimatedPriceVnd) {
+      winner = trip;
+      continue;
+    }
+    if (trip.estimatedPriceVnd !== winner.estimatedPriceVnd) continue;
+
+    const tripDeparture = Date.parse(trip.departureDateTime);
+    const winnerDeparture = Date.parse(winner.departureDateTime);
+    if (tripDeparture < winnerDeparture) {
+      winner = trip;
+      continue;
+    }
+    if (
+      tripDeparture === winnerDeparture
+      && trip.tripId < winner.tripId
+    ) {
+      winner = trip;
+    }
+  }
+
+  return winner;
+};
+
 export const getParcelQuoteRefreshDelayMs = (
   quoteExpiresAt: string | null | undefined,
   nowMs = Date.now(),

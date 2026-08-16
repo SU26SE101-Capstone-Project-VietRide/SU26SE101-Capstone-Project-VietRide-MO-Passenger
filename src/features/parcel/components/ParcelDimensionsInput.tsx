@@ -6,6 +6,7 @@ import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import {
   formatParcelMeasurement,
+  MIN_PARCEL_DIMENSION_CM,
   roundParcelMeasurement,
   sanitizeParcelMeasurementDraft,
 } from '../config/parcelPackage';
@@ -41,7 +42,7 @@ function createDraft(value: ParcelDimensions): DimensionDraft {
 function isValidDraft(draft: DimensionDraft): boolean {
   return Object.values(draft).every(measurement => {
     const parsed = Number.parseFloat(measurement);
-    return Number.isFinite(parsed) && parsed > 0;
+    return Number.isFinite(parsed) && parsed >= MIN_PARCEL_DIMENSION_CM;
   });
 }
 
@@ -81,7 +82,7 @@ export const ParcelDimensionsInput = memo(
         const parsed = Number.parseFloat(draft[key]);
         setEditingKey(null);
 
-        if (!Number.isFinite(parsed) || parsed <= 0) {
+        if (!Number.isFinite(parsed) || parsed < MIN_PARCEL_DIMENSION_CM) {
           const restoredDraft = {
             ...draft,
             [key]: formatParcelMeasurement(value[key]),
@@ -119,7 +120,7 @@ export const ParcelDimensionsInput = memo(
         // TextInput may stay focused when the fixed action bar is pressed.
         // Persist every valid draft so capacity search never uses stale values.
         const parsed = Number.parseFloat(sanitizedDraft);
-        if (!Number.isFinite(parsed) || parsed <= 0) {
+        if (!Number.isFinite(parsed) || parsed < MIN_PARCEL_DIMENSION_CM) {
           return;
         }
 

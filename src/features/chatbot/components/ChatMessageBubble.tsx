@@ -1,9 +1,9 @@
 import React, { memo, useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
-  Robot,
   ThumbsDown,
   BookOpenText,
   CaretDown,
@@ -11,6 +11,7 @@ import {
   Ticket,
 } from 'phosphor-react-native';
 
+import { APP_LOGO } from '@shared/constants/assets';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -89,7 +90,12 @@ function ChatMessageBubbleComponent({
     <View style={[styles.row, isUser ? styles.userRow : styles.assistantRow]}>
       {!isUser ? (
         <View style={styles.avatar}>
-          <Robot size={15} color={theme.colors.primary} weight="bold" />
+          <Image
+            source={APP_LOGO}
+            style={styles.avatarImage}
+            contentFit="cover"
+            transition={0}
+          />
         </View>
       ) : null}
 
@@ -327,11 +333,16 @@ const createStyles = (theme: AppTheme) => ({
     width: 30,
     height: 30,
     borderRadius: borderRadius.full,
-    backgroundColor: theme.colors.primaryFaded,
+    overflow: 'hidden' as const,
+    backgroundColor: theme.colors.surfaceAlt,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     marginRight: spacing.sm,
     alignSelf: 'flex-end' as const,
+  },
+  avatarImage: {
+    width: 30,
+    height: 30,
   },
   messageColumn: {
     flexShrink: 1,

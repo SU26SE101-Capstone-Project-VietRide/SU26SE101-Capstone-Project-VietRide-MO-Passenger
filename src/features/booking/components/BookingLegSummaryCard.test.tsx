@@ -15,16 +15,22 @@ const translations: Record<string, string> = {
   'booking.checkout.alightingAt': 'Xuống xe',
   'booking.checkout.selectPickup': 'Chọn điểm đón',
   'booking.checkout.selectDropoff': 'Chọn điểm trả',
+  'booking.checkout.viewPolicies': 'Xem chính sách nhà xe',
   'common.notAvailable': 'Không có',
   'common.none': 'Không có',
 };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, params?: { field?: string }) =>
-      key === 'booking.checkout.editField'
-        ? `Chỉnh sửa ${params?.field ?? ''}`
-        : translations[key] ?? key,
+    t: (key: string, params?: { field?: string; operator?: string }) => {
+      if (key === 'booking.checkout.editField') {
+        return `Chỉnh sửa ${params?.field ?? ''}`;
+      }
+      if (key === 'booking.checkout.viewPoliciesAccessibility') {
+        return `Xem chính sách của ${params?.operator ?? ''}`;
+      }
+      return translations[key] ?? key;
+    },
   }),
 }));
 jest.mock('@shared/contexts/ThemeContext', () => ({
@@ -157,6 +163,29 @@ describe('BookingLegSummaryCard', () => {
 
     expect(labels.filter(value => value === 'Bến Miền Tây')).toHaveLength(1);
     expect(labels.filter(value => value === 'Bến Đà Lạt')).toHaveLength(1);
+
+    act(() => renderer!.unmount());
+  });
+
+  it('opens operator policies from the trip summary when provided', () => {
+    const onViewPolicies = jest.fn();
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    act(() => {
+      renderer = ReactTestRenderer.create(
+        <BookingLegSummaryCard
+          title="Chuyến chiều đi"
+          leg={leg}
+          onViewPolicies={onViewPolicies}
+        />,
+      );
+    });
+
+    const policyButton = renderer!.root.findByProps({
+      accessibilityLabel: 'Xem chính sách của VietRide',
+    });
+    act(() => policyButton.props.onPress());
+    expect(onViewPolicies).toHaveBeenCalledTimes(1);
 
     act(() => renderer!.unmount());
   });

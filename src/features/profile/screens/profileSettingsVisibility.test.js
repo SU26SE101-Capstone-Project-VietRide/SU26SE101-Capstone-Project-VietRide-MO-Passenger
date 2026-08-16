@@ -12,8 +12,10 @@ describe('profile settings visibility', () => {
     'utf8',
   );
 
-  it('removes the privacy and legal section while keeping account security', () => {
+  it('keeps published policies in settings without the old legal stub', () => {
     expect(settingsSource).toContain("t('settings.security.accountTitle')");
+    expect(settingsSource).toContain("t('settings.policies.entryTitle')");
+    expect(settingsSource).toContain("navigate('PolicyList')");
     expect(settingsSource).not.toContain('settings.legal.');
     expect(settingsSource).not.toContain('ShieldCheck');
   });

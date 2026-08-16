@@ -44,6 +44,7 @@ export const PARCEL_PACKAGE_SIZE_OPTIONS: readonly ParcelPackageSizeOption[] =
 
 export const DEFAULT_PARCEL_SIZE: ParcelSize = 'medium';
 export const DEFAULT_PARCEL_WEIGHT_KG = 2.5;
+export const MIN_PARCEL_DIMENSION_CM = 5;
 
 export function roundParcelMeasurement(value: number): number {
   return Number(value.toFixed(2));
@@ -72,16 +73,46 @@ export function getParcelSizeCategory(size: ParcelSize): ParcelSizeCategory {
   return PARCEL_PACKAGE_SIZE_CONFIG[size].sizeCategory;
 }
 
+const sortedMeasurements = (dimensions: ParcelDimensions): number[] =>
+  [dimensions.lengthCm, dimensions.widthCm, dimensions.heightCm]
+    .slice()
+    .sort((left, right) => right - left);
+
+const fitsPresetEnvelope = (
+  dimensions: ParcelDimensions,
+  preset: ParcelDimensions,
+): boolean => {
+  const actual = sortedMeasurements(dimensions);
+  const envelope = sortedMeasurements(preset);
+  return actual.every((measurement, index) => measurement <= envelope[index]);
+};
+
 /**
- * Passenger mirrors the backend contract here: every submitted dimension must
- * be finite and greater than zero. Small/medium/large remain fill-in presets;
- * the backend derives the settlement category from the submitted cargo metrics.
+ * Maps typed measurements onto the smallest quick-access chip that can hold
+ * them, ignoring axis order so rotating the box does not change the chip.
+ * Values larger than Large stay on Large.
+ */
+export function resolveParcelSizeFromDimensions(
+  dimensions: ParcelDimensions,
+): ParcelSize {
+  for (const option of PARCEL_PACKAGE_SIZE_OPTIONS) {
+    if (fitsPresetEnvelope(dimensions, option.dimensions)) {
+      return option.size;
+    }
+  }
+  return 'large';
+}
+
+/**
+ * Every submitted edge must be finite and at least 5 cm. Small/medium/large
+ * are quick-access fill-ins; the backend still prices from the typed cargo.
  */
 export function areParcelDimensionsPositive(
   dimensions: ParcelDimensions,
 ): boolean {
   return Object.values(dimensions).every(
-    measurement => Number.isFinite(measurement) && measurement > 0,
+    measurement =>
+      Number.isFinite(measurement) && measurement >= MIN_PARCEL_DIMENSION_CM,
   );
 }
 

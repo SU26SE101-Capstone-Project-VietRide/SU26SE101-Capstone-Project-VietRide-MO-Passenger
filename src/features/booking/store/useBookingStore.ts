@@ -180,6 +180,67 @@ const SHUTTLE_DRAFT_INVALIDATING_ERROR_CODES = new Set([
 const shouldInvalidateShuttleDrafts = (error: ApiRequestError): boolean =>
   SHUTTLE_DRAFT_INVALIDATING_ERROR_CODES.has(error.code);
 
+type ShuttleDraftEditPatch = {
+  selectedShuttlePickup?: ShuttleServiceDraft | null;
+  selectedShuttleDropoff?: ShuttleServiceDraft | null;
+};
+
+const mergeShuttleDraftIntoLeg = (
+  leg: BookingLegDraft | null,
+  patch: ShuttleDraftEditPatch,
+): BookingLegDraft | null => {
+  if (!leg) return leg;
+  return {
+    ...leg,
+    ...(Object.prototype.hasOwnProperty.call(patch, 'selectedShuttlePickup')
+      ? { shuttlePickup: patch.selectedShuttlePickup ?? null }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(patch, 'selectedShuttleDropoff')
+      ? { shuttleDropoff: patch.selectedShuttleDropoff ?? null }
+      : {}),
+  };
+};
+
+/**
+ * Shuttle edits must write through the live fields AND the snapshot that
+ * createBooking serializes for one-way/round-trip. Otherwise Payment can
+ * keep submitting the rejected >10 km address after the user picked a closer
+ * one. Also drop the previous checkout error so the 422 is not left on screen.
+ */
+const applyShuttleDraftEdit = <
+  TState extends {
+    searchParams: { isRoundTrip?: boolean };
+    currentLeg: 'outbound' | 'return';
+    outboundState: BookingLegDraft | null;
+    returnState: BookingLegDraft | null;
+    bookingStatus: 'idle' | 'loading' | 'success' | 'error';
+  },
+>(
+  state: TState,
+  patch: ShuttleDraftEditPatch,
+): TState & ShuttleDraftEditPatch & {
+  bookingError: null;
+  bookingStatus: TState['bookingStatus'] | 'idle';
+  outboundState: BookingLegDraft | null;
+  returnState: BookingLegDraft | null;
+} => {
+  const isRoundTrip = Boolean(state.searchParams.isRoundTrip);
+  const updateOutbound = !isRoundTrip || state.currentLeg === 'outbound';
+  const updateReturn = isRoundTrip && state.currentLeg === 'return';
+
+  return {
+    ...patch,
+    bookingError: null,
+    bookingStatus: state.bookingStatus === 'error' ? 'idle' : state.bookingStatus,
+    outboundState: updateOutbound
+      ? mergeShuttleDraftIntoLeg(state.outboundState, patch)
+      : state.outboundState,
+    returnState: updateReturn
+      ? mergeShuttleDraftIntoLeg(state.returnState, patch)
+      : state.returnState,
+  };
+};
+
 const reconcileSelectedSeats = (
   seatRows: SeatRow[],
   selectedSeats: Seat[],
@@ -1091,7 +1152,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   pickUpPoints: [],
   selectedPickUp: null,
   selectedShuttlePickup: null,
-  setSelectedShuttlePickup: pickup => set({ selectedShuttlePickup: pickup }),
+  setSelectedShuttlePickup: pickup => set(state => {
+    bookingIdempotency.reset();
+    return applyShuttleDraftEdit(state, { selectedShuttlePickup: pickup });
+  }),
   selectPickUp: point =>
     set(state => {
       const selectedTripWithStops = state.selectedTrip as TripDetail | null;
@@ -1143,7 +1207,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   selectedDropOff: null,
   selectedShuttleDropoff: null,
   setSelectedShuttleDropoff: dropoff =>
-    set({ selectedShuttleDropoff: dropoff }),
+    set(state => {
+      bookingIdempotency.reset();
+      return applyShuttleDraftEdit(state, { selectedShuttleDropoff: dropoff });
+    }),
   selectDropOff: point =>
     set(state => ({
       selectedDropOff: point,

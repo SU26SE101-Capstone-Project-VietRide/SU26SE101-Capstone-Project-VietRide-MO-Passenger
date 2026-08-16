@@ -144,6 +144,8 @@ export type RootStackParamList = {
       };
   NotificationDetail: { notification: NotificationItemDto };
   BookingPendingAction: BookingPendingActionOpen;
+  PolicyList: { operatorId?: string; operatorName?: string } | undefined;
+  PolicyDetail: { policyId: string; title?: string };
 };
 
 // ─── Declaration merging for useNavigation type safety ────

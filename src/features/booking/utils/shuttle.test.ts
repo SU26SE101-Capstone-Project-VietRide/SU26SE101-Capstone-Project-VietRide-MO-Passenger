@@ -5,11 +5,15 @@ import type {
 } from '../types';
 import type { StationDetail } from '@features/trip/types';
 import {
+  checkShuttleAddressAgainstStation,
   composeShuttleServiceAddress,
   getShuttleEligibility,
+  getUserFacingShuttleErrorMessage,
   isOriginStationPickup,
   isShuttleRequestCutoffPassed,
   SHUTTLE_ADDRESS_MAX_LENGTH,
+  SHUTTLE_MAX_ROAD_DISTANCE_KM,
+  SHUTTLE_MAX_ROAD_DISTANCE_METERS,
   toShuttlePickupPayload,
   validateShuttlePickup,
 } from './shuttle';
@@ -115,6 +119,54 @@ describe('Shuttle booking rules', () => {
       stationId: undefined,
       stopId: '22222222-2222-4222-8222-222222222222',
     })).toThrow('only available for boarding at the origin station');
+  });
+
+  it('never surfaces HTTP 422 to the passenger', () => {
+    const translate = (key: string, options?: { limitKm?: number }) =>
+      key === 'booking.shuttle.apiErrors.distanceExceeded'
+        ? `over ${options?.limitKm} km`
+        : key;
+
+    expect(getUserFacingShuttleErrorMessage({
+      code: 'SHUTTLE_DISTANCE_EXCEEDED',
+      message: 'Request failed with status code 422',
+      statusCode: 422,
+    }, translate)).toBe('over 10 km');
+
+    expect(getUserFacingShuttleErrorMessage({
+      code: 'API_ERROR',
+      message: 'Request failed with status code 422',
+      statusCode: 422,
+    }, translate)).toBe('booking.shuttle.apiErrors.unprocessable');
+  });
+
+  it('matches the BE 10 km inclusive shuttle cap', () => {
+    expect(SHUTTLE_MAX_ROAD_DISTANCE_KM).toBe(10);
+    expect(SHUTTLE_MAX_ROAD_DISTANCE_METERS).toBe(10_000);
+
+    const origin = { latitude: 10.7769, longitude: 106.7009 };
+    const tenKmNorth = {
+      latitude: 10.7769 + SHUTTLE_MAX_ROAD_DISTANCE_KM / 111.32,
+      longitude: 106.7009,
+    };
+    const twentyKmNorth = {
+      latitude: 10.7769 + (SHUTTLE_MAX_ROAD_DISTANCE_KM * 2) / 111.32,
+      longitude: 106.7009,
+    };
+
+    expect(checkShuttleAddressAgainstStation(origin, origin)).toEqual(
+      expect.objectContaining({ ok: true }),
+    );
+    expect(checkShuttleAddressAgainstStation(tenKmNorth, origin)).toEqual(
+      expect.objectContaining({ ok: true }),
+    );
+    expect(checkShuttleAddressAgainstStation(twentyKmNorth, origin)).toEqual(
+      expect.objectContaining({ ok: false, reason: 'TOO_FAR' }),
+    );
+    expect(checkShuttleAddressAgainstStation(
+      { latitude: Number.NaN, longitude: 106.7 },
+      origin,
+    )).toEqual({ ok: false, reason: 'COORDINATES' });
   });
 
   it('uses the strict T-30 cutoff', () => {

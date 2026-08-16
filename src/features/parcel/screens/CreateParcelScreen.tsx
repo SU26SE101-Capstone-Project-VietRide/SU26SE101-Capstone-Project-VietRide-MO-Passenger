@@ -109,6 +109,7 @@ import {
 } from '../components';
 import {
   areParcelDimensionsPositive,
+  resolveParcelSizeFromDimensions,
   formatParcelDimensions,
   type ParcelDimensions,
 } from '../config/parcelPackage';
@@ -126,6 +127,7 @@ import {
   hasParcelQuoteContract,
   isParcelQuoteErrorCode,
   isParcelQuoteUsable,
+  pickLowestFareParcelTrip,
   PARCEL_QUOTE_REFRESH_SAFETY_WINDOW_MS,
 } from '../utils/parcelQuote';
 
@@ -785,7 +787,10 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   const handleDimensionsChange = useCallback(
     (nextDimensions: ParcelDimensions) => {
-      setPackage(nextDimensions);
+      setPackage({
+        ...nextDimensions,
+        size: resolveParcelSizeFromDimensions(nextDimensions),
+      });
     },
     [setPackage],
   );
@@ -832,6 +837,37 @@ export function CreateParcelScreen(): React.JSX.Element {
     setAppliedPromo(null);
     setPromoError(undefined);
   }, [intentLocked]);
+
+  useEffect(() => {
+    if (step !== 4 || intentLocked || availableTripsQuery.isPending) {
+      return;
+    }
+
+    const currentTrip = selectedTripId
+      ? availableTrips.find(trip => trip.tripId === selectedTripId)
+      : null;
+    if (currentTrip && isParcelQuoteUsable(currentTrip)) {
+      return;
+    }
+
+    const cheapestTrip = pickLowestFareParcelTrip(availableTrips);
+    if (!cheapestTrip) {
+      if (selectedTripId) {
+        clearTripSelection();
+      }
+      return;
+    }
+
+    handleSelectTrip(cheapestTrip);
+  }, [
+    availableTrips,
+    availableTripsQuery.isPending,
+    clearTripSelection,
+    handleSelectTrip,
+    intentLocked,
+    selectedTripId,
+    step,
+  ]);
 
   const requestNextTripsPage = useCallback(() => {
     if (
@@ -1835,6 +1871,7 @@ export function CreateParcelScreen(): React.JSX.Element {
               maxLength={255}
               value={recipientName}
               error={recipientErrors.name}
+              required
               onChangeText={(value) => {
                 setRecipientName(value);
                 if (recipientErrors.name) setRecipientErrors((current) => ({ ...current, name: undefined }));
@@ -1848,6 +1885,7 @@ export function CreateParcelScreen(): React.JSX.Element {
               maxLength={20}
               value={recipientPhone}
               error={recipientErrors.phone}
+              required
               onChangeText={(value) => {
                 setRecipientPhone(value);
                 if (recipientErrors.phone) setRecipientErrors((current) => ({ ...current, phone: undefined }));

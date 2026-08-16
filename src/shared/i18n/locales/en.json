@@ -299,6 +299,230 @@
       "hoursCompact_other": "{{count}}h",
       "daysCompact_one": "{{count}}d",
       "daysCompact_other": "{{count}}d"
+    },
+    "refs": {
+      "yourTicket": "your ticket",
+      "yourParcel": "your parcel",
+      "yourTrip": "your trip",
+      "vehicle": "the assigned vehicle",
+      "unspecifiedReason": "no reason was provided",
+      "pickupHint": " (stop {{pickupOrder}})",
+      "refundHint": " Amount: {{amount}} VND."
+    },
+    "codes": {
+      "unknown": "an updated status",
+      "CHECK_IN": "check-in",
+      "CHECKED_IN": "checked in",
+      "CHECK_IN_TIMEOUT": "missed the check-in deadline",
+      "FINAL_PAYMENT_TIMEOUT": "missed the remaining-balance deadline",
+      "AUTO_UNFULFILLED_CUTOFF": "no shuttle could be arranged in time",
+      "PENDING_SEAT_ASSIGNMENT": "you need to choose new seats",
+      "CAPACITY_EXCEEDED": "the trip is over cargo capacity",
+      "PENDING_OPERATOR_REVIEW": "awaiting review",
+      "PENDING_PAYMENT": "payment pending",
+      "PENDING": "pending",
+      "PENDING_ADDITIONAL_PAYMENT": "additional payment required",
+      "RESERVED": "reserved",
+      "PENDING_FINAL_PAYMENT": "final payment required",
+      "READY_TO_LOAD": "ready to load",
+      "LOADED": "loaded",
+      "IN_TRANSIT": "in transit",
+      "PENDING_TRANSFER_CONFIRM": "transfer confirmation required",
+      "TRANSFER_ESCALATED": "transfer needs attention",
+      "UNLOADED": "at the destination terminal",
+      "DELIVERED_PENDING_CONFIRM": "awaiting delivery confirmation",
+      "DELIVERY_CONFIRMED": "delivery confirmed",
+      "DELIVERY_REJECTED": "delivery rejected",
+      "RETURN_INITIATED": "return started",
+      "RETURNED": "returned",
+      "PENDING_OPERATOR_ACTION": "waiting for the operator",
+      "PENDING_CONFIRM": "awaiting confirmation",
+      "CONFIRMED": "confirmed",
+      "COMPLETED": "completed",
+      "CANCELLED": "cancelled",
+      "REJECTED": "rejected",
+      "EXPIRED": "expired",
+      "REFUNDED": "refunded",
+      "DISRUPTED": "disrupted",
+      "DELAYED": "delayed",
+      "NO_SHOW": "no-show",
+      "PARTIAL_NO_SHOW": "partially used",
+      "SCHEDULED": "scheduled",
+      "BOARDING": "boarding",
+      "IN_PROGRESS": "in progress",
+      "PICKED_UP": "picked up",
+      "DELIVERED": "delivered",
+      "ACTIVE": "active",
+      "INACTIVE": "inactive",
+      "DRIVER": "the driver",
+      "ASSISTANT": "the assistant",
+      "VEHICLE": "the vehicle",
+      "INBOUND_TO_STATION": "to the station",
+      "OUTBOUND_FROM_STATION": "from the station",
+      "WARNING_60": "urgent shuttle warning",
+      "WARNING_120": "shuttle warning"
+    },
+    "types": {
+      "BOOKING_CONFIRMED": {
+        "title": "Booking confirmed",
+        "body": "Ticket {{bookingRef}} has been confirmed."
+      },
+      "BOOKING_CREATED": {
+        "title": "Booking created",
+        "body": "Ticket {{bookingRef}} has been created and is waiting for payment."
+      },
+      "BOOKING_CANCELLED": {
+        "title": "Ticket cancelled",
+        "body": "Ticket {{bookingRef}} has been cancelled. Reason: {{reason}}."
+      },
+      "BOOKING_DISRUPTED": {
+        "title": "Trip disrupted",
+        "body": "Ticket {{bookingRef}} was disrupted. Expected refund: {{amount}} VND."
+      },
+      "BOOKING_REFUNDED": {
+        "title": "Ticket refunded",
+        "body": "The refund for ticket {{bookingRef}} has been recorded.{{refundHint}}"
+      },
+      "PASSENGER_NO_SHOW": {
+        "title": "Marked as no-show",
+        "body": "Ticket {{bookingRef}} was marked as not boarded."
+      },
+      "TRIP_BOARDING_REMINDER": {
+        "title": "Boarding reminder",
+        "body": "{{routeName}} is ready for boarding."
+      },
+      "TRIP_VEHICLE_APPROACHING": {
+        "title": "Your bus is approaching",
+        "body": "The vehicle for {{routeName}} is approaching your stop."
+      },
+      "TRIP_ROUTE_CHANGED": {
+        "title": "Route changed",
+        "body": "The route for {{routeName}} has changed. Review the new pickup options."
+      },
+      "TRIP_SCHEDULE_CHANGED": {
+        "title": "Schedule changed",
+        "body": "The departure time for {{routeName}} has changed. Review the new schedule."
+      },
+      "TRIP_CANCELLED": {
+        "title": "Trip cancelled",
+        "body": "{{routeName}} has been cancelled."
+      },
+      "TRIP_DELAYED": {
+        "title": "Trip delayed",
+        "body": "{{routeName}} is running late."
+      },
+      "TRIP_DISRUPTED": {
+        "title": "Trip disrupted",
+        "body": "{{routeName}} was disrupted."
+      },
+      "STOP_DISABLED": {
+        "title": "Pickup stop changed",
+        "body": "Your original stop is no longer available. Choose a replacement pickup."
+      },
+      "VEHICLE_SUBSTITUTED": {
+        "title": "Replacement vehicle assigned",
+        "body": "A replacement vehicle has been assigned to {{routeName}} ({{licensePlate}})."
+      },
+      "VEHICLE_SWAPPED": {
+        "title": "Vehicle changed",
+        "body": "The vehicle for {{routeName}} has been changed to {{licensePlate}}."
+      },
+      "PARCEL_RESERVED": {
+        "title": "Parcel reserved",
+        "body": "{{parcelRef}} has been reserved."
+      },
+      "PARCEL_LOADED": {
+        "title": "Parcel loaded",
+        "body": "{{parcelRef}} has been loaded onto the vehicle."
+      },
+      "PARCEL_IN_TRANSIT": {
+        "title": "Parcel update",
+        "body": "{{parcelRef}} has a new shipping update."
+      },
+      "PARCEL_DELIVERED_PENDING_CONFIRM": {
+        "title": "Confirm parcel delivery",
+        "body": "{{parcelRef}} has arrived and is waiting for delivery confirmation."
+      },
+      "PARCEL_REJECTED": {
+        "title": "Parcel rejected",
+        "body": "{{parcelRef}} was rejected. Reason: {{reason}}."
+      },
+      "PARCEL_RETURNED": {
+        "title": "Parcel being returned",
+        "body": "{{parcelRef}} is being returned."
+      },
+      "PARCEL_REVIEW_REQUESTED": {
+        "title": "Parcel needs review",
+        "body": "{{parcelRef}} is waiting for an operations review."
+      },
+      "PARCEL_REVIEW_APPROVED": {
+        "title": "Parcel approved",
+        "body": "{{parcelRef}} was approved. Pay the deposit to continue."
+      },
+      "PARCEL_FINAL_PAYMENT_REQUIRED": {
+        "title": "Parcel balance due",
+        "body": "{{parcelRef}} still has a remaining balance to pay."
+      },
+      "PARCEL_SETTLEMENT_RECOVERED": {
+        "title": "Parcel status corrected",
+        "body": "{{parcelRef}} was restored to {{status}}."
+      },
+      "WALLET_CREDITED": {
+        "title": "Wallet credited",
+        "body": "Your VietRide wallet was credited {{amount}} VND."
+      },
+      "WALLET_DEBITED": {
+        "title": "Wallet debited",
+        "body": "Your VietRide wallet was debited {{amount}} VND."
+      },
+      "SHUTTLE_ASSIGNED": {
+        "title": "Shuttle assigned",
+        "body": "Shuttle {{licensePlate}} will pick you up{{pickupHint}}."
+      },
+      "SHUTTLE_CANCELLED": {
+        "title": "Shuttle cancelled",
+        "body": "Your shuttle trip was cancelled."
+      },
+      "SHUTTLE_PICKED_UP": {
+        "title": "Shuttle picked you up",
+        "body": "The shuttle has picked you up."
+      },
+      "SHUTTLE_DELIVERED": {
+        "title": "Shuttle drop-off complete",
+        "body": "The shuttle has dropped you off."
+      },
+      "SHUTTLE_NO_SHOW": {
+        "title": "Shuttle marked as no-show",
+        "body": "The shuttle marked this pickup as a no-show."
+      },
+      "SHUTTLE_COMPLETED": {
+        "title": "Shuttle completed",
+        "body": "Your shuttle trip is complete."
+      },
+      "SHUTTLE_UNFULFILLED": {
+        "title": "Shuttle could not be arranged",
+        "body": "Please go to the departure station for your main trip."
+      },
+      "SHUTTLE_WARNING": {
+        "title": "Passengers still waiting for a shuttle",
+        "body": "Some passengers have not been assigned a shuttle yet."
+      },
+      "TRIP_ASSIGNMENT_START_BLOCKED": {
+        "title": "Trip could not start",
+        "body": "{{role}} is still {{status}} on another trip. Resolve the assignment before trying again."
+      },
+      "DRIVER_STOP_DEPARTED_WITH_PENDING": {
+        "title": "Passengers still waiting at a stop",
+        "body": "The trip departed a stop while some passengers were still pending."
+      },
+      "OFF_ROUTE_ALERT": {
+        "title": "Vehicle off the planned route",
+        "body": "{{routeName}} appears to have left the planned route."
+      },
+      "TRIP_DELAYED_ALERT": {
+        "title": "Trip delayed",
+        "body": "{{routeName}} is running later than planned."
+      }
     }
   },
   "booking": {
@@ -538,7 +762,9 @@
         "unavailable": "Address search is temporarily unavailable. Please try again.",
         "unsupported": "Address search is not available in this app version. Please update VietRide.",
         "invalidPlace": "That place could not be verified. Choose another result.",
-        "session": "The search session expired. Try searching again."
+        "session": "The search session expired. Try searching again.",
+        "tooFarFromDeparture": "This address is more than {{limitKm}} km from {{station}}. Choose a closer pickup for the outbound shuttle.",
+        "tooFarFromDestination": "This address is more than {{limitKm}} km from {{station}}. Choose a closer drop-off for the return shuttle."
       }
     },
     "shuttle": {
@@ -576,7 +802,8 @@
         "stationCoordinates": "This station does not have verified map coordinates."
       },
       "apiErrors": {
-        "distanceExceeded": "This address is outside the station's 5 km shuttle area. Edit the address and try again.",
+        "distanceExceeded": "This address is more than {{limitKm}} km from the station. Choose a closer shuttle address and try again.",
+        "unprocessable": "The shuttle address could not be accepted. Choose a closer verified address and try again.",
         "distanceUnavailable": "The road-distance service is temporarily unavailable. Your address is saved; please try again.",
         "cutoffPassed": "The Shuttle request cutoff has passed for this trip.",
         "stationUnsupported": "The selected station no longer supports this Shuttle service.",
@@ -629,7 +856,9 @@
       "alightingAt": "Drop-off · {{time}}",
       "selectDropoff": "Select a drop-off point",
       "departureTrip": "Outbound trip",
-      "returnTrip": "Return trip"
+      "returnTrip": "Return trip",
+      "viewPolicies": "View operator policies",
+      "viewPoliciesAccessibility": "View policies for {{operator}}"
     },
     "locations": {
       "municipality": "Municipality",
@@ -1102,7 +1331,7 @@
     },
     "dimensions": {
       "title": "Exact dimensions",
-      "hint": "Used to check trip capacity. The fare tier upgrades automatically when needed.",
+      "hint": "Used to check trip capacity. Each side must be at least 5 cm.",
       "length": "Length",
       "width": "Width",
       "height": "Height",
@@ -1193,7 +1422,7 @@
     },
     "packageSize": {
       "title": "Package Size",
-      "hint": "Choose a preset to fill the fields, then edit the actual measurements if needed.",
+      "hint": "Quick fill. The chip follows the measurements you type below.",
       "options": {
         "small": "Small",
         "medium": "Medium",
@@ -1401,7 +1630,7 @@
       "lb": "lb"
     },
     "validation": {
-      "dimensionsPositive": "Enter a value greater than 0 for every dimension.",
+      "dimensionsPositive": "Each side must be at least 5 cm.",
       "selectOriginStation": "Please select an origin station.",
       "selectDestinationStation": "Please select a destination station.",
       "recipientRequired": "Recipient name, phone number, and email are required.",
@@ -1430,6 +1659,7 @@
     "language": "Language",
     "notifications": "Notifications",
     "helpSupport": "Help & Support",
+    "policies": "Terms & policies",
     "title": "Profile",
     "passengerName": "VietRide passenger",
     "phoneUnavailable": "Phone number unavailable",
@@ -1497,8 +1727,12 @@
     "unavailableDescription": "We could not load your booking history.",
     "emptyTicketsTitle": "No ticket bookings yet",
     "emptyTicketsDescription": "Trips you book will appear here.",
+    "emptyTicketsFilteredTitle": "No tickets in this status",
+    "emptyTicketsFilteredDescription": "Other tickets are still in All.",
     "emptyParcelsTitle": "No parcel bookings yet",
     "emptyParcelsDescription": "Parcels you send will appear here.",
+    "emptyParcelsFilteredTitle": "No parcels in this status",
+    "emptyParcelsFilteredDescription": "Other parcels are still in All.",
     "staleDescription": "Showing saved results because the latest update failed.",
     "ticketsTab": "Tickets",
     "parcelsTab": "Parcels",
@@ -1510,7 +1744,10 @@
       "pendingPayment": "Pending payment",
       "inTransit": "In transit",
       "delivered": "Delivered",
-      "expired": "Expired"
+      "expired": "Expired",
+      "disrupted": "Disrupted",
+      "refunded": "Refunded",
+      "noShow": "No-show"
     }
   },
   "security": {
@@ -1587,6 +1824,11 @@
       "accountTitle": "Account security",
       "accountDescription": "Review your account security information"
     },
+    "policies": {
+      "title": "Policies",
+      "entryTitle": "Terms and policies",
+      "entryDescription": "Read VietRide passenger policies"
+    },
     "notifications": {
       "title": "Notifications",
       "systemPush": "Device notifications",
@@ -1606,6 +1848,50 @@
       "remindersChannel": "VietRide reminders",
       "fallbackTitle": "New VietRide update",
       "fallbackBody": "Open VietRide to view the latest information."
+    }
+  },
+  "policy": {
+    "list": {
+      "title": "Terms & policies",
+      "operatorTitle": "Operator policies",
+      "loading": "Loading policies...",
+      "unavailableTitle": "Policies unavailable",
+      "emptyTitle": "No published policies",
+      "emptyPlatformDescription": "VietRide has not published passenger policies yet.",
+      "emptyOperatorDescription": "This operator has no extra passenger policies. Platform policies still apply."
+    },
+    "detail": {
+      "title": "Policy",
+      "loading": "Loading policy...",
+      "unavailableTitle": "Policy unavailable",
+      "emptyContent": "This policy has no published content yet.",
+      "version": "Version {{version}} · {{date}}",
+      "versionOnly": "Version {{version}}"
+    },
+    "sections": {
+      "platform": "VietRide policies",
+      "operator": "{{operator}} policies",
+      "operatorFallback": "This operator"
+    },
+    "source": {
+      "platform": "VietRide",
+      "operator": "Operator"
+    },
+    "updatedOn": "Updated {{date}}",
+    "itemAccessibility": "{{title}}, {{category}}, {{source}}",
+    "categories": {
+      "REFUND": "Refund",
+      "LUGGAGE": "Luggage",
+      "CANCELLATION": "Cancellation",
+      "NO_SHOW": "No-show",
+      "PRIVACY": "Privacy",
+      "TERMS": "Terms",
+      "PAYMENT": "Payment",
+      "SHUTTLE": "Shuttle",
+      "PARCEL": "Parcel"
+    },
+    "errors": {
+      "notFound": "This policy is no longer available."
     }
   },
   "history": {
