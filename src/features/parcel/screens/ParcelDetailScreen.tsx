@@ -63,6 +63,7 @@ import type {
   ParcelStackParamList,
   RootStackParamList,
 } from '@app/navigation/types';
+import { useParcelPaymentReturn } from '../hooks/useParcelPaymentReturn';
 import {
   useParcelDetail,
   useStartParcelDepositPayment,
@@ -289,6 +290,14 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const walletBalanceQuery = useWalletBalance(Boolean(paymentStage));
   const isStartingPayment =
     depositPaymentMutation.isPending || finalPaymentMutation.isPending;
+  const paymentReturn = useParcelPaymentReturn({
+    parcelId,
+    paymentPending,
+    expectedKind: expectedVnPayKind,
+    enabled: isSender && paymentPending,
+    refetchParcel: refetchParcelDetail,
+  });
+  const { checkNow: reconcileParcelPayment } = paymentReturn;
 
   const parcelPhotos = React.useMemo<ParcelPhotoItem[]>(() => {
     const photos: ParcelPhotoItem[] = [];
@@ -428,7 +437,25 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
   const handleRefreshPayment = React.useCallback(() => {
     refetchParcelDetail().catch(() => undefined);
-  }, [refetchParcelDetail]);
+    reconcileParcelPayment().catch(() => undefined);
+  }, [reconcileParcelPayment, refetchParcelDetail]);
+
+  React.useEffect(() => {
+    if (paymentReturn.phase === 'abandoned') {
+      setPaymentSessionActive(false);
+      return;
+    }
+    if (paymentReturn.phase === 'awaiting_parcel') {
+      setPaymentSessionActive(true);
+    }
+  }, [paymentReturn.phase]);
+
+  React.useEffect(() => {
+    if (!paymentSessionActive || !paymentPending) {
+      return;
+    }
+    reconcileParcelPayment().catch(() => undefined);
+  }, [paymentPending, paymentSessionActive, reconcileParcelPayment]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -495,6 +522,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
       }
 
       await paymentOpenCoordinator.reopen(session, userId);
+      await reconcileParcelPayment();
     } catch {
       Alert.alert(
         t('parcel.payment.redirectErrorTitle'),
@@ -506,6 +534,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
     navigation,
     parcelId,
     paymentOpenCoordinator,
+    reconcileParcelPayment,
     t,
     userId,
   ]);
@@ -569,6 +598,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
               ? pending
               : null,
           );
+          await reconcileParcelPayment();
         } catch {
           Alert.alert(
             t('parcel.payment.redirectErrorTitle'),
@@ -615,6 +645,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
     parcelId,
     paymentIntentLocked,
     paymentStage,
+    reconcileParcelPayment,
     refetchParcelDetail,
     t,
     userId,
@@ -956,16 +987,22 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 <>
                   {paymentSessionActive ? (
                     <View style={styles.verifyingPayment}>
-                      <ActivityIndicator
-                        size="small"
-                        color={theme.colors.primary}
-                      />
+                      {paymentReturn.phase === 'awaiting_parcel' ? null : (
+                        <ActivityIndicator
+                          size="small"
+                          color={theme.colors.primary}
+                        />
+                      )}
                       <View style={styles.verifyingPaymentCopy}>
                         <Text style={styles.verifyingPaymentTitle}>
-                          {t('parcel.payment.verifyingTitle')}
+                          {paymentReturn.phase === 'awaiting_parcel'
+                            ? t('paymentReturn.processingTitle')
+                            : t('parcel.payment.verifyingTitle')}
                         </Text>
                         <Text style={styles.verifyingPaymentText}>
-                          {t('parcel.payment.verifyingDescription')}
+                          {paymentReturn.phase === 'awaiting_parcel'
+                            ? t('paymentReturn.processingDescription')
+                            : t('parcel.payment.verifyingDescription')}
                         </Text>
                       </View>
                       <Pressable

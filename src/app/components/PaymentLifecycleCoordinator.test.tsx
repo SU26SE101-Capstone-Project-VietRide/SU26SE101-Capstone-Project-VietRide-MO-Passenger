@@ -53,6 +53,8 @@ jest.mock('@shared/payments', () => ({
     return { remove: mockNativeRemove };
   },
   getPendingVnPaySession: () => mockGetPendingVnPaySession(),
+  isAbandonedVnPaySdkResult: (result?: string) =>
+    result === 'CANCELLED' || result === 'FAILED',
   reconcilePendingVnPaySession: (...args: unknown[]) =>
     mockReconcilePendingVnPaySession(...args),
   VNPAY_CANCEL_POLL_DELAYS_MS: [0, 400],
@@ -179,6 +181,57 @@ describe('PaymentLifecycleCoordinator', () => {
       }),
     );
     expect(invalidateSpy).toHaveBeenCalled();
+
+    ReactTestRenderer.act(() => renderer!.unmount());
+    queryClient.clear();
+  });
+
+  it('restarts cancel polling when PaymentBack arrives during app-active reconcile', async () => {
+    let resolveFirst: ((value: {
+      pending: null;
+      status: null;
+      cleared: false;
+    }) => void) | undefined;
+    mockReconcilePendingVnPaySession.mockReturnValueOnce(new Promise((resolve) => {
+      resolveFirst = resolve;
+    }));
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <QueryClientProvider client={queryClient}>
+          <PaymentLifecycleCoordinator />
+        </QueryClientProvider>,
+      );
+    });
+
+    expect(mockReconcilePendingVnPaySession).toHaveBeenCalledTimes(1);
+
+    mockReconcilePendingVnPaySession.mockResolvedValue({
+      pending: null,
+      status: { sessionId: 's', status: 'FAILED' },
+      cleared: true,
+    });
+
+    await ReactTestRenderer.act(async () => {
+      mockNativeHandler?.({ result: 'CANCELLED' });
+      await Promise.resolve();
+    });
+
+    expect(mockReconcilePendingVnPaySession).toHaveBeenCalledTimes(2);
+    expect(mockReconcilePendingVnPaySession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        delaysMs: [0, 400],
+      }),
+    );
+
+    await ReactTestRenderer.act(async () => {
+      resolveFirst?.({ pending: null, status: null, cleared: false });
+      await Promise.resolve();
+    });
 
     ReactTestRenderer.act(() => renderer!.unmount());
     queryClient.clear();

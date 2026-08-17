@@ -23,6 +23,7 @@ export {
 export {
   addVnPaySdkPaymentBackListener,
   assertVnPaySdkAvailable,
+  isAbandonedVnPaySdkResult,
   isVnPaySdkAvailable,
   mapVnPaySdkResultCode,
   openVnPaySdk,

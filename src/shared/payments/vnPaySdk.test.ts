@@ -30,6 +30,7 @@ jest.mock('react-native', () => ({
 
 import {
   addVnPaySdkPaymentBackListener,
+  isAbandonedVnPaySdkResult,
   isVnPaySdkAvailable,
   mapVnPaySdkResultCode,
   openVnPaySdk,
@@ -109,5 +110,13 @@ describe('vnPaySdk native adapter', () => {
 
     subscription?.remove();
     expect(mockRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats only cancel and fail SDK results as abandoned', () => {
+    expect(isAbandonedVnPaySdkResult('CANCELLED')).toBe(true);
+    expect(isAbandonedVnPaySdkResult('FAILED')).toBe(true);
+    expect(isAbandonedVnPaySdkResult('SUCCESS')).toBe(false);
+    expect(isAbandonedVnPaySdkResult('APP_BACK')).toBe(false);
+    expect(isAbandonedVnPaySdkResult(undefined)).toBe(false);
   });
 });

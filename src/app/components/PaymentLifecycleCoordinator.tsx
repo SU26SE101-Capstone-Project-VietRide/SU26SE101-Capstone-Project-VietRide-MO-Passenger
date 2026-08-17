@@ -15,6 +15,7 @@ import { walletKeys } from '@features/profile/api/walletApi';
 import {
   addVnPaySdkPaymentBackListener,
   getPendingVnPaySession,
+  isAbandonedVnPaySdkResult,
   reconcilePendingVnPaySession,
   VNPAY_CANCEL_POLL_DELAYS_MS,
   type PendingVnPaySession,
@@ -23,14 +24,12 @@ import {
 
 type PaymentWakeSignal = 'cold-start' | 'native-payment-back' | 'app-active';
 
-const isAbandonedSdkResult = (result: VnPaySdkResult | undefined): boolean =>
-  result === 'CANCELLED' || result === 'FAILED';
-
 export function PaymentLifecycleCoordinator(): null {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const userId = useAuthStore(state => state.user?.id);
   const activeReconciliationRef = useRef<Promise<void> | null>(null);
+  const runGenerationRef = useRef(0);
 
   const invalidatePaymentOwner = useCallback((
     ownerUserId: string,
@@ -60,10 +59,32 @@ export function PaymentLifecycleCoordinator(): null {
     signal: PaymentWakeSignal,
     sdkResult?: VnPaySdkResult,
   ): void => {
-    if (!userId || activeReconciliationRef.current) return;
+    if (!userId) return;
+
+    const abandoned = isAbandonedVnPaySdkResult(sdkResult);
+    const inFlight = activeReconciliationRef.current !== null;
+
+    // App-active / cold-start must not swallow an in-flight run.
+    if (inFlight && signal !== 'native-payment-back') {
+      return;
+    }
+
+    // PaymentBack success while polling: refetch owner caches, keep the poll.
+    if (inFlight && signal === 'native-payment-back' && !abandoned) {
+      void getPendingVnPaySession().then((pending) => {
+        if (
+          pending
+          && pending.ownerUserId === userId
+          && useAuthStore.getState().user?.id === userId
+        ) {
+          invalidatePaymentOwner(userId, pending);
+        }
+      });
+      return;
+    }
 
     const ownerUserId = userId;
-    const abandoned = isAbandonedSdkResult(sdkResult);
+    const generation = ++runGenerationRef.current;
     const request = Promise.resolve()
       .then(async () => {
         if (signal === 'native-payment-back') {
@@ -72,6 +93,7 @@ export function PaymentLifecycleCoordinator(): null {
             pending
             && pending.ownerUserId === ownerUserId
             && useAuthStore.getState().user?.id === ownerUserId
+            && runGenerationRef.current === generation
           ) {
             invalidatePaymentOwner(ownerUserId, pending);
           }
@@ -79,12 +101,19 @@ export function PaymentLifecycleCoordinator(): null {
 
         return reconcilePendingVnPaySession({
           ownerUserId,
-          isCurrent: () => useAuthStore.getState().user?.id === ownerUserId,
+          isCurrent: () =>
+            runGenerationRef.current === generation
+            && useAuthStore.getState().user?.id === ownerUserId,
           ...(abandoned ? { delaysMs: VNPAY_CANCEL_POLL_DELAYS_MS } : {}),
         });
       })
       .then((result) => {
-        if (useAuthStore.getState().user?.id !== ownerUserId) return;
+        if (
+          runGenerationRef.current !== generation
+          || useAuthStore.getState().user?.id !== ownerUserId
+        ) {
+          return;
+        }
 
         if (result.pending) {
           invalidatePaymentOwner(ownerUserId, result.pending);
@@ -110,7 +139,12 @@ export function PaymentLifecycleCoordinator(): null {
         }
       })
       .catch(() => {
-        if (useAuthStore.getState().user?.id !== ownerUserId) return;
+        if (
+          runGenerationRef.current !== generation
+          || useAuthStore.getState().user?.id !== ownerUserId
+        ) {
+          return;
+        }
         if (signal === 'cold-start') {
           Alert.alert(
             t('paymentReturn.processingTitle'),

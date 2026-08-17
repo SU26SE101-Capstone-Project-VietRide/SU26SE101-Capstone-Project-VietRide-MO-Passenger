@@ -70,6 +70,10 @@ export type OpenVnPaySdkInput = {
   isSandbox: boolean;
 };
 
+export const isAbandonedVnPaySdkResult = (
+  result: VnPaySdkResult | undefined,
+): boolean => result === 'CANCELLED' || result === 'FAILED';
+
 export function mapVnPaySdkResultCode(
   resultCode: number,
 ): VnPaySdkResult {
