@@ -5,7 +5,7 @@ import { PromotionsSection } from './PromotionsSection';
 import { RecentParcelsSection } from './RecentParcelsSection';
 
 const mockUseHomePromotions = jest.fn();
-const mockUseReceivedParcels = jest.fn();
+const mockUsePassengerHistory = jest.fn();
 
 const mockTheme = {
   colors: {
@@ -47,9 +47,9 @@ jest.mock('../hooks/useHomePromotions', () => ({
   useHomePromotions: (service: string) => mockUseHomePromotions(service),
 }));
 
-jest.mock('@features/parcel/hooks/useParcelQueries', () => ({
-  useReceivedParcels: (page: number, pageSize: number) => (
-    mockUseReceivedParcels(page, pageSize)
+jest.mock('@features/profile/hooks/usePassengerHistory', () => ({
+  usePassengerHistory: (query: { type: string; pageSize: number }) => (
+    mockUsePassengerHistory(query)
   ),
 }));
 
@@ -118,22 +118,28 @@ describe('Home data sections', () => {
     await act(async () => renderer!.unmount());
   });
 
-  it('renders received parcels from the existing parcel hook and forwards BE IDs', async () => {
-    mockUseReceivedParcels.mockReturnValue({
+  it('renders sent parcels from passenger history and forwards BE IDs', async () => {
+    mockUsePassengerHistory.mockReturnValue({
       data: {
-        items: [{
-          parcelId: 'parcel-1',
-          parcelCode: 'VR-001',
-          status: 'IN_TRANSIT',
-          originStation: { id: 'origin-1', name: 'Hà Nội' },
-          destinationStation: { id: 'destination-1', name: 'Đà Nẵng' },
-          eta: '2026-07-20T00:00:00Z',
-          senderUserId: 'sender-1',
-          recipientName: 'Passenger',
-          sizeCategory: 'SMALL',
-          createdAt: '2026-07-14T00:00:00Z',
-          operatorId: 'operator-1',
-          tripId: 'trip-1',
+        pages: [{
+          items: [{
+            type: 'PARCEL',
+            id: 'parcel-1',
+            code: 'VR-001',
+            status: 'IN_TRANSIT',
+            originName: 'Hà Nội',
+            destinationName: 'Đà Nẵng',
+            estimatedArrivalTime: '2026-07-20T00:00:00Z',
+            createdAt: '2026-07-14T00:00:00Z',
+            tripId: 'trip-1',
+            parcel: {
+              bookingId: null,
+              recipientName: 'Passenger',
+              sizeCategory: 'SMALL',
+              photoUrl: null,
+              deliveryMethod: 'TERMINAL_PICKUP',
+            },
+          }],
         }],
       },
       isError: false,
@@ -156,7 +162,10 @@ describe('Home data sections', () => {
       parcelCard.props.onPress();
     });
 
-    expect(mockUseReceivedParcels).toHaveBeenCalledWith(1, 5);
+    expect(mockUsePassengerHistory).toHaveBeenCalledWith({
+      type: 'PARCEL',
+      pageSize: 5,
+    });
     expect(onParcelPress).toHaveBeenCalledWith('parcel-1', 'trip-1');
 
     await act(async () => renderer!.unmount());

@@ -144,6 +144,8 @@ export function resetPendingVnPaySessionMemory(): void {
   memoryCache = undefined;
 }
 
+// Keep the stored session across logout. Owner mismatch is cleared on
+// reconcile; wiping here made same-user re-login unable to reopen VNPay.
 registerSessionCleanup('pending-vnpay-session', () => {
-  clearPendingVnPaySession().catch(() => undefined);
+  resetPendingVnPaySessionMemory();
 });

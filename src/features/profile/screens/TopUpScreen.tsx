@@ -1,7 +1,8 @@
-import React, { memo, useCallback, useRef, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -9,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -39,13 +40,20 @@ import {
 import type { AppTheme } from '@shared/theme';
 import {
   assertVnPaySdkAvailable,
+  clearPendingVnPaySession,
+  getPaymentSessionStatus,
+  getPendingVnPaySession,
+  isTerminalPaymentSessionStatus,
   openVnPayPayment,
+  VnPayPaymentOpenCoordinator,
+  type PendingVnPaySession,
 } from '@shared/payments';
 import { formatVnd } from '@shared/utils/format';
 import { MINIMUM_TOP_UP_AMOUNT } from '../api/walletApi';
 import {
   isAmbiguousTopUpError,
   useCreateWalletTopUp,
+  useRefreshWallet,
   useWalletRefreshOnPaymentReturn,
 } from '../hooks/useWallet';
 import {
@@ -94,6 +102,16 @@ const getAmountIssueMessage = (issue: TopUpAmountIssue, t: TFunction): string =>
   }
   return t('topUp.invalidAmount');
 };
+
+const matchTopUpVnPaySession = (
+  session: PendingVnPaySession | null,
+  ownerUserId: string,
+): session is PendingVnPaySession =>
+  Boolean(
+    session
+    && session.kind === 'topup'
+    && session.ownerUserId === ownerUserId,
+  );
 
 interface PresetAmountButtonProps {
   amount: number;
@@ -148,7 +166,12 @@ export function TopUpScreen(): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const bottomTabClearance = useFloatingTabBarContentInset();
   const topUpMutation = useCreateWalletTopUp();
+  const refreshWallet = useRefreshWallet();
   const userId = useAuthStore(state => state.user?.id);
+  const paymentOpenCoordinator = useMemo(
+    () => new VnPayPaymentOpenCoordinator(),
+    [],
+  );
   const {
     completePaymentReturn,
     data: topUpResult,
@@ -159,6 +182,9 @@ export function TopUpScreen(): React.JSX.Element {
   const [selectedPreset, setSelectedPreset] = useState<number | null>(100_000);
   const [customAmount, setCustomAmount] = useState('');
   const [amountTouched, setAmountTouched] = useState(false);
+  const [reopenSession, setReopenSession] = useState<PendingVnPaySession | null>(
+    null,
+  );
   const [returnRefreshStatus, setReturnRefreshStatus] = useState<
     'success' | 'error' | null
   >(null);
@@ -171,6 +197,7 @@ export function TopUpScreen(): React.JSX.Element {
   const {
     armPaymentReturn,
     cancelPaymentReturn,
+    completeIfStillAwaiting,
     isAwaitingReturn,
   } = paymentReturn;
 
@@ -180,8 +207,49 @@ export function TopUpScreen(): React.JSX.Element {
     amountTouched || customAmount.length > 0
   );
   const amountErrorMessage = issue ? getAmountIssueMessage(issue, t) : undefined;
+  const hasPendingTopUp = Boolean(reopenSession);
   const isBusy = isTopUpPending || isAwaitingReturn;
-  const pendingRequestId = topUpResult?.topUpRequestId;
+  const pendingRequestId = reopenSession?.businessId
+    ?? reopenSession?.sessionId
+    ?? topUpResult?.topUpRequestId;
+
+  const restorePendingTopUp = useCallback(async (): Promise<void> => {
+    if (!userId) {
+      setReopenSession(null);
+      return;
+    }
+
+    const session = await getPendingVnPaySession();
+    if (!matchTopUpVnPaySession(session, userId)) {
+      setReopenSession(null);
+      return;
+    }
+
+    try {
+      const status = await getPaymentSessionStatus(session.sessionId);
+      if (isTerminalPaymentSessionStatus(status.status)) {
+        await clearPendingVnPaySession();
+        setReopenSession(null);
+        if (status.status === 'SUCCEEDED') {
+          await refreshWallet();
+          setReturnRefreshStatus('success');
+        }
+        return;
+      }
+
+      setReopenSession(session);
+    } catch {
+      // Keep the local session so the owner can still reopen VNPay after
+      // a transient session-status lookup failure.
+      setReopenSession(session);
+    }
+  }, [refreshWallet, userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      restorePendingTopUp().catch(() => undefined);
+    }, [restorePendingTopUp]),
+  );
 
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
   const handlePresetSelect = useCallback((nextAmount: number) => {
@@ -200,16 +268,14 @@ export function TopUpScreen(): React.JSX.Element {
     setReturnRefreshStatus(null);
   }, []);
 
+  const handleDismissPending = useCallback(() => {
+    cancelPaymentReturn();
+    setReopenSession(null);
+    clearPendingVnPaySession().catch(() => undefined);
+  }, [cancelPaymentReturn]);
+
   const handleTopUp = useCallback(async () => {
     if (isBusy || submissionInProgressRef.current) {
-      return;
-    }
-    if (!isAmountValid) {
-      setAmountTouched(true);
-      Alert.alert(
-        t('topUp.errorTitle'),
-        amountErrorMessage ?? t('topUp.invalidAmount'),
-      );
       return;
     }
     if (!userId) {
@@ -222,6 +288,46 @@ export function TopUpScreen(): React.JSX.Element {
       Alert.alert(
         t('topUp.redirectErrorTitle'),
         t('paymentReturn.errors.nativeUnavailable'),
+      );
+      return;
+    }
+
+    if (reopenSession) {
+      if (paymentOpenCoordinator.isRunning) {
+        return;
+      }
+
+      submissionInProgressRef.current = true;
+      setReturnRefreshStatus(null);
+      try {
+        if (!armPaymentReturn()) {
+          throw new ApiRequestError({
+            code: 'AUTH_REQUIRED',
+            message: 'topUp.errors.authRequired',
+            statusCode: 401,
+          });
+        }
+        await paymentOpenCoordinator.reopen(reopenSession, userId);
+        completeIfStillAwaiting();
+        await restorePendingTopUp();
+      } catch {
+        cancelPaymentReturn();
+        Alert.alert(
+          t('topUp.redirectErrorTitle'),
+          t('topUp.redirectErrorDescription'),
+        );
+        await restorePendingTopUp();
+      } finally {
+        submissionInProgressRef.current = false;
+      }
+      return;
+    }
+
+    if (!isAmountValid) {
+      setAmountTouched(true);
+      Alert.alert(
+        t('topUp.errorTitle'),
+        amountErrorMessage ?? t('topUp.invalidAmount'),
       );
       return;
     }
@@ -258,6 +364,9 @@ export function TopUpScreen(): React.JSX.Element {
           businessId: result.topUpRequestId,
           ownerUserId: userId,
         });
+        // VNPay SDK can return without sending the app to background.
+        completeIfStillAwaiting();
+        await restorePendingTopUp();
       } catch {
         cancelPaymentReturn();
         Alert.alert(
@@ -286,9 +395,13 @@ export function TopUpScreen(): React.JSX.Element {
     amountErrorMessage,
     armPaymentReturn,
     cancelPaymentReturn,
+    completeIfStillAwaiting,
     completePaymentReturn,
     isAmountValid,
     isBusy,
+    paymentOpenCoordinator,
+    reopenSession,
+    restorePendingTopUp,
     submitTopUp,
     t,
     userId,
@@ -320,14 +433,19 @@ export function TopUpScreen(): React.JSX.Element {
         style={styles.keyboardAvoidingView}
       >
         <AppKeyboardAwareScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+          contentContainerStyle={
+            Platform.OS === 'android'
+              ? [styles.scrollContent, { paddingBottom: bottomTabClearance }]
+              : styles.scrollContent
+          }
+          contentInset={{ bottom: bottomTabClearance }}
           scrollIndicatorInsets={{ bottom: bottomTabClearance }}
           contentInsetAdjustmentBehavior="automatic"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {isAwaitingReturn ? (
+          {isAwaitingReturn || hasPendingTopUp ? (
             <View style={styles.pendingNotice}>
               <ClockCountdown size={22} color={theme.colors.warning} />
               <View style={styles.noticeCopy}>
@@ -335,13 +453,24 @@ export function TopUpScreen(): React.JSX.Element {
                   {t('topUp.pendingTitle')}
                 </Text>
                 <Text style={styles.pendingNoticeText}>
-                  {t('topUp.pendingDescription')}
+                  {hasPendingTopUp
+                    ? t('topUp.continuePendingDescription')
+                    : t('topUp.pendingDescription')}
                 </Text>
                 {pendingRequestId ? (
                   <Text style={styles.requestIdText} numberOfLines={1}>
                     {t('topUp.requestId', { id: pendingRequestId })}
                   </Text>
                 ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={handleDismissPending}
+                >
+                  <Text style={styles.dismissPendingText}>
+                    {t('topUp.dismissPending')}
+                  </Text>
+                </Pressable>
               </View>
             </View>
           ) : null}
@@ -372,7 +501,7 @@ export function TopUpScreen(): React.JSX.Element {
             >
               {amount > 0 ? formatVnd(amount) : t('common.notAvailable')}
             </Text>
-            {showAmountError && amountErrorMessage ? (
+            {showAmountError && amountErrorMessage !== undefined ? (
               <Text style={styles.amountHint}>{amountErrorMessage}</Text>
             ) : null}
           </View>
@@ -386,7 +515,7 @@ export function TopUpScreen(): React.JSX.Element {
                 key={presetAmount}
                 amount={presetAmount}
                 isSelected={selectedPreset === presetAmount}
-                isDisabled={isBusy}
+                isDisabled={isBusy || hasPendingTopUp}
                 onSelect={handlePresetSelect}
                 styles={styles}
               />
@@ -398,7 +527,7 @@ export function TopUpScreen(): React.JSX.Element {
           </Text>
           <TextInput
             accessibilityLabel={t('topUp.customAmountAccessibility')}
-            editable={!isBusy}
+            editable={!isBusy && !hasPendingTopUp}
             keyboardType="number-pad"
             maxLength={12}
             onChangeText={handleCustomAmountChange}
@@ -411,7 +540,7 @@ export function TopUpScreen(): React.JSX.Element {
             ]}
             value={customAmount}
           />
-          {showAmountError && amountErrorMessage ? (
+          {showAmountError && amountErrorMessage !== undefined ? (
             <Text
               accessibilityLiveRegion="polite"
               style={styles.customInputHint}
@@ -422,19 +551,23 @@ export function TopUpScreen(): React.JSX.Element {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('topUp.confirm')}
+            accessibilityLabel={
+              hasPendingTopUp ? t('topUp.openAgain') : t('topUp.confirm')
+            }
             accessibilityState={{ disabled: isBusy }}
             disabled={isBusy}
             onPress={handleTopUp}
             style={({ pressed }) => [
               styles.submitButton,
-              !isAmountValid || isBusy ? styles.disabled : null,
+              (!hasPendingTopUp && !isAmountValid) || isBusy
+                ? styles.disabled
+                : null,
               pressed ? styles.submitButtonPressed : null,
             ]}
           >
             {isTopUpPending ? (
               <ActivityIndicator color={theme.colors.textInverse} />
-            ) : isAwaitingReturn ? (
+            ) : isAwaitingReturn && !hasPendingTopUp ? (
               <>
                 <ClockCountdown size={18} color={theme.colors.textInverse} />
                 <Text style={styles.submitButtonText}>
@@ -449,7 +582,7 @@ export function TopUpScreen(): React.JSX.Element {
                   weight="fill"
                 />
                 <Text style={styles.submitButtonText}>
-                  {pendingRequestId
+                  {hasPendingTopUp || pendingRequestId
                     ? t('topUp.openAgain')
                     : t('topUp.confirm')}
                 </Text>
@@ -541,6 +674,11 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
+  },
+  dismissPendingText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
   },
   returnNotice: {
     marginBottom: spacing.lg,

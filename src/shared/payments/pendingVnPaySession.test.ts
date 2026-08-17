@@ -1,3 +1,5 @@
+import { clearSessionBoundState } from '@shared/session/cleanup';
+
 import {
   clearPendingVnPaySession,
   getPendingVnPaySession,
@@ -59,6 +61,26 @@ describe('pendingVnPaySession', () => {
     await clearPendingVnPaySession();
     resetPendingVnPaySessionMemory();
     await expect(getPendingVnPaySession()).resolves.toBeNull();
+  });
+
+  it('keeps the stored session across logout so the owner can reopen after login', async () => {
+    const input = {
+      sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      kind: 'topup' as const,
+      businessId: 'top-1',
+      ownerUserId: '11111111-1111-4111-8111-111111111111',
+      createdAt: '2026-08-11T00:00:00.000Z',
+      paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+      vnpaySdk: {
+        tmnCode: 'TMN',
+        scheme: 'vietride',
+        isSandbox: true,
+      },
+    };
+
+    await savePendingVnPaySession(input);
+    clearSessionBoundState();
+    await expect(getPendingVnPaySession()).resolves.toEqual(input);
   });
 
   it('rejects legacy or malformed records missing owner/resume metadata', () => {

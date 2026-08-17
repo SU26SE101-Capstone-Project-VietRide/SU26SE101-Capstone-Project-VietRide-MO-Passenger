@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Pressable,
-  ScrollView,
   StatusBar,
   Text,
   View,
-  Alert,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,12 +17,7 @@ import {
   type FlashListRef,
   type ListRenderItemInfo,
 } from '@shopify/flash-list';
-import {
-  ArrowLeft,
-  CurrencyCircleDollar,
-  NotePencil,
-  ShieldCheck,
-} from 'phosphor-react-native';
+import { ArrowLeft, NotePencil } from 'phosphor-react-native';
 import { Image } from 'expo-image';
 
 import type { RootStackParamList } from '@app/navigation/types';
@@ -38,7 +33,11 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import { ChatComposer, ChatMessageBubble } from '../components';
+import {
+  ChatComposer,
+  ChatMessageBubble,
+  ChatQuickActions,
+} from '../components';
 import { useChatSession } from '../hooks/useChatSession';
 import { useChatSessionStore } from '../store/useChatSessionStore';
 import type {
@@ -48,13 +47,8 @@ import type {
 } from '../types/chatbot';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chatbot'>;
-interface QuickAction {
-  id: string;
-  label: string;
-  prompt: string;
-  icon: React.ComponentType<{ size: number; color: string; weight?: 'regular' | 'fill' | 'bold' }>;
-}
 
+const WELCOME_MESSAGE_ID = 'welcome';
 const keyExtractor = (item: ChatMessage): string => item.id;
 const getItemType = (item: ChatMessage): string => item.role;
 const maintainVisibleContentPosition = {
@@ -63,12 +57,20 @@ const maintainVisibleContentPosition = {
   animateAutoScrollToBottom: false,
 };
 
+const isWelcomeOnlyThread = (messages: readonly ChatMessage[]): boolean =>
+  messages.length === 1 && messages[0]?.id === WELCOME_MESSAGE_ID;
+
 export function ChatbotScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const listRef = useRef<FlashListRef<ChatMessage> | null>(null);
-  const quickActionsDismissed = useChatSessionStore((state) => state.quickActionsDismissed);
-  const setQuickActionsDismissed = useChatSessionStore((state) => state.setQuickActionsDismissed);
+  const [threadHeight, setThreadHeight] = useState(0);
+  const quickActionsDismissed = useChatSessionStore(
+    (state) => state.quickActionsDismissed,
+  );
+  const setQuickActionsDismissed = useChatSessionStore(
+    (state) => state.setQuickActionsDismissed,
+  );
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const applySearchPrefill = useBookingStore((state) => state.applySearchPrefill);
@@ -85,21 +87,6 @@ export function ChatbotScreen(): React.JSX.Element {
     stopResponse,
   } = useChatSession();
 
-  const quickActions = useMemo<QuickAction[]>(() => [
-    {
-      id: 'policy',
-      label: t('chatbot.quickActions.refund'),
-      prompt: t('chatbot.prompts.refund'),
-      icon: ShieldCheck,
-    },
-    {
-      id: 'ticketRefund',
-      label: t('chatbot.quickActions.ticketRefund'),
-      prompt: t('chatbot.prompts.ticketRefund'),
-      icon: CurrencyCircleDollar,
-    },
-  ], [t]);
-
   const statusLabel = useMemo(() => {
     if (!isOnline) return t('chatbot.offline');
     if (isStreaming) return t('chatbot.responding');
@@ -112,6 +99,20 @@ export function ChatbotScreen(): React.JSX.Element {
     if (availability !== 'ready') return t('chatbot.lockedPlaceholder');
     return t('chatbot.askPlaceholder');
   }, [availability, isOnline, t]);
+
+  const isWelcomeOnly = isWelcomeOnlyThread(messages);
+  const showQuickActions = !quickActionsDismissed && isWelcomeOnly;
+  const composerLocked = availability !== 'ready' || !isOnline;
+  const promptsLocked = composerLocked || isStreaming;
+  const threadContentStyle = useMemo(
+    () => (
+      threadHeight > 0
+        ? [styles.messageListContent, { minHeight: threadHeight }]
+        : styles.messageListContent
+    ),
+    [styles.messageListContent, threadHeight],
+  );
+  const listExtraData = `${pendingFeedbackId ?? ''}:${i18n.language}`;
 
   const handleBookingPress = useCallback((draft: ChatBookingDraft) => {
     const params: BookingSearchPrefill = {
@@ -143,8 +144,11 @@ export function ChatbotScreen(): React.JSX.Element {
   ) => {
     rateMessage(messageId, assistantMessageId, rating).catch(() => undefined);
   }, [rateMessage]);
+
   const handleRetryMessage = useCallback((assistantMessageId: string) => {
-    const assistantIndex = messages.findIndex((message) => message.id === assistantMessageId);
+    const assistantIndex = messages.findIndex(
+      (message) => message.id === assistantMessageId,
+    );
     for (let index = assistantIndex - 1; index >= 0; index -= 1) {
       const candidate = messages[index];
       if (candidate?.role === 'user' && candidate.content.trim()) {
@@ -158,16 +162,19 @@ export function ChatbotScreen(): React.JSX.Element {
     listRef.current?.scrollToEnd({ animated });
   }, []);
 
-  const handleListReady = useCallback(() => {
-    alignToLatest(false);
-  }, [alignToLatest]);
+  const handleThreadLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = Math.round(event.nativeEvent.layout.height);
+    setThreadHeight((current) => (current === nextHeight ? current : nextHeight));
+  }, []);
 
-  const isWelcomeOnly = Boolean(
-    messages.length === 1 && messages[0]?.id === 'welcome',
-  );
+  const handleListReady = useCallback(() => {
+    if (!isWelcomeOnly) {
+      alignToLatest(false);
+    }
+  }, [alignToLatest, isWelcomeOnly]);
 
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (isWelcomeOnly || messages.length === 0) return;
     const frame = requestAnimationFrame(() => alignToLatest(false));
     return () => cancelAnimationFrame(frame);
   }, [alignToLatest, isWelcomeOnly, messages.length]);
@@ -176,7 +183,21 @@ export function ChatbotScreen(): React.JSX.Element {
     setQuickActionsDismissed(true);
     sendMessage(message).catch(() => undefined);
     requestAnimationFrame(() => alignToLatest(true));
-  }, [alignToLatest, sendMessage]);
+  }, [alignToLatest, sendMessage, setQuickActionsDismissed]);
+
+  const listFooter = useMemo(
+    () => (
+      showQuickActions
+        ? (
+          <ChatQuickActions
+            disabled={promptsLocked}
+            onSelectPrompt={handleSend}
+          />
+        )
+        : null
+    ),
+    [handleSend, promptsLocked, showQuickActions],
+  );
 
   const handleAccessPress = useCallback(() => {
     navigation.navigate('Main', {
@@ -185,10 +206,9 @@ export function ChatbotScreen(): React.JSX.Element {
     });
   }, [navigation]);
 
-  const handleQuickAction = useCallback((action: QuickAction) => {
-    if (availability !== 'ready' || !isOnline || isStreaming) return;
-    handleSend(action.prompt);
-  }, [availability, handleSend, isOnline, isStreaming]);
+  const handleGoBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
 
   const renderMessage = useCallback(({ item }: ListRenderItemInfo<ChatMessage>) => (
     <ChatMessageBubble
@@ -203,10 +223,12 @@ export function ChatbotScreen(): React.JSX.Element {
   const handleResetConversation = useCallback(() => {
     setQuickActionsDismissed(false);
     resetConversation();
-  }, [resetConversation]);
+  }, [resetConversation, setQuickActionsDismissed]);
 
   const handleNewConversation = useCallback(() => {
-    const hasConversationContent = messages.some((message) => message.id !== 'welcome');
+    const hasConversationContent = messages.some(
+      (message) => message.id !== WELCOME_MESSAGE_ID,
+    );
     if (!hasConversationContent) {
       handleResetConversation();
       return;
@@ -225,16 +247,6 @@ export function ChatbotScreen(): React.JSX.Element {
     );
   }, [handleResetConversation, messages, t]);
 
-  const listExtraData = useMemo(
-    () => ({ pendingFeedbackId, language: i18n.language }),
-    [i18n.language, pendingFeedbackId],
-  );
-  const showQuickActions = Boolean(
-    !quickActionsDismissed
-    && messages.length === 1
-    && messages[0]?.id === 'welcome',
-  );
-
   return (
     <SafeAreaView style={styles.safeContainer}>
       <StatusBar
@@ -246,7 +258,7 @@ export function ChatbotScreen(): React.JSX.Element {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('common.cancel')}
-          onPress={() => navigation.goBack()}
+          onPress={handleGoBack}
           style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : null]}
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
@@ -264,10 +276,12 @@ export function ChatbotScreen(): React.JSX.Element {
           <View>
             <Text style={styles.botName}>{t('chatbot.title')}</Text>
             <View style={styles.statusRow}>
-              <View style={[
-                styles.statusDot,
-                !isOnline || availability !== 'ready' ? styles.statusDotMuted : null,
-              ]} />
+              <View
+                style={[
+                  styles.statusDot,
+                  composerLocked ? styles.statusDotMuted : null,
+                ]}
+              />
               <Text style={styles.botStatus}>{statusLabel}</Text>
             </View>
           </View>
@@ -283,54 +297,24 @@ export function ChatbotScreen(): React.JSX.Element {
         </Pressable>
       </View>
 
-      <FlashList
-        ref={listRef}
-        style={styles.messageList}
-        data={messages}
-        extraData={listExtraData}
-        keyExtractor={keyExtractor}
-        getItemType={getItemType}
-        renderItem={renderMessage}
-        maintainVisibleContentPosition={maintainVisibleContentPosition}
-        contentContainerStyle={styles.messageListContent}
-        onLoad={handleListReady}
-        keyboardDismissMode="interactive"
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        ListFooterComponent={showQuickActions ? (
-          <View style={styles.quickActionsContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.quickActionsContent}
-            >
-              {quickActions.map((action) => {
-                const Icon = action.icon;
-                const isPromptDisabled = availability !== 'ready' || !isOnline || isStreaming;
-
-                return (
-                  <Pressable
-                    key={action.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={action.label}
-                    accessibilityState={{ disabled: isPromptDisabled }}
-                    disabled={isPromptDisabled}
-                    onPress={() => handleQuickAction(action)}
-                    style={({ pressed }) => [
-                      styles.quickAction,
-                      isPromptDisabled ? styles.quickActionDisabled : null,
-                      pressed ? styles.pressed : null,
-                    ]}
-                  >
-                    <Icon size={16} color={theme.colors.primary} weight="bold" />
-                    <Text style={styles.quickActionLabel}>{action.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        ) : null}
-      />
+      <View style={styles.thread} onLayout={handleThreadLayout}>
+        <FlashList
+          ref={listRef}
+          style={styles.threadList}
+          data={messages}
+          extraData={listExtraData}
+          keyExtractor={keyExtractor}
+          getItemType={getItemType}
+          renderItem={renderMessage}
+          maintainVisibleContentPosition={maintainVisibleContentPosition}
+          contentContainerStyle={threadContentStyle}
+          ListFooterComponent={listFooter}
+          onLoad={handleListReady}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
 
       {feedbackError ? (
         <Text style={styles.feedbackError}>{feedbackError}</Text>
@@ -345,7 +329,9 @@ export function ChatbotScreen(): React.JSX.Element {
             pressed ? styles.pressed : null,
           ]}
         >
-          <Text style={styles.accessButtonText}>{t('chatbot.completeProfileAction')}</Text>
+          <Text style={styles.accessButtonText}>
+            {t('chatbot.completeProfileAction')}
+          </Text>
         </Pressable>
       ) : null}
 
@@ -354,7 +340,7 @@ export function ChatbotScreen(): React.JSX.Element {
         style={styles.composerKeyboardView}
       >
         <ChatComposer
-          disabled={availability !== 'ready' || !isOnline}
+          disabled={composerLocked}
           isStreaming={isStreaming}
           placeholder={composerPlaceholder}
           onSend={handleSend}
@@ -373,15 +359,18 @@ const createStyles = (theme: AppTheme) => ({
   composerKeyboardView: {
     flexShrink: 0,
   },
-  messageList: {
+  thread: {
     flex: 1,
     minHeight: 0,
   },
+  threadList: {
+    flex: 1,
+  },
   header: {
     minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
@@ -396,18 +385,19 @@ const createStyles = (theme: AppTheme) => ({
     ...theme.components.headerButton,
   },
   botInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
   },
   botAvatar: {
     width: 38,
     height: 38,
     borderRadius: borderRadius.full,
+    borderCurve: 'continuous' as const,
     overflow: 'hidden' as const,
     backgroundColor: theme.colors.surfaceAlt,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    marginRight: spacing.sm,
   },
   botAvatarImage: {
     width: 38,
@@ -419,8 +409,8 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
   },
   statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     gap: spacing.xs,
     marginTop: 1,
   },
@@ -440,7 +430,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   messageListContent: {
     flexGrow: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end' as const,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
     paddingBottom: spacing.xl,
@@ -460,38 +450,13 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
+    borderCurve: 'continuous' as const,
     backgroundColor: theme.colors.primary,
   },
   accessButtonText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.textInverse,
-  },
-  quickActionsContainer: {
-    paddingBottom: spacing.lg,
-  },
-  quickActionsContent: {
-    paddingVertical: spacing.xs,
-    gap: spacing.sm,
-  },
-  quickAction: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.effects.glassSurface,
-  },
-  quickActionDisabled: {
-    opacity: 0.4,
-  },
-  quickActionLabel: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primary,
   },
   pressed: {
     opacity: 0.8,

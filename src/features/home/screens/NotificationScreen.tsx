@@ -1,6 +1,7 @@
-import React, { memo, useCallback, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StatusBar,
   Text,
@@ -9,7 +10,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -49,11 +50,24 @@ import {
 
 type NotificationNavigation = NativeStackNavigationProp<RootStackParamList>;
 
+const KIND_ICON = {
+  trip: Ticket,
+  parcel: Package,
+  shuttle: Van,
+  promo: Tag,
+  notification: Bell,
+} as const;
+
+const notificationKeyExtractor = (item: NotificationItemDto): string => item.id;
+const getNotificationItemType = (item: NotificationItemDto): string =>
+  `${getNotificationKind(item.type)}:${item.readAt ? 'read' : 'unread'}`;
+
 interface NotificationRowProps {
   id: string;
   type: string;
   title: string;
   body: string;
+  data: unknown;
   createdAt: string;
   readAt: string | null;
   onPress: (id: string) => void;
@@ -64,6 +78,7 @@ const NotificationRow = memo(function NotificationRowView({
   type,
   title,
   body,
+  data,
   createdAt,
   readAt,
   onPress,
@@ -72,54 +87,48 @@ const NotificationRow = memo(function NotificationRowView({
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const kind = getNotificationKind(type);
-  const isUnread = !readAt;
+  const isUnread = readAt === null;
+  const KindIcon = KIND_ICON[kind];
   const intlLocale = toIntlLocale(i18n.resolvedLanguage);
+  const copy = useMemo(
+    () => localizeNotificationCopy({ type, title, body, data }, t),
+    [body, data, t, title, type],
+  );
   const relativeTime = useMemo(
     () => formatNotificationRelativeTime(createdAt, t, intlLocale),
     [createdAt, intlLocale, t],
   );
-
-  const meta = (() => {
-    switch (kind) {
-      case 'trip':
-        return {
-          icon: <Ticket size={20} color={theme.colors.primary} weight="fill" />,
-          bg: theme.colors.primaryFaded,
-          accent: theme.colors.primary,
-        };
-      case 'parcel':
-        return {
-          icon: <Package size={20} color={theme.colors.success} weight="fill" />,
-          bg: theme.colors.successLight,
-          accent: theme.colors.success,
-        };
-      case 'shuttle':
-        return {
-          icon: <Van size={20} color={theme.colors.primary} weight="fill" />,
-          bg: theme.colors.primaryFaded,
-          accent: theme.colors.primary,
-        };
-      case 'promo':
-        return {
-          icon: <Tag size={20} color={theme.colors.warning} weight="fill" />,
-          bg: theme.colors.warningLight,
-          accent: theme.colors.warning,
-        };
-      default:
-        return {
-          icon: <Bell size={20} color={theme.colors.textSecondary} weight="fill" />,
-          bg: theme.colors.surfaceAlt,
-          accent: theme.colors.primary,
-        };
-    }
-  })();
+  const handlePress = useCallback(() => {
+    onPress(id);
+  }, [id, onPress]);
+  const iconColor = kind === 'parcel'
+    ? theme.colors.success
+    : kind === 'promo'
+      ? theme.colors.warning
+      : kind === 'notification'
+        ? theme.colors.textSecondary
+        : theme.colors.primary;
+  const iconBackgroundStyle = isUnread
+    ? kind === 'parcel'
+      ? styles.iconBgParcel
+      : kind === 'promo'
+        ? styles.iconBgPromo
+        : kind === 'notification'
+          ? styles.iconBgDefault
+          : styles.iconBgTrip
+    : styles.iconBgRead;
+  const unreadDotStyle = kind === 'parcel'
+    ? styles.unreadDotParcel
+    : kind === 'promo'
+      ? styles.unreadDotPromo
+      : styles.unreadDotDefault;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={t('notification.itemAccessibility', {
-        title,
-        body,
+        title: copy.title,
+        body: copy.body,
         time: relativeTime,
         state: isUnread ? t('notification.unread') : t('notification.read'),
       })}
@@ -128,22 +137,11 @@ const NotificationRow = memo(function NotificationRowView({
         isUnread ? styles.unreadRow : null,
         pressed ? styles.pressedRow : null,
       ]}
-      onPress={() => onPress(id)}
+      onPress={handlePress}
     >
       <View style={styles.avatarColumn}>
-        <View
-          style={[
-            styles.iconContainer,
-            {
-              backgroundColor: isUnread
-                ? meta.bg
-                : theme.effects.isLiquid
-                  ? theme.effects.contentSurfaceSoft
-                  : theme.colors.surfaceAlt,
-            },
-          ]}
-        >
-          {meta.icon}
+        <View style={[styles.iconContainer, iconBackgroundStyle]}>
+          <KindIcon size={20} color={iconColor} weight="fill" />
         </View>
       </View>
 
@@ -156,7 +154,7 @@ const NotificationRow = memo(function NotificationRowView({
             ]}
             numberOfLines={1}
           >
-            {title}
+            {copy.title}
           </Text>
           <Text style={[styles.cardTime, isUnread ? styles.cardTimeUnread : null]}>
             {relativeTime}
@@ -170,14 +168,12 @@ const NotificationRow = memo(function NotificationRowView({
           ]}
           numberOfLines={2}
         >
-          {body}
+          {copy.body}
         </Text>
       </View>
 
       <View style={styles.trailingColumn}>
-        {isUnread ? (
-          <View style={[styles.unreadDot, { backgroundColor: meta.accent }]} />
-        ) : null}
+        {isUnread ? <View style={[styles.unreadDot, unreadDotStyle]} /> : null}
       </View>
     </Pressable>
   );
@@ -203,13 +199,17 @@ export function NotificationScreen(): React.JSX.Element {
     error: notificationsError,
     isError: isNotificationsError,
     isLoading: isNotificationsLoading,
-    isRefetching: isNotificationsRefetching,
     isFetchingNextPage,
     hasNextPage,
     isFetchNextPageError,
     fetchNextPage,
     refetch: refetchNotifications,
   } = notificationsQuery;
+  const {
+    refetch: refetchUnreadCount,
+  } = unreadCountQuery;
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const isInitialLoadRef = useRef(true);
   const {
     mutate: markAllRead,
     isPending: isMarkingAll,
@@ -228,7 +228,6 @@ export function NotificationScreen(): React.JSX.Element {
 
   const unreadCount = unreadCountQuery.data ?? 0;
   const isInitialLoading = isNotificationsLoading && notifications.length === 0;
-  const isRefreshing = isNotificationsRefetching && !isFetchingNextPage;
   const listQueryKey = notificationKeys.list(
     userId ?? 'none',
     DEFAULT_NOTIFICATION_LIST_PARAMS,
@@ -236,11 +235,31 @@ export function NotificationScreen(): React.JSX.Element {
 
   const handleRefresh = useCallback(() => {
     // Bound refresh cost: drop cached pages beyond the first, then refetch once.
+    setIsPullRefreshing(true);
     trimNotificationInfiniteToFirstPage(queryClient, listQueryKey);
-    refetchNotifications().catch(() => undefined);
-    unreadCountQuery.refetch().catch(() => undefined);
+    Promise.all([
+      refetchNotifications(),
+      refetchUnreadCount(),
+    ])
+      .catch(() => undefined)
+      .finally(() => {
+        setIsPullRefreshing(false);
+      });
     resetMarkAll();
-  }, [listQueryKey, queryClient, refetchNotifications, resetMarkAll, unreadCountQuery]);
+  }, [listQueryKey, queryClient, refetchNotifications, refetchUnreadCount, resetMarkAll]);
+
+  useFocusEffect(
+    useCallback(() => {
+      // First mount already loads via the query. Later tab visits refetch
+      // in the background without the pull-to-refresh spinner.
+      if (isInitialLoadRef.current) {
+        isInitialLoadRef.current = false;
+        return;
+      }
+      refetchNotifications().catch(() => undefined);
+      refetchUnreadCount().catch(() => undefined);
+    }, [refetchNotifications, refetchUnreadCount]),
+  );
 
   const handleEndReached = useCallback(() => {
     if (!hasNextPage || isFetchingNextPage || isFetchNextPageError) {
@@ -280,21 +299,19 @@ export function NotificationScreen(): React.JSX.Element {
   }, [isMarkingAll, markAllRead, resetMarkAll, unreadCount]);
 
   const renderNotificationItem = useCallback(
-    ({ item }: { item: NotificationItemDto }) => {
-      const copy = localizeNotificationCopy(item, t);
-      return (
-        <NotificationRow
-          id={item.id}
-          type={item.type}
-          title={copy.title}
-          body={copy.body}
-          createdAt={item.createdAt}
-          readAt={item.readAt}
-          onPress={handleNotificationPress}
-        />
-      );
-    },
-    [handleNotificationPress, t],
+    ({ item }: { item: NotificationItemDto }) => (
+      <NotificationRow
+        id={item.id}
+        type={item.type}
+        title={item.title}
+        body={item.body}
+        data={item.data}
+        createdAt={item.createdAt}
+        readAt={item.readAt}
+        onPress={handleNotificationPress}
+      />
+    ),
+    [handleNotificationPress],
   );
 
   const renderEmptyState = useCallback(() => {
@@ -396,7 +413,23 @@ export function NotificationScreen(): React.JSX.Element {
     theme.colors.primary,
   ]);
 
-  const keyExtractor = useCallback((item: NotificationItemDto) => item.id, []);
+  const listBottomInset = useMemo(
+    () => ({ bottom: bottomTabClearance }),
+    [bottomTabClearance],
+  );
+  const listContentStyle = useMemo(
+    () => [
+      styles.listContent,
+      notifications.length === 0 ? styles.emptyListContent : null,
+      Platform.OS === 'android' ? { paddingBottom: bottomTabClearance } : null,
+    ],
+    [
+      bottomTabClearance,
+      notifications.length,
+      styles.emptyListContent,
+      styles.listContent,
+    ],
+  );
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
@@ -464,18 +497,17 @@ export function NotificationScreen(): React.JSX.Element {
 
       <FlashList
         data={notifications}
-        keyExtractor={keyExtractor}
+        keyExtractor={notificationKeyExtractor}
+        getItemType={getNotificationItemType}
         renderItem={renderNotificationItem}
         ListEmptyComponent={renderEmptyState}
         ListFooterComponent={renderFooter}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.listContent,
-          notifications.length === 0 ? styles.emptyListContent : null,
-          { paddingBottom: bottomTabClearance },
-        ]}
+        contentContainerStyle={listContentStyle}
+        contentInset={Platform.OS === 'ios' ? listBottomInset : undefined}
+        scrollIndicatorInsets={listBottomInset}
         onRefresh={handleRefresh}
-        refreshing={isRefreshing}
+        refreshing={isPullRefreshing}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.4}
         onScroll={handleTabBarScroll}
@@ -510,6 +542,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.md,
+    borderCurve: 'continuous' as const,
     backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
@@ -534,6 +567,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
+    borderCurve: 'continuous' as const,
     backgroundColor: theme.colors.errorLight,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -604,6 +638,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
+    borderCurve: 'continuous' as const,
     backgroundColor: theme.colors.primaryFaded,
   },
   retryText: {
@@ -633,6 +668,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
     marginBottom: spacing.xs,
   },
   unreadRow: {
@@ -648,6 +684,7 @@ const createStyles = (theme: AppTheme) => ({
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
+    borderCurve: 'continuous' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
@@ -699,5 +736,31 @@ const createStyles = (theme: AppTheme) => ({
     width: 8,
     height: 8,
     borderRadius: borderRadius.full,
+  },
+  iconBgTrip: {
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  iconBgParcel: {
+    backgroundColor: theme.colors.successLight,
+  },
+  iconBgPromo: {
+    backgroundColor: theme.colors.warningLight,
+  },
+  iconBgDefault: {
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  iconBgRead: {
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceSoft
+      : theme.colors.surfaceAlt,
+  },
+  unreadDotParcel: {
+    backgroundColor: theme.colors.success,
+  },
+  unreadDotPromo: {
+    backgroundColor: theme.colors.warning,
+  },
+  unreadDotDefault: {
+    backgroundColor: theme.colors.primary,
   },
 });

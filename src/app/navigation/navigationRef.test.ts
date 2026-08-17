@@ -149,4 +149,27 @@ describe('notification action navigation', () => {
     discardPendingPaymentOpen();
     flushPendingPaymentOpen();
   });
+
+  it('opens a pending top-up on TopUp so the owner can repay after relaunch', () => {
+    openPendingPaymentDestination({
+      sessionId: 'topup-1',
+      kind: 'topup',
+      businessId: 'topup-1',
+      ownerUserId: BOOKING_ID,
+      createdAt: '2026-08-11T00:00:00.000Z',
+      paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+      vnpaySdk: {
+        tmnCode: 'TMN',
+        scheme: 'vietride',
+        isSandbox: true,
+      },
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('Main', {
+      screen: 'Profile',
+      params: { screen: 'TopUp' },
+    });
+    discardPendingPaymentOpen();
+    flushPendingPaymentOpen();
+  });
 });

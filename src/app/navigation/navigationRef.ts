@@ -127,7 +127,7 @@ export const flushPendingPaymentOpen = (): void => {
     case 'topup':
       navigationRef.navigate('Main', {
         screen: 'Profile',
-        params: { screen: 'Wallet' },
+        params: { screen: 'TopUp' },
       });
   }
 };

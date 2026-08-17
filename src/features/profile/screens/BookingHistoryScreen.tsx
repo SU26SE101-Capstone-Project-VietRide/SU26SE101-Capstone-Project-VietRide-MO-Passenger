@@ -87,7 +87,11 @@ import {
   type ParcelHistoryFilter,
   type TicketHistoryFilter,
 } from '../config/passengerHistoryFilters';
-import { usePassengerHistory } from '../hooks/usePassengerHistory';
+import {
+  flattenPassengerHistoryPages,
+  usePassengerHistory,
+  usePassengerParcelHistory,
+} from '../hooks/usePassengerHistory';
 import type {
   PassengerParcelHistoryItem,
   PassengerTicketHistoryItem,
@@ -723,7 +727,6 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const [ticketFilter, setTicketFilter] = useState<TicketHistoryFilter>('ALL');
   const [parcelFilter, setParcelFilter] = useState<ParcelHistoryFilter>('ALL');
   const selectedTicketStatus = ticketFilter === 'ALL' ? undefined : ticketFilter;
-  const selectedParcelStatus = parcelFilter === 'ALL' ? undefined : parcelFilter;
   const ticketQuery = usePassengerHistory(
     {
       type: 'TICKET',
@@ -732,12 +735,9 @@ export function BookingHistoryScreen(): React.JSX.Element {
     },
     activeTab === 'ticket',
   );
-  const parcelQuery = usePassengerHistory(
-    {
-      type: 'PARCEL',
-      ...(selectedParcelStatus ? { status: selectedParcelStatus } : {}),
-      pageSize: PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
-    },
+  const parcelQuery = usePassengerParcelHistory(
+    parcelFilter,
+    PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
     activeTab === 'parcel',
   );
   const {
@@ -799,13 +799,13 @@ export function BookingHistoryScreen(): React.JSX.Element {
   }, [route.params?.initialTab]);
 
   const ticketItems = useMemo(
-    () => ticketData?.pages.flatMap((page) => page.items)
-      .filter((item): item is PassengerTicketHistoryItem => item.type === 'TICKET') ?? [],
+    () => flattenPassengerHistoryPages(ticketData?.pages)
+      .filter((item): item is PassengerTicketHistoryItem => item.type === 'TICKET'),
     [ticketData?.pages],
   );
   const parcelItems = useMemo(
-    () => parcelData?.pages.flatMap((page) => page.items)
-      .filter((item): item is PassengerParcelHistoryItem => item.type === 'PARCEL') ?? [],
+    () => flattenPassengerHistoryPages(parcelData?.pages)
+      .filter((item): item is PassengerParcelHistoryItem => item.type === 'PARCEL'),
     [parcelData?.pages],
   );
 
@@ -1134,6 +1134,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
       {activeTab === 'ticket' ? (
           <FlashList
             data={ticketItems}
+            extraData={openingPaymentItemKey}
             renderItem={renderTicket}
             keyExtractor={ticketKeyExtractor}
             ListEmptyComponent={ticketEmpty}
@@ -1151,6 +1152,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
       ) : (
         <FlashList
           data={parcelItems}
+          extraData={openingPaymentItemKey}
           renderItem={renderParcel}
           keyExtractor={parcelKeyExtractor}
           ListEmptyComponent={parcelEmpty}

@@ -190,6 +190,17 @@ export const passengerHistoryKeys = {
     query.to ?? 'any-to',
     query.pageSize ?? PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
   ] as const,
+  parcelGroup: (
+    userId: string,
+    filter: string,
+    pageSize: number,
+  ) => [
+    ...passengerHistoryKeys.user(userId),
+    'PARCEL',
+    'group',
+    filter,
+    pageSize,
+  ] as const,
 };
 
 const assertQueryBounds = (query: PassengerHistoryQuery): void => {

@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -75,6 +76,7 @@ import { parcelKeys } from '../api/parcelApi';
 import { formatParcelDimensions } from '../config/parcelPackage';
 import {
   getParcelCheckoutState,
+  getParcelDetailHeroCopy,
   getParcelPaymentStage,
 } from '../utils/parcelPayment';
 import {
@@ -134,6 +136,37 @@ const ParcelDetailField = React.memo(function ParcelDetailField({
   );
 });
 
+const photoKeyExtractor = (item: ParcelPhotoItem): string => item.key;
+
+const ParcelPhotoThumb = React.memo(function ParcelPhotoThumb({
+  label,
+  uri,
+  transitionMs,
+}: {
+  label: string;
+  uri: string;
+  transitionMs: number;
+}): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+  const imageSource = React.useMemo(() => ({ uri }), [uri]);
+
+  return (
+    <View style={styles.evidenceItem}>
+      <Image
+        accessibilityLabel={label}
+        source={imageSource}
+        recyclingKey={uri}
+        contentFit="cover"
+        transition={transitionMs}
+        style={styles.evidenceImage}
+      />
+      <Text style={styles.evidenceLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+});
+
 const ParcelPhotoGallery = React.memo(function ParcelPhotoGallery({
   photos,
 }: {
@@ -142,6 +175,18 @@ const ParcelPhotoGallery = React.memo(function ParcelPhotoGallery({
   const { t } = useTranslation();
   const { reduceMotion } = useMotion();
   const styles = useThemedStyles(createStyles);
+  const transitionMs = reduceMotion ? 0 : 120;
+  const renderPhoto = React.useCallback<ListRenderItem<ParcelPhotoItem>>(
+    ({ item }) => (
+      <ParcelPhotoThumb
+        label={item.label}
+        uri={item.uri}
+        transitionMs={transitionMs}
+      />
+    ),
+    [transitionMs],
+  );
+
   if (photos.length === 0) {
     return null;
   }
@@ -151,28 +196,15 @@ const ParcelPhotoGallery = React.memo(function ParcelPhotoGallery({
       <Text style={styles.evidenceTitle}>
         {t('parcel.detail.photosTitle')}
       </Text>
-      <ScrollView
+      <FlashList
+        data={photos}
         horizontal
-        nestedScrollEnabled
+        keyExtractor={photoKeyExtractor}
+        renderItem={renderPhoto}
+        style={styles.evidenceStrip}
         contentContainerStyle={styles.evidenceList}
         showsHorizontalScrollIndicator={false}
-      >
-        {photos.map(photo => (
-          <View key={photo.key} style={styles.evidenceItem}>
-            <Image
-              accessibilityLabel={photo.label}
-              source={{ uri: photo.uri }}
-              recyclingKey={photo.uri}
-              contentFit="cover"
-              transition={reduceMotion ? 0 : 120}
-              style={styles.evidenceImage}
-            />
-            <Text style={styles.evidenceLabel} numberOfLines={1}>
-              {photo.label}
-            </Text>
-          </View>
-        ))}
-      </ScrollView>
+      />
     </View>
   );
 });
@@ -206,7 +238,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const [detailAmbiguousRetry, setDetailAmbiguousRetry] = React.useState<{
     paymentMethod: PaymentMethod;
   } | null>(null);
-  const detailQuery = useParcelDetail(parcelId, paymentSessionActive);
+  // Poll whenever BE status is still a passenger-payable stage, even if the
+  // local VNPay session is gone (cancel / fail / slow IPN).
+  const detailQuery = useParcelDetail(parcelId, true);
   const [allowLeaveDespiteRetry, setAllowLeaveDespiteRetry] =
     React.useState(false);
   const refetchParcelDetail = detailQuery.refetch;
@@ -216,22 +250,12 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const paymentStage = getParcelPaymentStage(parcel?.status);
   const checkoutState = getParcelCheckoutState(parcel?.status);
   const paymentPending = checkoutState === 'awaiting_payment';
-  const checkoutFailed = checkoutState === 'failed';
-  const awaitingReview = checkoutState === 'awaiting_review';
-  const needsAttention = checkoutState === 'attention';
   const deliveryCodeActive = checkoutState === 'active';
+  const heroCopy = getParcelDetailHeroCopy(checkoutState, paymentStage);
   const trackingAvailable = isParcelTrackingEligible(parcel?.status);
   const isSender = Boolean(userId && parcel?.senderUserId === userId);
   const statusPresentation = getParcelStatusPresentation(parcel?.status);
-  const activePaymentId =
-    paymentStage === 'deposit'
-      ? parcel?.depositPaymentId
-      : paymentStage === 'final'
-        ? parcel?.balancePaymentId
-        : null;
   const expectedVnPayKind = parcelPaymentKindForStage(paymentStage);
-  const paymentProcessing =
-    paymentSessionActive || Boolean(activePaymentId && !reopenSession);
   const paymentIntentLocked = detailAmbiguousRetry !== null;
   const lockedDetailPaymentMethod =
     detailAmbiguousRetry?.paymentMethod ?? selectedPaymentMethod;
@@ -449,14 +473,6 @@ export function ParcelDetailScreen(): React.JSX.Element {
     userId,
   ]);
 
-  // Poll while BE already created a payment but we cannot reopen VNPay locally.
-  React.useEffect(() => {
-    if (!paymentPending || !activePaymentId || reopenSession) {
-      return;
-    }
-    setPaymentSessionActive(true);
-  }, [activePaymentId, paymentPending, reopenSession]);
-
   const handleContinuePayment = React.useCallback(async () => {
     if (!userId || !expectedVnPayKind || paymentOpenCoordinator.isRunning) {
       return;
@@ -563,8 +579,12 @@ export function ParcelDetailScreen(): React.JSX.Element {
     } catch (error) {
       if (isPaymentAlreadyStartedError(error)) {
         setDetailAmbiguousRetry(null);
-        setPaymentSessionActive(true);
+        setPaymentSessionActive(false);
         await refetchParcelDetail().catch(() => undefined);
+        Alert.alert(
+          t('parcel.errors.paymentAlreadyStartedTitle'),
+          t('parcel.errors.paymentAlreadyStartedDescription'),
+        );
         return;
       }
       if (isParcelAmbiguousPaymentError(error)) {
@@ -599,6 +619,26 @@ export function ParcelDetailScreen(): React.JSX.Element {
     t,
     userId,
   ]);
+
+  const handleContinuePaymentPress = React.useCallback(() => {
+    handleContinuePayment().catch(() => undefined);
+  }, [handleContinuePayment]);
+  const handleStartPaymentPress = React.useCallback(() => {
+    handleStartPayment().catch(() => undefined);
+  }, [handleStartPayment]);
+  const handlePayAgain = React.useCallback(() => {
+    setPaymentSessionActive(false);
+  }, []);
+  const handlePaymentMethodChange = React.useCallback((method: PaymentMethod) => {
+    if (!paymentIntentLocked) {
+      setSelectedPaymentMethod(method);
+    }
+  }, [paymentIntentLocked]);
+  const heroIconColor = heroCopy.iconColor === 'error'
+    ? theme.colors.error
+    : heroCopy.iconColor === 'success'
+      ? theme.colors.success
+      : theme.colors.warning;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -642,58 +682,35 @@ export function ParcelDetailScreen(): React.JSX.Element {
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
+          contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
         >
           {!fromHistory ? (
             <View style={styles.successHeader}>
-              {checkoutFailed || needsAttention ? (
+              {heroCopy.icon === 'warning' ? (
                 <WarningCircle
                   size={56}
-                  color={
-                    checkoutFailed
-                      ? theme.colors.error
-                      : theme.colors.warning
-                  }
+                  color={heroIconColor}
                   weight="duotone"
                 />
-              ) : paymentPending || awaitingReview ? (
+              ) : heroCopy.icon === 'clock' ? (
                 <Clock
                   size={56}
-                  color={theme.colors.warning}
+                  color={heroIconColor}
                   weight="duotone"
                 />
               ) : (
                 <CheckCircle
                   size={56}
-                  color={theme.colors.success}
+                  color={heroIconColor}
                   weight="fill"
                 />
               )}
               <Text style={styles.successTitle}>
-                {checkoutFailed
-                  ? t('parcel.detail.state.unavailableTitle')
-                  : paymentPending
-                  ? paymentStage === 'final'
-                    ? t('parcel.detail.state.finalPaymentTitle')
-                    : t('parcel.detail.state.depositTitle')
-                  : awaitingReview
-                  ? t('parcel.detail.state.awaitingReviewTitle')
-                  : needsAttention
-                  ? t('parcel.detail.state.attentionTitle')
-                  : t('parcel.detail.state.createdTitle')}
+                {t(heroCopy.titleKey)}
               </Text>
               <Text style={styles.successSubtitle}>
-                {checkoutFailed
-                  ? t('parcel.detail.state.unavailableDescription')
-                  : paymentPending
-                  ? paymentStage === 'final'
-                    ? t('parcel.detail.state.finalPaymentDescription')
-                    : t('parcel.detail.state.depositDescription')
-                  : awaitingReview
-                  ? t('parcel.detail.state.awaitingReviewDescription')
-                  : needsAttention
-                  ? t('parcel.detail.state.attentionDescription')
-                  : t('parcel.detail.state.createdDescription')}
+                {t(heroCopy.descriptionKey)}
               </Text>
             </View>
           ) : null}
@@ -709,17 +726,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 />
               ) : null}
               <Text style={styles.qrCaption}>
-                {checkoutFailed
-                  ? t('parcel.detail.code.unavailableRequest')
-                  : paymentPending
-                  ? paymentStage === 'final'
-                    ? t('parcel.detail.code.afterFinalPayment')
-                    : t('parcel.detail.code.afterDeposit')
-                  : awaitingReview
-                  ? t('parcel.detail.code.afterApproval')
-                  : needsAttention
-                  ? t('parcel.detail.code.unavailableStatus')
-                  : t('parcel.detail.code.showAtDropoff')}
+                {t(heroCopy.codeKey)}
               </Text>
               {deliveryCodeActive ? null : (
                 <Text selectable style={styles.ticketIdText}>
@@ -909,9 +916,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
                     styles.trackButton,
                     pressed ? styles.pressed : null,
                   ]}
-                  onPress={() => {
-                    handleContinuePayment().catch(() => undefined);
-                  }}
+                  onPress={handleContinuePaymentPress}
                 >
                   <CreditCard
                     size={18}
@@ -922,7 +927,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
                     {t('parcel.payment.openVnPayAgain')}
                   </Text>
                 </Pressable>
-              ) : paymentProcessing || paymentIntentLocked ? (
+              ) : paymentIntentLocked ? (
                 <View style={styles.verifyingPayment}>
                   <ActivityIndicator
                     size="small"
@@ -930,50 +935,62 @@ export function ParcelDetailScreen(): React.JSX.Element {
                   />
                   <View style={styles.verifyingPaymentCopy}>
                     <Text style={styles.verifyingPaymentTitle}>
-                      {paymentIntentLocked
-                        ? t('parcel.errors.ambiguousPaymentTitle')
-                        : t('parcel.payment.verifyingTitle')}
+                      {t('parcel.errors.ambiguousPaymentTitle')}
                     </Text>
                     <Text style={styles.verifyingPaymentText}>
-                      {paymentIntentLocked
-                        ? t('parcel.errors.ambiguousPaymentDescription')
-                        : t('parcel.payment.verifyingDescription')}
+                      {t('parcel.errors.ambiguousPaymentDescription')}
                     </Text>
                   </View>
-                  {paymentIntentLocked ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      hitSlop={8}
-                      disabled={isStartingPayment}
-                      onPress={() => {
-                        handleStartPayment().catch(() => undefined);
-                      }}
-                    >
-                      <Text style={styles.refreshPaymentText}>
-                        {t('parcel.actions.retryPreviousRequest')}
-                      </Text>
-                    </Pressable>
-                  ) : (
-                    <Pressable
-                      accessibilityRole="button"
-                      hitSlop={8}
-                      onPress={handleRefreshPayment}
-                    >
-                      <Text style={styles.refreshPaymentText}>
-                        {t('parcel.actions.refresh')}
-                      </Text>
-                    </Pressable>
-                  )}
+                  <Pressable
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    disabled={isStartingPayment}
+                    onPress={handleStartPaymentPress}
+                  >
+                    <Text style={styles.refreshPaymentText}>
+                      {t('parcel.actions.retryPreviousRequest')}
+                    </Text>
+                  </Pressable>
                 </View>
               ) : (
                 <>
+                  {paymentSessionActive ? (
+                    <View style={styles.verifyingPayment}>
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.primary}
+                      />
+                      <View style={styles.verifyingPaymentCopy}>
+                        <Text style={styles.verifyingPaymentTitle}>
+                          {t('parcel.payment.verifyingTitle')}
+                        </Text>
+                        <Text style={styles.verifyingPaymentText}>
+                          {t('parcel.payment.verifyingDescription')}
+                        </Text>
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        hitSlop={8}
+                        onPress={handleRefreshPayment}
+                      >
+                        <Text style={styles.refreshPaymentText}>
+                          {t('parcel.actions.refresh')}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        hitSlop={8}
+                        onPress={handlePayAgain}
+                      >
+                        <Text style={styles.refreshPaymentText}>
+                          {t('parcel.payment.payAgain')}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
                   <ParcelPaymentMethodSelector
                     value={lockedDetailPaymentMethod}
-                    onChange={method => {
-                      if (!paymentIntentLocked) {
-                        setSelectedPaymentMethod(method);
-                      }
-                    }}
+                    onChange={handlePaymentMethodChange}
                     requiredAmount={paymentAmount}
                     walletBalance={walletBalanceQuery.data?.balance}
                     walletIsLoading={walletBalanceQuery.isLoading}
@@ -989,9 +1006,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
                       isStartingPayment ? styles.trackButtonDisabled : null,
                       pressed && !isStartingPayment ? styles.pressed : null,
                     ]}
-                    onPress={() => {
-                      handleStartPayment().catch(() => undefined);
-                    }}
+                    onPress={handleStartPaymentPress}
                   >
                     {isStartingPayment ? (
                       <ActivityIndicator
@@ -1152,6 +1167,7 @@ const createStyles = (theme: AppTheme) => ({
   evidenceCard: {
     ...theme.components.card,
     borderRadius: borderRadius.xl,
+    borderCurve: 'continuous' as const,
     padding: spacing.lg,
     marginBottom: spacing.xxl,
   },
@@ -1160,6 +1176,9 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
     marginBottom: spacing.md,
+  },
+  evidenceStrip: {
+    height: 140,
   },
   evidenceList: {
     gap: spacing.sm,
@@ -1172,6 +1191,7 @@ const createStyles = (theme: AppTheme) => ({
     width: 148,
     height: 108,
     borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
     backgroundColor: theme.colors.surfaceAlt,
   },
   evidenceLabel: {
@@ -1193,6 +1213,7 @@ const createStyles = (theme: AppTheme) => ({
       ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
     borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: theme.effects.isLiquid
@@ -1392,6 +1413,7 @@ const createStyles = (theme: AppTheme) => ({
   paymentActionCard: {
     ...theme.components.card,
     borderRadius: borderRadius.xl,
+    borderCurve: 'continuous' as const,
     padding: spacing.lg,
     marginBottom: spacing.xxl,
   },
@@ -1405,6 +1427,7 @@ const createStyles = (theme: AppTheme) => ({
     width: 44,
     height: 44,
     borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.primaryFaded,
@@ -1427,6 +1450,7 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.md,
     padding: spacing.sm,
     borderRadius: borderRadius.md,
+    borderCurve: 'continuous' as const,
     backgroundColor: theme.colors.surfaceAlt,
     borderLeftWidth: 3,
     borderLeftColor: theme.colors.warning,
@@ -1440,6 +1464,7 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
     backgroundColor: theme.colors.primaryFaded,
   },
   verifyingPaymentCopy: {

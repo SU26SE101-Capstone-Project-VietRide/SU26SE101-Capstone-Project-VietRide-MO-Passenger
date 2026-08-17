@@ -9,8 +9,8 @@ import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { ArrowRight, Package, Truck } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useReceivedParcels } from '@features/parcel/hooks/useParcelQueries';
-import type { ReceivedParcel } from '@features/parcel/types';
+import { usePassengerHistory } from '@features/profile/hooks/usePassengerHistory';
+import type { PassengerParcelHistoryItem } from '@features/profile/types';
 import { getParcelStatusPresentation } from '@features/parcel/utils/parcelPresentation';
 import { StatusChip } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -24,7 +24,7 @@ import {
 } from '@shared/theme';
 import { formatDate, toIntlLocale } from '@shared/utils/format';
 
-const parcelKeyExtractor = (item: ReceivedParcel): string => item.parcelId;
+const parcelKeyExtractor = (item: PassengerParcelHistoryItem): string => item.id;
 
 const normalizePageSize = (pageSize: number): number => {
   if (!Number.isFinite(pageSize)) return 5;
@@ -133,26 +133,31 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const safePageSize = normalizePageSize(pageSize);
-  const parcelsQuery = useReceivedParcels(1, safePageSize);
+  const parcelsQuery = usePassengerHistory({
+    type: 'PARCEL',
+    pageSize: safePageSize,
+  });
   const refetchParcels = parcelsQuery.refetch;
   const parcels = useMemo(
-    () => parcelsQuery.data?.items ?? [],
-    [parcelsQuery.data?.items],
+    () => (parcelsQuery.data?.pages[0]?.items ?? []).filter(
+      (item): item is PassengerParcelHistoryItem => item.type === 'PARCEL',
+    ),
+    [parcelsQuery.data?.pages],
   );
 
   const handleRetry = useCallback(() => {
     refetchParcels().catch(() => undefined);
   }, [refetchParcels]);
 
-  const renderParcel: ListRenderItem<ReceivedParcel> = useCallback(({ item }) => (
+  const renderParcel: ListRenderItem<PassengerParcelHistoryItem> = useCallback(({ item }) => (
     <RecentParcelCard
       createdAt={item.createdAt}
-      destinationName={item.destinationStation?.name ?? t('home.parcels.destinationPending')}
-      eta={item.eta}
+      destinationName={item.destinationName ?? t('home.parcels.destinationPending')}
+      eta={item.estimatedArrivalTime}
       onPress={onParcelPress}
-      originName={item.originStation?.name ?? t('home.parcels.originPending')}
-      parcelCode={item.parcelCode}
-      parcelId={item.parcelId}
+      originName={item.originName ?? t('home.parcels.originPending')}
+      parcelCode={item.code}
+      parcelId={item.id}
       status={item.status}
       tripId={item.tripId}
     />
@@ -178,7 +183,10 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
           accessibilityRole="button"
           accessibilityLabel={t('home.parcels.retryAccessibility')}
           onPress={handleRetry}
-          style={styles.retryButton}
+          style={({ pressed }) => [
+            styles.retryButton,
+            pressed ? styles.pressed : null,
+          ]}
         >
           <Text style={styles.retryText}>{t('common.retry')}</Text>
         </Pressable>
@@ -200,6 +208,7 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
         renderItem={renderParcel}
         showsHorizontalScrollIndicator={false}
         style={styles.list}
+        contentContainerStyle={styles.listContent}
       />
     );
   }
@@ -213,7 +222,10 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
             accessibilityRole="button"
             accessibilityLabel={t('home.parcels.viewAllAccessibility')}
             onPress={onViewAll}
-            style={styles.viewAllButton}
+            style={({ pressed }) => [
+              styles.viewAllButton,
+              pressed ? styles.pressed : null,
+            ]}
           >
             <Text style={styles.viewAllText}>{t('home.parcels.viewAll')}</Text>
             <ArrowRight size={15} color={theme.colors.primary} weight="bold" />
@@ -257,13 +269,16 @@ const createStyles = (theme: AppTheme) => ({
   list: {
     height: 188,
   },
+  listContent: {
+    gap: spacing.md,
+  },
   card: {
     ...theme.components.card,
     width: 276,
     minHeight: 176,
-    marginRight: spacing.md,
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
     gap: spacing.sm,
   },
   cardHeader: {
@@ -276,6 +291,7 @@ const createStyles = (theme: AppTheme) => ({
     width: 38,
     height: 38,
     borderRadius: borderRadius.md,
+    borderCurve: 'continuous' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     backgroundColor: theme.colors.primaryFaded,
@@ -318,6 +334,7 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
+    borderCurve: 'continuous' as const,
     backgroundColor: theme.effects.isLiquid
       ? theme.effects.contentSurfaceSoft
       : theme.colors.surfaceAlt,
@@ -341,6 +358,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
+    borderCurve: 'continuous' as const,
     backgroundColor: theme.colors.primary,
   },
   retryText: {

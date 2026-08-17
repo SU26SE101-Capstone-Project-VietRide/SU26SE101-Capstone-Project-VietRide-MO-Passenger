@@ -268,6 +268,22 @@ export function useWalletRefreshOnPaymentReturn(
     return true;
   }, [userId]);
 
+  /** SDK returned without leaving the app — still refresh and unlock submit. */
+  const completeIfStillAwaiting = useCallback(() => {
+    const armedUserId = armedUserIdRef.current;
+    if (!armedUserId) {
+      return false;
+    }
+
+    armedUserIdRef.current = undefined;
+    gateRef.current?.cancel();
+    setIsAwaitingReturn(false);
+    refreshWalletForUser(queryClient, armedUserId)
+      .then(() => callbackRef.current?.(true))
+      .catch(() => callbackRef.current?.(false));
+    return true;
+  }, [queryClient]);
+
   useEffect(() => {
     const subscription = AppState.addEventListener(
       'change',
@@ -300,6 +316,7 @@ export function useWalletRefreshOnPaymentReturn(
   return {
     armPaymentReturn,
     cancelPaymentReturn,
+    completeIfStillAwaiting,
     isAwaitingReturn,
   } as const;
 }
