@@ -25,7 +25,7 @@ import { APP_LOGO } from '@shared/constants/assets';
 import { useBookingStore } from '@features/booking/store/useBookingStore';
 import type { BookingSearchPrefill } from '@features/booking/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import {
   borderRadius,
   fontFamilies,
@@ -73,6 +73,7 @@ export function ChatbotScreen(): React.JSX.Element {
   );
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { isCompact } = useResponsiveLayout();
   const applySearchPrefill = useBookingStore((state) => state.applySearchPrefill);
   const {
     availability,
@@ -105,12 +106,16 @@ export function ChatbotScreen(): React.JSX.Element {
   const composerLocked = availability !== 'ready' || !isOnline;
   const promptsLocked = composerLocked || isStreaming;
   const threadContentStyle = useMemo(
-    () => (
-      threadHeight > 0
-        ? [styles.messageListContent, { minHeight: threadHeight }]
-        : styles.messageListContent
-    ),
-    [styles.messageListContent, threadHeight],
+    () => {
+      const baseStyles = [
+        styles.messageListContent,
+        isCompact ? styles.messageListContentCompact : null,
+      ];
+
+      return threadHeight > 0
+        ? [...baseStyles, { minHeight: threadHeight }]
+        : baseStyles;
+    }, [isCompact, styles.messageListContent, styles.messageListContentCompact, threadHeight],
   );
   const listExtraData = `${pendingFeedbackId ?? ''}:${i18n.language}`;
 
@@ -273,8 +278,10 @@ export function ChatbotScreen(): React.JSX.Element {
               transition={0}
             />
           </View>
-          <View>
-            <Text style={styles.botName}>{t('chatbot.title')}</Text>
+          <View style={styles.botText}>
+            <Text style={styles.botName} numberOfLines={1}>
+              {t('chatbot.title')}
+            </Text>
             <View style={styles.statusRow}>
               <View
                 style={[
@@ -282,7 +289,9 @@ export function ChatbotScreen(): React.JSX.Element {
                   composerLocked ? styles.statusDotMuted : null,
                 ]}
               />
-              <Text style={styles.botStatus}>{statusLabel}</Text>
+              <Text style={styles.botStatus} numberOfLines={1}>
+                {statusLabel}
+              </Text>
             </View>
           </View>
         </View>
@@ -370,9 +379,9 @@ const createStyles = (theme: AppTheme) => ({
     minHeight: 64,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    gap: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.effects.isLiquid
       ? theme.effects.contentBorderStrong
@@ -383,15 +392,23 @@ const createStyles = (theme: AppTheme) => ({
   },
   headerButton: {
     ...theme.components.headerButton,
+    flexShrink: 0,
   },
   botInfo: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: spacing.sm,
   },
+  botText: {
+    flex: 1,
+    minWidth: 0,
+  },
   botAvatar: {
     width: 38,
     height: 38,
+    flexShrink: 0,
     borderRadius: borderRadius.full,
     borderCurve: 'continuous' as const,
     overflow: 'hidden' as const,
@@ -409,6 +426,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
   },
   statusRow: {
+    minWidth: 0,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: spacing.xs,
@@ -417,6 +435,7 @@ const createStyles = (theme: AppTheme) => ({
   statusDot: {
     width: 6,
     height: 6,
+    flexShrink: 0,
     borderRadius: borderRadius.full,
     backgroundColor: theme.colors.success,
   },
@@ -424,6 +443,8 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.textTertiary,
   },
   botStatus: {
+    flex: 1,
+    minWidth: 0,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
@@ -434,6 +455,11 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
     paddingBottom: spacing.xl,
+  },
+  messageListContentCompact: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   feedbackError: {
     fontFamily: fontFamilies.medium,
