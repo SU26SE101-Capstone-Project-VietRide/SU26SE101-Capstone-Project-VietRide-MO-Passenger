@@ -19,12 +19,15 @@ import { House, Bell, ClockCounterClockwise, User } from 'phosphor-react-native'
 
 import { spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import { useMotion } from '@shared/motion';
 import { useTabBarStore } from '@shared/store/useTabBarStore';
 import type { AppTheme } from '@shared/theme';
 import { APP_LOGO } from '@shared/constants/assets';
-import { FLOATING_TAB_BAR_HEIGHT } from '@shared/constants/layout';
+import {
+  FLOATING_TAB_BAR_COMPACT_HEIGHT,
+  FLOATING_TAB_BAR_HEIGHT,
+} from '@shared/constants/layout';
 import {
   getNotificationBadgePresentation,
   NotificationCountBadge,
@@ -44,9 +47,13 @@ export function CustomTabBar({
   const theme = useTheme();
   const { reduceMotion } = useMotion();
   const styles = useThemedStyles(createStyles);
+  const { isCompact: isCompactLayout } = useResponsiveLayout();
   const isCompact = useTabBarStore((tabBarState) => tabBarState.isCompact);
   const setCompact = useTabBarStore((tabBarState) => tabBarState.setCompact);
   const bottomInset = Math.max(insets.bottom, spacing.sm);
+  const tabBarHeight = isCompactLayout
+    ? FLOATING_TAB_BAR_COMPACT_HEIGHT
+    : FLOATING_TAB_BAR_HEIGHT;
   const compactProgress = useSharedValue(isCompact ? 1 : 0);
 
   useEffect(() => {
@@ -83,10 +90,17 @@ export function CustomTabBar({
     <View
       style={[
         styles.tabBarContainer,
-        { bottom: bottomInset, height: CUSTOM_TAB_BAR_BASE_HEIGHT },
+        isCompactLayout ? styles.tabBarContainerCompact : null,
+        { bottom: bottomInset, height: tabBarHeight },
       ]}
     >
-      <Animated.View style={[styles.tabBarAnimatedGroup, animatedTabBarStyle]}>
+      <Animated.View
+        style={[
+          styles.tabBarAnimatedGroup,
+          isCompactLayout ? styles.tabBarAnimatedGroupCompact : null,
+          animatedTabBarStyle,
+        ]}
+      >
         <View style={styles.tabBarOuterHalo} pointerEvents="none" />
         <View style={styles.tabBarShadowWide} pointerEvents="none" />
         <View style={styles.tabBarShadowTight} pointerEvents="none" />
@@ -109,8 +123,6 @@ export function CustomTabBar({
             }
           };
 
-          // Chatbot is a root modal now; its historical center slot is inserted below.
-          // Standard tabs mapping
           let label = '';
           let IconComponent = House;
 
@@ -139,7 +151,12 @@ export function CustomTabBar({
           return (
             <React.Fragment key={route.key}>
               {route.name === 'BookingHistory' ? (
-                <View style={styles.fabSlot}>
+                <View
+                  style={[
+                    styles.fabSlot,
+                    isCompactLayout ? styles.fabSlotCompact : null,
+                  ]}
+                >
                   <Pressable
                     onPress={() => {
                       setCompact(false);
@@ -149,6 +166,7 @@ export function CustomTabBar({
                     accessibilityLabel={t('shared.tabBar.assistantAccessibility')}
                     style={({ pressed }) => [
                       styles.fabButton,
+                      isCompactLayout ? styles.fabButtonCompact : null,
                       pressed ? styles.pressed : null,
                     ]}
                   >
@@ -168,14 +186,23 @@ export function CustomTabBar({
                 accessibilityState={{ selected: isFocused }}
                 style={({ pressed }) => [
                   styles.tabButton,
+                  isCompactLayout ? styles.tabButtonCompact : null,
                   pressed ? styles.pressed : null,
                 ]}
               >
-                {isFocused ? <View style={styles.activeTabFill} pointerEvents="none" /> : null}
+                {isFocused ? (
+                  <View
+                    style={[
+                      styles.activeTabFill,
+                      isCompactLayout ? styles.activeTabFillCompact : null,
+                    ]}
+                    pointerEvents="none"
+                  />
+                ) : null}
                 <View style={styles.tabContent}>
                   <View style={styles.tabIconAnchor}>
                     <IconComponent
-                      size={22}
+                      size={isCompactLayout ? 20 : 22}
                       weight={isFocused ? 'fill' : 'regular'}
                       color={isFocused ? theme.colors.textInverse : theme.colors.textSecondary}
                     />
@@ -188,7 +215,10 @@ export function CustomTabBar({
                             ? theme.effects.tabBarSurface
                             : '#FFFFFF'}
                         count={badgePresentation.count}
-                        style={styles.notificationBadgePosition}
+                        style={[
+                          styles.notificationBadgePosition,
+                          isCompactLayout ? styles.notificationBadgePositionCompact : null,
+                        ]}
                       />
                     ) : null}
                   </View>
@@ -210,6 +240,10 @@ const createStyles = (theme: AppTheme) => ({
     right: spacing.lg,
     overflow: 'visible',
   },
+  tabBarContainerCompact: {
+    left: spacing.md,
+    right: spacing.md,
+  },
   tabBarAnimatedGroup: {
     position: 'absolute',
     top: 0,
@@ -222,6 +256,10 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 38,
     paddingHorizontal: spacing.sm,
     overflow: 'visible',
+  },
+  tabBarAnimatedGroupCompact: {
+    borderRadius: 34,
+    paddingHorizontal: spacing.xs,
   },
   tabBarOuterHalo: {
     position: 'absolute',
@@ -291,6 +329,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   tabButton: {
     flex: 1,
+    minWidth: 0,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
@@ -298,6 +337,10 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 28,
     overflow: 'visible',
     zIndex: 2,
+  },
+  tabButtonCompact: {
+    height: 52,
+    borderRadius: 26,
   },
   activeTabFill: {
     position: 'absolute',
@@ -310,6 +353,12 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.primary,
     borderWidth: 1,
     borderColor: theme.isDark ? theme.colors.primaryLight : theme.colors.primary,
+  },
+  activeTabFillCompact: {
+    top: 5,
+    marginLeft: -21,
+    width: 42,
+    height: 42,
   },
   tabContent: {
     position: 'relative',
@@ -333,6 +382,9 @@ const createStyles = (theme: AppTheme) => ({
     right: -12,
     zIndex: 3,
   },
+  notificationBadgePositionCompact: {
+    right: -9,
+  },
   activeDot: {
     width: 4,
     height: 4,
@@ -353,6 +405,9 @@ const createStyles = (theme: AppTheme) => ({
     overflow: 'visible',
     zIndex: 3,
   },
+  fabSlotCompact: {
+    width: 56,
+  },
   fabButton: {
     position: 'relative',
     top: -16,
@@ -366,6 +421,12 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
     ...theme.effects.floatingShadow,
     overflow: 'hidden',
+  },
+  fabButtonCompact: {
+    top: -14,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
   },
   pressed: {
     opacity: 0.82,
