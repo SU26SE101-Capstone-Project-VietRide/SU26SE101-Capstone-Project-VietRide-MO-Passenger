@@ -11,3 +11,4 @@ export { useThemedStyles } from './useThemedStyles';
 export { useApiError } from './useApiError';
 export { useTabBarScrollBehavior } from './useTabBarScrollBehavior';
 export { useFloatingTabBarContentInset } from './useFloatingTabBarContentInset';
+export { useResponsiveLayout } from './useResponsiveLayout';
