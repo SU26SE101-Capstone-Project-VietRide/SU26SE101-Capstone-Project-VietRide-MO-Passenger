@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check, FunnelSimple } from 'phosphor-react-native';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import { fontFamilies, fontSizes, spacing, type AppTheme } from '@shared/theme';
 
 export interface StepProgressBarProps {
@@ -36,9 +36,10 @@ function StepProgressBarComponent({
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const { isCompact } = useResponsiveLayout();
 
   return (
-    <View style={styles.navbar}>
+    <View style={[styles.navbar, isCompact ? styles.navbarCompact : null]}>
       <View style={styles.navHeaderRow}>
         <Pressable
           accessibilityRole="button"
@@ -149,6 +150,7 @@ function StepProgressBarComponent({
                   numberOfLines={2}
                   style={[
                     styles.stepLabel,
+                    isCompact ? styles.stepLabelCompact : null,
                     isActive ? styles.stepLabelActive : null,
                   ]}
                 >
@@ -173,6 +175,9 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: 'transparent',
     zIndex: 10,
   },
+  navbarCompact: {
+    paddingHorizontal: spacing.md,
+  },
   navHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -180,24 +185,27 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.md,
   },
   navButtonLeft: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
+    borderRadius: 22,
     backgroundColor: theme.colors.primaryFaded,
   },
   navButtonRight: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
+    borderRadius: 22,
     backgroundColor: theme.colors.primary,
   },
   navButtonPlaceholder: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
+    flexShrink: 0,
   },
   pressed: {
     opacity: 0.82,
@@ -206,6 +214,7 @@ const createStyles = (theme: AppTheme) => ({
   navHeaderTitleContainer: {
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
     paddingHorizontal: spacing.sm,
   },
   navTitle: {
@@ -288,6 +297,9 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.xs,
     opacity: 0.7,
     textAlign: 'center',
+  },
+  stepLabelCompact: {
+    paddingHorizontal: 0,
   },
   stepLabelActive: {
     fontFamily: fontFamilies.bold,
