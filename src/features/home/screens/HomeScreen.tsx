@@ -15,7 +15,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useFloatingTabBarContentInset, useTabBarScrollBehavior, useThemedStyles } from '@shared/hooks';
+import {
+  useFloatingTabBarContentInset,
+  useResponsiveLayout,
+  useTabBarScrollBehavior,
+  useThemedStyles,
+} from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
@@ -62,13 +67,13 @@ export function HomeScreen(): React.JSX.Element {
   const user = useAuthStore(state => state.user);
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { isCompact, contentPaddingHorizontal } = useResponsiveLayout();
   const handleTabBarScroll = useTabBarScrollBehavior();
   const bottomTabClearance = useFloatingTabBarContentInset();
   const unreadNotificationCount = useNotificationUnreadCount().data ?? 0;
 
   const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
 
-  // Booking flow state/actions
   const searchParams = useBookingStore(state => state.searchParams);
   const appLanguage = i18n.resolvedLanguage ?? i18n.language;
   const departureDateLabel = useMemo(() => {
@@ -112,7 +117,6 @@ export function HomeScreen(): React.JSX.Element {
       searchParams.destinationLocationCode,
   );
 
-  // Parcel flow state/actions
   const fromCity = useParcelStore(state => state.fromCity);
   const toCity = useParcelStore(state => state.toCity);
   const fromLocationCode = useParcelStore(state => state.fromLocationCode);
@@ -183,7 +187,6 @@ export function HomeScreen(): React.JSX.Element {
   }, [clearRecentSearches]);
 
   const handleWalletPress = useCallback(() => {
-    // Seed ProfileOverview under direct Wallet entries for reliable system back.
     navigation.navigate('Profile', {
       screen: 'Wallet',
       initial: false,
@@ -232,7 +235,6 @@ export function HomeScreen(): React.JSX.Element {
     [setSearchParams],
   );
 
-  // Parcel handlers
   const openParcelCityPicker = useCallback(
     (mode: 'from' | 'to') => {
       navigation.navigate('Parcel', {
@@ -260,7 +262,6 @@ export function HomeScreen(): React.JSX.Element {
         <View style={styles.secondaryGlow} />
       </View>
 
-      {/* Header - TopAppBar */}
       <ProfileHeader
         showBackButton={false}
         userName={user?.fullName}
@@ -268,18 +269,18 @@ export function HomeScreen(): React.JSX.Element {
         notificationBadgeCount={unreadNotificationCount}
       />
 
-      {/* Main Content Area */}
       <AppKeyboardAwareScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomTabClearance }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: contentPaddingHorizontal, paddingBottom: bottomTabClearance },
+        ]}
         scrollIndicatorInsets={{ bottom: bottomTabClearance }}
         onScroll={handleTabBarScroll}
         scrollEventThrottle={16}
       >
-        {/* Unified Tabbed Form Container */}
-        <View style={styles.formContainer}>
-          {/* Tabs Segment Control */}
+        <View style={[styles.formContainer, isCompact ? styles.formContainerCompact : null]}>
           <View style={styles.tabHeader}>
             <Pressable
               accessibilityRole="tab"
@@ -302,6 +303,7 @@ export function HomeScreen(): React.JSX.Element {
                 weight={activeTab === 'ticket' ? 'fill' : 'regular'}
               />
               <Text
+                numberOfLines={1}
                 style={[
                   styles.tabText,
                   activeTab === 'ticket' ? styles.activeTabText : null,
@@ -332,6 +334,7 @@ export function HomeScreen(): React.JSX.Element {
                 weight={activeTab === 'parcel' ? 'fill' : 'regular'}
               />
               <Text
+                numberOfLines={1}
                 style={[
                   styles.tabText,
                   activeTab === 'parcel' ? styles.activeTabText : null,
@@ -342,10 +345,8 @@ export function HomeScreen(): React.JSX.Element {
             </Pressable>
           </View>
 
-          {/* Tab Body */}
           <View style={styles.formBody}>
             {activeTab === 'ticket' ? (
-              // Booking Form
               <View>
                 <Text style={styles.fieldLabel}>{t('home.ticket.departureLocation')}</Text>
                 <Pressable
@@ -360,6 +361,7 @@ export function HomeScreen(): React.JSX.Element {
                     weight="bold"
                   />
                   <Text
+                    numberOfLines={1}
                     style={
                       searchParams.from
                         ? styles.selectorText
@@ -372,9 +374,7 @@ export function HomeScreen(): React.JSX.Element {
                   </Text>
                 </Pressable>
 
-                <Text
-                  style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}
-                >
+                <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>
                   {t('home.ticket.destinationLocation')}
                 </Text>
                 <View style={styles.toRow}>
@@ -458,7 +458,9 @@ export function HomeScreen(): React.JSX.Element {
                     </Pressable>
                   ) : null}
                   <View style={[styles.metaField, styles.switchField]}>
-                    <Text style={styles.switchLabel}>{t('home.ticket.roundTrip')}</Text>
+                    <Text style={styles.switchLabel} numberOfLines={1}>
+                      {t('home.ticket.roundTrip')}
+                    </Text>
                     <Pressable
                       accessibilityRole="switch"
                       accessibilityLabel={t('home.ticket.roundTrip')}
@@ -510,7 +512,6 @@ export function HomeScreen(): React.JSX.Element {
                 </Pressable>
               </View>
             ) : (
-              // Parcel Form
               <View>
                 <Text style={styles.fieldLabel}>{t('home.parcel.from')}</Text>
                 <Pressable
@@ -525,6 +526,7 @@ export function HomeScreen(): React.JSX.Element {
                     weight="bold"
                   />
                   <Text
+                    numberOfLines={1}
                     style={
                       fromCity
                         ? styles.selectorText
@@ -535,9 +537,7 @@ export function HomeScreen(): React.JSX.Element {
                   </Text>
                 </Pressable>
 
-                <Text
-                  style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}
-                >
+                <Text style={[styles.fieldLabel, styles.fieldLabelWithTopMargin]}>
                   {t('home.parcel.to')}
                 </Text>
                 <View style={styles.toRow}>
@@ -553,9 +553,7 @@ export function HomeScreen(): React.JSX.Element {
                       weight="bold"
                     />
                     <Text
-                      style={
-                        toCity ? styles.selectorText : styles.selectorPlaceholder
-                      }
+                      style={toCity ? styles.selectorText : styles.selectorPlaceholder}
                       numberOfLines={1}
                     >
                       {toCity || t('home.parcel.selectDestination')}
@@ -680,7 +678,6 @@ const createStyles = (theme: AppTheme) => ({
     transform: [{ scaleX: 0.78 }, { scaleY: 1.18 }, { rotate: '18deg' }],
   },
   scrollContent: {
-    paddingHorizontal: spacing.xl,
     paddingTop: spacing.xs,
     paddingBottom: 80,
     zIndex: 5,
@@ -690,6 +687,9 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 28,
     padding: spacing.xl,
     marginVertical: spacing.md,
+  },
+  formContainerCompact: {
+    padding: spacing.lg,
   },
   tabHeader: {
     flexDirection: 'row',
@@ -706,6 +706,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   tabButton: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -718,6 +719,8 @@ const createStyles = (theme: AppTheme) => ({
     boxShadow: 'none',
   },
   tabText: {
+    minWidth: 0,
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
@@ -739,6 +742,7 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.md,
   },
   selectorField: {
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     ...theme.components.field,
@@ -749,15 +753,18 @@ const createStyles = (theme: AppTheme) => ({
   },
   selectorFieldGrow: {
     flex: 1,
+    minWidth: 0,
   },
   selectorText: {
     flex: 1,
+    minWidth: 0,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },
   selectorPlaceholder: {
     flex: 1,
+    minWidth: 0,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.sm,
     color: theme.colors.textTertiary,
@@ -776,8 +783,9 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
   },
   swapBtn: {
-    width: 36,
-    height: 36,
+    flexShrink: 0,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
@@ -790,6 +798,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   metaRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.lg,
   },
@@ -797,17 +806,20 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.md,
   },
   metaField: {
-    flex: 1,
+    minWidth: 140,
+    flexGrow: 1,
+    flexBasis: 140,
     flexDirection: 'row',
     alignItems: 'center',
     ...theme.components.field,
     borderRadius: 16,
-    height: 44,
+    minHeight: 44,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
   metaText: {
     flex: 1,
+    minWidth: 0,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
@@ -817,6 +829,8 @@ const createStyles = (theme: AppTheme) => ({
     paddingRight: spacing.sm,
   },
   switchLabel: {
+    flex: 1,
+    minWidth: 0,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
@@ -830,6 +844,7 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
   },
   switchHitArea: {
+    flexShrink: 0,
     width: 48,
     height: 44,
     alignItems: 'center',
@@ -857,26 +872,29 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
     ...theme.components.primaryButton,
     borderRadius: 16,
-    height: 48,
+    minHeight: 48,
     marginTop: spacing.xl,
     gap: spacing.xs,
   },
   searchButtonText: {
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
+    textAlign: 'center',
   },
   searchButtonDisabled: {
     opacity: 0.45,
   },
   nextButton: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     ...theme.components.primaryButton,
     borderRadius: 16,
-    height: 48,
+    minHeight: 48,
     gap: spacing.xs,
   },
   parcelActionsRow: {
