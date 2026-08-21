@@ -47,6 +47,7 @@ interface ParcelStore {
   category: string;
   cod: boolean;
   estimatedValue: string;
+  quantity: number;
   photos: string[];
   setPackage: (
     partial: Partial<
@@ -60,6 +61,7 @@ interface ParcelStore {
         | 'category'
         | 'cod'
         | 'estimatedValue'
+        | 'quantity'
         | 'photos'
       >
     >,
@@ -148,12 +150,19 @@ export const useParcelStore = create<ParcelStore>(set => ({
   category: 'Documents',
   cod: false,
   estimatedValue: '',
+  quantity: 1,
   photos: [],
-  setPackage: partial =>
+  setPackage: partial => {
+    if (partial.quantity !== undefined && (
+      !Number.isInteger(partial.quantity) || partial.quantity < 1 || partial.quantity > 10_000
+    )) {
+      throw new Error('Parcel quantity must be an integer from 1 to 10000.');
+    }
     set({
       ...(partial.size ? getParcelDimensions(partial.size) : {}),
       ...partial,
-    }),
+    });
+  },
 
   // ─── Stations ───────────────────────────────────────
   receivingStation: undefined,
@@ -181,6 +190,7 @@ export const useParcelStore = create<ParcelStore>(set => ({
       category: 'Documents',
       cod: false,
       estimatedValue: '',
+      quantity: 1,
       photos: [],
       receivingStation: undefined,
       dropoffStation: undefined,

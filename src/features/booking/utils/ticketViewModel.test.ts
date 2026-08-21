@@ -269,6 +269,7 @@ const historyItem: PassengerTicketHistoryItem = {
         displayName: 'Limousine',
       },
     },
+    shuttleRequests: [],
   },
   parcel: null,
 };

@@ -2,6 +2,16 @@ import type {
   BackendPaymentMethod,
   PaymentMethod,
 } from '@shared/utils/paymentMethod';
+import type {
+  ParcelCompensationPolicySnapshot,
+  ParcelOperatorSummary,
+  ParcelPassengerAction,
+  ParcelReliabilityLocation,
+  ParcelReliabilitySummary,
+  ParcelReliabilityTrip,
+} from './reliability';
+
+export * from './reliability';
 
 export type ParcelSize = 'small' | 'medium' | 'large';
 export const PARCEL_SIZE_CATEGORIES = [
@@ -80,6 +90,7 @@ export interface ParcelBookingState {
   category: string;
   cod: boolean;
   estimatedValue?: string;
+  quantity: number;
   photos: string[];
   paymentMethod: ParcelPaymentMethod;
   promoApplied: boolean;
@@ -183,6 +194,8 @@ export interface CreateParcelPayload {
   deliveryMethod: 'TERMINAL_PICKUP';
   paymentMethod: ParcelBackendPaymentMethod;
   voucherCode?: string | null;
+  declaredValueVnd: number | null;
+  quantity: number;
 }
 
 export interface CreateParcelResult {
@@ -198,6 +211,7 @@ export interface CreateParcelResult {
   depositPaidVnd: number;
   voucherCode: string | null;
   settlementPolicyVersion: number;
+  compensationPolicy: ParcelCompensationPolicySnapshot | null;
 }
 
 export interface StartParcelPaymentInput {
@@ -240,7 +254,7 @@ export interface ParcelFinalPaymentResult {
 export interface ParcelDetail {
   parcelId: string;
   parcelCode: string;
-  status: ParcelStatus;
+  status: ParcelStatus | (string & {});
   senderUserId: string;
   recipientUserId: string | null;
   recipientName: string | null;
@@ -249,6 +263,9 @@ export interface ParcelDetail {
   tripId: string;
   dropoffStopId: string | null;
   description: string | null;
+  quantity: number;
+  /** Rolling-contract field. Current v1.91 detail omits it; trace carries it. */
+  declaredValueVnd: number | null;
   photoUrl: string | null;
   checkInPhotoUrls: string[] | null;
   deliveryPhotoUrls: string[] | null;
@@ -311,12 +328,18 @@ export interface ParcelDetail {
   originStationName: string | null;
   destinationStationName: string | null;
   eta: string | null;
+  operator: ParcelOperatorSummary | null;
+  trip: ParcelReliabilityTrip | null;
+  dropoffLocation: ParcelReliabilityLocation | null;
+  compensationPolicySnapshot: ParcelCompensationPolicySnapshot | null;
+  reliabilitySummary: ParcelReliabilitySummary | null;
+  availableActions: ParcelPassengerAction[];
 }
 
 export interface ReceivedParcel {
   parcelId: string;
   parcelCode: string;
-  status: ParcelStatus;
+  status: ParcelStatus | (string & {});
   originStation: { id: string; name: string } | null;
   destinationStation: { id: string; name: string } | null;
   eta: string | null;
@@ -326,4 +349,36 @@ export interface ReceivedParcel {
   createdAt: string;
   operatorId: string;
   tripId: string;
+  operator: ParcelOperatorSummary | null;
+  dropoffLocation: ParcelReliabilityLocation | null;
+  reliability: ParcelReliabilitySummary | null;
+}
+
+export interface SentParcel {
+  parcelId: string;
+  parcelCode: string;
+  tripId: string;
+  status: ParcelStatus | (string & {});
+  createdAt: string;
+  totalAmount: number;
+  originName: string | null;
+  destinationName: string | null;
+  departureDateTime: string | null;
+  estimatedArrivalTime: string | null;
+  bookingId: string | null;
+  recipientName: string;
+  sizeCategory: ParcelSizeCategory | string;
+  photoUrl: string | null;
+  deliveryMethod: string;
+  operator: ParcelOperatorSummary | null;
+  dropoffLocation: ParcelReliabilityLocation | null;
+  reliability: ParcelReliabilitySummary | null;
+}
+
+export interface SentParcelQuery {
+  status?: ParcelStatus;
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
 }

@@ -4,8 +4,11 @@ jest.mock('../../auth/store/useAuthStore', () => ({
 jest.mock('@shared/constants/demoMode', () => ({
   isDemoMode: false,
 }));
-jest.mock('@features/profile/hooks/usePassengerHistory', () => ({
-  usePassengerHistory: jest.fn(),
+jest.mock('../api/bookingHistoryApi', () => ({
+  bookingHistoryKeys: {
+    list: jest.fn(() => ['bookings', 'history']),
+  },
+  getBookingHistory: jest.fn(),
 }));
 
 import { isUuid } from '@shared/utils/pathSegment';

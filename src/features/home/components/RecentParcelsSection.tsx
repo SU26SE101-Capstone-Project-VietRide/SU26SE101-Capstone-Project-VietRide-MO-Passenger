@@ -9,8 +9,8 @@ import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { ArrowRight, Package, Truck } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { usePassengerHistory } from '@features/profile/hooks/usePassengerHistory';
-import type { PassengerParcelHistoryItem } from '@features/profile/types';
+import { useSentParcels } from '@features/parcel/hooks/useParcelReliabilityQueries';
+import type { SentParcel } from '@features/parcel/types';
 import { getParcelStatusPresentation } from '@features/parcel/utils/parcelPresentation';
 import { StatusChip } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -24,7 +24,7 @@ import {
 } from '@shared/theme';
 import { formatDate, toIntlLocale } from '@shared/utils/format';
 
-const parcelKeyExtractor = (item: PassengerParcelHistoryItem): string => item.id;
+const parcelKeyExtractor = (item: SentParcel): string => item.parcelId;
 
 const normalizePageSize = (pageSize: number): number => {
   if (!Number.isFinite(pageSize)) return 5;
@@ -133,15 +133,12 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const safePageSize = normalizePageSize(pageSize);
-  const parcelsQuery = usePassengerHistory({
-    type: 'PARCEL',
+  const parcelsQuery = useSentParcels({
     pageSize: safePageSize,
   });
   const refetchParcels = parcelsQuery.refetch;
   const parcels = useMemo(
-    () => (parcelsQuery.data?.pages[0]?.items ?? []).filter(
-      (item): item is PassengerParcelHistoryItem => item.type === 'PARCEL',
-    ),
+    () => parcelsQuery.data?.pages[0]?.items ?? [],
     [parcelsQuery.data?.pages],
   );
 
@@ -149,15 +146,15 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
     refetchParcels().catch(() => undefined);
   }, [refetchParcels]);
 
-  const renderParcel: ListRenderItem<PassengerParcelHistoryItem> = useCallback(({ item }) => (
+  const renderParcel: ListRenderItem<SentParcel> = useCallback(({ item }) => (
     <RecentParcelCard
       createdAt={item.createdAt}
       destinationName={item.destinationName ?? t('home.parcels.destinationPending')}
       eta={item.estimatedArrivalTime}
       onPress={onParcelPress}
       originName={item.originName ?? t('home.parcels.originPending')}
-      parcelCode={item.code}
-      parcelId={item.id}
+      parcelCode={item.parcelCode}
+      parcelId={item.parcelId}
       status={item.status}
       tripId={item.tripId}
     />
@@ -174,7 +171,7 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
         <Text style={styles.stateText}>{t('home.parcels.loading')}</Text>
       </View>
     );
-  } else if (parcelsQuery.isError) {
+  } else if (parcelsQuery.isError && parcels.length === 0) {
     content = (
       <View style={styles.stateBox}>
         <Text style={styles.stateTitle}>{t('home.parcels.unavailableTitle')}</Text>

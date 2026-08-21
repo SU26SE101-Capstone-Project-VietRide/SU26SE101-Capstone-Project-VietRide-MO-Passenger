@@ -25,6 +25,8 @@ const createBody = (
   widthCm: 30,
   heightCm: 20,
   estimatedWeightKg: 8,
+  declaredValueVnd: null,
+  quantity: 1,
   photoUrl: null,
   recipient: {
     fullName: 'Recipient',

@@ -46,6 +46,7 @@ import type {
   RootStackParamList,
 } from '@app/navigation/types';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { useBookingHistory } from '@features/booking/hooks/useBookingHistory';
 import { getTicketStatusPresentation } from '@features/booking/utils/ticketPresentation';
 import {
   getParcelSizePresentation,
@@ -79,6 +80,7 @@ import {
   PaymentReturnGate,
 } from '@shared/utils/paymentRedirect';
 import { PASSENGER_HISTORY_DEFAULT_PAGE_SIZE } from '../api/passengerHistoryApi';
+import { ShuttleHistorySummary } from '../components/ShuttleHistorySummary';
 import {
   PARCEL_HISTORY_FILTER_LABEL_KEYS,
   PASSENGER_PARCEL_HISTORY_FILTERS,
@@ -89,9 +91,8 @@ import {
 } from '../config/passengerHistoryFilters';
 import {
   flattenPassengerHistoryPages,
-  usePassengerHistory,
-  usePassengerParcelHistory,
 } from '../hooks/usePassengerHistory';
+import { useParcelRoleHistory, type ParcelHistoryRole } from '../hooks/useParcelRoleHistory';
 import type {
   PassengerParcelHistoryItem,
   PassengerTicketHistoryItem,
@@ -229,6 +230,11 @@ const PARCEL_FILTER_OPTIONS: readonly {
     value,
     labelKey: PARCEL_HISTORY_FILTER_LABEL_KEYS[value],
   })),
+];
+
+const PARCEL_ROLE_OPTIONS: readonly { value: ParcelHistoryRole; labelKey: string }[] = [
+  { value: 'SENT', labelKey: 'bookingHistory.parcelRoles.sent' },
+  { value: 'RECEIVED', labelKey: 'bookingHistory.parcelRoles.received' },
 ];
 
 interface TicketHistoryRowProps {
@@ -383,6 +389,10 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
             </View>
           ) : null}
         </View>
+
+        <ShuttleHistorySummary
+          requests={item.ticket.shuttleRequests}
+        />
       </Pressable>
 
       <View style={styles.ticketFooter}>
@@ -459,16 +469,19 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
   const styles = useThemedStyles(createStyles);
   const statusPresentation = getParcelStatusPresentation(item.status);
   const sizePresentation = getParcelSizePresentation(item.parcel.sizeCategory);
-  const paymentRedirectUrl = getParcelPaymentStage(item.status)
-    ? item.paymentRedirectUrl
-    : null;
+  const paymentStage = getParcelPaymentStage(item.status);
+  const showPaymentAction = item.parcel.role === 'SENT' && Boolean(paymentStage);
   const handleOpen = useCallback(
     () => onOpen(item.id, item.trackingTarget),
     [item.id, item.trackingTarget, onOpen],
   );
   const handleContinuePayment = useCallback(() => {
-    if (paymentRedirectUrl) onContinuePayment(item.id, item.type, paymentRedirectUrl);
-  }, [item.id, item.type, onContinuePayment, paymentRedirectUrl]);
+    if (item.paymentRedirectUrl) {
+      onContinuePayment(item.id, item.type, item.paymentRedirectUrl);
+      return;
+    }
+    onOpen(item.id, item.trackingTarget);
+  }, [item.id, item.paymentRedirectUrl, item.trackingTarget, item.type, onContinuePayment, onOpen]);
   const paymentAccessibilityState = useMemo(
     () => ({ busy: isOpeningPayment, disabled: isOpeningPayment }),
     [isOpeningPayment],
@@ -520,11 +533,21 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
           <View style={styles.parcelMetaRow}>
             <User size={14} color={theme.colors.textTertiary} />
             <Text style={styles.parcelMeta} numberOfLines={1}>
-              {t('history.toRecipient', {
-                name: item.parcel.recipientName,
-              })} · {t(sizePresentation.labelKey)}
+              {item.parcel.role === 'SENT'
+                ? t('history.toRecipient', { name: item.parcel.recipientName })
+                : t('bookingHistory.receivedParcel')}
+              {' · '}{t(sizePresentation.labelKey)}
             </Text>
           </View>
+          {item.parcel.reliability?.activeIncident ? (
+            <Text style={styles.parcelReliability} numberOfLines={1}>
+              {t('bookingHistory.reliability.activeIncident')}
+            </Text>
+          ) : item.parcel.reliability?.claim ? (
+            <Text style={styles.parcelReliability} numberOfLines={1}>
+              {t('bookingHistory.reliability.claim', { status: item.parcel.reliability.claim.status })}
+            </Text>
+          ) : null}
           <View style={styles.parcelAmountRow}>
             <Text style={styles.parcelDate} numberOfLines={1}>
               {item.estimatedArrivalTime
@@ -535,13 +558,15 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
                   date: formatDate(item.createdAt),
                 })}
             </Text>
-            <Text style={styles.parcelAmount}>
-              {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
-            </Text>
+            {item.parcel.role === 'SENT' ? (
+              <Text style={styles.parcelAmount}>
+                {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
+              </Text>
+            ) : null}
           </View>
         </View>
       </Pressable>
-      {paymentRedirectUrl ? (
+      {showPaymentAction ? (
         <View style={styles.parcelPaymentFooter}>
           <Pressable
             style={paymentStyle}
@@ -726,16 +751,17 @@ export function BookingHistoryScreen(): React.JSX.Element {
   );
   const [ticketFilter, setTicketFilter] = useState<TicketHistoryFilter>('ALL');
   const [parcelFilter, setParcelFilter] = useState<ParcelHistoryFilter>('ALL');
+  const [parcelRole, setParcelRole] = useState<ParcelHistoryRole>('SENT');
   const selectedTicketStatus = ticketFilter === 'ALL' ? undefined : ticketFilter;
-  const ticketQuery = usePassengerHistory(
+  const ticketQuery = useBookingHistory(
     {
-      type: 'TICKET',
       ...(selectedTicketStatus ? { status: selectedTicketStatus } : {}),
       pageSize: PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
     },
     activeTab === 'ticket',
   );
-  const parcelQuery = usePassengerParcelHistory(
+  const parcelQuery = useParcelRoleHistory(
+    parcelRole,
     parcelFilter,
     PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
     activeTab === 'parcel',
@@ -1008,7 +1034,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
       kind="parcel"
       isAuthenticated={Boolean(userId)}
       isPending={isParcelPending}
-      isFiltered={parcelFilter !== 'ALL'}
+      isFiltered={parcelRole === 'SENT' && parcelFilter !== 'ALL'}
       error={isParcelError ? parcelError : null}
       onRetry={refreshParcels}
       onSignIn={handleSignIn}
@@ -1019,6 +1045,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
     isParcelPending,
     parcelError,
     parcelFilter,
+    parcelRole,
     refreshParcels,
     userId,
   ]);
@@ -1123,11 +1150,20 @@ export function BookingHistoryScreen(): React.JSX.Element {
             onSelect={setTicketFilter}
           />
         ) : (
-          <HistoryFilterBar
-            selected={parcelFilter}
-            options={PARCEL_FILTER_OPTIONS}
-            onSelect={setParcelFilter}
-          />
+          <View>
+            <HistoryFilterBar
+              selected={parcelRole}
+              options={PARCEL_ROLE_OPTIONS}
+              onSelect={setParcelRole}
+            />
+            {parcelRole === 'SENT' ? (
+              <HistoryFilterBar
+                selected={parcelFilter}
+                options={PARCEL_FILTER_OPTIONS}
+                onSelect={setParcelFilter}
+              />
+            ) : null}
+          </View>
         )}
       </View>
 
@@ -1572,6 +1608,12 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
+  },
+  parcelReliability: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.warning,
   },
   parcelAmountRow: {
     flexDirection: 'row' as const,

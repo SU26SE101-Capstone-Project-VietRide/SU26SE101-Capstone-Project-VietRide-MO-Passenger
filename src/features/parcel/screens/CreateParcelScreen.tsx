@@ -276,6 +276,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const packageHeightCm = useParcelStore(state => state.heightCm);
   const packageCategory = useParcelStore(state => state.category);
   const estimatedValue = useParcelStore(state => state.estimatedValue);
+  const quantity = useParcelStore(state => state.quantity);
   const photos = useParcelStore(state => state.photos);
   const paymentMethod = useParcelStore(state => state.paymentMethod);
   const setPackage = useParcelStore(state => state.setPackage);
@@ -336,6 +337,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     || appliedPromo
     || photos.length > 0
     || estimatedValue.trim()
+    || quantity !== 1
     || packageCategory.trim(),
   );
 
@@ -816,6 +818,17 @@ export function CreateParcelScreen(): React.JSX.Element {
     [setPackage],
   );
 
+  const handleQuantityChange = useCallback(
+    (value: string) => {
+      const digits = value.replace(/\D/g, '').slice(0, 5);
+      const parsed = Number(digits || '1');
+      setPackage({
+        quantity: Math.min(10_000, Math.max(1, parsed)),
+      });
+    },
+    [setPackage],
+  );
+
   const handleSelectTrip = useCallback((trip: AvailableParcelTrip) => {
     if (intentLocked || !isParcelQuoteUsable(trip)) {
       return;
@@ -971,12 +984,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         requestAnimationFrame(() => recipientPhoneRef.current?.focus());
         return false;
       }
-      if (!recipientEmail.trim()) {
-        setRecipientErrors({ email: t('parcel.validation.recipientEmailRequired') });
-        requestAnimationFrame(() => recipientEmailRef.current?.focus());
-        return false;
-      }
-      if (!isValidEmail(recipientEmail)) {
+      if (recipientEmail.trim() && !isValidEmail(recipientEmail)) {
         setRecipientErrors({ email: t('parcel.validation.invalidRecipientEmail') });
         requestAnimationFrame(() => recipientEmailRef.current?.focus());
         return false;
@@ -1043,22 +1051,13 @@ export function CreateParcelScreen(): React.JSX.Element {
       throw new Error(t('parcel.validation.selectTripBeforeCreate'));
     }
 
-    const descriptionParts = [
-      estimatedValue
-        ? t('parcel.form.estimatedValueMetadata', {
-            value: estimatedValue,
-          })
-        : null,
-    ].filter(Boolean);
-
     return buildCreateParcelPayload({
       tripId: selectedTrip.tripId,
       quoteToken: selectedTrip.quoteToken,
       dropoffStopId: null,
       bookingId: null,
       itemName: packageCategory || null,
-      description:
-        descriptionParts.length > 0 ? descriptionParts.join('; ') : null,
+      description: null,
       sizeCategory: selectedTrip.estimatedSizeCategory,
       lengthCm: dimensions.lengthCm,
       widthCm: dimensions.widthCm,
@@ -1068,11 +1067,13 @@ export function CreateParcelScreen(): React.JSX.Element {
       recipient: {
         fullName: recipientName.trim(),
         phoneNumber: normalizeVietnamPhone(recipientPhone),
-        email: recipientEmail.trim(),
+        email: recipientEmail.trim() || null,
       },
       deliveryMethod: 'TERMINAL_PICKUP',
       paymentMethod: backendPaymentMethod,
       voucherCode: selectedVoucher?.code ?? null,
+      declaredValueVnd: estimatedValue ? Number(estimatedValue) : null,
+      quantity,
     });
   }, [
     backendPaymentMethod,
@@ -1082,6 +1083,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     estimatedValue,
     estimatedWeightKg,
     packageCategory,
+    quantity,
     recipientEmail,
     recipientName,
     recipientPhone,
@@ -1860,6 +1862,17 @@ export function CreateParcelScreen(): React.JSX.Element {
             hint={t('parcel.form.estimatedValueHint')}
           />
 
+          <Input
+            label={t('parcel.form.quantityLabel')}
+            placeholder={t('parcel.form.quantityPlaceholder')}
+            keyboardType="number-pad"
+            maxLength={5}
+            value={String(quantity)}
+            onChangeText={handleQuantityChange}
+            hint={t('parcel.form.quantityHint')}
+            required
+          />
+
           <View style={styles.formSection}>
             <Text style={styles.sectionLabel}>
               {t('parcel.form.recipientTitle')}
@@ -1899,7 +1912,6 @@ export function CreateParcelScreen(): React.JSX.Element {
               maxLength={255}
               value={recipientEmail}
               error={recipientErrors.email}
-              required
               onChangeText={(value) => {
                 setRecipientEmail(value);
                 if (recipientErrors.email) setRecipientErrors((current) => ({ ...current, email: undefined }));

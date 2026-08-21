@@ -5,7 +5,7 @@ import { PromotionsSection } from './PromotionsSection';
 import { RecentParcelsSection } from './RecentParcelsSection';
 
 const mockUseHomePromotions = jest.fn();
-const mockUsePassengerHistory = jest.fn();
+const mockUseSentParcels = jest.fn();
 
 const mockTheme = {
   colors: {
@@ -47,9 +47,9 @@ jest.mock('../hooks/useHomePromotions', () => ({
   useHomePromotions: (service: string) => mockUseHomePromotions(service),
 }));
 
-jest.mock('@features/profile/hooks/usePassengerHistory', () => ({
-  usePassengerHistory: (query: { type: string; pageSize: number }) => (
-    mockUsePassengerHistory(query)
+jest.mock('@features/parcel/hooks/useParcelReliabilityQueries', () => ({
+  useSentParcels: (query: { pageSize: number }) => (
+    mockUseSentParcels(query)
   ),
 }));
 
@@ -119,26 +119,18 @@ describe('Home data sections', () => {
   });
 
   it('renders sent parcels from passenger history and forwards BE IDs', async () => {
-    mockUsePassengerHistory.mockReturnValue({
+    mockUseSentParcels.mockReturnValue({
       data: {
         pages: [{
           items: [{
-            type: 'PARCEL',
-            id: 'parcel-1',
-            code: 'VR-001',
+            parcelId: 'parcel-1',
+            parcelCode: 'VR-001',
             status: 'IN_TRANSIT',
             originName: 'Hà Nội',
             destinationName: 'Đà Nẵng',
             estimatedArrivalTime: '2026-07-20T00:00:00Z',
             createdAt: '2026-07-14T00:00:00Z',
             tripId: 'trip-1',
-            parcel: {
-              bookingId: null,
-              recipientName: 'Passenger',
-              sizeCategory: 'SMALL',
-              photoUrl: null,
-              deliveryMethod: 'TERMINAL_PICKUP',
-            },
           }],
         }],
       },
@@ -162,8 +154,7 @@ describe('Home data sections', () => {
       parcelCard.props.onPress();
     });
 
-    expect(mockUsePassengerHistory).toHaveBeenCalledWith({
-      type: 'PARCEL',
+    expect(mockUseSentParcels).toHaveBeenCalledWith({
       pageSize: 5,
     });
     expect(onParcelPress).toHaveBeenCalledWith('parcel-1', 'trip-1');

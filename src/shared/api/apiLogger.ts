@@ -93,6 +93,18 @@ const SENSITIVE_KEYS = new Set([
   'coordinate',
   'coordinates',
   'location',
+  'deliverytoken',
+  'reference',
+  'evidencereference',
+  'evidenceurl',
+  'evidenceurls',
+  'description',
+  'incidentdescription',
+  'reason',
+  'appealreason',
+  'rejectionreason',
+  'decisionreason',
+  'note',
 ]);
 
 const normalizeKey = (key: string): string =>

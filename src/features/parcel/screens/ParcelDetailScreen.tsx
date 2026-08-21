@@ -406,6 +406,14 @@ export function ParcelDetailScreen(): React.JSX.Element {
     });
   }, [navigation, parcelId, route.params.trackingTarget]);
 
+  const handleReportIncident = React.useCallback(() => {
+    navigation.navigate('ReportParcelIncident', { parcelId });
+  }, [navigation, parcelId]);
+
+  const handleOpenClaim = React.useCallback(() => {
+    navigation.navigate('ParcelClaim', { parcelId });
+  }, [navigation, parcelId]);
+
   const handleGoHome = React.useCallback(() => {
     rootNav.navigate('Main', { screen: 'Home' });
   }, [rootNav]);
@@ -805,6 +813,18 @@ export function ParcelDetailScreen(): React.JSX.Element {
                     value={`${parcel?.actualWeightKg ?? parcel?.estimatedWeightKg ?? '-'} ${t('parcel.units.kg')}`}
                   />
                 </View>
+                <View style={styles.detailFieldRow}>
+                  <ParcelDetailField
+                    compact
+                    label={t('parcel.detail.quantity')}
+                    value={String(parcel?.quantity ?? 1)}
+                  />
+                  <ParcelDetailField
+                    compact
+                    label={t('parcel.detail.declaredValue')}
+                    value={parcel?.declaredValueVnd == null ? '-' : formatVnd(parcel.declaredValueVnd)}
+                  />
+                </View>
                 {isSender ? (
                   <View style={styles.detailFieldRow}>
                     <ParcelDetailField
@@ -909,6 +929,67 @@ export function ParcelDetailScreen(): React.JSX.Element {
           </View>
 
           <ParcelPhotoGallery photos={parcelPhotos} />
+
+          {parcel?.compensationPolicySnapshot ? (
+            <View style={styles.policyCard}>
+              <Text style={styles.policyTitle}>{t('parcel.detail.compensationPolicy')}</Text>
+              <Text style={styles.policyDescription}>
+                {t('parcel.detail.compensationPolicyDescription', {
+                  rate: parcel.compensationPolicySnapshot.compensationRatePercent,
+                  cap: formatVnd(parcel.compensationPolicySnapshot.maxCompensationVnd),
+                  days: parcel.compensationPolicySnapshot.claimWindowDays,
+                })}
+              </Text>
+              <Text style={styles.policyHint}>
+                {t('parcel.detail.compensationPolicyHint', {
+                  version: parcel.compensationPolicySnapshot.version,
+                })}
+              </Text>
+            </View>
+          ) : null}
+
+          {parcel?.reliabilitySummary ? (
+            <View style={styles.reliabilityCard}>
+              <Text style={styles.policyTitle}>{t('parcel.detail.reliabilityTitle')}</Text>
+              {parcel.reliabilitySummary.activeIncident ? (
+                <Text style={styles.reliabilityWarning}>
+                  {t('parcel.detail.reliabilityIncident', {
+                    status: parcel.reliabilitySummary.activeIncident.status,
+                  })}
+                </Text>
+              ) : null}
+              {parcel.reliabilitySummary.nextUpdateAt ? (
+                <Text style={styles.policyDescription}>
+                  {t('parcel.detail.reliabilityNextUpdate', {
+                    time: formatDateTime(parcel.reliabilitySummary.nextUpdateAt),
+                  })}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          {parcel?.availableActions.includes('REPORT_INCIDENT') ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleReportIncident}
+              style={({ pressed }) => [styles.secondaryActionButton, pressed ? styles.pressed : null]}
+            >
+              <WarningCircle size={18} color={theme.colors.primary} />
+              <Text style={styles.secondaryActionText}>{t('parcel.reliability.reportIncident')}</Text>
+            </Pressable>
+          ) : null}
+
+          {parcel?.availableActions.some((action) => (
+            action === 'SUBMIT_CLAIM' || action === 'ADD_EVIDENCE' || action === 'APPEAL'
+          )) ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleOpenClaim}
+              style={({ pressed }) => [styles.secondaryActionButton, pressed ? styles.pressed : null]}
+            >
+              <Text style={styles.secondaryActionText}>{t('parcel.reliability.openClaim')}</Text>
+            </Pressable>
+          ) : null}
 
           {paymentPending && isSender ? (
             <View style={styles.paymentActionCard}>
@@ -1447,6 +1528,51 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.success,
   },
+  policyCard: {
+    ...theme.components.card,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+  },
+  reliabilityCard: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  policyTitle: {
+    color: theme.colors.textPrimary,
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.md,
+  },
+  policyDescription: {
+    marginTop: spacing.sm,
+    color: theme.colors.textSecondary,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    lineHeight: 21,
+  },
+  policyHint: {
+    marginTop: spacing.sm,
+    color: theme.colors.textTertiary,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+  },
+  reliabilityWarning: {
+    marginTop: spacing.sm,
+    color: theme.colors.warning,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+  },
+  secondaryActionButton: {
+    minHeight: 48,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderRadius: borderRadius.md,
+  },
+  secondaryActionText: { color: theme.colors.primary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
   paymentActionCard: {
     ...theme.components.card,
     borderRadius: borderRadius.xl,

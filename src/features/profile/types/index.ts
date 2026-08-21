@@ -15,6 +15,7 @@ export interface LoyaltyPoints {
 }
 
 export type {
+  BookingHistoryShuttleRequest,
   PassengerHistoryItem,
   PassengerHistoryPage,
   PassengerHistoryQuery,

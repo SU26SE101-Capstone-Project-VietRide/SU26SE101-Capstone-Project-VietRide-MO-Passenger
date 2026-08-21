@@ -88,6 +88,12 @@ export type ParcelStackParamList = {
     parcelId: string;
     trackingTarget?: import('@features/tracking/types/trackingTarget').TrackingTarget;
   };
+  ReportParcelIncident: {
+    parcelId: string;
+  };
+  ParcelClaim: {
+    parcelId: string;
+  };
 };
 
 // ─── Profile Stack ────────────────────────────────────────
