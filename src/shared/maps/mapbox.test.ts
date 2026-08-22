@@ -1,11 +1,13 @@
-const mockSetAccessToken = jest.fn(async () => 'pk.test');
-const mockSetTelemetryEnabled = jest.fn();
+const mockSetAccessToken = jest.fn(async (_token: string) => 'pk.test');
+const mockSetTelemetryEnabled = jest.fn((_enabled: boolean) => undefined);
 
 jest.mock('@rnmapbox/maps', () => ({
   __esModule: true,
   default: {
-    setAccessToken: (...args: unknown[]) => mockSetAccessToken(...args),
-    setTelemetryEnabled: (...args: unknown[]) => mockSetTelemetryEnabled(...args),
+    setAccessToken: (token: string) => mockSetAccessToken(token),
+    setTelemetryEnabled: (enabled: boolean) => (
+      mockSetTelemetryEnabled(enabled)
+    ),
   },
 }));
 

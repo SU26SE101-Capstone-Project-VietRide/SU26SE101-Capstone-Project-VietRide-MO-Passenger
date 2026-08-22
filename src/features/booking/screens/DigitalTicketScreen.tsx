@@ -36,7 +36,7 @@ import { useTheme } from '@shared/contexts/ThemeContext';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { ScannableCodeCard, StatusChip } from '@shared/components';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import {
   borderRadius as BR,
   fontFamilies,
@@ -303,6 +303,7 @@ function TicketView({
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const { isCompact } = useResponsiveLayout();
   const pages = useMemo(() => buildTicketPages(model), [model]);
   const [requestedTicketKey, setRequestedTicketKey] = useState<string | null>(
     pages[0]?.key ?? null,
@@ -508,7 +509,6 @@ function TicketView({
                         description={activeTicket.status
                           ? t(getTicketLifecyclePresentation(activeTicket.status).labelKey)
                           : t('history.ticketScanHint')}
-                        size={156}
                       />
                     </View>
                   ) : (
@@ -616,7 +616,10 @@ function TicketView({
                   ) : null}
                 </View>
 
-                <View style={styles.totalRow}>
+                <View style={[
+                  styles.totalRow,
+                  isCompact ? styles.summaryRowCompact : null,
+                ]}>
                   <Text style={styles.totalLabel}>{amountLabel}</Text>
                   <Text style={styles.totalValue}>
                     {formatVnd(amountValue, { display: 'code', clampNegative: true })}
@@ -642,7 +645,10 @@ function TicketView({
         ) : null}
 
         {model.legs.length > 1 ? (
-          <View style={styles.roundTripTotalCard}>
+          <View style={[
+            styles.roundTripTotalCard,
+            isCompact ? styles.summaryRowCompact : null,
+          ]}>
             <Text style={styles.totalLabel}>
               {model.isPendingPayment
                 ? t('booking.ticket.grandTotalDue')
@@ -1584,6 +1590,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   routeRow: {
     flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
     justifyContent: 'space-between' as const,
     gap: spacing.md,
     marginBottom: spacing.xl,
@@ -1657,6 +1664,7 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
+    gap: spacing.sm,
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.divider,
@@ -1671,12 +1679,21 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
   },
+  summaryRowCompact: {
+    flexDirection: 'column' as const,
+    alignItems: 'stretch' as const,
+  },
   totalLabel: {
+    minWidth: 0,
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },
   totalValue: {
+    minWidth: 0,
+    flexShrink: 1,
+    textAlign: 'right' as const,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
     color: theme.colors.primary,
@@ -1692,6 +1709,8 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.primary,
   },
   primaryActionText: {
+    flexShrink: 1,
+    textAlign: 'center' as const,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
@@ -1706,6 +1725,8 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.lg,
   },
   cancellationActionText: {
+    flexShrink: 1,
+    textAlign: 'center' as const,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.error,
@@ -1741,6 +1762,8 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.effects.contentSurfaceSoft,
   },
   homeButtonText: {
+    flexShrink: 1,
+    textAlign: 'center' as const,
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,

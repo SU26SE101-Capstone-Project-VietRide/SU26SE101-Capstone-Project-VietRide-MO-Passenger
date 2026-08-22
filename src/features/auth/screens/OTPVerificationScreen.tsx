@@ -14,7 +14,6 @@ import {
   NativeSyntheticEvent,
   TextInputKeyPressEventData,
   AppState,
-  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -35,6 +34,7 @@ import { AppKeyboardAwareScrollView, Button } from '@shared/components';
 import { useApiError, useThemedStyles } from '@shared/hooks';
 import { getTokenSessionEpoch } from '@shared/utils/storage';
 import { useTheme } from '@shared/contexts/ThemeContext';
+import { useResponsiveLayout } from '@shared/hooks/useResponsiveLayout';
 import { formatCountdown } from '@shared/utils/format';
 import type { AuthStackParamList, ProfileStackParamList } from '@app/navigation/types';
 import { verifyEmail, resendVerificationEmail } from '../api/authApi';
@@ -67,8 +67,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
   const { errorMessage, clearError, handleError } = useApiError();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { width: viewportWidth } = useWindowDimensions();
-  const isNarrow = viewportWidth <= 340;
+  const { isCompact } = useResponsiveLayout();
   const setUser = useAuthStore((state) => state.setUser);
   const currentUser = useAuthStore((state) => state.user);
 
@@ -257,7 +256,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.scrollContent,
-              isNarrow ? styles.scrollContentNarrow : null,
+              isCompact ? styles.scrollContentCompact : null,
             ]}
             keyboardShouldPersistTaps="handled"
           >
@@ -266,7 +265,7 @@ export function OTPVerificationScreen(): React.JSX.Element {
               subtitle={headerSubtitle}
             />
 
-            <View style={[styles.formCard, isNarrow ? styles.formCardNarrow : null]}>
+            <View style={[styles.formCard, isCompact ? styles.formCardCompact : null]}>
               <View style={styles.otpContainer}>
                 {code.map((digit, index) => (
                   <TextInput
@@ -398,7 +397,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
   },
-  scrollContentNarrow: { paddingHorizontal: spacing.sm },
+  scrollContentCompact: { paddingHorizontal: spacing.sm },
   formCard: {
     ...theme.components.card,
     borderRadius: borderRadius.xl,
@@ -413,7 +412,7 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.xs,
     marginBottom: spacing.xxl,
   },
-  formCardNarrow: { paddingHorizontal: spacing.xs },
+  formCardCompact: { paddingHorizontal: spacing.xs },
   otpInput: {
     width: 44,
     height: 56,

@@ -40,6 +40,10 @@ import {
 } from '../components';
 import { useChatSession } from '../hooks/useChatSession';
 import { useChatSessionStore } from '../store/useChatSessionStore';
+import {
+  getChatThreadMinHeight,
+  shouldShowChatQuickActions,
+} from '../utils/chatbotLayout';
 import type {
   ChatBookingDraft,
   ChatFeedbackRating,
@@ -56,9 +60,6 @@ const maintainVisibleContentPosition = {
   autoscrollToBottomThreshold: 0.15,
   animateAutoScrollToBottom: false,
 };
-
-const isWelcomeOnlyThread = (messages: readonly ChatMessage[]): boolean =>
-  messages.length === 1 && messages[0]?.id === WELCOME_MESSAGE_ID;
 
 export function ChatbotScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
@@ -101,8 +102,12 @@ export function ChatbotScreen(): React.JSX.Element {
     return t('chatbot.askPlaceholder');
   }, [availability, isOnline, t]);
 
-  const isWelcomeOnly = isWelcomeOnlyThread(messages);
-  const showQuickActions = !quickActionsDismissed && isWelcomeOnly;
+  const isWelcomeOnly = messages.length === 1
+    && messages[0]?.id === WELCOME_MESSAGE_ID;
+  const showQuickActions = shouldShowChatQuickActions(
+    messages,
+    quickActionsDismissed,
+  );
   const composerLocked = availability !== 'ready' || !isOnline;
   const promptsLocked = composerLocked || isStreaming;
   const threadContentStyle = useMemo(
@@ -111,9 +116,10 @@ export function ChatbotScreen(): React.JSX.Element {
         styles.messageListContent,
         isCompact ? styles.messageListContentCompact : null,
       ];
+      const minHeight = getChatThreadMinHeight(threadHeight);
 
-      return threadHeight > 0
-        ? [...baseStyles, { minHeight: threadHeight }]
+      return minHeight !== undefined
+        ? [...baseStyles, { minHeight }]
         : baseStyles;
     }, [isCompact, styles.messageListContent, styles.messageListContentCompact, threadHeight],
   );
@@ -218,7 +224,7 @@ export function ChatbotScreen(): React.JSX.Element {
   const renderMessage = useCallback(({ item }: ListRenderItemInfo<ChatMessage>) => (
     <ChatMessageBubble
       message={item}
-      isFeedbackPending={Boolean(pendingFeedbackId)}
+      isFeedbackPending={pendingFeedbackId === item.id}
       onBookingPress={handleBookingPress}
       onRate={handleRate}
       onRetry={handleRetryMessage}

@@ -71,7 +71,7 @@ export function PaymentLifecycleCoordinator(): null {
 
     // PaymentBack success while polling: refetch owner caches, keep the poll.
     if (inFlight && signal === 'native-payment-back' && !abandoned) {
-      void getPendingVnPaySession().then((pending) => {
+      getPendingVnPaySession().then((pending) => {
         if (
           pending
           && pending.ownerUserId === userId
@@ -79,7 +79,7 @@ export function PaymentLifecycleCoordinator(): null {
         ) {
           invalidatePaymentOwner(userId, pending);
         }
-      });
+      }).catch(() => undefined);
       return;
     }
 

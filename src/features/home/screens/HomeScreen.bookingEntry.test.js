@@ -25,7 +25,7 @@ describe('Homepage booking entry contract', () => {
 
   it('keeps Home promotions readable and horizontally scrollable without card actions', () => {
     expect(homeSource).toContain('<PromotionsSection />');
-    expect(promotionsSource).toContain('<View\n      accessible');
+    expect(promotionsSource).toMatch(/<View\s+accessible/);
     expect(promotionsSource).toContain('horizontal');
     expect(promotionsSource).not.toContain('onPromotionPress');
     expect(promotionsSource).not.toContain('onPress?.(voucherId');

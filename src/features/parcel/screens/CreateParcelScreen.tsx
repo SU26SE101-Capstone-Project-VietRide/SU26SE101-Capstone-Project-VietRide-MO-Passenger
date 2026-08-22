@@ -33,7 +33,7 @@ import {
   Truck,
   WarningCircle,
 } from 'phosphor-react-native';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { AppKeyboardAwareScrollView, Input, PhotoPicker } from '@shared/components';
@@ -52,7 +52,7 @@ import { walletKeys } from '@features/profile/api/walletApi';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useCurrentCoordinates, useThemedStyles } from '@shared/hooks';
+import { useCurrentCoordinates, useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import {
   assertVnPaySdkAvailable,
@@ -259,6 +259,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const { isCompact } = useResponsiveLayout();
   const queryClient = useQueryClient();
   const user = useAuthStore(state => state.user);
   const fromCity = useParcelStore(state => state.fromCity);
@@ -1591,6 +1592,20 @@ export function CreateParcelScreen(): React.JSX.Element {
   );
 
   const stationKeyExtractor = useCallback((station: Station) => station.id, []);
+  const tripKeyExtractor = useCallback(
+    (trip: AvailableParcelTrip) => trip.tripId,
+    [],
+  );
+  const renderTrip: ListRenderItem<AvailableParcelTrip> = useCallback(
+    ({ item }) => (
+      <TripOptionCard
+        trip={item}
+        selected={selectedTripId === item.tripId}
+        onPress={handleSelectTrip}
+      />
+    ),
+    [handleSelectTrip, selectedTripId],
+  );
 
   const renderStationStep = () => {
     if (missingLocation) {
@@ -1662,7 +1677,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     return null;
   };
 
-  const renderTripPicker = () => (
+  const renderTripPicker = (includeTripItems = true) => (
     <View style={styles.bentoSummaryCard}>
       <Text style={styles.bentoCardHeading}>
         {t('parcel.trips.departureDate')}
@@ -1727,12 +1742,16 @@ export function CreateParcelScreen(): React.JSX.Element {
           <Text style={styles.stateText}>
             {t('parcel.trips.emptyDescription')}
           </Text>
-          <View style={styles.emptyTripActions}>
+          <View style={[
+            styles.emptyTripActions,
+            isCompact ? styles.emptyTripActionsCompact : null,
+          ]}>
             <Pressable
               accessibilityRole="button"
               onPress={handleChangeTerminals}
               style={({ pressed }) => [
                 styles.emptyTripSecondaryButton,
+                isCompact ? styles.emptyTripButtonCompact : styles.emptyTripButtonRegular,
                 pressed ? styles.pressed : null,
               ]}
             >
@@ -1749,6 +1768,7 @@ export function CreateParcelScreen(): React.JSX.Element {
               }
               style={({ pressed }) => [
                 styles.emptyTripPrimaryButton,
+                isCompact ? styles.emptyTripButtonCompact : styles.emptyTripButtonRegular,
                 emptyTripPrimaryDisabled
                   ? styles.emptyTripButtonDisabled
                   : null,
@@ -1770,7 +1790,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             </Pressable>
           </View>
         </View>
-      ) : (
+      ) : includeTripItems ? (
         availableTrips.map(trip => (
           <TripOptionCard
             key={trip.tripId}
@@ -1779,8 +1799,8 @@ export function CreateParcelScreen(): React.JSX.Element {
             onPress={handleSelectTrip}
           />
         ))
-      )}
-      {availableTrips.length > 0 && isFetchingNextTripsPage ? (
+      ) : null}
+      {includeTripItems && availableTrips.length > 0 && isFetchingNextTripsPage ? (
         <View style={styles.tripLoadMoreFooter} accessibilityRole="progressbar">
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={styles.tripLoadMoreText}>
@@ -1789,7 +1809,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         </View>
       ) : null}
 
-      {availableTrips.length > 0 && isFetchNextTripsPageError && hasNextTripsPage ? (
+      {includeTripItems && availableTrips.length > 0 && isFetchNextTripsPageError && hasNextTripsPage ? (
         <View style={styles.tripLoadMoreFooter} accessibilityRole="alert">
           <Text style={styles.tripLoadMoreText}>
             {t('parcel.trips.loadMoreFailed')}
@@ -1809,7 +1829,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     </View>
   );
 
-  const renderStep = () => {
+  const renderStep = (includeTripPicker = true) => {
     if (step === 1 || step === 2) {
       return renderStationStep();
     }
@@ -1925,7 +1945,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
     return (
       <View style={styles.stepContent}>
-        {renderTripPicker()}
+        {includeTripPicker ? renderTripPicker() : null}
         <PricingBreakdown
           receivingStation={receivingStation}
           dropoffStation={dropoffStation}
@@ -2115,6 +2135,24 @@ export function CreateParcelScreen(): React.JSX.Element {
             contentContainerStyle={stationListContentStyle}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+          />
+        ) : step === 4 ? (
+          <FlashList
+            data={availableTrips}
+            renderItem={renderTrip}
+            keyExtractor={tripKeyExtractor}
+            style={styles.scrollContainer}
+            contentContainerStyle={scrollContentStyle}
+            ListHeaderComponent={renderTripPicker(false)}
+            ListFooterComponent={renderStep(false)}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets
+            showsVerticalScrollIndicator={false}
+            onEndReached={() => {
+              if (hasNextTripsPage) requestNextTripsPage();
+            }}
+            onEndReachedThreshold={0.4}
           />
         ) : (
           <AppKeyboardAwareScrollView
@@ -2414,8 +2452,19 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  emptyTripSecondaryButton: {
+  emptyTripActionsCompact: {
+    flexDirection: 'column',
+  },
+  emptyTripButtonRegular: {
     flex: 1,
+  },
+  emptyTripButtonCompact: {
+    width: '100%',
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto' as const,
+  },
+  emptyTripSecondaryButton: {
     minHeight: 48,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
@@ -2425,7 +2474,6 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
   },
   emptyTripPrimaryButton: {
-    flex: 1,
     minHeight: 48,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,

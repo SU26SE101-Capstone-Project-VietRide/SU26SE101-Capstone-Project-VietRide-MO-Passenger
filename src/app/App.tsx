@@ -11,9 +11,11 @@ import { useAppStore } from '@shared/store';
 function AppContent(): React.JSX.Element {
   useNetworkStatus();
   useEffect(() => {
-    void import('@shared/maps/mapbox').then((module) => {
-      module.preloadMapbox();
-    });
+    import('@shared/maps/mapbox')
+      .then((module) => {
+        module.preloadMapbox();
+      })
+      .catch(() => undefined);
   }, []);
 
   const isGlobalLoading = useAppStore((state) => state.isGlobalLoading);

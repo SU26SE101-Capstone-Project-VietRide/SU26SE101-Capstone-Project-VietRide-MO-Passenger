@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Pressable,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
@@ -23,6 +24,7 @@ import {
   type AppTheme,
 } from '@shared/theme';
 import { formatDate, toIntlLocale } from '@shared/utils/format';
+import { getFontScaledListHeight } from '../utils/homeResponsive';
 
 const parcelKeyExtractor = (item: SentParcel): string => item.parcelId;
 
@@ -132,7 +134,12 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { fontScale } = useWindowDimensions();
   const safePageSize = normalizePageSize(pageSize);
+  const listFrameStyle = useMemo(
+    () => ({ height: getFontScaledListHeight(188, fontScale) }),
+    [fontScale],
+  );
   const parcelsQuery = useSentParcels({
     pageSize: safePageSize,
   });
@@ -198,15 +205,16 @@ export const RecentParcelsSection = memo(function RecentParcelsSectionComponent(
     );
   } else {
     content = (
-      <FlashList
-        data={parcels}
-        horizontal
-        keyExtractor={parcelKeyExtractor}
-        renderItem={renderParcel}
-        showsHorizontalScrollIndicator={false}
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-      />
+      <View style={[styles.list, listFrameStyle]}>
+        <FlashList
+          data={parcels}
+          horizontal
+          keyExtractor={parcelKeyExtractor}
+          renderItem={renderParcel}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+        />
+      </View>
     );
   }
 
@@ -264,7 +272,7 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
   },
   list: {
-    height: 188,
+    minHeight: 188,
   },
   listContent: {
     gap: spacing.md,

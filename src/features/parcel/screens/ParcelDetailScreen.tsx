@@ -761,7 +761,6 @@ export function ParcelDetailScreen(): React.JSX.Element {
                   code={parcel.parcelCode}
                   title={t('parcel.detail.dropoffCode')}
                   description={t('parcel.detail.dropoffCodeHint')}
-                  size={156}
                 />
               ) : null}
               <Text style={styles.qrCaption}>

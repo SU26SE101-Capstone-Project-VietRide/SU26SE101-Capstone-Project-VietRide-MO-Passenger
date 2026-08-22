@@ -32,6 +32,44 @@ jest.mock('@shared/hooks', () => ({
   useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) => factory(mockTheme),
 }));
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, params?: Record<string, unknown>) => {
+      const labels: Record<string, string> = {
+        'common.cancel': 'Cancel',
+        'common.notNow': 'Not now',
+        'common.ok': 'OK',
+        'common.openSettings': 'Open settings',
+        'shared.photoPicker.add': 'Add',
+        'shared.photoPicker.addDescription': 'Choose a photo source',
+        'shared.photoPicker.addErrorDescription': 'Unable to add photo',
+        'shared.photoPicker.addErrorTitle': 'Photo unavailable',
+        'shared.photoPicker.camera': 'Camera',
+        'shared.photoPicker.cameraUnavailableDescription': 'Camera unavailable',
+        'shared.photoPicker.cameraUnavailableTitle': 'Camera unavailable',
+        'shared.photoPicker.defaultPhotoLabel': 'photo',
+        'shared.photoPicker.defaultTitle': 'Photos',
+        'shared.photoPicker.emptyTitle': 'No photos selected',
+        'shared.photoPicker.photoLibrary': 'Photo library',
+        'shared.photoPicker.supportedFormats': 'Supported image formats',
+      };
+      if (key === 'shared.photoPicker.addPhotos') {
+        return `Add ${String(params?.label ?? 'photo')}s`;
+      }
+      if (key === 'shared.photoPicker.addTitle') {
+        return `Add ${String(params?.label ?? 'photo')}`;
+      }
+      if (key === 'shared.photoPicker.removePhoto') {
+        return `Remove ${String(params?.label ?? 'photo')} ${String(params?.position ?? '')}`;
+      }
+      if (key === 'shared.photoPicker.permissionTitle') {
+        return `${String(params?.source ?? 'Photo')} permission needed`;
+      }
+      return labels[key] ?? key;
+    },
+  }),
+}));
+
 jest.mock('phosphor-react-native', () => ({
   Camera: () => null,
   ImageSquare: () => null,

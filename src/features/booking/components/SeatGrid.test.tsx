@@ -40,7 +40,7 @@ jest.mock('phosphor-react-native', () => ({
   SteeringWheel: () => null,
 }));
 
-import { SeatGrid } from './SeatGrid';
+import { SeatGrid, calculateSeatGridGeometry } from './SeatGrid';
 
 const seatMap: SeatRow[] = [
   {
@@ -96,5 +96,22 @@ describe('SeatGrid', () => {
     expect(labels).not.toContain('Hàng');
 
     act(() => renderer!.unmount());
+  });
+
+  it.each([
+    [320, 43],
+    [360, 53],
+    [390, 58],
+    [430, 58],
+  ])('keeps a four-column deck inside the card at %ipx', (width, seatSize) => {
+    const geometry = calculateSeatGridGeometry(width, 4, 1);
+
+    expect(geometry.seatSize).toBe(seatSize);
+    expect(geometry.matrixWidth).toBeLessThanOrEqual(geometry.innerWidth);
+  });
+
+  it('keeps the explicit seat-size safety bounds', () => {
+    expect(calculateSeatGridGeometry(240, 4, 1).seatSize).toBe(34);
+    expect(calculateSeatGridGeometry(900, 4, 1).seatSize).toBe(58);
   });
 });

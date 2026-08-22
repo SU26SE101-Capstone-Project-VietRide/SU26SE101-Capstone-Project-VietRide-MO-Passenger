@@ -2,6 +2,7 @@ import React, { memo, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
@@ -23,6 +24,7 @@ import {
   useHomePromotions,
   type HomePromotionService,
 } from '../hooks/useHomePromotions';
+import { getFontScaledListHeight } from '../utils/homeResponsive';
 
 const promotionKeyExtractor = (item: PromotionItem): string => item.voucherId;
 
@@ -93,7 +95,12 @@ export const PromotionsSection = memo(function PromotionsSectionComponent({
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { fontScale } = useWindowDimensions();
   const promotionsQuery = useHomePromotions(service);
+  const listFrameStyle = useMemo(
+    () => ({ height: getFontScaledListHeight(196, fontScale) }),
+    [fontScale],
+  );
 
   const renderPromotion: ListRenderItem<PromotionItem> = useCallback(({ item }) => (
     <PromotionCard
@@ -132,14 +139,15 @@ export const PromotionsSection = memo(function PromotionsSectionComponent({
     );
   } else {
     content = (
-      <FlashList
-        data={promotionsQuery.data}
-        horizontal
-        keyExtractor={promotionKeyExtractor}
-        renderItem={renderPromotion}
-        showsHorizontalScrollIndicator={false}
-        style={styles.list}
-      />
+      <View style={[styles.list, listFrameStyle]}>
+        <FlashList
+          data={promotionsQuery.data}
+          horizontal
+          keyExtractor={promotionKeyExtractor}
+          renderItem={renderPromotion}
+          showsHorizontalScrollIndicator={false}
+        />
+      </View>
     );
   }
 
@@ -163,7 +171,7 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.lg,
   },
   list: {
-    height: 196,
+    minHeight: 196,
   },
   card: {
     ...theme.components.card,

@@ -15,6 +15,9 @@ jest.mock('@shared/api/axiosInstance', () => ({
 jest.mock('@shared/session/cleanup', () => ({
   clearSessionBoundState: jest.fn(),
 }));
+jest.mock('@shared/notifications', () => ({
+  revokeDeviceRegistration: jest.fn(async () => undefined),
+}));
 jest.mock('@features/auth/api/authApi', () => ({
   authKeys: { all: ['auth'], me: ['auth', 'me'] },
   getCurrentUser: jest.fn(),

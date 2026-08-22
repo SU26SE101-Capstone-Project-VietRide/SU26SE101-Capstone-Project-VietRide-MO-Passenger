@@ -34,7 +34,7 @@ export function ensureMapboxReady(): Promise<boolean> {
 }
 
 export function preloadMapbox(): void {
-  void ensureMapboxReady();
+  ensureMapboxReady().catch(() => false);
 }
 
 export default Mapbox;

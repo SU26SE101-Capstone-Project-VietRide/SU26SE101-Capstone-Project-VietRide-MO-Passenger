@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { Text, View } from 'react-native';
+import React, { memo, useCallback, useState } from 'react';
+import { Text, View, type LayoutChangeEvent } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -16,6 +16,19 @@ import {
 // reduce scanner reliability. Only the code surface remains black-on-white.
 const QR_FOREGROUND = '#101828';
 const QR_BACKGROUND = '#FFFFFF';
+export const MIN_SCANNABLE_CODE_SIZE = 148;
+export const MAX_SCANNABLE_CODE_SIZE = 184;
+
+export function getResponsiveScannableCodeSize(availableWidth: number): number {
+  if (!Number.isFinite(availableWidth)) {
+    return MIN_SCANNABLE_CODE_SIZE;
+  }
+
+  return Math.min(
+    MAX_SCANNABLE_CODE_SIZE,
+    Math.max(MIN_SCANNABLE_CODE_SIZE, Math.floor(availableWidth)),
+  );
+}
 
 interface ScannableCodeCardProps {
   code: string;
@@ -29,14 +42,20 @@ export const ScannableCodeCard = memo(function ScannableCodeCard({
   code,
   title,
   description,
-  size = 164,
+  size,
 }: ScannableCodeCardProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const resolvedSize = size ?? getResponsiveScannableCodeSize(availableWidth);
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    setAvailableWidth(event.nativeEvent.layout.width - (spacing.lg * 2));
+  }, []);
 
   return (
     <View
       style={styles.container}
+      onLayout={size === undefined ? handleLayout : undefined}
       accessibilityRole="image"
       accessibilityLabel={`${title}. ${code}`}
     >
@@ -44,7 +63,7 @@ export const ScannableCodeCard = memo(function ScannableCodeCard({
       <View style={styles.qrSurface}>
         <QRCode
           value={code}
-          size={size}
+          size={resolvedSize}
           color={QR_FOREGROUND}
           backgroundColor={QR_BACKGROUND}
           ecl="M"

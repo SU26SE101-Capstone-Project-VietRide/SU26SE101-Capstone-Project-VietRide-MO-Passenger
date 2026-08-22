@@ -11,6 +11,21 @@ process.env.EXPO_PUBLIC_WS_URL = 'wss://ws.vietride.online';
 process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED = 'false';
 process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED = 'false';
 
+jest.mock('react-native-gesture-handler', () => {
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
+  const ReactNative = jest.requireActual<typeof import('react-native')>('react-native');
+
+  return {
+    GestureHandlerRootView: ({
+      children,
+      style,
+    }: {
+      children?: React.ReactNode;
+      style?: import('react-native').StyleProp<import('react-native').ViewStyle>;
+    }) => ReactModule.createElement(ReactNative.View, { style }, children),
+  };
+});
+
 jest.mock('expo-font', () => ({
   useFonts: () => [true, null],
 }));

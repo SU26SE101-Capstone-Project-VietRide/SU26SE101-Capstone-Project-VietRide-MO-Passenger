@@ -230,6 +230,7 @@ const applyShuttleDraftEdit = <
   const updateReturn = isRoundTrip && state.currentLeg === 'return';
 
   return {
+    ...state,
     ...patch,
     bookingError: null,
     bookingStatus: state.bookingStatus === 'error' ? 'idle' : state.bookingStatus,
