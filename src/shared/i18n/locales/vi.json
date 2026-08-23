@@ -479,6 +479,14 @@
         "title": "Đã xếp chuyến trung chuyển",
         "body": "Xe trung chuyển {{licensePlate}} sẽ đón bạn{{pickupHint}}."
       },
+      "SHUTTLE_STARTED": {
+        "title": "Xe trung chuyển đã xuất phát",
+        "body": "Xe trung chuyển đang di chuyển. Mở theo dõi để xem vị trí và thời gian dự kiến."
+      },
+      "SHUTTLE_REASSIGNED": {
+        "title": "Thông tin xe trung chuyển đã thay đổi",
+        "body": "Xe hoặc tài xế trung chuyển đã thay đổi. Mở theo dõi để xem thông tin mới nhất."
+      },
       "SHUTTLE_CANCELLED": {
         "title": "Chuyến trung chuyển đã hủy",
         "body": "Chuyến trung chuyển của bạn đã bị hủy."

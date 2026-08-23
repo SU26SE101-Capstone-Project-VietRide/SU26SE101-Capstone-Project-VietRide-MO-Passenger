@@ -85,6 +85,7 @@ interface LiveShuttleTrackingPanelProps extends TrackingLayoutSlots {
   source: 'shuttle';
   shuttleTripId: string;
   bookingId?: string;
+  pickupOrder?: number;
 }
 
 type LiveTripTrackingPanelProps =
@@ -290,6 +291,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const isShuttle = props.source === 'shuttle';
   const tripId = props.source === 'shuttle' ? props.shuttleTripId : props.tripId;
   const bookingId = props.source === 'shuttle' ? props.bookingId : undefined;
+  const pickupOrder = props.source === 'shuttle' ? props.pickupOrder : undefined;
   const providedTrackingTarget = props.source === 'shuttle'
     ? undefined
     : props.trackingTarget;
@@ -367,6 +369,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         source: 'shuttle',
         shuttleTripId: tripId,
         ...(bookingId ? { bookingId } : {}),
+        ...(pickupOrder !== undefined ? { pickupOrder } : {}),
       }
     : {
         source: 'trip',

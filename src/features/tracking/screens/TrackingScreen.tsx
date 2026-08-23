@@ -35,6 +35,7 @@ export function TrackingScreen(): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const isShuttle = route.params.source === 'shuttle';
   const bookingId = route.params.bookingId;
+  const pickupOrder = isShuttle ? route.params.pickupOrder : undefined;
   const tripStatus = isShuttle ? undefined : route.params.tripStatus;
   const terminalMessageKey = terminalMessageKeyForStatus(tripStatus);
   const [routeHeader, setRouteHeader] = useState<TrackingHeaderRoute>();
@@ -74,6 +75,7 @@ export function TrackingScreen(): React.JSX.Element {
             source="shuttle"
             shuttleTripId={route.params.shuttleTripId}
             bookingId={bookingId}
+            pickupOrder={pickupOrder}
           />
         ) : (
           <LiveTripTrackingPanel

@@ -386,6 +386,7 @@ describe('LiveTripTrackingPanel', () => {
           source="shuttle"
           shuttleTripId={tripId}
           bookingId={bookingId}
+          pickupOrder={1}
         />,
       );
     });
@@ -394,6 +395,7 @@ describe('LiveTripTrackingPanel', () => {
       source: 'shuttle',
       shuttleTripId: tripId,
       bookingId,
+      pickupOrder: 1,
     });
     expect(mockTripTrackingMapExperience).not.toHaveBeenCalled();
     expect(mockTrackingMap).toHaveBeenCalledWith(expect.objectContaining({

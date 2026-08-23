@@ -41,6 +41,7 @@ interface UseTrackingMapContextOptions {
   userId: string;
   trackingId: string;
   bookingId?: string;
+  pickupOrder?: number;
   enabled: boolean;
   /**
    * Only applies to trip route-context geometry refresh.
@@ -56,11 +57,16 @@ type TrackingContextQueryData = TripRouteContextCache | ShuttlePassengerContext;
 export const selectShuttlePassengerPickup = (
   context: ShuttlePassengerContext | null | undefined,
   bookingId?: string,
+  pickupOrder?: number,
 ): ShuttlePassengerPickup | null => {
   if (!context) return null;
 
   if (bookingId) {
     return context.ownPickups.find((pickup) => pickup.bookingId === bookingId) ?? null;
+  }
+
+  if (pickupOrder !== undefined) {
+    return context.ownPickups.find((pickup) => pickup.pickupOrder === pickupOrder) ?? null;
   }
 
   let pending: ShuttlePassengerPickup | null = null;
@@ -131,6 +137,7 @@ export function useTrackingMapContext({
   userId,
   trackingId,
   bookingId,
+  pickupOrder,
   enabled,
   pollingEnabled,
   retainSensitiveContext,
@@ -240,8 +247,8 @@ export function useTrackingMapContext({
   }, [isShuttle, rawShuttleContext]);
 
   const selectedShuttlePickup = useMemo(
-    () => selectShuttlePassengerPickup(shuttleContext, bookingId),
-    [bookingId, shuttleContext],
+    () => selectShuttlePassengerPickup(shuttleContext, bookingId, pickupOrder),
+    [bookingId, pickupOrder, shuttleContext],
   );
   const mapContext = useMemo<TrackingMapContext | null>(() => {
     if (routeContext) return { source: 'trip', data: routeContext };

@@ -66,7 +66,7 @@ const bookingHistoryItemSchema = z.object({
     .nullable()
     .optional()
     .default(null),
-  // Rolling deploy: current BE omits this field; normalize to a stable array.
+  // Rolling deploy compatibility: older BE versions omit this field; normalize to [].
   shuttleRequests: z.array(bookingHistoryShuttleRequestSchema)
     .optional()
     .default([]),

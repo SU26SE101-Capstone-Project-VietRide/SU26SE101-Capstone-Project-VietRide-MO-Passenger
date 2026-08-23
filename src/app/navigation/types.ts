@@ -147,6 +147,7 @@ export type RootStackParamList = {
         source: 'shuttle';
         shuttleTripId: string;
         bookingId?: string;
+        pickupOrder?: number;
       };
   NotificationDetail: { notification: NotificationItemDto };
   BookingPendingAction: BookingPendingActionOpen;

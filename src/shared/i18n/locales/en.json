@@ -479,6 +479,14 @@
         "title": "Shuttle assigned",
         "body": "Shuttle {{licensePlate}} will pick you up{{pickupHint}}."
       },
+      "SHUTTLE_STARTED": {
+        "title": "Shuttle trip started",
+        "body": "Your shuttle is on the way. Open tracking for live location and ETA."
+      },
+      "SHUTTLE_REASSIGNED": {
+        "title": "Shuttle assignment updated",
+        "body": "Your shuttle vehicle or driver has changed. Open tracking for the latest details."
+      },
       "SHUTTLE_CANCELLED": {
         "title": "Shuttle cancelled",
         "body": "Your shuttle trip was cancelled."

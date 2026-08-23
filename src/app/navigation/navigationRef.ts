@@ -66,6 +66,9 @@ const navigateToNotificationAction = (
         source: 'shuttle',
         shuttleTripId: intent.shuttleTripId,
         ...(intent.bookingId ? { bookingId: intent.bookingId } : {}),
+        ...(intent.pickupOrder !== undefined
+          ? { pickupOrder: intent.pickupOrder }
+          : {}),
       });
       return;
     default:
