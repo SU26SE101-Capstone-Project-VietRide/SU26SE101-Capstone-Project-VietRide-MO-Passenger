@@ -12,6 +12,11 @@ const mockBookingState = {
   searchParams: { isRoundTrip: false },
 };
 
+jest.mock('react-i18next', () => ({
+  initReactI18next: { type: '3rdParty', init: jest.fn() },
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
+
 jest.mock('../store/useBookingStore', () => ({
   useBookingStore: (selector: (state: typeof mockBookingState) => unknown) => (
     selector(mockBookingState)

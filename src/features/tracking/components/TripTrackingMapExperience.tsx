@@ -9,6 +9,7 @@ import { useThemedStyles } from '@shared/hooks/useThemedStyles';
 import type { AppTheme } from '@shared/theme';
 import {
   UpcomingStopsSheet,
+  type TrackingSupplementalListSection,
   type UpcomingStopSheetItem,
 } from './UpcomingStopsSheet';
 import { DEFAULT_UPCOMING_SHEET_COLLAPSED_HEIGHT } from './upcomingStopsSheetModel';
@@ -20,6 +21,7 @@ interface TripTrackingMapExperienceProps {
   onRefresh: () => void;
   refreshing: boolean;
   renderMap: (bottomContentInset: number) => ReactNode;
+  supplementalListSection?: TrackingSupplementalListSection;
 }
 
 const INITIAL_BODY_HEIGHT = 600;
@@ -37,6 +39,7 @@ export const TripTrackingMapExperience = React.memo(
     onRefresh,
     refreshing,
     renderMap,
+    supplementalListSection,
   }: TripTrackingMapExperienceProps): React.JSX.Element {
     const styles = useThemedStyles(createStyles);
     const [containerHeight, setContainerHeight] = useState(INITIAL_BODY_HEIGHT);
@@ -65,6 +68,7 @@ export const TripTrackingMapExperience = React.memo(
           onCollapsedHeightChange={handleCollapsedHeightChange}
           onRefresh={onRefresh}
           refreshing={refreshing}
+          supplementalListSection={supplementalListSection}
         />
       </View>
     );

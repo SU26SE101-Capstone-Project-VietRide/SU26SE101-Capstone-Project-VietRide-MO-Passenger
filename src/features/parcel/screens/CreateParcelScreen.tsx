@@ -14,6 +14,7 @@ import {
   Text,
   TextInput,
   View,
+  type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -121,6 +122,7 @@ import {
   type AmbiguousRetryState,
 } from '../utils/parcelCreateErrors';
 import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
+import { resolveCreateParcelContentBottomPadding } from '../utils/createParcelLayout';
 import {
   calculateParcelQuotePricing,
   getParcelQuoteSemanticFingerprint,
@@ -321,6 +323,14 @@ export function CreateParcelScreen(): React.JSX.Element {
   /** Held after ambiguous create/deposit so the user can exact-retry without leaving. */
   const [ambiguousRetry, setAmbiguousRetry] = useState<AmbiguousRetryState>(null);
   const [allowLeaveDespiteRetry, setAllowLeaveDespiteRetry] = useState(false);
+  const [actionBarHeight, setActionBarHeight] = useState(0);
+  const handleActionBarLayout = useCallback((event: LayoutChangeEvent) => {
+    const measuredHeight = Math.ceil(event.nativeEvent.layout.height);
+    if (measuredHeight <= 0) return;
+    setActionBarHeight((currentHeight) => (
+      currentHeight === measuredHeight ? currentHeight : measuredHeight
+    ));
+  }, []);
   const intentLocked = isAmbiguousRetryActive(ambiguousRetry);
   const lockedPaymentMethod =
     ambiguousRetry?.kind === 'deposit'
@@ -2068,7 +2078,11 @@ export function CreateParcelScreen(): React.JSX.Element {
       : t('parcel.trips.availableCount', {
           count: availableTrips.length,
         });
-  const contentBottomPadding = 96 + Math.max(insets.bottom, spacing.md);
+  const contentBottomPadding = resolveCreateParcelContentBottomPadding({
+    measuredActionBarHeight: actionBarHeight,
+    bottomInset: insets.bottom,
+    contentGap: spacing.md,
+  });
   const stationListContentStyle = useMemo(
     () => [styles.stationListContent, { paddingBottom: contentBottomPadding }],
     [contentBottomPadding, styles.stationListContent],
@@ -2167,7 +2181,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           </AppKeyboardAwareScrollView>
         )}
 
-        <View style={actionBarStyle}>
+        <View style={actionBarStyle} onLayout={handleActionBarLayout}>
           {step === 4 ? (
             <View style={styles.priceSummaryBox}>
               <Text style={styles.totalPriceLabel}>
@@ -2179,7 +2193,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             </View>
           ) : null}
           {isStationSelectionStep && selectedStationForStep ? (
-            <Text style={styles.selectedStationSummary} numberOfLines={1}>
+            <Text style={styles.selectedStationSummary} numberOfLines={2} ellipsizeMode="tail">
               {t('parcel.stations.selected', {
                 name: selectedStationForStep.name,
               })}
@@ -2509,17 +2523,23 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.md,
     marginBottom: spacing.sm,
   },
   totalPriceLabel: {
+    flex: 1,
+    minWidth: 0,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
   },
   totalPriceValue: {
+    minWidth: 0,
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.primary,
+    textAlign: 'right',
   },
   nextActionButton: {
     flexDirection: 'row',
@@ -2527,7 +2547,8 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
     ...theme.components.primaryButton,
     borderRadius: borderRadius.md,
-    height: 52,
+    minHeight: 52,
+    paddingVertical: spacing.md,
     gap: spacing.sm,
   },
   nextActionButtonSummary: {
@@ -2544,9 +2565,13 @@ const createStyles = (theme: AppTheme) => ({
     textAlign: 'center',
   },
   nextActionButtonText: {
+    minWidth: 0,
+    flexShrink: 1,
+    paddingHorizontal: spacing.xs,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.86,

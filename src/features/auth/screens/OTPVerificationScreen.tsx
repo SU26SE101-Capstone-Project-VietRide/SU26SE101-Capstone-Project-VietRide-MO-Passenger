@@ -247,7 +247,10 @@ export function OTPVerificationScreen(): React.JSX.Element {
         <View style={[styles.decorCircle, { backgroundColor: theme.effects.ambientGlow }]} />
       </View>
 
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView
+        style={styles.container}
+        edges={['top', 'bottom', 'left', 'right']}
+      >
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         <View
           style={styles.keyboardView}
@@ -357,13 +360,13 @@ export function OTPVerificationScreen(): React.JSX.Element {
                 fullWidth
               />
             </View>
-          </AppKeyboardAwareScrollView>
 
-          <AuthFooter
-            prompt={footerQuestion}
-            actionLabel={t('common.back')}
-            onAction={() => navigation.goBack()}
-          />
+            <AuthFooter
+              prompt={footerQuestion}
+              actionLabel={t('common.back')}
+              onAction={() => navigation.goBack()}
+            />
+          </AppKeyboardAwareScrollView>
         </View>
       </SafeAreaView>
     </View>

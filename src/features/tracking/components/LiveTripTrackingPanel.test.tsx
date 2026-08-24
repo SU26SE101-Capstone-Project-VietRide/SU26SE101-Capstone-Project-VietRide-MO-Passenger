@@ -26,6 +26,7 @@ const mockTheme = {
 };
 
 const mockUseTripTracking = jest.fn();
+const mockFlashList = jest.fn((_props: unknown) => null);
 const mockTrackingMap = jest.fn((_props: unknown) => null);
 const mockTripTrackingMapExperience = jest.fn((props: {
   renderMap: (bottomContentInset: number) => React.ReactNode;
@@ -58,6 +59,10 @@ jest.mock('@features/auth/store/useAuthStore', () => ({
 
 jest.mock('@features/trip/hooks', () => ({
   useTripDetail: (tripId: unknown, options: unknown) => mockUseTripDetail(tripId, options),
+}));
+
+jest.mock('@shopify/flash-list', () => ({
+  FlashList: (props: unknown) => mockFlashList(props),
 }));
 
 jest.mock('@react-navigation/native', () => ({
@@ -190,6 +195,7 @@ const createTrackingResult = (overrides: Record<string, unknown> = {}) => ({
 
 describe('LiveTripTrackingPanel', () => {
   beforeEach(() => {
+    mockFlashList.mockClear();
     mockTrackingMap.mockClear();
     mockTripTrackingMapExperience.mockClear();
     mockTrackingDetailsContent.mockClear();
@@ -236,6 +242,44 @@ describe('LiveTripTrackingPanel', () => {
       bottomContentInset: 132,
       edgeToEdge: true,
     }));
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('passes supplemental Reliability rows through to the existing sheet list', async () => {
+    const detailsListSection = {
+      footer: <Text>Load earlier</Text>,
+      items: [
+        {
+          content: <Text>Custody event</Text>,
+          key: 'event-1',
+          type: 'parcel-timeline-event',
+        },
+      ],
+    };
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          detailsFooter={<Text>Reliability summary</Text>}
+          detailsListSection={detailsListSection}
+          tripId={tripId}
+        />,
+      );
+    });
+
+    expect(mockTripTrackingMapExperience).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supplementalListSection: detailsListSection,
+      }),
+    );
+    const experienceProps = (
+      mockTripTrackingMapExperience.mock.calls[0][0]
+    ) as unknown as {
+        footer: React.ReactElement<{ detailsFooter: React.ReactNode }>;
+      };
+    expect(experienceProps.footer.props.detailsFooter).toBeDefined();
 
     await act(async () => renderer!.unmount());
   });
@@ -307,6 +351,47 @@ describe('LiveTripTrackingPanel', () => {
       .join(' ');
     expect(renderedText).toMatch(/Tracking access denied|Không có quyền theo dõi/);
     expect(mockTrackingMap).not.toHaveBeenCalled();
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('keeps supplemental Reliability rows visible in the tracking-error fallback', async () => {
+    mockUseTripTracking.mockReturnValue(createTrackingResult({
+      fatalError: new ApiRequestError({
+        message: 'denied',
+        code: 'ACCESS_DENIED',
+        statusCode: 403,
+      }),
+      realtimeStatus: 'forbidden',
+    }));
+    const detailsListSection = {
+      footer: <Text>Load earlier</Text>,
+      items: [
+        {
+          content: <Text>Custody event</Text>,
+          key: 'event-1',
+          type: 'parcel-timeline-event',
+        },
+      ],
+    };
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          detailsFooter={<Text>Reliability summary</Text>}
+          detailsListSection={detailsListSection}
+          tripId={tripId}
+        />,
+      );
+    });
+
+    expect(mockTripTrackingMapExperience).not.toHaveBeenCalled();
+    expect(mockFlashList).toHaveBeenCalledWith(expect.objectContaining({
+      data: detailsListSection.items,
+      ListFooterComponent: expect.anything(),
+      ListHeaderComponent: expect.anything(),
+    }));
 
     await act(async () => renderer!.unmount());
   });

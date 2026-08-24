@@ -31,6 +31,7 @@ import type { BookingStackParamList, RootStackParamList } from '@app/navigation/
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
+import { ShuttleHistorySummary } from '@features/profile/components/ShuttleHistorySummary';
 import { useTripDetail } from '@features/trip/hooks/useTripDetail';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
@@ -526,6 +527,10 @@ function TicketView({
                       </Text>
                     </View>
                   )
+                ) : null}
+
+                {activeLeg.shuttleRequests?.length ? (
+                  <ShuttleHistorySummary requests={activeLeg.shuttleRequests} />
                 ) : null}
 
                 {activeLeg.shuttlePickupAddress || activeLeg.shuttleDropoffAddress ? (

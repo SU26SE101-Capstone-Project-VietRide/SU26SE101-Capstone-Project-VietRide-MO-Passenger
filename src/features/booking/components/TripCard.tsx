@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Bus, Van, Bed, Clock } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
 import type { BusTrip } from '../types';
@@ -31,6 +31,7 @@ export const TripCard = memo(function TripCardComponent({
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { isCompact } = useResponsiveLayout();
   const selectedFromStore = useBookingStore((state) => state.selectedTrip?.id === trip.id);
   const selected = isSelected ?? selectedFromStore;
   const seatsUrgent = trip.seatsLeft <= 5;
@@ -68,24 +69,46 @@ export const TripCard = memo(function TripCardComponent({
         </View>
         <View style={styles.priceBlock}>
           <Text style={styles.priceLabel}>{t('booking.tripCard.from')}</Text>
-          <Text style={styles.price}>
+          <Text
+            style={styles.price}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
             {formatVnd(trip.effectiveFare, { clampNegative: true })}
           </Text>
         </View>
       </View>
 
       {/* Time row: departure → arrival with progress */}
-      <View style={styles.timeRow}>
+      <View
+        testID="trip-card-time-row"
+        style={[styles.timeRow, isCompact ? styles.timeRowCompact : null]}
+      >
         {/* Departure */}
         <View style={styles.timeBlock}>
-          <Text style={styles.timeText}>{trip.departureTime}</Text>
+          <Text
+            testID="trip-card-departure-time"
+            style={styles.timeText}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {trip.departureTime}
+          </Text>
           <Text style={styles.stationText} numberOfLines={2}>
             {trip.departureStation}
           </Text>
         </View>
 
         {/* Route separator; this is not a live journey-progress indicator. */}
-        <View style={styles.progressContainer}>
+        <View
+          testID="trip-card-progress"
+          style={[
+            styles.progressContainer,
+            isCompact ? styles.progressContainerCompact : null,
+          ]}
+        >
           <View style={styles.progressTrack} />
           <View style={styles.busIconContainer}>
             <Bus size={16} weight="fill" color={theme.colors.primary} />
@@ -94,7 +117,15 @@ export const TripCard = memo(function TripCardComponent({
 
         {/* Arrival */}
         <View style={[styles.timeBlock, styles.timeBlockRight]}>
-          <Text style={styles.timeText}>{trip.arrivalTime}</Text>
+          <Text
+            testID="trip-card-arrival-time"
+            style={[styles.timeText, styles.timeTextRight]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {trip.arrivalTime}
+          </Text>
           <Text style={[styles.stationText, styles.stationTextRight]} numberOfLines={2}>
             {trip.arrivalStation}
           </Text>
@@ -183,6 +214,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   priceBlock: {
     alignItems: 'flex-end',
+    flexShrink: 1,
+    maxWidth: '48%',
+    minWidth: 0,
   },
   priceLabel: {
     fontFamily: fontFamilies.medium,
@@ -194,14 +228,19 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.primary,
+    maxWidth: '100%',
   },
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
+  timeRowCompact: {
+    alignItems: 'flex-start',
+  },
   timeBlock: {
     flex: 1,
+    minWidth: 0,
   },
   timeBlockRight: {
     alignItems: 'flex-end',
@@ -210,6 +249,10 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xxl,
     color: theme.colors.textPrimary,
+    maxWidth: '100%',
+  },
+  timeTextRight: {
+    textAlign: 'right',
   },
   stationText: {
     fontFamily: fontFamilies.regular,
@@ -229,6 +272,11 @@ const createStyles = (theme: AppTheme) => ({
     height: 34,
     marginTop: 2,
     position: 'relative',
+    minWidth: 40,
+  },
+  progressContainerCompact: {
+    flex: 0.65,
+    paddingHorizontal: spacing.xs,
   },
   progressTrack: {
     width: '100%',
@@ -273,11 +321,15 @@ const createStyles = (theme: AppTheme) => ({
     borderColor: theme.effects.contentBorder,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 1,
+    maxWidth: '100%',
+    minWidth: 0,
   },
   metaText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: theme.colors.textPrimary,
+    flexShrink: 1,
+    minWidth: 0,
   },
   seatsLeftBadge: {
     backgroundColor: theme.colors.primaryFaded,

@@ -1837,15 +1837,17 @@
     "emptyTicketsFilteredDescription": "Other tickets are still in All.",
     "emptyParcelsTitle": "No parcel bookings yet",
     "emptyParcelsDescription": "Parcels you send will appear here.",
+    "emptyReceivedParcelsTitle": "No parcels sent to you yet",
+    "emptyReceivedParcelsDescription": "Parcels sent to your account will appear here.",
     "emptyParcelsFilteredTitle": "No parcels in this group",
     "emptyParcelsFilteredDescription": "Other parcels are still in All. Each row still shows its exact status.",
     "staleDescription": "Showing saved results because the latest update failed.",
     "ticketsTab": "Tickets",
     "parcelsTab": "Parcels",
-    "receivedParcel": "Parcel received by you",
+    "receivedParcel": "Sent to you",
     "parcelRoles": {
-      "sent": "Sent",
-      "received": "Received"
+      "sent": "Sent by me",
+      "received": "Sent to me"
     },
     "reliability": {
       "activeIncident": "An incident needs attention",

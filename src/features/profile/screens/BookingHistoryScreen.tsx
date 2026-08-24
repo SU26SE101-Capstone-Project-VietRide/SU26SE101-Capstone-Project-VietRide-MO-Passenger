@@ -67,32 +67,24 @@ import {
   spacing,
   type AppTheme,
 } from '@shared/theme';
-import {
-  formatDate,
-  formatTime,
-  formatVnd,
-} from '@shared/utils/format';
+import { formatDate, formatTime, formatVnd } from '@shared/utils/format';
 import {
   getPendingVnPaySession,
   reopenPendingVnPayPayment,
 } from '@shared/payments';
-import {
-  PaymentReturnGate,
-} from '@shared/utils/paymentRedirect';
+import { PaymentReturnGate } from '@shared/utils/paymentRedirect';
 import { PASSENGER_HISTORY_DEFAULT_PAGE_SIZE } from '../api/passengerHistoryApi';
 import { ShuttleHistorySummary } from '../components/ShuttleHistorySummary';
 import {
-  PARCEL_HISTORY_FILTER_LABEL_KEYS,
-  PASSENGER_PARCEL_HISTORY_FILTERS,
   PASSENGER_TICKET_HISTORY_FILTERS,
   TICKET_HISTORY_FILTER_LABEL_KEYS,
-  type ParcelHistoryFilter,
   type TicketHistoryFilter,
 } from '../config/passengerHistoryFilters';
+import { flattenPassengerHistoryPages } from '../utils/passengerHistoryMerge';
 import {
-  flattenPassengerHistoryPages,
-} from '../hooks/usePassengerHistory';
-import { useParcelRoleHistory, type ParcelHistoryRole } from '../hooks/useParcelRoleHistory';
+  useParcelRoleHistory,
+  type ParcelHistoryRole,
+} from '../hooks/useParcelRoleHistory';
 import type {
   PassengerParcelHistoryItem,
   PassengerTicketHistoryItem,
@@ -106,9 +98,12 @@ type BookingHistoryNavigation = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-const ticketKeyExtractor = (item: PassengerTicketHistoryItem): string => item.id;
-const parcelKeyExtractor = (item: PassengerParcelHistoryItem): string => item.id;
-const getPaymentItemKey = (type: HistoryPaymentType, id: string): string => `${type}:${id}`;
+const ticketKeyExtractor = (item: PassengerTicketHistoryItem): string =>
+  item.id;
+const parcelKeyExtractor = (item: PassengerParcelHistoryItem): string =>
+  item.id;
+const getPaymentItemKey = (type: HistoryPaymentType, id: string): string =>
+  `${type}:${id}`;
 
 interface PendingPaymentReturn {
   itemKey: string;
@@ -127,7 +122,8 @@ const getRouteLabel = (
   destinationName: string | null,
   unavailableLabel: string,
 ): string => {
-  if (originName && destinationName) return `${originName} → ${destinationName}`;
+  if (originName && destinationName)
+    return `${originName} → ${destinationName}`;
   return originName ?? destinationName ?? unavailableLabel;
 };
 
@@ -163,7 +159,9 @@ const HistoryFilterChip = memo(function HistoryFilterChipComponent<
         selected ? styles.activeFilterTab : null,
       ]}
     >
-      <Text style={[styles.filterLabel, selected ? styles.activeFilterLabel : null]}>
+      <Text
+        style={[styles.filterLabel, selected ? styles.activeFilterLabel : null]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -221,18 +219,10 @@ const TICKET_FILTER_OPTIONS: readonly {
   })),
 ];
 
-const PARCEL_FILTER_OPTIONS: readonly {
-  value: ParcelHistoryFilter;
+const PARCEL_ROLE_OPTIONS: readonly {
+  value: ParcelHistoryRole;
   labelKey: string;
 }[] = [
-  { value: 'ALL', labelKey: PARCEL_HISTORY_FILTER_LABEL_KEYS.ALL },
-  ...PASSENGER_PARCEL_HISTORY_FILTERS.map(value => ({
-    value,
-    labelKey: PARCEL_HISTORY_FILTER_LABEL_KEYS[value],
-  })),
-];
-
-const PARCEL_ROLE_OPTIONS: readonly { value: ParcelHistoryRole; labelKey: string }[] = [
   { value: 'SENT', labelKey: 'bookingHistory.parcelRoles.sent' },
   { value: 'RECEIVED', labelKey: 'bookingHistory.parcelRoles.received' },
 ];
@@ -265,17 +255,17 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
     ? item.paymentRedirectUrl
     : null;
   const seatNumbers = useMemo(
-    () => item.ticket.tickets.map((ticket) => ticket.seatNumber).join(', ')
-      || t('common.notAvailable'),
+    () =>
+      item.ticket.tickets.map(ticket => ticket.seatNumber).join(', ') ||
+      t('common.notAvailable'),
     [item.ticket.tickets, t],
   );
   const vehicleSummary = useMemo(() => {
     const vehicle = item.ticket.vehicle;
     if (!vehicle) return null;
-    return [
-      vehicle.vehicleType?.displayName,
-      vehicle.licensePlate,
-    ].filter(Boolean).join(' · ');
+    return [vehicle.vehicleType?.displayName, vehicle.licensePlate]
+      .filter(Boolean)
+      .join(' · ');
   }, [item.ticket.vehicle]);
   const handleOpen = useCallback(() => onOpen(item), [item, onOpen]);
   const handleTrack = useCallback(
@@ -283,7 +273,8 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
     [item.id, item.trackingTarget, item.tripId, onTrack],
   );
   const handleContinuePayment = useCallback(() => {
-    if (paymentRedirectUrl) onContinuePayment(item.id, item.type, paymentRedirectUrl);
+    if (paymentRedirectUrl)
+      onContinuePayment(item.id, item.type, paymentRedirectUrl);
   }, [item.id, item.type, onContinuePayment, paymentRedirectUrl]);
   const paymentAccessibilityState = useMemo(
     () => ({ busy: isOpeningPayment, disabled: isOpeningPayment }),
@@ -332,7 +323,9 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
           />
         </View>
 
-        <Text selectable style={styles.referenceCode} numberOfLines={1}>{item.code}</Text>
+        <Text selectable style={styles.referenceCode} numberOfLines={1}>
+          {item.code}
+        </Text>
 
         {item.ticket.routeName ? (
           <Text style={styles.routeNameLabel} numberOfLines={1}>
@@ -382,7 +375,11 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
           </Text>
           {vehicleSummary ? (
             <View style={styles.vehicleDetailItem}>
-              <Van size={16} color={theme.colors.textSecondary} weight="duotone" />
+              <Van
+                size={16}
+                color={theme.colors.textSecondary}
+                weight="duotone"
+              />
               <Text style={styles.detailValueText} numberOfLines={1}>
                 {t('bookingHistory.vehicle')}: {vehicleSummary}
               </Text>
@@ -390,16 +387,17 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
           ) : null}
         </View>
 
-        <ShuttleHistorySummary
-          requests={item.ticket.shuttleRequests}
-        />
+        <ShuttleHistorySummary requests={item.ticket.shuttleRequests} />
       </Pressable>
 
       <View style={styles.ticketFooter}>
         <View style={styles.footerLeft}>
           <Text style={styles.priceLabel}>{t('booking.totalPrice')}</Text>
           <Text style={styles.priceValue}>
-            {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
+            {formatVnd(item.totalAmount, {
+              display: 'code',
+              clampNegative: true,
+            })}
           </Text>
         </View>
         <View style={styles.footerActions}>
@@ -415,14 +413,24 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
               disabled={isOpeningPayment}
               accessibilityRole="button"
               accessibilityState={paymentAccessibilityState}
-              accessibilityLabel={t('bookingHistory.continuePaymentAccessibility', {
-                code: item.code,
-              })}
+              accessibilityLabel={t(
+                'bookingHistory.continuePaymentAccessibility',
+                {
+                  code: item.code,
+                },
+              )}
             >
               {isOpeningPayment ? (
-                <ActivityIndicator size="small" color={theme.colors.textInverse} />
+                <ActivityIndicator
+                  size="small"
+                  color={theme.colors.textInverse}
+                />
               ) : (
-                <CreditCard size={15} color={theme.colors.textInverse} weight="bold" />
+                <CreditCard
+                  size={15}
+                  color={theme.colors.textInverse}
+                  weight="bold"
+                />
               )}
               <Text style={styles.trackButtonText} numberOfLines={2}>
                 {t('bookingHistory.continuePayment')}
@@ -438,8 +446,14 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
                 code: item.code,
               })}
             >
-              <NavigationArrow size={14} color={theme.colors.textInverse} weight="fill" />
-              <Text style={styles.trackButtonText}>{t('bookingHistory.track')}</Text>
+              <NavigationArrow
+                size={14}
+                color={theme.colors.textInverse}
+                weight="fill"
+              />
+              <Text style={styles.trackButtonText}>
+                {t('bookingHistory.track')}
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -470,7 +484,8 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
   const statusPresentation = getParcelStatusPresentation(item.status);
   const sizePresentation = getParcelSizePresentation(item.parcel.sizeCategory);
   const paymentStage = getParcelPaymentStage(item.status);
-  const showPaymentAction = item.parcel.role === 'SENT' && Boolean(paymentStage);
+  const showPaymentAction =
+    item.parcel.role === 'SENT' && Boolean(paymentStage);
   const handleOpen = useCallback(
     () => onOpen(item.id, item.trackingTarget),
     [item.id, item.trackingTarget, onOpen],
@@ -481,7 +496,14 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
       return;
     }
     onOpen(item.id, item.trackingTarget);
-  }, [item.id, item.paymentRedirectUrl, item.trackingTarget, item.type, onContinuePayment, onOpen]);
+  }, [
+    item.id,
+    item.paymentRedirectUrl,
+    item.trackingTarget,
+    item.type,
+    onContinuePayment,
+    onOpen,
+  ]);
   const paymentAccessibilityState = useMemo(
     () => ({ busy: isOpeningPayment, disabled: isOpeningPayment }),
     [isOpeningPayment],
@@ -529,14 +551,17 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
               style={styles.parcelBadge}
             />
           </View>
-          <Text selectable style={styles.parcelReference} numberOfLines={1}>{item.code}</Text>
+          <Text selectable style={styles.parcelReference} numberOfLines={1}>
+            {item.code}
+          </Text>
           <View style={styles.parcelMetaRow}>
             <User size={14} color={theme.colors.textTertiary} />
             <Text style={styles.parcelMeta} numberOfLines={1}>
               {item.parcel.role === 'SENT'
                 ? t('history.toRecipient', { name: item.parcel.recipientName })
                 : t('bookingHistory.receivedParcel')}
-              {' · '}{t(sizePresentation.labelKey)}
+              {' · '}
+              {t(sizePresentation.labelKey)}
             </Text>
           </View>
           {item.parcel.reliability?.activeIncident ? (
@@ -545,22 +570,27 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
             </Text>
           ) : item.parcel.reliability?.claim ? (
             <Text style={styles.parcelReliability} numberOfLines={1}>
-              {t('bookingHistory.reliability.claim', { status: item.parcel.reliability.claim.status })}
+              {t('bookingHistory.reliability.claim', {
+                status: item.parcel.reliability.claim.status,
+              })}
             </Text>
           ) : null}
           <View style={styles.parcelAmountRow}>
             <Text style={styles.parcelDate} numberOfLines={1}>
               {item.estimatedArrivalTime
                 ? t('history.estimatedArrival', {
-                  date: formatDate(item.estimatedArrivalTime),
-                })
+                    date: formatDate(item.estimatedArrivalTime),
+                  })
                 : t('history.createdOn', {
-                  date: formatDate(item.createdAt),
-                })}
+                    date: formatDate(item.createdAt),
+                  })}
             </Text>
             {item.parcel.role === 'SENT' ? (
               <Text style={styles.parcelAmount}>
-                {formatVnd(item.totalAmount, { display: 'code', clampNegative: true })}
+                {formatVnd(item.totalAmount, {
+                  display: 'code',
+                  clampNegative: true,
+                })}
               </Text>
             ) : null}
           </View>
@@ -574,14 +604,24 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
             disabled={isOpeningPayment}
             accessibilityRole="button"
             accessibilityState={paymentAccessibilityState}
-            accessibilityLabel={t('bookingHistory.continuePaymentAccessibility', {
-              code: item.code,
-            })}
+            accessibilityLabel={t(
+              'bookingHistory.continuePaymentAccessibility',
+              {
+                code: item.code,
+              },
+            )}
           >
             {isOpeningPayment ? (
-              <ActivityIndicator size="small" color={theme.colors.textInverse} />
+              <ActivityIndicator
+                size="small"
+                color={theme.colors.textInverse}
+              />
             ) : (
-              <CreditCard size={15} color={theme.colors.textInverse} weight="bold" />
+              <CreditCard
+                size={15}
+                color={theme.colors.textInverse}
+                weight="bold"
+              />
             )}
             <Text style={styles.trackButtonText} numberOfLines={2}>
               {t('bookingHistory.continuePayment')}
@@ -598,6 +638,7 @@ interface HistoryEmptyStateProps {
   isAuthenticated: boolean;
   isPending: boolean;
   isFiltered: boolean;
+  parcelRole?: ParcelHistoryRole;
   error: unknown;
   onRetry: () => void;
   onSignIn: () => void;
@@ -608,6 +649,7 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
   isAuthenticated,
   isPending,
   isFiltered,
+  parcelRole,
   error,
   onRetry,
   onSignIn,
@@ -662,27 +704,42 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
         <Text style={styles.emptyText}>
           {t('bookingHistory.unavailableDescription')}
         </Text>
-        <Pressable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onRetry}
+          style={styles.retryButton}
+        >
           <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
         </Pressable>
       </View>
     );
   }
 
-  const emptyTitle = kind === 'ticket'
-    ? t(isFiltered
-      ? 'bookingHistory.emptyTicketsFilteredTitle'
-      : 'bookingHistory.emptyTicketsTitle')
-    : t(isFiltered
-      ? 'bookingHistory.emptyParcelsFilteredTitle'
-      : 'bookingHistory.emptyParcelsTitle');
-  const emptyDescription = kind === 'ticket'
-    ? t(isFiltered
-      ? 'bookingHistory.emptyTicketsFilteredDescription'
-      : 'bookingHistory.emptyTicketsDescription')
-    : t(isFiltered
-      ? 'bookingHistory.emptyParcelsFilteredDescription'
-      : 'bookingHistory.emptyParcelsDescription');
+  const isReceivedParcel = kind === 'parcel' && parcelRole === 'RECEIVED';
+  const emptyTitle =
+    kind === 'ticket'
+      ? t(
+          isFiltered
+            ? 'bookingHistory.emptyTicketsFilteredTitle'
+            : 'bookingHistory.emptyTicketsTitle',
+        )
+      : t(
+          isReceivedParcel
+            ? 'bookingHistory.emptyReceivedParcelsTitle'
+            : 'bookingHistory.emptyParcelsTitle',
+        );
+  const emptyDescription =
+    kind === 'ticket'
+      ? t(
+          isFiltered
+            ? 'bookingHistory.emptyTicketsFilteredDescription'
+            : 'bookingHistory.emptyTicketsDescription',
+        )
+      : t(
+          isReceivedParcel
+            ? 'bookingHistory.emptyReceivedParcelsDescription'
+            : 'bookingHistory.emptyParcelsDescription',
+        );
 
   return (
     <View style={styles.emptyContainer} accessibilityRole="summary">
@@ -744,15 +801,17 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const paymentReturnGate = useMemo(() => new PaymentReturnGate(), []);
   const paymentOpenInFlightRef = useRef(false);
   const pendingPaymentReturnRef = useRef<PendingPaymentReturn | null>(null);
-  const userId = useAuthStore((state) => state.user?.id);
-  const [openingPaymentItemKey, setOpeningPaymentItemKey] = useState<string | null>(null);
+  const userId = useAuthStore(state => state.user?.id);
+  const [openingPaymentItemKey, setOpeningPaymentItemKey] = useState<
+    string | null
+  >(null);
   const [activeTab, setActiveTab] = useState<HistoryTab>(
     route.params?.initialTab ?? 'ticket',
   );
   const [ticketFilter, setTicketFilter] = useState<TicketHistoryFilter>('ALL');
-  const [parcelFilter, setParcelFilter] = useState<ParcelHistoryFilter>('ALL');
   const [parcelRole, setParcelRole] = useState<ParcelHistoryRole>('SENT');
-  const selectedTicketStatus = ticketFilter === 'ALL' ? undefined : ticketFilter;
+  const selectedTicketStatus =
+    ticketFilter === 'ALL' ? undefined : ticketFilter;
   const ticketQuery = useBookingHistory(
     {
       ...(selectedTicketStatus ? { status: selectedTicketStatus } : {}),
@@ -762,7 +821,6 @@ export function BookingHistoryScreen(): React.JSX.Element {
   );
   const parcelQuery = useParcelRoleHistory(
     parcelRole,
-    parcelFilter,
     PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
     activeTab === 'parcel',
   );
@@ -795,24 +853,18 @@ export function BookingHistoryScreen(): React.JSX.Element {
     const pendingPaymentReturn = pendingPaymentReturnRef.current;
     if (!pendingPaymentReturn) return;
 
-    if (!paymentReturnGate.consume(isAppActive ? 'active' : 'background')) return;
+    if (!paymentReturnGate.consume(isAppActive ? 'active' : 'background'))
+      return;
 
     pendingPaymentReturnRef.current = null;
     setOpeningPaymentItemKey(null);
 
     if (pendingPaymentReturn.userId !== userId) return;
 
-    const refreshActiveHistory = pendingPaymentReturn.type === 'TICKET'
-      ? refetchTickets
-      : refetchParcels;
+    const refreshActiveHistory =
+      pendingPaymentReturn.type === 'TICKET' ? refetchTickets : refetchParcels;
     refreshActiveHistory().catch(() => undefined);
-  }, [
-    isAppActive,
-    paymentReturnGate,
-    refetchParcels,
-    refetchTickets,
-    userId,
-  ]);
+  }, [isAppActive, paymentReturnGate, refetchParcels, refetchTickets, userId]);
 
   useEffect(() => {
     paymentReturnGate.cancel();
@@ -825,13 +877,17 @@ export function BookingHistoryScreen(): React.JSX.Element {
   }, [route.params?.initialTab]);
 
   const ticketItems = useMemo(
-    () => flattenPassengerHistoryPages(ticketData?.pages)
-      .filter((item): item is PassengerTicketHistoryItem => item.type === 'TICKET'),
+    () =>
+      flattenPassengerHistoryPages(ticketData?.pages).filter(
+        (item): item is PassengerTicketHistoryItem => item.type === 'TICKET',
+      ),
     [ticketData?.pages],
   );
   const parcelItems = useMemo(
-    () => flattenPassengerHistoryPages(parcelData?.pages)
-      .filter((item): item is PassengerParcelHistoryItem => item.type === 'PARCEL'),
+    () =>
+      flattenPassengerHistoryPages(parcelData?.pages).filter(
+        (item): item is PassengerParcelHistoryItem => item.type === 'PARCEL',
+      ),
     [parcelData?.pages],
   );
 
@@ -842,110 +898,113 @@ export function BookingHistoryScreen(): React.JSX.Element {
     navigation.navigate('Auth', { screen: 'Login' });
   }, [navigation]);
 
-  const handleTicketOpen = useCallback((item: PassengerTicketHistoryItem) => {
-    // Signed redirect URLs stay in the authenticated query cache and are not
-    // serialized into navigation state.
-    const historyItem = item.paymentRedirectUrl
-      ? { ...item, paymentRedirectUrl: null }
-      : item;
-    navigation.navigate('Booking', {
-      screen: 'DigitalTicket',
-      params: {
-        source: 'history',
-        bookingId: item.id,
-        historyItem,
-      },
-    });
-  }, [navigation]);
+  const handleTicketOpen = useCallback(
+    (item: PassengerTicketHistoryItem) => {
+      // Signed redirect URLs stay in the authenticated query cache and are not
+      // serialized into navigation state.
+      const historyItem = item.paymentRedirectUrl
+        ? { ...item, paymentRedirectUrl: null }
+        : item;
+      navigation.navigate('Booking', {
+        screen: 'DigitalTicket',
+        params: {
+          source: 'history',
+          bookingId: item.id,
+          historyItem,
+        },
+      });
+    },
+    [navigation],
+  );
 
-  const handleTrack = useCallback((
-    tripId: string,
-    bookingId: string,
-    trackingTarget: PassengerTicketHistoryItem['trackingTarget'],
-  ) => {
-    navigation.navigate('Tracking', {
-      source: 'trip',
-      tripId,
-      bookingId,
-      ...(trackingTarget ? { trackingTarget } : {}),
-    });
-  }, [navigation]);
-
-  const handleParcelOpen = useCallback((
-    parcelId: string,
-    trackingTarget?: PassengerParcelHistoryItem['trackingTarget'],
-  ) => {
-    navigation.navigate('Parcel', {
-      screen: 'ParcelDetail',
-      params: {
-        parcelId,
-        fromHistory: true,
+  const handleTrack = useCallback(
+    (
+      tripId: string,
+      bookingId: string,
+      trackingTarget: PassengerTicketHistoryItem['trackingTarget'],
+    ) => {
+      navigation.navigate('Tracking', {
+        source: 'trip',
+        tripId,
+        bookingId,
         ...(trackingTarget ? { trackingTarget } : {}),
-      },
-    });
-  }, [navigation]);
+      });
+    },
+    [navigation],
+  );
 
-  const handleContinuePayment = useCallback<ContinuePaymentHandler>((
-    itemId,
-    type,
-    _redirectUrl,
-  ) => {
-    if (
-      !userId
-      || paymentOpenInFlightRef.current
-      || pendingPaymentReturnRef.current
-    ) {
-      return;
-    }
+  const handleParcelOpen = useCallback(
+    (
+      parcelId: string,
+      trackingTarget?: PassengerParcelHistoryItem['trackingTarget'],
+    ) => {
+      navigation.navigate('Parcel', {
+        screen: 'ParcelDetail',
+        params: {
+          parcelId,
+          fromHistory: true,
+          ...(trackingTarget ? { trackingTarget } : {}),
+        },
+      });
+    },
+    [navigation],
+  );
 
-    const itemKey = getPaymentItemKey(type, itemId);
-    pendingPaymentReturnRef.current = { itemKey, type, userId };
-    paymentReturnGate.arm(isAppActive ? 'active' : 'background');
-    setOpeningPaymentItemKey(itemKey);
-    paymentOpenInFlightRef.current = true;
-
-    (async () => {
-      try {
-        const pending = await getPendingVnPaySession();
-        if (
-          !pending?.paymentRedirectUrl
-          || pending?.ownerUserId !== userId
-          || !pending.vnpaySdk
-          || (pending.businessId && pending.businessId !== itemId)
-        ) {
-          throw new Error('PENDING_VNPAY_SESSION_UNAVAILABLE');
-        }
-
-        await reopenPendingVnPayPayment(pending, userId);
-      } catch {
-        const pendingPaymentReturn = pendingPaymentReturnRef.current;
-        if (pendingPaymentReturn?.itemKey === itemKey) {
-          pendingPaymentReturnRef.current = null;
-          paymentReturnGate.cancel();
-          setOpeningPaymentItemKey(null);
-        }
-
-        if (type === 'PARCEL') {
-          Alert.alert(
-            t('parcel.payment.redirectErrorTitle'),
-            t('parcel.payment.redirectErrorDescription'),
-          );
-        } else {
-          Alert.alert(
-            t('booking.paymentRedirect.errorTitle'),
-            t('booking.paymentRedirect.errorDescription'),
-          );
-        }
-      } finally {
-        paymentOpenInFlightRef.current = false;
+  const handleContinuePayment = useCallback<ContinuePaymentHandler>(
+    (itemId, type, _redirectUrl) => {
+      if (
+        !userId ||
+        paymentOpenInFlightRef.current ||
+        pendingPaymentReturnRef.current
+      ) {
+        return;
       }
-    })().catch(() => undefined);
-  }, [
-    isAppActive,
-    paymentReturnGate,
-    t,
-    userId,
-  ]);
+
+      const itemKey = getPaymentItemKey(type, itemId);
+      pendingPaymentReturnRef.current = { itemKey, type, userId };
+      paymentReturnGate.arm(isAppActive ? 'active' : 'background');
+      setOpeningPaymentItemKey(itemKey);
+      paymentOpenInFlightRef.current = true;
+
+      (async () => {
+        try {
+          const pending = await getPendingVnPaySession();
+          if (
+            !pending?.paymentRedirectUrl ||
+            pending?.ownerUserId !== userId ||
+            !pending.vnpaySdk ||
+            (pending.businessId && pending.businessId !== itemId)
+          ) {
+            throw new Error('PENDING_VNPAY_SESSION_UNAVAILABLE');
+          }
+
+          await reopenPendingVnPayPayment(pending, userId);
+        } catch {
+          const pendingPaymentReturn = pendingPaymentReturnRef.current;
+          if (pendingPaymentReturn?.itemKey === itemKey) {
+            pendingPaymentReturnRef.current = null;
+            paymentReturnGate.cancel();
+            setOpeningPaymentItemKey(null);
+          }
+
+          if (type === 'PARCEL') {
+            Alert.alert(
+              t('parcel.payment.redirectErrorTitle'),
+              t('parcel.payment.redirectErrorDescription'),
+            );
+          } else {
+            Alert.alert(
+              t('booking.paymentRedirect.errorTitle'),
+              t('booking.paymentRedirect.errorDescription'),
+            );
+          }
+        } finally {
+          paymentOpenInFlightRef.current = false;
+        }
+      })().catch(() => undefined);
+    },
+    [isAppActive, paymentReturnGate, t, userId],
+  );
 
   const renderTicket = useCallback(
     ({ item }: ListRenderItemInfo<PassengerTicketHistoryItem>) => (
@@ -954,7 +1013,9 @@ export function BookingHistoryScreen(): React.JSX.Element {
         onOpen={handleTicketOpen}
         onTrack={handleTrack}
         onContinuePayment={handleContinuePayment}
-        isOpeningPayment={openingPaymentItemKey === getPaymentItemKey(item.type, item.id)}
+        isOpeningPayment={
+          openingPaymentItemKey === getPaymentItemKey(item.type, item.id)
+        }
       />
     ),
     [
@@ -970,7 +1031,9 @@ export function BookingHistoryScreen(): React.JSX.Element {
         item={item}
         onOpen={handleParcelOpen}
         onContinuePayment={handleContinuePayment}
-        isOpeningPayment={openingPaymentItemKey === getPaymentItemKey(item.type, item.id)}
+        isOpeningPayment={
+          openingPaymentItemKey === getPaymentItemKey(item.type, item.id)
+        }
       />
     ),
     [handleContinuePayment, handleParcelOpen, openingPaymentItemKey],
@@ -1010,45 +1073,51 @@ export function BookingHistoryScreen(): React.JSX.Element {
     }
   }, [fetchNextParcelPage, hasNextParcelPage, isFetchingNextParcelPage]);
 
-  const ticketEmpty = useMemo(() => (
-    <HistoryEmptyState
-      kind="ticket"
-      isAuthenticated={Boolean(userId)}
-      isPending={isTicketPending}
-      isFiltered={ticketFilter !== 'ALL'}
-      error={isTicketError ? ticketError : null}
-      onRetry={refreshTickets}
-      onSignIn={handleSignIn}
-    />
-  ), [
-    handleSignIn,
-    isTicketError,
-    isTicketPending,
-    refreshTickets,
-    ticketError,
-    ticketFilter,
-    userId,
-  ]);
-  const parcelEmpty = useMemo(() => (
-    <HistoryEmptyState
-      kind="parcel"
-      isAuthenticated={Boolean(userId)}
-      isPending={isParcelPending}
-      isFiltered={parcelRole === 'SENT' && parcelFilter !== 'ALL'}
-      error={isParcelError ? parcelError : null}
-      onRetry={refreshParcels}
-      onSignIn={handleSignIn}
-    />
-  ), [
-    handleSignIn,
-    isParcelError,
-    isParcelPending,
-    parcelError,
-    parcelFilter,
-    parcelRole,
-    refreshParcels,
-    userId,
-  ]);
+  const ticketEmpty = useMemo(
+    () => (
+      <HistoryEmptyState
+        kind="ticket"
+        isAuthenticated={Boolean(userId)}
+        isPending={isTicketPending}
+        isFiltered={ticketFilter !== 'ALL'}
+        error={isTicketError ? ticketError : null}
+        onRetry={refreshTickets}
+        onSignIn={handleSignIn}
+      />
+    ),
+    [
+      handleSignIn,
+      isTicketError,
+      isTicketPending,
+      refreshTickets,
+      ticketError,
+      ticketFilter,
+      userId,
+    ],
+  );
+  const parcelEmpty = useMemo(
+    () => (
+      <HistoryEmptyState
+        kind="parcel"
+        isAuthenticated={Boolean(userId)}
+        isPending={isParcelPending}
+        isFiltered={false}
+        parcelRole={parcelRole}
+        error={isParcelError ? parcelError : null}
+        onRetry={refreshParcels}
+        onSignIn={handleSignIn}
+      />
+    ),
+    [
+      handleSignIn,
+      isParcelError,
+      isParcelPending,
+      parcelError,
+      parcelRole,
+      refreshParcels,
+      userId,
+    ],
+  );
   const ticketFooter = useMemo(
     () => <PaginationFooter loading={isFetchingNextTicketPage} />,
     [isFetchingNextTicketPage],
@@ -1058,15 +1127,17 @@ export function BookingHistoryScreen(): React.JSX.Element {
     [isFetchingNextParcelPage],
   );
   const ticketHeader = useMemo(
-    () => isTicketRefetchError && ticketItems.length > 0
-      ? <HistoryStaleBanner onRetry={refreshTickets} />
-      : null,
+    () =>
+      isTicketRefetchError && ticketItems.length > 0 ? (
+        <HistoryStaleBanner onRetry={refreshTickets} />
+      ) : null,
     [isTicketRefetchError, refreshTickets, ticketItems.length],
   );
   const parcelHeader = useMemo(
-    () => isParcelRefetchError && parcelItems.length > 0
-      ? <HistoryStaleBanner onRetry={refreshParcels} />
-      : null,
+    () =>
+      isParcelRefetchError && parcelItems.length > 0 ? (
+        <HistoryStaleBanner onRetry={refreshParcels} />
+      ) : null,
     [isParcelRefetchError, parcelItems.length, refreshParcels],
   );
 
@@ -1103,9 +1174,11 @@ export function BookingHistoryScreen(): React.JSX.Element {
           >
             <Ticket
               size={18}
-              color={activeTab === 'ticket'
-                ? theme.colors.textInverse
-                : theme.colors.textSecondary}
+              color={
+                activeTab === 'ticket'
+                  ? theme.colors.textInverse
+                  : theme.colors.textSecondary
+              }
             />
             <Text
               style={[
@@ -1128,9 +1201,11 @@ export function BookingHistoryScreen(): React.JSX.Element {
           >
             <Package
               size={18}
-              color={activeTab === 'parcel'
-                ? theme.colors.textInverse
-                : theme.colors.textSecondary}
+              color={
+                activeTab === 'parcel'
+                  ? theme.colors.textInverse
+                  : theme.colors.textSecondary
+              }
             />
             <Text
               style={[
@@ -1156,35 +1231,28 @@ export function BookingHistoryScreen(): React.JSX.Element {
               options={PARCEL_ROLE_OPTIONS}
               onSelect={setParcelRole}
             />
-            {parcelRole === 'SENT' ? (
-              <HistoryFilterBar
-                selected={parcelFilter}
-                options={PARCEL_FILTER_OPTIONS}
-                onSelect={setParcelFilter}
-              />
-            ) : null}
           </View>
         )}
       </View>
 
       {activeTab === 'ticket' ? (
-          <FlashList
-            data={ticketItems}
-            extraData={openingPaymentItemKey}
-            renderItem={renderTicket}
-            keyExtractor={ticketKeyExtractor}
-            ListEmptyComponent={ticketEmpty}
-            ListFooterComponent={ticketFooter}
-            ListHeaderComponent={ticketHeader}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            onEndReached={loadMoreTickets}
-            onEndReachedThreshold={0.35}
-            onRefresh={refreshTickets}
-            refreshing={isTicketRefetching && !isFetchingNextTicketPage}
-            onScroll={handleTabBarScroll}
-            scrollEventThrottle={16}
-          />
+        <FlashList
+          data={ticketItems}
+          extraData={openingPaymentItemKey}
+          renderItem={renderTicket}
+          keyExtractor={ticketKeyExtractor}
+          ListEmptyComponent={ticketEmpty}
+          ListFooterComponent={ticketFooter}
+          ListHeaderComponent={ticketHeader}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          onEndReached={loadMoreTickets}
+          onEndReachedThreshold={0.35}
+          onRefresh={refreshTickets}
+          refreshing={isTicketRefetching && !isFetchingNextTicketPage}
+          onScroll={handleTabBarScroll}
+          scrollEventThrottle={16}
+        />
       ) : (
         <FlashList
           data={parcelItems}

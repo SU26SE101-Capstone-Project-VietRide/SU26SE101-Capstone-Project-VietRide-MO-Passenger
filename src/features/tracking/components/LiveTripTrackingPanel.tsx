@@ -17,6 +17,7 @@ import {
   NavigationArrow,
   WarningCircle,
 } from 'phosphor-react-native';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { useIsFocused } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 
@@ -60,12 +61,15 @@ import {
   type TripRouteStopPresentation,
 } from './tripRoutePresentation';
 import type {
+  TrackingSupplementalListItem,
+  TrackingSupplementalListSection,
   UpcomingStopSheetItem,
   UpcomingStopTone,
 } from './UpcomingStopsSheet';
 
 interface TrackingLayoutSlots {
   detailsFooter?: ReactNode;
+  detailsListSection?: TrackingSupplementalListSection;
   refreshing?: boolean;
   onRefresh?: () => Promise<unknown> | unknown;
 }
@@ -309,12 +313,17 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     ? props.onRouteHeaderChange
     : undefined;
   const detailsFooter = props.detailsFooter;
+  const detailsListSection = props.detailsListSection;
   const externalRefreshing = props.refreshing ?? false;
   const externalRefresh = props.onRefresh;
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const hasDetailsFooter = Boolean(detailsFooter);
+  const hasDetailsFooter = Boolean(
+    detailsFooter
+    || detailsListSection?.items.length
+    || detailsListSection?.footer,
+  );
   const userId = useAuthStore((state) => state.user?.id);
   const isFocused = useIsFocused();
   const isAppActive = useIsAppActive();
@@ -1047,6 +1056,30 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       {...(tracking.delay ? { delayMinutes: tracking.delay.delayMinutes } : {})}
     />
   );
+  const renderSupplementalItem = useCallback<
+    ListRenderItem<TrackingSupplementalListItem>
+  >(
+    ({ item }) => <>{item.content}</>,
+    [],
+  );
+  const supplementalKeyExtractor = useCallback(
+    (item: TrackingSupplementalListItem) => item.key,
+    [],
+  );
+  const getSupplementalItemType = useCallback(
+    (item: TrackingSupplementalListItem) => item.type,
+    [],
+  );
+  const detailsListFooter = useMemo(
+    () => detailsListSection?.footer
+      ? (
+          <View style={styles.detailsFooter}>
+            {detailsListSection.footer}
+          </View>
+        )
+      : null,
+    [detailsListSection?.footer, styles.detailsFooter],
+  );
   const canRenderTripSheet = Boolean(
     !isShuttle
     && tracking.hasValidTrackingId
@@ -1063,6 +1096,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         onRefresh={handleRefresh}
         refreshing={externalRefreshing || trackingRefreshing}
         renderMap={renderMainTripMap}
+        supplementalListSection={detailsListSection}
       />
     );
   }
@@ -1078,27 +1112,49 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         {hero}
       </View>
 
-      <ScrollView
-        style={[
-          styles.detailsScroll,
-          hasDetailsFooter ? styles.detailsScrollWithFooter : null,
-        ]}
-        contentContainerStyle={styles.detailsContent}
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={hasDetailsFooter}
-        nestedScrollEnabled
-        keyboardShouldPersistTaps="handled"
-        refreshControl={(
-          <RefreshControl
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-            refreshing={externalRefreshing || trackingRefreshing}
-            onRefresh={handleRefresh}
-          />
-        )}
-      >
-        {detailsContent}
-      </ScrollView>
+      {detailsListSection ? (
+        <FlashList
+          style={hasDetailsFooter
+            ? {
+                ...styles.detailsScroll,
+                ...styles.detailsScrollWithFooter,
+              }
+            : styles.detailsScroll}
+          contentContainerStyle={styles.detailsContent}
+          data={detailsListSection.items}
+          getItemType={getSupplementalItemType}
+          keyExtractor={supplementalKeyExtractor}
+          keyboardShouldPersistTaps="handled"
+          ListFooterComponent={detailsListFooter}
+          ListHeaderComponent={detailsContent}
+          onRefresh={handleRefresh}
+          refreshing={externalRefreshing || trackingRefreshing}
+          renderItem={renderSupplementalItem}
+          showsVerticalScrollIndicator={hasDetailsFooter}
+        />
+      ) : (
+        <ScrollView
+          style={[
+            styles.detailsScroll,
+            hasDetailsFooter ? styles.detailsScrollWithFooter : null,
+          ]}
+          contentContainerStyle={styles.detailsContent}
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={hasDetailsFooter}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          refreshControl={(
+            <RefreshControl
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+              refreshing={externalRefreshing || trackingRefreshing}
+              onRefresh={handleRefresh}
+            />
+          )}
+        >
+          {detailsContent}
+        </ScrollView>
+      )}
     </View>
   );
 });

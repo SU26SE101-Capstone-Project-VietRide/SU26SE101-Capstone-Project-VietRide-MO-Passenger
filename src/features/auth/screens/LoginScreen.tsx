@@ -149,7 +149,11 @@ export function LoginScreen(): React.JSX.Element {
         />
       </View>
 
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView
+        testID="login-safe-area"
+        style={styles.container}
+        edges={['top', 'bottom', 'left', 'right']}
+      >
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         <View
           style={styles.keyboardView}
@@ -254,13 +258,12 @@ export function LoginScreen(): React.JSX.Element {
               </Pressable>
             </View>
 
+            <AuthFooter
+              prompt={t('auth.loginFlow.noAccount')}
+              actionLabel={t('auth.loginFlow.signUp')}
+              onAction={() => navigation.navigate('Register')}
+            />
           </AppKeyboardAwareScrollView>
-
-          <AuthFooter
-            prompt={t('auth.loginFlow.noAccount')}
-            actionLabel={t('auth.loginFlow.signUp')}
-            onAction={() => navigation.navigate('Register')}
-          />
         </View>
       </SafeAreaView>
     </View>

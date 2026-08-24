@@ -2,10 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   Text,
   View,
@@ -17,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { ParcelStackParamList } from '@app/navigation/types';
-import { Input } from '@shared/components';
+import { AppKeyboardAwareScrollView, Input } from '@shared/components';
 import { getLocalizedApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -42,6 +39,8 @@ type IncidentNavigation = NativeStackNavigationProp<
   'ReportParcelIncident'
 >;
 
+// BE v1.92 allows a nullable description; Passenger deliberately requires one
+// for an actionable report while preserving the server's 2,000-character limit.
 const DESCRIPTION_MAX_LENGTH = 2_000;
 
 export function ReportParcelIncidentScreen(): React.JSX.Element {
@@ -127,14 +126,11 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
         <Text style={styles.headerTitle}>{t('parcel.incident.title')}</Text>
         <View style={styles.headerButton} />
       </View>
-      <KeyboardAvoidingView
+      <AppKeyboardAwareScrollView
         style={styles.body}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
       >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-        >
           <View style={styles.introCard}>
             <ShieldWarning size={28} color={theme.colors.warning} weight="duotone" />
             <View style={styles.introCopy}>
@@ -150,6 +146,7 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
               return (
                 <Pressable
                   key={type}
+                  testID={`parcel-incident-type-${type}`}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                   onPress={() => setIncidentType(type)}
@@ -203,8 +200,7 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
               <Text style={styles.submitText}>{t('parcel.incident.submit')}</Text>
             )}
           </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -218,12 +214,13 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.divider,
   },
-  headerButton: { width: 44, height: 44, alignItems: 'center' as const, justifyContent: 'center' as const },
-  headerTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.lg },
-  content: { padding: spacing.xl, paddingBottom: spacing.huge },
+  headerButton: { width: 44, height: 44, flexShrink: 0, alignItems: 'center' as const, justifyContent: 'center' as const },
+  headerTitle: { flex: 1, minWidth: 0, paddingHorizontal: spacing.sm, color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, textAlign: 'center' as const },
+  content: { flexGrow: 1, padding: spacing.xl, paddingBottom: spacing.huge },
   introCard: {
     flexDirection: 'row' as const,
     gap: spacing.md,
@@ -232,14 +229,33 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: borderRadius.lg,
     backgroundColor: theme.colors.warningLight,
   },
-  introCopy: { flex: 1 },
+  introCopy: { flex: 1, minWidth: 0 },
   introTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.md },
   introText: { marginTop: spacing.xs, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 20 },
   label: { color: theme.colors.textPrimary, fontFamily: fontFamilies.medium, fontSize: fontSizes.sm, marginBottom: spacing.sm },
   chips: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: spacing.sm, marginBottom: spacing.xl },
-  chip: { minHeight: 40, justifyContent: 'center' as const, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: theme.colors.divider, borderRadius: borderRadius.full },
+  chip: {
+    maxWidth: '100%',
+    minWidth: 0,
+    minHeight: 44,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.divider,
+    borderRadius: borderRadius.full,
+  },
   chipSelected: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryFaded },
-  chipText: { color: theme.colors.textSecondary, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
+  chipText: {
+    minWidth: 0,
+    flexShrink: 1,
+    color: theme.colors.textSecondary,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
+    textAlign: 'center' as const,
+  },
   chipTextSelected: { color: theme.colors.primary },
   textArea: { minHeight: 132, paddingTop: spacing.md },
   evidenceNotice: { padding: spacing.md, marginBottom: spacing.xl, borderRadius: borderRadius.md, backgroundColor: theme.colors.surfaceAlt },
@@ -247,6 +263,6 @@ const createStyles = (theme: AppTheme) => ({
   evidenceText: { marginTop: spacing.xs, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs, lineHeight: 18 },
   submitButton: { minHeight: 50, alignItems: 'center' as const, justifyContent: 'center' as const, borderRadius: borderRadius.md, backgroundColor: theme.colors.primary },
   submitDisabled: { opacity: 0.45 },
-  submitText: { color: theme.colors.textInverse, fontFamily: fontFamilies.bold, fontSize: fontSizes.md },
+  submitText: { minWidth: 0, flexShrink: 1, paddingHorizontal: spacing.sm, color: theme.colors.textInverse, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, textAlign: 'center' as const },
   pressed: { opacity: 0.8 },
 });

@@ -6,6 +6,7 @@ import { RecentParcelsSection } from './RecentParcelsSection';
 
 const mockUseHomePromotions = jest.fn();
 const mockUseSentParcels = jest.fn();
+const mockFlashListProps = jest.fn();
 
 const mockTheme = {
   colors: {
@@ -36,7 +37,8 @@ jest.mock('@shared/contexts/ThemeContext', () => ({
 }));
 
 jest.mock('@shared/hooks', () => ({
-  useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) => factory(mockTheme),
+  useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) =>
+    factory(mockTheme),
 }));
 
 jest.mock('@shared/components', () => ({
@@ -48,9 +50,7 @@ jest.mock('../hooks/useHomePromotions', () => ({
 }));
 
 jest.mock('@features/parcel/hooks/useParcelReliabilityQueries', () => ({
-  useSentParcels: (query: { pageSize: number }) => (
-    mockUseSentParcels(query)
-  ),
+  useSentParcels: (query: { pageSize: number }) => mockUseSentParcels(query),
 }));
 
 jest.mock('phosphor-react-native', () => ({
@@ -62,23 +62,35 @@ jest.mock('phosphor-react-native', () => ({
 
 jest.mock('@shopify/flash-list', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');
-  const ReactNative = jest.requireActual<typeof import('react-native')>('react-native');
+  const ReactNative =
+    jest.requireActual<typeof import('react-native')>('react-native');
 
   interface MockFlashListProps {
+    contentContainerStyle?: unknown;
     data?: readonly unknown[];
-    renderItem: (info: { item: unknown; index: number }) => React.ReactElement | null;
+    ItemSeparatorComponent?: React.ComponentType;
+    renderItem: (info: {
+      item: unknown;
+      index: number;
+    }) => React.ReactElement | null;
   }
 
   return {
-    FlashList: ({ data = [], renderItem }: MockFlashListProps) => ReactModule.createElement(
-      ReactNative.View,
-      null,
-      ...data.map((item, index) => ReactModule.createElement(
+    FlashList: (props: MockFlashListProps) => {
+      mockFlashListProps(props);
+      const { data = [], renderItem } = props;
+      return ReactModule.createElement(
         ReactNative.View,
-        { key: String(index) },
-        renderItem({ item, index }),
-      )),
-    ),
+        null,
+        ...data.map((item, index) =>
+          ReactModule.createElement(
+            ReactNative.View,
+            { key: String(index) },
+            renderItem({ item, index }),
+          ),
+        ),
+      );
+    },
   };
 });
 
@@ -89,15 +101,17 @@ describe('Home data sections', () => {
 
   it('renders promotions as scroll-only content without a press action', async () => {
     mockUseHomePromotions.mockReturnValue({
-      data: [{
-        voucherId: 'voucher-1',
-        code: 'RIDE20',
-        name: 'Ride offer',
-        type: 'PERCENT_OFF',
-        value: 20,
-        applicableServices: ['BOOKING'],
-        validUntil: '2026-08-01T00:00:00Z',
-      }],
+      data: [
+        {
+          voucherId: 'voucher-1',
+          code: 'RIDE20',
+          name: 'Ride offer',
+          type: 'PERCENT_OFF',
+          value: 20,
+          applicableServices: ['BOOKING'],
+          validUntil: '2026-08-01T00:00:00Z',
+        },
+      ],
       isError: false,
       isPending: false,
       refetch: jest.fn(),
@@ -105,9 +119,7 @@ describe('Home data sections', () => {
     let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 
     await act(async () => {
-      renderer = ReactTestRenderer.create(
-        <PromotionsSection />,
-      );
+      renderer = ReactTestRenderer.create(<PromotionsSection />);
     });
     const promotion = renderer!.root.findByProps({ accessible: true });
 
@@ -121,18 +133,22 @@ describe('Home data sections', () => {
   it('renders sent parcels from passenger history and forwards BE IDs', async () => {
     mockUseSentParcels.mockReturnValue({
       data: {
-        pages: [{
-          items: [{
-            parcelId: 'parcel-1',
-            parcelCode: 'VR-001',
-            status: 'IN_TRANSIT',
-            originName: 'Hà Nội',
-            destinationName: 'Đà Nẵng',
-            estimatedArrivalTime: '2026-07-20T00:00:00Z',
-            createdAt: '2026-07-14T00:00:00Z',
-            tripId: 'trip-1',
-          }],
-        }],
+        pages: [
+          {
+            items: [
+              {
+                parcelId: 'parcel-1',
+                parcelCode: 'VR-001',
+                status: 'IN_TRANSIT',
+                originName: 'Hà Nội',
+                destinationName: 'Đà Nẵng',
+                estimatedArrivalTime: '2026-07-20T00:00:00Z',
+                createdAt: '2026-07-14T00:00:00Z',
+                tripId: 'trip-1',
+              },
+            ],
+          },
+        ],
       },
       isError: false,
       isLoading: false,
@@ -147,10 +163,11 @@ describe('Home data sections', () => {
       );
     });
     await act(async () => {
-      const parcelCard = renderer!.root.findAll((node) => (
-        node.props.accessibilityRole === 'button'
-        && typeof node.props.onPress === 'function'
-      ))[0];
+      const parcelCard = renderer!.root.findAll(
+        node =>
+          node.props.accessibilityRole === 'button' &&
+          typeof node.props.onPress === 'function',
+      )[0];
       parcelCard.props.onPress();
     });
 
@@ -159,7 +176,26 @@ describe('Home data sections', () => {
     });
     expect(onParcelPress).toHaveBeenCalledWith('parcel-1', 'trip-1');
 
+    const latestFlashListCall =
+      mockFlashListProps.mock.calls[mockFlashListProps.mock.calls.length - 1];
+    const flashListProps = latestFlashListCall[0] as {
+      contentContainerStyle?: { paddingRight?: number };
+      ItemSeparatorComponent?: React.ComponentType;
+    };
+    expect(flashListProps.contentContainerStyle?.paddingRight).toBe(16);
+    expect(flashListProps.ItemSeparatorComponent).toBeDefined();
+
+    let separator: ReactTestRenderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      separator = ReactTestRenderer.create(
+        React.createElement(flashListProps.ItemSeparatorComponent!),
+      );
+    });
+    expect(separator!.toJSON()).toMatchObject({
+      props: { style: { width: 16 } },
+    });
+    await act(async () => separator!.unmount());
+
     await act(async () => renderer!.unmount());
   });
-
 });

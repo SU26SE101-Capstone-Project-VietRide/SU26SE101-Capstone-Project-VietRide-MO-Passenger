@@ -22,6 +22,13 @@ describe('Parcel Reliability hub request policy', () => {
     expect(source).toContain('seen.add(event.eventId)');
   });
 
+  it('virtualizes both Reliability layouts without nesting a timeline list', () => {
+    expect(source).toContain('<FlashList');
+    expect(source).toContain('detailsListSection={timelineListSection}');
+    expect(source).not.toContain('{timeline.map((event');
+    expect(source).not.toContain('<ScrollView');
+  });
+
   it('drives map and Reliability CTAs from Trace contract fields', () => {
     expect(source).toContain('tripId={trace.trip.tripId}');
     expect(source).toContain("trace?.availableActions.includes('REPORT_INCIDENT')");

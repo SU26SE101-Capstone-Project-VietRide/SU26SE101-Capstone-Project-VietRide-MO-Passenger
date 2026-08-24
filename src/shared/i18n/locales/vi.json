@@ -1837,15 +1837,17 @@
     "emptyTicketsFilteredDescription": "Các vé khác vẫn nằm trong Tất cả.",
     "emptyParcelsTitle": "Chưa có đơn hàng",
     "emptyParcelsDescription": "Các kiện hàng bạn gửi sẽ xuất hiện tại đây.",
+    "emptyReceivedParcelsTitle": "Chưa có kiện gửi đến bạn",
+    "emptyReceivedParcelsDescription": "Các kiện gửi đến tài khoản của bạn sẽ xuất hiện tại đây.",
     "emptyParcelsFilteredTitle": "Không có đơn trong nhóm này",
     "emptyParcelsFilteredDescription": "Các đơn khác vẫn nằm trong Tất cả. Chip trên từng đơn vẫn hiện đúng trạng thái.",
     "staleDescription": "Đang hiển thị dữ liệu đã lưu vì lần cập nhật mới nhất thất bại.",
     "ticketsTab": "Vé xe",
-    "parcelsTab": "Gửi hàng",
-    "receivedParcel": "Kiện bạn nhận",
+    "parcelsTab": "Kiện hàng",
+    "receivedParcel": "Gửi đến bạn",
     "parcelRoles": {
-      "sent": "Đã gửi",
-      "received": "Đã nhận"
+      "sent": "Tôi gửi",
+      "received": "Gửi đến tôi"
     },
     "reliability": {
       "activeIncident": "Đang có sự cố cần theo dõi",

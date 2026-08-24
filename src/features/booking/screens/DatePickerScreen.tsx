@@ -2,8 +2,16 @@
  * Visual style: matches Parcel flow (gradient bg, mint palette, card surfaces)
  */
 
-import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, FlatList, ScrollView, StatusBar } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  FlatList,
+  ScrollView,
+  StatusBar,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -12,7 +20,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { ArrowLeft, CalendarBlank } from 'phosphor-react-native';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { useBookingStore } from '../store/useBookingStore';
 import type { RouteProp } from '@react-navigation/native';
@@ -30,6 +38,10 @@ import { formatMonthYear } from '@shared/utils/format';
 import { useBookingDiscovery } from '../hooks/useBookingDiscovery';
 import { DEFAULT_BOOKING_ENTRY_INTENT } from '../utils/bookingDiscovery';
 import { resolveDatePickerContinuation } from '../utils/datePickerContinuation';
+import {
+  getDatePickerCalendarLayout,
+  resolveDatePickerFooterHeight,
+} from '../utils/datePickerLayout';
 
 type NavProp = NativeStackNavigationProp<BookingStackParamList, 'DatePicker'>;
 type DatePickerRouteProp = RouteProp<BookingStackParamList, 'DatePicker'>;
@@ -71,6 +83,19 @@ export function DatePicker(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
+  const { width, widthClass, isCompact } = useResponsiveLayout();
+  const calendarLayout = useMemo(
+    () => getDatePickerCalendarLayout(width, widthClass),
+    [width, widthClass],
+  );
+  const [footerHeight, setFooterHeight] = useState(88);
+  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
+    const measuredHeight = event.nativeEvent.layout.height;
+    setFooterHeight((currentHeight) => resolveDatePickerFooterHeight(
+      currentHeight,
+      measuredHeight,
+    ));
+  }, []);
 
   const mode = route.params?.mode || 'departure';
   const calendarReference = useMemo(() => new Date(), []);
@@ -190,7 +215,7 @@ export function DatePicker(): React.JSX.Element {
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         {/* Header with back bubble */}
-        <View style={styles.header}>
+        <View style={[styles.header, isCompact ? styles.headerCompact : null]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('common.back')}
@@ -201,7 +226,11 @@ export function DatePicker(): React.JSX.Element {
               <ArrowLeft size={20} color={theme.colors.primary} weight="bold" />
             </View>
           </Pressable>
-          <Text style={styles.headerTitle}>
+          <Text
+            style={styles.headerTitle}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
             {mode === 'return'
               ? t('booking.datePicker.returnTitle')
               : t('booking.datePicker.departureTitle')}
@@ -211,10 +240,12 @@ export function DatePicker(): React.JSX.Element {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 88 + Math.max(insets.bottom, spacing.md) }}
+          contentContainerStyle={{
+            paddingBottom: footerHeight + spacing.md,
+          }}
         >
         {/* 30-day strip */}
-        <View style={styles.stripCard}>
+        <View style={[styles.stripCard, isCompact ? styles.stripCardCompact : null]}>
           <FlatList
             data={days}
             horizontal
@@ -240,10 +271,29 @@ export function DatePicker(): React.JSX.Element {
                   ]}
                   onPress={() => setSelected(dateStr)}
                 >
-                  <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{label}</Text>
-                  <Text style={[styles.dayNum, active && styles.dayNumActive]}>{item.getDate()}</Text>
+                  <Text
+                    style={[styles.dayLabel, active && styles.dayLabelActive]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
+                    {label}
+                  </Text>
+                  <Text
+                    style={[styles.dayNum, active && styles.dayNumActive]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
+                    {item.getDate()}
+                  </Text>
                   {isToday ? (
-                    <Text style={[styles.dayBadge, active && styles.dayBadgeActive]}>
+                    <Text
+                      style={[styles.dayBadge, active && styles.dayBadgeActive]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.65}
+                    >
                       {t('booking.datePicker.today')}
                     </Text>
                   ) : null}
@@ -259,12 +309,27 @@ export function DatePicker(): React.JSX.Element {
         </Text>
 
         {/* Calendar grid */}
-        <View style={styles.calCard}>
+        <View
+          style={[
+            styles.calCard,
+            {
+              marginHorizontal: calendarLayout.marginHorizontal,
+              padding: calendarLayout.padding,
+            },
+          ]}
+        >
           {/* Weekday header row */}
           <View style={styles.calRow}>
             {dayLabels.map((d) => (
               <View key={d} style={styles.calCell}>
-                <Text style={styles.calWeekday}>{d}</Text>
+                <Text
+                  style={styles.calWeekday}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >
+                  {d}
+                </Text>
               </View>
             ))}
           </View>
@@ -301,7 +366,16 @@ export function DatePicker(): React.JSX.Element {
                       ]}
                       onPress={() => setSelected(dateStr)}
                     >
-                      <Text style={[styles.calCellText, active && styles.calCellTextActive, dimmed && styles.calCellDimmed]}>
+                      <Text
+                        style={[
+                          styles.calCellText,
+                          active && styles.calCellTextActive,
+                          dimmed && styles.calCellDimmed,
+                        ]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.65}
+                      >
                         {dimmed ? `${d.getDate()}/${d.getMonth() + 1}` : d.getDate()}
                       </Text>
                     </Pressable>
@@ -318,7 +392,10 @@ export function DatePicker(): React.JSX.Element {
         </ScrollView>
 
         {/* Confirm */}
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+        <View
+          style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+          onLayout={handleFooterLayout}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('booking.datePicker.confirmAccessibility', { date: selected })}
@@ -326,7 +403,7 @@ export function DatePicker(): React.JSX.Element {
             onPress={onConfirm}
           >
             <CalendarBlank size={18} color={theme.colors.textInverse} />
-            <Text style={styles.confirmText}>
+            <Text style={styles.confirmText} numberOfLines={2}>
               {t('booking.datePicker.confirm', { date: selected })}
             </Text>
           </Pressable>
@@ -361,8 +438,13 @@ const createStyles = (theme: AppTheme) => ({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
+  headerCompact: {
+    paddingHorizontal: spacing.md,
+  },
   backBtn: {
     ...theme.components.headerButton,
+    width: 44,
+    height: 44,
   },
   backBtnPressed: {
     opacity: 0.82,
@@ -373,12 +455,16 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
   },
   headerTitle: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: spacing.sm,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
+    textAlign: 'center',
   },
   headerSpacer: {
-    width: 40,
+    width: 44,
   },
   stripCard: {
     ...theme.components.card,
@@ -386,6 +472,9 @@ const createStyles = (theme: AppTheme) => ({
     marginHorizontal: spacing.xl,
     marginBottom: spacing.md,
     overflow: 'hidden',
+  },
+  stripCardCompact: {
+    marginHorizontal: spacing.md,
   },
   strip: {
     paddingLeft: spacing.md,
@@ -395,7 +484,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   dayItem: {
     width: 64,
-    aspectRatio: 0.72,
+    minHeight: 88,
+    paddingVertical: spacing.sm,
     borderRadius: borderRadius.lg,
     backgroundColor: theme.effects.contentSurfaceSoft,
     borderWidth: 1,
@@ -430,6 +520,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textInverse,
   },
   dayBadge: {
+    maxWidth: '100%',
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: theme.colors.primary,
@@ -460,6 +551,7 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
   },
   calWeekday: {
+    width: '100%',
     textAlign: 'center',
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
@@ -480,6 +572,8 @@ const createStyles = (theme: AppTheme) => ({
     opacity: 0.72,
   },
   calCellText: {
+    width: '100%',
+    textAlign: 'center',
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
@@ -506,11 +600,15 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
     ...theme.components.primaryButton,
     borderRadius: borderRadius.lg,
-    height: 52,
+    minHeight: 52,
+    paddingVertical: spacing.md,
   },
   confirmText: {
+    flexShrink: 1,
+    minWidth: 0,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
+    textAlign: 'center',
   },
 });

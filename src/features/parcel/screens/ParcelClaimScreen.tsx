@@ -2,11 +2,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   StatusBar,
   Text,
   View,
@@ -18,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { ParcelStackParamList } from '@app/navigation/types';
-import { Input } from '@shared/components';
+import { AppKeyboardAwareScrollView, Input } from '@shared/components';
 import { getLocalizedApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -41,6 +38,8 @@ import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
 type ClaimRoute = RouteProp<ParcelStackParamList, 'ParcelClaim'>;
 type ClaimNavigation = NativeStackNavigationProp<ParcelStackParamList, 'ParcelClaim'>;
 
+// BE v1.92 requires a nonblank appeal reason but does not publish a max length.
+// This is a Passenger safety/UX bound, not a server-contract constraint.
 const APPEAL_MAX_LENGTH = 2_000;
 
 export function ParcelClaimScreen(): React.JSX.Element {
@@ -85,17 +84,22 @@ export function ParcelClaimScreen(): React.JSX.Element {
   }, [submitMutation, t]);
 
   const trimmedAppealReason = appealReason.trim();
+  const appealReasonTooLong = appealReason.length > APPEAL_MAX_LENGTH;
   const appealLengthError = useMemo(() => {
     if (appealError) return appealError;
-    if (appealReason.length > APPEAL_MAX_LENGTH) {
+    if (appealReasonTooLong) {
       return t('parcel.claim.appealTooLong');
     }
     return null;
-  }, [appealError, appealReason.length, t]);
+  }, [appealError, appealReasonTooLong, t]);
 
   const handleAppeal = useCallback(async () => {
     if (!claim || !trimmedAppealReason) {
       setAppealError(t('parcel.claim.appealRequired'));
+      return;
+    }
+    if (appealReasonTooLong) {
+      setAppealError(t('parcel.claim.appealTooLong'));
       return;
     }
     try {
@@ -121,10 +125,24 @@ export function ParcelClaimScreen(): React.JSX.Element {
         getLocalizedApiErrorMessage(error, t, PARCEL_ERROR_TRANSLATION_KEYS),
       );
     }
-  }, [appealMutation, claim, parcelId, t, trimmedAppealReason]);
+  }, [
+    appealMutation,
+    appealReasonTooLong,
+    claim,
+    parcelId,
+    t,
+    trimmedAppealReason,
+  ]);
 
   const isLoading = traceQuery.isLoading || (canLoadClaims && claimsQuery.isLoading);
-  const isError = traceQuery.isError || (canLoadClaims && claimsQuery.isError);
+  const isBlockingError = (
+    (!trace && traceQuery.isError)
+    || (
+      canLoadClaims
+      && claimsQuery.data === undefined
+      && claimsQuery.isError
+    )
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -144,16 +162,13 @@ export function ParcelClaimScreen(): React.JSX.Element {
         <Text style={styles.headerTitle}>{t('parcel.claim.title')}</Text>
         <View style={styles.headerButton} />
       </View>
-      <KeyboardAvoidingView
-        style={styles.body}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.body}>
         {isLoading ? (
           <View style={styles.state}>
             <ActivityIndicator size="large" color={theme.colors.primary} />
             <Text style={styles.stateText}>{t('parcel.claim.loading')}</Text>
           </View>
-        ) : isError ? (
+        ) : isBlockingError ? (
           <View style={styles.state}>
             <Text style={styles.stateTitle}>{t('parcel.claim.errorTitle')}</Text>
             <Pressable accessibilityRole="button" onPress={refresh} style={styles.retryButton}>
@@ -161,7 +176,8 @@ export function ParcelClaimScreen(): React.JSX.Element {
             </Pressable>
           </View>
         ) : (
-          <ScrollView
+          <AppKeyboardAwareScrollView
+            style={styles.body}
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             refreshControl={(
@@ -295,12 +311,21 @@ export function ParcelClaimScreen(): React.JSX.Element {
                       textAlignVertical="top"
                     />
                     <Pressable
+                      testID="parcel-claim-appeal-submit"
                       accessibilityRole="button"
-                      disabled={!trimmedAppealReason || appealMutation.isPending}
+                      disabled={
+                        !trimmedAppealReason
+                        || appealReasonTooLong
+                        || appealMutation.isPending
+                      }
                       onPress={() => { handleAppeal().catch(() => undefined); }}
                       style={({ pressed }) => [
                         styles.primaryButton,
-                        (!trimmedAppealReason || appealMutation.isPending)
+                        (
+                          !trimmedAppealReason
+                          || appealReasonTooLong
+                          || appealMutation.isPending
+                        )
                           ? styles.disabled
                           : null,
                         pressed ? styles.pressed : null,
@@ -318,9 +343,9 @@ export function ParcelClaimScreen(): React.JSX.Element {
                 <Text style={styles.emptyText}>{t('parcel.claim.unavailable')}</Text>
               </View>
             ) : null}
-          </ScrollView>
+          </AppKeyboardAwareScrollView>
         )}
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -328,27 +353,27 @@ export function ParcelClaimScreen(): React.JSX.Element {
 const createStyles = (theme: AppTheme) => ({
   container: { flex: 1, backgroundColor: theme.colors.background },
   body: { flex: 1 },
-  header: { minHeight: 56, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.divider },
-  headerButton: { width: 44, height: 44, alignItems: 'center' as const, justifyContent: 'center' as const },
-  headerTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.lg },
-  content: { gap: spacing.md, padding: spacing.xl, paddingBottom: spacing.huge },
+  header: { minHeight: 56, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: theme.colors.divider },
+  headerButton: { width: 44, height: 44, flexShrink: 0, alignItems: 'center' as const, justifyContent: 'center' as const },
+  headerTitle: { flex: 1, minWidth: 0, paddingHorizontal: spacing.sm, color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, textAlign: 'center' as const },
+  content: { flexGrow: 1, gap: spacing.md, padding: spacing.xl, paddingBottom: spacing.huge },
   state: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const, gap: spacing.md, padding: spacing.xl },
   stateTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.md },
   stateText: { color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm },
   retryButton: { minHeight: 44, justifyContent: 'center' as const, paddingHorizontal: spacing.xl, borderRadius: borderRadius.md, backgroundColor: theme.colors.primary },
   retryText: { color: theme.colors.textInverse, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
   heroCard: { flexDirection: 'row' as const, gap: spacing.md, padding: spacing.lg, borderRadius: borderRadius.lg, backgroundColor: theme.colors.primaryFaded },
-  heroCopy: { flex: 1 },
+  heroCopy: { flex: 1, minWidth: 0 },
   heroTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.md },
   heroText: { marginTop: spacing.xs, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 20 },
   card: { ...theme.components.card, padding: spacing.lg, borderRadius: borderRadius.lg },
   sectionTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, marginBottom: spacing.md },
   valueRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, gap: spacing.md, marginBottom: spacing.sm },
   valueLabel: { flex: 1, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm },
-  valueText: { color: theme.colors.textPrimary, fontFamily: fontFamilies.medium, fontSize: fontSizes.sm },
+  valueText: { minWidth: 0, flexShrink: 1, color: theme.colors.textPrimary, fontFamily: fontFamilies.medium, fontSize: fontSizes.sm, textAlign: 'right' as const },
   totalRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, gap: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.divider },
-  totalLabel: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
-  totalValue: { color: theme.colors.primary, fontFamily: fontFamilies.bold, fontSize: fontSizes.md },
+  totalLabel: { flex: 1, minWidth: 0, color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
+  totalValue: { minWidth: 0, flexShrink: 1, color: theme.colors.primary, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, textAlign: 'right' as const },
   deadlineText: { marginTop: spacing.sm, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs },
   paidText: { marginTop: spacing.sm, color: theme.colors.success, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
   pendingText: { marginTop: spacing.sm, color: theme.colors.warning, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
@@ -362,7 +387,7 @@ const createStyles = (theme: AppTheme) => ({
   blockedText: { marginTop: spacing.md, color: theme.colors.warning, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs, lineHeight: 18 },
   textArea: { minHeight: 116, paddingTop: spacing.md },
   primaryButton: { minHeight: 50, alignItems: 'center' as const, justifyContent: 'center' as const, borderRadius: borderRadius.md, backgroundColor: theme.colors.primary },
-  primaryButtonText: { color: theme.colors.textInverse, fontFamily: fontFamilies.bold, fontSize: fontSizes.md },
+  primaryButtonText: { minWidth: 0, flexShrink: 1, paddingHorizontal: spacing.sm, color: theme.colors.textInverse, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, textAlign: 'center' as const },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.8 },
 });

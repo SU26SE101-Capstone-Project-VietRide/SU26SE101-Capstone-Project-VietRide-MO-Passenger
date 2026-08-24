@@ -15,12 +15,6 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -37,7 +31,7 @@ import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import { motionTokens, useMotion } from '@shared/motion';
+import { useMotion } from '@shared/motion';
 import {
   assertVnPaySdkAvailable,
   openVnPayPayment,
@@ -45,6 +39,7 @@ import {
 
 import { useBookingStore } from '../store/useBookingStore';
 import { BookingProgressBar } from '../components/BookingProgressBar';
+import { AnimatedRouteHeader } from '../components/AnimatedRouteHeader';
 import type {
   BookingStackParamList,
   RootStackParamList,
@@ -359,62 +354,6 @@ function TripFilterSheet({
         </View>
       </View>
     </Modal>
-  );
-}
-
-function AnimatedRouteHeader({
-  primary,
-  secondary,
-}: RouteHeaderSnapshot): React.JSX.Element {
-  const styles = useThemedStyles(createStyles);
-  const { reduceMotion } = useMotion();
-  const progress = useSharedValue(1);
-  const [visibleSecondary, setVisibleSecondary] = useState<string | undefined>(secondary);
-
-  useEffect(() => {
-    setVisibleSecondary(secondary);
-    if (reduceMotion) {
-      progress.value = 1;
-      return;
-    }
-
-    progress.value = 0;
-    progress.value = withTiming(1, {
-      duration: motionTokens.duration.emphasis,
-      easing: Easing.out(Easing.quad),
-    });
-  }, [progress, reduceMotion, secondary]);
-
-  const incomingStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{
-      translateY: (1 - progress.value) * motionTokens.distance.standard,
-    }],
-  }));
-
-  return (
-    <View style={styles.routeHeaderShell}>
-      <Text
-        style={styles.routePrimary}
-        numberOfLines={2}
-        ellipsizeMode="tail"
-      >
-        {primary}
-      </Text>
-      <View style={styles.routeSecondaryShell}>
-        <Animated.View style={[styles.routeHeaderLayer, incomingStyle]}>
-          {visibleSecondary ? (
-            <Text
-              style={styles.routeSecondary}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {visibleSecondary}
-            </Text>
-          ) : null}
-        </Animated.View>
-      </View>
-    </View>
   );
 }
 
@@ -744,7 +683,7 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
                 secondary={routeHeader.secondary}
               />
             ) : (
-              <View style={styles.routeHeaderShell} />
+              <View style={styles.routeHeaderPlaceholder} />
             )}
           </View>
 
@@ -827,6 +766,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   headerTitleSlot: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
@@ -847,43 +787,9 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
   },
-  routeHeaderShell: {
+  routeHeaderPlaceholder: {
     width: '100%',
-    minWidth: 0,
     minHeight: 64,
-    paddingVertical: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  routeSecondaryShell: {
-    width: '100%',
-    height: 22,
-    marginTop: spacing.xs,
-    overflow: 'hidden',
-  },
-  routeHeaderLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  routePrimary: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    lineHeight: fontSizes.md * 1.3,
-    color: theme.colors.textPrimary,
-    textAlign: 'center',
-    maxWidth: '100%',
-  },
-  routeSecondary: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    lineHeight: 20,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    maxWidth: '100%',
   },
   filterModalRoot: {
     flex: 1,

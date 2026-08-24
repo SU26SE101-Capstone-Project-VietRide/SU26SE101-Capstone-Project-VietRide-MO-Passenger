@@ -12,7 +12,7 @@ import { Image } from 'expo-image';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import type { AppTheme } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import { ArrowLeft } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -36,15 +36,21 @@ export const AuthStepHeader = ({
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { isCompact } = useResponsiveLayout();
 
   return (
-    <View style={styles.root}>
+    <View
+      testID="auth-step-header"
+      style={[styles.root, isCompact ? styles.rootCompact : null]}
+    >
       {onBack ? (
         <Pressable
+          testID="auth-step-header-back"
           accessibilityLabel={t('common.back')}
           accessibilityRole="button"
           style={({ pressed }) => [
             styles.backBtn,
+            isCompact ? styles.backBtnCompact : null,
             pressed ? styles.pressed : null,
           ]}
           onPress={onBack}
@@ -54,14 +60,22 @@ export const AuthStepHeader = ({
           </View>
         </Pressable>
       ) : null}
-      <View style={[styles.textWrap, onBack ? styles.textWrapWithBack : null]}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+      <View
+        testID="auth-step-header-copy"
+        style={[styles.textWrap, onBack ? styles.textWrapWithBack : null]}
+      >
+        <Text style={styles.title} textBreakStrategy="balanced">
+          {title}
+        </Text>
+        <Text style={styles.subtitle} textBreakStrategy="balanced">
+          {subtitle}
+        </Text>
       </View>
       {showMascot ? (
         <Image
+          testID="auth-step-header-mascot"
           source={catMascotImage}
-          style={styles.mascot}
+          style={[styles.mascot, isCompact ? styles.mascotCompact : null]}
           contentFit="contain"
           transition={0}
         />
@@ -79,17 +93,31 @@ const createStyles = (theme: AppTheme) => ({
     paddingTop: spacing.xxxl,
     paddingBottom: spacing.lg,
     position: 'relative',
+    gap: spacing.sm,
+  },
+  rootCompact: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   backBtn: {
     position: 'absolute',
     top: spacing.xxxl,
     left: spacing.xxl,
     zIndex: 10,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtnCompact: {
+    top: spacing.lg,
+    left: spacing.md,
   },
   backBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: theme.effects.contentSurfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
@@ -97,9 +125,12 @@ const createStyles = (theme: AppTheme) => ({
     borderColor: theme.effects.contentBorderStrong,
     ...theme.effects.cardShadow,
   },
-  textWrap: { flex: 1.4 },
+  textWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
   textWrapWithBack: {
-    marginLeft: 44,
+    marginLeft: 52,
   },
   title: {
     fontFamily: fontFamilies.bold,
@@ -116,6 +147,11 @@ const createStyles = (theme: AppTheme) => ({
   mascot: {
     width: 72,
     height: 72,
+    flexShrink: 0,
+  },
+  mascotCompact: {
+    width: 48,
+    height: 48,
   },
   pressed: {
     opacity: 0.75,

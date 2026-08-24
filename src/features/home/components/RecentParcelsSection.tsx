@@ -28,6 +28,12 @@ import { getFontScaledListHeight } from '../utils/homeResponsive';
 
 const parcelKeyExtractor = (item: SentParcel): string => item.parcelId;
 
+const parcelCardSeparatorStyle = { width: spacing.lg } as const;
+
+const ParcelCardSeparator = (): React.JSX.Element => (
+  <View style={parcelCardSeparatorStyle} />
+);
+
 const normalizePageSize = (pageSize: number): number => {
   if (!Number.isFinite(pageSize)) return 5;
   return Math.min(10, Math.max(1, Math.floor(pageSize)));
@@ -68,7 +74,8 @@ const RecentParcelCard = memo(function RecentParcelCardItem({
     [createdAt, intlLocale],
   );
   const etaLabel = useMemo(
-    () => eta ? (formatDate(eta, intlLocale) || eta) : t('home.parcels.pending'),
+    () =>
+      eta ? formatDate(eta, intlLocale) || eta : t('home.parcels.pending'),
     [eta, intlLocale, t],
   );
   const statusPresentation = getParcelStatusPresentation(status);
@@ -83,10 +90,7 @@ const RecentParcelCard = memo(function RecentParcelCardItem({
       })}
       disabled={!onPress}
       onPress={handlePress}
-      style={({ pressed }) => [
-        styles.card,
-        pressed ? styles.pressed : null,
-      ]}
+      style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
     >
       <View style={styles.cardHeader}>
         <View style={styles.iconBox}>
@@ -125,122 +129,144 @@ export interface RecentParcelsSectionProps {
   title?: string;
 }
 
-export const RecentParcelsSection = memo(function RecentParcelsSectionComponent({
-  onParcelPress,
-  onViewAll,
-  pageSize = 5,
-  title,
-}: RecentParcelsSectionProps): React.JSX.Element {
-  const { t } = useTranslation();
-  const theme = useTheme();
-  const styles = useThemedStyles(createStyles);
-  const { fontScale } = useWindowDimensions();
-  const safePageSize = normalizePageSize(pageSize);
-  const listFrameStyle = useMemo(
-    () => ({ height: getFontScaledListHeight(188, fontScale) }),
-    [fontScale],
-  );
-  const parcelsQuery = useSentParcels({
-    pageSize: safePageSize,
-  });
-  const refetchParcels = parcelsQuery.refetch;
-  const parcels = useMemo(
-    () => parcelsQuery.data?.pages[0]?.items ?? [],
-    [parcelsQuery.data?.pages],
-  );
-
-  const handleRetry = useCallback(() => {
-    refetchParcels().catch(() => undefined);
-  }, [refetchParcels]);
-
-  const renderParcel: ListRenderItem<SentParcel> = useCallback(({ item }) => (
-    <RecentParcelCard
-      createdAt={item.createdAt}
-      destinationName={item.destinationName ?? t('home.parcels.destinationPending')}
-      eta={item.estimatedArrivalTime}
-      onPress={onParcelPress}
-      originName={item.originName ?? t('home.parcels.originPending')}
-      parcelCode={item.parcelCode}
-      parcelId={item.parcelId}
-      status={item.status}
-      tripId={item.tripId}
-    />
-  ), [onParcelPress, t]);
-
-  let content: React.ReactNode;
-  if (parcelsQuery.isLoading) {
-    content = (
-      <View
-        style={styles.stateBox}
-        accessibilityLabel={t('home.parcels.loadingAccessibility')}
-      >
-        <ActivityIndicator color={theme.colors.primary} />
-        <Text style={styles.stateText}>{t('home.parcels.loading')}</Text>
-      </View>
+export const RecentParcelsSection = memo(
+  function RecentParcelsSectionComponent({
+    onParcelPress,
+    onViewAll,
+    pageSize = 5,
+    title,
+  }: RecentParcelsSectionProps): React.JSX.Element {
+    const { t } = useTranslation();
+    const theme = useTheme();
+    const styles = useThemedStyles(createStyles);
+    const { fontScale } = useWindowDimensions();
+    const safePageSize = normalizePageSize(pageSize);
+    const listFrameStyle = useMemo(
+      () => ({ height: getFontScaledListHeight(188, fontScale) }),
+      [fontScale],
     );
-  } else if (parcelsQuery.isError && parcels.length === 0) {
-    content = (
-      <View style={styles.stateBox}>
-        <Text style={styles.stateTitle}>{t('home.parcels.unavailableTitle')}</Text>
-        <Text style={styles.stateText}>{t('home.parcels.unavailableDescription')}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('home.parcels.retryAccessibility')}
-          onPress={handleRetry}
-          style={({ pressed }) => [
-            styles.retryButton,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Text style={styles.retryText}>{t('common.retry')}</Text>
-        </Pressable>
-      </View>
+    const parcelsQuery = useSentParcels({
+      pageSize: safePageSize,
+    });
+    const refetchParcels = parcelsQuery.refetch;
+    const parcels = useMemo(
+      () => parcelsQuery.data?.pages[0]?.items ?? [],
+      [parcelsQuery.data?.pages],
     );
-  } else if (parcels.length === 0) {
-    content = (
-      <View style={styles.stateBox}>
-        <Text style={styles.stateTitle}>{t('home.parcels.emptyTitle')}</Text>
-        <Text style={styles.stateText}>{t('home.parcels.emptyDescription')}</Text>
-      </View>
-    );
-  } else {
-    content = (
-      <View style={[styles.list, listFrameStyle]}>
-        <FlashList
-          data={parcels}
-          horizontal
-          keyExtractor={parcelKeyExtractor}
-          renderItem={renderParcel}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
+
+    const handleRetry = useCallback(() => {
+      refetchParcels().catch(() => undefined);
+    }, [refetchParcels]);
+
+    const renderParcel: ListRenderItem<SentParcel> = useCallback(
+      ({ item }) => (
+        <RecentParcelCard
+          createdAt={item.createdAt}
+          destinationName={
+            item.destinationName ?? t('home.parcels.destinationPending')
+          }
+          eta={item.estimatedArrivalTime}
+          onPress={onParcelPress}
+          originName={item.originName ?? t('home.parcels.originPending')}
+          parcelCode={item.parcelCode}
+          parcelId={item.parcelId}
+          status={item.status}
+          tripId={item.tripId}
         />
-      </View>
+      ),
+      [onParcelPress, t],
     );
-  }
 
-  return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{title ?? t('home.parcels.title')}</Text>
-        {onViewAll ? (
+    let content: React.ReactNode;
+    if (parcelsQuery.isLoading) {
+      content = (
+        <View
+          style={styles.stateBox}
+          accessibilityLabel={t('home.parcels.loadingAccessibility')}
+        >
+          <ActivityIndicator color={theme.colors.primary} />
+          <Text style={styles.stateText}>{t('home.parcels.loading')}</Text>
+        </View>
+      );
+    } else if (parcelsQuery.isError && parcels.length === 0) {
+      content = (
+        <View style={styles.stateBox}>
+          <Text style={styles.stateTitle}>
+            {t('home.parcels.unavailableTitle')}
+          </Text>
+          <Text style={styles.stateText}>
+            {t('home.parcels.unavailableDescription')}
+          </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('home.parcels.viewAllAccessibility')}
-            onPress={onViewAll}
+            accessibilityLabel={t('home.parcels.retryAccessibility')}
+            onPress={handleRetry}
             style={({ pressed }) => [
-              styles.viewAllButton,
+              styles.retryButton,
               pressed ? styles.pressed : null,
             ]}
           >
-            <Text style={styles.viewAllText}>{t('home.parcels.viewAll')}</Text>
-            <ArrowRight size={15} color={theme.colors.primary} weight="bold" />
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
           </Pressable>
-        ) : null}
+        </View>
+      );
+    } else if (parcels.length === 0) {
+      content = (
+        <View style={styles.stateBox}>
+          <Text style={styles.stateTitle}>{t('home.parcels.emptyTitle')}</Text>
+          <Text style={styles.stateText}>
+            {t('home.parcels.emptyDescription')}
+          </Text>
+        </View>
+      );
+    } else {
+      content = (
+        <View style={[styles.list, listFrameStyle]}>
+          <FlashList
+            data={parcels}
+            horizontal
+            ItemSeparatorComponent={ParcelCardSeparator}
+            keyExtractor={parcelKeyExtractor}
+            renderItem={renderParcel}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+          />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            {title ?? t('home.parcels.title')}
+          </Text>
+          {onViewAll ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('home.parcels.viewAllAccessibility')}
+              onPress={onViewAll}
+              style={({ pressed }) => [
+                styles.viewAllButton,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.viewAllText}>
+                {t('home.parcels.viewAll')}
+              </Text>
+              <ArrowRight
+                size={15}
+                color={theme.colors.primary}
+                weight="bold"
+              />
+            </Pressable>
+          ) : null}
+        </View>
+        {content}
       </View>
-      {content}
-    </View>
-  );
-});
+    );
+  },
+);
 
 const createStyles = (theme: AppTheme) => ({
   section: {
@@ -275,7 +301,7 @@ const createStyles = (theme: AppTheme) => ({
     minHeight: 188,
   },
   listContent: {
-    gap: spacing.md,
+    paddingRight: spacing.lg,
   },
   card: {
     ...theme.components.card,

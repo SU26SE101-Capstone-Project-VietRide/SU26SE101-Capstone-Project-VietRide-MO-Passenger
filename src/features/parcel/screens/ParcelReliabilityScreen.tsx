@@ -2,12 +2,11 @@ import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  RefreshControl,
-  ScrollView,
   StatusBar,
   Text,
   View,
 } from 'react-native';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +23,8 @@ import type { ParcelStackParamList } from '@app/navigation/types';
 import {
   LiveTripTrackingPanel,
   TrackingHeader,
+  type TrackingSupplementalListItem,
+  type TrackingSupplementalListSection,
   type TrackingHeaderRoute,
 } from '@features/tracking';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
@@ -62,6 +63,43 @@ const dedupeTimeline = (pages: ParcelTrace[]): ParcelCustodyEvent[] => {
     return true;
   }).sort((left, right) => right.sequence - left.sequence);
 };
+
+interface ParcelTimelineRowProps {
+  actualLocationType: string | null;
+  eventType: string;
+  locationSnapshot: string | null;
+  occurredAt: string;
+  showLine: boolean;
+}
+
+const ParcelTimelineRow = React.memo(function ParcelTimelineRowComponent({
+  actualLocationType,
+  eventType,
+  locationSnapshot,
+  occurredAt,
+  showLine,
+}: ParcelTimelineRowProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.timelineEventCard}>
+      <View style={styles.timelineRow}>
+        <View style={styles.timelineRail}>
+          <View style={styles.timelineDot} />
+          {showLine ? <View style={styles.timelineLine} /> : null}
+        </View>
+        <View style={styles.timelineCopy}>
+          <Text style={styles.timelineTitle}>{eventType}</Text>
+          <Text style={styles.timelineText}>
+            {locationSnapshot ?? actualLocationType ?? t('common.notAvailable')}
+          </Text>
+          <Text style={styles.timelineTime}>{formatDateTime(occurredAt)}</Text>
+        </View>
+      </View>
+    </View>
+  );
+});
 
 export function ParcelReliabilityScreen(): React.JSX.Element {
   const route = useRoute<ReliabilityRoute>();
@@ -118,7 +156,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
   const trackingEligible = isParcelTrackingEligible(trace?.parcelStatus);
   const trackingTerminal = isParcelLocationTrackingTerminal(trace?.parcelStatus);
 
-  const details = useMemo(() => {
+  const detailsHeader = useMemo(() => {
     if (!trace) return null;
     return (
       <View style={styles.details}>
@@ -212,39 +250,10 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
 
         <View style={styles.timelineCard}>
           <Text style={styles.sectionTitle}>{t('parcel.reliability.timeline')}</Text>
-          {timeline.map((event, index) => (
-            <View key={event.eventId} style={styles.timelineRow}>
-              <View style={styles.timelineRail}>
-                <View style={styles.timelineDot} />
-                {index < timeline.length - 1 ? <View style={styles.timelineLine} /> : null}
-              </View>
-              <View style={styles.timelineCopy}>
-                <Text style={styles.timelineTitle}>{event.eventType}</Text>
-                <Text style={styles.timelineText}>
-                  {event.locationSnapshot ?? event.actualLocationType ?? t('common.notAvailable')}
-                </Text>
-                <Text style={styles.timelineTime}>{formatDateTime(event.occurredAt)}</Text>
-              </View>
-            </View>
-          ))}
-          {traceQuery.hasNextPage ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={traceQuery.isFetchingNextPage}
-              onPress={handleLoadMore}
-              style={({ pressed }) => [styles.loadMore, pressed ? styles.pressed : null]}
-            >
-              {traceQuery.isFetchingNextPage
-                ? <ActivityIndicator size="small" color={theme.colors.primary} />
-                : <CaretDown size={18} color={theme.colors.primary} />}
-              <Text style={styles.loadMoreText}>{t('parcel.reliability.loadEarlier')}</Text>
-            </Pressable>
-          ) : null}
         </View>
       </View>
     );
   }, [
-    handleLoadMore,
     handleOpenClaim,
     handleReportIncident,
     hasClaimSurface,
@@ -254,10 +263,102 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     theme.colors.primary,
     theme.colors.textInverse,
     theme.colors.warning,
-    timeline,
     trace,
+  ]);
+
+  const renderTimelineItem = useCallback<ListRenderItem<ParcelCustodyEvent>>(
+    ({ index, item }) => (
+      <ParcelTimelineRow
+        actualLocationType={item.actualLocationType}
+        eventType={item.eventType}
+        locationSnapshot={item.locationSnapshot}
+        occurredAt={item.occurredAt}
+        showLine={index < timeline.length - 1}
+      />
+    ),
+    [timeline.length],
+  );
+  const timelineKeyExtractor = useCallback(
+    (item: ParcelCustodyEvent) => item.eventId,
+    [],
+  );
+  const getTimelineItemType = useCallback(
+    () => 'parcel-timeline-event',
+    [],
+  );
+  const supplementalTimelineItems = useMemo<
+    TrackingSupplementalListItem[]
+  >(
+    () => timeline.map((event, index) => ({
+      content: (
+        <ParcelTimelineRow
+          actualLocationType={event.actualLocationType}
+          eventType={event.eventType}
+          locationSnapshot={event.locationSnapshot}
+          occurredAt={event.occurredAt}
+          showLine={index < timeline.length - 1}
+        />
+      ),
+      key: event.eventId,
+      type: 'parcel-timeline-event',
+    })),
+    [timeline],
+  );
+  const loadMoreControl = useMemo(() => {
+    if (!traceQuery.hasNextPage) return null;
+    return (
+      <Pressable
+        accessibilityRole="button"
+        disabled={traceQuery.isFetchingNextPage}
+        onPress={handleLoadMore}
+        style={({ pressed }) => [
+          styles.loadMore,
+          pressed ? styles.pressed : null,
+        ]}
+      >
+        {traceQuery.isFetchingNextPage
+          ? <ActivityIndicator size="small" color={theme.colors.primary} />
+          : <CaretDown size={18} color={theme.colors.primary} />}
+        <Text style={styles.loadMoreText}>
+          {t('parcel.reliability.loadEarlier')}
+        </Text>
+      </Pressable>
+    );
+  }, [
+    handleLoadMore,
+    styles,
+    t,
+    theme.colors.primary,
     traceQuery.hasNextPage,
     traceQuery.isFetchingNextPage,
+  ]);
+  const timelineListSection = useMemo<TrackingSupplementalListSection>(
+    () => ({
+      footer: loadMoreControl,
+      items: supplementalTimelineItems,
+    }),
+    [loadMoreControl, supplementalTimelineItems],
+  );
+  const nonTrackingHeader = useMemo(() => (
+    <View style={styles.nonTrackingHeader}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={handleRefresh}
+        style={styles.refreshHint}
+      >
+        <ArrowClockwise size={18} color={theme.colors.primary} />
+        <Text style={styles.refreshHintText}>
+          {t('parcel.actions.refresh')}
+        </Text>
+      </Pressable>
+      {detailsHeader}
+    </View>
+  ), [
+    detailsHeader,
+    handleRefresh,
+    styles,
+    t,
+    theme.colors.primary,
   ]);
 
   return (
@@ -298,32 +399,25 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
             terminalMessage={t('parcel.tracking.transportComplete')}
             refreshing={traceQuery.isRefetching}
             onRefresh={handleRefresh}
-            detailsFooter={details}
+            detailsFooter={detailsHeader}
+            detailsListSection={timelineListSection}
           />
         </View>
       ) : (
-        <ScrollView
+        <FlashList
           style={styles.body}
           contentContainerStyle={styles.scrollContent}
-          refreshControl={(
-            <RefreshControl
-              refreshing={traceQuery.isRefetching}
-              onRefresh={handleRefresh}
-              tintColor={theme.colors.primary}
-              colors={[theme.colors.primary]}
-            />
-          )}
-        >
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleRefresh}
-            style={styles.refreshHint}
-          >
-            <ArrowClockwise size={18} color={theme.colors.primary} />
-            <Text style={styles.refreshHintText}>{t('parcel.actions.refresh')}</Text>
-          </Pressable>
-          {details}
-        </ScrollView>
+          data={timeline}
+          getItemType={getTimelineItemType}
+          keyExtractor={timelineKeyExtractor}
+          keyboardShouldPersistTaps="handled"
+          ListFooterComponent={loadMoreControl}
+          ListHeaderComponent={nonTrackingHeader}
+          onRefresh={handleRefresh}
+          refreshing={traceQuery.isRefetching}
+          renderItem={renderTimelineItem}
+          showsVerticalScrollIndicator
+        />
       )}
     </SafeAreaView>
   );
@@ -345,6 +439,7 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
   },
   scrollContent: { padding: spacing.xl, paddingBottom: spacing.huge },
+  nonTrackingHeader: { gap: spacing.md },
   details: { gap: spacing.md },
   summaryCard: {
     ...theme.components.card,
@@ -397,6 +492,13 @@ const createStyles = (theme: AppTheme) => ({
   secondaryButtonText: { color: theme.colors.primary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
   timelineCard: { ...theme.components.card, padding: spacing.lg, borderRadius: borderRadius.lg },
   sectionTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, marginBottom: spacing.md },
+  timelineEventCard: {
+    ...theme.components.card,
+    marginTop: spacing.sm,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+  },
   timelineRow: { flexDirection: 'row' as const, minHeight: 72 },
   timelineRail: { width: 20, alignItems: 'center' as const },
   timelineDot: { width: 10, height: 10, borderRadius: 5, marginTop: 4, backgroundColor: theme.colors.primary },
@@ -405,7 +507,7 @@ const createStyles = (theme: AppTheme) => ({
   timelineTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
   timelineText: { color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs, marginTop: 2 },
   timelineTime: { color: theme.colors.textTertiary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs, marginTop: 2 },
-  loadMore: { minHeight: 44, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: spacing.xs },
+  loadMore: { minHeight: 44, marginTop: spacing.sm, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: spacing.xs },
   loadMoreText: { color: theme.colors.primary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
   refreshHint: { alignSelf: 'flex-end' as const, minHeight: 44, flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.xs },
   refreshHintText: { color: theme.colors.primary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },

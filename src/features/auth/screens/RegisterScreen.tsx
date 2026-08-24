@@ -177,7 +177,10 @@ export function RegisterScreen(): React.JSX.Element {
         <View style={[styles.decorCircle, { backgroundColor: theme.effects.ambientGlow }]} />
       </View>
 
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView
+        style={styles.container}
+        edges={['top', 'bottom', 'left', 'right']}
+      >
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         <View
           style={styles.keyboardView}
@@ -300,13 +303,12 @@ export function RegisterScreen(): React.JSX.Element {
               </View>
             </View>
 
+            <AuthFooter
+              prompt={t('auth.registerFlow.hasAccount')}
+              actionLabel={t('auth.login')}
+              onAction={() => navigation.navigate('Login')}
+            />
           </AppKeyboardAwareScrollView>
-
-          <AuthFooter
-            prompt={t('auth.registerFlow.hasAccount')}
-            actionLabel={t('auth.login')}
-            onAction={() => navigation.navigate('Login')}
-          />
         </View>
       </SafeAreaView>
     </View>
