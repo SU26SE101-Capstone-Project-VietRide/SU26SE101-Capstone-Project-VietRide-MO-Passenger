@@ -1849,6 +1849,12 @@
       "sent": "Tôi gửi",
       "received": "Gửi đến tôi"
     },
+    "parcelStatusFilter": {
+      "title": "Lọc trạng thái",
+      "subtitle": "Chỉ áp dụng cho các kiện bạn gửi.",
+      "openAccessibility": "Mở bộ lọc trạng thái. Hiện tại: {{status}}",
+      "closeAccessibility": "Đóng bộ lọc trạng thái"
+    },
     "reliability": {
       "activeIncident": "Đang có sự cố cần theo dõi",
       "claim": "Yêu cầu bồi thường: {{status}}"

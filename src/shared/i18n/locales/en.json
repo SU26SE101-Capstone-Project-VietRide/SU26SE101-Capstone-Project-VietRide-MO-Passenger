@@ -1849,6 +1849,12 @@
       "sent": "Sent by me",
       "received": "Sent to me"
     },
+    "parcelStatusFilter": {
+      "title": "Filter by status",
+      "subtitle": "Only applies to parcels sent by you.",
+      "openAccessibility": "Open status filter. Current status: {{status}}",
+      "closeAccessibility": "Close status filter"
+    },
     "reliability": {
       "activeIncident": "An incident needs attention",
       "claim": "Compensation claim: {{status}}"

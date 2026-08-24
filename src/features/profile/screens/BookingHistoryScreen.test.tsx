@@ -1,8 +1,17 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Modal, StyleSheet } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
 const mockUseParcelRoleHistory = jest.fn();
+let mockResponsiveLayout = {
+  width: 430,
+  height: 932,
+  fontScale: 1,
+  widthClass: 'large',
+  isCompact: false,
+  isLarge: true,
+  contentPaddingHorizontal: 24,
+};
 const mockHistoryQuery = {
   data: { pages: [] },
   error: null,
@@ -47,6 +56,7 @@ const mockTheme = {
     contentBorder: '#DDE5E3',
     contentBorderStrong: '#C8D5D2',
     cardShadow: {},
+    scrim: 'rgba(0, 0, 0, 0.45)',
   },
   components: {
     headerButton: {},
@@ -70,7 +80,28 @@ jest.mock('@shopify/flash-list', () => {
   const { View: NativeView } = jest.requireActual('react-native');
 
   return {
-    FlashList: () => ReactModule.createElement(NativeView),
+    FlashList: ({
+      data = [],
+      renderItem,
+      keyExtractor,
+      testID,
+    }: {
+      data?: unknown[];
+      renderItem?: (info: { item: unknown; index: number }) => React.ReactNode;
+      keyExtractor?: (item: unknown, index: number) => string;
+      testID?: string;
+    }) =>
+      ReactModule.createElement(
+        NativeView,
+        { testID },
+        data.map((item, index) =>
+          ReactModule.createElement(
+            ReactModule.Fragment,
+            { key: keyExtractor?.(item, index) ?? String(index) },
+            renderItem?.({ item, index }),
+          ),
+        ),
+      ),
   };
 });
 
@@ -87,6 +118,7 @@ jest.mock('react-native-safe-area-context', () => {
   return {
     SafeAreaView: (props: Record<string, unknown>) =>
       ReactModule.createElement(NativeView, props),
+    useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
   };
 });
 
@@ -98,14 +130,17 @@ jest.mock('phosphor-react-native', () => {
   return {
     ArrowLeft: icon(),
     CalendarBlank: icon(),
+    Check: icon(),
     Clock: icon(),
     CreditCard: icon(),
+    FunnelSimple: icon(),
     NavigationArrow: icon(),
     Package: icon(),
     Ticket: icon(),
     User: icon(),
     Van: icon(),
     WarningCircle: icon(),
+    X: icon(),
   };
 });
 
@@ -139,6 +174,7 @@ jest.mock('@shared/contexts/ThemeContext', () => ({
 
 jest.mock('@shared/hooks', () => ({
   useIsAppActive: () => true,
+  useResponsiveLayout: () => mockResponsiveLayout,
   useTabBarScrollBehavior: () => jest.fn(),
   useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) =>
     factory(mockTheme),
@@ -177,24 +213,72 @@ const findFilterButton = (
   accessibilityLabel: string,
 ) => renderer.root.findByProps({ accessibilityLabel });
 
+const getMinHeight = (
+  instance: ReactTestRenderer.ReactTestInstance,
+): number | undefined => {
+  const style =
+    typeof instance.props.style === 'function'
+      ? instance.props.style({ pressed: false })
+      : instance.props.style;
+  return StyleSheet.flatten(style)?.minHeight;
+};
+
 describe('BookingHistoryScreen parcel status filters', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResponsiveLayout = {
+      width: 430,
+      height: 932,
+      fontScale: 1,
+      widthClass: 'large',
+      isCompact: false,
+      isLarge: true,
+      contentPaddingHorizontal: 24,
+    };
   });
 
-  it('shows exact status filters for Sent and hides them for Received', async () => {
+  it('opens one status sheet for Sent, applies an exact status, and hides it for Received', async () => {
     const renderer = await renderScreen();
 
+    const openStatusFilter = findFilterButton(
+      renderer,
+      'bookingHistory.parcelStatusFilter.openAccessibility',
+    );
+    expect(getMinHeight(openStatusFilter)).toBeGreaterThanOrEqual(44);
     expect(
-      findFilterButton(renderer, 'bookingHistory.filters.all'),
+      renderer.root.findByProps({ children: 'bookingHistory.filters.all' }),
     ).toBeTruthy();
+    expect(
+      renderer.root.findAllByProps({
+        accessibilityLabel: 'history.status.parcel.inTransit',
+      }),
+    ).toHaveLength(0);
+
+    await act(async () => {
+      openStatusFilter.props.onPress();
+    });
+
+    const closeStatusFilter = findFilterButton(
+      renderer,
+      'bookingHistory.parcelStatusFilter.closeAccessibility',
+    );
+    expect(getMinHeight(closeStatusFilter)).toBeGreaterThanOrEqual(44);
+
+    const statusOptions = renderer.root.findAll(
+      instance => instance.props.accessibilityRole === 'radio',
+    );
+    const statusOptionLabels = new Set(
+      statusOptions.map(instance => instance.props.accessibilityLabel),
+    );
+    expect(statusOptionLabels.size).toBe(23);
+
     const inTransit = findFilterButton(
       renderer,
       'history.status.parcel.inTransit',
     );
-    expect(
-      StyleSheet.flatten(inTransit.props.style).minHeight,
-    ).toBeGreaterThanOrEqual(44);
+    expect(inTransit.props.accessibilityRole).toBe('radio');
+    expect(inTransit.props.accessibilityState).toEqual({ checked: false });
+    expect(getMinHeight(inTransit)).toBeGreaterThanOrEqual(44);
 
     await act(async () => {
       inTransit.props.onPress();
@@ -210,6 +294,11 @@ describe('BookingHistoryScreen parcel status filters', () => {
       PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
       true,
     ]);
+    expect(
+      renderer.root.findAllByProps({
+        accessibilityLabel: 'history.status.parcel.inTransit',
+      }),
+    ).toHaveLength(0);
 
     const received = findFilterButton(
       renderer,
@@ -221,7 +310,8 @@ describe('BookingHistoryScreen parcel status filters', () => {
 
     expect(
       renderer.root.findAllByProps({
-        accessibilityLabel: 'history.status.parcel.inTransit',
+        accessibilityLabel:
+          'bookingHistory.parcelStatusFilter.openAccessibility',
       }),
     ).toHaveLength(0);
     expect(
@@ -230,7 +320,7 @@ describe('BookingHistoryScreen parcel status filters', () => {
       ],
     ).toEqual([
       'RECEIVED',
-      'IN_TRANSIT',
+      undefined,
       PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
       true,
     ]);
@@ -241,8 +331,88 @@ describe('BookingHistoryScreen parcel status filters', () => {
     });
 
     expect(
-      findFilterButton(renderer, 'history.status.parcel.inTransit'),
+      findFilterButton(
+        renderer,
+        'bookingHistory.parcelStatusFilter.openAccessibility',
+      ),
     ).toBeTruthy();
+    expect(
+      mockUseParcelRoleHistory.mock.calls[
+        mockUseParcelRoleHistory.mock.calls.length - 1
+      ],
+    ).toEqual([
+      'SENT',
+      'IN_TRANSIT',
+      PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
+      true,
+    ]);
+
+    await act(async () => renderer.unmount());
+  });
+
+  it('dismisses the status sheet from both the close button and Android back request', async () => {
+    const renderer = await renderScreen();
+    const openStatusFilter = () =>
+      findFilterButton(
+        renderer,
+        'bookingHistory.parcelStatusFilter.openAccessibility',
+      );
+
+    await act(async () => {
+      openStatusFilter().props.onPress();
+    });
+    await act(async () => {
+      findFilterButton(
+        renderer,
+        'bookingHistory.parcelStatusFilter.closeAccessibility',
+      ).props.onPress();
+    });
+    expect(
+      renderer.root.findAllByProps({
+        accessibilityLabel: 'history.status.parcel.inTransit',
+      }),
+    ).toHaveLength(0);
+
+    await act(async () => {
+      openStatusFilter().props.onPress();
+    });
+    const visibleModal = renderer.root
+      .findAllByType(Modal)
+      .find(modal => modal.props.visible);
+    expect(visibleModal).toBeTruthy();
+    await act(async () => {
+      visibleModal?.props.onRequestClose();
+    });
+    expect(
+      renderer.root.findAllByProps({
+        accessibilityLabel: 'history.status.parcel.inTransit',
+      }),
+    ).toHaveLength(0);
+
+    await act(async () => renderer.unmount());
+  });
+
+  it('keeps the status trigger icon-only outside roomy text conditions', async () => {
+    mockResponsiveLayout = {
+      width: 390,
+      height: 844,
+      fontScale: 1.4,
+      widthClass: 'regular',
+      isCompact: false,
+      isLarge: false,
+      contentPaddingHorizontal: 16,
+    };
+
+    const renderer = await renderScreen();
+
+    expect(
+      renderer.root.findAllByProps({ children: 'bookingHistory.filters.all' }),
+    ).toHaveLength(0);
+    const openStatusFilter = findFilterButton(
+      renderer,
+      'bookingHistory.parcelStatusFilter.openAccessibility',
+    );
+    expect(getMinHeight(openStatusFilter)).toBeGreaterThanOrEqual(44);
 
     await act(async () => renderer.unmount());
   });
