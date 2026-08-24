@@ -6,11 +6,16 @@ import { getSentParcels } from '@features/parcel/api/parcelReliabilityApi';
 import type { ParcelStatus } from '@features/parcel/types';
 import { toApiError } from '@shared/api/errors';
 import { passengerHistoryKeys } from '../api/passengerHistoryApi';
+import {
+  getParcelStatusesForHistoryFilter,
+  type ParcelHistoryFilter,
+} from '../config/passengerHistoryFilters';
 import type { PassengerHistoryItem, PassengerHistoryPage } from '../types';
 import {
   mapReceivedParcelToHistoryItem,
   mapSentParcelToHistoryItem,
 } from '../utils/parcelHistoryAdapter';
+import { comparePassengerHistoryNewestFirst } from '../utils/passengerHistoryMerge';
 
 export type ParcelHistoryRole = 'SENT' | 'RECEIVED';
 
@@ -45,6 +50,39 @@ const fetchSentPage = async (
   };
 };
 
+const fetchMergedSentPage = async (
+  statuses: readonly ParcelStatus[],
+  page: number,
+  pageSize: number,
+  signal: AbortSignal,
+): Promise<PassengerHistoryPage<PassengerHistoryItem>> => {
+  const pages = await Promise.all(
+    statuses.map(status => fetchSentPage(status, page, pageSize, signal)),
+  );
+  const seen = new Set<string>();
+  const items: PassengerHistoryItem[] = [];
+
+  for (const result of pages) {
+    for (const item of result.items) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      items.push(item);
+    }
+  }
+
+  items.sort(comparePassengerHistoryNewestFirst);
+
+  return {
+    items,
+    page,
+    pageSize,
+    totalItems: pages.reduce((sum, result) => sum + result.totalItems, 0),
+    totalPages: Math.max(1, ...pages.map(result => result.totalPages)),
+    hasNextPage: pages.some(result => result.hasNextPage),
+    hasPreviousPage: pages.some(result => result.hasPreviousPage),
+  };
+};
+
 const fetchReceivedPage = async (
   page: number,
   pageSize: number,
@@ -59,24 +97,33 @@ const fetchReceivedPage = async (
 
 export function useParcelRoleHistory(
   role: ParcelHistoryRole,
-  status: ParcelStatus | undefined,
+  filter: ParcelHistoryFilter,
   pageSize: number,
   enabled = true,
 ) {
   const userId = useAuthStore(state => state.user?.id);
+  const statuses = getParcelStatusesForHistoryFilter(filter);
 
   return useInfiniteQuery({
     queryKey: [
       ...passengerHistoryKeys.user(userId ?? 'guest'),
       'PARCEL_ROLE',
       role,
-      role === 'SENT' ? status ?? 'ALL' : 'unfiltered',
+      role === 'SENT' ? filter : 'unfiltered',
       pageSize,
     ] as const,
-    queryFn: ({ pageParam, signal }) =>
-      role === 'SENT'
-        ? fetchSentPage(status, pageParam, pageSize, signal)
-        : fetchReceivedPage(pageParam, pageSize, signal),
+    queryFn: ({ pageParam, signal }) => {
+      if (role === 'RECEIVED') {
+        return fetchReceivedPage(pageParam, pageSize, signal);
+      }
+      if (!statuses) {
+        return fetchSentPage(undefined, pageParam, pageSize, signal);
+      }
+      if (statuses.length === 1) {
+        return fetchSentPage(statuses[0], pageParam, pageSize, signal);
+      }
+      return fetchMergedSentPage(statuses, pageParam, pageSize, signal);
+    },
     initialPageParam: 1,
     getNextPageParam: lastPage =>
       lastPage.hasNextPage ? lastPage.page + 1 : undefined,

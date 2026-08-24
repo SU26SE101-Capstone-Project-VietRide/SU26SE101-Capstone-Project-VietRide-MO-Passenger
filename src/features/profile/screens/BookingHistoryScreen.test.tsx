@@ -5,15 +5,6 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 const mockUseParcelRoleHistory = jest.fn();
 let mockInitialTab: 'ticket' | 'parcel' = 'parcel';
 let mockTicketPages: unknown[] = [];
-let mockResponsiveLayout = {
-  width: 430,
-  height: 932,
-  fontScale: 1,
-  widthClass: 'large',
-  isCompact: false,
-  isLarge: true,
-  contentPaddingHorizontal: 24,
-};
 const mockHistoryQuery = {
   data: { pages: [] },
   error: null,
@@ -179,7 +170,6 @@ jest.mock('@shared/contexts/ThemeContext', () => ({
 
 jest.mock('@shared/hooks', () => ({
   useIsAppActive: () => true,
-  useResponsiveLayout: () => mockResponsiveLayout,
   useTabBarScrollBehavior: () => jest.fn(),
   useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) =>
     factory(mockTheme),
@@ -241,44 +231,44 @@ describe('BookingHistoryScreen parcel status filters', () => {
     jest.clearAllMocks();
     mockInitialTab = 'parcel';
     mockTicketPages = [];
-    mockResponsiveLayout = {
-      width: 430,
-      height: 932,
-      fontScale: 1,
-      widthClass: 'large',
-      isCompact: false,
-      isLarge: true,
-      contentPaddingHorizontal: 24,
-    };
   });
 
-  it('opens one status sheet for Sent, applies an exact status, and hides it for Received', async () => {
+  it('keeps two primary tabs, groups Sent statuses, and retains the group across roles', async () => {
     const renderer = await renderScreen();
 
-    const dataTabs = [
-      'bookingHistory.ticketsTab',
-      'bookingHistory.parcelRoles.sent',
+    const ticketTab = findFilterButton(renderer, 'bookingHistory.ticketsTab');
+    const parcelTab = findFilterButton(renderer, 'bookingHistory.parcelsTab');
+    expect([ticketTab, parcelTab]).toHaveLength(2);
+    expect(ticketTab.props.accessibilityState).toEqual({ selected: false });
+    expect(parcelTab.props.accessibilityState).toEqual({ selected: true });
+
+    const sent = findFilterButton(renderer, 'bookingHistory.parcelRoles.sent');
+    const received = findFilterButton(
+      renderer,
       'bookingHistory.parcelRoles.received',
-    ].map(label => findFilterButton(renderer, label));
-    expect(dataTabs).toHaveLength(3);
-    expect(
-      findFilterButton(renderer, 'bookingHistory.ticketsTab').props
-        .accessibilityState,
-    ).toEqual({ selected: false });
-    expect(
-      findFilterButton(renderer, 'bookingHistory.parcelRoles.sent').props
-        .accessibilityState,
-    ).toEqual({ selected: true });
-    expect(
-      findFilterButton(renderer, 'bookingHistory.parcelRoles.received').props
-        .accessibilityState,
-    ).toEqual({ selected: false });
+    );
+    expect(sent.props.accessibilityState).toEqual({ selected: true });
+    expect(received.props.accessibilityState).toEqual({ selected: false });
 
     const openStatusFilter = findFilterButton(
       renderer,
       'bookingHistory.parcelStatusFilter.openAccessibility',
     );
     expect(getMinHeight(openStatusFilter)).toBeGreaterThanOrEqual(44);
+    const toolbar = renderer.root.findByProps({
+      testID: 'parcel-history-toolbar',
+    });
+    expect(
+      toolbar.findByProps({
+        accessibilityLabel: 'bookingHistory.parcelRoles.sent',
+      }),
+    ).toBeTruthy();
+    expect(
+      toolbar.findByProps({
+        accessibilityLabel:
+          'bookingHistory.parcelStatusFilter.openAccessibility',
+      }),
+    ).toBeTruthy();
     expect(
       renderer.root.findAllByProps({
         accessibilityLabel: 'history.status.parcel.inTransit',
@@ -298,21 +288,28 @@ describe('BookingHistoryScreen parcel status filters', () => {
     const statusOptions = renderer.root.findAll(
       instance => instance.props.accessibilityRole === 'radio',
     );
-    const statusOptionLabels = new Set(
-      statusOptions.map(instance => instance.props.accessibilityLabel),
+    const statusOptionLabels = Array.from(
+      new Set(statusOptions.map(instance => instance.props.accessibilityLabel)),
     );
-    expect(statusOptionLabels.size).toBe(23);
+    expect(statusOptionLabels).toEqual([
+      'bookingHistory.filters.all',
+      'bookingHistory.filters.needsAction',
+      'bookingHistory.filters.inProgress',
+      'bookingHistory.filters.awaitingConfirm',
+      'bookingHistory.filters.delivered',
+      'bookingHistory.filters.closed',
+    ]);
 
-    const inTransit = findFilterButton(
+    const inProgress = findFilterButton(
       renderer,
-      'history.status.parcel.inTransit',
+      'bookingHistory.filters.inProgress',
     );
-    expect(inTransit.props.accessibilityRole).toBe('radio');
-    expect(inTransit.props.accessibilityState).toEqual({ checked: false });
-    expect(getMinHeight(inTransit)).toBeGreaterThanOrEqual(44);
+    expect(inProgress.props.accessibilityRole).toBe('radio');
+    expect(inProgress.props.accessibilityState).toEqual({ checked: false });
+    expect(getMinHeight(inProgress)).toBeGreaterThanOrEqual(44);
 
     await act(async () => {
-      inTransit.props.onPress();
+      inProgress.props.onPress();
     });
 
     expect(
@@ -321,20 +318,16 @@ describe('BookingHistoryScreen parcel status filters', () => {
       ],
     ).toEqual([
       'SENT',
-      'IN_TRANSIT',
+      'IN_PROGRESS',
       PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
       true,
     ]);
     expect(
       renderer.root.findAllByProps({
-        accessibilityLabel: 'history.status.parcel.inTransit',
+        accessibilityLabel: 'bookingHistory.filters.inProgress',
       }),
     ).toHaveLength(0);
 
-    const received = findFilterButton(
-      renderer,
-      'bookingHistory.parcelRoles.received',
-    );
     await act(async () => {
       received.props.onPress();
     });
@@ -351,14 +344,17 @@ describe('BookingHistoryScreen parcel status filters', () => {
       ],
     ).toEqual([
       'RECEIVED',
-      undefined,
+      'IN_PROGRESS',
       PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
       true,
     ]);
 
-    const sent = findFilterButton(renderer, 'bookingHistory.parcelRoles.sent');
+    const sentAgain = findFilterButton(
+      renderer,
+      'bookingHistory.parcelRoles.sent',
+    );
     await act(async () => {
-      sent.props.onPress();
+      sentAgain.props.onPress();
     });
 
     expect(
@@ -373,7 +369,7 @@ describe('BookingHistoryScreen parcel status filters', () => {
       ],
     ).toEqual([
       'SENT',
-      'IN_TRANSIT',
+      'IN_PROGRESS',
       PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
       true,
     ]);
@@ -400,7 +396,7 @@ describe('BookingHistoryScreen parcel status filters', () => {
     });
     expect(
       renderer.root.findAllByProps({
-        accessibilityLabel: 'history.status.parcel.inTransit',
+        accessibilityLabel: 'bookingHistory.filters.inProgress',
       }),
     ).toHaveLength(0);
 
@@ -416,33 +412,36 @@ describe('BookingHistoryScreen parcel status filters', () => {
     });
     expect(
       renderer.root.findAllByProps({
-        accessibilityLabel: 'history.status.parcel.inTransit',
+        accessibilityLabel: 'bookingHistory.filters.inProgress',
       }),
     ).toHaveLength(0);
 
     await act(async () => renderer.unmount());
   });
 
-  it('keeps all three data tabs wrap-safe at compact width and large font scale', async () => {
-    mockResponsiveLayout = {
-      width: 320,
-      height: 720,
-      fontScale: 1.4,
-      widthClass: 'compact',
-      isCompact: true,
-      isLarge: false,
-      contentPaddingHorizontal: 12,
-    };
-
+  it('keeps the two-level controls wrap-safe with 44dp touch targets', async () => {
     const renderer = await renderScreen();
-    const dataTabs = [
+    const primaryTabs = [
       'bookingHistory.ticketsTab',
+      'bookingHistory.parcelsTab',
+    ].map(label => findFilterButton(renderer, label));
+
+    expect(primaryTabs).toHaveLength(2);
+    for (const tab of primaryTabs) {
+      const tabStyle = StyleSheet.flatten(tab.props.style);
+      expect(tabStyle?.minWidth).toBe(0);
+      expect(tabStyle?.minHeight).toBeGreaterThanOrEqual(44);
+      expect(
+        tab.findAll(instance => instance.props.numberOfLines === 1).length,
+      ).toBeGreaterThanOrEqual(1);
+    }
+
+    const roleTabs = [
       'bookingHistory.parcelRoles.sent',
       'bookingHistory.parcelRoles.received',
     ].map(label => findFilterButton(renderer, label));
-
-    expect(dataTabs).toHaveLength(3);
-    for (const tab of dataTabs) {
+    expect(roleTabs).toHaveLength(2);
+    for (const tab of roleTabs) {
       const tabStyle = StyleSheet.flatten(tab.props.style);
       expect(tabStyle?.minWidth).toBe(0);
       expect(tabStyle?.minHeight).toBeGreaterThanOrEqual(44);
@@ -455,6 +454,8 @@ describe('BookingHistoryScreen parcel status filters', () => {
       renderer,
       'bookingHistory.parcelStatusFilter.openAccessibility',
     );
+    const filterStyle = StyleSheet.flatten(openStatusFilter.props.style);
+    expect(filterStyle?.width).toBe(44);
     expect(getMinHeight(openStatusFilter)).toBeGreaterThanOrEqual(44);
 
     const backButtonStyle = StyleSheet.flatten(
