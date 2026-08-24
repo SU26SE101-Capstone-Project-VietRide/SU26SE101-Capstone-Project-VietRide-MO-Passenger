@@ -282,6 +282,8 @@ describe('passenger history ticket view model', () => {
     expect(model.createdAtLabel).toBeTruthy();
     expect(model.isPendingPayment).toBe(false);
     expect(model.legs[0]).toMatchObject({
+      reference: 'BK-HIST-01',
+      ticketReferences: 'VR-TICKET-1',
       boardingName: 'Ha Noi',
       alightingName: 'Da Nang',
       routeName: 'Ha Noi - Da Nang Express',
@@ -296,6 +298,9 @@ describe('passenger history ticket view model', () => {
         paidAmount: 250_000,
       }],
     });
+    expect(model.legs[0].reference).not.toBe(
+      model.legs[0].ticketEntries?.[0]?.ticketCode,
+    );
     // No fabricated address/stop identity for history snapshots (HIST-BE-002).
     expect(model.legs[0].boardingAddress).toBeUndefined();
     expect(model.legs[0].alightingAddress).toBeUndefined();

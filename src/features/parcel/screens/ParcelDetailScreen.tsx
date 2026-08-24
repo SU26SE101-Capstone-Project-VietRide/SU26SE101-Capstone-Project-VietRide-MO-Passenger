@@ -692,11 +692,23 @@ export function ParcelDetailScreen(): React.JSX.Element {
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text numberOfLines={1} style={styles.navTitle}>
-          {fromHistory
-            ? t('parcel.detail.historyTitle')
-            : t('parcel.detail.ticketTitle')}
-        </Text>
+        <View style={styles.navTitleGroup}>
+          <Text numberOfLines={1} style={styles.navTitle}>
+            {fromHistory
+              ? t('parcel.detail.historyTitle')
+              : t('parcel.detail.ticketTitle')}
+          </Text>
+          {parcel?.parcelCode ? (
+            <Text
+              selectable
+              numberOfLines={1}
+              ellipsizeMode="middle"
+              style={styles.navMetadata}
+            >
+              {parcel.parcelCode}
+            </Text>
+          ) : null}
+        </View>
         <View style={styles.navSpacer} />
       </View>
 
@@ -755,33 +767,40 @@ export function ParcelDetailScreen(): React.JSX.Element {
           ) : null}
 
           <View style={styles.ticketCard}>
-            <View style={styles.qrSection}>
-              {deliveryCodeActive && parcel?.parcelCode ? (
-                <ScannableCodeCard
-                  code={parcel.parcelCode}
-                  title={t('parcel.detail.dropoffCode')}
-                  description={t('parcel.detail.dropoffCodeHint')}
-                />
-              ) : null}
-              <Text style={styles.qrCaption}>
-                {t(heroCopy.codeKey)}
-              </Text>
-              {deliveryCodeActive ? null : (
-                <Text selectable style={styles.ticketIdText}>
-                  {parcel?.parcelCode || parcelId}
-                </Text>
-              )}
-              <StatusChip
-                label={t(statusPresentation.labelKey)}
-                tone={statusPresentation.tone}
-                style={styles.centeredStatusChip}
-              />
-            </View>
+            {deliveryCodeActive && parcel?.parcelCode ? (
+              <>
+                <View style={styles.qrSection}>
+                  <ScannableCodeCard
+                    code={parcel.parcelCode}
+                    title={t('parcel.detail.dropoffCode')}
+                    description={t('parcel.detail.dropoffCodeHint')}
+                  />
+                  <Text style={styles.qrCaption}>
+                    {t(heroCopy.codeKey)}
+                  </Text>
+                  <StatusChip
+                    label={t(statusPresentation.labelKey)}
+                    tone={statusPresentation.tone}
+                    style={styles.centeredStatusChip}
+                  />
+                </View>
 
-            <View style={styles.dashedDivider}>
-              <View style={styles.sideCutoutLeft} />
-              <View style={styles.sideCutoutRight} />
-            </View>
+                <View style={styles.dashedDivider}>
+                  <View style={styles.sideCutoutLeft} />
+                  <View style={styles.sideCutoutRight} />
+                </View>
+              </>
+            ) : (
+              <View style={styles.compactParcelHeader}>
+                <StatusChip
+                  label={t(statusPresentation.labelKey)}
+                  tone={statusPresentation.tone}
+                />
+                <Text style={styles.compactParcelHeaderText}>
+                  {t(heroCopy.codeKey)}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.detailsSection}>
               <View style={styles.routeList}>
@@ -1214,18 +1233,32 @@ const createStyles = (theme: AppTheme) => ({
   },
   navButton: {
     ...theme.components.headerButton,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   navSpacer: {
-    width: 36,
+    width: 44,
+  },
+  navTitleGroup: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
   },
   navTitle: {
-    flex: 1,
+    alignSelf: 'stretch',
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
+    textAlign: 'center',
+  },
+  navMetadata: {
+    alignSelf: 'stretch',
+    marginTop: 2,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   stateContainer: {
@@ -1321,6 +1354,22 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     padding: spacing.xl,
   },
+  compactParcelHeader: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+  },
+  compactParcelHeaderText: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: fontSizes.xs * 1.45,
+    color: theme.colors.textSecondary,
+  },
   centeredStatusChip: {
     alignSelf: 'center' as const,
   },
@@ -1344,11 +1393,6 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
     marginBottom: 4,
     textAlign: 'center',
-  },
-  ticketIdText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primary,
   },
   statusPill: {
     marginTop: spacing.sm,

@@ -64,7 +64,6 @@ import { StatusChip } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import {
   useIsAppActive,
-  useResponsiveLayout,
   useTabBarScrollBehavior,
   useThemedStyles,
 } from '@shared/hooks';
@@ -239,58 +238,11 @@ const PARCEL_STATUS_FILTER_OPTIONS: readonly {
   })),
 ];
 
-const PARCEL_ROLE_OPTIONS: readonly {
-  value: ParcelHistoryRole;
-  labelKey: string;
-}[] = [
-  { value: 'SENT', labelKey: 'bookingHistory.parcelRoles.sent' },
-  { value: 'RECEIVED', labelKey: 'bookingHistory.parcelRoles.received' },
-];
 type ParcelStatusFilterOption = (typeof PARCEL_STATUS_FILTER_OPTIONS)[number];
 
 const parcelStatusOptionKeyExtractor = (
   option: ParcelStatusFilterOption,
 ): string => option.value;
-
-interface ParcelRoleTabProps {
-  label: string;
-  selected: boolean;
-  value: ParcelHistoryRole;
-  onSelect: (value: ParcelHistoryRole) => void;
-}
-
-const ParcelRoleTab = memo(function ParcelRoleTabComponent({
-  label,
-  selected,
-  value,
-  onSelect,
-}: ParcelRoleTabProps): React.JSX.Element {
-  const styles = useThemedStyles(createStyles);
-  const handlePress = useCallback(() => onSelect(value), [onSelect, value]);
-
-  return (
-    <Pressable
-      accessibilityLabel={label}
-      accessibilityRole="tab"
-      accessibilityState={{ selected }}
-      onPress={handlePress}
-      style={[
-        styles.parcelRoleTab,
-        selected ? styles.parcelRoleTabActive : null,
-      ]}
-    >
-      <Text
-        numberOfLines={2}
-        style={[
-          styles.parcelRoleTabLabel,
-          selected ? styles.parcelRoleTabLabelActive : null,
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-});
 
 interface ParcelStatusOptionRowProps {
   label: string;
@@ -442,90 +394,6 @@ const ParcelStatusFilterSheet = memo(function ParcelStatusFilterSheetComponent({
   );
 });
 
-interface ParcelHistoryToolbarProps {
-  filterVisible: boolean;
-  role: ParcelHistoryRole;
-  status: ParcelHistoryFilter;
-  onOpenStatusFilter: () => void;
-  onSelectRole: (value: ParcelHistoryRole) => void;
-}
-
-const ParcelHistoryToolbar = memo(function ParcelHistoryToolbarComponent({
-  filterVisible,
-  role,
-  status,
-  onOpenStatusFilter,
-  onSelectRole,
-}: ParcelHistoryToolbarProps): React.JSX.Element {
-  const { t } = useTranslation();
-  const theme = useTheme();
-  const styles = useThemedStyles(createStyles);
-  const { fontScale, isLarge } = useResponsiveLayout();
-  const showStatusLabel = isLarge && fontScale <= 1.2;
-  const selectedStatusOption =
-    PARCEL_STATUS_FILTER_OPTIONS.find(option => option.value === status) ??
-    PARCEL_STATUS_FILTER_OPTIONS[0];
-  const selectedStatusLabel = t(selectedStatusOption.labelKey);
-  const hasStatusFilter = status !== 'ALL';
-
-  return (
-    <View style={styles.parcelHistoryToolbar}>
-      <View accessibilityRole="tablist" style={styles.parcelRoleSegment}>
-        {PARCEL_ROLE_OPTIONS.map(option => (
-          <ParcelRoleTab
-            key={option.value}
-            label={t(option.labelKey)}
-            selected={role === option.value}
-            value={option.value}
-            onSelect={onSelectRole}
-          />
-        ))}
-      </View>
-      {role === 'SENT' ? (
-        <Pressable
-          accessibilityLabel={t(
-            'bookingHistory.parcelStatusFilter.openAccessibility',
-            { status: selectedStatusLabel },
-          )}
-          accessibilityRole="button"
-          accessibilityState={{
-            expanded: filterVisible,
-            selected: hasStatusFilter,
-          }}
-          onPress={onOpenStatusFilter}
-          style={[
-            styles.parcelStatusTrigger,
-            showStatusLabel ? styles.parcelStatusTriggerLabelled : null,
-            hasStatusFilter ? styles.parcelStatusTriggerActive : null,
-          ]}
-        >
-          <FunnelSimple
-            color={
-              hasStatusFilter
-                ? theme.colors.primary
-                : theme.colors.textSecondary
-            }
-            size={20}
-            weight={hasStatusFilter ? 'fill' : 'regular'}
-          />
-          {showStatusLabel ? (
-            <Text
-              ellipsizeMode="tail"
-              numberOfLines={1}
-              style={[
-                styles.parcelStatusTriggerLabel,
-                hasStatusFilter ? styles.parcelStatusTriggerLabelActive : null,
-              ]}
-            >
-              {selectedStatusLabel}
-            </Text>
-          ) : null}
-        </Pressable>
-      ) : null}
-    </View>
-  );
-});
-
 interface TicketHistoryRowProps {
   item: PassengerTicketHistoryItem;
   onOpen: (item: PassengerTicketHistoryItem) => void;
@@ -632,7 +500,7 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
           </Text>
         ) : null}
 
-        <View style={styles.routeContainer}>
+        <View testID="ticket-history-route" style={styles.routeContainer}>
           <View style={styles.timelineDots}>
             <View style={styles.greenDot} />
             <View style={styles.timelineLine} />
@@ -648,7 +516,9 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
           </View>
         </View>
 
-        <View style={styles.detailsRow}>
+        <ShuttleHistorySummary requests={item.ticket.shuttleRequests} />
+
+        <View testID="ticket-history-details" style={styles.detailsRow}>
           {item.departureDateTime ? (
             <>
               <View style={styles.detailItem}>
@@ -685,8 +555,6 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
             </View>
           ) : null}
         </View>
-
-        <ShuttleHistorySummary requests={item.ticket.shuttleRequests} />
       </Pressable>
 
       <View style={styles.ticketFooter}>
@@ -832,9 +700,6 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
         style={cardStyle}
         onPress={handleOpen}
       >
-        <View style={styles.parcelIconContainer}>
-          <Package size={25} color={theme.colors.primary} weight="duotone" />
-        </View>
         <View style={styles.parcelInfo}>
           <View style={styles.parcelHeader}>
             <Text style={styles.parcelCode} numberOfLines={1}>
@@ -1112,16 +977,26 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const [parcelRole, setParcelRole] = useState<ParcelHistoryRole>('SENT');
   const [parcelStatusFilterVisible, setParcelStatusFilterVisible] =
     useState(false);
+  const isTicketView = activeTab === 'ticket';
+  const isSentParcelView = activeTab === 'parcel' && parcelRole === 'SENT';
+  const isReceivedParcelView =
+    activeTab === 'parcel' && parcelRole === 'RECEIVED';
   const selectedTicketStatus =
     ticketFilter === 'ALL' ? undefined : ticketFilter;
   const selectedParcelStatus: ParcelStatus | undefined =
-    parcelRole === 'SENT' && parcelFilter !== 'ALL' ? parcelFilter : undefined;
+    isSentParcelView && parcelFilter !== 'ALL' ? parcelFilter : undefined;
+  const selectedParcelStatusOption =
+    PARCEL_STATUS_FILTER_OPTIONS.find(
+      option => option.value === parcelFilter,
+    ) ?? PARCEL_STATUS_FILTER_OPTIONS[0];
+  const selectedParcelStatusLabel = t(selectedParcelStatusOption.labelKey);
+  const hasParcelStatusFilter = parcelFilter !== 'ALL';
   const ticketQuery = useBookingHistory(
     {
       ...(selectedTicketStatus ? { status: selectedTicketStatus } : {}),
       pageSize: PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
     },
-    activeTab === 'ticket',
+    isTicketView,
   );
   const parcelQuery = useParcelRoleHistory(
     parcelRole,
@@ -1178,7 +1053,12 @@ export function BookingHistoryScreen(): React.JSX.Element {
   }, [paymentReturnGate, userId]);
 
   useEffect(() => {
-    if (route.params?.initialTab) setActiveTab(route.params.initialTab);
+    const initialTab = route.params?.initialTab;
+    if (!initialTab) return;
+
+    setActiveTab(initialTab);
+    if (initialTab === 'parcel') setParcelRole('SENT');
+    setParcelStatusFilterVisible(false);
   }, [route.params?.initialTab]);
 
   const ticketItems = useMemo(
@@ -1196,11 +1076,19 @@ export function BookingHistoryScreen(): React.JSX.Element {
     [parcelData?.pages],
   );
 
-  const showTickets = useCallback(() => setActiveTab('ticket'), []);
-  const showParcels = useCallback(() => setActiveTab('parcel'), []);
-  const handleParcelRoleSelect = useCallback((role: ParcelHistoryRole) => {
-    setParcelRole(role);
-    if (role === 'RECEIVED') setParcelStatusFilterVisible(false);
+  const showTickets = useCallback(() => {
+    setActiveTab('ticket');
+    setParcelStatusFilterVisible(false);
+  }, []);
+  const showSentParcels = useCallback(() => {
+    setActiveTab('parcel');
+    setParcelRole('SENT');
+    setParcelStatusFilterVisible(false);
+  }, []);
+  const showReceivedParcels = useCallback(() => {
+    setActiveTab('parcel');
+    setParcelRole('RECEIVED');
+    setParcelStatusFilterVisible(false);
   }, []);
   const openParcelStatusFilter = useCallback(
     () => setParcelStatusFilterVisible(true),
@@ -1476,32 +1364,51 @@ export function BookingHistoryScreen(): React.JSX.Element {
             <ArrowLeft size={24} color={theme.colors.textPrimary} />
           </Pressable>
           <Text style={styles.topBarTitle}>{t('profile.history')}</Text>
-          <View style={styles.topBarRightPlaceholder} />
+          {isSentParcelView ? (
+            <Pressable
+              accessibilityLabel={t(
+                'bookingHistory.parcelStatusFilter.openAccessibility',
+                { status: selectedParcelStatusLabel },
+              )}
+              accessibilityRole="button"
+              accessibilityState={{
+                expanded: parcelStatusFilterVisible,
+                selected: hasParcelStatusFilter,
+              }}
+              onPress={openParcelStatusFilter}
+              style={[
+                styles.topBarFilterButton,
+                hasParcelStatusFilter ? styles.topBarFilterButtonActive : null,
+              ]}
+            >
+              <FunnelSimple
+                color={
+                  hasParcelStatusFilter
+                    ? theme.colors.primary
+                    : theme.colors.textSecondary
+                }
+                size={20}
+                weight={hasParcelStatusFilter ? 'fill' : 'regular'}
+              />
+            </Pressable>
+          ) : (
+            <View style={styles.topBarRightPlaceholder} />
+          )}
         </View>
 
         <View style={styles.mainTabs} accessibilityRole="tablist">
           <Pressable
-            style={[
-              styles.mainTab,
-              activeTab === 'ticket' ? styles.activeMainTab : null,
-            ]}
+            style={[styles.mainTab, isTicketView ? styles.activeMainTab : null]}
             onPress={showTickets}
             accessibilityRole="tab"
             accessibilityLabel={t('bookingHistory.ticketsTab')}
-            accessibilityState={{ selected: activeTab === 'ticket' }}
+            accessibilityState={{ selected: isTicketView }}
           >
-            <Ticket
-              size={18}
-              color={
-                activeTab === 'ticket'
-                  ? theme.colors.textInverse
-                  : theme.colors.textSecondary
-              }
-            />
             <Text
+              numberOfLines={2}
               style={[
                 styles.mainTabText,
-                activeTab === 'ticket' ? styles.activeMainTabText : null,
+                isTicketView ? styles.activeMainTabText : null,
               ]}
             >
               {t('bookingHistory.ticketsTab')}
@@ -1510,47 +1417,52 @@ export function BookingHistoryScreen(): React.JSX.Element {
           <Pressable
             style={[
               styles.mainTab,
-              activeTab === 'parcel' ? styles.activeMainTab : null,
+              isSentParcelView ? styles.activeMainTab : null,
             ]}
-            onPress={showParcels}
+            onPress={showSentParcels}
             accessibilityRole="tab"
-            accessibilityLabel={t('bookingHistory.parcelsTab')}
-            accessibilityState={{ selected: activeTab === 'parcel' }}
+            accessibilityLabel={t('bookingHistory.parcelRoles.sent')}
+            accessibilityState={{ selected: isSentParcelView }}
           >
-            <Package
-              size={18}
-              color={
-                activeTab === 'parcel'
-                  ? theme.colors.textInverse
-                  : theme.colors.textSecondary
-              }
-            />
             <Text
+              numberOfLines={2}
               style={[
                 styles.mainTabText,
-                activeTab === 'parcel' ? styles.activeMainTabText : null,
+                isSentParcelView ? styles.activeMainTabText : null,
               ]}
             >
-              {t('bookingHistory.parcelsTab')}
+              {t('bookingHistory.parcelRoles.sent')}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.mainTab,
+              isReceivedParcelView ? styles.activeMainTab : null,
+            ]}
+            onPress={showReceivedParcels}
+            accessibilityRole="tab"
+            accessibilityLabel={t('bookingHistory.parcelRoles.received')}
+            accessibilityState={{ selected: isReceivedParcelView }}
+          >
+            <Text
+              numberOfLines={2}
+              style={[
+                styles.mainTabText,
+                isReceivedParcelView ? styles.activeMainTabText : null,
+              ]}
+            >
+              {t('bookingHistory.parcelRoles.received')}
             </Text>
           </Pressable>
         </View>
 
-        {activeTab === 'ticket' ? (
+        {isTicketView ? (
           <HistoryFilterBar
             selected={ticketFilter}
             options={TICKET_FILTER_OPTIONS}
             onSelect={setTicketFilter}
           />
-        ) : (
-          <ParcelHistoryToolbar
-            filterVisible={parcelStatusFilterVisible}
-            role={parcelRole}
-            status={parcelFilter}
-            onOpenStatusFilter={openParcelStatusFilter}
-            onSelectRole={handleParcelRoleSelect}
-          />
-        )}
+        ) : null}
       </View>
 
       {activeTab === 'ticket' ? (
@@ -1630,8 +1542,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   backButton: {
     ...theme.components.headerButton,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    minHeight: 44,
     borderRadius: BR.full,
   },
   topBarTitle: {
@@ -1639,20 +1552,38 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
   },
-  topBarRightPlaceholder: { width: 40 },
+  topBarRightPlaceholder: { width: 44, height: 44 },
+  topBarFilterButton: {
+    ...theme.components.headerButton,
+    width: 44,
+    height: 44,
+    minHeight: 44,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    borderRadius: BR.full,
+    borderCurve: 'continuous' as const,
+  },
+  topBarFilterButtonActive: {
+    backgroundColor: theme.colors.primaryFaded,
+  },
   mainTabs: {
+    minWidth: 0,
     flexDirection: 'row' as const,
-    gap: spacing.sm,
-    padding: spacing.md,
+    alignItems: 'stretch' as const,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
     backgroundColor: theme.colors.transparent,
   },
   mainTab: {
     flex: 1,
-    minHeight: 44,
-    flexDirection: 'row' as const,
+    minWidth: 0,
+    minHeight: 48,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.sm,
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
     backgroundColor: theme.effects.isLiquid
@@ -1668,11 +1599,18 @@ const createStyles = (theme: AppTheme) => ({
     borderColor: theme.colors.primary,
   },
   mainTabText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
+    minWidth: 0,
+    flexShrink: 1,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.xs,
+    lineHeight: fontSizes.xs * 1.35,
     color: theme.colors.textSecondary,
+    textAlign: 'center' as const,
   },
-  activeMainTabText: { color: theme.colors.textInverse },
+  activeMainTabText: {
+    color: theme.colors.textInverse,
+    fontFamily: fontFamilies.bold,
+  },
   filterContent: {
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
@@ -1699,98 +1637,6 @@ const createStyles = (theme: AppTheme) => ({
   },
   activeFilterLabel: { color: theme.colors.primary },
 
-  parcelHistoryToolbar: {
-    minWidth: 0,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  parcelRoleSegment: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 48,
-    flexDirection: 'row' as const,
-    alignItems: 'stretch' as const,
-    padding: spacing.xxs,
-    borderRadius: BR.full,
-    borderCurve: 'continuous' as const,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.contentBorder
-      : theme.colors.divider,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.contentSurfaceSoft
-      : theme.colors.surfaceAlt,
-  },
-  parcelRoleTab: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 44,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: BR.full,
-    borderCurve: 'continuous' as const,
-  },
-  parcelRoleTabActive: {
-    backgroundColor: theme.colors.primaryFaded,
-  },
-  parcelRoleTabLabel: {
-    minWidth: 0,
-    flexShrink: 1,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    lineHeight: fontSizes.xs * 1.35,
-    color: theme.colors.textSecondary,
-    textAlign: 'center' as const,
-  },
-  parcelRoleTabLabelActive: {
-    color: theme.colors.primary,
-    fontFamily: fontFamilies.semiBold,
-  },
-  parcelStatusTrigger: {
-    width: 44,
-    minWidth: 44,
-    minHeight: 44,
-    flexShrink: 0,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: spacing.sm,
-    paddingHorizontal: 0,
-    borderRadius: BR.full,
-    borderCurve: 'continuous' as const,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.contentBorderStrong
-      : theme.colors.border,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.contentSurfaceSoft
-      : theme.colors.surfaceAlt,
-  },
-  parcelStatusTriggerLabelled: {
-    width: 'auto' as const,
-    maxWidth: 180,
-    paddingHorizontal: spacing.md,
-  },
-  parcelStatusTriggerActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primaryFaded,
-  },
-  parcelStatusTriggerLabel: {
-    minWidth: 0,
-    maxWidth: 132,
-    flexShrink: 1,
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-  },
-  parcelStatusTriggerLabelActive: {
-    color: theme.colors.primary,
-  },
   parcelStatusModalRoot: {
     flex: 1,
     justifyContent: 'flex-end' as const,
@@ -2166,23 +2012,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   parcelBody: {
     minHeight: 128,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.md,
     padding: spacing.md,
   },
-  parcelIconContainer: {
-    width: 48,
-    height: 48,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    borderRadius: BR.lg,
-    borderCurve: 'continuous' as const,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.contentSurfaceSoft
-      : theme.colors.surfaceAlt,
-  },
-  parcelInfo: { flex: 1, minWidth: 0 },
+  parcelInfo: { minWidth: 0 },
   parcelHeader: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,

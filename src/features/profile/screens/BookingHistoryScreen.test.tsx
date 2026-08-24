@@ -3,6 +3,8 @@ import { Modal, StyleSheet } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
 const mockUseParcelRoleHistory = jest.fn();
+let mockInitialTab: 'ticket' | 'parcel' = 'parcel';
+let mockTicketPages: unknown[] = [];
 let mockResponsiveLayout = {
   width: 430,
   height: 932,
@@ -71,7 +73,7 @@ jest.mock('@react-navigation/native', () => ({
     navigate: jest.fn(),
   }),
   useRoute: () => ({
-    params: { initialTab: 'parcel' },
+    params: { initialTab: mockInitialTab },
   }),
 }));
 
@@ -150,7 +152,10 @@ jest.mock('@features/auth/store/useAuthStore', () => ({
 }));
 
 jest.mock('@features/booking/hooks/useBookingHistory', () => ({
-  useBookingHistory: () => mockHistoryQuery,
+  useBookingHistory: () => ({
+    ...mockHistoryQuery,
+    data: { pages: mockTicketPages },
+  }),
 }));
 
 jest.mock('../hooks/useParcelRoleHistory', () => ({
@@ -191,9 +196,17 @@ jest.mock('@shared/utils/format', () => ({
   formatVnd: () => '0 VND',
 }));
 
-jest.mock('../components/ShuttleHistorySummary', () => ({
-  ShuttleHistorySummary: () => null,
-}));
+jest.mock('../components/ShuttleHistorySummary', () => {
+  const ReactModule = jest.requireActual('react');
+  const { View: NativeView } = jest.requireActual('react-native');
+
+  return {
+    ShuttleHistorySummary: () =>
+      ReactModule.createElement(NativeView, {
+        testID: 'shuttle-history-summary',
+      }),
+  };
+});
 
 import { PASSENGER_HISTORY_DEFAULT_PAGE_SIZE } from '../api/passengerHistoryApi';
 import { BookingHistoryScreen } from './BookingHistoryScreen';
@@ -226,6 +239,8 @@ const getMinHeight = (
 describe('BookingHistoryScreen parcel status filters', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockInitialTab = 'parcel';
+    mockTicketPages = [];
     mockResponsiveLayout = {
       width: 430,
       height: 932,
@@ -240,14 +255,30 @@ describe('BookingHistoryScreen parcel status filters', () => {
   it('opens one status sheet for Sent, applies an exact status, and hides it for Received', async () => {
     const renderer = await renderScreen();
 
+    const dataTabs = [
+      'bookingHistory.ticketsTab',
+      'bookingHistory.parcelRoles.sent',
+      'bookingHistory.parcelRoles.received',
+    ].map(label => findFilterButton(renderer, label));
+    expect(dataTabs).toHaveLength(3);
+    expect(
+      findFilterButton(renderer, 'bookingHistory.ticketsTab').props
+        .accessibilityState,
+    ).toEqual({ selected: false });
+    expect(
+      findFilterButton(renderer, 'bookingHistory.parcelRoles.sent').props
+        .accessibilityState,
+    ).toEqual({ selected: true });
+    expect(
+      findFilterButton(renderer, 'bookingHistory.parcelRoles.received').props
+        .accessibilityState,
+    ).toEqual({ selected: false });
+
     const openStatusFilter = findFilterButton(
       renderer,
       'bookingHistory.parcelStatusFilter.openAccessibility',
     );
     expect(getMinHeight(openStatusFilter)).toBeGreaterThanOrEqual(44);
-    expect(
-      renderer.root.findByProps({ children: 'bookingHistory.filters.all' }),
-    ).toBeTruthy();
     expect(
       renderer.root.findAllByProps({
         accessibilityLabel: 'history.status.parcel.inTransit',
@@ -334,8 +365,8 @@ describe('BookingHistoryScreen parcel status filters', () => {
       findFilterButton(
         renderer,
         'bookingHistory.parcelStatusFilter.openAccessibility',
-      ),
-    ).toBeTruthy();
+      ).props.accessibilityState,
+    ).toEqual({ expanded: false, selected: true });
     expect(
       mockUseParcelRoleHistory.mock.calls[
         mockUseParcelRoleHistory.mock.calls.length - 1
@@ -392,27 +423,127 @@ describe('BookingHistoryScreen parcel status filters', () => {
     await act(async () => renderer.unmount());
   });
 
-  it('keeps the status trigger icon-only outside roomy text conditions', async () => {
+  it('keeps all three data tabs wrap-safe at compact width and large font scale', async () => {
     mockResponsiveLayout = {
-      width: 390,
-      height: 844,
+      width: 320,
+      height: 720,
       fontScale: 1.4,
-      widthClass: 'regular',
-      isCompact: false,
+      widthClass: 'compact',
+      isCompact: true,
       isLarge: false,
-      contentPaddingHorizontal: 16,
+      contentPaddingHorizontal: 12,
     };
 
     const renderer = await renderScreen();
+    const dataTabs = [
+      'bookingHistory.ticketsTab',
+      'bookingHistory.parcelRoles.sent',
+      'bookingHistory.parcelRoles.received',
+    ].map(label => findFilterButton(renderer, label));
 
-    expect(
-      renderer.root.findAllByProps({ children: 'bookingHistory.filters.all' }),
-    ).toHaveLength(0);
+    expect(dataTabs).toHaveLength(3);
+    for (const tab of dataTabs) {
+      const tabStyle = StyleSheet.flatten(tab.props.style);
+      expect(tabStyle?.minWidth).toBe(0);
+      expect(tabStyle?.minHeight).toBeGreaterThanOrEqual(44);
+      expect(
+        tab.findAll(instance => instance.props.numberOfLines === 2).length,
+      ).toBeGreaterThanOrEqual(1);
+    }
+
     const openStatusFilter = findFilterButton(
       renderer,
       'bookingHistory.parcelStatusFilter.openAccessibility',
     );
     expect(getMinHeight(openStatusFilter)).toBeGreaterThanOrEqual(44);
+
+    const backButtonStyle = StyleSheet.flatten(
+      findFilterButton(renderer, 'common.back').props.style,
+    );
+    expect(backButtonStyle?.width).toBe(44);
+    expect(backButtonStyle?.height).toBe(44);
+
+    await act(async () => renderer.unmount());
+  });
+
+  it('renders shuttle information directly after the route and before trip details', async () => {
+    mockInitialTab = 'ticket';
+    mockTicketPages = [
+      {
+        items: [
+          {
+            id: 'booking-1',
+            code: 'VR-BKG-001',
+            tripId: 'trip-1',
+            createdAt: '2026-08-24T08:00:00Z',
+            totalAmount: 150000,
+            originName: 'Origin station',
+            destinationName: 'Destination station',
+            departureDateTime: '2026-08-25T08:00:00Z',
+            estimatedArrivalTime: null,
+            paymentRedirectUrl: null,
+            trackingTarget: null,
+            type: 'TICKET',
+            status: 'CONFIRMED',
+            ticket: {
+              bookingGroupId: null,
+              tripDirection: 'OUTBOUND',
+              routeName: null,
+              tickets: [
+                {
+                  ticketId: 'ticket-1',
+                  ticketCode: 'VR-TKT-001',
+                  seatNumber: 'A1',
+                  status: 'ISSUED',
+                  paidAmount: 150000,
+                },
+              ],
+              vehicle: null,
+              shuttleRequests: [
+                {
+                  direction: 'INBOUND_TO_STATION',
+                  address: '123 Test Street',
+                  latitude: 10.7,
+                  longitude: 106.7,
+                  roadDistanceMeters: null,
+                  isActive: true,
+                  requestedAt: '2026-08-24T08:00:00Z',
+                  cancelledAt: null,
+                },
+              ],
+            },
+            parcel: null,
+          },
+        ],
+        page: 1,
+        pageSize: 20,
+        totalItems: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    ];
+
+    const renderer = await renderScreen();
+    const bookingBody = renderer.root.findByProps({
+      accessibilityLabel: 'bookingHistory.bookingAccessibility',
+    });
+    const orderedBlocks = bookingBody
+      .findAll(instance =>
+        [
+          'ticket-history-route',
+          'shuttle-history-summary',
+          'ticket-history-details',
+        ].includes(instance.props.testID),
+      )
+      .map(instance => instance.props.testID)
+      .filter((testID, index, testIDs) => testIDs.indexOf(testID) === index);
+
+    expect(orderedBlocks).toEqual([
+      'ticket-history-route',
+      'shuttle-history-summary',
+      'ticket-history-details',
+    ]);
 
     await act(async () => renderer.unmount());
   });
