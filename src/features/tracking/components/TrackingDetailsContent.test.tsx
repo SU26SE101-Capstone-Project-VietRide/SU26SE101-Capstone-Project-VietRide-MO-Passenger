@@ -60,6 +60,7 @@ const createProps = (overrides: Record<string, unknown> = {}) => ({
   onRevokeTripShare: jest.fn(),
   onShareTrip: jest.fn(),
   routeUnavailable: false,
+  showPrimaryShareAction: true,
   targetInsight: null,
   transientError: false,
   ...overrides,
@@ -118,6 +119,43 @@ describe('TrackingDetailsContent', () => {
     expect(revokeButton.props.disabled).toBe(true);
     expect(shareButton.props.accessibilityState).toEqual({ busy: false, disabled: true });
     expect(revokeButton.props.accessibilityState).toEqual({ busy: false, disabled: true });
+
+    act(() => renderer!.unmount());
+  });
+
+  it('hides the primary Share action in quick mode while retaining copy and Revoke', () => {
+    const onRevokeTripShare = jest.fn();
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    act(() => {
+      renderer = ReactTestRenderer.create(
+        <TrackingDetailsContent
+          {...createProps({
+            onRevokeTripShare,
+            showPrimaryShareAction: false,
+          })}
+        />,
+      );
+    });
+
+    expect(renderer!.root.findAllByProps({
+      accessibilityLabel: 'tracking.share.action',
+    })).toHaveLength(0);
+    const revokeButton = renderer!.root.findByProps({
+      accessibilityLabel: 'tracking.share.revokeAction',
+    });
+    act(() => revokeButton.props.onPress());
+    expect(onRevokeTripShare).toHaveBeenCalledTimes(1);
+
+    const renderedText = renderer!.root
+      .findAllByType(Text)
+      .map((node) => node.props.children)
+      .flat(Infinity);
+    expect(renderedText).toEqual(expect.arrayContaining([
+      'tracking.share.title',
+      'tracking.share.description',
+      'tracking.share.privacyNote',
+    ]));
 
     act(() => renderer!.unmount());
   });

@@ -67,11 +67,19 @@ import type {
   UpcomingStopTone,
 } from './UpcomingStopsSheet';
 
+export interface TrackingShareQuickAction {
+  scopeKey: string;
+  disabled: boolean;
+  pending: boolean;
+  onPress: () => void;
+}
+
 interface TrackingLayoutSlots {
   detailsFooter?: ReactNode;
   detailsListSection?: TrackingSupplementalListSection;
   refreshing?: boolean;
   onRefresh?: () => Promise<unknown> | unknown;
+  onShareQuickActionChange?: (action: TrackingShareQuickAction | null) => void;
 }
 
 interface LiveMainTripTrackingPanelProps extends TrackingLayoutSlots {
@@ -316,6 +324,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const detailsListSection = props.detailsListSection;
   const externalRefreshing = props.refreshing ?? false;
   const externalRefresh = props.onRefresh;
+  const onShareQuickActionChange = props.onShareQuickActionChange;
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -625,6 +634,31 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     tracking.isOnline,
     tripId,
   ]);
+  const shareQuickAction = useMemo<TrackingShareQuickAction | null>(() => (
+    canManageTripSharing
+      ? {
+          scopeKey: tripId,
+          disabled: !tracking.isOnline || isShareOperationPending,
+          pending: isShareOperationPending,
+          onPress: handleShareTrip,
+        }
+      : null
+  ), [
+    canManageTripSharing,
+    handleShareTrip,
+    isShareOperationPending,
+    tracking.isOnline,
+    tripId,
+  ]);
+
+  useEffect(() => {
+    onShareQuickActionChange?.(shareQuickAction);
+  }, [onShareQuickActionChange, shareQuickAction]);
+
+  useEffect(() => () => {
+    onShareQuickActionChange?.(null);
+  }, [onShareQuickActionChange]);
+
   const handleRevokeTripShare = useCallback(() => {
     if (!canManageTripSharing || !tracking.isOnline || isShareOperationPending) return;
 
@@ -1050,6 +1084,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       onRevokeTripShare={handleRevokeTripShare}
       onShareTrip={handleShareTrip}
       routeUnavailable={Boolean(routeContext && routeContext.geometry === null)}
+      showPrimaryShareAction={!onShareQuickActionChange}
       targetInsight={targetInsight}
       terminalMessage={terminalMessage}
       transientError={Boolean(transientError)}

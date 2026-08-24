@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -16,6 +16,7 @@ import {
   CaretDown,
   FileText,
   Package,
+  ShareNetwork,
   WarningCircle,
 } from 'phosphor-react-native';
 
@@ -23,9 +24,11 @@ import type { ParcelStackParamList } from '@app/navigation/types';
 import {
   LiveTripTrackingPanel,
   TrackingHeader,
+  type TrackingHeaderAction,
+  type TrackingHeaderRoute,
+  type TrackingShareQuickAction,
   type TrackingSupplementalListItem,
   type TrackingSupplementalListSection,
-  type TrackingHeaderRoute,
 } from '@features/tracking';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -110,6 +113,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
   const { parcelId, trackingTarget: routeTrackingTarget } = route.params;
   const traceQuery = useParcelTrace(parcelId);
   const trace = traceQuery.data?.pages[0];
+  const [shareQuickAction, setShareQuickAction] = useState<TrackingShareQuickAction | null>(null);
   const timeline = useMemo(
     () => dedupeTimeline(traceQuery.data?.pages ?? []),
     [traceQuery.data?.pages],
@@ -140,6 +144,9 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     if (!traceQuery.hasNextPage || traceQuery.isFetchingNextPage) return;
     traceQuery.fetchNextPage().catch(() => undefined);
   }, [traceQuery]);
+  const handleBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
   const handleReportIncident = useCallback(() => {
     navigation.navigate('ReportParcelIncident', { parcelId });
   }, [navigation, parcelId]);
@@ -155,6 +162,37 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
   );
   const trackingEligible = isParcelTrackingEligible(trace?.parcelStatus);
   const trackingTerminal = isParcelLocationTrackingTerminal(trace?.parcelStatus);
+  const headerActions = useMemo<readonly TrackingHeaderAction[]>(() => {
+    const actions: TrackingHeaderAction[] = [];
+    if (hasReportAction) {
+      actions.push({
+        key: 'report-incident',
+        accessibilityLabel: t('parcel.reliability.reportIncident'),
+        icon: <WarningCircle size={20} color={theme.colors.warning} weight="bold" />,
+        onPress: handleReportIncident,
+      });
+    }
+    if (shareQuickAction && shareQuickAction.scopeKey === trace?.trip.tripId) {
+      actions.push({
+        key: 'share-location',
+        accessibilityLabel: t('tracking.share.action'),
+        accessibilityHint: t('tracking.share.actionHint'),
+        busy: shareQuickAction.pending,
+        disabled: shareQuickAction.disabled,
+        icon: <ShareNetwork size={20} color={theme.colors.primary} weight="bold" />,
+        onPress: shareQuickAction.onPress,
+      });
+    }
+    return actions;
+  }, [
+    handleReportIncident,
+    hasReportAction,
+    shareQuickAction,
+    t,
+    theme.colors.primary,
+    theme.colors.warning,
+    trace?.trip.tripId,
+  ]);
 
   const detailsHeader = useMemo(() => {
     if (!trace) return null;
@@ -221,20 +259,8 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
           </View>
         ) : null}
 
-        <View style={styles.actionRow}>
-          {hasReportAction ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleReportIncident}
-              style={({ pressed }) => [styles.secondaryButton, pressed ? styles.pressed : null]}
-            >
-              <WarningCircle size={18} color={theme.colors.primary} />
-              <Text style={styles.secondaryButtonText}>
-                {t('parcel.reliability.reportIncident')}
-              </Text>
-            </Pressable>
-          ) : null}
-          {hasClaimSurface ? (
+        {hasClaimSurface ? (
+          <View style={styles.actionRow}>
             <Pressable
               accessibilityRole="button"
               onPress={handleOpenClaim}
@@ -245,8 +271,8 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
                 {t('parcel.reliability.openClaim')}
               </Text>
             </Pressable>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
 
         <View style={styles.timelineCard}>
           <Text style={styles.sectionTitle}>{t('parcel.reliability.timeline')}</Text>
@@ -255,9 +281,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     );
   }, [
     handleOpenClaim,
-    handleReportIncident,
     hasClaimSurface,
-    hasReportAction,
     styles,
     t,
     theme.colors.primary,
@@ -370,8 +394,9 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
       <TrackingHeader
         title={t('parcel.reliability.title')}
         subtitle={trace ? `${trace.parcelCode} · ${trace.parcelStatus}` : parcelId}
-        onBack={() => navigation.goBack()}
+        onBack={handleBack}
         route={headerRoute}
+        actions={headerActions}
       />
 
       {traceQuery.isLoading ? (
@@ -399,6 +424,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
             terminalMessage={t('parcel.tracking.transportComplete')}
             refreshing={traceQuery.isRefetching}
             onRefresh={handleRefresh}
+            onShareQuickActionChange={setShareQuickAction}
             detailsFooter={detailsHeader}
             detailsListSection={timelineListSection}
           />
@@ -478,18 +504,6 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.primary,
   },
   primaryButtonText: { color: theme.colors.textInverse, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
-  secondaryButton: {
-    minHeight: 44,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-  },
-  secondaryButtonText: { color: theme.colors.primary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
   timelineCard: { ...theme.components.card, padding: spacing.lg, borderRadius: borderRadius.lg },
   sectionTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, marginBottom: spacing.md },
   timelineEventCard: {

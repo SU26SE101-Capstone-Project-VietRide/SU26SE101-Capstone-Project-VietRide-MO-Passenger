@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { type ReactNode } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ArrowLeft, ArrowRight } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -17,14 +17,26 @@ export interface TrackingHeaderRoute {
   originName?: string;
 }
 
+export interface TrackingHeaderAction {
+  key: string;
+  accessibilityLabel: string;
+  accessibilityHint?: string;
+  busy?: boolean;
+  disabled?: boolean;
+  icon: ReactNode;
+  onPress: () => void;
+}
+
 interface TrackingHeaderProps {
   title: string;
   subtitle: string;
   onBack: () => void;
+  actions?: readonly TrackingHeaderAction[];
   route?: TrackingHeaderRoute;
 }
 
 export const TrackingHeader = React.memo(function TrackingHeaderComponent({
+  actions,
   title,
   subtitle,
   onBack,
@@ -33,6 +45,7 @@ export const TrackingHeader = React.memo(function TrackingHeaderComponent({
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const visibleActions = actions?.slice(0, 2) ?? [];
 
   return (
     <View style={styles.header}>
@@ -59,7 +72,46 @@ export const TrackingHeader = React.memo(function TrackingHeaderComponent({
           </Text>
         </View>
 
-        <View style={styles.trailingSpacer} />
+        {visibleActions.length > 0 ? (
+          <View style={styles.actions} testID="tracking-header-actions">
+            {visibleActions.map((action) => {
+              const disabled = Boolean(action.disabled || action.busy);
+              return (
+                <Pressable
+                  key={action.key}
+                  accessibilityHint={action.accessibilityHint}
+                  accessibilityLabel={action.accessibilityLabel}
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    busy: Boolean(action.busy),
+                    disabled,
+                  }}
+                  disabled={disabled}
+                  hitSlop={4}
+                  onPress={action.onPress}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    disabled ? styles.actionDisabled : null,
+                    pressed && !disabled ? styles.pressed : null,
+                  ]}
+                  testID={`tracking-header-action-${action.key}`}
+                >
+                  {action.busy ? (
+                    <ActivityIndicator
+                      color={theme.colors.primary}
+                      size="small"
+                    />
+                  ) : action.icon}
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : (
+          <View
+            style={styles.trailingSpacer}
+            testID="tracking-header-trailing-spacer"
+          />
+        )}
       </View>
 
       {route?.originName || route?.destinationName ? (
@@ -136,6 +188,22 @@ const createStyles = (theme: AppTheme) => ({
   trailingSpacer: {
     width: 48,
     height: 48,
+  },
+  actions: {
+    flexShrink: 0,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+  },
+  actionButton: {
+    ...theme.components.headerButton,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderCurve: 'continuous' as const,
+  },
+  actionDisabled: {
+    opacity: 0.5,
   },
   routeSummary: {
     flexDirection: 'row' as const,

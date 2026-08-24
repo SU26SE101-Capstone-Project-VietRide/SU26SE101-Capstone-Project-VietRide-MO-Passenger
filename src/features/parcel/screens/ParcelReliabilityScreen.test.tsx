@@ -1,4 +1,5 @@
 import React from 'react';
+import { Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
 interface MockFlashListProps {
@@ -20,9 +21,13 @@ interface MockFlashListProps {
 const mockFetchNextPage = jest.fn(async () => undefined);
 const mockFlashListCalls: MockFlashListProps[] = [];
 const mockLiveTripTrackingPanel = jest.fn((_props: unknown) => null);
+const mockTrackingHeader = jest.fn((_props: unknown) => null);
+const mockGoBack = jest.fn();
+const mockNavigate = jest.fn();
 const mockRefetch = jest.fn(async () => undefined);
 const mockUseParcelTrace = jest.fn();
 let mockParcelStatus = 'RETURNED';
+let mockAvailableActions: string[] = [];
 
 const mockTheme = {
   colors: new Proxy<Record<string, string>>({}, {
@@ -34,8 +39,8 @@ const mockTheme = {
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
-    goBack: jest.fn(),
-    navigate: jest.fn(),
+    goBack: mockGoBack,
+    navigate: mockNavigate,
   }),
   useRoute: () => ({
     params: {
@@ -66,6 +71,7 @@ jest.mock('phosphor-react-native', () => {
     CaretDown: MockIcon,
     FileText: MockIcon,
     Package: MockIcon,
+    ShareNetwork: MockIcon,
     WarningCircle: MockIcon,
   };
 });
@@ -82,7 +88,7 @@ jest.mock('@shared/hooks', () => ({
 
 jest.mock('@features/tracking', () => ({
   LiveTripTrackingPanel: (props: unknown) => mockLiveTripTrackingPanel(props),
-  TrackingHeader: () => null,
+  TrackingHeader: (props: unknown) => mockTrackingHeader(props),
 }));
 
 jest.mock('@shopify/flash-list', () => {
@@ -145,7 +151,7 @@ const createTracePage = (
   items: ReturnType<typeof event>[],
 ) => ({
   activeIncident: null,
-  availableActions: [],
+  availableActions: mockAvailableActions,
   claimSummary: null,
   currentCustody: null,
   dropoffLocation: {
@@ -197,7 +203,11 @@ describe('ParcelReliabilityScreen timeline virtualization', () => {
     mockFetchNextPage.mockClear();
     mockFlashListCalls.length = 0;
     mockLiveTripTrackingPanel.mockClear();
+    mockTrackingHeader.mockClear();
+    mockGoBack.mockClear();
+    mockNavigate.mockClear();
     mockParcelStatus = 'RETURNED';
+    mockAvailableActions = [];
     mockUseParcelTrace.mockReset();
     mockUseParcelTrace.mockImplementation(() => (
       createTraceQuery(mockParcelStatus)
@@ -226,6 +236,75 @@ describe('ParcelReliabilityScreen timeline virtualization', () => {
     act(() => footer.props.onPress());
     expect(mockFetchNextPage).toHaveBeenCalledTimes(1);
     expect(mockLiveTripTrackingPanel).not.toHaveBeenCalled();
+
+    act(() => renderer!.unmount());
+  });
+
+  it('shows only current-scope incident and Share header quick actions', () => {
+    mockParcelStatus = 'IN_TRANSIT';
+    mockAvailableActions = ['REPORT_INCIDENT'];
+    const sharePress = jest.fn();
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    act(() => {
+      renderer = ReactTestRenderer.create(<ParcelReliabilityScreen />);
+    });
+
+    const panelProps = mockLiveTripTrackingPanel.mock.calls[0]?.[0] as {
+      onShareQuickActionChange?: (action: {
+        disabled: boolean;
+        onPress: () => void;
+        pending: boolean;
+        scopeKey: string;
+      } | null) => void;
+    };
+    act(() => {
+      panelProps.onShareQuickActionChange?.({
+        disabled: false,
+        onPress: sharePress,
+        pending: false,
+        scopeKey: 'previous-trip',
+      });
+    });
+    let latestHeaderCall = mockTrackingHeader.mock.calls[
+      mockTrackingHeader.mock.calls.length - 1
+    ]?.[0] as {
+      actions?: readonly { key: string; onPress: () => void }[];
+    };
+    expect(latestHeaderCall.actions?.map(action => action.key)).toEqual([
+      'report-incident',
+    ]);
+
+    act(() => {
+      panelProps.onShareQuickActionChange?.({
+        disabled: false,
+        onPress: sharePress,
+        pending: false,
+        scopeKey: '22222222-2222-4222-8222-222222222222',
+      });
+    });
+    latestHeaderCall = mockTrackingHeader.mock.calls[
+      mockTrackingHeader.mock.calls.length - 1
+    ]?.[0] as {
+      actions?: readonly { key: string; onPress: () => void }[];
+    };
+    expect(latestHeaderCall.actions?.map(action => action.key)).toEqual([
+      'report-incident',
+      'share-location',
+    ]);
+
+    const reportAction = latestHeaderCall.actions?.[0];
+    const shareAction = latestHeaderCall.actions?.[1];
+    act(() => reportAction?.onPress());
+    expect(mockNavigate).toHaveBeenCalledWith('ReportParcelIncident', {
+      parcelId: '11111111-1111-4111-8111-111111111111',
+    });
+    act(() => shareAction?.onPress());
+    expect(sharePress).toHaveBeenCalledTimes(1);
+    expect(
+      renderer!.root.findAllByType(Text)
+        .filter(node => node.props.children === 'parcel.reliability.reportIncident'),
+    ).toHaveLength(0);
 
     act(() => renderer!.unmount());
   });

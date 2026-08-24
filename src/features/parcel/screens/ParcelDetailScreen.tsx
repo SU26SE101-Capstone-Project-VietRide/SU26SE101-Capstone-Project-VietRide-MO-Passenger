@@ -709,7 +709,26 @@ export function ParcelDetailScreen(): React.JSX.Element {
             </Text>
           ) : null}
         </View>
-        <View style={styles.navSpacer} />
+        {parcel?.availableActions.includes('REPORT_INCIDENT') ? (
+          <Pressable
+            accessibilityLabel={t('parcel.reliability.reportIncident')}
+            accessibilityRole="button"
+            hitSlop={4}
+            onPress={handleReportIncident}
+            style={({ pressed }) => [
+              styles.navButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <WarningCircle
+              size={20}
+              color={theme.colors.warning}
+              weight="bold"
+            />
+          </Pressable>
+        ) : (
+          <View style={styles.navSpacer} />
+        )}
       </View>
 
       {detailQuery.isLoading ? (
@@ -984,17 +1003,6 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 </Text>
               ) : null}
             </View>
-          ) : null}
-
-          {parcel?.availableActions.includes('REPORT_INCIDENT') ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleReportIncident}
-              style={({ pressed }) => [styles.secondaryActionButton, pressed ? styles.pressed : null]}
-            >
-              <WarningCircle size={18} color={theme.colors.primary} />
-              <Text style={styles.secondaryActionText}>{t('parcel.reliability.reportIncident')}</Text>
-            </Pressable>
           ) : null}
 
           {parcel?.availableActions.some((action) => (

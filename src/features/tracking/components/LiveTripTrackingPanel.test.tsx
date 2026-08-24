@@ -26,6 +26,10 @@ const mockTheme = {
 };
 
 const mockUseTripTracking = jest.fn();
+const mockShareTrip = jest.fn(async () => 'shared' as const);
+const mockRevokeTripShare = jest.fn(async () => 'revoked' as const);
+let mockIsSharing = false;
+let mockIsRevoking = false;
 const mockFlashList = jest.fn((_props: unknown) => null);
 const mockTrackingMap = jest.fn((_props: unknown) => null);
 const mockTripTrackingMapExperience = jest.fn((props: {
@@ -95,10 +99,10 @@ jest.mock('./TrackingDetailsContent', () => ({
 
 jest.mock('../hooks/useTripSharing', () => ({
   useTripSharing: () => ({
-    shareTrip: jest.fn(),
-    revokeTripShare: jest.fn(),
-    isSharing: false,
-    isRevoking: false,
+    shareTrip: mockShareTrip,
+    revokeTripShare: mockRevokeTripShare,
+    isSharing: mockIsSharing,
+    isRevoking: mockIsRevoking,
   }),
 }));
 
@@ -109,7 +113,10 @@ jest.mock('../hooks/useTripTracking', () => ({
   useTripTracking: (options: unknown) => mockUseTripTracking(options),
 }));
 
-import { LiveTripTrackingPanel } from './LiveTripTrackingPanel';
+import {
+  LiveTripTrackingPanel,
+  type TrackingShareQuickAction,
+} from './LiveTripTrackingPanel';
 
 const tripId = '11111111-1111-4111-8111-111111111111';
 const stopId = '22222222-2222-4222-8222-222222222222';
@@ -200,6 +207,10 @@ describe('LiveTripTrackingPanel', () => {
     mockTripTrackingMapExperience.mockClear();
     mockTrackingDetailsContent.mockClear();
     mockUseTripDetail.mockClear();
+    mockShareTrip.mockClear();
+    mockRevokeTripShare.mockClear();
+    mockIsSharing = false;
+    mockIsRevoking = false;
     mockUseTripTracking.mockReset();
     mockUseTripTracking.mockReturnValue(createTrackingResult());
   });
@@ -525,5 +536,121 @@ describe('LiveTripTrackingPanel', () => {
     expect(experienceProps.footer.props.routeUnavailable).toBe(true);
 
     await act(async () => renderer!.unmount());
+  });
+
+  it('publishes an enabled quick Share action, invokes it, and clears it on unmount', async () => {
+    const onShareQuickActionChange = jest.fn();
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          tripId={tripId}
+          onShareQuickActionChange={onShareQuickActionChange}
+        />,
+      );
+    });
+
+    const action = [...onShareQuickActionChange.mock.calls]
+      .reverse()
+      .map(([value]) => value as TrackingShareQuickAction | null)
+      .find((value): value is TrackingShareQuickAction => value !== null);
+    expect(action).toEqual(expect.objectContaining({
+      scopeKey: tripId,
+      disabled: false,
+      pending: false,
+      onPress: expect.any(Function),
+    }));
+    const experienceProps = mockTripTrackingMapExperience.mock.calls[0][0] as unknown as {
+      footer: React.ReactElement<{ showPrimaryShareAction: boolean }>;
+    };
+    expect(experienceProps.footer.props.showPrimaryShareAction).toBe(false);
+
+    await act(async () => {
+      action?.onPress();
+      await Promise.resolve();
+    });
+    expect(mockShareTrip).toHaveBeenCalledWith(expect.objectContaining({ tripId }));
+
+    await act(async () => renderer!.unmount());
+    expect(onShareQuickActionChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('publishes a disabled quick Share action while offline', async () => {
+    mockUseTripTracking.mockReturnValue(createTrackingResult({ isOnline: false }));
+    const onShareQuickActionChange = jest.fn();
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          tripId={tripId}
+          onShareQuickActionChange={onShareQuickActionChange}
+        />,
+      );
+    });
+
+    expect(onShareQuickActionChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      scopeKey: tripId,
+      disabled: true,
+      pending: false,
+    }));
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('publishes pending and disabled while a Share operation is in flight', async () => {
+    mockIsSharing = true;
+    const onShareQuickActionChange = jest.fn();
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          tripId={tripId}
+          onShareQuickActionChange={onShareQuickActionChange}
+        />,
+      );
+    });
+
+    expect(onShareQuickActionChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      scopeKey: tripId,
+      disabled: true,
+      pending: true,
+    }));
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('publishes no quick Share action for terminal trips or Shuttle tracking', async () => {
+    mockUseTripTracking.mockReturnValue(createTrackingResult({ isTerminal: true }));
+    const onTerminalChange = jest.fn();
+    let terminalRenderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      terminalRenderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          tripId={tripId}
+          onShareQuickActionChange={onTerminalChange}
+        />,
+      );
+    });
+    expect(onTerminalChange).toHaveBeenLastCalledWith(null);
+    await act(async () => terminalRenderer!.unmount());
+
+    mockUseTripTracking.mockReturnValue(createTrackingResult());
+    const onShuttleChange = jest.fn();
+    let shuttleRenderer: ReactTestRenderer.ReactTestRenderer;
+    await act(async () => {
+      shuttleRenderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          source="shuttle"
+          shuttleTripId={tripId}
+          onShareQuickActionChange={onShuttleChange}
+        />,
+      );
+    });
+    expect(onShuttleChange).toHaveBeenLastCalledWith(null);
+    await act(async () => shuttleRenderer!.unmount());
   });
 });

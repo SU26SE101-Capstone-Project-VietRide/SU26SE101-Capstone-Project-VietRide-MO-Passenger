@@ -206,7 +206,10 @@ import { ParcelDetailScreen } from './ParcelDetailScreen';
 const PARCEL_ID = '11111111-1111-4111-8111-111111111111';
 const PARCEL_CODE = 'PCL-HEADER-001';
 
-const createParcel = (status: string): ParcelDetail =>
+const createParcel = (
+  status: string,
+  availableActions: ParcelDetail['availableActions'] = [],
+): ParcelDetail =>
   ({
     parcelId: PARCEL_ID,
     parcelCode: PARCEL_CODE,
@@ -248,7 +251,7 @@ const createParcel = (status: string): ParcelDetail =>
     destinationStationName: 'Da Nang',
     compensationPolicySnapshot: null,
     reliabilitySummary: null,
-    availableActions: [],
+    availableActions,
   } as unknown as ParcelDetail);
 
 const queryFor = (data: ParcelDetail) => ({
@@ -309,6 +312,54 @@ describe('ParcelDetailScreen identity hierarchy', () => {
       }),
     );
     expect(countDashedDividers(renderer!)).toBe(1);
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('moves the BE-gated incident action to one 44dp header quick action', async () => {
+    mockUseParcelDetail.mockReturnValue(queryFor(
+      createParcel('IN_TRANSIT', ['REPORT_INCIDENT']),
+    ));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+
+    const visualActions = renderer!.root
+      .findAll(
+        node =>
+          node.props.accessibilityLabel ===
+          'parcel.reliability.reportIncident',
+      )
+      .filter(
+        node =>
+          typeof node.type === 'string' &&
+          StyleSheet.flatten(node.props.style)?.width === 44,
+      );
+    expect(visualActions).toHaveLength(1);
+    expect(StyleSheet.flatten(visualActions[0].props.style)).toMatchObject({
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+    });
+    expect(visualActions[0].props.hitSlop).toBe(4);
+    const interactiveAction = renderer!.root.find(
+      node =>
+        node.props.accessibilityLabel ===
+          'parcel.reliability.reportIncident' &&
+        typeof node.props.onPress === 'function',
+    );
+    await act(async () => interactiveAction.props.onPress());
+    expect(mockNavigation.navigate).toHaveBeenCalledWith(
+      'ReportParcelIncident',
+      { parcelId: PARCEL_ID },
+    );
+    expect(
+      getTextContent(renderer!).filter(
+        value => value === 'parcel.reliability.reportIncident',
+      ),
+    ).toHaveLength(0);
 
     await act(async () => renderer!.unmount());
   });

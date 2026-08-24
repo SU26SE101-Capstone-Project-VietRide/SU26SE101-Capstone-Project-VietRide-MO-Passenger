@@ -41,6 +41,7 @@ interface TrackingDetailsContentProps {
   onRevokeTripShare: () => void;
   onShareTrip: () => void;
   routeUnavailable: boolean;
+  showPrimaryShareAction: boolean;
   targetInsight: string | null;
   terminalMessage?: string;
   transientError: boolean;
@@ -63,6 +64,7 @@ export const TrackingDetailsContent = React.memo(
     onRevokeTripShare,
     onShareTrip,
     routeUnavailable,
+    showPrimaryShareAction,
     targetInsight,
     terminalMessage,
     transientError,
@@ -163,33 +165,35 @@ export const TrackingDetailsContent = React.memo(
               </View>
             </View>
             <View style={styles.shareActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('tracking.share.action')}
-                accessibilityHint={t('tracking.share.actionHint')}
-                accessibilityState={{
-                  busy: isSharing,
-                  disabled: !isOnline || isShareOperationPending,
-                }}
-                disabled={!isOnline || isShareOperationPending}
-                onPress={onShareTrip}
-                style={({ pressed }) => [
-                  styles.sharePrimaryButton,
-                  !isOnline || isShareOperationPending
-                    ? styles.shareButtonDisabled
-                    : null,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                {isSharing ? (
-                  <ActivityIndicator size="small" color={theme.colors.textInverse} />
-                ) : (
-                  <ShareNetwork size={18} color={theme.colors.textInverse} weight="bold" />
-                )}
-                <Text style={styles.sharePrimaryText}>
-                  {isSharing ? t('tracking.share.sharing') : t('tracking.share.action')}
-                </Text>
-              </Pressable>
+              {showPrimaryShareAction ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tracking.share.action')}
+                  accessibilityHint={t('tracking.share.actionHint')}
+                  accessibilityState={{
+                    busy: isSharing,
+                    disabled: !isOnline || isShareOperationPending,
+                  }}
+                  disabled={!isOnline || isShareOperationPending}
+                  onPress={onShareTrip}
+                  style={({ pressed }) => [
+                    styles.sharePrimaryButton,
+                    !isOnline || isShareOperationPending
+                      ? styles.shareButtonDisabled
+                      : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  {isSharing ? (
+                    <ActivityIndicator size="small" color={theme.colors.textInverse} />
+                  ) : (
+                    <ShareNetwork size={18} color={theme.colors.textInverse} weight="bold" />
+                  )}
+                  <Text style={styles.sharePrimaryText}>
+                    {isSharing ? t('tracking.share.sharing') : t('tracking.share.action')}
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('tracking.share.revokeAction')}
