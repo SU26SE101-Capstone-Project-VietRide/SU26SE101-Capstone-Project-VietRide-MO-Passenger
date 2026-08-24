@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-query';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
 import { toApiError } from '@shared/api/errors';
 import {
   addParcelClaimEvidence,
@@ -157,6 +158,9 @@ function useInvalidateReliability(parcelId: string) {
       }),
       queryClient.invalidateQueries({
         queryKey: parcelReliabilityKeys.user(userId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: passengerHistoryKeys.user(userId),
       }),
     ]);
   };

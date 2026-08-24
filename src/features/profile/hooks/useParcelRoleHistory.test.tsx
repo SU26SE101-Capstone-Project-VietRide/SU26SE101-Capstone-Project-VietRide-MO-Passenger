@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
+import type { ParcelStatus } from '@features/parcel/types';
 import {
   useParcelRoleHistory,
   type ParcelHistoryRole,
@@ -9,6 +10,13 @@ import {
 const mockUseInfiniteQuery = jest.fn();
 const mockGetReceivedParcels = jest.fn();
 const mockGetSentParcels = jest.fn();
+
+jest.mock('../api/passengerHistoryApi', () => ({
+  passengerHistoryKeys: {
+    all: ['passenger-history'] as const,
+    user: (userId: string) => ['passenger-history', userId] as const,
+  },
+}));
 
 jest.mock('@tanstack/react-query', () => ({
   useInfiniteQuery: (options: unknown) => {
@@ -29,7 +37,7 @@ jest.mock('@features/parcel/api/parcelApi', () => ({
 
 jest.mock('@features/parcel/api/parcelReliabilityApi', () => ({
   getSentParcels: (
-    query: { page: number; pageSize: number },
+    query: { status?: ParcelStatus; page: number; pageSize: number },
     signal: AbortSignal,
   ) => mockGetSentParcels(query, signal),
 }));
@@ -41,8 +49,14 @@ interface CapturedInfiniteQueryOptions {
   }>;
 }
 
-const QueryHarness = ({ role }: { role: ParcelHistoryRole }): null => {
-  useParcelRoleHistory(role, 20);
+const QueryHarness = ({
+  role,
+  status,
+}: {
+  role: ParcelHistoryRole;
+  status?: ParcelStatus;
+}): null => {
+  useParcelRoleHistory(role, status, 20);
   return null;
 };
 
@@ -63,7 +77,7 @@ describe('useParcelRoleHistory', () => {
     mockGetReceivedParcels.mockResolvedValue(emptyPage);
   });
 
-  it('loads one unfiltered BE page for parcels sent by the passenger', async () => {
+  it('loads one unfiltered BE page when the sent status is All', async () => {
     let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
       renderer = ReactTestRenderer.create(<QueryHarness role="SENT" />);
@@ -72,17 +86,49 @@ describe('useParcelRoleHistory', () => {
     const options = mockUseInfiniteQuery.mock
       .calls[0][0] as CapturedInfiniteQueryOptions;
     const signal = new AbortController().signal;
-    const page = await options.queryFn({ pageParam: 1, signal });
+    await options.queryFn({ pageParam: 1, signal });
 
     expect(options.queryKey).toEqual([
-      'parcel-role-history',
+      'passenger-history',
       'user-1',
+      'PARCEL_ROLE',
       'SENT',
+      'ALL',
       20,
     ]);
     expect(mockGetSentParcels).toHaveBeenCalledTimes(1);
     expect(mockGetSentParcels).toHaveBeenCalledWith(
       { page: 1, pageSize: 20 },
+      signal,
+    );
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('loads one exact-status BE page for parcels sent by the passenger', async () => {
+    let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <QueryHarness role="SENT" status="IN_TRANSIT" />,
+      );
+    });
+
+    const options = mockUseInfiniteQuery.mock
+      .calls[0][0] as CapturedInfiniteQueryOptions;
+    const signal = new AbortController().signal;
+    const page = await options.queryFn({ pageParam: 1, signal });
+
+    expect(options.queryKey).toEqual([
+      'passenger-history',
+      'user-1',
+      'PARCEL_ROLE',
+      'SENT',
+      'IN_TRANSIT',
+      20,
+    ]);
+    expect(mockGetSentParcels).toHaveBeenCalledTimes(1);
+    expect(mockGetSentParcels).toHaveBeenCalledWith(
+      { status: 'IN_TRANSIT', page: 1, pageSize: 20 },
       signal,
     );
     expect(page.items).toEqual([]);
@@ -93,7 +139,9 @@ describe('useParcelRoleHistory', () => {
   it('loads the dedicated received endpoint without a status filter', async () => {
     let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
     await act(async () => {
-      renderer = ReactTestRenderer.create(<QueryHarness role="RECEIVED" />);
+      renderer = ReactTestRenderer.create(
+        <QueryHarness role="RECEIVED" status="IN_TRANSIT" />,
+      );
     });
 
     const options = mockUseInfiniteQuery.mock
@@ -102,9 +150,11 @@ describe('useParcelRoleHistory', () => {
     const page = await options.queryFn({ pageParam: 1, signal });
 
     expect(options.queryKey).toEqual([
-      'parcel-role-history',
+      'passenger-history',
       'user-1',
+      'PARCEL_ROLE',
       'RECEIVED',
+      'unfiltered',
       20,
     ]);
     expect(mockGetReceivedParcels).toHaveBeenCalledTimes(1);

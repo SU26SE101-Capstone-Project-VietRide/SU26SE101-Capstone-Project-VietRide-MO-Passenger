@@ -48,6 +48,7 @@ import type {
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useBookingHistory } from '@features/booking/hooks/useBookingHistory';
 import { getTicketStatusPresentation } from '@features/booking/utils/ticketPresentation';
+import { PARCEL_STATUSES, type ParcelStatus } from '@features/parcel/types';
 import {
   getParcelSizePresentation,
   getParcelStatusPresentation,
@@ -92,6 +93,7 @@ import type {
 
 type HistoryTab = 'ticket' | 'parcel';
 type HistoryPaymentType = 'TICKET' | 'PARCEL';
+type ParcelHistoryFilter = 'ALL' | ParcelStatus;
 type BookingHistoryRoute = RouteProp<MainTabParamList, 'BookingHistory'>;
 type BookingHistoryNavigation = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'BookingHistory'>,
@@ -216,6 +218,17 @@ const TICKET_FILTER_OPTIONS: readonly {
   ...PASSENGER_TICKET_HISTORY_FILTERS.map(value => ({
     value,
     labelKey: TICKET_HISTORY_FILTER_LABEL_KEYS[value],
+  })),
+];
+
+const PARCEL_STATUS_FILTER_OPTIONS: readonly {
+  value: ParcelHistoryFilter;
+  labelKey: string;
+}[] = [
+  { value: 'ALL', labelKey: TICKET_HISTORY_FILTER_LABEL_KEYS.ALL },
+  ...PARCEL_STATUSES.map(value => ({
+    value,
+    labelKey: getParcelStatusPresentation(value).labelKey,
   })),
 ];
 
@@ -809,9 +822,12 @@ export function BookingHistoryScreen(): React.JSX.Element {
     route.params?.initialTab ?? 'ticket',
   );
   const [ticketFilter, setTicketFilter] = useState<TicketHistoryFilter>('ALL');
+  const [parcelFilter, setParcelFilter] = useState<ParcelHistoryFilter>('ALL');
   const [parcelRole, setParcelRole] = useState<ParcelHistoryRole>('SENT');
   const selectedTicketStatus =
     ticketFilter === 'ALL' ? undefined : ticketFilter;
+  const selectedParcelStatus: ParcelStatus | undefined =
+    parcelFilter === 'ALL' ? undefined : parcelFilter;
   const ticketQuery = useBookingHistory(
     {
       ...(selectedTicketStatus ? { status: selectedTicketStatus } : {}),
@@ -821,6 +837,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
   );
   const parcelQuery = useParcelRoleHistory(
     parcelRole,
+    selectedParcelStatus,
     PASSENGER_HISTORY_DEFAULT_PAGE_SIZE,
     activeTab === 'parcel',
   );
@@ -1101,7 +1118,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
         kind="parcel"
         isAuthenticated={Boolean(userId)}
         isPending={isParcelPending}
-        isFiltered={false}
+        isFiltered={parcelRole === 'SENT' && parcelFilter !== 'ALL'}
         parcelRole={parcelRole}
         error={isParcelError ? parcelError : null}
         onRetry={refreshParcels}
@@ -1113,6 +1130,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
       isParcelError,
       isParcelPending,
       parcelError,
+      parcelFilter,
       parcelRole,
       refreshParcels,
       userId,
@@ -1231,6 +1249,13 @@ export function BookingHistoryScreen(): React.JSX.Element {
               options={PARCEL_ROLE_OPTIONS}
               onSelect={setParcelRole}
             />
+            {parcelRole === 'SENT' ? (
+              <HistoryFilterBar
+                selected={parcelFilter}
+                options={PARCEL_STATUS_FILTER_OPTIONS}
+                onSelect={setParcelFilter}
+              />
+            ) : null}
           </View>
         )}
       </View>
@@ -1351,7 +1376,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   filterTab: {
     flex: 1,
-    minHeight: 38,
+    minHeight: 44,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     paddingHorizontal: spacing.xs,
