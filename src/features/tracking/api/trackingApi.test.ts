@@ -25,6 +25,23 @@ const successEnvelope = <T>(data: T): ApiSuccessEnvelope<T> => ({
   data,
 });
 
+const etaWire = (overrides: Record<string, unknown> = {}) => ({
+  tripId: TRIP_ID,
+  targetKind: 'STOP',
+  stopId: STOP_ID,
+  sequence: 1,
+  stopName: 'Binh Duong',
+  etaMinutes: 12,
+  estimatedArrivalTime: '2026-07-20T08:12:00.000Z',
+  distanceMeters: 8_000,
+  updatedAt: '2026-07-20T08:00:00.000Z',
+  delayed: false,
+  delayStatus: 'ON_TIME',
+  delayMinutes: 0,
+  estimateQuality: 'ROUTE_BASED',
+  ...overrides,
+});
+
 describe('trackingApi', () => {
   const getMock = jest.mocked(apiClient.get);
 
@@ -145,6 +162,51 @@ describe('trackingApi', () => {
     );
   });
 
+  it('accepts ROUTE_BASED from the single ETA endpoint', async () => {
+    getMock.mockResolvedValueOnce({
+      data: successEnvelope({ eta: etaWire() }),
+    });
+
+    const result = await getTrackingEta(TRIP_ID, {
+      target: { kind: 'STOP', stopId: STOP_ID },
+    });
+
+    expect(result.eta).toMatchObject({
+      stopId: STOP_ID,
+      etaMinutes: 12,
+      estimateQuality: 'ROUTE_BASED',
+    });
+  });
+
+  it('normalizes a future ETA quality string without rejecting the ETA', async () => {
+    getMock.mockResolvedValueOnce({
+      data: successEnvelope({
+        eta: etaWire({ estimateQuality: 'PREDICTIVE' }),
+      }),
+    });
+
+    const result = await getTrackingEta(TRIP_ID, {
+      target: { kind: 'STOP', stopId: STOP_ID },
+    });
+
+    expect(result.eta).toMatchObject({
+      etaMinutes: 12,
+      estimateQuality: 'UNKNOWN',
+    });
+  });
+
+  it('rejects a non-string ETA quality at the network boundary', async () => {
+    getMock.mockResolvedValueOnce({
+      data: successEnvelope({
+        eta: etaWire({ estimateQuality: 1 }),
+      }),
+    });
+
+    await expect(getTrackingEta(TRIP_ID, {
+      target: { kind: 'STOP', stopId: STOP_ID },
+    })).rejects.toThrow();
+  });
+
   it('omits target params for operational next-stop ETA', async () => {
     const payload: TrackingEtaResponse = { eta: null };
     getMock.mockResolvedValueOnce({ data: successEnvelope(payload) });
@@ -178,6 +240,35 @@ describe('trackingApi', () => {
       `/tracking/trips/${TRIP_ID}/etas`,
       undefined,
     );
+  });
+
+  it('accepts ROUTE_BASED for STOP and STATION ETAs in a batch', async () => {
+    getMock.mockResolvedValueOnce({
+      data: successEnvelope({
+        etas: [
+          etaWire(),
+          etaWire({
+            targetKind: 'STATION',
+            stopId: undefined,
+            stationId: STATION_ID,
+            sequence: undefined,
+            stopName: 'Ben xe Mien Dong',
+          }),
+        ],
+      }),
+    });
+
+    const result = await getTrackingEtas(TRIP_ID);
+
+    expect(result.etas).toHaveLength(2);
+    expect(result.etas.map((eta) => eta.estimateQuality)).toEqual([
+      'ROUTE_BASED',
+      'ROUTE_BASED',
+    ]);
+    expect(result.etas[1]).toMatchObject({
+      targetKind: 'STATION',
+      stationId: STATION_ID,
+    });
   });
 
   it.each([

@@ -47,6 +47,24 @@ const searchDto: TripSearchDto = {
   ],
 };
 
+const createDetailDto = (
+  overrides: Partial<TripDetailDto> = {},
+): TripDetailDto => ({
+  tripId: searchDto.tripId,
+  operatorId: searchDto.operatorId,
+  routeId: searchDto.routeId,
+  vehicleId: '64263b62-7408-4ef3-92fc-44813aac57c4',
+  status: 'SCHEDULED',
+  departureDateTime: searchDto.departureDateTime,
+  estimatedArrivalTime: searchDto.estimatedArrivalTime,
+  baseFare: searchDto.baseFare,
+  originStation: searchDto.originStation,
+  destinationStation: searchDto.destinationStation,
+  seatSummary: { totalSeats: 36, availableSeats: 12 },
+  stops: [],
+  ...overrides,
+});
+
 describe('trip DTO mappers', () => {
   it('does not invent a vehicle type or total capacity missing from search', () => {
     const trip = mapBusTrip(searchDto);
@@ -60,20 +78,7 @@ describe('trip DTO mappers', () => {
   });
 
   it('uses detail seat capacity but leaves absent operator and vehicle metadata empty', () => {
-    const detailDto: TripDetailDto = {
-      tripId: searchDto.tripId,
-      operatorId: searchDto.operatorId,
-      routeId: searchDto.routeId,
-      vehicleId: '64263b62-7408-4ef3-92fc-44813aac57c4',
-      status: 'SCHEDULED',
-      departureDateTime: searchDto.departureDateTime,
-      estimatedArrivalTime: searchDto.estimatedArrivalTime,
-      baseFare: searchDto.baseFare,
-      originStation: searchDto.originStation,
-      destinationStation: searchDto.destinationStation,
-      seatSummary: { totalSeats: 36, availableSeats: 12 },
-      stops: [],
-    };
+    const detailDto = createDetailDto();
 
     const trip = mapTripDetail(detailDto);
 
@@ -83,19 +88,37 @@ describe('trip DTO mappers', () => {
     expect(trip.totalSeats).toBe(36);
   });
 
+  it('accepts Goong route-based planned ETA quality without changing stop ETA data', () => {
+    const estimatedArrivalTime = '2026-07-14T10:15:00+07:00';
+    const trip = mapTripDetail(createDetailDto({
+      plannedEtaQuality: 'ROUTE_BASED',
+      stops: [{
+        stopId: '6bc61db2-998f-4749-a053-3c1937b9c98d',
+        name: 'Binh Duong',
+        orderIndex: 1,
+        estimatedArrivalTime,
+        estimatedDurationFromOriginMinutes: 135,
+      }],
+    }));
+
+    expect(trip.plannedEtaQuality).toBe('ROUTE_BASED');
+    expect(trip.stops[0]).toMatchObject({
+      estimatedArrivalTime,
+      estimatedDurationFromOriginMinutes: 135,
+      time: '10:15',
+    });
+  });
+
+  it('keeps rolling compatibility for missing and future planned ETA qualities', () => {
+    expect(mapTripDetail(createDetailDto()).plannedEtaQuality).toBe('FALLBACK');
+    expect(mapTripDetail(createDetailDto({
+      plannedEtaQuality: 'PREDICTIVE',
+    })).plannedEtaQuality).toBe('UNKNOWN');
+  });
+
   it('maps only valid public route-stop coordinates for native map markers', () => {
-    const detailDto: TripDetailDto = {
-      tripId: searchDto.tripId,
-      operatorId: searchDto.operatorId,
-      routeId: searchDto.routeId,
-      vehicleId: '64263b62-7408-4ef3-92fc-44813aac57c4',
+    const detailDto = createDetailDto({
       status: 'IN_PROGRESS',
-      departureDateTime: searchDto.departureDateTime,
-      estimatedArrivalTime: searchDto.estimatedArrivalTime,
-      baseFare: searchDto.baseFare,
-      originStation: searchDto.originStation,
-      destinationStation: searchDto.destinationStation,
-      seatSummary: { totalSeats: 36, availableSeats: 12 },
       stops: [
         {
           stopId: '6bc61db2-998f-4749-a053-3c1937b9c98d',
@@ -115,7 +138,7 @@ describe('trip DTO mappers', () => {
           orderIndex: 2,
         },
       ],
-    };
+    });
 
     const trip = mapTripDetail(detailDto);
 

@@ -16,6 +16,7 @@ import {
   createTripTrackingConnection,
   resolveTrackingSocketOrigin,
   type TrackingDelayUpdate,
+  type TrackingEtaBatchUpdate,
   type TrackingEtaUpdate,
   type TrackingRealtimeStatus,
 } from './trackingRealtime';
@@ -24,6 +25,7 @@ import type { TrackingPoint } from './trackingApi';
 const TRIP_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_TRIP_ID = '22222222-2222-4222-8222-222222222222';
 const STOP_ID = '33333333-3333-4333-8333-333333333333';
+const STATION_ID = '44444444-4444-4444-8444-444444444444';
 const ROUTE_CONTEXT = {
   tripId: TRIP_ID,
   tripStatus: 'IN_PROGRESS',
@@ -98,6 +100,7 @@ describe('tracking realtime connection', () => {
   let statuses: TrackingRealtimeStatus[];
   let gpsUpdates: TrackingPoint[];
   let etaUpdates: TrackingEtaUpdate[];
+  let etaBatchUpdates: TrackingEtaBatchUpdate[];
   let delayUpdates: TrackingDelayUpdate[];
   let onUnauthorized: jest.Mock;
   let onJoinRejected: jest.Mock;
@@ -109,6 +112,7 @@ describe('tracking realtime connection', () => {
     statuses = [];
     gpsUpdates = [];
     etaUpdates = [];
+    etaBatchUpdates = [];
     delayUpdates = [];
     onUnauthorized = jest.fn();
     onJoinRejected = jest.fn();
@@ -121,6 +125,7 @@ describe('tracking realtime connection', () => {
     onStatusChange: (status) => statuses.push(status),
     onGpsUpdate: (point) => gpsUpdates.push(point),
     onEtaUpdate: (eta) => etaUpdates.push(eta),
+    onEtaBatchUpdate: (update) => etaBatchUpdates.push(update),
     onDelayUpdate: (delay) => delayUpdates.push(delay),
     onJoinRejected,
     onUnauthorized,
@@ -230,6 +235,63 @@ describe('tracking realtime connection', () => {
     expect(gpsUpdates).toEqual([validPoint]);
     expect(etaUpdates).toHaveLength(1);
     expect(delayUpdates).toHaveLength(1);
+  });
+
+  it('forwards route-based and future-quality ETA socket events safely', () => {
+    connect();
+    const updatedAt = '2026-07-20T08:00:00.000Z';
+    const etaBase = {
+      etaMinutes: 12,
+      estimatedArrivalTime: '2026-07-20T08:12:00.000Z',
+      distanceMeters: 8_000,
+      updatedAt,
+      delayed: false,
+      delayStatus: 'ON_TIME',
+      delayMinutes: 0,
+    };
+
+    fire(socket.handlers, 'eta:update', {
+      ...etaBase,
+      tripId: TRIP_ID,
+      stopId: STOP_ID,
+      estimateQuality: 'ROUTE_BASED',
+    });
+    fire(socket.handlers, 'eta:batch:update', {
+      tripId: TRIP_ID,
+      updatedAt,
+      etas: [
+        {
+          ...etaBase,
+          targetKind: 'STOP',
+          stopId: STOP_ID,
+          sequence: 1,
+          estimateQuality: 'ROUTE_BASED',
+        },
+        {
+          ...etaBase,
+          targetKind: 'STATION',
+          stationId: STATION_ID,
+          estimateQuality: 'PREDICTIVE',
+        },
+      ],
+    });
+
+    expect(etaUpdates[0]).toMatchObject({
+      stopId: STOP_ID,
+      estimateQuality: 'ROUTE_BASED',
+    });
+    expect(etaBatchUpdates).toHaveLength(1);
+    expect(etaBatchUpdates[0]?.etas).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        targetKind: 'STOP',
+        estimateQuality: 'ROUTE_BASED',
+      }),
+      expect.objectContaining({
+        targetKind: 'STATION',
+        stationId: STATION_ID,
+        estimateQuality: 'UNKNOWN',
+      }),
+    ]));
   });
   it('accepts +07 socket instants and drops offsetless events', () => {
     connect();

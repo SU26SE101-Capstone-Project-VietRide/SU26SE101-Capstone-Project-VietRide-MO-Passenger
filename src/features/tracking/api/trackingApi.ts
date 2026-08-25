@@ -10,13 +10,14 @@ import {
 } from '@shared/utils/apiTime';
 import { isValidGeoCoordinate } from '@shared/utils/geo';
 import { encodeUuidPathSegment } from '@shared/utils/pathSegment';
+import { normalizeEtaQuality } from '@shared/types/etaQuality';
 import { z } from 'zod';
 
 import type { TrackingTarget } from '../types/trackingTarget';
 import { trackingTargetCacheKey } from '../types/trackingTarget';
 
 export const trackingDateTimeSchema = apiInstantSchema;
-export const trackingEtaQualitySchema = z.enum(['TRAFFIC_AWARE', 'FALLBACK']);
+export const trackingEtaQualitySchema = z.string().transform(normalizeEtaQuality);
 
 const trackingPointShape = {
   tripId: z.string().uuid(),

@@ -53,6 +53,7 @@ const eta = (
   stopId: string,
   updatedAt: string,
   etaMinutes: number,
+  estimateQuality: TrackingEta['estimateQuality'] = 'FALLBACK',
 ): TrackingEta => ({
   tripId: '11111111-1111-4111-8111-111111111111',
   targetKind: 'STOP',
@@ -66,7 +67,7 @@ const eta = (
   delayed: null,
   delayStatus: 'UNKNOWN',
   delayMinutes: null,
-  estimateQuality: 'FALLBACK',
+  estimateQuality,
 });
 
 describe('trip tracking helpers', () => {
@@ -88,6 +89,25 @@ describe('trip tracking helpers', () => {
 
     expect(mergeTrackingEtaSources([batch], [staleFocused])).toEqual([batch]);
     expect(mergeTrackingEtaSources([batch], [freshFocused])).toEqual([freshFocused]);
+  });
+
+  it('preserves normalized ETA quality while choosing the freshest source', () => {
+    const stopId = '22222222-2222-4222-8222-222222222222';
+    const routeBased = eta(
+      stopId,
+      '2026-07-14T01:10:00.000Z',
+      12,
+      'ROUTE_BASED',
+    );
+    const unknownFuture = eta(
+      stopId,
+      '2026-07-14T01:11:00.000Z',
+      11,
+      'UNKNOWN',
+    );
+
+    expect(mergeTrackingEtaSources([routeBased], [unknownFuture]))
+      .toEqual([unknownFuture]);
   });
 
   it('deduplicates, sorts and caps locally appended latest points', () => {
