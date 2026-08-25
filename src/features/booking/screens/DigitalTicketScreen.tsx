@@ -31,12 +31,13 @@ import type { BookingStackParamList, RootStackParamList } from '@app/navigation/
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
+import { ShuttleHistorySummary } from '@features/profile/components/ShuttleHistorySummary';
 import { useTripDetail } from '@features/trip/hooks/useTripDetail';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
 import { ScannableCodeCard, StatusChip } from '@shared/components';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import {
   borderRadius as BR,
   fontFamilies,
@@ -223,8 +224,10 @@ function StatusHeaderIcon({
 
 function JourneyTimeline({
   leg,
+  hasTrailingShuttle = false,
 }: {
   leg: TicketLegViewModel;
+  hasTrailingShuttle?: boolean;
 }): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -248,7 +251,12 @@ function JourneyTimeline({
       : t('booking.ticket.alighting'));
 
   return (
-    <View style={styles.timeline}>
+    <View
+      style={[
+        styles.timeline,
+        hasTrailingShuttle ? styles.timelineWithTrailingShuttle : null,
+      ]}
+    >
       <View style={styles.timelineRow}>
         <View style={styles.timelineRail}>
           <View style={[styles.timelineDot, styles.timelineDotOrigin]} />
@@ -303,6 +311,7 @@ function TicketView({
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const { isCompact } = useResponsiveLayout();
   const pages = useMemo(() => buildTicketPages(model), [model]);
   const [requestedTicketKey, setRequestedTicketKey] = useState<string | null>(
     pages[0]?.key ?? null,
@@ -323,6 +332,12 @@ function TicketView({
   }, []);
   const activeLeg = activePage?.leg;
   const activeTicket = activePage?.ticket;
+  const hasLegacyShuttleRequest = Boolean(
+    activeLeg?.shuttlePickupAddress || activeLeg?.shuttleDropoffAddress,
+  );
+  const hasShuttleDetails = Boolean(
+    activeLeg?.shuttleRequests?.length || hasLegacyShuttleRequest,
+  );
   const canTrackActiveLeg = Boolean(activeLeg?.tripId) && activeLeg?.trackingEnabled === true;
   const statusPresentation = useMemo(
     () => getTicketStatusPresentation(model.bookingStatus),
@@ -361,7 +376,27 @@ function TicketView({
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text style={styles.navTitle}>{model.title}</Text>
+        <View style={styles.navTitleGroup}>
+          <Text style={styles.navTitle} numberOfLines={1}>
+            {model.title}
+          </Text>
+          {activeLeg ? (
+            <Text
+              selectable
+              ellipsizeMode="middle"
+              numberOfLines={1}
+              style={styles.navReference}
+            >
+              {model.legs.length > 1
+                ? t('booking.ticket.legBookingReference', {
+                    leg: activeLeg.label,
+                  })
+                : t('booking.ticket.bookingReference')}
+              {' · '}
+              {activeLeg.reference}
+            </Text>
+          ) : null}
+        </View>
         <View style={styles.navSpacer} />
       </View>
 
@@ -461,38 +496,6 @@ function TicketView({
         {activePage && activeLeg ? (
           <View style={styles.legBlock}>
             <View style={styles.ticketCard}>
-              <View style={styles.referenceSection}>
-                <View style={styles.referenceIconContainer}>
-                  <Ticket size={40} color={theme.colors.primary} weight="duotone" />
-                </View>
-                <Text style={styles.referenceCaption}>
-                  {model.legs.length > 1
-                    ? t('booking.ticket.legBookingReference', { leg: activeLeg.label })
-                    : t('booking.ticket.bookingReference')}
-                </Text>
-                <Text style={styles.ticketIdText} selectable>
-                  {activeLeg.reference}
-                </Text>
-                {activeLeg.routeName ? (
-                  <Text style={styles.routeNameCaption} numberOfLines={2}>
-                    {activeLeg.routeName}
-                  </Text>
-                ) : null}
-                {activeLeg.ticketReferences && !activeTicket ? (
-                  <Text style={styles.ticketReferencesText}>
-                    {t('booking.ticket.references', {
-                      count: activeLeg.ticketCount,
-                      references: activeLeg.ticketReferences,
-                    })}
-                  </Text>
-                ) : null}
-              </View>
-
-              <View style={styles.dashedDivider}>
-                <View style={styles.sideCutoutLeft} />
-                <View style={styles.sideCutoutRight} />
-              </View>
-
               <View style={styles.detailsSection}>
                 {!model.isPendingPayment && activeTicket ? (
                   showBoardingQr ? (
@@ -508,7 +511,6 @@ function TicketView({
                         description={activeTicket.status
                           ? t(getTicketLifecyclePresentation(activeTicket.status).labelKey)
                           : t('history.ticketScanHint')}
-                        size={156}
                       />
                     </View>
                   ) : (
@@ -528,34 +530,19 @@ function TicketView({
                   )
                 ) : null}
 
-                {activeLeg.shuttlePickupAddress || activeLeg.shuttleDropoffAddress ? (
-                  <View style={styles.shuttleRequestCard}>
-                    <Van size={20} color={theme.colors.primary} weight="duotone" />
-                    <View style={styles.shuttleRequestCopy}>
-                      <Text style={styles.shuttleRequestTitle}>{t('booking.ticket.shuttleSent')}</Text>
-                      {activeLeg.shuttlePickupAddress ? (
-                        <View style={styles.shuttleRequestItem}>
-                          <Text style={styles.shuttleRequestLabel}>
-                            {t('booking.checkout.shuttleRequest')}
-                          </Text>
-                          <Text style={styles.shuttleRequestAddress}>
-                            {activeLeg.shuttlePickupAddress}
-                          </Text>
-                        </View>
-                      ) : null}
-                      {activeLeg.shuttleDropoffAddress ? (
-                        <View style={styles.shuttleRequestItem}>
-                          <Text style={styles.shuttleRequestLabel}>
-                            {t('booking.checkout.shuttleDropoffRequest')}
-                          </Text>
-                          <Text style={styles.shuttleRequestAddress}>
-                            {activeLeg.shuttleDropoffAddress}
-                          </Text>
-                        </View>
-                      ) : null}
-                      <Text style={styles.shuttleRequestHint}>{t('booking.ticket.shuttleAwaiting')}</Text>
-                    </View>
-                  </View>
+                {activeLeg.ticketReferences && !activeTicket ? (
+                  <Text style={styles.ticketReferencesText}>
+                    {t('booking.ticket.references', {
+                      count: activeLeg.ticketCount,
+                      references: activeLeg.ticketReferences,
+                    })}
+                  </Text>
+                ) : null}
+
+                {activeLeg.routeName ? (
+                  <Text style={styles.routeNameCaption} numberOfLines={2}>
+                    {activeLeg.routeName}
+                  </Text>
                 ) : null}
 
                 {activeLeg.boardingDate ? (
@@ -572,7 +559,52 @@ function TicketView({
                   </View>
                 ) : null}
 
-                <JourneyTimeline leg={activeLeg} />
+                <JourneyTimeline
+                  leg={activeLeg}
+                  hasTrailingShuttle={hasShuttleDetails}
+                />
+
+                {hasShuttleDetails ? (
+                  <View style={styles.shuttleDetailsGroup}>
+                    {activeLeg.shuttleRequests?.length ? (
+                      <ShuttleHistorySummary requests={activeLeg.shuttleRequests} />
+                    ) : null}
+
+                    {hasLegacyShuttleRequest ? (
+                      <View style={styles.shuttleRequestCard}>
+                        <Van size={20} color={theme.colors.primary} weight="duotone" />
+                        <View style={styles.shuttleRequestCopy}>
+                          <Text style={styles.shuttleRequestTitle}>
+                            {t('booking.ticket.shuttleSent')}
+                          </Text>
+                          {activeLeg.shuttlePickupAddress ? (
+                            <View style={styles.shuttleRequestItem}>
+                              <Text style={styles.shuttleRequestLabel}>
+                                {t('booking.checkout.shuttleRequest')}
+                              </Text>
+                              <Text style={styles.shuttleRequestAddress}>
+                                {activeLeg.shuttlePickupAddress}
+                              </Text>
+                            </View>
+                          ) : null}
+                          {activeLeg.shuttleDropoffAddress ? (
+                            <View style={styles.shuttleRequestItem}>
+                              <Text style={styles.shuttleRequestLabel}>
+                                {t('booking.checkout.shuttleDropoffRequest')}
+                              </Text>
+                              <Text style={styles.shuttleRequestAddress}>
+                                {activeLeg.shuttleDropoffAddress}
+                              </Text>
+                            </View>
+                          ) : null}
+                          <Text style={styles.shuttleRequestHint}>
+                            {t('booking.ticket.shuttleAwaiting')}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
 
                 <View style={styles.specsGrid}>
                   {activeLeg.busType ? (
@@ -616,7 +648,10 @@ function TicketView({
                   ) : null}
                 </View>
 
-                <View style={styles.totalRow}>
+                <View style={[
+                  styles.totalRow,
+                  isCompact ? styles.summaryRowCompact : null,
+                ]}>
                   <Text style={styles.totalLabel}>{amountLabel}</Text>
                   <Text style={styles.totalValue}>
                     {formatVnd(amountValue, { display: 'code', clampNegative: true })}
@@ -642,7 +677,10 @@ function TicketView({
         ) : null}
 
         {model.legs.length > 1 ? (
-          <View style={styles.roundTripTotalCard}>
+          <View style={[
+            styles.roundTripTotalCard,
+            isCompact ? styles.summaryRowCompact : null,
+          ]}>
             <Text style={styles.totalLabel}>
               {model.isPendingPayment
                 ? t('booking.ticket.grandTotalDue')
@@ -1213,6 +1251,7 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
+    gap: spacing.sm,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
@@ -1228,12 +1267,27 @@ const createStyles = (theme: AppTheme) => ({
     borderCurve: 'continuous' as const,
     backgroundColor: theme.effects.contentSurfaceSoft,
   },
-  navSpacer: { width: 40 },
+  navTitleGroup: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center' as const,
+  },
+  navSpacer: { width: 44 },
   pressed: { opacity: 0.8 },
   navTitle: {
+    maxWidth: '100%' as const,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
+    textAlign: 'center' as const,
+  },
+  navReference: {
+    maxWidth: '100%' as const,
+    marginTop: 2,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+    textAlign: 'center' as const,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -1281,7 +1335,7 @@ const createStyles = (theme: AppTheme) => ({
     textAlign: 'center' as const,
   },
   routeNameCaption: {
-    marginTop: spacing.sm,
+    marginBottom: spacing.md,
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
@@ -1311,6 +1365,9 @@ const createStyles = (theme: AppTheme) => ({
   timeline: {
     gap: spacing.sm,
     marginBottom: spacing.xl,
+  },
+  timelineWithTrailingShuttle: {
+    marginBottom: 0,
   },
   timelineRow: {
     flexDirection: 'row' as const,
@@ -1475,61 +1532,16 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: BR.xl,
     borderCurve: 'continuous' as const,
   },
-  referenceSection: {
-    alignItems: 'center' as const,
-    padding: spacing.xl,
-  },
-  referenceIconContainer: {
-    padding: spacing.sm,
-    marginBottom: spacing.sm,
-    borderRadius: BR.lg,
-    borderCurve: 'continuous' as const,
-    backgroundColor: theme.effects.contentSurfaceSoft,
-  },
-  referenceCaption: {
-    marginBottom: 4,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-  },
-  ticketIdText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primary,
-  },
-  dashedDivider: {
-    height: 2,
-    position: 'relative' as const,
-    marginVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.divider,
-    borderStyle: 'dashed' as const,
-  },
-  sideCutoutLeft: {
-    position: 'absolute' as const,
-    left: -10,
-    top: -9,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: theme.colors.background,
-  },
-  sideCutoutRight: {
-    position: 'absolute' as const,
-    right: -10,
-    top: -9,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: theme.colors.background,
-  },
   detailsSection: { padding: spacing.xl },
+  shuttleDetailsGroup: {
+    marginBottom: spacing.xl,
+  },
   shuttleRequestCard: {
     flexDirection: 'row' as const,
     alignItems: 'flex-start' as const,
     gap: spacing.md,
     padding: spacing.md,
-    marginBottom: spacing.lg,
+    marginTop: spacing.md,
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
     backgroundColor: theme.colors.primaryFaded,
@@ -1559,7 +1571,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
   },
   ticketReferencesText: {
-    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     lineHeight: fontSizes.xs * 1.4,
@@ -1584,6 +1596,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   routeRow: {
     flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
     justifyContent: 'space-between' as const,
     gap: spacing.md,
     marginBottom: spacing.xl,
@@ -1657,6 +1670,7 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
+    gap: spacing.sm,
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.colors.divider,
@@ -1671,12 +1685,21 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: BR.lg,
     borderCurve: 'continuous' as const,
   },
+  summaryRowCompact: {
+    flexDirection: 'column' as const,
+    alignItems: 'stretch' as const,
+  },
   totalLabel: {
+    minWidth: 0,
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },
   totalValue: {
+    minWidth: 0,
+    flexShrink: 1,
+    textAlign: 'right' as const,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xl,
     color: theme.colors.primary,
@@ -1692,6 +1715,8 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.primary,
   },
   primaryActionText: {
+    flexShrink: 1,
+    textAlign: 'center' as const,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
@@ -1706,6 +1731,8 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.lg,
   },
   cancellationActionText: {
+    flexShrink: 1,
+    textAlign: 'center' as const,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.error,
@@ -1741,6 +1768,8 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.effects.contentSurfaceSoft,
   },
   homeButtonText: {
+    flexShrink: 1,
+    textAlign: 'center' as const,
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,

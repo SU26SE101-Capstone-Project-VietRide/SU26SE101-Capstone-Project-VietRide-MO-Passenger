@@ -111,6 +111,67 @@ const UNKNOWN_SIZE_PRESENTATION = createPresentation(
   'neutral',
 );
 
+const PARCEL_CUSTODY_EVENT_LABEL_KEYS: Readonly<Record<string, string>> = {
+  ACCEPTED: 'parcel.reliability.events.ACCEPTED',
+  CHECKED_IN: 'parcel.reliability.events.CHECKED_IN',
+  LOADED: 'parcel.reliability.events.LOADED',
+  TRIP_STARTED: 'parcel.reliability.events.TRIP_STARTED',
+  ARRIVED_AT_STOP: 'parcel.reliability.events.ARRIVED_AT_STOP',
+  UNLOADED: 'parcel.reliability.events.UNLOADED',
+  HANDOFF: 'parcel.reliability.events.HANDOFF',
+  FORWARDED_OUT: 'parcel.reliability.events.FORWARDED_OUT',
+  FORWARDED_IN: 'parcel.reliability.events.FORWARDED_IN',
+  RETURNED_TO_STATION: 'parcel.reliability.events.RETURNED_TO_STATION',
+  FOUND: 'parcel.reliability.events.FOUND',
+  DELIVERED: 'parcel.reliability.events.DELIVERED',
+  MANUAL_CUSTODY_EXCEPTION: 'parcel.reliability.events.MANUAL_CUSTODY_EXCEPTION',
+  UNIDENTIFIED_PACKAGE_CREATED: 'parcel.reliability.events.UNIDENTIFIED_PACKAGE_CREATED',
+  IDENTIFIED_MANUALLY: 'parcel.reliability.events.IDENTIFIED_MANUALLY',
+  EXCEPTION_REPORTED: 'parcel.reliability.events.EXCEPTION_REPORTED',
+};
+
+const PARCEL_INCIDENT_STATUS_LABEL_KEYS: Readonly<Record<string, string>> = {
+  OPEN: 'parcel.reliability.incidentStatuses.OPEN',
+  SEARCHING: 'parcel.reliability.incidentStatuses.SEARCHING',
+  FOUND: 'parcel.reliability.incidentStatuses.FOUND',
+  FORWARDING: 'parcel.reliability.incidentStatuses.FORWARDING',
+  RESOLVED: 'parcel.reliability.incidentStatuses.RESOLVED',
+  CLOSED: 'parcel.reliability.incidentStatuses.CLOSED',
+  ESCALATED: 'parcel.reliability.incidentStatuses.ESCALATED',
+  SEARCH_EXPIRED: 'parcel.reliability.incidentStatuses.SEARCH_EXPIRED',
+  LOST_CONFIRMED: 'parcel.reliability.incidentStatuses.LOST_CONFIRMED',
+};
+
+const PARCEL_INCIDENT_SEARCH_PHASE_STATUSES: ReadonlySet<string> = new Set([
+  'OPEN',
+  'SEARCHING',
+  'ESCALATED',
+]);
+
+const PARCEL_CLAIM_STATUS_LABEL_KEYS: Readonly<Record<string, string>> = {
+  SUBMITTED: 'parcel.claim.statuses.SUBMITTED',
+  UNDER_REVIEW: 'parcel.claim.statuses.UNDER_REVIEW',
+  APPROVED: 'parcel.claim.statuses.APPROVED',
+  FUNDING_PENDING: 'parcel.claim.statuses.FUNDING_PENDING',
+  PAID: 'parcel.claim.statuses.PAID',
+  REJECTED: 'parcel.claim.statuses.REJECTED',
+  CANCELLED: 'parcel.claim.statuses.CANCELLED',
+  APPEALED: 'parcel.claim.statuses.APPEALED',
+};
+
+const PARCEL_TRACKING_CONFIDENCE_DESCRIPTION_KEYS: Readonly<Record<string, string>> = {
+  CONFIRMED_SCAN: 'parcel.reliability.confidenceDescriptions.CONFIRMED_SCAN',
+  MANUAL_EXCEPTION: 'parcel.reliability.confidenceDescriptions.MANUAL_EXCEPTION',
+  INFERRED_FROM_MANIFEST: 'parcel.reliability.confidenceDescriptions.INFERRED_FROM_MANIFEST',
+  UNKNOWN: 'parcel.reliability.confidenceDescriptions.UNKNOWN',
+};
+
+const lookupParcelLabelKey = (
+  values: Readonly<Record<string, string>>,
+  value: string | null | undefined,
+  fallback: string,
+): string => values[value?.trim().toUpperCase() ?? ''] ?? fallback;
+
 export const getParcelStatusPresentation = (
   status: string | null | undefined,
 ): ParcelPresentation => {
@@ -139,3 +200,42 @@ export const getParcelDeliveryMethodPresentation = (
   }
   return createPresentation('history.delivery.unknown', 'neutral');
 };
+
+export const getParcelCustodyEventLabelKey = (
+  eventType: string | null | undefined,
+): string => lookupParcelLabelKey(
+  PARCEL_CUSTODY_EVENT_LABEL_KEYS,
+  eventType,
+  'parcel.reliability.events.UNKNOWN',
+);
+
+export const getParcelIncidentStatusLabelKey = (
+  status: string | null | undefined,
+): string => lookupParcelLabelKey(
+  PARCEL_INCIDENT_STATUS_LABEL_KEYS,
+  status,
+  'parcel.reliability.incidentStatuses.UNKNOWN',
+);
+
+export const shouldShowParcelIncidentSearchDeadline = (
+  status: string | null | undefined,
+  slaState: string | null | undefined,
+): boolean => PARCEL_INCIDENT_SEARCH_PHASE_STATUSES.has(
+  status?.trim().toUpperCase() ?? '',
+) && slaState?.trim().toUpperCase() !== 'BREACHED';
+
+export const getParcelClaimStatusLabelKey = (
+  status: string | null | undefined,
+): string => lookupParcelLabelKey(
+  PARCEL_CLAIM_STATUS_LABEL_KEYS,
+  status,
+  'parcel.claim.statuses.UNKNOWN',
+);
+
+export const getParcelTrackingConfidenceDescriptionKey = (
+  confidence: string | null | undefined,
+): string => lookupParcelLabelKey(
+  PARCEL_TRACKING_CONFIDENCE_DESCRIPTION_KEYS,
+  confidence,
+  'parcel.reliability.confidenceDescriptions.UNKNOWN',
+);

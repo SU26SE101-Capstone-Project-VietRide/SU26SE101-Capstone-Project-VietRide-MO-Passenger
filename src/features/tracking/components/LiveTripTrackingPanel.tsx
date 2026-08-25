@@ -17,6 +17,7 @@ import {
   NavigationArrow,
   WarningCircle,
 } from 'phosphor-react-native';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { useIsFocused } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 
@@ -60,14 +61,25 @@ import {
   type TripRouteStopPresentation,
 } from './tripRoutePresentation';
 import type {
+  TrackingSupplementalListItem,
+  TrackingSupplementalListSection,
   UpcomingStopSheetItem,
   UpcomingStopTone,
 } from './UpcomingStopsSheet';
 
+export interface TrackingShareQuickAction {
+  scopeKey: string;
+  disabled: boolean;
+  pending: boolean;
+  onPress: () => void;
+}
+
 interface TrackingLayoutSlots {
   detailsFooter?: ReactNode;
+  detailsListSection?: TrackingSupplementalListSection;
   refreshing?: boolean;
   onRefresh?: () => Promise<unknown> | unknown;
+  onShareQuickActionChange?: (action: TrackingShareQuickAction | null) => void;
 }
 
 interface LiveMainTripTrackingPanelProps extends TrackingLayoutSlots {
@@ -85,6 +97,7 @@ interface LiveShuttleTrackingPanelProps extends TrackingLayoutSlots {
   source: 'shuttle';
   shuttleTripId: string;
   bookingId?: string;
+  pickupOrder?: number;
 }
 
 type LiveTripTrackingPanelProps =
@@ -290,6 +303,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const isShuttle = props.source === 'shuttle';
   const tripId = props.source === 'shuttle' ? props.shuttleTripId : props.tripId;
   const bookingId = props.source === 'shuttle' ? props.bookingId : undefined;
+  const pickupOrder = props.source === 'shuttle' ? props.pickupOrder : undefined;
   const providedTrackingTarget = props.source === 'shuttle'
     ? undefined
     : props.trackingTarget;
@@ -307,12 +321,18 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     ? props.onRouteHeaderChange
     : undefined;
   const detailsFooter = props.detailsFooter;
+  const detailsListSection = props.detailsListSection;
   const externalRefreshing = props.refreshing ?? false;
   const externalRefresh = props.onRefresh;
+  const onShareQuickActionChange = props.onShareQuickActionChange;
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const hasDetailsFooter = Boolean(detailsFooter);
+  const hasDetailsFooter = Boolean(
+    detailsFooter
+    || detailsListSection?.items.length
+    || detailsListSection?.footer,
+  );
   const userId = useAuthStore((state) => state.user?.id);
   const isFocused = useIsFocused();
   const isAppActive = useIsAppActive();
@@ -367,6 +387,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         source: 'shuttle',
         shuttleTripId: tripId,
         ...(bookingId ? { bookingId } : {}),
+        ...(pickupOrder !== undefined ? { pickupOrder } : {}),
       }
     : {
         source: 'trip',
@@ -613,6 +634,31 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     tracking.isOnline,
     tripId,
   ]);
+  const shareQuickAction = useMemo<TrackingShareQuickAction | null>(() => (
+    canManageTripSharing
+      ? {
+          scopeKey: tripId,
+          disabled: !tracking.isOnline || isShareOperationPending,
+          pending: isShareOperationPending,
+          onPress: handleShareTrip,
+        }
+      : null
+  ), [
+    canManageTripSharing,
+    handleShareTrip,
+    isShareOperationPending,
+    tracking.isOnline,
+    tripId,
+  ]);
+
+  useEffect(() => {
+    onShareQuickActionChange?.(shareQuickAction);
+  }, [onShareQuickActionChange, shareQuickAction]);
+
+  useEffect(() => () => {
+    onShareQuickActionChange?.(null);
+  }, [onShareQuickActionChange]);
+
   const handleRevokeTripShare = useCallback(() => {
     if (!canManageTripSharing || !tracking.isOnline || isShareOperationPending) return;
 
@@ -1038,11 +1084,36 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       onRevokeTripShare={handleRevokeTripShare}
       onShareTrip={handleShareTrip}
       routeUnavailable={Boolean(routeContext && routeContext.geometry === null)}
+      showPrimaryShareAction={!onShareQuickActionChange}
       targetInsight={targetInsight}
       terminalMessage={terminalMessage}
       transientError={Boolean(transientError)}
       {...(tracking.delay ? { delayMinutes: tracking.delay.delayMinutes } : {})}
     />
+  );
+  const renderSupplementalItem = useCallback<
+    ListRenderItem<TrackingSupplementalListItem>
+  >(
+    ({ item }) => <>{item.content}</>,
+    [],
+  );
+  const supplementalKeyExtractor = useCallback(
+    (item: TrackingSupplementalListItem) => item.key,
+    [],
+  );
+  const getSupplementalItemType = useCallback(
+    (item: TrackingSupplementalListItem) => item.type,
+    [],
+  );
+  const detailsListFooter = useMemo(
+    () => detailsListSection?.footer
+      ? (
+          <View style={styles.detailsFooter}>
+            {detailsListSection.footer}
+          </View>
+        )
+      : null,
+    [detailsListSection?.footer, styles.detailsFooter],
   );
   const canRenderTripSheet = Boolean(
     !isShuttle
@@ -1060,6 +1131,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         onRefresh={handleRefresh}
         refreshing={externalRefreshing || trackingRefreshing}
         renderMap={renderMainTripMap}
+        supplementalListSection={detailsListSection}
       />
     );
   }
@@ -1075,27 +1147,49 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         {hero}
       </View>
 
-      <ScrollView
-        style={[
-          styles.detailsScroll,
-          hasDetailsFooter ? styles.detailsScrollWithFooter : null,
-        ]}
-        contentContainerStyle={styles.detailsContent}
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={hasDetailsFooter}
-        nestedScrollEnabled
-        keyboardShouldPersistTaps="handled"
-        refreshControl={(
-          <RefreshControl
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-            refreshing={externalRefreshing || trackingRefreshing}
-            onRefresh={handleRefresh}
-          />
-        )}
-      >
-        {detailsContent}
-      </ScrollView>
+      {detailsListSection ? (
+        <FlashList
+          style={hasDetailsFooter
+            ? {
+                ...styles.detailsScroll,
+                ...styles.detailsScrollWithFooter,
+              }
+            : styles.detailsScroll}
+          contentContainerStyle={styles.detailsContent}
+          data={detailsListSection.items}
+          getItemType={getSupplementalItemType}
+          keyExtractor={supplementalKeyExtractor}
+          keyboardShouldPersistTaps="handled"
+          ListFooterComponent={detailsListFooter}
+          ListHeaderComponent={detailsContent}
+          onRefresh={handleRefresh}
+          refreshing={externalRefreshing || trackingRefreshing}
+          renderItem={renderSupplementalItem}
+          showsVerticalScrollIndicator={hasDetailsFooter}
+        />
+      ) : (
+        <ScrollView
+          style={[
+            styles.detailsScroll,
+            hasDetailsFooter ? styles.detailsScrollWithFooter : null,
+          ]}
+          contentContainerStyle={styles.detailsContent}
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={hasDetailsFooter}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          refreshControl={(
+            <RefreshControl
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+              refreshing={externalRefreshing || trackingRefreshing}
+              onRefresh={handleRefresh}
+            />
+          )}
+        >
+          {detailsContent}
+        </ScrollView>
+      )}
     </View>
   );
 });

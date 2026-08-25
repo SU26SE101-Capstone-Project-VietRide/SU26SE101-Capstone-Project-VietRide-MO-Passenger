@@ -88,6 +88,12 @@ export type ParcelStackParamList = {
     parcelId: string;
     trackingTarget?: import('@features/tracking/types/trackingTarget').TrackingTarget;
   };
+  ReportParcelIncident: {
+    parcelId: string;
+  };
+  ParcelClaim: {
+    parcelId: string;
+  };
 };
 
 // ─── Profile Stack ────────────────────────────────────────
@@ -141,6 +147,7 @@ export type RootStackParamList = {
         source: 'shuttle';
         shuttleTripId: string;
         bookingId?: string;
+        pickupOrder?: number;
       };
   NotificationDetail: { notification: NotificationItemDto };
   BookingPendingAction: BookingPendingActionOpen;

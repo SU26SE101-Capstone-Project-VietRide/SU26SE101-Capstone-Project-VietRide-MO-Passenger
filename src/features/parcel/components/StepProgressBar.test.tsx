@@ -42,6 +42,7 @@ jest.mock('@shared/contexts/ThemeContext', () => ({
 jest.mock('@shared/hooks', () => ({
   useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) =>
     factory(mockTheme),
+  useResponsiveLayout: () => ({ isCompact: false }),
 }));
 jest.mock('phosphor-react-native', () => ({
   ArrowLeft: () => null,

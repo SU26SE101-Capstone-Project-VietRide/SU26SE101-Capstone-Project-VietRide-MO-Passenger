@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { RootStackParamList } from '@app/navigation/types';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { isUuid } from '@shared/utils/pathSegment';
 import { useBookingStore } from '../store/useBookingStore';
@@ -35,6 +35,7 @@ export function CheckoutScreen({
 }: CheckoutStepProps): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const { contentPaddingHorizontal } = useResponsiveLayout();
   const navigation = useNavigation<CheckoutNavigation>();
   const {
     selectedSeats,
@@ -103,11 +104,11 @@ export function CheckoutScreen({
 
   React.useEffect(() => {
     const checkoutStep = searchParams.isRoundTrip ? 9 : 5;
-    setHighestStep(checkoutStep); // Checkout step depends on trip type
+    setHighestStep(checkoutStep);
   }, [setHighestStep, searchParams.isRoundTrip]);
 
   const handleNext = useCallback(() => {
-    const nextStep = searchParams.isRoundTrip ? 10 : 6; // Payment step
+    const nextStep = searchParams.isRoundTrip ? 10 : 6;
     onNext(nextStep);
   }, [onNext, searchParams.isRoundTrip]);
   const editOneWay = useCallback((step: number) => onGoToStep(step), [onGoToStep]);
@@ -155,74 +156,75 @@ export function CheckoutScreen({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingHorizontal: contentPaddingHorizontal }]}>
         <Text style={styles.headerTitle}>{t('booking.checkout.title')}</Text>
       </View>
 
-        <ScrollView
-          style={styles.scroll}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          contentInsetAdjustmentBehavior="automatic"
-        >
-          {!searchParams.isRoundTrip ? (
-            <BookingLegSummaryCard
-              title={t('booking.checkout.departureTrip')}
-              leg={oneWayLeg}
-              onEditTrip={() => editOneWay(1)}
-              onEditSeats={() => editOneWay(2)}
-              onEditPickup={() => editOneWay(3)}
-              onEditDropoff={() => editOneWay(4)}
-              onViewPolicies={
-                selectedTrip?.operatorId && isUuid(selectedTrip.operatorId)
-                  ? openOneWayPolicies
-                  : undefined
-              }
-            />
-          ) : null}
+      <ScrollView
+        style={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: contentPaddingHorizontal },
+        ]}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        {!searchParams.isRoundTrip ? (
+          <BookingLegSummaryCard
+            title={t('booking.checkout.departureTrip')}
+            leg={oneWayLeg}
+            onEditTrip={() => editOneWay(1)}
+            onEditSeats={() => editOneWay(2)}
+            onEditPickup={() => editOneWay(3)}
+            onEditDropoff={() => editOneWay(4)}
+            onViewPolicies={
+              selectedTrip?.operatorId && isUuid(selectedTrip.operatorId)
+                ? openOneWayPolicies
+                : undefined
+            }
+          />
+        ) : null}
 
-          {/* Outbound Leg */}
-          {searchParams.isRoundTrip && outboundState ? (
-            <BookingLegSummaryCard
-              title={t('booking.checkout.departureTrip')}
-              leg={outboundState}
-              onEditTrip={() => editOutbound(1)}
-              onEditSeats={() => editOutbound(2)}
-              onEditPickup={() => editOutbound(3)}
-              onEditDropoff={() => editOutbound(4)}
-              onViewPolicies={
-                outboundState.trip?.operatorId
-                  && isUuid(outboundState.trip.operatorId)
-                  ? openOutboundPolicies
-                  : undefined
-              }
-            />
-          ) : null}
+        {searchParams.isRoundTrip && outboundState ? (
+          <BookingLegSummaryCard
+            title={t('booking.checkout.departureTrip')}
+            leg={outboundState}
+            onEditTrip={() => editOutbound(1)}
+            onEditSeats={() => editOutbound(2)}
+            onEditPickup={() => editOutbound(3)}
+            onEditDropoff={() => editOutbound(4)}
+            onViewPolicies={
+              outboundState.trip?.operatorId
+                && isUuid(outboundState.trip.operatorId)
+                ? openOutboundPolicies
+                : undefined
+            }
+          />
+        ) : null}
 
-          {/* Return Leg */}
-          {searchParams.isRoundTrip && returnState ? (
-            <BookingLegSummaryCard
-              title={t('booking.checkout.returnTrip')}
-              leg={returnState}
-              onEditTrip={() => editReturn(5)}
-              onEditSeats={() => editReturn(6)}
-              onEditPickup={() => editReturn(7)}
-              onEditDropoff={() => editReturn(8)}
-              onViewPolicies={
-                returnState.trip?.operatorId && isUuid(returnState.trip.operatorId)
-                  ? openReturnPolicies
-                  : undefined
-              }
-            />
-          ) : null}
-        </ScrollView>
+        {searchParams.isRoundTrip && returnState ? (
+          <BookingLegSummaryCard
+            title={t('booking.checkout.returnTrip')}
+            leg={returnState}
+            onEditTrip={() => editReturn(5)}
+            onEditSeats={() => editReturn(6)}
+            onEditPickup={() => editReturn(7)}
+            onEditDropoff={() => editReturn(8)}
+            onViewPolicies={
+              returnState.trip?.operatorId && isUuid(returnState.trip.operatorId)
+                ? openReturnPolicies
+                : undefined
+            }
+          />
+        ) : null}
+      </ScrollView>
 
-        <FloatingActionBar
-          seatBadges={checkoutSeatBadges}
-          totalPrice={totalPrice()}
-          ctaLabel={t('common.continue')}
-          onPress={handleNext}
-        />
+      <FloatingActionBar
+        seatBadges={checkoutSeatBadges}
+        totalPrice={totalPrice()}
+        ctaLabel={t('common.continue')}
+        onPress={handleNext}
+      />
     </View>
   );
 }
@@ -233,7 +235,6 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: 'transparent',
   },
   header: {
-    paddingHorizontal: spacing.xl,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
@@ -243,7 +244,6 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xl,
     paddingBottom: spacing.lg,
   },
   scroll: {

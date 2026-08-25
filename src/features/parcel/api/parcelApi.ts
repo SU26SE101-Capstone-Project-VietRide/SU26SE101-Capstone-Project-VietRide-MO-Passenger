@@ -22,6 +22,11 @@ import type {
   ReceivedParcel,
   StartParcelPaymentInput,
 } from '../types';
+import {
+  createParcelResultSchema,
+  parseParcelDetail,
+  parseReceivedParcelPage,
+} from './parcelSchemas';
 
 type ParcelPaymentEndpoint = 'deposit-payment' | 'final-payment';
 
@@ -158,7 +163,9 @@ export async function createParcel(
     },
   );
 
-  return unwrapApiResponse(response.data);
+  return createParcelResultSchema.parse(
+    unwrapApiResponse(response.data),
+  ) as CreateParcelResult;
 }
 
 async function startParcelPayment<TResult>(
@@ -214,7 +221,9 @@ export async function getParcelDetail(
   const response = signal
     ? await apiClient.get<ApiEnvelope<ParcelDetail>>(path, { signal })
     : await apiClient.get<ApiEnvelope<ParcelDetail>>(path);
-  return unwrapApiResponse(response.data);
+  return parseParcelDetail(
+    unwrapApiResponse(response.data),
+  ) as ParcelDetail;
 }
 
 export async function getReceivedParcels(
@@ -229,7 +238,9 @@ export async function getReceivedParcels(
     ...(signal ? { signal } : {}),
   });
 
-  return unwrapApiResponse(response.data);
+  return parseReceivedParcelPage(
+    unwrapApiResponse(response.data),
+  ) as PagedParcelResponse<ReceivedParcel>;
 }
 
 export function mapParcelVoucherToPromo(

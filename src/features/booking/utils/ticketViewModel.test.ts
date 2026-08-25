@@ -269,6 +269,7 @@ const historyItem: PassengerTicketHistoryItem = {
         displayName: 'Limousine',
       },
     },
+    shuttleRequests: [],
   },
   parcel: null,
 };
@@ -281,6 +282,8 @@ describe('passenger history ticket view model', () => {
     expect(model.createdAtLabel).toBeTruthy();
     expect(model.isPendingPayment).toBe(false);
     expect(model.legs[0]).toMatchObject({
+      reference: 'BK-HIST-01',
+      ticketReferences: 'VR-TICKET-1',
       boardingName: 'Ha Noi',
       alightingName: 'Da Nang',
       routeName: 'Ha Noi - Da Nang Express',
@@ -295,6 +298,9 @@ describe('passenger history ticket view model', () => {
         paidAmount: 250_000,
       }],
     });
+    expect(model.legs[0].reference).not.toBe(
+      model.legs[0].ticketEntries?.[0]?.ticketCode,
+    );
     // No fabricated address/stop identity for history snapshots (HIST-BE-002).
     expect(model.legs[0].boardingAddress).toBeUndefined();
     expect(model.legs[0].alightingAddress).toBeUndefined();
@@ -316,6 +322,40 @@ describe('passenger history ticket view model', () => {
     expect(model.isPendingPayment).toBe(false);
     expect(model.bookingStatus).toBe('CANCELLED');
     expect(model.legs[0].trackingEnabled).toBe(false);
+  });
+
+  it('preserves ordered active and cancelled shuttle requests for history detail', () => {
+    const shuttleRequests = [
+      {
+        direction: 'INBOUND_TO_STATION' as const,
+        address: '12 Nguyen Trai, Ha Noi',
+        latitude: 21.0285,
+        longitude: 105.8542,
+        roadDistanceMeters: 3_200,
+        isActive: true,
+        requestedAt: '2026-08-01T03:01:00.000Z',
+        cancelledAt: null,
+      },
+      {
+        direction: 'OUTBOUND_FROM_STATION' as const,
+        address: '45 Bach Dang, Da Nang',
+        latitude: 16.0544,
+        longitude: 108.2022,
+        roadDistanceMeters: 2_100,
+        isActive: false,
+        requestedAt: '2026-08-01T03:02:00.000Z',
+        cancelledAt: '2026-08-01T03:05:00.000Z',
+      },
+    ];
+    const model = buildPassengerHistoryTicketViewModel({
+      ...historyItem,
+      ticket: {
+        ...historyItem.ticket,
+        shuttleRequests,
+      },
+    });
+
+    expect(model.legs[0].shuttleRequests).toEqual(shuttleRequests);
   });
 });
 

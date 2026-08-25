@@ -35,15 +35,20 @@ jest.mock('@shared/utils/storage', () => ({
   clearToken: (...args: unknown[]) => mockClearToken(...args),
   getTokenBundle: (...args: unknown[]) => mockGetTokenBundle(...args),
   getTokenSessionEpoch: jest.fn(() => mockSessionEpoch),
-  isTokenSessionEpochCurrent: jest.fn((epoch: number) => epoch === mockSessionEpoch),
+  isTokenSessionEpochCurrent: jest.fn(
+    (epoch: number) => epoch === mockSessionEpoch,
+  ),
   setToken: (...args: unknown[]) => mockSetToken(...args),
-  setTokenRefreshAllowed: (...args: unknown[]) => mockSetTokenRefreshAllowed(...args),
+  setTokenRefreshAllowed: (...args: unknown[]) =>
+    mockSetTokenRefreshAllowed(...args),
 }));
 jest.mock('@shared/api/tokenRefresh', () => ({
   isTokenExpired: jest.fn(() => false),
   isTokenExpiringSoon: jest.fn(() => false),
-  refreshStoredTokenBundle: (...args: unknown[]) => mockRefreshStoredTokenBundle(...args),
-  shouldForceLogoutAfterRefreshFailure: (...args: unknown[]) => mockShouldForceLogoutAfterRefreshFailure(...args),
+  refreshStoredTokenBundle: (...args: unknown[]) =>
+    mockRefreshStoredTokenBundle(...args),
+  shouldForceLogoutAfterRefreshFailure: (...args: unknown[]) =>
+    mockShouldForceLogoutAfterRefreshFailure(...args),
 }));
 jest.mock('../api/authApi', () => ({
   authKeys: { all: ['auth'], me: ['auth', 'me'] },
@@ -160,10 +165,11 @@ describe('auth store account boundaries', () => {
     const accountAEpoch = mockSessionEpoch;
     await useAuthStore.getState().setSession(session(accountB));
 
-    expect(useAuthStore.getState().setUser(
-      { ...accountA, displayName: 'Stale A' },
-      accountAEpoch,
-    )).toBe(false);
+    expect(
+      useAuthStore
+        .getState()
+        .setUser({ ...accountA, displayName: 'Stale A' }, accountAEpoch),
+    ).toBe(false);
     expect(useAuthStore.getState().user).toEqual(accountB);
   });
 
@@ -173,8 +179,18 @@ describe('auth store account boundaries', () => {
     let finishA: ((stored: boolean) => void) | undefined;
     let finishB: ((stored: boolean) => void) | undefined;
     mockSetToken
-      .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishA = resolve; }))
-      .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishB = resolve; }));
+      .mockImplementationOnce(
+        () =>
+          new Promise<boolean>(resolve => {
+            finishA = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<boolean>(resolve => {
+            finishB = resolve;
+          }),
+      );
 
     const loginA = useAuthStore.getState().setSession(session(accountA));
     const loginB = useAuthStore.getState().setSession(session(accountB));
@@ -215,6 +231,54 @@ describe('auth store account boundaries', () => {
       user: null,
       isAuthenticated: false,
       authError: lockedError,
+    });
+  });
+  it('does not authenticate an offline cold start without a cached user', async () => {
+    const networkError = new ApiRequestError({
+      code: 'NETWORK_ERROR',
+      message: 'The API is unreachable.',
+      isNetworkError: true,
+    });
+    mockGetTokenBundle.mockResolvedValue({
+      accessToken: 'stored-access',
+      refreshToken: 'stored-refresh',
+      refreshAllowed: true,
+    });
+    mockFetchQuery.mockRejectedValue(networkError);
+    mockGetQueryData.mockReturnValue(null);
+
+    await useAuthStore.getState().initializeAuth();
+
+    expect(useAuthStore.getState()).toMatchObject({
+      user: null,
+      isAuthenticated: false,
+      isAuthLoading: false,
+      authError: networkError,
+    });
+  });
+
+  it('keeps a cached passenger available during an offline cold start', async () => {
+    const account = user('account-a', 'Account A');
+    const networkError = new ApiRequestError({
+      code: 'NETWORK_ERROR',
+      message: 'The API is unreachable.',
+      isNetworkError: true,
+    });
+    mockGetTokenBundle.mockResolvedValue({
+      accessToken: 'stored-access',
+      refreshToken: 'stored-refresh',
+      refreshAllowed: true,
+    });
+    mockFetchQuery.mockRejectedValue(networkError);
+    mockGetQueryData.mockReturnValue(account);
+
+    await useAuthStore.getState().initializeAuth();
+
+    expect(useAuthStore.getState()).toMatchObject({
+      user: account,
+      isAuthenticated: true,
+      isAuthLoading: false,
+      authError: networkError,
     });
   });
 });

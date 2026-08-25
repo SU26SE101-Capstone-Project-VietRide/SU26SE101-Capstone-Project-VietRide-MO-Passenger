@@ -67,6 +67,7 @@ interface UseShuttleTrackingOptions {
   source: 'shuttle';
   shuttleTripId: string;
   bookingId?: string;
+  pickupOrder?: number;
 }
 
 export type UseTripTrackingOptions =
@@ -416,6 +417,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     ? options.shuttleTripId
     : options.tripId;
   const bookingId = options.source === 'shuttle' ? options.bookingId : undefined;
+  const pickupOrder = options.source === 'shuttle' ? options.pickupOrder : undefined;
   const trackingTarget = options.source === 'shuttle'
     ? undefined
     : (options.trackingTarget && isTrackingTarget(options.trackingTarget)
@@ -494,6 +496,7 @@ export function useTripTracking(options: UseTripTrackingOptions) {
     userId: queryUserId,
     trackingId: queryTrackingId,
     ...(bookingId ? { bookingId } : {}),
+    ...(pickupOrder !== undefined ? { pickupOrder } : {}),
     enabled: queryEnabled,
     pollingEnabled,
     retainSensitiveContext: isFocused && isAppActive,

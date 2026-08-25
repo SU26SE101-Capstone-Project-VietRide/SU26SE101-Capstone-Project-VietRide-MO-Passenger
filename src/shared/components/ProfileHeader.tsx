@@ -6,7 +6,7 @@ import { ArrowLeft, Bell } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 import { fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { UserAvatar } from '@shared/components/UserAvatar';
 import type { AppTheme } from '@shared/theme';
@@ -39,6 +39,7 @@ export function ProfileHeader({
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { contentPaddingHorizontal } = useResponsiveLayout();
   const authUser = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const resolvedUserName =
@@ -76,7 +77,7 @@ export function ProfileHeader({
   };
 
   return (
-    <View style={styles.topProfileBar}>
+    <View style={[styles.topProfileBar, { paddingHorizontal: contentPaddingHorizontal }]}>
       <View style={styles.profileRow}>
         {showBackButton && navigation.canGoBack() ? (
           <Pressable
@@ -118,7 +119,7 @@ export function ProfileHeader({
           </Pressable>
         )}
       </View>
-      
+
       {showNotificationButton ? (
         <Pressable
           accessibilityLabel={notificationAccessibilityLabel}
@@ -153,7 +154,6 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
     backgroundColor: 'transparent',
@@ -167,9 +167,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   backButton: {
     ...theme.components.headerButton,
-    width: 36,
-    height: 36,
-    marginRight: 4,
+    width: 44,
+    height: 44,
+    flexShrink: 0,
   },
   profileTextContainer: {
     justifyContent: 'center',
@@ -204,8 +204,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   bellButton: {
     ...theme.components.headerButton,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    flexShrink: 0,
     overflow: 'visible',
   },
   notificationIconAnchor: {

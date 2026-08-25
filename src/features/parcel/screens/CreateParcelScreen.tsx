@@ -14,6 +14,7 @@ import {
   Text,
   TextInput,
   View,
+  type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -33,7 +34,7 @@ import {
   Truck,
   WarningCircle,
 } from 'phosphor-react-native';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { AppKeyboardAwareScrollView, Input, PhotoPicker } from '@shared/components';
@@ -52,7 +53,7 @@ import { walletKeys } from '@features/profile/api/walletApi';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useCurrentCoordinates, useThemedStyles } from '@shared/hooks';
+import { useCurrentCoordinates, useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import {
   assertVnPaySdkAvailable,
@@ -121,6 +122,7 @@ import {
   type AmbiguousRetryState,
 } from '../utils/parcelCreateErrors';
 import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
+import { resolveCreateParcelContentBottomPadding } from '../utils/createParcelLayout';
 import {
   calculateParcelQuotePricing,
   getParcelQuoteSemanticFingerprint,
@@ -259,6 +261,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const { isCompact } = useResponsiveLayout();
   const queryClient = useQueryClient();
   const user = useAuthStore(state => state.user);
   const fromCity = useParcelStore(state => state.fromCity);
@@ -276,6 +279,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const packageHeightCm = useParcelStore(state => state.heightCm);
   const packageCategory = useParcelStore(state => state.category);
   const estimatedValue = useParcelStore(state => state.estimatedValue);
+  const quantity = useParcelStore(state => state.quantity);
   const photos = useParcelStore(state => state.photos);
   const paymentMethod = useParcelStore(state => state.paymentMethod);
   const setPackage = useParcelStore(state => state.setPackage);
@@ -319,6 +323,14 @@ export function CreateParcelScreen(): React.JSX.Element {
   /** Held after ambiguous create/deposit so the user can exact-retry without leaving. */
   const [ambiguousRetry, setAmbiguousRetry] = useState<AmbiguousRetryState>(null);
   const [allowLeaveDespiteRetry, setAllowLeaveDespiteRetry] = useState(false);
+  const [actionBarHeight, setActionBarHeight] = useState(0);
+  const handleActionBarLayout = useCallback((event: LayoutChangeEvent) => {
+    const measuredHeight = Math.ceil(event.nativeEvent.layout.height);
+    if (measuredHeight <= 0) return;
+    setActionBarHeight((currentHeight) => (
+      currentHeight === measuredHeight ? currentHeight : measuredHeight
+    ));
+  }, []);
   const intentLocked = isAmbiguousRetryActive(ambiguousRetry);
   const lockedPaymentMethod =
     ambiguousRetry?.kind === 'deposit'
@@ -336,6 +348,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     || appliedPromo
     || photos.length > 0
     || estimatedValue.trim()
+    || quantity !== 1
     || packageCategory.trim(),
   );
 
@@ -816,6 +829,17 @@ export function CreateParcelScreen(): React.JSX.Element {
     [setPackage],
   );
 
+  const handleQuantityChange = useCallback(
+    (value: string) => {
+      const digits = value.replace(/\D/g, '').slice(0, 5);
+      const parsed = Number(digits || '1');
+      setPackage({
+        quantity: Math.min(10_000, Math.max(1, parsed)),
+      });
+    },
+    [setPackage],
+  );
+
   const handleSelectTrip = useCallback((trip: AvailableParcelTrip) => {
     if (intentLocked || !isParcelQuoteUsable(trip)) {
       return;
@@ -971,12 +995,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         requestAnimationFrame(() => recipientPhoneRef.current?.focus());
         return false;
       }
-      if (!recipientEmail.trim()) {
-        setRecipientErrors({ email: t('parcel.validation.recipientEmailRequired') });
-        requestAnimationFrame(() => recipientEmailRef.current?.focus());
-        return false;
-      }
-      if (!isValidEmail(recipientEmail)) {
+      if (recipientEmail.trim() && !isValidEmail(recipientEmail)) {
         setRecipientErrors({ email: t('parcel.validation.invalidRecipientEmail') });
         requestAnimationFrame(() => recipientEmailRef.current?.focus());
         return false;
@@ -1043,22 +1062,13 @@ export function CreateParcelScreen(): React.JSX.Element {
       throw new Error(t('parcel.validation.selectTripBeforeCreate'));
     }
 
-    const descriptionParts = [
-      estimatedValue
-        ? t('parcel.form.estimatedValueMetadata', {
-            value: estimatedValue,
-          })
-        : null,
-    ].filter(Boolean);
-
     return buildCreateParcelPayload({
       tripId: selectedTrip.tripId,
       quoteToken: selectedTrip.quoteToken,
       dropoffStopId: null,
       bookingId: null,
       itemName: packageCategory || null,
-      description:
-        descriptionParts.length > 0 ? descriptionParts.join('; ') : null,
+      description: null,
       sizeCategory: selectedTrip.estimatedSizeCategory,
       lengthCm: dimensions.lengthCm,
       widthCm: dimensions.widthCm,
@@ -1068,11 +1078,13 @@ export function CreateParcelScreen(): React.JSX.Element {
       recipient: {
         fullName: recipientName.trim(),
         phoneNumber: normalizeVietnamPhone(recipientPhone),
-        email: recipientEmail.trim(),
+        email: recipientEmail.trim() || null,
       },
       deliveryMethod: 'TERMINAL_PICKUP',
       paymentMethod: backendPaymentMethod,
       voucherCode: selectedVoucher?.code ?? null,
+      declaredValueVnd: estimatedValue ? Number(estimatedValue) : null,
+      quantity,
     });
   }, [
     backendPaymentMethod,
@@ -1082,6 +1094,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     estimatedValue,
     estimatedWeightKg,
     packageCategory,
+    quantity,
     recipientEmail,
     recipientName,
     recipientPhone,
@@ -1589,6 +1602,20 @@ export function CreateParcelScreen(): React.JSX.Element {
   );
 
   const stationKeyExtractor = useCallback((station: Station) => station.id, []);
+  const tripKeyExtractor = useCallback(
+    (trip: AvailableParcelTrip) => trip.tripId,
+    [],
+  );
+  const renderTrip: ListRenderItem<AvailableParcelTrip> = useCallback(
+    ({ item }) => (
+      <TripOptionCard
+        trip={item}
+        selected={selectedTripId === item.tripId}
+        onPress={handleSelectTrip}
+      />
+    ),
+    [handleSelectTrip, selectedTripId],
+  );
 
   const renderStationStep = () => {
     if (missingLocation) {
@@ -1660,7 +1687,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     return null;
   };
 
-  const renderTripPicker = () => (
+  const renderTripPicker = (includeTripItems = true) => (
     <View style={styles.bentoSummaryCard}>
       <Text style={styles.bentoCardHeading}>
         {t('parcel.trips.departureDate')}
@@ -1725,12 +1752,16 @@ export function CreateParcelScreen(): React.JSX.Element {
           <Text style={styles.stateText}>
             {t('parcel.trips.emptyDescription')}
           </Text>
-          <View style={styles.emptyTripActions}>
+          <View style={[
+            styles.emptyTripActions,
+            isCompact ? styles.emptyTripActionsCompact : null,
+          ]}>
             <Pressable
               accessibilityRole="button"
               onPress={handleChangeTerminals}
               style={({ pressed }) => [
                 styles.emptyTripSecondaryButton,
+                isCompact ? styles.emptyTripButtonCompact : styles.emptyTripButtonRegular,
                 pressed ? styles.pressed : null,
               ]}
             >
@@ -1747,6 +1778,7 @@ export function CreateParcelScreen(): React.JSX.Element {
               }
               style={({ pressed }) => [
                 styles.emptyTripPrimaryButton,
+                isCompact ? styles.emptyTripButtonCompact : styles.emptyTripButtonRegular,
                 emptyTripPrimaryDisabled
                   ? styles.emptyTripButtonDisabled
                   : null,
@@ -1768,7 +1800,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             </Pressable>
           </View>
         </View>
-      ) : (
+      ) : includeTripItems ? (
         availableTrips.map(trip => (
           <TripOptionCard
             key={trip.tripId}
@@ -1777,8 +1809,8 @@ export function CreateParcelScreen(): React.JSX.Element {
             onPress={handleSelectTrip}
           />
         ))
-      )}
-      {availableTrips.length > 0 && isFetchingNextTripsPage ? (
+      ) : null}
+      {includeTripItems && availableTrips.length > 0 && isFetchingNextTripsPage ? (
         <View style={styles.tripLoadMoreFooter} accessibilityRole="progressbar">
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={styles.tripLoadMoreText}>
@@ -1787,7 +1819,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         </View>
       ) : null}
 
-      {availableTrips.length > 0 && isFetchNextTripsPageError && hasNextTripsPage ? (
+      {includeTripItems && availableTrips.length > 0 && isFetchNextTripsPageError && hasNextTripsPage ? (
         <View style={styles.tripLoadMoreFooter} accessibilityRole="alert">
           <Text style={styles.tripLoadMoreText}>
             {t('parcel.trips.loadMoreFailed')}
@@ -1807,7 +1839,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     </View>
   );
 
-  const renderStep = () => {
+  const renderStep = (includeTripPicker = true) => {
     if (step === 1 || step === 2) {
       return renderStationStep();
     }
@@ -1860,6 +1892,17 @@ export function CreateParcelScreen(): React.JSX.Element {
             hint={t('parcel.form.estimatedValueHint')}
           />
 
+          <Input
+            label={t('parcel.form.quantityLabel')}
+            placeholder={t('parcel.form.quantityPlaceholder')}
+            keyboardType="number-pad"
+            maxLength={5}
+            value={String(quantity)}
+            onChangeText={handleQuantityChange}
+            hint={t('parcel.form.quantityHint')}
+            required
+          />
+
           <View style={styles.formSection}>
             <Text style={styles.sectionLabel}>
               {t('parcel.form.recipientTitle')}
@@ -1899,7 +1942,6 @@ export function CreateParcelScreen(): React.JSX.Element {
               maxLength={255}
               value={recipientEmail}
               error={recipientErrors.email}
-              required
               onChangeText={(value) => {
                 setRecipientEmail(value);
                 if (recipientErrors.email) setRecipientErrors((current) => ({ ...current, email: undefined }));
@@ -1913,7 +1955,7 @@ export function CreateParcelScreen(): React.JSX.Element {
 
     return (
       <View style={styles.stepContent}>
-        {renderTripPicker()}
+        {includeTripPicker ? renderTripPicker() : null}
         <PricingBreakdown
           receivingStation={receivingStation}
           dropoffStation={dropoffStation}
@@ -2036,7 +2078,11 @@ export function CreateParcelScreen(): React.JSX.Element {
       : t('parcel.trips.availableCount', {
           count: availableTrips.length,
         });
-  const contentBottomPadding = 96 + Math.max(insets.bottom, spacing.md);
+  const contentBottomPadding = resolveCreateParcelContentBottomPadding({
+    measuredActionBarHeight: actionBarHeight,
+    bottomInset: insets.bottom,
+    contentGap: spacing.md,
+  });
   const stationListContentStyle = useMemo(
     () => [styles.stationListContent, { paddingBottom: contentBottomPadding }],
     [contentBottomPadding, styles.stationListContent],
@@ -2104,6 +2150,24 @@ export function CreateParcelScreen(): React.JSX.Element {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           />
+        ) : step === 4 ? (
+          <FlashList
+            data={availableTrips}
+            renderItem={renderTrip}
+            keyExtractor={tripKeyExtractor}
+            style={styles.scrollContainer}
+            contentContainerStyle={scrollContentStyle}
+            ListHeaderComponent={renderTripPicker(false)}
+            ListFooterComponent={renderStep(false)}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets
+            showsVerticalScrollIndicator={false}
+            onEndReached={() => {
+              if (hasNextTripsPage) requestNextTripsPage();
+            }}
+            onEndReachedThreshold={0.4}
+          />
         ) : (
           <AppKeyboardAwareScrollView
             style={styles.scrollContainer}
@@ -2117,7 +2181,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           </AppKeyboardAwareScrollView>
         )}
 
-        <View style={actionBarStyle}>
+        <View style={actionBarStyle} onLayout={handleActionBarLayout}>
           {step === 4 ? (
             <View style={styles.priceSummaryBox}>
               <Text style={styles.totalPriceLabel}>
@@ -2129,7 +2193,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             </View>
           ) : null}
           {isStationSelectionStep && selectedStationForStep ? (
-            <Text style={styles.selectedStationSummary} numberOfLines={1}>
+            <Text style={styles.selectedStationSummary} numberOfLines={2} ellipsizeMode="tail">
               {t('parcel.stations.selected', {
                 name: selectedStationForStep.name,
               })}
@@ -2402,8 +2466,19 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  emptyTripSecondaryButton: {
+  emptyTripActionsCompact: {
+    flexDirection: 'column',
+  },
+  emptyTripButtonRegular: {
     flex: 1,
+  },
+  emptyTripButtonCompact: {
+    width: '100%',
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto' as const,
+  },
+  emptyTripSecondaryButton: {
     minHeight: 48,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
@@ -2413,7 +2488,6 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
   },
   emptyTripPrimaryButton: {
-    flex: 1,
     minHeight: 48,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
@@ -2449,17 +2523,23 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.md,
     marginBottom: spacing.sm,
   },
   totalPriceLabel: {
+    flex: 1,
+    minWidth: 0,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,
   },
   totalPriceValue: {
+    minWidth: 0,
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.primary,
+    textAlign: 'right',
   },
   nextActionButton: {
     flexDirection: 'row',
@@ -2467,7 +2547,8 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
     ...theme.components.primaryButton,
     borderRadius: borderRadius.md,
-    height: 52,
+    minHeight: 52,
+    paddingVertical: spacing.md,
     gap: spacing.sm,
   },
   nextActionButtonSummary: {
@@ -2484,9 +2565,13 @@ const createStyles = (theme: AppTheme) => ({
     textAlign: 'center',
   },
   nextActionButtonText: {
+    minWidth: 0,
+    flexShrink: 1,
+    paddingHorizontal: spacing.xs,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.86,

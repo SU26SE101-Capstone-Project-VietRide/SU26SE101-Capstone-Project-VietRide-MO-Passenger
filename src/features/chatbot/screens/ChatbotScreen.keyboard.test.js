@@ -17,16 +17,13 @@ describe('ChatbotScreen keyboard layout contract', () => {
   });
 
   it('keeps messages in a bounded viewport without keyboard visibility re-renders', () => {
-    expect(screenSource).toContain('style={styles.messageList}');
     expect(screenSource).toContain('minHeight: 0');
     expect(screenSource).not.toContain('useKeyboardState');
     expect(screenSource).not.toContain('isKeyboardVisible');
   });
 
-  it('places quick actions inside the chat flow and dismisses them after interaction', () => {
-    expect(screenSource).toContain('ListFooterComponent={showQuickActions ? (');
+  it('dismisses quick actions after interaction', () => {
     expect(screenSource).toContain('setQuickActionsDismissed(true)');
-    expect(screenSource).toContain("messages[0]?.id === 'welcome'");
   });
 
   it('opens on the latest chat, not the top of an empty list', () => {

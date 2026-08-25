@@ -29,7 +29,12 @@ import {
   setTokenRefreshAllowed,
 } from '@shared/utils/storage';
 import * as authApi from '../api/authApi';
-import { mapAuthUser, type AuthSession, type AuthUserDto, type User } from '../types';
+import {
+  mapAuthUser,
+  type AuthSession,
+  type AuthUserDto,
+  type User,
+} from '../types';
 
 interface AuthState {
   user: User | null;
@@ -54,10 +59,7 @@ const unauthenticatedState = {
   authError: null,
 } satisfies Pick<
   AuthState,
-  | 'user'
-  | 'isAuthenticated'
-  | 'isAuthLoading'
-  | 'authError'
+  'user' | 'isAuthenticated' | 'isAuthLoading' | 'authError'
 >;
 
 const AUTH_ME_STALE_TIME_MS = 5 * 60 * 1000;
@@ -129,7 +131,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthLoading: true,
   authError: null,
 
-  setSession: async (session) => {
+  setSession: async session => {
     const sessionEpoch = beginTokenSession();
     const stored = await setToken(
       session.accessToken,
@@ -147,7 +149,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     if (!isTokenSessionEpochCurrent(sessionEpoch)) {
-      throw new Error('The authentication session was superseded by a newer session.');
+      throw new Error(
+        'The authentication session was superseded by a newer session.',
+      );
     }
 
     clearSessionData();
@@ -167,9 +171,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setUser: (user, expectedSessionEpoch) => {
     const current = get();
     if (
-      !isTokenSessionEpochCurrent(expectedSessionEpoch)
-      || !current.isAuthenticated
-      || current.user?.id !== user.id
+      !isTokenSessionEpochCurrent(expectedSessionEpoch) ||
+      !current.isAuthenticated ||
+      current.user?.id !== user.id
     ) {
       return false;
     }
@@ -189,7 +193,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return true;
   },
 
-  setAuthLoading: (loading) => set({ isAuthLoading: loading }),
+  setAuthLoading: loading => set({ isAuthLoading: loading }),
 
   clearAuthError: () => set({ authError: null }),
 
@@ -234,7 +238,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
 
-      if (canRefreshStoredToken && (isTokenExpired(tokenBundle) || isTokenExpiringSoon(tokenBundle))) {
+      if (
+        canRefreshStoredToken &&
+        (isTokenExpired(tokenBundle) || isTokenExpiringSoon(tokenBundle))
+      ) {
         const refreshResult = await refreshStoredTokenBundle();
 
         if (refreshResult.success) {
@@ -286,11 +293,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (shouldKeepLocalSession(error)) {
-        const cachedUser = queryClient.getQueryData<User>(authApi.authKeys.me) ?? null;
+        const cachedUser =
+          queryClient.getQueryData<User>(authApi.authKeys.me) ?? null;
 
         set({
           user: cachedUser,
-          isAuthenticated: true,
+          isAuthenticated: cachedUser !== null,
           isAuthLoading: false,
           authError: toApiError(error),
         });
@@ -333,11 +341,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
 
-      const cachedUser = queryClient.getQueryData<User>(authApi.authKeys.me) ?? null;
+      const cachedUser =
+        queryClient.getQueryData<User>(authApi.authKeys.me) ?? null;
 
       set({
         user: cachedUser,
-        isAuthenticated: true,
+        isAuthenticated: cachedUser !== null,
         isAuthLoading: false,
         authError: toApiError(error),
       });
@@ -446,9 +455,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         authError: cleared
           ? null
           : new ApiRequestError({
-            code: 'AUTH_LOCAL_SESSION_CLEAR_FAILED',
-            message: 'The local authentication session could not be cleared completely.',
-          }),
+              code: 'AUTH_LOCAL_SESSION_CLEAR_FAILED',
+              message:
+                'The local authentication session could not be cleared completely.',
+            }),
       });
     }
 
@@ -465,12 +475,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     ]);
 
     if (__DEV__ && pushResult.status === 'rejected') {
-      console.warn('[Auth] Device notification token revocation did not fully complete.');
+      console.warn(
+        '[Auth] Device notification token revocation did not fully complete.',
+      );
     }
     if (__DEV__ && logoutResult.status === 'rejected') {
       const apiError = toApiError(logoutResult.reason);
       console.warn(
-        `[Auth] Session revoke failed (${apiError.code}, ${apiError.statusCode ?? 'no-status'}).`,
+        `[Auth] Session revoke failed (${apiError.code}, ${
+          apiError.statusCode ?? 'no-status'
+        }).`,
       );
     }
   },

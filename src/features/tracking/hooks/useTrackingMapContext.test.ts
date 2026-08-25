@@ -64,6 +64,26 @@ describe('selectShuttlePassengerPickup', () => {
     );
   });
 
+  it('prioritizes an exact bookingId over pickupOrder', () => {
+    expect(selectShuttlePassengerPickup(contextWithTwoPickups, BOOKING_B, 1)).toEqual(
+      expect.objectContaining({ bookingId: BOOKING_B }),
+    );
+  });
+
+  it('uses pickupOrder only when bookingId is absent', () => {
+    expect(selectShuttlePassengerPickup(contextWithTwoPickups, undefined, 3)).toEqual(
+      expect.objectContaining({ bookingId: BOOKING_B, pickupOrder: 3 }),
+    );
+  });
+
+  it('does not select another pickup when a supplied bookingId is unmatched', () => {
+    expect(selectShuttlePassengerPickup(
+      contextWithTwoPickups,
+      '77777777-7777-4777-8777-777777777777',
+      1,
+    )).toBeNull();
+  });
+
   it('falls back to earliest PENDING when bookingId is missing', () => {
     expect(selectShuttlePassengerPickup(contextWithTwoPickups)).toEqual(
       expect.objectContaining({ bookingId: BOOKING_A }),

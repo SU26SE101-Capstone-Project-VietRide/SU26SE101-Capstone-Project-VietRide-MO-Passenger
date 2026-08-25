@@ -76,12 +76,14 @@ export function PassengerCountInput({
 
 const createStyles = (theme: AppTheme) => ({
   container: {
-    flex: 1,
+    minWidth: 140,
+    flexGrow: 1,
+    flexBasis: 140,
     flexDirection: 'row',
     alignItems: 'center',
     ...theme.components.field,
     borderRadius: 16,
-    height: 44,
+    minHeight: 44,
     paddingHorizontal: spacing.md,
     gap: spacing.xs,
   },

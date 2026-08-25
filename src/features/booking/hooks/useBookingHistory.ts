@@ -1,17 +1,21 @@
 /**
- * Legacy demo-ticket provider boundary.
+ * Direct Booking History query plus legacy demo-ticket detail boundary.
  *
- * Live list data now belongs to the unified passenger-history facade hook.
+ * Live ticket list data comes from `/bookings/history` and is user-scoped.
  * These guarded fixture helpers remain only for explicit demo callers and for
  * backward-compatible Digital Ticket routes that do not carry a live history
  * snapshot. BE still has no individual passenger ticket-detail endpoint.
  */
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { useAuthStore } from '../../auth/store/useAuthStore';
-import { usePassengerHistory } from '@features/profile/hooks/usePassengerHistory';
 import { isDemoMode } from '@shared/constants/demoMode';
 import { isUuid } from '@shared/utils/pathSegment';
+import {
+  bookingHistoryKeys,
+  getBookingHistory,
+  type BookingHistoryQuery,
+} from '../api/bookingHistoryApi';
 import {
   BOOKING_HISTORY_FIXTURE,
   getBookingHistoryTicketFixture,
@@ -77,8 +81,28 @@ export function resolveBookingHistoryTicketSnapshot(
     : { source: 'unavailable', reason: 'ticket_not_found' };
 }
 
-export function useBookingHistory() {
-  return usePassengerHistory({ type: 'TICKET' });
+export function useBookingHistory(
+  query: Omit<BookingHistoryQuery, 'page'> = {},
+  enabled = true,
+) {
+  const userId = useAuthStore((state) => state.user?.id);
+  return useInfiniteQuery({
+    queryKey: bookingHistoryKeys.list(userId ?? 'guest', query),
+    queryFn: ({ pageParam, signal }) => getBookingHistory(
+      { ...query, page: pageParam },
+      signal,
+    ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.hasNextPage
+      ? lastPage.page + 1
+      : undefined,
+    enabled: enabled && Boolean(userId),
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+  });
 }
 
 export function useBookingHistoryTicket(bookingId: string, enabled = true) {

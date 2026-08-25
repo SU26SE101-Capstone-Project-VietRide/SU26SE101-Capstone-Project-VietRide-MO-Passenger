@@ -51,6 +51,48 @@ const MIN_SEAT_SIZE = 34;
 const MAX_SEAT_SIZE = 58;
 const AXIS_HEIGHT = 28;
 
+export interface SeatGridGeometry {
+  aisleWidth: number;
+  cardWidth: number;
+  innerWidth: number;
+  matrixWidth: number;
+  seatSize: number;
+}
+
+export const calculateSeatGridGeometry = (
+  viewportWidth: number,
+  columnCount: number,
+  aisleCount: number,
+): SeatGridGeometry => {
+  const safeColumnCount = Math.max(0, Math.floor(columnCount));
+  const safeAisleCount = Math.max(0, Math.floor(aisleCount));
+  const aisleWidth = safeAisleCount === 0 ? 0 : DEFAULT_AISLE_WIDTH;
+  const visibleChildren = safeColumnCount + 1 + safeAisleCount;
+  const gapCount = Math.max(0, visibleChildren - 1);
+  const cardWidth = Math.min(
+    MAX_CARD_WIDTH,
+    Math.max(0, viewportWidth - spacing.xxl),
+  );
+  const innerWidth = Math.max(0, cardWidth - CARD_PADDING * 2);
+  const totalAisleWidth = aisleWidth * safeAisleCount;
+  const availableWidth = innerWidth
+    - ROW_AXIS_WIDTH
+    - totalAisleWidth
+    - gapCount * SEAT_GAP;
+  const seatSize = safeColumnCount === 0
+    ? MAX_SEAT_SIZE
+    : Math.max(MIN_SEAT_SIZE, Math.min(
+      MAX_SEAT_SIZE,
+      Math.floor(availableWidth / safeColumnCount),
+    ));
+  const matrixWidth = ROW_AXIS_WIDTH
+    + safeColumnCount * seatSize
+    + totalAisleWidth
+    + gapCount * SEAT_GAP;
+
+  return { aisleWidth, cardWidth, innerWidth, matrixWidth, seatSize };
+};
+
 function useSeatGridStyles() {
   return useThemedStyles(createStyles);
 }
@@ -464,7 +506,6 @@ export function SeatGrid({
     [resolvedAisleAfterCols],
   );
   const aisleCount = resolvedAisleAfterCols.length;
-  const aisleWidth = aisleCount === 0 ? 0 : DEFAULT_AISLE_WIDTH;
   const selectedSeatIds = useMemo(
     () => new Set(selectedSeats.map(seat => seat.id)),
     [selectedSeats],
@@ -482,28 +523,10 @@ export function SeatGrid({
   const availableCount = activeGroup
     ? Math.max(0, activeGroup.availableCount - activeSelectedCount)
     : 0;
-  const visibleChildren = columns.length + 1 + aisleCount;
-  const gapCount = Math.max(0, visibleChildren - 1);
-  const cardWidth = Math.min(MAX_CARD_WIDTH, Math.max(0, width - spacing.xxl));
-  const innerWidth = Math.max(0, cardWidth - CARD_PADDING * 2);
-  const totalAisleWidth = aisleWidth * aisleCount;
-  const seatSize = useMemo(() => {
-    if (columns.length === 0) {
-      return MAX_SEAT_SIZE;
-    }
-
-    const availableWidth =
-      innerWidth - ROW_AXIS_WIDTH - totalAisleWidth - gapCount * SEAT_GAP;
-    return Math.max(
-      MIN_SEAT_SIZE,
-      Math.min(MAX_SEAT_SIZE, Math.floor(availableWidth / columns.length)),
-    );
-  }, [columns.length, gapCount, innerWidth, totalAisleWidth]);
-  const matrixWidth =
-    ROW_AXIS_WIDTH +
-    columns.length * seatSize +
-    totalAisleWidth +
-    gapCount * SEAT_GAP;
+  const { aisleWidth, matrixWidth, seatSize } = useMemo(
+    () => calculateSeatGridGeometry(width, columns.length, aisleCount),
+    [aisleCount, columns.length, width],
+  );
   const handleDeckSelect = useCallback(
     (deck: number) => setRequestedDeck(deck),
     [],

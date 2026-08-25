@@ -1,4 +1,6 @@
 import type { TFunction } from 'i18next';
+import en from '@shared/i18n/locales/en.json';
+import vi from '@shared/i18n/locales/vi.json';
 
 import {
   localizeNotificationCode,
@@ -23,6 +25,10 @@ const translations: Record<string, string> = {
   'notification.refs.refundHint': ' Amount: {{amount}} VND.',
   'notification.types.SHUTTLE_PICKED_UP.title': 'Shuttle picked you up',
   'notification.types.SHUTTLE_PICKED_UP.body': 'The shuttle has picked you up.',
+  'notification.types.SHUTTLE_STARTED.title': 'Shuttle trip started',
+  'notification.types.SHUTTLE_STARTED.body': 'Your shuttle is on the way. Open tracking.',
+  'notification.types.SHUTTLE_REASSIGNED.title': 'Shuttle assignment updated',
+  'notification.types.SHUTTLE_REASSIGNED.body': 'Open tracking for the latest details.',
   'notification.types.PARCEL_REJECTED.title': 'Parcel rejected',
   'notification.types.PARCEL_REJECTED.body': '{{parcelRef}} was rejected. Reason: {{reason}}.',
   'notification.types.TRIP_ASSIGNMENT_START_BLOCKED.title': 'Trip could not start',
@@ -60,8 +66,43 @@ describe('notificationCopy', () => {
     });
   });
 
+
+  it.each([
+    {
+      type: 'SHUTTLE_STARTED',
+      title: 'Shuttle trip started',
+      body: 'Your shuttle is on the way. Open tracking.',
+    },
+    {
+      type: 'SHUTTLE_REASSIGNED',
+      title: 'Shuttle assignment updated',
+      body: 'Open tracking for the latest details.',
+    },
+  ])('uses locale-owned copy for $type', ({ type, title, body }) => {
+    expect(localizeNotificationCopy({
+      type,
+      title: 'Thông báo từ máy chủ',
+      body: 'Nội dung từ máy chủ',
+    }, translate)).toEqual({ title, body });
+  });
+
+  it('defines the two new notification types in both EN and VI locales', () => {
+    expect(en.notification.types.SHUTTLE_STARTED).toEqual({
+      title: 'Shuttle trip started',
+      body: 'Your shuttle is on the way. Open tracking for live location and ETA.',
+    });
+    expect(en.notification.types.SHUTTLE_REASSIGNED.title).toBe('Shuttle assignment updated');
+    expect(vi.notification.types.SHUTTLE_STARTED).toEqual({
+      title: 'Xe trung chuyển đã xuất phát',
+      body: 'Xe trung chuyển đang di chuyển. Mở theo dõi để xem vị trí và thời gian dự kiến.',
+    });
+    expect(vi.notification.types.SHUTTLE_REASSIGNED.title)
+      .toBe('Thông tin xe trung chuyển đã thay đổi');
+  });
+
   it('localizes parcel rejection reasons such as CHECK_IN_TIMEOUT', () => {
     expect(localizeNotificationCopy({
+
       type: 'PARCEL_REJECTED',
       title: 'Đơn gửi hàng bị từ chối',
       body: 'Đơn VRP-1 đã CHECK_IN_TIMEOUT.',

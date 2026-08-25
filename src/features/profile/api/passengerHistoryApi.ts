@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { parcelReliabilitySummarySchema } from '@features/parcel/api/parcelSchemas';
 import { apiClient } from '@shared/api/axiosInstance';
 import { unwrapApiResponse, type ApiEnvelope } from '@shared/api/errors';
 import {
@@ -142,6 +143,16 @@ const ticketHistoryItemSchema = z.object({
     // Current BE always serializes this nullable field. Defaulting null keeps
     // the app compatible while Passenger and BE are deployed independently.
     vehicle: passengerHistoryVehicleSchema.nullable().default(null),
+    shuttleRequests: z.array(z.object({
+      direction: z.enum(['INBOUND_TO_STATION', 'OUTBOUND_FROM_STATION']),
+      address: z.string().trim().min(1).max(1_000),
+      latitude: z.number().finite().min(-90).max(90),
+      longitude: z.number().finite().min(-180).max(180),
+      roadDistanceMeters: z.number().int().nonnegative().nullable(),
+      isActive: z.boolean(),
+      requestedAt: rfc3339Schema,
+      cancelledAt: rfc3339Schema.nullable(),
+    })).optional().default([]),
   }),
   parcel: z.null(),
 });
@@ -158,6 +169,8 @@ const parcelHistoryItemSchema = z.object({
     // BE owns this as an optional string, not as a guaranteed absolute URL.
     photoUrl: z.string().trim().max(2_048).nullable(),
     deliveryMethod: z.string().trim().min(1).max(100),
+    role: z.enum(['SENT', 'RECEIVED']).optional().default('SENT'),
+    reliability: parcelReliabilitySummarySchema.nullable().optional().default(null),
   }),
 });
 

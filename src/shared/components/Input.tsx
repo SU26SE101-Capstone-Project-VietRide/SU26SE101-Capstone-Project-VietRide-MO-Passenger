@@ -125,6 +125,7 @@ Input.displayName = 'Input';
 
 const createStyles = (theme: AppTheme) => ({
   container: {
+    minWidth: 0,
     marginBottom: spacing.lg,
   },
   label: {
@@ -136,8 +137,9 @@ const createStyles = (theme: AppTheme) => ({
   required: {
     color: theme.colors.error,
   },
-  inputWrap: { position: 'relative' as const },
+  inputWrap: { position: 'relative' as const, minWidth: 0 },
   input: {
+    minWidth: 0,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,

@@ -1,18 +1,23 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { StatusBar, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { ShareNetwork } from 'phosphor-react-native';
 
 import type { RootStackParamList } from '@app/navigation/types';
 import type { TripLifecycleStatus } from '@features/trip/types';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
-import { LiveTripTrackingPanel } from '../components/LiveTripTrackingPanel';
+import {
+  LiveTripTrackingPanel,
+  type TrackingShareQuickAction,
+} from '../components/LiveTripTrackingPanel';
 import {
   TrackingHeader,
+  type TrackingHeaderAction,
   type TrackingHeaderRoute,
 } from '../components/TrackingHeader';
 
@@ -35,9 +40,12 @@ export function TrackingScreen(): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const isShuttle = route.params.source === 'shuttle';
   const bookingId = route.params.bookingId;
+  const pickupOrder = isShuttle ? route.params.pickupOrder : undefined;
   const tripStatus = isShuttle ? undefined : route.params.tripStatus;
+  const shareScopeKey = isShuttle ? undefined : route.params.tripId;
   const terminalMessageKey = terminalMessageKeyForStatus(tripStatus);
   const [routeHeader, setRouteHeader] = useState<TrackingHeaderRoute>();
+  const [shareQuickAction, setShareQuickAction] = useState<TrackingShareQuickAction | null>(null);
   const headerSubtitleKey = bookingId
     ? 'tracking.bookingReference'
     : isShuttle
@@ -52,6 +60,19 @@ export function TrackingScreen(): React.JSX.Element {
         : next
     ));
   }, []);
+  const headerActions = useMemo<readonly TrackingHeaderAction[]>(() => (
+    shareQuickAction && shareQuickAction.scopeKey === shareScopeKey
+      ? [{
+          key: 'share-location',
+          accessibilityLabel: t('tracking.share.action'),
+          accessibilityHint: t('tracking.share.actionHint'),
+          busy: shareQuickAction.pending,
+          disabled: shareQuickAction.disabled,
+          icon: <ShareNetwork size={20} color={theme.colors.primary} weight="bold" />,
+          onPress: shareQuickAction.onPress,
+        }]
+      : []
+  ), [shareQuickAction, shareScopeKey, t, theme.colors.primary]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -66,6 +87,7 @@ export function TrackingScreen(): React.JSX.Element {
         subtitle={t(headerSubtitleKey)}
         onBack={handleBack}
         route={routeHeader}
+        actions={headerActions}
       />
 
       <View style={styles.body}>
@@ -74,6 +96,8 @@ export function TrackingScreen(): React.JSX.Element {
             source="shuttle"
             shuttleTripId={route.params.shuttleTripId}
             bookingId={bookingId}
+            pickupOrder={pickupOrder}
+            onShareQuickActionChange={setShareQuickAction}
           />
         ) : (
           <LiveTripTrackingPanel
@@ -83,6 +107,7 @@ export function TrackingScreen(): React.JSX.Element {
             tripStatus={tripStatus}
             terminalMessage={terminalMessageKey ? t(terminalMessageKey) : undefined}
             onRouteHeaderChange={handleRouteHeaderChange}
+            onShareQuickActionChange={setShareQuickAction}
           />
         )}
       </View>

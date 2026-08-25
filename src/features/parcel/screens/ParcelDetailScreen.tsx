@@ -71,6 +71,7 @@ import {
 } from '../hooks/useParcelQueries';
 import {
   ErrorView,
+  ParcelCompensationDisclosure,
   ParcelPaymentMethodSelector,
 } from '../components';
 import { parcelKeys } from '../api/parcelApi';
@@ -254,6 +255,12 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const deliveryCodeActive = checkoutState === 'active';
   const heroCopy = getParcelDetailHeroCopy(checkoutState, paymentStage);
   const trackingAvailable = isParcelTrackingEligible(parcel?.status);
+  const hasClaimSurface = Boolean(
+    parcel?.reliabilitySummary?.claim
+    || parcel?.availableActions.some(action => (
+      action === 'SUBMIT_CLAIM' || action === 'ADD_EVIDENCE' || action === 'APPEAL'
+    )),
+  );
   const isSender = Boolean(userId && parcel?.senderUserId === userId);
   const statusPresentation = getParcelStatusPresentation(parcel?.status);
   const expectedVnPayKind = parcelPaymentKindForStage(paymentStage);
@@ -405,6 +412,14 @@ export function ParcelDetailScreen(): React.JSX.Element {
         : {}),
     });
   }, [navigation, parcelId, route.params.trackingTarget]);
+
+  const handleReportIncident = React.useCallback(() => {
+    navigation.navigate('ReportParcelIncident', { parcelId });
+  }, [navigation, parcelId]);
+
+  const handleOpenClaim = React.useCallback(() => {
+    navigation.navigate('ParcelClaim', { parcelId });
+  }, [navigation, parcelId]);
 
   const handleGoHome = React.useCallback(() => {
     rootNav.navigate('Main', { screen: 'Home' });
@@ -684,12 +699,43 @@ export function ParcelDetailScreen(): React.JSX.Element {
         >
           <ArrowLeft size={22} color={theme.colors.textPrimary} />
         </Pressable>
-        <Text numberOfLines={1} style={styles.navTitle}>
-          {fromHistory
-            ? t('parcel.detail.historyTitle')
-            : t('parcel.detail.ticketTitle')}
-        </Text>
-        <View style={styles.navSpacer} />
+        <View style={styles.navTitleGroup}>
+          <Text numberOfLines={1} style={styles.navTitle}>
+            {fromHistory
+              ? t('parcel.detail.historyTitle')
+              : t('parcel.detail.ticketTitle')}
+          </Text>
+          {parcel?.parcelCode ? (
+            <Text
+              selectable
+              numberOfLines={1}
+              ellipsizeMode="middle"
+              style={styles.navMetadata}
+            >
+              {parcel.parcelCode}
+            </Text>
+          ) : null}
+        </View>
+        {parcel?.availableActions.includes('REPORT_INCIDENT') ? (
+          <Pressable
+            accessibilityLabel={t('parcel.reliability.reportIncident')}
+            accessibilityRole="button"
+            hitSlop={4}
+            onPress={handleReportIncident}
+            style={({ pressed }) => [
+              styles.navButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <WarningCircle
+              size={20}
+              color={theme.colors.warning}
+              weight="bold"
+            />
+          </Pressable>
+        ) : (
+          <View style={styles.navSpacer} />
+        )}
       </View>
 
       {detailQuery.isLoading ? (
@@ -747,34 +793,40 @@ export function ParcelDetailScreen(): React.JSX.Element {
           ) : null}
 
           <View style={styles.ticketCard}>
-            <View style={styles.qrSection}>
-              {deliveryCodeActive && parcel?.parcelCode ? (
-                <ScannableCodeCard
-                  code={parcel.parcelCode}
-                  title={t('parcel.detail.dropoffCode')}
-                  description={t('parcel.detail.dropoffCodeHint')}
-                  size={156}
-                />
-              ) : null}
-              <Text style={styles.qrCaption}>
-                {t(heroCopy.codeKey)}
-              </Text>
-              {deliveryCodeActive ? null : (
-                <Text selectable style={styles.ticketIdText}>
-                  {parcel?.parcelCode || parcelId}
-                </Text>
-              )}
-              <StatusChip
-                label={t(statusPresentation.labelKey)}
-                tone={statusPresentation.tone}
-                style={styles.centeredStatusChip}
-              />
-            </View>
+            {deliveryCodeActive && parcel?.parcelCode ? (
+              <>
+                <View style={styles.qrSection}>
+                  <ScannableCodeCard
+                    code={parcel.parcelCode}
+                    title={t('parcel.detail.dropoffCode')}
+                    description={t('parcel.detail.dropoffCodeHint')}
+                  />
+                  <Text style={styles.qrCaption}>
+                    {t(heroCopy.codeKey)}
+                  </Text>
+                  <StatusChip
+                    label={t(statusPresentation.labelKey)}
+                    tone={statusPresentation.tone}
+                    style={styles.centeredStatusChip}
+                  />
+                </View>
 
-            <View style={styles.dashedDivider}>
-              <View style={styles.sideCutoutLeft} />
-              <View style={styles.sideCutoutRight} />
-            </View>
+                <View style={styles.dashedDivider}>
+                  <View style={styles.sideCutoutLeft} />
+                  <View style={styles.sideCutoutRight} />
+                </View>
+              </>
+            ) : (
+              <View style={styles.compactParcelHeader}>
+                <StatusChip
+                  label={t(statusPresentation.labelKey)}
+                  tone={statusPresentation.tone}
+                />
+                <Text style={styles.compactParcelHeaderText}>
+                  {t(heroCopy.codeKey)}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.detailsSection}>
               <View style={styles.routeList}>
@@ -803,6 +855,18 @@ export function ParcelDetailScreen(): React.JSX.Element {
                     compact
                     label={t('parcel.weight.title')}
                     value={`${parcel?.actualWeightKg ?? parcel?.estimatedWeightKg ?? '-'} ${t('parcel.units.kg')}`}
+                  />
+                </View>
+                <View style={styles.detailFieldRow}>
+                  <ParcelDetailField
+                    compact
+                    label={t('parcel.detail.quantity')}
+                    value={String(parcel?.quantity ?? 1)}
+                  />
+                  <ParcelDetailField
+                    compact
+                    label={t('parcel.detail.declaredValue')}
+                    value={parcel?.declaredValueVnd == null ? '-' : formatVnd(parcel.declaredValueVnd)}
                   />
                 </View>
                 {isSender ? (
@@ -909,6 +973,23 @@ export function ParcelDetailScreen(): React.JSX.Element {
           </View>
 
           <ParcelPhotoGallery photos={parcelPhotos} />
+
+          {parcel?.compensationPolicySnapshot ? (
+            <ParcelCompensationDisclosure
+              operatorName={parcel.operator?.name}
+              policy={parcel.compensationPolicySnapshot}
+            />
+          ) : null}
+
+          {hasClaimSurface ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleOpenClaim}
+              style={({ pressed }) => [styles.secondaryActionButton, pressed ? styles.pressed : null]}
+            >
+              <Text style={styles.secondaryActionText}>{t('parcel.reliability.openClaim')}</Text>
+            </Pressable>
+          ) : null}
 
           {paymentPending && isSender ? (
             <View style={styles.paymentActionCard}>
@@ -1134,18 +1215,32 @@ const createStyles = (theme: AppTheme) => ({
   },
   navButton: {
     ...theme.components.headerButton,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   navSpacer: {
-    width: 36,
+    width: 44,
+  },
+  navTitleGroup: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
   },
   navTitle: {
-    flex: 1,
+    alignSelf: 'stretch',
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
+    textAlign: 'center',
+  },
+  navMetadata: {
+    alignSelf: 'stretch',
+    marginTop: 2,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   stateContainer: {
@@ -1241,6 +1336,22 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center',
     padding: spacing.xl,
   },
+  compactParcelHeader: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+  },
+  compactParcelHeaderText: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    lineHeight: fontSizes.xs * 1.45,
+    color: theme.colors.textSecondary,
+  },
   centeredStatusChip: {
     alignSelf: 'center' as const,
   },
@@ -1264,11 +1375,6 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textSecondary,
     marginBottom: 4,
     textAlign: 'center',
-  },
-  ticketIdText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primary,
   },
   statusPill: {
     marginTop: spacing.sm,
@@ -1447,6 +1553,17 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.success,
   },
+  secondaryActionButton: {
+    minHeight: 48,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderRadius: borderRadius.md,
+  },
+  secondaryActionText: { color: theme.colors.primary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
   paymentActionCard: {
     ...theme.components.card,
     borderRadius: borderRadius.xl,

@@ -57,6 +57,31 @@ export interface UpcomingStopSheetItem {
   tone: UpcomingStopTone;
 }
 
+export interface TrackingSupplementalListItem {
+  content: ReactNode;
+  key: string;
+  type: string;
+}
+
+export interface TrackingSupplementalListSection {
+  footer?: ReactNode;
+  items: readonly TrackingSupplementalListItem[];
+}
+
+type UpcomingStopsSheetListItem =
+  | {
+      kind: 'stop';
+      stop: UpcomingStopSheetItem;
+    }
+  | {
+      content: ReactNode;
+      kind: 'tracking-details';
+    }
+  | {
+      item: TrackingSupplementalListItem;
+      kind: 'supplemental';
+    };
+
 interface UpcomingStopsSheetProps {
   containerHeight: number;
   featuredItems: readonly UpcomingStopSheetItem[];
@@ -65,6 +90,7 @@ interface UpcomingStopsSheetProps {
   onCollapsedHeightChange?: (height: number) => void;
   onRefresh: () => void;
   refreshing: boolean;
+  supplementalListSection?: TrackingSupplementalListSection;
 }
 
 const VELOCITY_SNAP_THRESHOLD = 350;
@@ -241,8 +267,17 @@ const UpcomingStopRow = React.memo(function UpcomingStopRowComponent({
 });
 
 const StopSeparator = React.memo(
-  function StopSeparatorComponent(): React.JSX.Element {
+  function StopSeparatorComponent({
+    leadingItem,
+    trailingItem,
+  }: {
+    leadingItem: UpcomingStopsSheetListItem;
+    trailingItem: UpcomingStopsSheetListItem;
+  }): React.JSX.Element | null {
     const styles = useThemedStyles(createStyles);
+    if (leadingItem.kind !== 'stop' || trailingItem.kind !== 'stop') {
+      return null;
+    }
     return <View style={styles.separator} />;
   },
 );
@@ -256,6 +291,7 @@ export const UpcomingStopsSheet = React.memo(
     onCollapsedHeightChange,
     onRefresh,
     refreshing,
+    supplementalListSection,
   }: UpcomingStopsSheetProps): React.JSX.Element {
     const { t } = useTranslation();
     const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState(48);
@@ -346,16 +382,68 @@ export const UpcomingStopsSheet = React.memo(
       onCollapsedHeightChange?.(collapsedHeight);
     }, [collapsedHeight, onCollapsedHeightChange]);
 
-    const renderItem = useCallback<ListRenderItem<UpcomingStopSheetItem>>(
-      ({ item }) => <UpcomingStopRow item={item} styles={styles} />,
+    const listItems = useMemo<UpcomingStopsSheetListItem[]>(() => {
+      const nextItems: UpcomingStopsSheetListItem[] = items.map((stop) => ({
+        kind: 'stop',
+        stop,
+      }));
+      if (!supplementalListSection) return nextItems;
+
+      if (footer) {
+        nextItems.push({
+          content: footer,
+          kind: 'tracking-details',
+        });
+      }
+      supplementalListSection.items.forEach((item) => {
+        nextItems.push({
+          item,
+          kind: 'supplemental',
+        });
+      });
+      return nextItems;
+    }, [footer, items, supplementalListSection]);
+    const renderItem = useCallback<ListRenderItem<UpcomingStopsSheetListItem>>(
+      ({ item }) => {
+        switch (item.kind) {
+          case 'stop':
+            return <UpcomingStopRow item={item.stop} styles={styles} />;
+          case 'tracking-details':
+            return <View style={styles.footer}>{item.content}</View>;
+          case 'supplemental':
+            return <>{item.item.content}</>;
+        }
+      },
       [styles],
     );
     const keyExtractor = useCallback(
-      (item: UpcomingStopSheetItem) => item.id,
+      (item: UpcomingStopsSheetListItem) => {
+        switch (item.kind) {
+          case 'stop':
+            return `stop:${item.stop.id}`;
+          case 'tracking-details':
+            return 'tracking:details';
+          case 'supplemental':
+            return `supplemental:${item.item.key}`;
+        }
+      },
       [],
     );
-    const listFooter = footer ? (
-      <View style={styles.footer}>{footer}</View>
+    const getItemType = useCallback((item: UpcomingStopsSheetListItem) => {
+      switch (item.kind) {
+        case 'stop':
+          return 'upcoming-stop';
+        case 'tracking-details':
+          return 'tracking-details';
+        case 'supplemental':
+          return item.item.type;
+      }
+    }, []);
+    const listFooterContent = supplementalListSection
+      ? supplementalListSection.footer
+      : footer;
+    const listFooter = listFooterContent ? (
+      <View style={styles.footer}>{listFooterContent}</View>
     ) : null;
 
     return (
@@ -460,7 +548,8 @@ export const UpcomingStopsSheet = React.memo(
             ]}
           >
             <FlashList
-              data={items}
+              data={listItems}
+              getItemType={getItemType}
               keyExtractor={keyExtractor}
               renderItem={renderItem}
               ItemSeparatorComponent={StopSeparator}

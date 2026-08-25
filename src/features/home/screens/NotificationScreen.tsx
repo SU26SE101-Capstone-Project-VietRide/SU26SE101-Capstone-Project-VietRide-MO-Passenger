@@ -5,7 +5,6 @@ import {
   Pressable,
   StatusBar,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
@@ -184,8 +183,6 @@ export function NotificationScreen(): React.JSX.Element {
   const navigation = useNavigation<NotificationNavigation>();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { width: viewportWidth } = useWindowDimensions();
-  const isNarrowHeader = viewportWidth < 380;
   const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.user?.id);
   const handleTabBarScroll = useTabBarScrollBehavior();
@@ -438,7 +435,7 @@ export function NotificationScreen(): React.JSX.Element {
         backgroundColor={theme.colors.background}
       />
 
-      <View style={[styles.header, isNarrowHeader ? styles.headerStacked : null]}>
+      <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Bell size={24} color={theme.colors.textPrimary} style={styles.headerIcon} />
           <View style={styles.headerCopy}>
@@ -462,7 +459,6 @@ export function NotificationScreen(): React.JSX.Element {
             hitSlop={8}
             style={({ pressed }) => [
               styles.markAllButton,
-              isNarrowHeader ? styles.markAllButtonWide : null,
               pressed ? styles.pressedRow : null,
               isMarkingAll ? styles.markAllButtonDisabled : null,
             ]}
@@ -524,6 +520,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   header: {
     flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
     gap: spacing.sm,
@@ -531,10 +528,6 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.effects.contentBorder,
-  },
-  headerStacked: {
-    flexDirection: 'column' as const,
-    alignItems: 'stretch' as const,
   },
   markAllButton: {
     flexShrink: 0,
@@ -546,10 +539,7 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    minHeight: 36,
-  },
-  markAllButtonWide: {
-    maxWidth: '100%' as unknown as number,
+    minHeight: 44,
     alignSelf: 'flex-start' as const,
   },
   markAllButtonDisabled: {
@@ -595,6 +585,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   headerCopy: {
     flex: 1,
+    flexBasis: 220,
     minWidth: 0,
   },
   headerIcon: {

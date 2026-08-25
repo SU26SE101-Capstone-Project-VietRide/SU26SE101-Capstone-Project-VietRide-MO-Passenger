@@ -10,7 +10,7 @@ import { View, Text, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
 import type { SeatBadgeItem } from '../utils/seatPresentation';
@@ -34,6 +34,7 @@ export function FloatingActionBar({
 }: FloatingActionBarProps): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const { isCompact } = useResponsiveLayout();
   const insets = useSafeAreaInsets();
   const visibleSeatBadges = seatBadges.slice(0, MAX_VISIBLE_SEAT_BADGES);
   const hiddenSeatCount = seatBadges.length - visibleSeatBadges.length;
@@ -42,11 +43,11 @@ export function FloatingActionBar({
     <View
       style={[
         styles.container,
+        isCompact ? styles.containerCompact : null,
         { paddingBottom: Math.max(insets.bottom, spacing.lg) },
       ]}
     >
-      {/* Summary row */}
-      <View style={styles.summaryRow}>
+      <View style={[styles.summaryRow, isCompact ? styles.summaryRowCompact : null]}>
         <View style={styles.seatsInfo}>
           <Text style={styles.seatsLabel}>{t('booking.seats.selected')}</Text>
           <View style={styles.seatBadges}>
@@ -65,15 +66,14 @@ export function FloatingActionBar({
             ) : null}
           </View>
         </View>
-        <View style={styles.priceInfo}>
+        <View style={[styles.priceInfo, isCompact ? styles.priceInfoCompact : null]}>
           <Text style={styles.priceLabel}>{t('booking.totalPrice')}</Text>
-          <Text style={styles.priceValue}>
+          <Text style={styles.priceValue} numberOfLines={1}>
             {formatVnd(totalPrice, { clampNegative: true })}
           </Text>
         </View>
       </View>
 
-      {/* CTA Button */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={ctaLabel}
@@ -86,7 +86,9 @@ export function FloatingActionBar({
           pressed && !(disabled || seatBadges.length === 0) ? styles.ctaPressed : null,
         ]}
       >
-        <Text style={styles.ctaText}>{ctaLabel}</Text>
+        <Text style={styles.ctaText} numberOfLines={1}>
+          {ctaLabel}
+        </Text>
         <Text style={styles.ctaArrow}>→</Text>
       </Pressable>
     </View>
@@ -101,12 +103,19 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
   },
+  containerCompact: {
+    paddingHorizontal: spacing.md,
+  },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: spacing.md,
     marginBottom: spacing.md,
+  },
+  summaryRowCompact: {
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   seatsInfo: {
     flex: 1,
@@ -140,7 +149,12 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textTertiary,
   },
   priceInfo: {
+    flexShrink: 0,
     alignItems: 'flex-end',
+  },
+  priceInfoCompact: {
+    flexBasis: '100%',
+    alignItems: 'flex-start',
   },
   priceLabel: {
     fontFamily: fontFamilies.medium,
@@ -149,6 +163,7 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.xs,
   },
   priceValue: {
+    maxWidth: '100%',
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.primary,
@@ -170,12 +185,15 @@ const createStyles = (theme: AppTheme) => ({
     transform: [{ scale: 0.99 }],
   },
   ctaText: {
+    minWidth: 0,
+    flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,
     marginRight: spacing.sm,
   },
   ctaArrow: {
+    flexShrink: 0,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textInverse,

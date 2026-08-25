@@ -1,5 +1,8 @@
 import type { BookingStatus } from '@features/booking/types';
-import type { ParcelStatus } from '@features/parcel/types';
+import type {
+  ParcelReliabilitySummary,
+  ParcelStatus,
+} from '@features/parcel/types';
 import type { TrackingTarget } from '@features/tracking/types/trackingTarget';
 
 export type PassengerHistoryType = 'TICKET' | 'PARCEL';
@@ -35,12 +38,24 @@ export interface PassengerHistoryVehicle {
   vehicleType: PassengerHistoryVehicleType | null;
 }
 
+export interface BookingHistoryShuttleRequest {
+  direction: 'INBOUND_TO_STATION' | 'OUTBOUND_FROM_STATION';
+  address: string;
+  latitude: number;
+  longitude: number;
+  roadDistanceMeters: number | null;
+  isActive: boolean;
+  requestedAt: string;
+  cancelledAt: string | null;
+}
+
 export interface PassengerTicketHistoryDetails {
   bookingGroupId: string | null;
   tripDirection: 'OUTBOUND' | 'RETURN' | null;
   routeName: string | null;
   tickets: PassengerHistoryTicketSummary[];
   vehicle: PassengerHistoryVehicle | null;
+  shuttleRequests: BookingHistoryShuttleRequest[];
 }
 
 export interface PassengerParcelHistoryDetails {
@@ -49,13 +64,16 @@ export interface PassengerParcelHistoryDetails {
   sizeCategory: PassengerParcelSizeCategory;
   photoUrl: string | null;
   deliveryMethod: string;
+  role: 'SENT' | 'RECEIVED';
+  reliability: ParcelReliabilitySummary | null;
 }
 
 export type PassengerParcelSizeCategory =
   | 'SMALL'
   | 'MEDIUM'
   | 'LARGE'
-  | 'EXTRA_LARGE';
+  | 'EXTRA_LARGE'
+  | (string & {});
 
 interface PassengerHistoryItemBase {
   id: string;

@@ -14,13 +14,13 @@ const emptyParamsSchema = z.object({}).strict();
 
 /**
  * Shuttle tracking params.
- * BE resolveNotificationAction currently only embeds shuttleTripId, while
- * bookingId lives on notification.data (and is flattened onto FCM data).
- * FE accepts optional bookingId in params for forward-compat + enriched opens.
+ * bookingId can live in params or notification.data during rolling deploys.
+ * pickupOrder is the BE fallback when a booking id is unavailable.
  */
 const openShuttleTrackingParamsSchema = z.object({
   shuttleTripId: z.string().uuid(),
   bookingId: z.string().uuid().optional(),
+  pickupOrder: z.number().int().positive().optional(),
 }).strict();
 
 export const notificationActionSchema = z.discriminatedUnion('type', [
@@ -107,7 +107,7 @@ const withShuttleBookingId = (
   return {
     type: 'OPEN_SHUTTLE_TRACKING',
     params: {
-      shuttleTripId: action.params.shuttleTripId,
+      ...action.params,
       bookingId,
     },
   };
@@ -150,7 +150,12 @@ export type NotificationNavigationIntent =
   | { type: 'trip-tracking'; tripId: string }
   | { type: 'parcel-detail'; parcelId: string }
   | { type: 'wallet' }
-  | { type: 'shuttle-tracking'; shuttleTripId: string; bookingId?: string };
+  | {
+      type: 'shuttle-tracking';
+      shuttleTripId: string;
+      bookingId?: string;
+      pickupOrder?: number;
+    };
 
 /**
  * Only Passenger routes with a validated, supported destination are exposed.
@@ -182,6 +187,9 @@ export const getNotificationNavigationIntent = (
         type: 'shuttle-tracking',
         shuttleTripId: action.params.shuttleTripId,
         ...(bookingId ? { bookingId } : {}),
+        ...(action.params.pickupOrder !== undefined
+          ? { pickupOrder: action.params.pickupOrder }
+          : {}),
       };
     }
     case 'OPEN_CREW_TRIP_BOOKING':

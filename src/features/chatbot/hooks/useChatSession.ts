@@ -296,6 +296,8 @@ export function useChatSession() {
     locations,
     resolveErrorMessage,
     scheduleTokenFlush,
+    setConversationId,
+    setMessages,
     startStreamTimeouts,
     t,
     updateMessage,

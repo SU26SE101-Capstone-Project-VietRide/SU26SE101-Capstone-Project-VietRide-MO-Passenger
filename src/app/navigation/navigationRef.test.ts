@@ -172,4 +172,22 @@ describe('notification action navigation', () => {
     discardPendingPaymentOpen();
     flushPendingPaymentOpen();
   });
+
+  it('passes bookingId and pickupOrder to Shuttle Tracking', () => {
+    openNotificationFromSystemTray({
+      type: 'OPEN_SHUTTLE_TRACKING',
+      params: {
+        shuttleTripId: SHUTTLE_TRIP_ID,
+        bookingId: BOOKING_ID,
+        pickupOrder: 3,
+      },
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('Tracking', {
+      source: 'shuttle',
+      shuttleTripId: SHUTTLE_TRIP_ID,
+      bookingId: BOOKING_ID,
+      pickupOrder: 3,
+    });
+  });
 });

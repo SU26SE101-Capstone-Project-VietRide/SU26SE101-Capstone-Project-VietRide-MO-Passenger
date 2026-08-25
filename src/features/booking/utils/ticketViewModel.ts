@@ -1,5 +1,8 @@
 import type { TripLifecycleStatus } from '@features/trip/types';
-import type { PassengerTicketHistoryItem } from '@features/profile/types';
+import type {
+  BookingHistoryShuttleRequest,
+  PassengerTicketHistoryItem,
+} from '@features/profile/types';
 import {
   buildTrackingTargetFromPoints,
   type TrackingTarget,
@@ -48,6 +51,8 @@ export interface TicketLegViewModel {
   trackingEnabled: boolean;
   shuttlePickupAddress?: string;
   shuttleDropoffAddress?: string;
+  /** Ordered public Booking History shuttle snapshots, including cancelled requests. */
+  shuttleRequests?: readonly BookingHistoryShuttleRequest[];
   /** Route display name from history payload; omit when unknown. */
   routeName?: string;
   /**
@@ -477,6 +482,9 @@ export const buildPassengerHistoryTicketViewModel = (
       bookingId: item.id,
       ...(item.trackingTarget ? { trackingTarget: item.trackingTarget } : {}),
       ...(item.ticket.routeName ? { routeName: item.ticket.routeName } : {}),
+      ...(item.ticket.shuttleRequests.length > 0
+        ? { shuttleRequests: item.ticket.shuttleRequests }
+        : {}),
       usesRouteEndpoints: true,
       trackingEnabled: statusPresentation.trackingEnabled,
     }],

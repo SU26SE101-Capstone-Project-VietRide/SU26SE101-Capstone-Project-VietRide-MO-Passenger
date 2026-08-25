@@ -1,4 +1,5 @@
 import { apiClient } from '@shared/api/axiosInstance';
+import type { ListPublishedPoliciesParams } from '../types/policy';
 import {
   buildPublishedPolicyQuery,
   getPublishedPolicy,
@@ -59,13 +60,15 @@ describe('buildPublishedPolicyQuery', () => {
       sortDir: 'asc',
     });
 
-    expect(buildPublishedPolicyQuery({
+    const malformedParams = {
       operatorId: 'driver-user-id',
       category: 'refund',
       sortBy: 'unknown',
       sortDir: 'up',
       pageSize: 500,
-    })).toEqual({
+    } as unknown as ListPublishedPoliciesParams;
+
+    expect(buildPublishedPolicyQuery(malformedParams)).toEqual({
       page: 1,
       pageSize: 100,
     });

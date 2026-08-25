@@ -2,6 +2,20 @@ import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { StyleSheet, Text } from 'react-native';
 
+interface MockFlashListProps {
+  data?: unknown[];
+  getItemType?: (item: unknown) => string;
+  ItemSeparatorComponent?: React.ComponentType<{
+    leadingItem: unknown;
+    trailingItem: unknown;
+  }>;
+  keyExtractor?: (item: unknown) => string;
+  ListFooterComponent?: React.ReactNode;
+  renderItem: (info: { index: number; item: unknown }) => React.ReactNode;
+}
+
+const mockFlashListCalls: MockFlashListProps[] = [];
+
 const mockTheme = {
   colors: {
     divider: '#DDE5E3',
@@ -77,29 +91,33 @@ jest.mock('@shopify/flash-list', () => {
   const ReactModule = require('react');
   const { View: MockListView } = require('react-native');
 
-  const MockFlashList = ({
-    data = [],
-    ListFooterComponent,
-    renderItem,
-  }: {
-    data?: unknown[];
-    ListFooterComponent?: React.ReactNode;
-    renderItem: (info: { index: number; item: unknown }) => React.ReactNode;
-  }) => ReactModule.createElement(
-    MockListView,
-    { testID: 'mock-upcoming-flash-list' },
-    ...data.map((item, index) => ReactModule.createElement(
-      ReactModule.Fragment,
-      { key: index },
-      renderItem({ item, index }),
-    )),
-    ListFooterComponent,
-  );
+  const MockFlashList = (props: MockFlashListProps) => {
+    const {
+      data = [],
+      ListFooterComponent,
+      renderItem,
+    } = props;
+    mockFlashListCalls.push(props);
+    return ReactModule.createElement(
+      MockListView,
+      { testID: 'mock-upcoming-flash-list' },
+      ...data.map((item, index) => ReactModule.createElement(
+        ReactModule.Fragment,
+        { key: index },
+        renderItem({ item, index }),
+      )),
+      ListFooterComponent,
+    );
+  };
 
   return { FlashList: MockFlashList };
 });
 
-import { UpcomingStopsSheet, type UpcomingStopSheetItem } from './UpcomingStopsSheet';
+import {
+  UpcomingStopsSheet,
+  type TrackingSupplementalListSection,
+  type UpcomingStopSheetItem,
+} from './UpcomingStopsSheet';
 
 const featuredItems: UpcomingStopSheetItem[] = [
   {
@@ -121,6 +139,10 @@ const featuredItems: UpcomingStopSheetItem[] = [
 ];
 
 describe('UpcomingStopsSheet', () => {
+  beforeEach(() => {
+    mockFlashListCalls.length = 0;
+  });
+
   it('uses a compact complete preview and hides it visually when expanded', () => {
     let renderer: ReactTestRenderer.ReactTestRenderer;
 
@@ -165,6 +187,70 @@ describe('UpcomingStopsSheet', () => {
       && node.props.importantForAccessibility === 'yes'
       && node.props.accessibilityElementsHidden === false
     ))).toBeDefined();
+    const legacyListProps = mockFlashListCalls[mockFlashListCalls.length - 1];
+    expect((legacyListProps.data ?? []).map((item) => (
+      (item as { kind: string }).kind
+    ))).toEqual(['stop', 'stop']);
+    expect(legacyListProps.ListFooterComponent).toBeTruthy();
+
+    act(() => renderer!.unmount());
+  });
+
+  it('keeps tracking details and supplemental rows in the same virtualized list', () => {
+    const supplementalListSection: TrackingSupplementalListSection = {
+      footer: <Text testID="supplemental-footer">Load earlier</Text>,
+      items: [
+        {
+          content: <Text testID="supplemental-event">Custody event</Text>,
+          key: 'event-1',
+          type: 'parcel-timeline-event',
+        },
+      ],
+    };
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    act(() => {
+      renderer = ReactTestRenderer.create(
+        <UpcomingStopsSheet
+          containerHeight={600}
+          featuredItems={featuredItems}
+          footer={<Text testID="tracking-details">Tracking details</Text>}
+          items={featuredItems}
+          onRefresh={() => undefined}
+          refreshing={false}
+          supplementalListSection={supplementalListSection}
+        />,
+      );
+    });
+
+    const listProps = mockFlashListCalls[mockFlashListCalls.length - 1];
+    const data = listProps.data ?? [];
+    expect(data.map((item) => (
+      (item as { kind: string }).kind
+    ))).toEqual([
+      'stop',
+      'stop',
+      'tracking-details',
+      'supplemental',
+    ]);
+    expect(data.map((item) => listProps.keyExtractor?.(item))).toEqual([
+      'stop:next',
+      'stop:target',
+      'tracking:details',
+      'supplemental:event-1',
+    ]);
+    expect(data.map((item) => listProps.getItemType?.(item))).toEqual([
+      'upcoming-stop',
+      'upcoming-stop',
+      'tracking-details',
+      'parcel-timeline-event',
+    ]);
+    expect(renderer!.root.findByProps({ testID: 'tracking-details' }))
+      .toBeDefined();
+    expect(renderer!.root.findByProps({ testID: 'supplemental-event' }))
+      .toBeDefined();
+    expect(renderer!.root.findByProps({ testID: 'supplemental-footer' }))
+      .toBeDefined();
 
     act(() => renderer!.unmount());
   });

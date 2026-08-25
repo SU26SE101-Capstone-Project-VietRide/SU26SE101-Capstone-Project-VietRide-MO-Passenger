@@ -52,6 +52,90 @@ const availableTripWire = {
   depositPercent: 20,
 };
 
+const parcelDetailWire: ParcelDetail = {
+  parcelId: PARCEL_ID,
+  parcelCode: 'PCL-001',
+  status: 'PENDING',
+  senderUserId: USER_ID,
+  recipientUserId: null,
+  recipientName: null,
+  recipientPhone: null,
+  operatorId: '33333333-3333-4333-8333-333333333333',
+  tripId: TRIP_ID,
+  dropoffStopId: null,
+  description: null,
+  quantity: 1,
+  declaredValueVnd: null,
+  photoUrl: null,
+  checkInPhotoUrls: null,
+  deliveryPhotoUrls: null,
+  sizeCategory: 'MEDIUM',
+  estimatedWeightKg: 8,
+  actualWeightKg: null,
+  deliveryMethod: 'TERMINAL_PICKUP',
+  depositAmount: 30_000,
+  originalDepositAmount: 30_000,
+  discountAmount: 0,
+  voucherCode: null,
+  voucherUsageId: null,
+  additionalAmount: 0,
+  estimatedSizeCategory: 'MEDIUM',
+  actualSizeCategory: null,
+  estimatedLengthCm: 40,
+  estimatedWidthCm: 30,
+  estimatedHeightCm: 20,
+  estimatedVolumeM3: 0.024,
+  estimatedDimWeightKg: 4.8,
+  estimatedChargeableWeightKg: 8,
+  actualLengthCm: null,
+  actualWidthCm: null,
+  actualHeightCm: null,
+  actualVolumeM3: null,
+  actualDimWeightKg: null,
+  actualChargeableWeightKg: null,
+  estimatedGrossPriceVnd: 150_000,
+  finalGrossPriceVnd: 0,
+  discountAmountVnd: 0,
+  estimatedTotalPriceVnd: 150_000,
+  finalTotalPriceVnd: 0,
+  depositPercent: 20,
+  depositRequiredVnd: 30_000,
+  depositPaidVnd: 0,
+  balanceRequiredVnd: 0,
+  balancePaidVnd: 0,
+  refundDueVnd: 0,
+  refundedAmountVnd: 0,
+  forfeitedDepositVnd: 0,
+  depositPaymentId: null,
+  balancePaymentId: null,
+  loadCutoffAt: null,
+  latestCheckInAt: null,
+  checkedInAt: null,
+  checkedInByUserId: null,
+  reweighedAt: null,
+  reweighedByUserId: null,
+  finalPaymentDeadline: null,
+  pricePerKgVnd: 10_000,
+  minimumPriceVnd: 50_000,
+  dimWeightFactor: 5_000,
+  settlementPolicyVersion: 2,
+  createdAt: '2026-05-18T06:00:00+07:00',
+  loadedAt: null,
+  unloadedAt: null,
+  deliveredPendingConfirmAt: null,
+  confirmedAt: null,
+  rejectedAt: null,
+  originStationName: 'Origin',
+  destinationStationName: 'Destination',
+  eta: null,
+  operator: null,
+  trip: null,
+  dropoffLocation: null,
+  compensationPolicySnapshot: null,
+  reliabilitySummary: null,
+  availableActions: [],
+};
+
 describe('getParcelDetail', () => {
   const getMock = jest.mocked(apiClient.get);
 
@@ -60,15 +144,14 @@ describe('getParcelDetail', () => {
   });
 
   it('uses a validated UUID as the only dynamic path segment', async () => {
-    const detail = { id: PARCEL_ID } as unknown as ParcelDetail;
     const envelope: ApiSuccessEnvelope<ParcelDetail> = {
       success: true,
       statusCode: 200,
-      data: detail,
+      data: parcelDetailWire,
     };
     getMock.mockResolvedValueOnce({ data: envelope });
 
-    await expect(getParcelDetail(PARCEL_ID)).resolves.toBe(detail);
+    await expect(getParcelDetail(PARCEL_ID)).resolves.toEqual(parcelDetailWire);
     expect(getMock).toHaveBeenCalledWith(`/parcels/${PARCEL_ID}`);
   });
 
@@ -298,6 +381,8 @@ describe('parcel signed quote contract', () => {
       widthCm: 30,
       heightCm: 20,
       estimatedWeightKg: 8,
+      declaredValueVnd: 2_000_000,
+      quantity: 1,
       photoUrl: null,
       recipient: {
         fullName: 'Recipient',

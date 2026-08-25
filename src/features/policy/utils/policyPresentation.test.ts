@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import type { PublishedPolicy } from '../types/policy';
 import {
   flattenPolicySections,
@@ -35,7 +36,7 @@ describe('policyPresentation', () => {
   });
 
   it('translates known categories and leaves unknown tokens readable', () => {
-    const translate = (key: string) => key;
+    const translate = ((key: string) => key) as TFunction;
 
     expect(policyCategoryLabel('REFUND', translate)).toBe('policy.categories.REFUND');
     expect(policyCategoryLabel('CUSTOM_FEE', translate)).toBe('CUSTOM FEE');

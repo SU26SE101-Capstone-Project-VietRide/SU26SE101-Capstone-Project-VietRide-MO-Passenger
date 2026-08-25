@@ -228,4 +228,66 @@ describe('notification actions', () => {
     expect(resolveShuttleTrackingBookingId(action, { bookingId: BOOKING_ID_B }))
       .toBe(BOOKING_ID);
   });
+
+  it.each([
+    { shuttleTripId: SHUTTLE_TRIP_ID, bookingId: BOOKING_ID },
+    { shuttleTripId: SHUTTLE_TRIP_ID, pickupOrder: 3 },
+    { shuttleTripId: SHUTTLE_TRIP_ID, bookingId: BOOKING_ID, pickupOrder: 3 },
+  ])('accepts v1.92 shuttle params %#', (params) => {
+    const action = { type: 'OPEN_SHUTTLE_TRACKING', params } as const;
+    expect(parseNotificationAction(action)).toEqual(action);
+    expect(parseFcmNotificationAction({
+      actionType: action.type,
+      actionParams: JSON.stringify(params),
+    })).toEqual(action);
+  });
+
+  it.each([
+    { shuttleTripId: SHUTTLE_TRIP_ID, pickupOrder: 0 },
+    { shuttleTripId: SHUTTLE_TRIP_ID, pickupOrder: -1 },
+    { shuttleTripId: SHUTTLE_TRIP_ID, pickupOrder: 3, unknown: true },
+  ])('rejects invalid or unknown v1.92 shuttle params %#', (params) => {
+    const value = { type: 'OPEN_SHUTTLE_TRACKING', params };
+    expect(parseNotificationAction(value)).toEqual(NONE_NOTIFICATION_ACTION);
+    expect(parseFcmNotificationAction({
+      actionType: 'OPEN_SHUTTLE_TRACKING',
+      actionParams: JSON.stringify(params),
+    })).toEqual(NONE_NOTIFICATION_ACTION);
+  });
+
+  it('preserves pickupOrder when FCM enrichment adds bookingId', () => {
+    expect(parseFcmNotificationAction({
+      actionType: 'OPEN_SHUTTLE_TRACKING',
+      actionParams: JSON.stringify({
+        shuttleTripId: SHUTTLE_TRIP_ID,
+        pickupOrder: 3,
+      }),
+      bookingId: BOOKING_ID,
+    })).toEqual({
+      type: 'OPEN_SHUTTLE_TRACKING',
+      params: {
+        shuttleTripId: SHUTTLE_TRIP_ID,
+        bookingId: BOOKING_ID,
+        pickupOrder: 3,
+      },
+    });
+  });
+
+  it('keeps pickupOrder in the shuttle navigation intent', () => {
+    const action = parseNotificationAction({
+      type: 'OPEN_SHUTTLE_TRACKING',
+      params: {
+        shuttleTripId: SHUTTLE_TRIP_ID,
+        bookingId: BOOKING_ID,
+        pickupOrder: 3,
+      },
+    });
+
+    expect(getNotificationNavigationIntent(action)).toEqual({
+      type: 'shuttle-tracking',
+      shuttleTripId: SHUTTLE_TRIP_ID,
+      bookingId: BOOKING_ID,
+      pickupOrder: 3,
+    });
+  });
 });

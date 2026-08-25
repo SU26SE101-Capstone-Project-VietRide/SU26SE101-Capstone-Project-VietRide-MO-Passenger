@@ -14,6 +14,13 @@ const mockTheme = {
     textSecondary: '#435a57',
     textTertiary: '#70817f',
   },
+  accents: {
+    assistant: {
+      border: '#b7ded9',
+      foreground: '#007d78',
+      soft: '#e3f5f3',
+    },
+  },
   effects: {
     isLiquid: false,
     glassBorder: '#d8e3e2',
@@ -27,6 +34,18 @@ jest.mock('@shared/contexts/ThemeContext', () => ({
 }));
 jest.mock('@shared/hooks', () => ({
   useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) => factory(mockTheme),
+}));
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => ({
+      'booking.shuttle.arrangementNotice': 'The operator will arrange the Shuttle.',
+      'booking.shuttle.editAddress': 'Edit Shuttle pickup address',
+      'booking.shuttle.requestAccessibility': 'Request Shuttle pickup',
+      'booking.shuttle.savedAwaitingArrangement': 'Saved, awaiting arrangement',
+      'booking.shuttle.title': 'Shuttle pickup',
+      'booking.shuttle.requestToStation': 'Request pickup to the station',
+    }[key] ?? key),
+  }),
 }));
 jest.mock('phosphor-react-native', () => ({
   MapPinLine: () => null,

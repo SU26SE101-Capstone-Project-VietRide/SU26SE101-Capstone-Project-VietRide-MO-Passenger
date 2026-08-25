@@ -21,6 +21,8 @@ const createParcel = (overrides: Partial<ParcelDetail> = {}): ParcelDetail => ({
   tripId: 'trip',
   dropoffStopId: null,
   description: null,
+  quantity: 1,
+  declaredValueVnd: null,
   photoUrl: null,
   checkInPhotoUrls: null,
   deliveryPhotoUrls: null,
@@ -83,6 +85,12 @@ const createParcel = (overrides: Partial<ParcelDetail> = {}): ParcelDetail => ({
   originStationName: null,
   destinationStationName: null,
   eta: null,
+  operator: null,
+  trip: null,
+  dropoffLocation: null,
+  compensationPolicySnapshot: null,
+  reliabilitySummary: null,
+  availableActions: [],
   ...overrides,
 });
 

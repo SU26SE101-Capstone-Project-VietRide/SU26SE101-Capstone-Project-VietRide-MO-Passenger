@@ -101,10 +101,14 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 0,
+    maxWidth: '100%',
   },
   text: {
+    flexShrink: 1,
     fontFamily: fontFamilies.semiBold,
     letterSpacing: 0,
+    textAlign: 'center',
   },
   fullWidth: {
     width: '100%',
@@ -177,7 +181,7 @@ const sizeStyles: Record<
     container: {
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.lg,
-      minHeight: 36,
+      minHeight: 44,
     },
     text: {
       fontSize: fontSizes.sm,

@@ -174,4 +174,35 @@ describe('API logger redaction', () => {
       'response-cookie-secret',
     ].forEach(secret => expect(output).not.toContain(secret));
   });
+
+  it('redacts delivery tokens, evidence references, and Reliability narratives', () => {
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation();
+    logRequest(makeConfig({
+      url: '/v1/parcels/delivery/reject',
+      data: {
+        token: 'delivery-token-secret',
+        rejectionReason: 'private rejection narrative',
+        incidentDescription: 'private incident narrative',
+        appealReason: 'private appeal narrative',
+        evidenceUrls: ['https://private.example/evidence.jpg'],
+        evidence: {
+          reference: 'gs://private-bucket/evidence',
+          note: 'private evidence note',
+        },
+        status: 'DELIVERY_REJECTED',
+      },
+    }));
+
+    const output = consoleOutput(debugSpy);
+    expect(output).toContain('DELIVERY_REJECTED');
+    [
+      'delivery-token-secret',
+      'private rejection narrative',
+      'private incident narrative',
+      'private appeal narrative',
+      'https://private.example/evidence.jpg',
+      'gs://private-bucket/evidence',
+      'private evidence note',
+    ].forEach(secret => expect(output).not.toContain(secret));
+  });
 });

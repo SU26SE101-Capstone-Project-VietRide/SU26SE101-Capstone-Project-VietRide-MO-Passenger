@@ -28,6 +28,8 @@ const parcel = (
     sizeCategory: 'SMALL',
     photoUrl: null,
     deliveryMethod: 'TERMINAL_PICKUP',
+    role: 'SENT',
+    reliability: null,
   },
 });
 
