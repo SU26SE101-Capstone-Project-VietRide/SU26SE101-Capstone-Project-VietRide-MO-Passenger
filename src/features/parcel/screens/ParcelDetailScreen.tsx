@@ -71,6 +71,7 @@ import {
 } from '../hooks/useParcelQueries';
 import {
   ErrorView,
+  ParcelCompensationDisclosure,
   ParcelPaymentMethodSelector,
 } from '../components';
 import { parcelKeys } from '../api/parcelApi';
@@ -254,6 +255,12 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const deliveryCodeActive = checkoutState === 'active';
   const heroCopy = getParcelDetailHeroCopy(checkoutState, paymentStage);
   const trackingAvailable = isParcelTrackingEligible(parcel?.status);
+  const hasClaimSurface = Boolean(
+    parcel?.reliabilitySummary?.claim
+    || parcel?.availableActions.some(action => (
+      action === 'SUBMIT_CLAIM' || action === 'ADD_EVIDENCE' || action === 'APPEAL'
+    )),
+  );
   const isSender = Boolean(userId && parcel?.senderUserId === userId);
   const statusPresentation = getParcelStatusPresentation(parcel?.status);
   const expectedVnPayKind = parcelPaymentKindForStage(paymentStage);
@@ -968,46 +975,13 @@ export function ParcelDetailScreen(): React.JSX.Element {
           <ParcelPhotoGallery photos={parcelPhotos} />
 
           {parcel?.compensationPolicySnapshot ? (
-            <View style={styles.policyCard}>
-              <Text style={styles.policyTitle}>{t('parcel.detail.compensationPolicy')}</Text>
-              <Text style={styles.policyDescription}>
-                {t('parcel.detail.compensationPolicyDescription', {
-                  rate: parcel.compensationPolicySnapshot.compensationRatePercent,
-                  cap: formatVnd(parcel.compensationPolicySnapshot.maxCompensationVnd),
-                  days: parcel.compensationPolicySnapshot.claimWindowDays,
-                })}
-              </Text>
-              <Text style={styles.policyHint}>
-                {t('parcel.detail.compensationPolicyHint', {
-                  version: parcel.compensationPolicySnapshot.version,
-                })}
-              </Text>
-            </View>
+            <ParcelCompensationDisclosure
+              operatorName={parcel.operator?.name}
+              policy={parcel.compensationPolicySnapshot}
+            />
           ) : null}
 
-          {parcel?.reliabilitySummary ? (
-            <View style={styles.reliabilityCard}>
-              <Text style={styles.policyTitle}>{t('parcel.detail.reliabilityTitle')}</Text>
-              {parcel.reliabilitySummary.activeIncident ? (
-                <Text style={styles.reliabilityWarning}>
-                  {t('parcel.detail.reliabilityIncident', {
-                    status: parcel.reliabilitySummary.activeIncident.status,
-                  })}
-                </Text>
-              ) : null}
-              {parcel.reliabilitySummary.nextUpdateAt ? (
-                <Text style={styles.policyDescription}>
-                  {t('parcel.detail.reliabilityNextUpdate', {
-                    time: formatDateTime(parcel.reliabilitySummary.nextUpdateAt),
-                  })}
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-
-          {parcel?.availableActions.some((action) => (
-            action === 'SUBMIT_CLAIM' || action === 'ADD_EVIDENCE' || action === 'APPEAL'
-          )) ? (
+          {hasClaimSurface ? (
             <Pressable
               accessibilityRole="button"
               onPress={handleOpenClaim}
@@ -1578,40 +1552,6 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
     color: theme.colors.success,
-  },
-  policyCard: {
-    ...theme.components.card,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-  },
-  reliabilityCard: {
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  policyTitle: {
-    color: theme.colors.textPrimary,
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-  },
-  policyDescription: {
-    marginTop: spacing.sm,
-    color: theme.colors.textSecondary,
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    lineHeight: 21,
-  },
-  policyHint: {
-    marginTop: spacing.sm,
-    color: theme.colors.textTertiary,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-  },
-  reliabilityWarning: {
-    marginTop: spacing.sm,
-    color: theme.colors.warning,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
   },
   secondaryActionButton: {
     minHeight: 48,

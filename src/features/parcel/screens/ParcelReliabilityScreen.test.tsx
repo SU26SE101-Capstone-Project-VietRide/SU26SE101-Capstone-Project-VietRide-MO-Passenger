@@ -230,6 +230,21 @@ describe('ParcelReliabilityScreen timeline virtualization', () => {
       'event-1',
     ]);
 
+    const visibleText = renderer!.root.findAllByType(Text).flatMap(node => (
+      typeof node.props.children === 'string' ? [node.props.children] : []
+    ));
+    expect(visibleText).toContain('parcel.reliability.events.UNKNOWN');
+    expect(visibleText).not.toEqual(expect.arrayContaining([
+      'event-1',
+      'event-2',
+      'event-3',
+      'RETURNED',
+    ]));
+    const headerProps = mockTrackingHeader.mock.calls[0]?.[0] as {
+      subtitle?: string;
+    };
+    expect(headerProps.subtitle).toBe('parcel.reliability.headerSubtitle');
+
     const footer = listProps.ListFooterComponent as React.ReactElement<{
       onPress: () => void;
     }>;

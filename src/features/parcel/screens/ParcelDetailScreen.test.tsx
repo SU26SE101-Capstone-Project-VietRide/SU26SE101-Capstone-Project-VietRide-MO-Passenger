@@ -20,6 +20,11 @@ const mockScannableCodeCard = jest.fn(
     </View>
   ),
 );
+const mockParcelCompensationDisclosure = jest.fn(
+  ({ operatorName }: { operatorName: string | null | undefined }) => (
+    <Text testID="parcel-compensation-disclosure">{operatorName}</Text>
+  ),
+);
 
 const mockTheme = {
   colors: {
@@ -198,6 +203,9 @@ jest.mock('../hooks/useParcelPaymentReturn', () => ({
 
 jest.mock('../components', () => ({
   ErrorView: () => null,
+  ParcelCompensationDisclosure: (
+    props: { operatorName: string | null | undefined },
+  ) => mockParcelCompensationDisclosure(props),
   ParcelPaymentMethodSelector: () => null,
 }));
 
@@ -378,6 +386,66 @@ describe('ParcelDetailScreen identity hierarchy', () => {
     expect(text).toContain('parcel.detail.code.unavailableStatus');
     expect(text).not.toContain(PARCEL_ID);
     expect(countDashedDividers(renderer!)).toBe(0);
+
+    await act(async () => renderer!.unmount());
+  });
+  it('keeps operator terms on demand and hides raw Reliability summary copy', async () => {
+    const parcel = createParcel('IN_TRANSIT');
+    parcel.operator = {
+      operatorId: '22222222-2222-4222-8222-222222222222',
+      name: 'VietRide Express',
+      logoUrl: null,
+      contactPhone: null,
+    };
+    parcel.compensationPolicySnapshot = {
+      version: 3,
+      compensationRatePercent: 80,
+      maxCompensationVnd: 5_000_000,
+      noProofFallbackMultiplier: 0.5,
+      claimWindowDays: 7,
+      searchSlaHours: 24,
+      decisionSlaBusinessDays: 3,
+      payoutSlaBusinessDays: 5,
+    };
+    parcel.reliabilitySummary = {
+      currentCustody: null,
+      activeIncident: {
+        incidentId: '44444444-4444-4444-8444-444444444444',
+        type: 'DAMAGED',
+        status: 'INTERNAL_INCIDENT_STATUS',
+        searchDeadline: '2026-08-25T08:00:00.000Z',
+        nextUpdateAt: null,
+        slaState: 'INTERNAL_SLA',
+        operatorProcessBreach: false,
+      },
+      claim: {
+        claimId: '55555555-5555-4555-8555-555555555555',
+        status: 'PAID',
+        totalAwardVnd: 100_000,
+        decisionDeadline: null,
+        payoutDeadline: null,
+        slaState: null,
+      },
+      nextUpdateAt: '2026-08-25T08:00:00.000Z',
+      availableActions: [],
+    };
+    mockUseParcelDetail.mockReturnValue(queryFor(parcel));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+
+    expect(mockParcelCompensationDisclosure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operatorName: 'VietRide Express',
+        policy: parcel.compensationPolicySnapshot,
+      }),
+    );
+    const text = getTextContent(renderer!);
+    expect(text).not.toContain('INTERNAL_INCIDENT_STATUS');
+    expect(text).not.toContain('parcel.detail.reliabilityTitle');
+    expect(text).toContain('parcel.reliability.openClaim');
 
     await act(async () => renderer!.unmount());
   });

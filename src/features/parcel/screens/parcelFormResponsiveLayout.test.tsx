@@ -1,9 +1,10 @@
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, TextInput } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
 const mockGoBack = jest.fn();
 const mockAppeal = jest.fn();
+const mockReportIncident = jest.fn(async () => undefined);
 let mockClaims: Array<Record<string, unknown>> = [];
 let mockClaimsIsError = false;
 let mockTraceIsError = false;
@@ -93,7 +94,10 @@ jest.mock('../hooks/useParcelReliabilityQueries', () => ({
     isPending: false,
     mutateAsync: mockAppeal,
   }),
-  useReportParcelIncident: () => ({ isPending: false, mutateAsync: jest.fn() }),
+  useReportParcelIncident: () => ({
+    isPending: false,
+    mutateAsync: mockReportIncident,
+  }),
 }));
 
 import { ParcelClaimScreen } from './ParcelClaimScreen';
@@ -160,6 +164,65 @@ describe('Parcel reliability form responsive layout', () => {
     expect(renderer!.root.findAllByType(Text).some(
       (node) => node.props.children === 'parcel.claim.submit',
     )).toBe(true);
+  });
+
+  it('does not present zero awards before the operator records a decision', () => {
+    mockTracePage = {
+      availableActions: [],
+      claimSummary: { status: 'SUBMITTED' },
+    };
+    mockClaims = [{
+      availableActions: [],
+      decidedAt: null,
+      decisionDeadline: null,
+      evidence: [],
+      paidAt: null,
+      payoutDeadline: null,
+      policySnapshot: null,
+      status: 'SUBMITTED',
+    }];
+
+    act(() => {
+      renderer = ReactTestRenderer.create(<ParcelClaimScreen />);
+    });
+
+    const renderedKeys = new Set(
+      renderer!.root.findAllByType(Text).map(node => node.props.children),
+    );
+    expect(renderedKeys).toContain('parcel.claim.reviewTitle');
+    expect(renderedKeys).toContain('parcel.claim.reviewDescription');
+    expect(renderedKeys).not.toContain('parcel.claim.cargoAward');
+    expect(renderedKeys).not.toContain('parcel.claim.freightRefund');
+    expect(renderedKeys).not.toContain('parcel.claim.totalAward');
+  });
+
+  it('does not expose upload or manual-reference UI for ADD_EVIDENCE', () => {
+    mockTracePage = {
+      availableActions: ['ADD_EVIDENCE'],
+      claimSummary: { status: 'SUBMITTED' },
+    };
+    mockClaims = [{
+      availableActions: ['ADD_EVIDENCE'],
+      decidedAt: null,
+      decisionDeadline: null,
+      evidence: [],
+      paidAt: null,
+      payoutDeadline: null,
+      policySnapshot: null,
+      status: 'SUBMITTED',
+    }];
+
+    act(() => {
+      renderer = ReactTestRenderer.create(<ParcelClaimScreen />);
+    });
+
+    const buttons = renderer!.root.findAll(
+      node => node.props.accessibilityRole === 'button',
+    );
+    expect(new Set(buttons.map(node => node.props.accessibilityLabel))).toEqual(
+      new Set(['common.back']),
+    );
+    expect(renderer!.root.findAllByType(TextInput)).toHaveLength(0);
   });
 
   it('blocks an appeal that exceeds the deliberate Passenger input cap', async () => {
@@ -246,6 +309,54 @@ describe('Parcel reliability form responsive layout', () => {
       minWidth: 0,
       flexShrink: 1,
       textAlign: 'center',
+    });
+  });
+  it('shows only passenger-observable issues and keeps the BE payload intact', async () => {
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ReportParcelIncidentScreen />);
+    });
+
+    const chipIds = Array.from(new Set(
+      renderer!.root.findAll((node) => (
+        typeof node.props.testID === 'string'
+        && node.props.testID.startsWith('parcel-incident-type-')
+      )).map(node => node.props.testID as string),
+    )).sort();
+    expect(chipIds).toEqual([
+      'parcel-incident-type-DAMAGED',
+      'parcel-incident-type-DELIVERY_NOT_RECEIVED',
+      'parcel-incident-type-MISSING',
+      'parcel-incident-type-PARTIAL_LOSS',
+      'parcel-incident-type-WRONG_STOP',
+    ]);
+
+    const damagedChip = renderer!.root.findAllByProps({
+      testID: 'parcel-incident-type-DAMAGED',
+    }).find(node => typeof node.props.onPress === 'function');
+    const descriptionInput = renderer!.root.findByProps({
+      label: 'parcel.incident.descriptionLabel',
+    });
+
+    await act(async () => {
+      damagedChip?.props.onPress();
+      descriptionInput.props.onChangeText('The parcel box is torn.');
+    });
+
+    const submit = renderer!.root.findByProps({
+      testID: 'parcel-incident-submit',
+    });
+    expect(submit.props.disabled).toBe(false);
+
+    await act(async () => {
+      submit.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(mockReportIncident).toHaveBeenCalledWith({
+      parcelId: '11111111-1111-4111-8111-111111111111',
+      incidentType: 'DAMAGED',
+      description: 'The parcel box is torn.',
+      evidenceUrls: [],
     });
   });
 });

@@ -49,7 +49,14 @@ import {
   isParcelLocationTrackingTerminal,
   isParcelTrackingEligible,
 } from '../utils/parcelTracking';
-import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
+import {
+  getParcelCustodyEventLabelKey,
+  getParcelIncidentStatusLabelKey,
+  getParcelStatusPresentation,
+  getParcelTrackingConfidenceDescriptionKey,
+  shouldShowParcelIncidentSearchDeadline,
+  PARCEL_ERROR_TRANSLATION_KEYS,
+} from '../utils/parcelPresentation';
 import type { ParcelCustodyEvent, ParcelTrace } from '../types';
 
 type ReliabilityRoute = RouteProp<ParcelStackParamList, 'ParcelTracking'>;
@@ -68,7 +75,6 @@ const dedupeTimeline = (pages: ParcelTrace[]): ParcelCustodyEvent[] => {
 };
 
 interface ParcelTimelineRowProps {
-  actualLocationType: string | null;
   eventType: string;
   locationSnapshot: string | null;
   occurredAt: string;
@@ -76,7 +82,6 @@ interface ParcelTimelineRowProps {
 }
 
 const ParcelTimelineRow = React.memo(function ParcelTimelineRowComponent({
-  actualLocationType,
   eventType,
   locationSnapshot,
   occurredAt,
@@ -93,9 +98,11 @@ const ParcelTimelineRow = React.memo(function ParcelTimelineRowComponent({
           {showLine ? <View style={styles.timelineLine} /> : null}
         </View>
         <View style={styles.timelineCopy}>
-          <Text style={styles.timelineTitle}>{eventType}</Text>
+          <Text style={styles.timelineTitle}>
+            {t(getParcelCustodyEventLabelKey(eventType))}
+          </Text>
           <Text style={styles.timelineText}>
-            {locationSnapshot ?? actualLocationType ?? t('common.notAvailable')}
+            {locationSnapshot ?? t('parcel.reliability.locationUnavailable')}
           </Text>
           <Text style={styles.timelineTime}>{formatDateTime(occurredAt)}</Text>
         </View>
@@ -158,6 +165,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
   const hasClaimSurface = Boolean(
     trace?.claimSummary
     || trace?.availableActions.includes('SUBMIT_CLAIM')
+    || trace?.availableActions.includes('ADD_EVIDENCE')
     || trace?.availableActions.includes('APPEAL'),
   );
   const trackingEligible = isParcelTrackingEligible(trace?.parcelStatus);
@@ -203,31 +211,28 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
             <Package size={22} color={theme.colors.primary} weight="duotone" />
             <View style={styles.summaryCopy}>
               <Text style={styles.eyebrow}>{t('parcel.reliability.latestStatus')}</Text>
-              <Text style={styles.summaryTitle}>{trace.parcelStatus}</Text>
+              <Text style={styles.summaryTitle}>
+                {t(getParcelStatusPresentation(trace.parcelStatus).labelKey)}
+              </Text>
             </View>
           </View>
           {trace.currentCustody ? (
             <>
               <Text style={styles.summaryText}>
                 {t('parcel.reliability.lastCustody', {
-                  event: trace.currentCustody.lastEventType,
+                  event: t(getParcelCustodyEventLabelKey(
+                    trace.currentCustody.lastEventType,
+                  )),
                   location: trace.currentCustody.lastLocationSnapshot
-                    ?? t('common.notAvailable'),
+                    ?? t('parcel.reliability.locationUnavailable'),
                 })}
               </Text>
               <Text style={styles.summaryMuted}>
-                {t('parcel.reliability.confidence', {
-                  value: trace.currentCustody.trackingConfidence,
-                })}
+                {t(getParcelTrackingConfidenceDescriptionKey(
+                  trace.currentCustody.trackingConfidence,
+                ))}
               </Text>
             </>
-          ) : null}
-          {trace.nextUpdateAt ? (
-            <Text style={styles.summaryMuted}>
-              {t('parcel.reliability.nextUpdate', {
-                time: formatDateTime(trace.nextUpdateAt),
-              })}
-            </Text>
           ) : null}
         </View>
 
@@ -239,13 +244,20 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
                 {t('parcel.reliability.activeIncident')}
               </Text>
               <Text style={styles.warningText}>
-                {trace.activeIncident.type} · {trace.activeIncident.status}
+                {t(`parcel.incident.types.${trace.activeIncident.type}`)}
+                {' · '}
+                {t(getParcelIncidentStatusLabelKey(trace.activeIncident.status))}
               </Text>
-              <Text style={styles.warningText}>
-                {t('parcel.reliability.searchDeadline', {
-                  time: formatDateTime(trace.activeIncident.searchDeadline),
-                })}
-              </Text>
+              {shouldShowParcelIncidentSearchDeadline(
+                trace.activeIncident.status,
+                trace.activeIncident.slaState,
+              ) ? (
+                <Text style={styles.warningText}>
+                  {t('parcel.reliability.searchDeadline', {
+                    time: formatDateTime(trace.activeIncident.searchDeadline),
+                  })}
+                </Text>
+              ) : null}
             </View>
           </View>
         ) : null}
@@ -254,7 +266,8 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>{t('parcel.reliability.forwarding')}</Text>
             <Text style={styles.infoText}>
-              {trace.forwardingTrip.route?.name ?? trace.forwardingTrip.tripId}
+              {trace.forwardingTrip.route?.name
+                ?? t('parcel.reliability.forwardingDescription')}
             </Text>
           </View>
         ) : null}
@@ -293,7 +306,6 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
   const renderTimelineItem = useCallback<ListRenderItem<ParcelCustodyEvent>>(
     ({ index, item }) => (
       <ParcelTimelineRow
-        actualLocationType={item.actualLocationType}
         eventType={item.eventType}
         locationSnapshot={item.locationSnapshot}
         occurredAt={item.occurredAt}
@@ -316,7 +328,6 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     () => timeline.map((event, index) => ({
       content: (
         <ParcelTimelineRow
-          actualLocationType={event.actualLocationType}
           eventType={event.eventType}
           locationSnapshot={event.locationSnapshot}
           occurredAt={event.occurredAt}
@@ -393,7 +404,12 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
       />
       <TrackingHeader
         title={t('parcel.reliability.title')}
-        subtitle={trace ? `${trace.parcelCode} · ${trace.parcelStatus}` : parcelId}
+        subtitle={trace
+          ? t('parcel.reliability.headerSubtitle', {
+              code: trace.parcelCode,
+              status: t(getParcelStatusPresentation(trace.parcelStatus).labelKey),
+            })
+          : t('parcel.reliability.loadingSubtitle')}
         onBack={handleBack}
         route={headerRoute}
         actions={headerActions}

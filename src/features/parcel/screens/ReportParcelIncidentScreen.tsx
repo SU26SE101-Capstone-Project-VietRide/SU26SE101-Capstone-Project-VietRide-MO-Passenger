@@ -26,10 +26,7 @@ import {
   type AppTheme,
 } from '@shared/theme';
 import { useReportParcelIncident } from '../hooks/useParcelReliabilityQueries';
-import {
-  PARCEL_INCIDENT_TYPES,
-  type ParcelIncidentType,
-} from '../types';
+import type { ParcelIncidentType } from '../types';
 import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
 
 
@@ -39,9 +36,18 @@ type IncidentNavigation = NativeStackNavigationProp<
   'ReportParcelIncident'
 >;
 
-// BE v1.92 allows a nullable description; Passenger deliberately requires one
-// for an actionable report while preserving the server's 2,000-character limit.
+// The endpoint allows a nullable description. Passenger requires one so the
+// operator receives an actionable report while preserving the 2,000-character limit.
 const DESCRIPTION_MAX_LENGTH = 2_000;
+// BE shares one incident enum across USER/SYSTEM/ASSISTANT reporters. The form
+// only offers issues a Passenger can directly observe; read schemas keep all values.
+const PASSENGER_REPORTABLE_INCIDENT_TYPES = [
+  'MISSING',
+  'WRONG_STOP',
+  'DELIVERY_NOT_RECEIVED',
+  'PARTIAL_LOSS',
+  'DAMAGED',
+] as const satisfies readonly ParcelIncidentType[];
 
 export function ReportParcelIncidentScreen(): React.JSX.Element {
   const route = useRoute<IncidentRoute>();
@@ -90,7 +96,7 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
         field.field.toLowerCase() === 'description'
       ));
       if (descriptionError) {
-        setFieldError(descriptionError.message);
+        setFieldError(t('parcel.incident.descriptionInvalid'));
         return;
       }
       Alert.alert(
@@ -141,7 +147,7 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
 
           <Text style={styles.label}>{t('parcel.incident.typeLabel')}</Text>
           <View style={styles.chips}>
-            {PARCEL_INCIDENT_TYPES.map((type) => {
+            {PASSENGER_REPORTABLE_INCIDENT_TYPES.map((type) => {
               const selected = type === incidentType;
               return (
                 <Pressable
@@ -178,12 +184,9 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
             textAlignVertical="top"
           />
 
-          <View style={styles.evidenceNotice}>
-            <Text style={styles.evidenceTitle}>{t('parcel.incident.evidenceTitle')}</Text>
-            <Text style={styles.evidenceText}>{t('parcel.incident.evidenceBlocked')}</Text>
-          </View>
 
           <Pressable
+            testID="parcel-incident-submit"
             accessibilityRole="button"
             accessibilityState={{ disabled: !canSubmit }}
             disabled={!canSubmit}
@@ -258,9 +261,6 @@ const createStyles = (theme: AppTheme) => ({
   },
   chipTextSelected: { color: theme.colors.primary },
   textArea: { minHeight: 132, paddingTop: spacing.md },
-  evidenceNotice: { padding: spacing.md, marginBottom: spacing.xl, borderRadius: borderRadius.md, backgroundColor: theme.colors.surfaceAlt },
-  evidenceTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
-  evidenceText: { marginTop: spacing.xs, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs, lineHeight: 18 },
   submitButton: { minHeight: 50, alignItems: 'center' as const, justifyContent: 'center' as const, borderRadius: borderRadius.md, backgroundColor: theme.colors.primary },
   submitDisabled: { opacity: 0.45 },
   submitText: { minWidth: 0, flexShrink: 1, paddingHorizontal: spacing.sm, color: theme.colors.textInverse, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, textAlign: 'center' as const },

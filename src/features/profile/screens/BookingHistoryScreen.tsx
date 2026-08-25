@@ -55,6 +55,7 @@ import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useBookingHistory } from '@features/booking/hooks/useBookingHistory';
 import { getTicketStatusPresentation } from '@features/booking/utils/ticketPresentation';
 import {
+  getParcelClaimStatusLabelKey,
   getParcelSizePresentation,
   getParcelStatusPresentation,
 } from '@features/parcel/utils/parcelPresentation';
@@ -859,7 +860,9 @@ const ParcelHistoryRow = memo(function ParcelHistoryRowComponent({
           ) : item.parcel.reliability?.claim ? (
             <Text style={styles.parcelReliability} numberOfLines={1}>
               {t('bookingHistory.reliability.claim', {
-                status: item.parcel.reliability.claim.status,
+                status: t(getParcelClaimStatusLabelKey(
+                  item.parcel.reliability.claim.status,
+                )),
               })}
             </Text>
           ) : null}

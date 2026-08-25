@@ -34,11 +34,15 @@ import {
   useSubmitParcelClaim,
 } from '../hooks/useParcelReliabilityQueries';
 
-import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
+import { ParcelCompensationDisclosure } from '../components';
+import {
+  getParcelClaimStatusLabelKey,
+  PARCEL_ERROR_TRANSLATION_KEYS,
+} from '../utils/parcelPresentation';
 type ClaimRoute = RouteProp<ParcelStackParamList, 'ParcelClaim'>;
 type ClaimNavigation = NativeStackNavigationProp<ParcelStackParamList, 'ParcelClaim'>;
 
-// BE v1.92 requires a nonblank appeal reason but does not publish a max length.
+// BE requires a nonblank appeal reason but does not publish a max length.
 // This is a Passenger safety/UX bound, not a server-contract constraint.
 const APPEAL_MAX_LENGTH = 2_000;
 
@@ -52,7 +56,10 @@ export function ParcelClaimScreen(): React.JSX.Element {
   const traceQuery = useParcelTrace(parcelId);
   const trace = traceQuery.data?.pages[0];
   const canLoadClaims = Boolean(
-    trace?.claimSummary || trace?.availableActions.includes('SUBMIT_CLAIM'),
+    trace?.claimSummary
+    || trace?.availableActions.includes('SUBMIT_CLAIM')
+    || trace?.availableActions.includes('ADD_EVIDENCE')
+    || trace?.availableActions.includes('APPEAL'),
   );
   const claimsQuery = useParcelClaims(parcelId, canLoadClaims);
   const submitMutation = useSubmitParcelClaim(parcelId);
@@ -63,6 +70,12 @@ export function ParcelClaimScreen(): React.JSX.Element {
   const canSubmitClaim = trace?.availableActions.includes('SUBMIT_CLAIM') ?? false;
   const canAppeal = claim?.availableActions.includes('APPEAL') ?? false;
   const policy = claim?.policySnapshot;
+  const claimStatusLabel = claim
+    ? t(getParcelClaimStatusLabelKey(claim.status))
+    : null;
+  const hasDecision = Boolean(claim?.decidedAt);
+  const isAwaitingPayout = claim?.status === 'APPROVED'
+    || claim?.status === 'FUNDING_PENDING';
 
   const refresh = useCallback(() => {
     Promise.all([
@@ -117,7 +130,7 @@ export function ParcelClaimScreen(): React.JSX.Element {
         ['reason', 'appealreason'].includes(field.field.toLowerCase())
       ));
       if (reasonError) {
-        setAppealError(reasonError.message);
+        setAppealError(t('parcel.claim.appealInvalid'));
         return;
       }
       Alert.alert(
@@ -197,7 +210,7 @@ export function ParcelClaimScreen(): React.JSX.Element {
                 </Text>
                 <Text style={styles.heroText}>
                   {claim
-                    ? t('parcel.claim.statusDescription', { status: claim.status })
+                    ? t('parcel.claim.statusDescription', { status: claimStatusLabel })
                     : t('parcel.claim.eligibilityDescription')}
                 </Text>
               </View>
@@ -219,23 +232,33 @@ export function ParcelClaimScreen(): React.JSX.Element {
             {claim ? (
               <>
                 <View style={styles.card}>
-                  <Text style={styles.sectionTitle}>{t('parcel.claim.awardTitle')}</Text>
+                  <Text style={styles.sectionTitle}>
+                    {t(hasDecision ? 'parcel.claim.awardTitle' : 'parcel.claim.reviewTitle')}
+                  </Text>
                   <View style={styles.valueRow}>
                     <Text style={styles.valueLabel}>{t('parcel.claim.status')}</Text>
-                    <Text style={styles.valueText}>{claim.status}</Text>
+                    <Text style={styles.valueText}>{claimStatusLabel}</Text>
                   </View>
-                  <View style={styles.valueRow}>
-                    <Text style={styles.valueLabel}>{t('parcel.claim.cargoAward')}</Text>
-                    <Text style={styles.valueText}>{formatVnd(claim.cargoAwardVnd)}</Text>
-                  </View>
-                  <View style={styles.valueRow}>
-                    <Text style={styles.valueLabel}>{t('parcel.claim.freightRefund')}</Text>
-                    <Text style={styles.valueText}>{formatVnd(claim.freightRefundVnd)}</Text>
-                  </View>
-                  <View style={styles.totalRow}>
-                    <Text style={styles.totalLabel}>{t('parcel.claim.totalAward')}</Text>
-                    <Text style={styles.totalValue}>{formatVnd(claim.totalAwardVnd)}</Text>
-                  </View>
+                  {hasDecision ? (
+                    <>
+                      <View style={styles.valueRow}>
+                        <Text style={styles.valueLabel}>{t('parcel.claim.cargoAward')}</Text>
+                        <Text style={styles.valueText}>{formatVnd(claim.cargoAwardVnd)}</Text>
+                      </View>
+                      <View style={styles.valueRow}>
+                        <Text style={styles.valueLabel}>{t('parcel.claim.freightRefund')}</Text>
+                        <Text style={styles.valueText}>{formatVnd(claim.freightRefundVnd)}</Text>
+                      </View>
+                      <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>{t('parcel.claim.totalAward')}</Text>
+                        <Text style={styles.totalValue}>{formatVnd(claim.totalAwardVnd)}</Text>
+                      </View>
+                    </>
+                  ) : (
+                    <Text style={styles.reviewText}>
+                      {t('parcel.claim.reviewDescription')}
+                    </Text>
+                  )}
                   {claim.decisionDeadline ? (
                     <Text style={styles.deadlineText}>
                       {t('parcel.claim.decisionDeadline', {
@@ -254,22 +277,18 @@ export function ParcelClaimScreen(): React.JSX.Element {
                     <Text style={styles.paidText}>
                       {t('parcel.claim.paidAt', { time: formatDateTime(claim.paidAt) })}
                     </Text>
-                  ) : (
-                    <Text style={styles.pendingText}>{t('parcel.claim.notPaidYet')}</Text>
-                  )}
+                  ) : isAwaitingPayout ? (
+                    <Text style={styles.pendingText}>
+                      {t('parcel.claim.approvedAwaitingPayout')}
+                    </Text>
+                  ) : null}
                 </View>
 
                 {policy ? (
-                  <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>{t('parcel.claim.policyTitle')}</Text>
-                    <Text style={styles.policyText}>
-                      {t('parcel.claim.policyDescription', {
-                        rate: policy.compensationRatePercent,
-                        cap: formatVnd(policy.maxCompensationVnd),
-                        days: policy.claimWindowDays,
-                      })}
-                    </Text>
-                  </View>
+                  <ParcelCompensationDisclosure
+                    operatorName={trace?.operator.name}
+                    policy={policy}
+                  />
                 ) : null}
 
                 <View style={styles.card}>
@@ -277,18 +296,16 @@ export function ParcelClaimScreen(): React.JSX.Element {
                     <FileText size={20} color={theme.colors.primary} />
                     <Text style={styles.sectionTitle}>{t('parcel.claim.evidenceTitle')}</Text>
                   </View>
-                  {claim.evidence.length > 0 ? claim.evidence.map((evidence) => (
+                  {claim.evidence.length > 0 ? claim.evidence.map((evidence, index) => (
                     <View key={evidence.evidenceId} style={styles.evidenceRow}>
-                      <Text style={styles.evidenceType}>{evidence.evidenceType}</Text>
-                      <Text style={styles.evidenceReference} numberOfLines={2}>
-                        {evidence.reference}
+                      <Text style={styles.evidenceType}>
+                        {t('parcel.claim.evidenceItem', { index: index + 1 })}
                       </Text>
                       {evidence.note ? <Text style={styles.evidenceNote}>{evidence.note}</Text> : null}
                     </View>
                   )) : (
                     <Text style={styles.emptyText}>{t('parcel.claim.noEvidence')}</Text>
                   )}
-                  <Text style={styles.blockedText}>{t('parcel.claim.evidenceUploadBlocked')}</Text>
                 </View>
 
                 {canAppeal ? (
@@ -374,17 +391,15 @@ const createStyles = (theme: AppTheme) => ({
   totalRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, gap: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.divider },
   totalLabel: { flex: 1, minWidth: 0, color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
   totalValue: { minWidth: 0, flexShrink: 1, color: theme.colors.primary, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, textAlign: 'right' as const },
+  reviewText: { marginTop: spacing.sm, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 20 },
   deadlineText: { marginTop: spacing.sm, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs },
   paidText: { marginTop: spacing.sm, color: theme.colors.success, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
   pendingText: { marginTop: spacing.sm, color: theme.colors.warning, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
-  policyText: { color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 21 },
   evidenceHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.sm },
   evidenceRow: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: theme.colors.divider },
   evidenceType: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.xs },
-  evidenceReference: { marginTop: 2, color: theme.colors.primary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs },
   evidenceNote: { marginTop: 2, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs },
   emptyText: { color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm },
-  blockedText: { marginTop: spacing.md, color: theme.colors.warning, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs, lineHeight: 18 },
   textArea: { minHeight: 116, paddingTop: spacing.md },
   primaryButton: { minHeight: 50, alignItems: 'center' as const, justifyContent: 'center' as const, borderRadius: borderRadius.md, backgroundColor: theme.colors.primary },
   primaryButtonText: { minWidth: 0, flexShrink: 1, paddingHorizontal: spacing.sm, color: theme.colors.textInverse, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, textAlign: 'center' as const },
