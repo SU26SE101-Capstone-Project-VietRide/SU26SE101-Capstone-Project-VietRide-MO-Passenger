@@ -29,6 +29,13 @@ This mode avoids the Windows fallback watcher and binds Metro for LAN/Android
 access. It intentionally disables Fast Refresh, so restart Metro after source
 changes. Keep `npm start` for the normal watched development mode.
 
+## Map and address provider configuration
+
+Shuttle address search uses Goong Places while Ticket, Parcel, and Shuttle live
+tracking retain the existing Mapbox renderer. Configure both providers using
+[the Goong Places setup guide](docs/GOONG_PLACES_SETUP.md) before creating a
+development or production build.
+
 ## Step 2: Build and run your app
 
 With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:

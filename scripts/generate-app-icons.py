@@ -1,16 +1,19 @@
-"""Generate launcher, adaptive, and notification icons from the chat FAB logo."""
+"""Generate launcher, adaptive, splash, and notification assets."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import PIL
 from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "src" / "assets" / "images" / "app_logo_placeholder.png"
 IMAGES = ROOT / "src" / "assets" / "images"
+SPLASH_SOURCE = IMAGES / "app_icon_adaptive_foreground.png"
 ANDROID_RES = ROOT / "android" / "app" / "src" / "main" / "res"
 BG = (239, 247, 248, 255)
+EXPECTED_PILLOW_VERSION = "12.3.0"
 
 DENSITIES = {
     "mdpi": 1,
@@ -88,6 +91,13 @@ def save_webp(image: Image.Image, path: Path) -> None:
 
 
 def main() -> None:
+    if PIL.__version__ != EXPECTED_PILLOW_VERSION:
+        raise RuntimeError(
+            "Icon generation requires Pillow "
+            f"{EXPECTED_PILLOW_VERSION}; found {PIL.__version__}. "
+            "Install scripts/requirements-icons.txt before regenerating assets."
+        )
+
     logo = crop_opaque(Image.open(SOURCE).convert("RGBA"))
 
     app_icon = cover_on_background(logo, 1024, BG)
@@ -97,7 +107,11 @@ def main() -> None:
     foreground = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
     mascot = contain(logo, 720)
     foreground.alpha_composite(mascot, ((1024 - 720) // 2, (1024 - 720) // 2))
-    save_png(foreground, IMAGES / "app_icon_adaptive_foreground.png")
+    save_png(foreground, SPLASH_SOURCE)
+
+    # Preserve the transparent safe zone baked into the adaptive foreground.
+    # Cropping this image would reintroduce clipping of the raster VietRide wordmark.
+    splash_logo = Image.open(SPLASH_SOURCE).convert("RGBA")
 
     notification_preview = cover_on_background(logo, 256, BG)
     save_png(make_round(notification_preview), IMAGES / "notification_large_icon.png")
@@ -119,14 +133,17 @@ def main() -> None:
         small = contain(silhouette_master, int(24 * scale))
         save_png(small, ANDROID_RES / f"drawable-{name}" / "ic_stat_notification.png")
 
-        splash = contain(logo, int(160 * scale))
+        splash = contain(splash_logo, int(160 * scale))
         save_png(splash, ANDROID_RES / f"drawable-{name}" / "splashscreen_logo.png")
 
     # mdpi fallback name without density qualifier, used by some OEM lookups.
     save_png(contain(silhouette_master, 24), ANDROID_RES / "drawable" / "ic_stat_notification.png")
     save_png(make_round(cover_on_background(logo, 192, BG)), ANDROID_RES / "drawable" / "notification_large_icon.png")
 
-    print("generated launcher, splash, and notification icons from app_logo_placeholder.png")
+    print(
+        "generated launcher/notification icons from app_logo_placeholder.png "
+        "and splash icons from app_icon_adaptive_foreground.png"
+    )
 
 
 if __name__ == "__main__":

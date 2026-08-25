@@ -1,14 +1,19 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  ScrollView,
   StatusBar,
   Text,
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
-import { APP_LOGO } from '@shared/constants/assets';
+import { APP_LAUNCH_LOGO } from '@shared/constants/assets';
 import {
   borderRadius,
   fontFamilies,
@@ -17,7 +22,8 @@ import {
   type AppTheme,
 } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useThemedStyles } from '@shared/hooks';
+import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
+import { getAppLaunchLayout } from '@shared/layout/appLaunchLayout';
 import { MotionFade } from '@shared/motion';
 
 interface AppLaunchScreenProps {
@@ -34,6 +40,15 @@ export function AppLaunchScreen({
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  const { width, height, fontScale } = useResponsiveLayout();
+  const insets = useSafeAreaInsets();
+  const layout = getAppLaunchLayout({
+    width,
+    height,
+    fontScale,
+    topInset: insets.top,
+    bottomInset: insets.bottom,
+  });
 
   return (
     <View
@@ -44,29 +59,87 @@ export function AppLaunchScreen({
         barStyle={theme.isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.colors.background}
       />
-      <View style={styles.glowTop} pointerEvents="none" />
-      <View style={styles.glowBottom} pointerEvents="none" />
+      <View style={styles.decorations} pointerEvents="none">
+        <View style={styles.glowTop} />
+        <View style={styles.glowBottom} />
+      </View>
 
-      <MotionFade style={styles.content}>
-        <View style={styles.logoFrame}>
-          <Image
-            accessibilityLabel={t('app.logoLabel')}
-            source={APP_LOGO}
-            style={styles.logo}
-            contentFit="contain"
-            transition={0}
-          />
-        </View>
-        <Text style={styles.tagline} maxFontSizeMultiplier={1.35}>
-          {t('app.tagline')}
-        </Text>
-        <View style={styles.progressRow} accessibilityRole="progressbar">
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-          <Text style={styles.message} maxFontSizeMultiplier={1.35}>
-            {message ?? t('app.preparing')}
-          </Text>
-        </View>
-      </MotionFade>
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={['top', 'bottom', 'left', 'right']}
+      >
+        <ScrollView
+          testID="app-launch-scroll"
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingHorizontal: layout.horizontalPadding,
+              paddingVertical: layout.verticalPadding,
+            },
+          ]}
+          contentInsetAdjustmentBehavior="never"
+          alwaysBounceVertical={false}
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+        >
+          <MotionFade
+            style={[
+              styles.content,
+              { maxWidth: layout.contentMaxWidth },
+            ]}
+          >
+            <View
+              testID="app-launch-logo-frame"
+              style={[
+                styles.logoFrame,
+                {
+                  width: layout.logoFrameSize,
+                  height: layout.logoFrameSize,
+                },
+              ]}
+            >
+              <Image
+                accessibilityLabel={t('app.logoLabel')}
+                source={APP_LAUNCH_LOGO}
+                style={styles.logo}
+                contentFit="contain"
+                transition={0}
+              />
+            </View>
+            <Text
+              testID="app-launch-tagline"
+              style={[
+                styles.tagline,
+                { marginTop: layout.taglineGap },
+              ]}
+            >
+              {t('app.tagline')}
+            </Text>
+            <View
+              testID="app-launch-progress"
+              style={[
+                styles.progressRow,
+                layout.stackProgress ? styles.progressColumn : null,
+                { marginTop: layout.progressGap },
+              ]}
+              accessibilityRole="progressbar"
+            >
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text
+                testID="app-launch-message"
+                style={[
+                  styles.message,
+                  layout.stackProgress ? styles.messageStacked : null,
+                ]}
+                accessibilityLiveRegion="polite"
+              >
+                {message ?? t('app.preparing')}
+              </Text>
+            </View>
+          </MotionFade>
+        </ScrollView>
+      </SafeAreaView>
     </View>
   );
 }
@@ -74,11 +147,15 @@ export function AppLaunchScreen({
 const createStyles = (theme: AppTheme) => ({
   screen: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
     backgroundColor: theme.colors.background,
-    paddingHorizontal: spacing.xxl,
+  },
+  decorations: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    overflow: 'hidden',
   },
   glowTop: {
     position: 'absolute',
@@ -98,25 +175,35 @@ const createStyles = (theme: AppTheme) => ({
     borderRadius: 180,
     backgroundColor: theme.effects.glassTint,
   },
+  safeArea: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   content: {
     width: '100%',
-    maxWidth: 360,
+    minWidth: 0,
     alignItems: 'center',
   },
   logoFrame: {
     ...theme.components.elevatedCard,
-    width: 184,
-    height: 184,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
   },
   logo: {
-    width: 168,
-    height: 168,
+    width: '100%',
+    height: '100%',
   },
   tagline: {
-    marginTop: spacing.xxl,
+    width: '100%',
+    minWidth: 0,
     color: theme.colors.textPrimary,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
@@ -124,20 +211,29 @@ const createStyles = (theme: AppTheme) => ({
     textAlign: 'center',
   },
   progressRow: {
+    width: '100%',
+    minWidth: 0,
     minHeight: 48,
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
   },
+  progressColumn: {
+    flexDirection: 'column',
+  },
   message: {
+    minWidth: 0,
+    maxWidth: '100%',
     flexShrink: 1,
     color: theme.colors.textSecondary,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     lineHeight: fontSizes.sm * 1.5,
     textAlign: 'center',
+  },
+  messageStacked: {
+    width: '100%',
   },
 });

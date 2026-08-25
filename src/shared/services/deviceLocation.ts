@@ -226,9 +226,9 @@ export const formatGeocodedAddress = (address: GeocodedAddress): string => {
 };
 
 /**
- * Build a precise address query for Google Places without using the native
+ * Build a precise provider-neutral address query without using the native
  * geocoder's POI/name field. The name can describe a nearby shop or building,
- * while Shuttle requires an address that Google Places can verify again.
+ * while Shuttle requires an address that Places can verify again.
  */
 export const formatStreetAddressForPlaceSearch = (
   address: GeocodedAddress,

@@ -8,8 +8,6 @@ import ReactTestRenderer from 'react-test-renderer';
 process.env.EXPO_PUBLIC_APP_ENV = 'development';
 process.env.EXPO_PUBLIC_API_BASE_URL = 'https://api.vietride.online/v1';
 process.env.EXPO_PUBLIC_WS_URL = 'wss://ws.vietride.online';
-process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED = 'false';
-process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED = 'false';
 
 jest.mock('react-native-gesture-handler', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');

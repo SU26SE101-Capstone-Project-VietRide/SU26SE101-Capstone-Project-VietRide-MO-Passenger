@@ -752,10 +752,10 @@
       "dropoffSearchAccessibility": "Tìm địa chỉ trả trung chuyển",
       "clearSearch": "Xóa tìm kiếm",
       "searching": "Đang tìm địa điểm...",
-      "minimumQueryHint": "Nhập ít nhất {{count}} ký tự để tìm trên Google Places.",
-      "emptySearchHint": "Nhập địa chỉ, sau đó chọn một kết quả từ Google.",
+      "minimumQueryHint": "Nhập ít nhất {{count}} ký tự để tìm trên Goong.",
+      "emptySearchHint": "Nhập địa chỉ, sau đó chọn một kết quả từ Goong.",
       "existingAddressHint": "Địa chỉ hiện tại đang được sử dụng. Nhập địa chỉ khác để thay đổi.",
-      "googleAttribution": "Powered by Google",
+      "providerAttribution": "Powered by Goong",
       "changePickupAddress": "Đổi địa chỉ đón",
       "changeDropoffAddress": "Đổi địa chỉ trả",
       "changeOutboundPickupAddress": "Đổi điểm đón chiều đi",
@@ -768,9 +768,7 @@
         "noResults": "Không tìm thấy địa điểm phù hợp. Hãy thử từ khóa khác.",
         "quota": "Tìm địa chỉ đang bị giới hạn tạm thời. Vui lòng thử lại sau.",
         "unavailable": "Tìm địa chỉ tạm thời không khả dụng. Vui lòng thử lại.",
-        "unsupported": "Tìm địa chỉ chưa khả dụng trên bản ứng dụng này. Hãy cập nhật VietRide.",
         "invalidPlace": "Không xác minh được địa điểm này. Hãy chọn kết quả khác.",
-        "session": "Phiên tìm kiếm đã hết hạn. Hãy tìm lại.",
         "tooFarFromDeparture": "Địa chỉ này cách {{station}} hơn {{limitKm}} km. Hãy chọn điểm đón gần bến đầu hơn cho chiều đi.",
         "tooFarFromDestination": "Địa chỉ này cách {{station}} hơn {{limitKm}} km. Hãy chọn điểm trả gần bến cuối hơn cho chiều về."
       }

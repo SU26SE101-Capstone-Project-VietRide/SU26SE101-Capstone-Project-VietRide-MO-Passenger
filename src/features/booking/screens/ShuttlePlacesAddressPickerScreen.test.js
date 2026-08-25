@@ -4,7 +4,7 @@ const path = require('path');
 const read = relativePath =>
   fs.readFileSync(path.resolve(__dirname, relativePath), 'utf8');
 
-describe('Shuttle Places-only address picker contract', () => {
+describe('Shuttle provider-backed address picker contract', () => {
   const pickerSource = read('ShuttlePlacesAddressPickerScreen.tsx');
   const navigatorSource = read('../BookingNavigator.tsx');
 
@@ -20,19 +20,27 @@ describe('Shuttle Places-only address picker contract', () => {
     );
   });
 
-  it('uses autocomplete and Place Details without a map canvas', () => {
-    expect(pickerSource).toContain(
-      'findPredictions: findPredictionsWithSession',
-    );
+  it('uses the shared Places search hook without a map canvas', () => {
+    expect(pickerSource).toContain('usePlacesSearch()');
+    expect(pickerSource).toContain('findPredictions({');
     expect(pickerSource).toContain('resolvePlaceDetails({');
-    expect(pickerSource).toContain('endSession: true');
     expect(pickerSource).toContain('<FlashList');
     expect(pickerSource).toContain('<KeyboardAvoidingView');
 
     expect(pickerSource).not.toContain('Mapbox');
-    expect(pickerSource).not.toContain('react-native-maps');
+    expect(pickerSource).not.toContain('<MapView');
     expect(pickerSource).not.toContain('resolveMapPlaceSelection');
     expect(pickerSource).not.toContain('PointAnnotation');
+    expect(pickerSource).not.toContain('Session');
+  });
+
+  it('preserves the approved search and provider policies', () => {
+    expect(pickerSource).toContain('SEARCH_DEBOUNCE_MS = 280');
+    expect(pickerSource).toContain('MIN_QUERY_LENGTH = 3');
+    expect(pickerSource).toContain('MAX_PREDICTIONS = 5');
+    expect(pickerSource).toContain('appConfig.goongPlacesEnabled');
+    expect(pickerSource).toContain('booking.shuttlePicker.providerAttribution');
+    expect(pickerSource).toContain('requestIdRef.current !== requestId');
   });
 
   it('rejects an address farther than the BE 10 km station cap before saving', () => {

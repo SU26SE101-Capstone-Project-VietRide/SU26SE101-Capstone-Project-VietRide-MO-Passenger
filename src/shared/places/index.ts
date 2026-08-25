@@ -1,33 +1,28 @@
-/**
- * Shared Google Places domain — reuse from booking, parcel, profile, etc.
- *
- * Prefer:
- * - usePlacesSession() for session lifecycle in screens
- * - resolveMapPlaceSelection() when confirming a map POI / search hit
- * - vietRidePlaces facade only when you need a single low-level call
- */
-
+/** Provider-neutral Places boundary used by booking and future address flows. */
 export {
-  beginPlacesSession,
-  endPlacesSession,
-  findPlacePredictions,
-  isNativePlacesAvailable,
+  isPlacesRequestAborted,
   isPlacesRequestError,
   PlacesRequestError,
-  resolvePlaceDetails,
-  type FindPredictionsInput,
-  type PlacePrediction,
   type PlacesErrorCode,
-  type ResolvePlaceInput,
-  type ResolvedPlace,
-} from './vietRidePlaces';
+} from './errors';
 
 export {
-  resolveMapPlaceSelection,
-  type PlacesSessionController,
-} from './resolveMapPlaceSelection';
+  createGoongPlacesProvider,
+  goongPlacesProvider,
+  type CreateGoongPlacesProviderOptions,
+  type PlacesFetch,
+} from './goongPlacesProvider';
 
 export {
-  usePlacesSession,
-  type UsePlacesSessionResult,
-} from './usePlacesSession';
+  usePlacesSearch,
+  type UsePlacesSearchResult,
+} from './usePlacesSearch';
+
+export type {
+  FindPredictionsInput,
+  PlacePrediction,
+  PlacesProvider,
+  PlacesRequestOptions,
+  ResolvedPlace,
+  ResolvePlaceInput,
+} from './types';

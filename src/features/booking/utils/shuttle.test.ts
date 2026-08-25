@@ -144,23 +144,26 @@ describe('Shuttle booking rules', () => {
     expect(SHUTTLE_MAX_ROAD_DISTANCE_KM).toBe(10);
     expect(SHUTTLE_MAX_ROAD_DISTANCE_METERS).toBe(10_000);
 
-    const origin = { latitude: 10.7769, longitude: 106.7009 };
-    const tenKmNorth = {
-      latitude: 10.7769 + SHUTTLE_MAX_ROAD_DISTANCE_KM / 111.32,
-      longitude: 106.7009,
+    const earthRadiusKm = 6_371;
+    const latitudeDeltaForMeters = (meters: number): number =>
+      ((meters / 1_000) / earthRadiusKm) * (180 / Math.PI);
+    const origin = { latitude: 0, longitude: 0 };
+    const exactlyTenKmNorth = {
+      latitude: latitudeDeltaForMeters(10_000),
+      longitude: 0,
     };
-    const twentyKmNorth = {
-      latitude: 10.7769 + (SHUTTLE_MAX_ROAD_DISTANCE_KM * 2) / 111.32,
-      longitude: 106.7009,
+    const tenKmAndOneMeterNorth = {
+      latitude: latitudeDeltaForMeters(10_001),
+      longitude: 0,
     };
 
     expect(checkShuttleAddressAgainstStation(origin, origin)).toEqual(
       expect.objectContaining({ ok: true }),
     );
-    expect(checkShuttleAddressAgainstStation(tenKmNorth, origin)).toEqual(
+    expect(checkShuttleAddressAgainstStation(exactlyTenKmNorth, origin)).toEqual(
       expect.objectContaining({ ok: true }),
     );
-    expect(checkShuttleAddressAgainstStation(twentyKmNorth, origin)).toEqual(
+    expect(checkShuttleAddressAgainstStation(tenKmAndOneMeterNorth, origin)).toEqual(
       expect.objectContaining({ ok: false, reason: 'TOO_FAR' }),
     );
     expect(checkShuttleAddressAgainstStation(

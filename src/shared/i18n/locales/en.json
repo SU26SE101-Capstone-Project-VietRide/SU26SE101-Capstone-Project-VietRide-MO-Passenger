@@ -752,10 +752,10 @@
       "dropoffSearchAccessibility": "Search for a shuttle drop-off address",
       "clearSearch": "Clear search",
       "searching": "Searching places...",
-      "minimumQueryHint": "Enter at least {{count}} characters to search Google Places.",
-      "emptySearchHint": "Enter an address, then choose one of the Google results.",
+      "minimumQueryHint": "Enter at least {{count}} characters to search Goong.",
+      "emptySearchHint": "Enter an address, then choose one of the Goong results.",
       "existingAddressHint": "Your current address is still selected. Enter another address to change it.",
-      "googleAttribution": "Powered by Google",
+      "providerAttribution": "Powered by Goong",
       "changePickupAddress": "Change pickup address",
       "changeDropoffAddress": "Change drop-off address",
       "changeOutboundPickupAddress": "Change outbound pickup",
@@ -768,9 +768,7 @@
         "noResults": "No matching places were found. Try a different search.",
         "quota": "Address search is temporarily limited. Please try again later.",
         "unavailable": "Address search is temporarily unavailable. Please try again.",
-        "unsupported": "Address search is not available in this app version. Please update VietRide.",
         "invalidPlace": "That place could not be verified. Choose another result.",
-        "session": "The search session expired. Try searching again.",
         "tooFarFromDeparture": "This address is more than {{limitKm}} km from {{station}}. Choose a closer pickup for the outbound shuttle.",
         "tooFarFromDestination": "This address is more than {{limitKm}} km from {{station}}. Choose a closer drop-off for the return shuttle."
       }

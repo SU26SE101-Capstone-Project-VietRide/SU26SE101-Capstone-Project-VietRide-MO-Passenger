@@ -8,8 +8,8 @@
 declare namespace NodeJS {
   interface ProcessEnv {
     EXPO_PUBLIC_API_BASE_URL?: string;
-    EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED?: 'true' | 'false';
-    EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED?: 'true' | 'false';
+    EXPO_PUBLIC_GOONG_API_KEY?: string;
+    EXPO_PUBLIC_GOONG_PLACES_ENABLED?: 'true' | 'false';
     EXPO_PUBLIC_NATIVE_PUSH_ANDROID_ENABLED?: 'true' | 'false';
     EXPO_PUBLIC_NATIVE_PUSH_IOS_ENABLED?: 'true' | 'false';
     EXPO_PUBLIC_APP_ENV?: 'development' | 'staging' | 'production';

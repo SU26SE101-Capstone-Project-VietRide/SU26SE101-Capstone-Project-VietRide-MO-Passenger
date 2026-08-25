@@ -1,6 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const { resolveGoogleMapsNativeConfig } = require('./config/googleMapsConfig');
+const {
+  isProductionBuild,
+  resolveGoongPlacesRuntimeConfig,
+} = require('./config/goongConfig');
 const { resolveMapboxRuntimeConfig } = require('./config/mapboxConfig');
 const { version: appVersion } = require('./package.json');
 
@@ -18,7 +21,7 @@ const baseConfig = {
     color: '#007D78',
   },
   splash: {
-    image: './src/assets/images/app_logo_placeholder.png',
+    image: './src/assets/images/app_icon_adaptive_foreground.png',
     resizeMode: 'contain',
     backgroundColor: '#EFF7F8',
   },
@@ -71,7 +74,6 @@ const baseConfig = {
   },
 };
 
-const { androidApiKey, iosApiKey } = resolveGoogleMapsNativeConfig();
 const { enabled: mapboxEnabledForBuild } = resolveMapboxRuntimeConfig();
 const buildPlatform = process.env.EAS_BUILD_PLATFORM;
 const configuredAndroidFirebaseFile = process.env.GOOGLE_SERVICES_ANDROID_FILE?.trim();
@@ -124,59 +126,24 @@ const googleIosUrlScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_REVERSED_CLIENT_ID
 const googleSignInPlugins = googleIosUrlScheme
   ? [['react-native-nitro-google-signin', { iosUrlScheme: googleIosUrlScheme }]]
   : [];
-const isProduction =
-  process.env.EXPO_PUBLIC_APP_ENV === 'production' ||
-  process.env.EAS_BUILD_PROFILE === 'production';
-const isGoogleMapsProductionEligible =
-  process.env.GOOGLE_MAPS_PRODUCTION_ELIGIBLE === 'true';
-const googleMapsEnabledForBuild =
-  !isProduction || isGoogleMapsProductionEligible;
+const isProduction = isProductionBuild(process.env);
+const { enabled: goongPlacesEnabledForBuild } = resolveGoongPlacesRuntimeConfig(
+  process.env,
+  { productionRequired: isProduction },
+);
 const firebaseNativePlugins =
   hasManagedAndroidFirebaseConfig || hasManagedIosFirebaseConfig
     ? ['@react-native-firebase/app', '@react-native-firebase/messaging']
     : [];
 
-if (
-  isProduction &&
-  !isGoogleMapsProductionEligible &&
-  (androidApiKey || iosApiKey)
-) {
-  throw new Error(
-    '[Maps] Production Maps keys require GOOGLE_MAPS_PRODUCTION_ELIGIBLE=true after legal and regional review.',
-  );
-}
-
-if (
-  isProduction &&
-  isGoogleMapsProductionEligible &&
-  buildPlatform === 'android' &&
-  !androidApiKey
-) {
-  throw new Error(
-    '[Maps] GOOGLE_MAPS_ANDROID_API_KEY is required for an eligible production Android build.',
-  );
-}
-
-if (
-  isProduction &&
-  isGoogleMapsProductionEligible &&
-  buildPlatform === 'ios' &&
-  !iosApiKey
-) {
-  throw new Error(
-    '[Maps] GOOGLE_MAPS_IOS_API_KEY is required for an eligible production iOS build.',
-  );
-}
-
 // Capability flags contain no credential. Keep them in Expo's embedded config
-// so release bundles see the same native capabilities that prebuild/Gradle saw.
+// so release bundles see the same capabilities that app.config.js validated.
 // Mutating process.env here is insufficient because Metro only inlines public
 // variables that existed in its own bundling environment.
+const serviceCapabilities = {
+  goongPlaces: goongPlacesEnabledForBuild,
+};
 const nativeCapabilities = {
-  googleMaps: {
-    android: googleMapsEnabledForBuild && Boolean(androidApiKey),
-    ios: googleMapsEnabledForBuild && Boolean(iosApiKey),
-  },
   mapbox: {
     android: mapboxEnabledForBuild,
     ios: mapboxEnabledForBuild,
@@ -211,6 +178,7 @@ module.exports = {
     eas: {
       projectId: 'dd7171b6-f140-4564-ba91-0ee0567d00a1',
     },
+    serviceCapabilities,
     nativeCapabilities,
   },
   ios: {
@@ -231,10 +199,6 @@ module.exports = {
   plugins: [
     ...baseConfig.plugins,
     '@rnmapbox/maps',
-    [
-      './config-plugins/withVietRideGoogleMaps',
-      { enabled: googleMapsEnabledForBuild },
-    ],
     ...googleSignInPlugins,
     ...firebaseNativePlugins,
   ],

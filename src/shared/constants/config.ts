@@ -2,8 +2,8 @@
  * Type-safe wrapper around Expo's built-in environment variables.
  *
  * Expo inlines EXPO_PUBLIC_* env vars from .env at build time via
- * process.env.EXPO_PUBLIC_XXX. Native capability flags come from the embedded
- * Expo manifest because they are derived while app.config.js is evaluated.
+ * process.env.EXPO_PUBLIC_XXX. Capability flags come from the embedded Expo
+ * manifest because they are derived while app.config.js is evaluated.
  */
 
 import Constants from 'expo-constants';
@@ -15,10 +15,7 @@ export type Environment = 'development' | 'staging' | 'production';
 interface AppConfig {
   readonly appVersion: string;
   readonly apiBaseUrl: string;
-  readonly nativeGoogleMapsEnabled: Readonly<{
-    android: boolean;
-    ios: boolean;
-  }>;
+  readonly goongPlacesEnabled: boolean;
   readonly nativeMapboxEnabled: Readonly<{
     android: boolean;
     ios: boolean;
@@ -34,10 +31,6 @@ interface AppConfig {
 }
 
 interface NativeCapabilities {
-  readonly googleMaps?: Readonly<{
-    android?: boolean;
-    ios?: boolean;
-  }>;
   readonly mapbox?: Readonly<{
     android?: boolean;
     ios?: boolean;
@@ -48,7 +41,12 @@ interface NativeCapabilities {
   }>;
 }
 
+interface ServiceCapabilities {
+  readonly goongPlaces?: boolean;
+}
+
 interface VietRideExpoExtra {
+  readonly serviceCapabilities?: ServiceCapabilities;
   readonly nativeCapabilities?: NativeCapabilities;
 }
 
@@ -108,6 +106,7 @@ const secureTransportRequired = env !== 'development';
 
 const isExplicitlyEnabled = (value: string | undefined): boolean => value === 'true';
 const expoExtra = Constants.expoConfig?.extra as VietRideExpoExtra | undefined;
+const serviceCapabilities = expoExtra?.serviceCapabilities;
 const nativeCapabilities = expoExtra?.nativeCapabilities;
 const resolveNativeCapability = (
   embeddedValue: boolean | undefined,
@@ -121,16 +120,7 @@ export const appConfig: AppConfig = {
     apiBaseUrlValue,
     secureTransportRequired ? ['https:'] : ['http:', 'https:'],
   ),
-  nativeGoogleMapsEnabled: {
-    android: resolveNativeCapability(
-      nativeCapabilities?.googleMaps?.android,
-      process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_ENABLED,
-    ),
-    ios: resolveNativeCapability(
-      nativeCapabilities?.googleMaps?.ios,
-      process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_ENABLED,
-    ),
-  },
+  goongPlacesEnabled: serviceCapabilities?.goongPlaces === true,
   nativeMapboxEnabled: {
     android: resolveNativeCapability(
       nativeCapabilities?.mapbox?.android,

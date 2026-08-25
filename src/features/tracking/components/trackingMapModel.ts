@@ -209,7 +209,7 @@ export function prepareTrackingMapData(
   points: readonly TrackingPoint[],
   stops?: readonly TrackingMapStop[],
 ): PreparedTrackingMapData;
-/** Sanitizes untrusted API/socket data before it reaches react-native-maps. */
+/** Sanitizes untrusted API/socket data before it reaches the map renderer. */
 export function prepareTrackingMapData(
   inputOrLatest: TrackingMapInput | TrackingPoint | null,
   legacyPoints: readonly TrackingPoint[] = [],

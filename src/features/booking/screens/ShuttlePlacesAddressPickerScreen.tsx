@@ -1,6 +1,6 @@
 /**
- * Full-screen Google Places address search for Shuttle pickup/drop-off.
- * Selecting a prediction resolves Place Details, saves the verified address,
+ * Full-screen provider-backed address search for Shuttle pickup/drop-off.
+ * Selecting a prediction resolves place details, saves the verified address,
  * and immediately returns to the booking flow. Raw input is never persisted.
  */
 import React, {
@@ -14,7 +14,6 @@ import React, {
 import {
   ActivityIndicator,
   Keyboard,
-  Platform,
   Pressable,
   StatusBar,
   Text,
@@ -45,10 +44,9 @@ import { appConfig } from '@shared/constants/config';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useDebounce, useThemedStyles } from '@shared/hooks';
 import {
-  isNativePlacesAvailable,
+  isPlacesRequestAborted,
   isPlacesRequestError,
-  resolvePlaceDetails,
-  usePlacesSession,
+  usePlacesSearch,
   type PlacePrediction,
   type PlacesErrorCode,
   type ResolvedPlace,
@@ -82,7 +80,6 @@ const SEARCH_DEBOUNCE_MS = 280;
 const MIN_QUERY_LENGTH = 3;
 const MAX_PREDICTIONS = 5;
 const BIAS_RADIUS_METERS = SHUTTLE_MAX_ROAD_DISTANCE_METERS;
-const COUNTRY_CODE = 'vn';
 
 const normalizeQuery = (value: string): string =>
   value.trim().replace(/\s+/g, ' ');
@@ -97,12 +94,8 @@ const placesErrorTranslationKey = (code: PlacesErrorCode): string => {
       return 'booking.shuttlePicker.errors.noResults';
     case 'QUOTA':
       return 'booking.shuttlePicker.errors.quota';
-    case 'UNSUPPORTED':
-      return 'booking.shuttlePicker.errors.unsupported';
     case 'INVALID_PLACE':
       return 'booking.shuttlePicker.errors.invalidPlace';
-    case 'INVALID_SESSION':
-      return 'booking.shuttlePicker.errors.session';
     default:
       return 'booking.shuttlePicker.errors.unavailable';
   }
@@ -171,6 +164,7 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
   const route = useRoute<PickerRoute>();
   const inputRef = useRef<TextInput>(null);
   const requestIdRef = useRef(0);
+  const selectionRequestIdRef = useRef(0);
   const mountedRef = useRef(true);
 
   const {
@@ -208,17 +202,13 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
     return draft?.stationId === stationId ? draft : null;
   }, [isDropoff, selectedShuttleDropoff, selectedShuttlePickup, stationId]);
 
-  const googlePlacesEnabled =
-    Platform.OS === 'android'
-      ? appConfig.nativeGoogleMapsEnabled.android
-      : appConfig.nativeGoogleMapsEnabled.ios;
-  const placesAvailable = googlePlacesEnabled && isNativePlacesAvailable();
+  const placesAvailable = appConfig.goongPlacesEnabled;
   const {
-    ensureSession,
-    endSession,
-    clearLocalSession,
-    findPredictions: findPredictionsWithSession,
-  } = usePlacesSession();
+    cancelPendingRequests,
+    cancelSearch,
+    findPredictions,
+    resolvePlaceDetails,
+  } = usePlacesSearch();
 
   const [query, setQuery] = useState(existingDraft?.address ?? '');
   const [hasEditedQuery, setHasEditedQuery] = useState(!existingDraft);
@@ -227,7 +217,7 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
   const [resolvingPlaceId, setResolvingPlaceId] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [bannerError, setBannerError] = useState<string | null>(
-    placesAvailable ? null : t('booking.shuttlePicker.errors.unsupported'),
+    placesAvailable ? null : t('booking.shuttlePicker.errors.configuration'),
   );
   const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
   const normalizedDebouncedQuery = useMemo(
@@ -244,9 +234,10 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
     () => () => {
       mountedRef.current = false;
       requestIdRef.current += 1;
-      endSession().catch(() => undefined);
+      selectionRequestIdRef.current += 1;
+      cancelPendingRequests();
     },
-    [endSession],
+    [cancelPendingRequests],
   );
 
   useEffect(() => {
@@ -270,12 +261,10 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
 
     const search = async (): Promise<void> => {
       try {
-        const results = await findPredictionsWithSession({
+        const results = await findPredictions({
           query: normalizedDebouncedQuery,
-          latitude: stationCoordinate.latitude,
-          longitude: stationCoordinate.longitude,
+          location: stationCoordinate,
           radiusMeters: BIAS_RADIUS_METERS,
-          countryCode: COUNTRY_CODE,
           maxResults: MAX_PREDICTIONS,
         });
         if (cancelled || requestIdRef.current !== requestId) return;
@@ -285,13 +274,13 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
         }
       } catch (error) {
         if (cancelled || requestIdRef.current !== requestId) return;
+        if (isPlacesRequestAborted(error)) return;
         const code = isPlacesRequestError(error) ? error.code : 'UNAVAILABLE';
         setPredictions([]);
         setSearchError(t(placesErrorTranslationKey(code)));
-        if (code === 'CONFIGURATION' || code === 'UNSUPPORTED') {
+        if (code === 'CONFIGURATION') {
           setBannerError(t(placesErrorTranslationKey(code)));
         }
-        if (code === 'INVALID_SESSION') clearLocalSession();
       } finally {
         if (!cancelled && requestIdRef.current === requestId) {
           setIsSearching(false);
@@ -302,10 +291,11 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
     search().catch(() => undefined);
     return () => {
       cancelled = true;
+      cancelSearch();
     };
   }, [
-    clearLocalSession,
-    findPredictionsWithSession,
+    cancelSearch,
+    findPredictions,
     hasEditedQuery,
     normalizedDebouncedQuery,
     placesAvailable,
@@ -370,78 +360,74 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
   const handlePredictionPress = useCallback(
     async (prediction: PlacePrediction) => {
       if (resolvingPlaceId || !placesAvailable) return;
+      const selectionRequestId = selectionRequestIdRef.current + 1;
+      selectionRequestIdRef.current = selectionRequestId;
       setResolvingPlaceId(prediction.placeId);
       setSearchError(null);
 
       try {
-        let sessionId = await ensureSession();
-        let place: ResolvedPlace;
-        try {
-          place = await resolvePlaceDetails({
-            sessionId,
-            placeId: prediction.placeId,
-            endSession: true,
-          });
-        } catch (error) {
-          if (
-            !isPlacesRequestError(error) ||
-            error.code !== 'INVALID_SESSION'
-          ) {
-            throw error;
-          }
-          clearLocalSession();
-          sessionId = await ensureSession({ forceNew: true });
-          place = await resolvePlaceDetails({
-            sessionId,
-            placeId: prediction.placeId,
-            endSession: true,
-          });
-        }
-        clearLocalSession();
-        if (!mountedRef.current) return;
+        const place = await resolvePlaceDetails({
+          placeId: prediction.placeId,
+        });
+        if (
+          !mountedRef.current
+          || selectionRequestIdRef.current !== selectionRequestId
+        ) return;
         saveResolvedPlace(place);
       } catch (error) {
-        if (!mountedRef.current) return;
+        if (
+          !mountedRef.current
+          || selectionRequestIdRef.current !== selectionRequestId
+        ) return;
+        if (isPlacesRequestAborted(error)) return;
         const code = isPlacesRequestError(error) ? error.code : 'UNAVAILABLE';
-        if (code === 'INVALID_SESSION') clearLocalSession();
         setSearchError(t(placesErrorTranslationKey(code)));
       } finally {
-        if (mountedRef.current) setResolvingPlaceId(null);
+        if (
+          mountedRef.current
+          && selectionRequestIdRef.current === selectionRequestId
+        ) setResolvingPlaceId(null);
       }
     },
     [
-      clearLocalSession,
-      ensureSession,
       placesAvailable,
       resolvingPlaceId,
+      resolvePlaceDetails,
       saveResolvedPlace,
       t,
     ],
   );
 
   const handleQueryChange = useCallback((value: string) => {
+    selectionRequestIdRef.current += 1;
+    cancelPendingRequests();
     requestIdRef.current += 1;
     setQuery(value);
     setHasEditedQuery(true);
     setPredictions([]);
     setIsSearching(false);
+    setResolvingPlaceId(null);
     setSearchError(null);
-  }, []);
+  }, [cancelPendingRequests]);
 
   const handleClearQuery = useCallback(() => {
+    selectionRequestIdRef.current += 1;
+    cancelPendingRequests();
     requestIdRef.current += 1;
     setQuery('');
     setHasEditedQuery(true);
     setPredictions([]);
     setIsSearching(false);
+    setResolvingPlaceId(null);
     setSearchError(null);
     inputRef.current?.focus();
-  }, []);
+  }, [cancelPendingRequests]);
 
   const handleBack = useCallback(() => {
-    endSession().catch(() => undefined);
+    selectionRequestIdRef.current += 1;
+    cancelPendingRequests();
     navigation.goBack();
-  }, [endSession, navigation]);
+  }, [cancelPendingRequests, navigation]);
 
   const renderPrediction = useCallback(
     ({ item }: ListRenderItemInfo<PlacePrediction>) => (
@@ -616,7 +602,7 @@ export function ShuttlePlacesAddressPickerScreen(): React.JSX.Element {
               {!isSearching && showPredictions ? (
                 <View style={styles.predictionsArea}>
                   <Text style={styles.attribution}>
-                    {t('booking.shuttlePicker.googleAttribution')}
+                    {t('booking.shuttlePicker.providerAttribution')}
                   </Text>
                   <FlashList
                     data={predictions}

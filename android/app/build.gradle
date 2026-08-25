@@ -105,12 +105,6 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-// @generated begin vietride-google-maps-api-key-env - expo prebuild (DO NOT MODIFY) sync-893769e0f09e0c16239eade4422ba96ca7f13f63
-def googleMapsAndroidApiKey = (System.getenv("GOOGLE_MAPS_ANDROID_API_KEY") ?: findProperty("GOOGLE_MAPS_ANDROID_API_KEY"))?.toString()?.trim()
-if (!googleMapsAndroidApiKey) {
-    throw new GradleException("GOOGLE_MAPS_ANDROID_API_KEY is required for this Maps-enabled build.")
-}
-// @generated end vietride-google-maps-api-key-env
 android {
 // @generated begin @rnmapbox/maps-libcpp - expo prebuild (DO NOT MODIFY) sync-e24830a5a3e854b398227dfe9630aabfaa1cadd1
 packagingOptions {
@@ -127,9 +121,6 @@ packagingOptions {
 
     namespace 'com.vietride.passenger'
     defaultConfig {
-// @generated begin vietride-google-maps-api-key-placeholder - expo prebuild (DO NOT MODIFY) sync-9bba28b1358080391498a999001a039b8c3ba268
-        manifestPlaceholders["GOOGLE_MAPS_ANDROID_API_KEY"] = googleMapsAndroidApiKey
-// @generated end vietride-google-maps-api-key-placeholder
         applicationId 'com.vietride.passenger'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
@@ -194,9 +185,6 @@ packagingOptions {
 }
 
 dependencies {
-// @generated begin vietride-google-maps-sdk - expo prebuild (DO NOT MODIFY) sync-83117852007c40caee8791e3122872cfef28cdc5
-    implementation "com.google.android.gms:play-services-maps:19.2.0"
-// @generated end vietride-google-maps-sdk
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 

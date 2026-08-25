@@ -29,7 +29,7 @@ export interface ShuttleServiceValidationResult {
 }
 
 /**
- * Build the wire `address` for Shuttle from Google Places fields.
+ * Build the wire `address` for Shuttle from normalized place fields.
  *
  * Place.displayName is the POI title (e.g. "S802 Origami"); formattedAddress is
  * the street/area line (e.g. "Long Bình, Quận 9, HCM"). Saving only the
@@ -137,7 +137,7 @@ export type ShuttleStationDistanceCheck =
   | { ok: false; reason: 'COORDINATES' };
 
 /**
- * Client pre-check against the same 10 km cap BE uses for Google Routes.
+ * Client pre-check against the same 10 km cap enforced by the Backend.
  * Straight-line distance is never shorter than road distance, so a miss here
  * will also fail `SHUTTLE_DISTANCE_EXCEEDED`. Pickup compares to the origin
  * station; drop-off compares to the destination station.

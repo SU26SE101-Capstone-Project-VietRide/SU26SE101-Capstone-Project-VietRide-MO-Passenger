@@ -44,7 +44,7 @@ export type BookingStackParamList = {
     | undefined;
   CreateTicketBooking: { intent: BookingEntryIntent } | undefined;
   /**
-   * Google Places-only Shuttle address picker. Params are strictly serializable;
+   * Provider-backed Shuttle address picker. Params are strictly serializable;
    * station coordinates bias autocomplete around the terminal.
    */
   ShuttleAddressPicker: {

@@ -49,7 +49,6 @@
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-keyboard-controller": "1.18.5",
-    "react-native-maps": "1.20.1",
     "react-native-nitro-google-signin": "1.0.3",
     "react-native-nitro-modules": "^0.36.1",
     "react-native-qrcode-svg": "^6.3.15",
@@ -83,6 +82,7 @@
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
     "jest-expo": "~54.0.18",
+    "pngjs": "^3.4.0",
     "prettier": "2.8.8",
     "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"
@@ -96,7 +96,6 @@
         "exclude": [
           "@notifee/react-native",
           "react-native-nitro-google-signin",
-          "vietride-places",
           "vietride-vnpay"
         ]
       },
