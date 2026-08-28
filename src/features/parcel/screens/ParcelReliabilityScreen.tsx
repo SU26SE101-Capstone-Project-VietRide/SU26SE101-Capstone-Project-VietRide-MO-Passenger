@@ -15,6 +15,7 @@ import {
   ArrowClockwise,
   CaretDown,
   FileText,
+  LinkBreak,
   Package,
   ShareNetwork,
   WarningCircle,
@@ -181,13 +182,21 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
       });
     }
     if (shareQuickAction && shareQuickAction.scopeKey === trace?.trip.tripId) {
+      const isRevoke = shareQuickAction.mode === 'revoke';
       actions.push({
         key: 'share-location',
-        accessibilityLabel: t('tracking.share.action'),
-        accessibilityHint: t('tracking.share.actionHint'),
+        accessibilityLabel: t(isRevoke
+          ? 'tracking.share.revokeAction'
+          : 'tracking.share.action'),
+        accessibilityHint: t(isRevoke
+          ? 'tracking.share.revokeActionHint'
+          : 'tracking.share.actionHint'),
         busy: shareQuickAction.pending,
         disabled: shareQuickAction.disabled,
-        icon: <ShareNetwork size={20} color={theme.colors.primary} weight="bold" />,
+        tone: isRevoke ? 'destructive' : 'default',
+        icon: isRevoke
+          ? <LinkBreak size={20} color={theme.colors.error} weight="bold" />
+          : <ShareNetwork size={20} color={theme.colors.primary} weight="bold" />,
         onPress: shareQuickAction.onPress,
       });
     }
@@ -197,6 +206,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     hasReportAction,
     shareQuickAction,
     t,
+    theme.colors.error,
     theme.colors.primary,
     theme.colors.warning,
     trace?.trip.tripId,

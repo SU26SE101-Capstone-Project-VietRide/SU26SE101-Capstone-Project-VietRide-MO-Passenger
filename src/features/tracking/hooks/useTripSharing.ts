@@ -48,6 +48,7 @@ export function useTripSharing() {
   const activeControllerRef = useRef<AbortController | null>(null);
   const inFlightRef = useRef<Promise<TripShareOutcome> | null>(null);
   const mountedRef = useRef(true);
+  const [activeTripId, setActiveTripId] = useState<string | null>(null);
   const [pendingOperation, setPendingOperation] = useState<PendingOperation>(null);
 
   useEffect(() => {
@@ -106,6 +107,10 @@ export function useTripSharing() {
           return 'cancelled';
         }
 
+        // PUT has activated the BE grant even if the native share sheet is
+        // dismissed or fails to open afterwards.
+        setActiveTripId(shareInput.tripId);
+
         const content = Platform.OS === 'ios'
           ? { message: shareInput.message, url: shareUrl }
           : { message: `${shareInput.message}\n${shareUrl}` };
@@ -138,13 +143,18 @@ export function useTripSharing() {
       }
 
       tracker.reset();
-      return (
+      if (
         controller.signal.aborted
         || !mountedRef.current
         || !isTokenSessionEpochCurrent(sessionEpoch)
-      )
-        ? 'cancelled'
-        : 'revoked';
+      ) {
+        return 'cancelled';
+      }
+
+      setActiveTripId((current) => (
+        current === input.tripId ? null : current
+      ));
+      return 'revoked';
     })();
 
     const finalized = request.finally(() => {
@@ -168,6 +178,7 @@ export function useTripSharing() {
   );
 
   return {
+    activeTripId,
     shareTrip,
     revokeTripShare,
     isSharing: pendingOperation === 'share',

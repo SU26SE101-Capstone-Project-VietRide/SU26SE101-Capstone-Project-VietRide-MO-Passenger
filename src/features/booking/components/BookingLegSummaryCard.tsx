@@ -225,18 +225,7 @@ export const BookingLegSummaryCard = memo(
             label={t('booking.steps.dropoff')}
             onEdit={onEditDropoff}
           />
-          {shuttleDropoff ? (
-            <ShuttleRequestSummary
-              address={shuttleDropoff.address}
-              label={t('booking.checkout.shuttleDropoffRequest')}
-              hint={t('booking.checkout.shuttleAwaiting')}
-            />
-          ) : null}
-          <View
-            style={
-              shuttleDropoff ? styles.locationBlockAfterShuttle : undefined
-            }
-          >
+          <View>
             <View style={styles.locationSurface}>
               <View style={styles.locationIconBox}>
                 <MapPinLine
@@ -260,6 +249,15 @@ export const BookingLegSummaryCard = memo(
               </View>
             </View>
           </View>
+          {shuttleDropoff ? (
+            <View style={styles.locationBlockAfterShuttle}>
+              <ShuttleRequestSummary
+                address={shuttleDropoff.address}
+                label={t('booking.checkout.shuttleDropoffRequest')}
+                hint={t('booking.checkout.shuttleAwaiting')}
+              />
+            </View>
+          ) : null}
         </View>
       </SectionCard>
     );

@@ -27,13 +27,20 @@ export const ShuttleHistorySummary = memo(function ShuttleHistorySummaryComponen
 
   if (requests.length === 0) return null;
 
+  // BE orders history by request time. Group only for the passenger-facing
+  // journey so pickup is read before drop-off, preserving BE order per group.
+  const orderedRequests = [
+    ...requests.filter(request => request.direction === 'INBOUND_TO_STATION'),
+    ...requests.filter(request => request.direction === 'OUTBOUND_FROM_STATION'),
+  ];
+
   return (
     <View style={styles.container} accessibilityRole="summary">
       <View style={styles.headingRow}>
         <Van size={17} color={theme.colors.primary} weight="duotone" />
         <Text style={styles.heading}>{t('bookingHistory.shuttle.title')}</Text>
       </View>
-      {requests.map((request) => (
+      {orderedRequests.map((request) => (
         <View
           key={`${request.direction}:${request.requestedAt}`}
           style={styles.request}

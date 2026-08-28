@@ -4,7 +4,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { ShareNetwork } from 'phosphor-react-native';
+import { LinkBreak, ShareNetwork } from 'phosphor-react-native';
 
 import type { RootStackParamList } from '@app/navigation/types';
 import type { TripLifecycleStatus } from '@features/trip/types';
@@ -60,19 +60,35 @@ export function TrackingScreen(): React.JSX.Element {
         : next
     ));
   }, []);
-  const headerActions = useMemo<readonly TrackingHeaderAction[]>(() => (
-    shareQuickAction && shareQuickAction.scopeKey === shareScopeKey
-      ? [{
-          key: 'share-location',
-          accessibilityLabel: t('tracking.share.action'),
-          accessibilityHint: t('tracking.share.actionHint'),
-          busy: shareQuickAction.pending,
-          disabled: shareQuickAction.disabled,
-          icon: <ShareNetwork size={20} color={theme.colors.primary} weight="bold" />,
-          onPress: shareQuickAction.onPress,
-        }]
-      : []
-  ), [shareQuickAction, shareScopeKey, t, theme.colors.primary]);
+  const headerActions = useMemo<readonly TrackingHeaderAction[]>(() => {
+    if (!shareQuickAction || shareQuickAction.scopeKey !== shareScopeKey) {
+      return [];
+    }
+
+    const isRevoke = shareQuickAction.mode === 'revoke';
+    return [{
+      key: 'share-location',
+      accessibilityLabel: t(isRevoke
+        ? 'tracking.share.revokeAction'
+        : 'tracking.share.action'),
+      accessibilityHint: t(isRevoke
+        ? 'tracking.share.revokeActionHint'
+        : 'tracking.share.actionHint'),
+      busy: shareQuickAction.pending,
+      disabled: shareQuickAction.disabled,
+      tone: isRevoke ? 'destructive' : 'default',
+      icon: isRevoke
+        ? <LinkBreak size={20} color={theme.colors.error} weight="bold" />
+        : <ShareNetwork size={20} color={theme.colors.primary} weight="bold" />,
+      onPress: shareQuickAction.onPress,
+    }];
+  }, [
+    shareQuickAction,
+    shareScopeKey,
+    t,
+    theme.colors.error,
+    theme.colors.primary,
+  ]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

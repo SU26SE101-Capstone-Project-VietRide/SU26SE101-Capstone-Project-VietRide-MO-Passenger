@@ -15,6 +15,9 @@ const translations: Record<string, string> = {
   'booking.checkout.alightingAt': 'Xuống xe',
   'booking.checkout.selectPickup': 'Chọn điểm đón',
   'booking.checkout.selectDropoff': 'Chọn điểm trả',
+  'booking.checkout.shuttleRequest': 'Yêu cầu đón trung chuyển',
+  'booking.checkout.shuttleDropoffRequest': 'Yêu cầu trả trung chuyển',
+  'booking.checkout.shuttleAwaiting': 'Chờ nhà xe sắp xếp',
   'booking.checkout.viewPolicies': 'Xem chính sách nhà xe',
   'common.notAvailable': 'Không có',
   'common.none': 'Không có',
@@ -163,6 +166,45 @@ describe('BookingLegSummaryCard', () => {
 
     expect(labels.filter(value => value === 'Bến Miền Tây')).toHaveLength(1);
     expect(labels.filter(value => value === 'Bến Đà Lạt')).toHaveLength(1);
+
+    act(() => renderer!.unmount());
+  });
+
+  it('places pickup shuttle before boarding and drop-off shuttle after alighting', () => {
+    const shuttleLeg: BookingLegDraft = {
+      ...leg,
+      shuttlePickup: {
+        stationId: 'origin-1',
+        address: '12 Nguyễn Huệ',
+        latitude: 10.7731,
+        longitude: 106.7032,
+      },
+      shuttleDropoff: {
+        stationId: 'destination-1',
+        address: '45 Lê Lợi',
+        latitude: 10.775,
+        longitude: 106.701,
+      },
+    };
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    act(() => {
+      renderer = ReactTestRenderer.create(
+        <BookingLegSummaryCard title="Chuyến chiều đi" leg={shuttleLeg} />,
+      );
+    });
+
+    const labels = renderer!.root
+      .findAllByType(Text)
+      .map(node => node.props.children)
+      .filter((value): value is string => typeof value === 'string');
+
+    expect(labels.indexOf('Yêu cầu đón trung chuyển')).toBeLessThan(
+      labels.indexOf('Lên xe'),
+    );
+    expect(labels.indexOf('Xuống xe')).toBeLessThan(
+      labels.indexOf('Yêu cầu trả trung chuyển'),
+    );
 
     act(() => renderer!.unmount());
   });

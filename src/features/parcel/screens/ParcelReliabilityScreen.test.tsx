@@ -70,6 +70,7 @@ jest.mock('phosphor-react-native', () => {
     ArrowClockwise: MockIcon,
     CaretDown: MockIcon,
     FileText: MockIcon,
+    LinkBreak: MockIcon,
     Package: MockIcon,
     ShareNetwork: MockIcon,
     WarningCircle: MockIcon,
@@ -268,6 +269,7 @@ describe('ParcelReliabilityScreen timeline virtualization', () => {
     const panelProps = mockLiveTripTrackingPanel.mock.calls[0]?.[0] as {
       onShareQuickActionChange?: (action: {
         disabled: boolean;
+        mode: 'share' | 'revoke';
         onPress: () => void;
         pending: boolean;
         scopeKey: string;
@@ -276,6 +278,7 @@ describe('ParcelReliabilityScreen timeline virtualization', () => {
     act(() => {
       panelProps.onShareQuickActionChange?.({
         disabled: false,
+        mode: 'share',
         onPress: sharePress,
         pending: false,
         scopeKey: 'previous-trip',
@@ -293,6 +296,7 @@ describe('ParcelReliabilityScreen timeline virtualization', () => {
     act(() => {
       panelProps.onShareQuickActionChange?.({
         disabled: false,
+        mode: 'share',
         onPress: sharePress,
         pending: false,
         scopeKey: '22222222-2222-4222-8222-222222222222',
@@ -301,7 +305,13 @@ describe('ParcelReliabilityScreen timeline virtualization', () => {
     latestHeaderCall = mockTrackingHeader.mock.calls[
       mockTrackingHeader.mock.calls.length - 1
     ]?.[0] as {
-      actions?: readonly { key: string; onPress: () => void }[];
+      actions?: readonly {
+        accessibilityHint?: string;
+        accessibilityLabel: string;
+        key: string;
+        onPress: () => void;
+        tone?: string;
+      }[];
     };
     expect(latestHeaderCall.actions?.map(action => action.key)).toEqual([
       'report-incident',
@@ -310,12 +320,40 @@ describe('ParcelReliabilityScreen timeline virtualization', () => {
 
     const reportAction = latestHeaderCall.actions?.[0];
     const shareAction = latestHeaderCall.actions?.[1];
+    expect(shareAction).toMatchObject({
+      accessibilityHint: 'tracking.share.actionHint',
+      accessibilityLabel: 'tracking.share.action',
+      tone: 'default',
+    });
     act(() => reportAction?.onPress());
     expect(mockNavigate).toHaveBeenCalledWith('ReportParcelIncident', {
       parcelId: '11111111-1111-4111-8111-111111111111',
     });
     act(() => shareAction?.onPress());
     expect(sharePress).toHaveBeenCalledTimes(1);
+
+    const revokePress = jest.fn();
+    act(() => {
+      panelProps.onShareQuickActionChange?.({
+        disabled: false,
+        mode: 'revoke',
+        onPress: revokePress,
+        pending: false,
+        scopeKey: '22222222-2222-4222-8222-222222222222',
+      });
+    });
+    latestHeaderCall = mockTrackingHeader.mock.calls[
+      mockTrackingHeader.mock.calls.length - 1
+    ]?.[0] as typeof latestHeaderCall;
+    const revokeAction = latestHeaderCall.actions?.[1];
+    expect(revokeAction).toMatchObject({
+      accessibilityHint: 'tracking.share.revokeActionHint',
+      accessibilityLabel: 'tracking.share.revokeAction',
+      tone: 'destructive',
+    });
+    act(() => revokeAction?.onPress());
+    expect(revokePress).toHaveBeenCalledTimes(1);
+
     expect(
       renderer!.root.findAllByType(Text)
         .filter(node => node.props.children === 'parcel.reliability.reportIncident'),

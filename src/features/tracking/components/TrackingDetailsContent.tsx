@@ -148,7 +148,7 @@ export const TrackingDetailsContent = React.memo(
           </View>
         ) : null}
 
-        {canManageTripSharing ? (
+        {canManageTripSharing && showPrimaryShareAction ? (
           <View style={styles.shareCard}>
             <View style={styles.shareHeading}>
               <View style={styles.shareIcon}>

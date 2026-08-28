@@ -580,7 +580,7 @@ function TicketView({
                           {activeLeg.shuttlePickupAddress ? (
                             <View style={styles.shuttleRequestItem}>
                               <Text style={styles.shuttleRequestLabel}>
-                                {t('booking.checkout.shuttleRequest')}
+                                {t('bookingHistory.shuttle.inbound')}
                               </Text>
                               <Text style={styles.shuttleRequestAddress}>
                                 {activeLeg.shuttlePickupAddress}
@@ -590,7 +590,7 @@ function TicketView({
                           {activeLeg.shuttleDropoffAddress ? (
                             <View style={styles.shuttleRequestItem}>
                               <Text style={styles.shuttleRequestLabel}>
-                                {t('booking.checkout.shuttleDropoffRequest')}
+                                {t('bookingHistory.shuttle.outbound')}
                               </Text>
                               <Text style={styles.shuttleRequestAddress}>
                                 {activeLeg.shuttleDropoffAddress}

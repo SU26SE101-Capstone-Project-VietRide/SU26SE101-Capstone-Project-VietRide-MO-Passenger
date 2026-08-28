@@ -1157,6 +1157,7 @@
       "actionHint": "Mở bảng chia sẻ của điện thoại với liên kết theo dõi có thời hạn",
       "sharing": "Đang tạo liên kết...",
       "revokeAction": "Dừng chia sẻ",
+      "revokeActionHint": "Mở hộp thoại xác nhận dừng chia sẻ hành trình",
       "revoking": "Đang dừng...",
       "revokeConfirmTitle": "Dừng chia sẻ hành trình?",
       "revokeConfirmDescription": "Mọi liên kết đã tạo cho chuyến này sẽ ngừng hoạt động ngay.",
@@ -1917,8 +1918,8 @@
     },
     "shuttle": {
       "title": "Trung chuyển",
-      "inbound": "Đón đến bến",
-      "outbound": "Đưa từ bến",
+      "inbound": "Đón khách ở",
+      "outbound": "Thả khách ở",
       "active": "Đã yêu cầu",
       "cancelled": "Đã hủy"
     },

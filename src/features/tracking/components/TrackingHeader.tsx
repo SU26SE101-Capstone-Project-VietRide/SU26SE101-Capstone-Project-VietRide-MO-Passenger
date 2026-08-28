@@ -23,6 +23,7 @@ export interface TrackingHeaderAction {
   accessibilityHint?: string;
   busy?: boolean;
   disabled?: boolean;
+  tone?: 'default' | 'destructive';
   icon: ReactNode;
   onPress: () => void;
 }
@@ -91,6 +92,9 @@ export const TrackingHeader = React.memo(function TrackingHeaderComponent({
                   onPress={action.onPress}
                   style={({ pressed }) => [
                     styles.actionButton,
+                    action.tone === 'destructive'
+                      ? styles.actionDestructive
+                      : null,
                     disabled ? styles.actionDisabled : null,
                     pressed && !disabled ? styles.pressed : null,
                   ]}
@@ -98,7 +102,9 @@ export const TrackingHeader = React.memo(function TrackingHeaderComponent({
                 >
                   {action.busy ? (
                     <ActivityIndicator
-                      color={theme.colors.primary}
+                      color={action.tone === 'destructive'
+                        ? theme.colors.error
+                        : theme.colors.primary}
                       size="small"
                     />
                   ) : action.icon}
@@ -204,6 +210,11 @@ const createStyles = (theme: AppTheme) => ({
   },
   actionDisabled: {
     opacity: 0.5,
+  },
+  actionDestructive: {
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+    backgroundColor: theme.colors.errorLight,
   },
   routeSummary: {
     flexDirection: 'row' as const,

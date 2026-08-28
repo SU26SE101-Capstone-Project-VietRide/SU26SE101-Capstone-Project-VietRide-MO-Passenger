@@ -342,8 +342,7 @@ const SeatButton = memo(function SeatButtonComponent({
         ]}
       />
       <Text
-        adjustsFontSizeToFit
-        minimumFontScale={0.72}
+        ellipsizeMode="middle"
         numberOfLines={1}
         style={[
           styles.seatLabel,
@@ -404,12 +403,13 @@ const SeatRowView = memo(
       <View style={styles.seatRow}>
         <View style={[styles.rowBadge, { height: seatSize }]}>
           <Text
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
+            accessibilityLabel={t('booking.seatMap.rowCode', {
+              row: row.label,
+            })}
             numberOfLines={1}
             style={styles.rowBadgeText}
           >
-            {t('booking.seatMap.rowCode', { row: row.label })}
+            {row.label}
           </Text>
         </View>
 
@@ -612,7 +612,11 @@ export function SeatGrid({
       {activeGroup ? (
         <View style={[styles.matrix, { width: matrixWidth }]}>
           <View style={styles.axisRow}>
-            <View style={styles.rowAxisSlot} />
+            <View style={styles.rowAxisSlot}>
+              <Text style={styles.axisLabel}>
+                {t('booking.seatMap.rowAxis')}
+              </Text>
+            </View>
             {columns.map(column => (
               <React.Fragment key={`axis-${column}`}>
                 <View style={[styles.columnAxisSlot, { width: seatSize }]}>
@@ -805,9 +809,8 @@ const createStyles = (theme: AppTheme) =>
     rowAxisSlot: {
       width: ROW_AXIS_WIDTH,
       height: AXIS_HEIGHT,
-      alignItems: 'flex-start',
+      alignItems: 'center',
       justifyContent: 'center',
-      paddingLeft: spacing.xs,
     },
     columnAxisSlot: {
       height: AXIS_HEIGHT,
@@ -829,13 +832,14 @@ const createStyles = (theme: AppTheme) =>
     },
     rowBadge: {
       width: ROW_AXIS_WIDTH,
-      alignItems: 'flex-start',
+      alignItems: 'center',
       justifyContent: 'center',
-      paddingLeft: spacing.xs,
       flexShrink: 0,
     },
     rowBadgeText: {
-      maxWidth: ROW_AXIS_WIDTH - spacing.xs,
+      width: ROW_AXIS_WIDTH,
+      textAlign: 'center',
+      fontVariant: ['tabular-nums'],
       fontFamily: fontFamilies.bold,
       fontSize: fontSizes.xs,
       color: theme.colors.textSecondary,
@@ -907,6 +911,7 @@ const createStyles = (theme: AppTheme) =>
     seatLabel: {
       maxWidth: '90%',
       marginTop: spacing.sm,
+      fontVariant: ['tabular-nums'],
       fontFamily: fontFamilies.bold,
       fontSize: fontSizes.sm,
       color: theme.colors.textPrimary,

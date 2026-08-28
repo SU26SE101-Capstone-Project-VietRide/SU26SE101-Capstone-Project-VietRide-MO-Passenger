@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
 import type { SeatRow } from '../types';
@@ -22,6 +22,7 @@ jest.mock('react-i18next', () => ({
         'booking.seatMap.frontOfVehicle': 'Đầu xe',
         'booking.seatMap.deckEyebrow': 'Sơ đồ ghế tầng A',
         'booking.seatMap.lowerDeck': 'Tầng dưới',
+        'booking.seatMap.rowAxis': 'Hàng',
         'booking.seatMap.available': 'Còn trống',
         'common.none': 'Không có',
       };
@@ -72,7 +73,7 @@ const seatMap: SeatRow[] = [
 ];
 
 describe('SeatGrid', () => {
-  it('keeps row badges and column labels without the redundant Row axis label', () => {
+  it('keeps a fixed row axis and exposes the full localized row label', () => {
     let renderer: ReactTestRenderer.ReactTestRenderer;
 
     act(() => {
@@ -90,10 +91,16 @@ describe('SeatGrid', () => {
       .findAllByType(Text)
       .map(node => node.props.children);
 
-    expect(labels).toContain('Hàng 01');
+    expect(labels).toContain('Hàng');
+    expect(labels).toContain('01');
     expect(labels).toContain('Cột 1');
     expect(labels).toContain('Cột 2');
-    expect(labels).not.toContain('Hàng');
+
+    const rowLabel = renderer!.root
+      .findAllByType(Text)
+      .find(node => node.props.children === '01');
+    expect(rowLabel?.props.accessibilityLabel).toBe('Hàng 01');
+    expect(rowLabel?.props.adjustsFontSizeToFit).toBeUndefined();
 
     act(() => renderer!.unmount());
   });
@@ -113,5 +120,66 @@ describe('SeatGrid', () => {
   it('keeps the explicit seat-size safety bounds', () => {
     expect(calculateSeatGridGeometry(240, 4, 1).seatSize).toBe(34);
     expect(calculateSeatGridGeometry(900, 4, 1).seatSize).toBe(58);
+  });
+
+  it('uses one font tier for every seat and row in the active deck', () => {
+    const fiveRows: SeatRow[] = Array.from({ length: 5 }, (_, index) => {
+      const row = index + 1;
+      const seatNumber = `L${row.toString().padStart(2, '0')}`;
+      return {
+        rowLabel: row.toString().padStart(2, '0'),
+        rowNumber: row,
+        deck: 1,
+        columns: [1],
+        leftSeats: [{
+          id: seatNumber,
+          label: seatNumber,
+          status: 'available',
+          row,
+          col: 1,
+          deck: 1,
+        }],
+        rightSeats: [],
+      };
+    });
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    act(() => {
+      renderer = ReactTestRenderer.create(
+        <SeatGrid
+          seatMap={fiveRows}
+          selectedSeats={[]}
+          aisleAfterCols={[]}
+          onSeatPress={jest.fn()}
+        />,
+      );
+    });
+
+    const textNodes = renderer!.root.findAllByType(Text);
+    const rowLabels = textNodes.filter(node =>
+      ['01', '02', '03', '04', '05'].includes(node.props.children),
+    );
+    const seatLabels = textNodes.filter(node =>
+      /^L\d{2}$/.test(String(node.props.children)),
+    );
+    const rowFontSizes = rowLabels.map(
+      node => StyleSheet.flatten(node.props.style)?.fontSize,
+    );
+    const seatFontSizes = seatLabels.map(
+      node => StyleSheet.flatten(node.props.style)?.fontSize,
+    );
+
+    expect(rowLabels).toHaveLength(5);
+    expect(seatLabels).toHaveLength(5);
+    expect(new Set(rowFontSizes).size).toBe(1);
+    expect(new Set(seatFontSizes).size).toBe(1);
+    rowLabels.forEach(node => {
+      expect(node.props.adjustsFontSizeToFit).toBeUndefined();
+    });
+    seatLabels.forEach(node => {
+      expect(node.props.adjustsFontSizeToFit).toBeUndefined();
+    });
+
+    act(() => renderer!.unmount());
   });
 });

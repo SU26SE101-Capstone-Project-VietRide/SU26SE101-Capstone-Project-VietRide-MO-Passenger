@@ -123,7 +123,7 @@ describe('TrackingDetailsContent', () => {
     act(() => renderer!.unmount());
   });
 
-  it('hides the primary Share action in quick mode while retaining copy and Revoke', () => {
+  it('removes the Share/Revoke body section in header quick-action mode', () => {
     const onRevokeTripShare = jest.fn();
     let renderer: ReactTestRenderer.ReactTestRenderer;
 
@@ -134,6 +134,7 @@ describe('TrackingDetailsContent', () => {
             onRevokeTripShare,
             showPrimaryShareAction: false,
           })}
+          detailsFooter={<Text testID="tracking-details-footer">Parcel timeline</Text>}
         />,
       );
     });
@@ -141,17 +142,17 @@ describe('TrackingDetailsContent', () => {
     expect(renderer!.root.findAllByProps({
       accessibilityLabel: 'tracking.share.action',
     })).toHaveLength(0);
-    const revokeButton = renderer!.root.findByProps({
+    expect(renderer!.root.findAllByProps({
       accessibilityLabel: 'tracking.share.revokeAction',
-    });
-    act(() => revokeButton.props.onPress());
-    expect(onRevokeTripShare).toHaveBeenCalledTimes(1);
+    })).toHaveLength(0);
+    expect(onRevokeTripShare).not.toHaveBeenCalled();
+    expect(renderer!.root.findByProps({ testID: 'tracking-details-footer' })).toBeDefined();
 
     const renderedText = renderer!.root
       .findAllByType(Text)
       .map((node) => node.props.children)
       .flat(Infinity);
-    expect(renderedText).toEqual(expect.arrayContaining([
+    expect(renderedText).not.toEqual(expect.arrayContaining([
       'tracking.share.title',
       'tracking.share.description',
       'tracking.share.privacyNote',

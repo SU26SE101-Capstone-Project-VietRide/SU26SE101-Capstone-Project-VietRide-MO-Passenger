@@ -69,6 +69,7 @@ import type {
 
 export interface TrackingShareQuickAction {
   scopeKey: string;
+  mode: 'share' | 'revoke';
   disabled: boolean;
   pending: boolean;
   onPress: () => void;
@@ -397,6 +398,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         sourceTerminal,
       });
   const {
+    activeTripId,
     shareTrip,
     revokeTripShare,
     isSharing,
@@ -634,31 +636,6 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     tracking.isOnline,
     tripId,
   ]);
-  const shareQuickAction = useMemo<TrackingShareQuickAction | null>(() => (
-    canManageTripSharing
-      ? {
-          scopeKey: tripId,
-          disabled: !tracking.isOnline || isShareOperationPending,
-          pending: isShareOperationPending,
-          onPress: handleShareTrip,
-        }
-      : null
-  ), [
-    canManageTripSharing,
-    handleShareTrip,
-    isShareOperationPending,
-    tracking.isOnline,
-    tripId,
-  ]);
-
-  useEffect(() => {
-    onShareQuickActionChange?.(shareQuickAction);
-  }, [onShareQuickActionChange, shareQuickAction]);
-
-  useEffect(() => () => {
-    onShareQuickActionChange?.(null);
-  }, [onShareQuickActionChange]);
-
   const handleRevokeTripShare = useCallback(() => {
     if (!canManageTripSharing || !tracking.isOnline || isShareOperationPending) return;
 
@@ -698,6 +675,37 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     tracking.isOnline,
     tripId,
   ]);
+  const hasActiveTripShare = activeTripId === tripId;
+  const shareQuickAction = useMemo<TrackingShareQuickAction | null>(() => (
+    canManageTripSharing
+      ? {
+          scopeKey: tripId,
+          mode: hasActiveTripShare ? 'revoke' : 'share',
+          disabled: !tracking.isOnline || isShareOperationPending,
+          pending: isShareOperationPending,
+          onPress: hasActiveTripShare
+            ? handleRevokeTripShare
+            : handleShareTrip,
+        }
+      : null
+  ), [
+    canManageTripSharing,
+    handleRevokeTripShare,
+    handleShareTrip,
+    hasActiveTripShare,
+    isShareOperationPending,
+    tracking.isOnline,
+    tripId,
+  ]);
+
+  useEffect(() => {
+    onShareQuickActionChange?.(shareQuickAction);
+  }, [onShareQuickActionChange, shareQuickAction]);
+
+  useEffect(() => () => {
+    onShareQuickActionChange?.(null);
+  }, [onShareQuickActionChange]);
+
   const formatDistance = useCallback(
     (distanceMeters: number): string => (
       distanceMeters >= 1_000

@@ -7,6 +7,8 @@ import { spacing } from '@shared/theme';
 const mockTheme = {
   colors: {
     divider: '#DDE5E3',
+    error: '#B3261E',
+    errorLight: '#FCE8E6',
     primary: '#007D78',
     surface: '#FFFFFF',
     textPrimary: '#10201F',
@@ -67,6 +69,7 @@ describe('TrackingHeader', () => {
               accessibilityLabel: 'Report incident',
               busy: true,
               icon: <Text testID="report-icon">Report</Text>,
+              tone: 'destructive',
               onPress: onReport,
             },
           ]}
@@ -116,7 +119,16 @@ describe('TrackingHeader', () => {
       busy: true,
       disabled: true,
     });
+    expect(
+      StyleSheet.flatten(report.props.style({ pressed: false })),
+    ).toMatchObject({
+      backgroundColor: mockTheme.colors.errorLight,
+      borderColor: mockTheme.colors.error,
+    });
     expect(report.findAllByType(ActivityIndicator)).toHaveLength(1);
+    expect(report.findByType(ActivityIndicator).props.color).toBe(
+      mockTheme.colors.error,
+    );
     expect(
       renderer!.root.findAllByProps({ testID: 'report-icon' }),
     ).toHaveLength(0);

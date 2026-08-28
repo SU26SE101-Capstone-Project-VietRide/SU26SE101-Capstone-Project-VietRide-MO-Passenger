@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { Text } from 'react-native';
+import { Alert, Text } from 'react-native';
 
 import { ApiRequestError } from '@shared/api/errors';
 import { formatTime } from '@shared/utils/format';
@@ -28,6 +28,7 @@ const mockTheme = {
 const mockUseTripTracking = jest.fn();
 const mockShareTrip = jest.fn(async () => 'shared' as const);
 const mockRevokeTripShare = jest.fn(async () => 'revoked' as const);
+let mockActiveTripId: string | null = null;
 let mockIsSharing = false;
 let mockIsRevoking = false;
 const mockFlashList = jest.fn((_props: unknown) => null);
@@ -99,6 +100,7 @@ jest.mock('./TrackingDetailsContent', () => ({
 
 jest.mock('../hooks/useTripSharing', () => ({
   useTripSharing: () => ({
+    activeTripId: mockActiveTripId,
     shareTrip: mockShareTrip,
     revokeTripShare: mockRevokeTripShare,
     isSharing: mockIsSharing,
@@ -209,6 +211,7 @@ describe('LiveTripTrackingPanel', () => {
     mockUseTripDetail.mockClear();
     mockShareTrip.mockClear();
     mockRevokeTripShare.mockClear();
+    mockActiveTripId = null;
     mockIsSharing = false;
     mockIsRevoking = false;
     mockUseTripTracking.mockReset();
@@ -557,6 +560,7 @@ describe('LiveTripTrackingPanel', () => {
       .find((value): value is TrackingShareQuickAction => value !== null);
     expect(action).toEqual(expect.objectContaining({
       scopeKey: tripId,
+      mode: 'share',
       disabled: false,
       pending: false,
       onPress: expect.any(Function),
@@ -576,6 +580,45 @@ describe('LiveTripTrackingPanel', () => {
     expect(onShareQuickActionChange).toHaveBeenLastCalledWith(null);
   });
 
+  it('publishes Revoke for an active grant and opens the confirmation dialog', async () => {
+    mockActiveTripId = tripId;
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const onShareQuickActionChange = jest.fn();
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          tripId={tripId}
+          onShareQuickActionChange={onShareQuickActionChange}
+        />,
+      );
+    });
+
+    const action = [...onShareQuickActionChange.mock.calls]
+      .reverse()
+      .map(([value]) => value as TrackingShareQuickAction | null)
+      .find((value): value is TrackingShareQuickAction => value !== null);
+    expect(action).toEqual(expect.objectContaining({
+      mode: 'revoke',
+      scopeKey: tripId,
+    }));
+
+    act(() => action?.onPress());
+    const confirmationButtons = alertSpy.mock.calls[0]?.[2];
+    const destructiveAction = confirmationButtons?.find(
+      button => button.style === 'destructive',
+    );
+    await act(async () => {
+      destructiveAction?.onPress?.();
+      await Promise.resolve();
+    });
+    expect(mockRevokeTripShare).toHaveBeenCalledWith({ tripId });
+
+    await act(async () => renderer!.unmount());
+    alertSpy.mockRestore();
+  });
+
   it('publishes a disabled quick Share action while offline', async () => {
     mockUseTripTracking.mockReturnValue(createTrackingResult({ isOnline: false }));
     const onShareQuickActionChange = jest.fn();
@@ -592,6 +635,7 @@ describe('LiveTripTrackingPanel', () => {
 
     expect(onShareQuickActionChange).toHaveBeenLastCalledWith(expect.objectContaining({
       scopeKey: tripId,
+      mode: 'share',
       disabled: true,
       pending: false,
     }));
@@ -615,6 +659,7 @@ describe('LiveTripTrackingPanel', () => {
 
     expect(onShareQuickActionChange).toHaveBeenLastCalledWith(expect.objectContaining({
       scopeKey: tripId,
+      mode: 'share',
       disabled: true,
       pending: true,
     }));

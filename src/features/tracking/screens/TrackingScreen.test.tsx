@@ -39,6 +39,7 @@ let mockRouteParams: RootStackParamList['Tracking'];
 const mockTheme = {
   colors: {
     background: '#F7FAF9',
+    error: '#B3261E',
     primary: '#007D78',
   },
   isDark: false,
@@ -65,6 +66,7 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 jest.mock('phosphor-react-native', () => ({
+  LinkBreak: () => null,
   ShareNetwork: () => null,
 }));
 
@@ -142,6 +144,7 @@ describe('TrackingScreen quick actions', () => {
     act(() => {
       panelProps.onShareQuickActionChange?.({
         disabled: false,
+        mode: 'share',
         pending: false,
         onPress: onShare,
         scopeKey: 'previous-trip',
@@ -152,6 +155,7 @@ describe('TrackingScreen quick actions', () => {
     act(() => {
       panelProps.onShareQuickActionChange?.({
         disabled: false,
+        mode: 'share',
         pending: false,
         onPress: onShare,
         scopeKey:
@@ -169,15 +173,39 @@ describe('TrackingScreen quick actions', () => {
       busy: false,
       disabled: false,
       key: 'share-location',
+      tone: 'default',
     });
     act(() => actions?.[0]?.onPress());
     expect(onShare).toHaveBeenCalledTimes(1);
 
+    const onRevoke = jest.fn();
+    act(() => {
+      panelProps.onShareQuickActionChange?.({
+        disabled: false,
+        mode: 'revoke',
+        pending: false,
+        onPress: onRevoke,
+        scopeKey:
+          mockRouteParams.source === 'trip'
+            ? mockRouteParams.tripId
+            : 'unexpected-shuttle-scope',
+      });
+    });
+    actions = latestHeaderProps().actions;
+    expect(actions?.[0]).toMatchObject({
+      accessibilityHint: 'tracking.share.revokeActionHint',
+      accessibilityLabel: 'tracking.share.revokeAction',
+      tone: 'destructive',
+    });
+    act(() => actions?.[0]?.onPress());
+    expect(onRevoke).toHaveBeenCalledTimes(1);
+
     act(() => {
       panelProps.onShareQuickActionChange?.({
         disabled: true,
+        mode: 'revoke',
         pending: true,
-        onPress: onShare,
+        onPress: onRevoke,
         scopeKey:
           mockRouteParams.source === 'trip'
             ? mockRouteParams.tripId

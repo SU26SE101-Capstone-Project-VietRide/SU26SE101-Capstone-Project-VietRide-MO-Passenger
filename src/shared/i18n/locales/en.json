@@ -1157,6 +1157,7 @@
       "actionHint": "Opens your device share sheet with an expiring tracking link",
       "sharing": "Creating link...",
       "revokeAction": "Stop sharing",
+      "revokeActionHint": "Opens a confirmation dialog to stop sharing this journey",
       "revoking": "Stopping...",
       "revokeConfirmTitle": "Stop sharing this journey?",
       "revokeConfirmDescription": "Any link created for this trip will stop working immediately.",
@@ -1917,8 +1918,8 @@
     },
     "shuttle": {
       "title": "Shuttle",
-      "inbound": "Pickup to station",
-      "outbound": "Drop-off from station",
+      "inbound": "Pick up at",
+      "outbound": "Drop off at",
       "active": "Requested",
       "cancelled": "Cancelled"
     },
