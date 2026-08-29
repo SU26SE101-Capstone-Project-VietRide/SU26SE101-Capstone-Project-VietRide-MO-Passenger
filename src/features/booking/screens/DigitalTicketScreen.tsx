@@ -187,7 +187,7 @@ function statusIconColor(
     case 'success':
       return theme.colors.success;
     case 'warning':
-      return theme.colors.warning;
+      return theme.colors.warningForeground;
     case 'error':
       return theme.colors.error;
     case 'info':
@@ -417,7 +417,7 @@ function TicketView({
       >
         {model.isDemo ? (
           <View style={styles.demoBanner}>
-            <Flask size={16} color={theme.colors.warning} />
+            <Flask size={16} color={theme.colors.warningForeground} />
             <Text style={styles.demoBannerText}>{t('booking.ticket.demoDetail')}</Text>
           </View>
         ) : null}
@@ -1308,7 +1308,7 @@ const createStyles = (theme: AppTheme) => ({
   demoBannerText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: theme.colors.warning,
+    color: theme.colors.warningForeground,
   },
   statusHeader: {
     alignItems: 'center' as const,

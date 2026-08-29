@@ -101,7 +101,7 @@ export function SeatSelectionScreen({
 
         {tripDetailStatus === 'error' ? (
           <View style={styles.warningPanel} accessibilityRole="alert">
-            <WarningCircle size={20} color={theme.colors.warning} weight="fill" />
+            <WarningCircle size={20} color={theme.colors.warningForeground} weight="fill" />
             <View style={styles.warningCopy}>
               <Text style={styles.warningTitle}>{t('booking.seatMap.detailError')}</Text>
               <Text style={styles.warningBody}>{t('booking.seatMap.detailErrorDescription')}</Text>
@@ -133,7 +133,7 @@ export function SeatSelectionScreen({
             </View>
           ) : seatMapStatus === 'error' && seatMap.length === 0 ? (
             <View style={styles.resourcePanel} accessibilityRole="alert">
-              <WarningCircle size={28} color={theme.colors.warning} weight="duotone" />
+              <WarningCircle size={28} color={theme.colors.warningForeground} weight="duotone" />
               <Text style={styles.resourceTitle}>{t('booking.seatMap.loadError')}</Text>
               <Text style={styles.resourceBody}>{t('booking.seatMap.loadErrorDescription')}</Text>
               <Pressable

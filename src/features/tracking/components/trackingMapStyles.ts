@@ -14,6 +14,7 @@ export interface TrackingMapPalette {
   intermediate: string;
   intermediateBorder: string;
   next: string;
+  nextGlyph: string;
   nextHalo: string;
   target: string;
   targetHalo: string;
@@ -52,6 +53,7 @@ export const TRACKING_MAP_LIGHT_PALETTE = freezePalette({
   intermediate: '#FFFFFF',
   intermediateBorder: '#007D78',
   next: '#9A6500',
+  nextGlyph: '#FFFFFF',
   nextHalo: 'rgba(154, 101, 0, 0.20)',
   target: '#5B3FC4',
   targetHalo: 'rgba(91, 63, 196, 0.22)',
@@ -83,6 +85,7 @@ export const TRACKING_MAP_DARK_PALETTE = freezePalette({
   intermediate: 'rgba(20, 38, 38, 0.94)',
   intermediateBorder: '#55F1E8',
   next: '#FFD166',
+  nextGlyph: '#10201F',
   nextHalo: 'rgba(255, 209, 102, 0.22)',
   target: '#C1B3FF',
   targetHalo: 'rgba(193, 179, 255, 0.24)',

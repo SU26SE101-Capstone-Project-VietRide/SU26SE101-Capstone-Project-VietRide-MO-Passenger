@@ -32,4 +32,21 @@ describe('useParcelStore locations', () => {
       toWardCode: '26734',
     });
   });
+
+  it('keeps a custom item name with the package draft and clears it on reset', () => {
+    useParcelStore.getState().setPackage({
+      category: 'Others',
+      customItemName: 'Mô hình nhựa',
+    });
+    expect(useParcelStore.getState()).toMatchObject({
+      category: 'Others',
+      customItemName: 'Mô hình nhựa',
+    });
+
+    useParcelStore.getState().resetParcel();
+    expect(useParcelStore.getState()).toMatchObject({
+      category: 'Documents',
+      customItemName: '',
+    });
+  });
 });

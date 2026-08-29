@@ -37,6 +37,7 @@ export const colors = {
   success: '#2AC1BC', // Mint green success
   successLight: 'rgba(42, 193, 188, 0.12)',
   warning: '#EBC300', // sunny tertiary yellow
+  warningForeground: '#795900', // Accessible amber text/icons on light warning surfaces
   warningLight: '#FFE177',
   error: '#BA1A1A', // Pop-out coral/red
   errorLight: '#FFDAD6',

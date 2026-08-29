@@ -6,19 +6,23 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import {
+  PARCEL_ITEM_CATEGORY_OPTIONS,
+  type ParcelItemCategory,
+} from '../config/parcelItemCategories';
 
 export interface CategoryChipsProps {
-  value: string;
-  onChange: (category: string) => void;
+  value: ParcelItemCategory;
+  onChange: (category: ParcelItemCategory) => void;
 }
 
-const CATEGORIES: { key: string; labelKey: string; Icon: React.ElementType }[] = [
-  { key: 'Documents', labelKey: 'parcel.categories.documents', Icon: FileText },
-  { key: 'Clothing', labelKey: 'parcel.categories.clothing', Icon: TShirt },
-  { key: 'Electronics', labelKey: 'parcel.categories.electronics', Icon: DeviceMobile },
-  { key: 'Food', labelKey: 'parcel.categories.food', Icon: BowlFood },
-  { key: 'Others', labelKey: 'parcel.categories.others', Icon: DotsThreeCircle },
-];
+const CATEGORY_ICONS: Record<ParcelItemCategory, React.ElementType> = {
+  Documents: FileText,
+  Clothing: TShirt,
+  Electronics: DeviceMobile,
+  Food: BowlFood,
+  Others: DotsThreeCircle,
+};
 
 export const CategoryChips = memo(function CategoryChipsComponent({
   value,
@@ -30,7 +34,8 @@ export const CategoryChips = memo(function CategoryChipsComponent({
 
   return (
     <View style={styles.chipRow}>
-      {CATEGORIES.map(({ key, labelKey, Icon }) => {
+      {PARCEL_ITEM_CATEGORY_OPTIONS.map(({ key, labelKey }) => {
+        const Icon = CATEGORY_ICONS[key];
         const active = value === key;
         const label = t(labelKey);
         return (
@@ -62,6 +67,9 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    minWidth: 0,
+    maxWidth: '100%' as const,
+    minHeight: 44,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
@@ -78,6 +86,8 @@ const createStyles = (theme: AppTheme) => ({
     transform: [{ scale: 0.98 }],
   },
   chipText: {
+    minWidth: 0,
+    flexShrink: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: theme.colors.textSecondary,

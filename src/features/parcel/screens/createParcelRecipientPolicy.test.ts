@@ -31,24 +31,26 @@ describe('CreateParcel recipient privacy policy', () => {
     expect(screenSource).not.toContain('Use my contact details');
   });
 
-  it('marks name and phone required while keeping email optional', () => {
+  it('marks recipient name, phone, and email as required', () => {
     expect(screenSource).toMatch(
       /label=\{t\('parcel\.form\.fullNameLabel'\)\}[\s\S]*?required/,
     );
     expect(screenSource).toMatch(
       /label=\{t\('parcel\.form\.phoneLabel'\)\}[\s\S]*?required/,
     );
-    expect(screenSource).not.toMatch(
+    expect(screenSource).toMatch(
       /<Input[\s\S]*?label=\{t\('parcel\.form\.emailLabel'\)\}[\s\S]*?required[\s\S]*?\/>/,
     );
   });
 
-  it('validates email only when entered and serializes blank as null', () => {
-    expect(screenSource).not.toContain("t('parcel.validation.recipientEmailRequired')");
-    expect(screenSource).toMatch(
-      /if \(recipientEmail\.trim\(\) && !isValidEmail\(recipientEmail\)\) \{/,
+  it('blocks a blank email before validating format and serializes trimmed text', () => {
+    expect(screenSource).toContain(
+      "t('parcel.validation.recipientEmailRequired')",
     );
-    expect(screenSource).toContain('email: recipientEmail.trim() || null');
+    expect(screenSource).toMatch(
+      /if \(!recipientEmail\.trim\(\)\) \{[\s\S]*?if \(!isValidEmail\(recipientEmail\)\) \{/,
+    );
+    expect(screenSource).toContain('email: recipientEmail.trim()');
   });
 
   it('sends declared value and a bounded quantity as first-class fields', () => {

@@ -105,7 +105,7 @@ const createStyles = (theme: AppTheme) => ({
   stale: {
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
-    color: theme.colors.warning,
+    color: theme.colors.warningForeground,
   },
   pressed: {
     opacity: 0.82,

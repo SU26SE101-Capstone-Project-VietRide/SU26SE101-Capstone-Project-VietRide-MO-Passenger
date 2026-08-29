@@ -73,6 +73,7 @@ const liquidDarkColors: ThemeColors = {
   textInverse: '#031312',
   textDisabled: 'rgba(191, 215, 211, 0.38)',
   successLight: 'rgba(85, 241, 232, 0.15)',
+  warningForeground: '#FFE177',
   warningLight: 'rgba(255, 224, 118, 0.18)',
   errorLight: 'rgba(255, 116, 116, 0.16)',
   infoLight: 'rgba(85, 241, 232, 0.12)',

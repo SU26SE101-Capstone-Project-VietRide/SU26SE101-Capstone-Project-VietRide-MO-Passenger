@@ -211,7 +211,7 @@ export function BookingPendingActionScreen(): React.JSX.Element {
 
         {formattedDeadline ? (
           <View style={styles.deadlineRow}>
-            <ClockCountdown size={18} color={theme.colors.warning} weight="bold" />
+            <ClockCountdown size={18} color={theme.colors.warningForeground} weight="bold" />
             <Text style={styles.deadlineText}>
               {t('booking.pendingAction.deadline', { time: formattedDeadline })}
             </Text>
@@ -228,7 +228,7 @@ export function BookingPendingActionScreen(): React.JSX.Element {
             </View>
             {pending.candidateStops.length === 0 ? (
               <View style={styles.warningCard}>
-                <WarningCircle size={18} color={theme.colors.warning} weight="fill" />
+                <WarningCircle size={18} color={theme.colors.warningForeground} weight="fill" />
                 <Text style={styles.warningText}>
                   {t('booking.pendingAction.missingCandidates')}
                 </Text>
@@ -385,7 +385,7 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.lg,
   },
   deadlineText: {
-    color: theme.colors.warning,
+    color: theme.colors.warningForeground,
     flex: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,

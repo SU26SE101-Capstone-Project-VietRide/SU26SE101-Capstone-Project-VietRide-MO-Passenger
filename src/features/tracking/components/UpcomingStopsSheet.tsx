@@ -744,7 +744,7 @@ const createStyles = (theme: AppTheme) => {
       color: palette.markerGlyph,
     },
     markerTextNext: {
-      color: '#241A06',
+      color: palette.nextGlyph,
     },
     markerTextDefault: {
       color: palette.sequenceText,

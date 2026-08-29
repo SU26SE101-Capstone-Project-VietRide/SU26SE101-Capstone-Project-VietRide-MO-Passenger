@@ -171,7 +171,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
                   ) : (
                     <WarningCircle
                       size={18}
-                      color={theme.colors.warning}
+                      color={theme.colors.warningForeground}
                       weight="fill"
                     />
                   )}
@@ -192,7 +192,7 @@ export function ProfileOverviewScreen(): React.JSX.Element {
                   })}
                   style={({ pressed }) => [styles.verifyButton, pressed ? styles.pressed : null]}
                 >
-                  <WarningCircle size={14} color={theme.colors.warning} weight="bold" />
+                  <WarningCircle size={14} color={theme.colors.warningForeground} weight="bold" />
                   <Text style={styles.verifyButtonText}>{t('profile.verifyAccount')}</Text>
                 </Pressable>
               ) : null}
@@ -325,7 +325,7 @@ const createStyles = (theme: AppTheme) => ({
   verifyButtonText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: theme.colors.warning,
+    color: theme.colors.warningForeground,
     marginLeft: 4,
   },
   phoneRow: {

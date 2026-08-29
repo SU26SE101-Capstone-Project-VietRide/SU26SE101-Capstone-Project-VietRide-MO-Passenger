@@ -2,6 +2,7 @@ import type {
   BackendPaymentMethod,
   PaymentMethod,
 } from '@shared/utils/paymentMethod';
+import type { ParcelItemCategory } from '../config/parcelItemCategories';
 import type {
   ParcelCompensationPolicySnapshot,
   ParcelOperatorSummary,
@@ -87,7 +88,8 @@ export interface ParcelBookingState {
   lengthCm: number;
   widthCm: number;
   heightCm: number;
-  category: string;
+  category: ParcelItemCategory;
+  customItemName: string;
   cod: boolean;
   estimatedValue?: string;
   quantity: number;

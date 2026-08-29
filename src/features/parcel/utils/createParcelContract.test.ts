@@ -8,7 +8,7 @@ const makeDraft = (): CreateParcelDraft => ({
   quoteToken: 'opaque.signed-quote',
   dropoffStopId: null,
   bookingId: null,
-  itemName: 'Documents',
+  itemName: 'Tài liệu',
   description: null,
   sizeCategory: 'MEDIUM',
   lengthCm: 45,
@@ -45,16 +45,32 @@ describe('Create Parcel contract bounds', () => {
     });
   });
 
-  it('normalizes blank optional email to null and validates a supplied email', () => {
+  it('requires a nonblank item name', () => {
+    expect(() => buildCreateParcelPayload({
+      ...makeDraft(),
+      itemName: '  ',
+    })).toThrow('item name is required');
+  });
+
+  it('requires, validates, and trims the recipient email', () => {
     const draft = makeDraft();
-    expect(buildCreateParcelPayload({
-      ...draft,
-      recipient: { ...draft.recipient, email: '  ' },
-    }).recipient.email).toBeNull();
+    [undefined, null, '', '  '].forEach((email) => {
+      expect(() => buildCreateParcelPayload({
+        ...draft,
+        recipient: { ...draft.recipient, email },
+      })).toThrow('recipient email is required');
+    });
     expect(() => buildCreateParcelPayload({
       ...draft,
       recipient: { ...draft.recipient, email: 'invalid' },
     })).toThrow('recipient email');
+    expect(buildCreateParcelPayload({
+      ...draft,
+      recipient: {
+        ...draft.recipient,
+        email: '  passenger@example.com  ',
+      },
+    }).recipient.email).toBe('passenger@example.com');
   });
 
   it('preserves first-class declared value, quantity, and quote token fields', () => {

@@ -103,7 +103,7 @@ const NotificationRow = memo(function NotificationRowView({
   const iconColor = kind === 'parcel'
     ? theme.colors.success
     : kind === 'promo'
-      ? theme.colors.warning
+      ? theme.colors.warningForeground
       : kind === 'notification'
         ? theme.colors.textSecondary
         : theme.colors.primary;

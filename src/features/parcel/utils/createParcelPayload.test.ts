@@ -7,8 +7,8 @@ describe('buildCreateParcelPayload', () => {
       quoteToken: 'opaque.signed-quote',
       dropoffStopId: null,
       bookingId: null,
-      itemName: 'Documents',
-      description: 'Category: Documents',
+      itemName: 'Tài liệu',
+      description: null,
       sizeCategory: 'MEDIUM',
       lengthCm: 45,
       widthCm: 35,
@@ -33,6 +33,7 @@ describe('buildCreateParcelPayload', () => {
 
     expect(payload.photoUrl).toBeNull();
     expect(payload.quoteToken).toBe('opaque.signed-quote');
+    expect(payload.itemName).toBe('Tài liệu');
     expect(payload.declaredValueVnd).toBe(2_500_000);
     expect(payload.quantity).toBe(2);
     expect(payload).not.toHaveProperty('localPhotoUris');

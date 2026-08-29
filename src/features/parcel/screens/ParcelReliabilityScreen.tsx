@@ -177,7 +177,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
       actions.push({
         key: 'report-incident',
         accessibilityLabel: t('parcel.reliability.reportIncident'),
-        icon: <WarningCircle size={20} color={theme.colors.warning} weight="bold" />,
+        icon: <WarningCircle size={20} color={theme.colors.warningForeground} weight="bold" />,
         onPress: handleReportIncident,
       });
     }
@@ -208,7 +208,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     t,
     theme.colors.error,
     theme.colors.primary,
-    theme.colors.warning,
+    theme.colors.warningForeground,
     trace?.trip.tripId,
   ]);
 
@@ -248,7 +248,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
 
         {trace.activeIncident ? (
           <View style={styles.warningCard}>
-            <WarningCircle size={20} color={theme.colors.warning} weight="fill" />
+            <WarningCircle size={20} color={theme.colors.warningForeground} weight="fill" />
             <View style={styles.warningCopy}>
               <Text style={styles.warningTitle}>
                 {t('parcel.reliability.activeIncident')}
@@ -309,7 +309,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     t,
     theme.colors.primary,
     theme.colors.textInverse,
-    theme.colors.warning,
+    theme.colors.warningForeground,
     trace,
   ]);
 

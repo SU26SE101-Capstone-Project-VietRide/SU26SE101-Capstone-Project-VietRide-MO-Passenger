@@ -1065,7 +1065,7 @@ const HistoryStaleBanner = memo(function HistoryStaleBannerComponent({
   const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.staleBanner} accessibilityRole="alert">
-      <WarningCircle size={18} color={theme.colors.warning} weight="fill" />
+      <WarningCircle size={18} color={theme.colors.warningForeground} weight="fill" />
       <Text style={styles.staleBannerText}>
         {t('bookingHistory.staleDescription')}
       </Text>
@@ -1971,12 +1971,12 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: theme.colors.warning,
+    color: theme.colors.warningForeground,
   },
   staleRetryText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
-    color: theme.colors.warning,
+    color: theme.colors.warningForeground,
   },
   ticketCard: {
     ...theme.components.card,
@@ -2210,7 +2210,7 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.xs,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: theme.colors.warning,
+    color: theme.colors.warningForeground,
   },
   parcelAmountRow: {
     flexDirection: 'row' as const,

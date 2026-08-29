@@ -114,6 +114,11 @@ import {
   formatParcelDimensions,
   type ParcelDimensions,
 } from '../config/parcelPackage';
+import {
+  CUSTOM_PARCEL_ITEM_CATEGORY,
+  resolveParcelItemName,
+  type ParcelItemCategory,
+} from '../config/parcelItemCategories';
 import { buildCreateParcelPayload } from '../utils/createParcelPayload';
 import {
   classifyParcelCreateConflict,
@@ -278,6 +283,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   const packageWidthCm = useParcelStore(state => state.widthCm);
   const packageHeightCm = useParcelStore(state => state.heightCm);
   const packageCategory = useParcelStore(state => state.category);
+  const customItemName = useParcelStore(state => state.customItemName);
   const estimatedValue = useParcelStore(state => state.estimatedValue);
   const quantity = useParcelStore(state => state.quantity);
   const photos = useParcelStore(state => state.photos);
@@ -295,11 +301,13 @@ export function CreateParcelScreen(): React.JSX.Element {
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
   const [recipientEmail, setRecipientEmail] = useState('');
+  const [customItemNameError, setCustomItemNameError] = useState<string>();
   const [recipientErrors, setRecipientErrors] = useState<{
     name?: string;
     phone?: string;
     email?: string;
   }>({});
+  const customItemNameRef = useRef<TextInput>(null);
   const recipientNameRef = useRef<TextInput>(null);
   const recipientPhoneRef = useRef<TextInput>(null);
   const recipientEmailRef = useRef<TextInput>(null);
@@ -393,6 +401,14 @@ export function CreateParcelScreen(): React.JSX.Element {
       heightCm: packageHeightCm,
     }),
     [packageHeightCm, packageLengthCm, packageWidthCm],
+  );
+  const parcelItemName = useMemo(
+    () => resolveParcelItemName(
+      packageCategory,
+      customItemName,
+      key => t(key),
+    ),
+    [customItemName, packageCategory, t],
   );
   const packageMeasurementsValid =
     dimensionsDraftValid &&
@@ -816,10 +832,23 @@ export function CreateParcelScreen(): React.JSX.Element {
   );
 
   const handleCategoryChange = useCallback(
-    (category: string) => {
+    (category: ParcelItemCategory) => {
       setPackage({ category });
+      if (category !== CUSTOM_PARCEL_ITEM_CATEGORY) {
+        setCustomItemNameError(undefined);
+      }
     },
     [setPackage],
+  );
+
+  const handleCustomItemNameChange = useCallback(
+    (value: string) => {
+      setPackage({ customItemName: value });
+      if (customItemNameError && value.trim()) {
+        setCustomItemNameError(undefined);
+      }
+    },
+    [customItemNameError, setPackage],
   );
 
   const handleEstimatedValueChange = useCallback(
@@ -980,6 +1009,14 @@ export function CreateParcelScreen(): React.JSX.Element {
       return false;
     }
     if (step === 3 || validateWholeDraft) {
+      if (
+        packageCategory === CUSTOM_PARCEL_ITEM_CATEGORY
+        && !customItemName.trim()
+      ) {
+        setCustomItemNameError(t('parcel.validation.customItemNameRequired'));
+        requestAnimationFrame(() => customItemNameRef.current?.focus());
+        return false;
+      }
       if (!recipientName.trim()) {
         setRecipientErrors({ name: t('parcel.validation.recipientNameRequired') });
         requestAnimationFrame(() => recipientNameRef.current?.focus());
@@ -995,7 +1032,12 @@ export function CreateParcelScreen(): React.JSX.Element {
         requestAnimationFrame(() => recipientPhoneRef.current?.focus());
         return false;
       }
-      if (recipientEmail.trim() && !isValidEmail(recipientEmail)) {
+      if (!recipientEmail.trim()) {
+        setRecipientErrors({ email: t('parcel.validation.recipientEmailRequired') });
+        requestAnimationFrame(() => recipientEmailRef.current?.focus());
+        return false;
+      }
+      if (!isValidEmail(recipientEmail)) {
         setRecipientErrors({ email: t('parcel.validation.invalidRecipientEmail') });
         requestAnimationFrame(() => recipientEmailRef.current?.focus());
         return false;
@@ -1010,6 +1052,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       }
     }
     setRecipientErrors({});
+    setCustomItemNameError(undefined);
     if (step === 4) {
       if (!selectedTrip || !hasParcelQuoteContract(selectedTrip)) {
         Alert.alert(
@@ -1043,8 +1086,10 @@ export function CreateParcelScreen(): React.JSX.Element {
   }, [
     dimensionsErrorMessage,
     dropoffStation,
+    customItemName,
     packageMeasurementsValid,
     receivingStation,
+    packageCategory,
     recipientEmail,
     recipientName,
     recipientPhone,
@@ -1067,7 +1112,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       quoteToken: selectedTrip.quoteToken,
       dropoffStopId: null,
       bookingId: null,
-      itemName: packageCategory || null,
+      itemName: parcelItemName,
       description: null,
       sizeCategory: selectedTrip.estimatedSizeCategory,
       lengthCm: dimensions.lengthCm,
@@ -1078,7 +1123,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       recipient: {
         fullName: recipientName.trim(),
         phoneNumber: normalizeVietnamPhone(recipientPhone),
-        email: recipientEmail.trim() || null,
+        email: recipientEmail.trim(),
       },
       deliveryMethod: 'TERMINAL_PICKUP',
       paymentMethod: backendPaymentMethod,
@@ -1093,7 +1138,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     dimensions.widthCm,
     estimatedValue,
     estimatedWeightKg,
-    packageCategory,
+    parcelItemName,
     quantity,
     recipientEmail,
     recipientName,
@@ -1623,7 +1668,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         <View style={styles.stateBox}>
           <WarningCircle
             size={32}
-            color={theme.colors.warning}
+            color={theme.colors.warningForeground}
             weight="duotone"
           />
           <Text style={styles.stateTitle}>
@@ -1667,7 +1712,7 @@ export function CreateParcelScreen(): React.JSX.Element {
         <View style={styles.stateBox}>
           <WarningCircle
             size={32}
-            color={theme.colors.warning}
+            color={theme.colors.warningForeground}
             weight="duotone"
           />
           <Text style={styles.stateTitle}>
@@ -1868,6 +1913,23 @@ export function CreateParcelScreen(): React.JSX.Element {
             onChange={handleCategoryChange}
           />
 
+          {packageCategory === CUSTOM_PARCEL_ITEM_CATEGORY ? (
+            <Input
+              ref={customItemNameRef}
+              testID="parcel-custom-item-name-input"
+              label={t('parcel.form.customItemNameLabel')}
+              placeholder={t('parcel.form.customItemNamePlaceholder')}
+              value={customItemName}
+              error={customItemNameError}
+              required
+              autoCapitalize="sentences"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => recipientNameRef.current?.focus()}
+              onChangeText={handleCustomItemNameChange}
+            />
+          ) : null}
+
           <PhotoPicker
             value={photos}
             onChange={handlePhotosChange}
@@ -1947,6 +2009,7 @@ export function CreateParcelScreen(): React.JSX.Element {
                 if (recipientErrors.email) setRecipientErrors((current) => ({ ...current, email: undefined }));
               }}
               autoCapitalize="none"
+              required
             />
           </View>
         </View>
@@ -1960,7 +2023,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           receivingStation={receivingStation}
           dropoffStation={dropoffStation}
           packageSize={packageSize}
-          packageCategory={packageCategory}
+          packageItemName={parcelItemName}
           packageWeightKg={estimatedWeightKg}
           dimensionsLabel={formatParcelDimensions(dimensions)}
           grossPrice={quotePricing.grossPriceVnd}

@@ -13,6 +13,7 @@ const mockTheme = {
     textTertiary: '#70817F',
     textInverse: '#FFFFFF',
     warning: '#A46000',
+    warningForeground: '#795900',
     warningLight: '#FFF2D6',
     success: '#007D56',
     successLight: '#DDF8EC',

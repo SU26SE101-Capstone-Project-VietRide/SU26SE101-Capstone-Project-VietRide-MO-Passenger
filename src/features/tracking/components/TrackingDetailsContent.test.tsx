@@ -14,6 +14,7 @@ const mockTheme = {
     textSecondary: '#435A57',
     textTertiary: '#70817F',
     warning: '#A46000',
+    warningForeground: '#795900',
     warningLight: '#FFF2D6',
   },
   components: {

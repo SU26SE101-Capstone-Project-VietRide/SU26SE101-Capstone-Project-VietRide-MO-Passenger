@@ -447,7 +447,7 @@ export function TopUpScreen(): React.JSX.Element {
         >
           {isAwaitingReturn || hasPendingTopUp ? (
             <View style={styles.pendingNotice}>
-              <ClockCountdown size={22} color={theme.colors.warning} />
+              <ClockCountdown size={22} color={theme.colors.warningForeground} />
               <View style={styles.noticeCopy}>
                 <Text style={styles.pendingNoticeTitle}>
                   {t('topUp.pendingTitle')}

@@ -684,7 +684,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
     ? theme.colors.error
     : heroCopy.iconColor === 'success'
       ? theme.colors.success
-      : theme.colors.warning;
+      : theme.colors.warningForeground;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -729,7 +729,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
           >
             <WarningCircle
               size={20}
-              color={theme.colors.warning}
+              color={theme.colors.warningForeground}
               weight="bold"
             />
           </Pressable>
@@ -975,10 +975,15 @@ export function ParcelDetailScreen(): React.JSX.Element {
           <ParcelPhotoGallery photos={parcelPhotos} />
 
           {parcel?.compensationPolicySnapshot ? (
-            <ParcelCompensationDisclosure
-              operatorName={parcel.operator?.name}
-              policy={parcel.compensationPolicySnapshot}
-            />
+            <View
+              testID="parcel-detail-compensation-section"
+              style={styles.compensationSection}
+            >
+              <ParcelCompensationDisclosure
+                operatorName={parcel.operator?.name}
+                policy={parcel.compensationPolicySnapshot}
+              />
+            </View>
           ) : null}
 
           {hasClaimSurface ? (
@@ -1303,6 +1308,9 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.lg,
     marginBottom: spacing.xxl,
   },
+  compensationSection: {
+    marginBottom: spacing.xxl,
+  },
   evidenceTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
@@ -1488,7 +1496,8 @@ const createStyles = (theme: AppTheme) => ({
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.effects.isLiquid
@@ -1497,6 +1506,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   totalLabel: {
     flex: 1,
+    minWidth: 0,
     flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.sm,

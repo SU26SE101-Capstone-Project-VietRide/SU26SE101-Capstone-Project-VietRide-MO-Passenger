@@ -18,6 +18,7 @@ const mockTheme = {
     error: '#B3261E',
     success: '#007D56',
     warning: '#A46000',
+    warningForeground: '#795900',
     warningLight: '#FFF2D6',
   },
   components: {

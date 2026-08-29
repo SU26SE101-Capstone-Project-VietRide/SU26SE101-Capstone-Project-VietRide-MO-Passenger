@@ -22,7 +22,7 @@ export interface PricingBreakdownProps {
   receivingStation?: { name?: string; city?: string };
   dropoffStation?: { name?: string; city?: string };
   packageSize: ParcelSize;
-  packageCategory: string;
+  packageItemName: string;
   packageWeightKg: number;
   dimensionsLabel: string;
   grossPrice: number;
@@ -50,7 +50,7 @@ function PricingBreakdownComponent({
   receivingStation,
   dropoffStation,
   packageSize,
-  packageCategory,
+  packageItemName,
   packageWeightKg,
   dimensionsLabel,
   grossPrice,
@@ -76,9 +76,7 @@ function PricingBreakdownComponent({
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const packageCategoryLabel = packageCategory
-    ? t(`parcel.categories.${packageCategory.toLowerCase()}`)
-    : t('parcel.categories.others');
+  const displayedItemName = packageItemName || t('parcel.categories.others');
 
   return (
     <View style={styles.summaryContent}>
@@ -135,7 +133,7 @@ function PricingBreakdownComponent({
           <View style={styles.specDetails}>
             <Text style={styles.specTitle}>
               {t(`parcel.packageSize.options.${packageSize}`)} ·{' '}
-              {packageCategoryLabel}
+              {displayedItemName}
             </Text>
             <Text style={styles.specMeta}>
               {t('parcel.summary.dimensionsAndWeight', {

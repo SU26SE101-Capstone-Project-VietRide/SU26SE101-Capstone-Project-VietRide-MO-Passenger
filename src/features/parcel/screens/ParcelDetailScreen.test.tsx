@@ -43,6 +43,7 @@ const mockTheme = {
     error: '#B3261E',
     errorLight: '#FCE8E6',
     warning: '#A15C00',
+    warningForeground: '#795900',
     warningLight: '#FFF3D6',
     success: '#007D56',
     successLight: '#DDF5EA',
@@ -442,6 +443,12 @@ describe('ParcelDetailScreen identity hierarchy', () => {
         policy: parcel.compensationPolicySnapshot,
       }),
     );
+    const compensationSection = renderer!.root.findByProps({
+      testID: 'parcel-detail-compensation-section',
+    });
+    expect(StyleSheet.flatten(compensationSection.props.style)).toMatchObject({
+      marginBottom: 24,
+    });
     const text = getTextContent(renderer!);
     expect(text).not.toContain('INTERNAL_INCIDENT_STATUS');
     expect(text).not.toContain('parcel.detail.reliabilityTitle');

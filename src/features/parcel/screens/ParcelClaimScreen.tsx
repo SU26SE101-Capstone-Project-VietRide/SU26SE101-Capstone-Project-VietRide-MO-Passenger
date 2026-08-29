@@ -394,7 +394,7 @@ const createStyles = (theme: AppTheme) => ({
   reviewText: { marginTop: spacing.sm, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 20 },
   deadlineText: { marginTop: spacing.sm, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs },
   paidText: { marginTop: spacing.sm, color: theme.colors.success, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
-  pendingText: { marginTop: spacing.sm, color: theme.colors.warning, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
+  pendingText: { marginTop: spacing.sm, color: theme.colors.warningForeground, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
   evidenceHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.sm },
   evidenceRow: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: theme.colors.divider },
   evidenceType: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.xs },

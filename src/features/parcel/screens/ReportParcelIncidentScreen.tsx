@@ -138,7 +138,7 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
         keyboardShouldPersistTaps="handled"
       >
           <View style={styles.introCard}>
-            <ShieldWarning size={28} color={theme.colors.warning} weight="duotone" />
+            <ShieldWarning size={28} color={theme.colors.warningForeground} weight="duotone" />
             <View style={styles.introCopy}>
               <Text style={styles.introTitle}>{t('parcel.incident.introTitle')}</Text>
               <Text style={styles.introText}>{t('parcel.incident.introDescription')}</Text>

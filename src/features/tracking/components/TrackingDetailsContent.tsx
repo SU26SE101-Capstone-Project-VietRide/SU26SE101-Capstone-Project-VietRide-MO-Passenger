@@ -95,7 +95,7 @@ export const TrackingDetailsContent = React.memo(
 
         {!isOnline ? (
           <View style={styles.warningBanner} accessibilityRole="summary">
-            <WifiSlash size={18} color={theme.colors.warning} />
+            <WifiSlash size={18} color={theme.colors.warningForeground} />
             <Text style={styles.warningBannerText}>
               {t('tracking.connection.offline')}
             </Text>
@@ -104,7 +104,7 @@ export const TrackingDetailsContent = React.memo(
 
         {delayMinutes !== undefined && !isTerminal ? (
           <View style={styles.warningBanner} accessibilityRole="summary">
-            <Clock size={18} color={theme.colors.warning} />
+            <Clock size={18} color={theme.colors.warningForeground} />
             <Text style={styles.warningBannerText}>
               {t('tracking.delayMinutes', { count: delayMinutes })}
             </Text>
@@ -287,7 +287,7 @@ const createStyles = (theme: AppTheme) => {
       flex: 1,
       fontFamily: fontFamilies.medium,
       fontSize: fontSizes.sm,
-      color: theme.colors.warning,
+      color: theme.colors.warningForeground,
     },
     neutralBanner: {
       flexDirection: 'row' as const,

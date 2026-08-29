@@ -1358,7 +1358,7 @@ const createStyles = (theme: AppTheme) => {
     flex: 1,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
-    color: theme.colors.warning,
+    color: theme.colors.warningForeground,
   },
   neutralBanner: {
     flexDirection: 'row' as const,

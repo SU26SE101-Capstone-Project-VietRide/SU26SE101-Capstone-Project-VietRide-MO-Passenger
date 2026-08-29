@@ -12,6 +12,7 @@ import {
   DEFAULT_PARCEL_WEIGHT_KG,
   getParcelDimensions,
 } from '../config/parcelPackage';
+import type { ParcelItemCategory } from '../config/parcelItemCategories';
 import type {
   ParcelBookingState,
   ParcelPaymentMethod,
@@ -44,7 +45,8 @@ interface ParcelStore {
   lengthCm: number;
   widthCm: number;
   heightCm: number;
-  category: string;
+  category: ParcelItemCategory;
+  customItemName: string;
   cod: boolean;
   estimatedValue: string;
   quantity: number;
@@ -59,6 +61,7 @@ interface ParcelStore {
         | 'widthCm'
         | 'heightCm'
         | 'category'
+        | 'customItemName'
         | 'cod'
         | 'estimatedValue'
         | 'quantity'
@@ -148,6 +151,7 @@ export const useParcelStore = create<ParcelStore>(set => ({
   weight: DEFAULT_PARCEL_WEIGHT_KG,
   ...DEFAULT_DIMENSIONS,
   category: 'Documents',
+  customItemName: '',
   cod: false,
   estimatedValue: '',
   quantity: 1,
@@ -188,6 +192,7 @@ export const useParcelStore = create<ParcelStore>(set => ({
       weight: DEFAULT_PARCEL_WEIGHT_KG,
       ...DEFAULT_DIMENSIONS,
       category: 'Documents',
+      customItemName: '',
       cod: false,
       estimatedValue: '',
       quantity: 1,

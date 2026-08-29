@@ -9,7 +9,14 @@ export interface CreateParcelDraft
   localPhotoUris?: readonly string[];
 }
 
-const validateCreateContract = (draft: CreateParcelDraft): void => {
+interface ValidatedCreateFields {
+  itemName: string;
+  recipientEmail: string;
+}
+
+const validateCreateContract = (
+  draft: CreateParcelDraft,
+): ValidatedCreateFields => {
   if (!Number.isInteger(draft.quantity) || draft.quantity < 1 || draft.quantity > 10_000) {
     throw new Error('Parcel quantity must be an integer from 1 to 10000.');
   }
@@ -22,10 +29,21 @@ const validateCreateContract = (draft: CreateParcelDraft): void => {
   ) {
     throw new Error('Parcel declared value must be a non-negative safe VND integer.');
   }
-  const email = draft.recipient.email?.trim();
-  if (email && !isValidEmail(email)) {
+
+  const itemName = draft.itemName?.trim();
+  if (!itemName) {
+    throw new Error('Parcel item name is required.');
+  }
+
+  const recipientEmail = draft.recipient.email?.trim();
+  if (!recipientEmail) {
+    throw new Error('Parcel recipient email is required.');
+  }
+  if (!isValidEmail(recipientEmail)) {
     throw new Error('Parcel recipient email is invalid.');
   }
+
+  return { itemName, recipientEmail };
 };
 
 /**
@@ -36,28 +54,29 @@ const validateCreateContract = (draft: CreateParcelDraft): void => {
 export const buildCreateParcelPayload = (
   draft: CreateParcelDraft,
 ): CreateParcelPayload => {
-  validateCreateContract(draft);
-  return ({
-  tripId: draft.tripId,
-  quoteToken: draft.quoteToken,
-  dropoffStopId: draft.dropoffStopId,
-  bookingId: draft.bookingId,
-  itemName: draft.itemName,
-  description: draft.description,
-  sizeCategory: draft.sizeCategory,
-  lengthCm: draft.lengthCm,
-  widthCm: draft.widthCm,
-  heightCm: draft.heightCm,
-  estimatedWeightKg: draft.estimatedWeightKg,
-  photoUrl: draft.photoUrl?.trim() || null,
-  recipient: {
-    ...draft.recipient,
-    email: draft.recipient.email?.trim() || null,
-  },
-  deliveryMethod: draft.deliveryMethod,
-  paymentMethod: draft.paymentMethod,
-  voucherCode: draft.voucherCode,
-  declaredValueVnd: draft.declaredValueVnd,
-  quantity: draft.quantity,
-  });
+  const { itemName, recipientEmail } = validateCreateContract(draft);
+
+  return {
+    tripId: draft.tripId,
+    quoteToken: draft.quoteToken,
+    dropoffStopId: draft.dropoffStopId,
+    bookingId: draft.bookingId,
+    itemName,
+    description: draft.description,
+    sizeCategory: draft.sizeCategory,
+    lengthCm: draft.lengthCm,
+    widthCm: draft.widthCm,
+    heightCm: draft.heightCm,
+    estimatedWeightKg: draft.estimatedWeightKg,
+    photoUrl: draft.photoUrl?.trim() || null,
+    recipient: {
+      ...draft.recipient,
+      email: recipientEmail,
+    },
+    deliveryMethod: draft.deliveryMethod,
+    paymentMethod: draft.paymentMethod,
+    voucherCode: draft.voucherCode,
+    declaredValueVnd: draft.declaredValueVnd,
+    quantity: draft.quantity,
+  };
 };

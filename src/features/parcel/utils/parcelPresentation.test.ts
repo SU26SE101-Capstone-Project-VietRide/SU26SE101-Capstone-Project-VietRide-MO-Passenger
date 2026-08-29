@@ -104,4 +104,23 @@ describe('parcel Reliability presentation', () => {
     ].forEach(term => expect(passengerCopy).not.toContain(term));
     expect(locale.parcel.compensation.subtitle).toContain('{{operator}}');
   });
+
+  it('keeps the official shipment total phrase together on the second line in Vietnamese', () => {
+    expect(vi.parcel.detail.finalTotal).toBe(
+      'Tổng phí vận chuyển\nchính thức',
+    );
+  });
+
+  it.each([
+    ['en', en],
+    ['vi', vi],
+  ] as const)('does not annotate optional fields in %s copy', (_language, locale) => {
+    [
+      locale.parcel.form.photoTitle,
+      locale.parcel.form.estimatedValueLabel,
+      locale.shared.photoPicker.defaultTitle,
+    ].forEach(copy => {
+      expect(copy.toLowerCase()).not.toMatch(/optional|không bắt buộc/);
+    });
+  });
 });
