@@ -2,7 +2,7 @@ import type { CreateParcelPayload } from '../types';
 import { isValidEmail } from '@features/auth/validation/authValidation';
 
 export interface CreateParcelDraft
-  extends Omit<CreateParcelPayload, 'photoUrl'> {
+  extends Omit<CreateParcelPayload, 'photoUrl' | 'quantity'> {
   /** Only a Firebase download URL returned by the shared upload service belongs here. */
   photoUrl?: string | null;
   /** @deprecated Local previews are never serialized across the API boundary. */
@@ -17,9 +17,6 @@ interface ValidatedCreateFields {
 const validateCreateContract = (
   draft: CreateParcelDraft,
 ): ValidatedCreateFields => {
-  if (!Number.isInteger(draft.quantity) || draft.quantity < 1 || draft.quantity > 10_000) {
-    throw new Error('Parcel quantity must be an integer from 1 to 10000.');
-  }
   if (
     draft.declaredValueVnd !== null
     && (
@@ -77,6 +74,6 @@ export const buildCreateParcelPayload = (
     paymentMethod: draft.paymentMethod,
     voucherCode: draft.voucherCode,
     declaredValueVnd: draft.declaredValueVnd,
-    quantity: draft.quantity,
+    quantity: 1,
   };
 };

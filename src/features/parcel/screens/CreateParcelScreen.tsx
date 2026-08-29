@@ -31,6 +31,7 @@ import {
   CalendarBlank,
   CheckCircle,
   Clock,
+  MapPinLine,
   Truck,
   WarningCircle,
 } from 'phosphor-react-native';
@@ -285,7 +286,6 @@ export function CreateParcelScreen(): React.JSX.Element {
   const packageCategory = useParcelStore(state => state.category);
   const customItemName = useParcelStore(state => state.customItemName);
   const estimatedValue = useParcelStore(state => state.estimatedValue);
-  const quantity = useParcelStore(state => state.quantity);
   const photos = useParcelStore(state => state.photos);
   const paymentMethod = useParcelStore(state => state.paymentMethod);
   const setPackage = useParcelStore(state => state.setPackage);
@@ -296,6 +296,9 @@ export function CreateParcelScreen(): React.JSX.Element {
   const setDropoffStation = useParcelStore(state => state.setDropoffStation);
   const [step, setStep] = useState(1);
   const [highestStepReached, setHighestStepReached] = useState(1);
+  const [nearbySortRole, setNearbySortRole] = useState<
+    'origin' | 'destination' | null
+  >(null);
   // Recipient starts empty; the sender profile is not applied in this batch
   // because recipient email may link the parcel to another account.
   const [recipientName, setRecipientName] = useState('');
@@ -356,11 +359,8 @@ export function CreateParcelScreen(): React.JSX.Element {
     || appliedPromo
     || photos.length > 0
     || estimatedValue.trim()
-    || quantity !== 1
     || packageCategory.trim(),
   );
-
-  const currentLocation = useCurrentCoordinates(step === 1 || step === 2);
 
   const clearTripSelection = useCallback(() => {
     selectedTripIdRef.current = null;
@@ -381,18 +381,30 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   const originScopeCode = (fromWardCode || fromLocationCode).trim();
   const destinationScopeCode = (toWardCode || toLocationCode).trim();
+  const activeStationRole = step === 1
+    ? 'origin'
+    : step === 2
+      ? 'destination'
+      : null;
+  const shouldResolveCurrentLocation = activeStationRole === nearbySortRole
+    && (activeStationRole === 'origin'
+      ? Boolean(originScopeCode)
+      : activeStationRole === 'destination'
+        ? Boolean(destinationScopeCode)
+        : false);
+  const currentLocation = useCurrentCoordinates(shouldResolveCurrentLocation);
 
   const originStationsQuery = useParcelStations(
     originScopeCode,
     step === 1,
-    currentLocation.coords,
-    currentLocation.isResolving,
+    nearbySortRole === 'origin' ? currentLocation.coords : null,
+    nearbySortRole === 'origin' && currentLocation.isResolving,
   );
   const destinationStationsQuery = useParcelStations(
     destinationScopeCode,
     step === 2,
-    currentLocation.coords,
-    currentLocation.isResolving,
+    nearbySortRole === 'destination' ? currentLocation.coords : null,
+    nearbySortRole === 'destination' && currentLocation.isResolving,
   );
   const dimensions = useMemo(
     () => ({
@@ -858,17 +870,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     [setPackage],
   );
 
-  const handleQuantityChange = useCallback(
-    (value: string) => {
-      const digits = value.replace(/\D/g, '').slice(0, 5);
-      const parsed = Number(digits || '1');
-      setPackage({
-        quantity: Math.min(10_000, Math.max(1, parsed)),
-      });
-    },
-    [setPackage],
-  );
-
   const handleSelectTrip = useCallback((trip: AvailableParcelTrip) => {
     if (intentLocked || !isParcelQuoteUsable(trip)) {
       return;
@@ -1129,7 +1130,6 @@ export function CreateParcelScreen(): React.JSX.Element {
       paymentMethod: backendPaymentMethod,
       voucherCode: selectedVoucher?.code ?? null,
       declaredValueVnd: estimatedValue ? Number(estimatedValue) : null,
-      quantity,
     });
   }, [
     backendPaymentMethod,
@@ -1139,7 +1139,6 @@ export function CreateParcelScreen(): React.JSX.Element {
     estimatedValue,
     estimatedWeightKg,
     parcelItemName,
-    quantity,
     recipientEmail,
     recipientName,
     recipientPhone,
@@ -1616,8 +1615,14 @@ export function CreateParcelScreen(): React.JSX.Element {
   const selectedStationForStep =
     step === 1 ? receivingStation : step === 2 ? dropoffStation : undefined;
   const stationSelectionRole = step === 1 ? 'origin' : 'destination';
+  const nearbySortRequested = nearbySortRole === stationSelectionRole;
+  const nearbySortResolved = nearbySortRequested && currentLocation.coords != null;
+  const nearbySortUnavailable = nearbySortRequested && currentLocation.error != null;
   const handleStationSelect =
     step === 1 ? handleSelectReceivingStation : handleSelectDropoffStation;
+  const handleSortStationsNearby = useCallback(() => {
+    setNearbySortRole(step === 1 ? 'origin' : 'destination');
+  }, [step]);
   const handleRetryStationStep = useCallback(() => {
     refetchStationStep().catch(() => undefined);
   }, [refetchStationStep]);
@@ -1647,6 +1652,62 @@ export function CreateParcelScreen(): React.JSX.Element {
   );
 
   const stationKeyExtractor = useCallback((station: Station) => station.id, []);
+  const stationListHeader = (
+    <View style={styles.stationListHeader}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('parcel.stations.sortNearby')}
+        accessibilityState={{
+          disabled:
+            (nearbySortRequested && currentLocation.isResolving)
+            || nearbySortResolved
+            || nearbySortUnavailable,
+        }}
+        disabled={
+          (nearbySortRequested && currentLocation.isResolving)
+          || nearbySortResolved
+          || nearbySortUnavailable
+        }
+        onPress={handleSortStationsNearby}
+        style={({ pressed }) => [
+          styles.nearbySortButton,
+          nearbySortResolved ? styles.nearbySortButtonActive : null,
+          nearbySortUnavailable ? styles.nearbySortButtonUnavailable : null,
+          pressed ? styles.pressed : null,
+        ]}
+      >
+        <MapPinLine
+          size={20}
+          color={
+            nearbySortResolved
+              ? theme.colors.success
+              : nearbySortUnavailable
+                ? theme.colors.textTertiary
+                : theme.colors.primary
+          }
+          weight={nearbySortResolved ? 'fill' : 'duotone'}
+        />
+        <Text
+          numberOfLines={2}
+          style={[
+            styles.nearbySortButtonText,
+            nearbySortUnavailable ? styles.nearbySortButtonTextUnavailable : null,
+          ]}
+        >
+          {currentLocation.isResolving && nearbySortRequested
+            ? t('parcel.stations.sortingNearby')
+            : nearbySortResolved
+              ? t('parcel.stations.sortedNearby')
+              : nearbySortUnavailable
+                ? t('parcel.stations.locationUnavailable')
+                : t('parcel.stations.sortNearby')}
+        </Text>
+        {currentLocation.isResolving && nearbySortRequested ? (
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        ) : null}
+      </Pressable>
+    </View>
+  );
   const tripKeyExtractor = useCallback(
     (trip: AvailableParcelTrip) => trip.tripId,
     [],
@@ -1954,17 +2015,6 @@ export function CreateParcelScreen(): React.JSX.Element {
             hint={t('parcel.form.estimatedValueHint')}
           />
 
-          <Input
-            label={t('parcel.form.quantityLabel')}
-            placeholder={t('parcel.form.quantityPlaceholder')}
-            keyboardType="number-pad"
-            maxLength={5}
-            value={String(quantity)}
-            onChangeText={handleQuantityChange}
-            hint={t('parcel.form.quantityHint')}
-            required
-          />
-
           <View style={styles.formSection}>
             <Text style={styles.sectionLabel}>
               {t('parcel.form.recipientTitle')}
@@ -2210,6 +2260,7 @@ export function CreateParcelScreen(): React.JSX.Element {
             keyExtractor={stationKeyExtractor}
             style={styles.scrollContainer}
             contentContainerStyle={stationListContentStyle}
+            ListHeaderComponent={stationListHeader}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           />
@@ -2317,6 +2368,41 @@ const createStyles = (theme: AppTheme) => ({
   stationListContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xs,
+  },
+  stationListHeader: {
+    paddingBottom: spacing.sm,
+  },
+  nearbySortButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  nearbySortButtonActive: {
+    borderColor: theme.colors.success,
+    backgroundColor: theme.colors.successLight,
+  },
+  nearbySortButtonUnavailable: {
+    borderColor: theme.colors.divider,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  nearbySortButtonText: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: theme.colors.primary,
+    textAlign: 'center',
+  },
+  nearbySortButtonTextUnavailable: {
+    color: theme.colors.textTertiary,
   },
   stepContent: { paddingBottom: 80 },
   formSection: {

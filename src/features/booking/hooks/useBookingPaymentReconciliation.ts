@@ -8,7 +8,12 @@ import { ApiRequestError, getLocalizedApiErrorMessage } from '@shared/api/errors
 import { useIsAppActive, useNetworkStatus } from '@shared/hooks';
 import { addVnPaySdkPaymentBackListener } from '@shared/payments';
 import { bookingKeys, getBookingStatus } from '../api/bookingApi';
-import type { BookingResult, BookingStatus, RoundTripResult } from '../types';
+import type {
+  BookingResult,
+  BookingStatus,
+  BookingStatusResult,
+  RoundTripResult,
+} from '../types';
 import {
   getBookingIds,
   isRetryableBookingStatusError,
@@ -17,6 +22,7 @@ import {
 } from '../utils/bookingPayment';
 
 const BOOKING_STATUS_GC_TIME_MS = 10 * 60 * 1000;
+const EMPTY_BOOKING_STATUSES: readonly BookingStatusResult[] = [];
 const BOOKING_PAYMENT_ERROR_KEYS: Readonly<Record<string, string>> = {
   BOOKING_STATUS_CONTRACT_MISMATCH: 'booking.paymentStatus.contractMismatch',
   BOOKING_STATUS_UNAVAILABLE: 'booking.paymentStatus.unavailable',
@@ -25,22 +31,28 @@ const BOOKING_PAYMENT_ERROR_KEYS: Readonly<Record<string, string>> = {
 export interface BookingPaymentReconciliationState {
   phase: 'idle' | 'pending' | 'confirmed' | 'expired' | 'inactive' | 'unavailable';
   terminalStatus?: BookingStatus;
+  statuses: readonly BookingStatusResult[];
   isChecking: boolean;
   isOnline: boolean;
   errorMessage?: string;
   checkNow: () => Promise<void>;
 }
 
-export function useBookingPaymentReconciliation(
-  bookingResult: BookingResult | RoundTripResult | null,
-): BookingPaymentReconciliationState {
+interface BookingPaymentReconciliationTarget {
+  bookingIds: readonly string[];
+  status: 'PENDING_PAYMENT' | 'CONFIRMED' | null;
+}
+
+function useBookingStatusReconciliation({
+  bookingIds,
+  status,
+}: BookingPaymentReconciliationTarget): BookingPaymentReconciliationState {
   const { t } = useTranslation();
   const userId = useAuthStore((state) => state.user?.id);
   const isFocused = useIsFocused();
   const isOnline = useNetworkStatus();
   const isAppActive = useIsAppActive();
   const queryClient = useQueryClient();
-  const bookingIds = useMemo(() => getBookingIds(bookingResult), [bookingResult]);
   const queryKey = useMemo(
     () => bookingKeys.paymentStatus(userId ?? 'none', bookingIds),
     [bookingIds, userId],
@@ -57,8 +69,8 @@ export function useBookingPaymentReconciliation(
         bookingIds.map((bookingId) => getBookingStatus(bookingId, signal)),
       );
 
-      statuses.forEach((status, index) => {
-        if (status.bookingId.toLowerCase() !== bookingIds[index]?.toLowerCase()) {
+      statuses.forEach((returnedStatus, index) => {
+        if (returnedStatus.bookingId.toLowerCase() !== bookingIds[index]?.toLowerCase()) {
           throw new ApiRequestError({
             message: 'Máy chủ trả về trạng thái của một booking khác.',
             code: 'BOOKING_STATUS_CONTRACT_MISMATCH',
@@ -76,16 +88,16 @@ export function useBookingPaymentReconciliation(
   const refetchStatus = statusQuery.refetch;
 
   const resolution = useMemo(() => {
-    if (!bookingResult) return { phase: 'idle' as const };
-    if (bookingResult.status === 'CONFIRMED') return { phase: 'confirmed' as const };
+    if (!status) return { phase: 'idle' as const };
+    if (status === 'CONFIRMED') return { phase: 'confirmed' as const };
     if (statusQuery.error && !isRetryableBookingStatusError(statusQuery.error)) {
       return { phase: 'unavailable' as const };
     }
     return resolveBookingPayment(statusQuery.data ?? []);
-  }, [bookingResult, statusQuery.data, statusQuery.error]);
+  }, [status, statusQuery.data, statusQuery.error]);
 
   const canReconcile = Boolean(
-    bookingResult?.status === 'PENDING_PAYMENT'
+    status === 'PENDING_PAYMENT'
     && bookingIds.length > 0
     && userId
     && isFocused
@@ -134,6 +146,15 @@ export function useBookingPaymentReconciliation(
     return task;
   }, [canReconcile, refetchStatus]);
 
+  const restartCheck = useCallback(async (): Promise<void> => {
+    if (!canReconcile || resolution.phase !== 'pending') return;
+    runGenerationRef.current += 1;
+    inFlightRef.current = null;
+    if (mountedRef.current) setIsChecking(false);
+    await queryClient.cancelQueries({ queryKey, exact: true });
+    return checkNow();
+  }, [canReconcile, checkNow, queryClient, queryKey, resolution.phase]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -150,10 +171,13 @@ export function useBookingPaymentReconciliation(
 
   useEffect(() => {
     const subscription = addVnPaySdkPaymentBackListener(() => {
-      checkNow().catch(() => undefined);
+      // The detail screen mounts before the VNPay SDK opens, so its initial
+      // bounded poll may be nearly exhausted when PaymentBack arrives. Start
+      // a fresh bounded window from the explicit return signal.
+      restartCheck().catch(() => undefined);
     });
     return () => subscription?.remove();
-  }, [checkNow]);
+  }, [restartCheck]);
 
   const errorMessage = !isOnline
     ? t('booking.paymentStatus.offline')
@@ -170,9 +194,35 @@ export function useBookingPaymentReconciliation(
     terminalStatus: resolution.phase === 'expired' || resolution.phase === 'inactive'
       ? resolution.terminalStatus
       : undefined,
+    statuses: statusQuery.data ?? EMPTY_BOOKING_STATUSES,
     isChecking,
     isOnline,
     errorMessage,
     checkNow,
   };
+}
+
+export function useBookingPaymentReconciliation(
+  bookingResult: BookingResult | RoundTripResult | null,
+): BookingPaymentReconciliationState {
+  const bookingIds = useMemo(() => getBookingIds(bookingResult), [bookingResult]);
+  return useBookingStatusReconciliation({
+    bookingIds,
+    status: bookingResult?.status ?? null,
+  });
+}
+
+/** Reconciles a pending navigation snapshot without fabricating a detail DTO. */
+export function usePendingHistoryBookingReconciliation(
+  bookingId: string,
+  isPendingPayment: boolean,
+): BookingPaymentReconciliationState {
+  const bookingIds = useMemo(
+    () => isPendingPayment && bookingId ? [bookingId] : [],
+    [bookingId, isPendingPayment],
+  );
+  return useBookingStatusReconciliation({
+    bookingIds,
+    status: isPendingPayment ? 'PENDING_PAYMENT' : null,
+  });
 }

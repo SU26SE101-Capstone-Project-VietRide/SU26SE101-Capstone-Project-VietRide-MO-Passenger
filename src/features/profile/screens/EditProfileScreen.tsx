@@ -354,8 +354,8 @@ const createStyles = (theme: AppTheme) => ({
       : theme.colors.surface,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -366,7 +366,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
   },
   topBarRightPlaceholder: {
-    width: 40,
+    width: 44,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,

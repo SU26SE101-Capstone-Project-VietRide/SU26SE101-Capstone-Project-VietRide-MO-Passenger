@@ -9,8 +9,8 @@ import {
   openNotificationFromSystemTray,
 } from '@app/navigation/navigationRef';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { bookingHistoryKeys } from '@features/booking/api/bookingHistoryApi';
 import { notificationKeys } from '@features/home/api/notificationApi';
-import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
 import { localizeNotificationCopy } from '@features/home/utils/notificationCopy';
 import { useIsAppActive, useNetworkStatus } from '@shared/hooks';
 import {
@@ -323,7 +323,7 @@ export function NotificationCoordinator(): null {
         || notificationType === 'BOOKING_REFUNDED'
       ) {
         queryClient.invalidateQueries({
-          queryKey: passengerHistoryKeys.user(userId),
+          queryKey: bookingHistoryKeys.user(userId),
         }).catch(() => undefined);
       }
     };

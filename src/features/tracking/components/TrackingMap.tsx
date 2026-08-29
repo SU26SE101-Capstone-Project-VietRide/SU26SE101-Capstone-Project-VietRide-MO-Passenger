@@ -266,6 +266,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
             <StatusChip
               label={t(connectionPresentation.key)}
               tone={connectionPresentation.tone}
+              numberOfLines={1}
               style={styles.connectionChip}
             />
           </View>
@@ -279,6 +280,7 @@ export const TrackingMap = React.memo(function TrackingMapComponent({
             <StatusChip
               label={t(connectionPresentation.key)}
               tone={connectionPresentation.tone}
+              numberOfLines={1}
               style={styles.connectionChip}
             />
           </View>

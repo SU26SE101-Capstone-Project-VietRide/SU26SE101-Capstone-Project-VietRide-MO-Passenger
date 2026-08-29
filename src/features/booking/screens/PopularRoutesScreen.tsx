@@ -185,7 +185,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textPrimary,
   },
   headerSpacer: {
-    width: 40,
+    width: 44,
   },
   searchBox: {
     flexDirection: 'row',

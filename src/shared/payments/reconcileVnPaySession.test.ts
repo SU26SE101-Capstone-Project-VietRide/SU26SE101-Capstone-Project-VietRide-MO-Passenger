@@ -72,6 +72,23 @@ describe('pollVnPaySessionStatus', () => {
     expect(result?.status).toBe('PENDING');
     expect(fetchStatus).toHaveBeenCalledTimes(2);
   });
+
+  it('drops a response that becomes stale while the request is in flight', async () => {
+    let current = true;
+    const fetchStatus = jest.fn(async () => {
+      current = false;
+      return { sessionId: 's1', status: 'SUCCEEDED' as const };
+    });
+
+    const result = await pollVnPaySessionStatus({
+      sessionId: 's1',
+      delaysMs: [0],
+      isCurrent: () => current,
+      fetchStatus,
+    });
+
+    expect(result).toBeNull();
+  });
 });
 
 describe('reconcilePendingVnPaySession', () => {
@@ -108,6 +125,29 @@ describe('reconcilePendingVnPaySession', () => {
     expect(result.status?.status).toBe('FAILED');
     expect(result.cleared).toBe(true);
     expect(pendingStore.clearPendingVnPaySession).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not clear a replacement session after a terminal response', async () => {
+    const replacement = {
+      ...storedSession,
+      sessionId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    };
+    jest.mocked(pendingStore.getPendingVnPaySession)
+      .mockResolvedValueOnce(storedSession)
+      .mockResolvedValueOnce(replacement);
+    const fetchStatus = jest.fn(async () => ({
+      sessionId: storedSession.sessionId,
+      status: 'SUCCEEDED' as const,
+    }));
+
+    const result = await reconcilePendingVnPaySession({
+      ownerUserId: OWNER_USER_ID,
+      delaysMs: [0],
+      fetchStatus,
+    });
+
+    expect(result.cleared).toBe(false);
+    expect(pendingStore.clearPendingVnPaySession).not.toHaveBeenCalled();
   });
 
   it('retains PENDING sessions', async () => {

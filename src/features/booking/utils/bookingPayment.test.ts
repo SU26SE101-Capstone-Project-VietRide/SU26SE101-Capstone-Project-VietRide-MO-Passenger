@@ -1,9 +1,11 @@
 import type { BookingResult, BookingStatusResult, RoundTripResult } from '../types';
+import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { ApiRequestError } from '@shared/api/errors';
 import {
   getBookingIds,
   isRetryableBookingStatusError,
   pollBookingPayment,
+  reconcilePassengerHistoryBookingStatus,
   resolveBookingPayment,
 } from './bookingPayment';
 
@@ -45,6 +47,37 @@ const status = (
   value: BookingStatusResult['status'],
 ): BookingStatusResult => ({ bookingId, status: value });
 
+const pendingHistoryItem: PassengerTicketHistoryItem = {
+  id: oneWayResult.bookingId,
+  code: oneWayResult.bookingCode,
+  tripId: '66666666-6666-4666-8666-666666666666',
+  type: 'TICKET',
+  status: 'PENDING_PAYMENT',
+  createdAt: '2026-08-30T08:00:00Z',
+  totalAmount: oneWayResult.totalAmount,
+  originName: 'Ho Chi Minh City',
+  destinationName: 'Da Lat',
+  departureDateTime: '2026-08-31T08:00:00Z',
+  estimatedArrivalTime: null,
+  paymentRedirectUrl: oneWayResult.paymentRedirectUrl,
+  trackingTarget: null,
+  ticket: {
+    bookingGroupId: null,
+    tripDirection: 'OUTBOUND',
+    routeName: 'Ho Chi Minh City - Da Lat',
+    tickets: [{
+      ticketId: '77777777-7777-4777-8777-777777777777',
+      ticketCode: 'VR-TICKET-1',
+      seatNumber: 'A01',
+      status: 'PENDING_PAYMENT',
+      paidAmount: oneWayResult.totalAmount,
+    }],
+    vehicle: null,
+    shuttleRequests: [],
+  },
+  parcel: null,
+};
+
 describe('booking payment reconciliation', () => {
   it('extracts every BE booking ID without using the display group ID', () => {
     expect(getBookingIds(oneWayResult)).toEqual([oneWayResult.bookingId]);
@@ -65,6 +98,23 @@ describe('booking payment reconciliation', () => {
       status(roundTripResult.outbound.bookingId, 'CONFIRMED'),
       status(roundTripResult.return.bookingId, 'CONFIRMED'),
     ]).phase).toBe('confirmed');
+  });
+
+  it('updates a stale History snapshot only after the matching BE booking confirms', () => {
+    const untouched = reconcilePassengerHistoryBookingStatus(
+      pendingHistoryItem,
+      status('88888888-8888-4888-8888-888888888888', 'CONFIRMED'),
+    );
+    expect(untouched).toBe(pendingHistoryItem);
+
+    const confirmed = reconcilePassengerHistoryBookingStatus(
+      pendingHistoryItem,
+      status(oneWayResult.bookingId, 'CONFIRMED'),
+    );
+    expect(confirmed).toMatchObject({
+      status: 'CONFIRMED',
+      ticket: { tickets: [{ status: 'ISSUED' }] },
+    });
   });
 
   it('treats EXPIRED as a definitive checkout payment expiry', () => {

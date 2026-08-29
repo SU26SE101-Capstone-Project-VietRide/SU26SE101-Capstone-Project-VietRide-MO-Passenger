@@ -43,9 +43,12 @@ const anonymousIdempotencyConfig = (idempotencyKey: string) => ({
 export const parcelReliabilityKeys = {
   root: ['parcels', 'reliability'] as const,
   user: (userId: string) => [...parcelReliabilityKeys.root, userId] as const,
-  sent: (userId: string, query: Omit<SentParcelQuery, 'page'>) => [
+  sentRoot: (userId: string) => [
     ...parcelReliabilityKeys.user(userId),
     'sent',
+  ] as const,
+  sent: (userId: string, query: Omit<SentParcelQuery, 'page'>) => [
+    ...parcelReliabilityKeys.sentRoot(userId),
     query.status ?? 'all',
     query.from ?? 'any-from',
     query.to ?? 'any-to',

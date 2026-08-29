@@ -192,6 +192,18 @@ const passengerHistoryPageSchema = z.object({
 export const passengerHistoryKeys = {
   all: ['passenger-history'] as const,
   user: (userId: string) => [...passengerHistoryKeys.all, userId] as const,
+  ticket: (userId: string) => [
+    ...passengerHistoryKeys.user(userId),
+    'TICKET',
+  ] as const,
+  parcel: (userId: string) => [
+    ...passengerHistoryKeys.user(userId),
+    'PARCEL',
+  ] as const,
+  parcelRole: (userId: string) => [
+    ...passengerHistoryKeys.user(userId),
+    'PARCEL_ROLE',
+  ] as const,
   list: (
     userId: string,
     query: PassengerHistoryQueryInput,

@@ -170,7 +170,7 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    minHeight: 32,
+    minHeight: 44,
     paddingHorizontal: spacing.sm,
   },
   clearText: {

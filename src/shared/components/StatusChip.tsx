@@ -15,6 +15,7 @@ export type StatusChipTone = 'success' | 'error' | 'warning' | 'info' | 'neutral
 interface StatusChipProps {
   label: string;
   tone?: StatusChipTone;
+  numberOfLines?: number;
   style?: ViewStyle;
 }
 
@@ -35,6 +36,7 @@ const getPalette = (
 export const StatusChip = memo(function StatusChip({
   label,
   tone = 'info',
+  numberOfLines = 2,
   style,
 }: StatusChipProps): React.JSX.Element {
   const theme = useTheme();
@@ -42,7 +44,12 @@ export const StatusChip = memo(function StatusChip({
 
   return (
     <View style={[styles.chip, { backgroundColor: palette.backgroundColor }, style]}>
-      <Text style={[styles.label, { color: palette.color }]} numberOfLines={1}>
+      <Text
+        accessibilityLabel={label}
+        style={[styles.label, { color: palette.color }]}
+        numberOfLines={numberOfLines}
+        ellipsizeMode="tail"
+      >
         {label}
       </Text>
     </View>
@@ -52,13 +59,18 @@ export const StatusChip = memo(function StatusChip({
 const styles = StyleSheet.create({
   chip: {
     maxWidth: '100%',
+    minWidth: 0,
+    flexShrink: 1,
     alignSelf: 'flex-start',
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs + 1,
   },
   label: {
+    flexShrink: 1,
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.xs,
+    lineHeight: fontSizes.xs * 1.35,
+    textAlign: 'center',
   },
 });

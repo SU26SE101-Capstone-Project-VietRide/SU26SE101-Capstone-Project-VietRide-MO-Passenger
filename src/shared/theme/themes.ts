@@ -304,8 +304,8 @@ const makeComponents = (
     ...continuous,
   },
   headerButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     backgroundColor: effects.isLiquid ? effects.glassOverlay : palette.surfaceAlt,
     borderWidth: effects.isLiquid ? 1 : 0,

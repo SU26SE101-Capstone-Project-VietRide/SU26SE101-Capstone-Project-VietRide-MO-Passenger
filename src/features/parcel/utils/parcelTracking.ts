@@ -1,4 +1,4 @@
-import type { ParcelDetail } from '../types';
+import type { ParcelDetail, ParcelReliabilityTrip } from '../types';
 import i18n from '@shared/i18n';
 import { formatDate, formatTime } from '@shared/utils/format';
 import { getParcelStatusPresentation } from './parcelPresentation';
@@ -63,6 +63,39 @@ export const isParcelRejected = (
 export const isParcelTrackingEligible = (status?: string | null): boolean => {
   const normalizedStatus = status?.trim().toUpperCase();
   return normalizedStatus ? TRACKABLE_PARCEL_STATUSES.has(normalizedStatus) : false;
+};
+
+/**
+ * Selects the only trip Passenger may subscribe to for this parcel.
+ *
+ * During vehicle substitution BE keeps `trip` on the source trip until the
+ * replacement crew confirms the parcel handoff. `forwardingTrip` is therefore
+ * a candidate context, not proof that the parcel is already on that vehicle.
+ * While confirmation is pending, never show GPS from the disrupted source
+ * trip; switch to the replacement trip only after BE reports it IN_PROGRESS.
+ */
+export const resolveParcelLiveTrackingTrip = ({
+  parcelStatus,
+  trip,
+  forwardingTrip,
+}: {
+  parcelStatus?: string | null;
+  trip: ParcelReliabilityTrip;
+  forwardingTrip?: ParcelReliabilityTrip | null;
+}): ParcelReliabilityTrip | null => {
+  const normalizedStatus = normalizeStatus(parcelStatus);
+  if (!isParcelTrackingEligible(normalizedStatus)) return null;
+
+  if (
+    normalizedStatus === 'PENDING_TRANSFER_CONFIRM'
+    || normalizedStatus === 'TRANSFER_ESCALATED'
+  ) {
+    return forwardingTrip?.status?.trim().toUpperCase() === 'IN_PROGRESS'
+      ? forwardingTrip
+      : null;
+  }
+
+  return trip;
 };
 
 /**

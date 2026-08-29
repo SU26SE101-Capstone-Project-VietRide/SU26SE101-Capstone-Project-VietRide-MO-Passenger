@@ -29,6 +29,8 @@ export function GlassCarouselSection({
         <Text style={styles.title}>{title}</Text>
         {actionLabel && onActionPress ? (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}
             onPress={onActionPress}
             hitSlop={8}
             style={({ pressed }) => [styles.actionButton, pressed ? styles.pressed : null]}

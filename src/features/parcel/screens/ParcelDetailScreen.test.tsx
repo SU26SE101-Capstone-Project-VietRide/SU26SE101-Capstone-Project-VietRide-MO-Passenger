@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
 import type { ParcelDetail } from '../types';
@@ -13,6 +13,14 @@ const mockNavigation = {
 const mockInvalidateQueries = jest.fn(async () => undefined);
 const mockRefetch = jest.fn(async () => undefined);
 const mockUseParcelDetail = jest.fn();
+const mockReconcileParcelPayment = jest.fn(async () => undefined);
+const mockErrorView = jest.fn(({ onRetry }: { onRetry?: () => void }) => (
+  <Pressable accessibilityLabel="parcel-detail-error-retry" onPress={onRetry} />
+));
+let mockIsFocused = true;
+let mockIsAppActive = true;
+let mockIsOnline = true;
+let mockPaymentRedirectUrl: string | undefined;
 const mockScannableCodeCard = jest.fn(
   ({ code, title }: { code: string; title: string }) => (
     <View accessibilityLabel={`${title}. ${code}`}>
@@ -66,12 +74,16 @@ const mockTheme = {
 };
 
 jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => mockIsFocused,
   useNavigation: () => mockNavigation,
   usePreventRemove: () => undefined,
   useRoute: () => ({
     params: {
       parcelId: '11111111-1111-4111-8111-111111111111',
       fromHistory: true,
+      ...(mockPaymentRedirectUrl
+        ? { paymentRedirectUrl: mockPaymentRedirectUrl }
+        : {}),
     },
   }),
 }));
@@ -143,6 +155,8 @@ jest.mock('@shared/contexts/ThemeContext', () => ({
 }));
 
 jest.mock('@shared/hooks', () => ({
+  useIsAppActive: () => mockIsAppActive,
+  useNetworkStatus: () => mockIsOnline,
   useThemedStyles: (factory: (theme: typeof mockTheme) => unknown) =>
     factory(mockTheme),
 }));
@@ -173,7 +187,7 @@ jest.mock('@features/profile/hooks/useWallet', () => ({
 
 jest.mock('@shared/payments', () => ({
   assertVnPaySdkAvailable: jest.fn(),
-  getPendingVnPaySession: jest.fn(() => null),
+  getPendingVnPaySession: jest.fn(async () => null),
   openVnPayPayment: jest.fn(async () => undefined),
   VnPayPaymentOpenCoordinator: class {
     isRunning = false;
@@ -182,7 +196,7 @@ jest.mock('@shared/payments', () => ({
 }));
 
 jest.mock('../hooks/useParcelQueries', () => ({
-  useParcelDetail: () => mockUseParcelDetail(),
+  useParcelDetail: (...args: unknown[]) => mockUseParcelDetail(...args),
   useStartParcelDepositPayment: () => ({
     isPending: false,
     mutateAsync: jest.fn(),
@@ -197,13 +211,13 @@ jest.mock('../hooks/useParcelQueries', () => ({
 
 jest.mock('../hooks/useParcelPaymentReturn', () => ({
   useParcelPaymentReturn: () => ({
-    checkNow: jest.fn(async () => undefined),
+    checkNow: mockReconcileParcelPayment,
     phase: 'idle',
   }),
 }));
 
 jest.mock('../components', () => ({
-  ErrorView: () => null,
+  ErrorView: (props: { onRetry?: () => void }) => mockErrorView(props),
   ParcelCompensationDisclosure: (
     props: { operatorName: string | null | undefined },
   ) => mockParcelCompensationDisclosure(props),
@@ -292,6 +306,92 @@ const countDashedDividers = (
 describe('ParcelDetailScreen identity hierarchy', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsFocused = true;
+    mockIsAppActive = true;
+    mockIsOnline = true;
+    mockPaymentRedirectUrl = undefined;
+  });
+
+  it.each([
+    ['screen is not focused', () => { mockIsFocused = false; }],
+    ['app is inactive', () => { mockIsAppActive = false; }],
+    ['network is offline', () => { mockIsOnline = false; }],
+  ])('disables pending-payment polling when %s', async (_label, disableGate) => {
+    mockPaymentRedirectUrl = 'https://sandbox.vnpayment.vn/pay';
+    disableGate();
+    mockUseParcelDetail.mockReturnValue(queryFor(createParcel('PENDING_PAYMENT')));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+
+    expect(mockUseParcelDetail).toHaveBeenCalledWith(PARCEL_ID, false);
+    await act(async () => renderer!.unmount());
+  });
+
+  it('does not start fast polling merely because the Parcel status is payable', async () => {
+    mockUseParcelDetail.mockReturnValue(queryFor(createParcel('PENDING_PAYMENT')));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+
+    expect(mockUseParcelDetail).toHaveBeenLastCalledWith(PARCEL_ID, false);
+    await act(async () => renderer!.unmount());
+  });
+
+  it('ends the fast polling window after twenty seconds', async () => {
+    jest.useFakeTimers();
+    mockPaymentRedirectUrl = 'https://sandbox.vnpayment.vn/pay';
+    mockUseParcelDetail.mockReturnValue(queryFor(createParcel('PENDING_PAYMENT')));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    try {
+      await act(async () => {
+        renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+        await Promise.resolve();
+      });
+      expect(mockUseParcelDetail).toHaveBeenLastCalledWith(PARCEL_ID, true);
+
+      await act(async () => {
+        jest.advanceTimersByTime(20_001);
+        await Promise.resolve();
+      });
+
+      expect(mockUseParcelDetail).toHaveBeenLastCalledWith(PARCEL_ID, false);
+      await act(async () => renderer!.unmount());
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('retries an initial detail error directly without starting reconciliation', async () => {
+    mockUseParcelDetail.mockReturnValue({
+      data: undefined,
+      error: new Error('detail unavailable'),
+      isError: true,
+      isLoading: false,
+      refetch: mockRefetch,
+    });
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+    const retry = renderer!.root.find(
+      node => node.props.accessibilityLabel === 'parcel-detail-error-retry',
+    );
+
+    await act(async () => {
+      retry.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+    expect(mockReconcileParcelPayment).not.toHaveBeenCalled();
+    await act(async () => renderer!.unmount());
   });
 
   it('keeps the operational parcel QR and shows parcelCode as page metadata', async () => {

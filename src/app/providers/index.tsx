@@ -27,7 +27,6 @@ import {
   flushPendingNavigationOpens,
   navigationRef,
 } from '@app/navigation/navigationRef';
-import { useLocations } from '@features/location/hooks/useLocations';
 import { AppPreferencesProvider } from './AppPreferencesProvider';
 import { MotionProvider } from '@shared/motion';
 import { AppLaunchScreen } from '@shared/components';
@@ -37,11 +36,6 @@ import { NotificationCoordinator } from './NotificationCoordinator';
 interface AppProvidersProps {
   children?: React.ReactNode;
   isAppReady?: boolean;
-}
-
-function LocationCatalogBootstrap(): null {
-  useLocations();
-  return null;
 }
 
 function ThemedNavigation({
@@ -102,7 +96,6 @@ export function AppProviders({
 }: AppProvidersProps): React.JSX.Element {
   return (
     <QueryClientProvider client={queryClient}>
-      <LocationCatalogBootstrap />
       <SafeAreaProvider>
         <ThemeProvider>
           <MotionProvider>

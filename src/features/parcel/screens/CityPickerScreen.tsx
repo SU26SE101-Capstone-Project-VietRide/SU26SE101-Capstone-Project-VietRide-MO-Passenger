@@ -237,11 +237,22 @@ export function ParcelCityPicker(): React.JSX.Element {
             {t('parcel.locations.loadError')}
           </Text>
           <Pressable
-            onPress={() => active.refetch()}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.retry')}
+            accessibilityState={{
+              busy: active.isFetching,
+              disabled: active.isFetching,
+            }}
             disabled={active.isFetching}
+            onPress={() => {
+              if (!active.isFetching) {
+                active.refetch().catch(() => undefined);
+              }
+            }}
             style={({ pressed }) => [
               styles.retryButton,
-              pressed ? styles.pressed : null,
+              active.isFetching ? styles.retryButtonDisabled : null,
+              pressed && !active.isFetching ? styles.pressed : null,
             ]}
           >
             {active.isFetching ? (
@@ -389,8 +400,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   headerButton: {
     ...theme.components.headerButton,
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
   },
   headerTitle: {
     flex: 1,
@@ -400,7 +411,7 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
   },
-  headerSpacer: { width: 38 },
+  headerSpacer: { width: 44 },
   provinceChip: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -508,12 +519,15 @@ const createStyles = (theme: AppTheme) => ({
   },
   retryButton: {
     minWidth: 112,
-    height: 40,
+    minHeight: 44,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.md,
     backgroundColor: theme.colors.primary,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
+  },
+  retryButtonDisabled: {
+    opacity: 0.55,
   },
   retryText: {
     fontFamily: fontFamilies.bold,

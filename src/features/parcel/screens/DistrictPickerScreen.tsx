@@ -76,11 +76,11 @@ const createStyles = (theme: AppTheme) => ({
   },
   backButton: {
     ...theme.components.headerButton,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
   },
   headerSpacer: {
-    width: 40,
+    width: 44,
   },
   headerTitle: {
     fontFamily: fontFamilies.bold,

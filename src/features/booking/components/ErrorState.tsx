@@ -35,6 +35,8 @@ export const ErrorState = ({ onRetry }: ErrorStateProps): React.JSX.Element => {
         </Text>
         {onRetry != null && (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.retry')}
             onPress={onRetry}
             style={({ pressed }) => [styles.retryButton, pressed ? styles.retryButtonPressed : null]}
           >

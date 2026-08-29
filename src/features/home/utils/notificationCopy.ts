@@ -199,6 +199,7 @@ export const localizeNotificationCopy = (
   const parcelCode = getNotificationDataString(input.data, 'parcelCode');
   const routeName = getNotificationDataString(input.data, 'routeName');
   const licensePlate = getNotificationDataString(input.data, 'licensePlate')
+    ?? getNotificationDataString(input.data, 'newVehiclePlateNumber')
     ?? readNestedString(input.data, ['vehicle', 'licensePlate']);
   const pickupOrder = getNotificationDataString(input.data, 'pickupOrder')
     ?? (typeof readDataValue(input.data, 'pickupOrder') === 'number'

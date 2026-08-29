@@ -32,7 +32,12 @@ export function EmptyState({
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>
       {buttonText && onPressButton ? (
-        <Pressable style={styles.button} onPress={onPressButton}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={buttonText}
+          style={styles.button}
+          onPress={onPressButton}
+        >
           <Text style={styles.buttonText}>{buttonText}</Text>
         </Pressable>
       ) : null}

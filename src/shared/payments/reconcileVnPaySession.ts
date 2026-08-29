@@ -90,6 +90,10 @@ export async function pollVnPaySessionStatus({
       continue;
     }
 
+    // The account/session can change while the network request is in flight.
+    // Never let a stale response advance reconciliation for the new owner.
+    if (!isCurrent()) return null;
+
     if (isTerminalPaymentSessionStatus(latest.status)) {
       return latest;
     }
@@ -117,12 +121,23 @@ export async function reconcilePendingVnPaySession({
   ownerUserId,
   ...pollOptions
 }: ReconcilePendingVnPaySessionOptions): Promise<ReconcilePendingVnPaySessionResult> {
+  const isCurrent = pollOptions.isCurrent ?? (() => true);
   const pending = await getPendingVnPaySession();
   if (!pending) {
     return { pending: null, status: null, cleared: false };
   }
 
   if (!ownerUserId || pending.ownerUserId !== ownerUserId) {
+    if (!isCurrent()) {
+      return { pending, status: null, cleared: false };
+    }
+    const latestPending = await getPendingVnPaySession();
+    if (
+      !isCurrent()
+      || latestPending?.sessionId !== pending.sessionId
+    ) {
+      return { pending, status: null, cleared: false };
+    }
     await clearPendingVnPaySession();
     return { pending, status: null, cleared: true };
   }
@@ -132,7 +147,18 @@ export async function reconcilePendingVnPaySession({
     sessionId: pending.sessionId,
   });
 
-  if (status && isTerminalPaymentSessionStatus(status.status)) {
+  if (
+    status
+    && isTerminalPaymentSessionStatus(status.status)
+    && isCurrent()
+  ) {
+    const latestPending = await getPendingVnPaySession();
+    if (
+      !isCurrent()
+      || latestPending?.sessionId !== pending.sessionId
+    ) {
+      return { pending, status, cleared: false };
+    }
     await clearPendingVnPaySession();
     return { pending, status, cleared: true };
   }

@@ -211,7 +211,7 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
   },
-  topBarRightPlaceholder: { width: 40 },
+  topBarRightPlaceholder: { width: 44 },
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,

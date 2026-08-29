@@ -60,7 +60,7 @@ export function SeatSelectionScreen({
     initSeatMap().catch(() => undefined);
   }, [initSeatMap]);
   const retryTripDetail = useCallback(() => {
-    initTripDetail().catch(() => undefined);
+    initTripDetail({ force: true }).catch(() => undefined);
   }, [initTripDetail]);
 
   const trip = selectedTrip;

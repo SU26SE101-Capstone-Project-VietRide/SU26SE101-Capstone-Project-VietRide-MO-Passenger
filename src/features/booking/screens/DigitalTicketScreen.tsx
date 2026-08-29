@@ -30,7 +30,7 @@ import { useTranslation } from 'react-i18next';
 import type { BookingStackParamList, RootStackParamList } from '@app/navigation/types';
 import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { useQueryClient } from '@tanstack/react-query';
-import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
+import { bookingHistoryKeys } from '../api/bookingHistoryApi';
 import { ShuttleHistorySummary } from '@features/profile/components/ShuttleHistorySummary';
 import { useTripDetail } from '@features/trip/hooks/useTripDetail';
 import { useTheme } from '@shared/contexts/ThemeContext';
@@ -49,7 +49,10 @@ import { formatVnd } from '@shared/utils/format';
 import {
   VnPayPaymentOpenCoordinator,
 } from '@shared/payments';
-import { useBookingPaymentReconciliation } from '../hooks/useBookingPaymentReconciliation';
+import {
+  useBookingPaymentReconciliation,
+  usePendingHistoryBookingReconciliation,
+} from '../hooks/useBookingPaymentReconciliation';
 import { useCancelBooking } from '../hooks/useCancelBooking';
 import { useBookingStore } from '../store/useBookingStore';
 import type { BookingResult, RoundTripResult } from '../types';
@@ -71,6 +74,7 @@ import {
   canCancelBooking,
   parseDepartureMs,
 } from '../utils/bookingCancellation';
+import { reconcilePassengerHistoryBookingStatus } from '../utils/bookingPayment';
 
 type DigitalTicketRoute = RouteProp<BookingStackParamList, 'DigitalTicket'>;
 type DigitalTicketNavigation = CompositeNavigationProp<
@@ -841,7 +845,7 @@ function CheckoutTicketContent(): React.JSX.Element {
     markCheckoutBookingConfirmed();
     if (userId) {
       queryClient.invalidateQueries({
-        queryKey: passengerHistoryKeys.user(userId),
+        queryKey: bookingHistoryKeys.user(userId),
       }).catch(() => undefined);
     }
   }, [
@@ -1035,12 +1039,27 @@ function HistoryTicketContent({
   const { t } = useTranslation();
   const navigation = useNavigation<DigitalTicketNavigation>();
   const cancelMutation = useCancelBooking();
+  const paymentReconciliation = usePendingHistoryBookingReconciliation(
+    bookingId,
+    historyItem?.status === 'PENDING_PAYMENT',
+  );
   const effectiveHistoryItem = useMemo(() => {
-    if (!historyItem || cancelMutation.data?.bookingId !== bookingId) {
-      return historyItem;
+    if (!historyItem) return undefined;
+
+    const reconciledItem = reconcilePassengerHistoryBookingStatus(
+      historyItem,
+      paymentReconciliation.statuses[0],
+    );
+    if (cancelMutation.data?.bookingId !== bookingId) {
+      return reconciledItem;
     }
-    return { ...historyItem, status: cancelMutation.data.status };
-  }, [bookingId, cancelMutation.data, historyItem]);
+    return { ...reconciledItem, status: cancelMutation.data.status };
+  }, [
+    bookingId,
+    cancelMutation.data,
+    historyItem,
+    paymentReconciliation.statuses,
+  ]);
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
   const model = useMemo<TicketViewModel | null>(() => {
     if (effectiveHistoryItem?.id === bookingId) {

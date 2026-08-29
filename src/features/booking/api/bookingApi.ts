@@ -34,8 +34,10 @@ const withIdempotencyKey = (idempotencyKey: string) => {
 export const bookingKeys = {
   all: ['bookings'] as const,
   user: (userId: string) => [...bookingKeys.all, userId] as const,
+  paymentStatusRoot: (userId: string) =>
+    [...bookingKeys.user(userId), 'payment-status'] as const,
   paymentStatus: (userId: string, bookingIds: readonly string[]) =>
-    [...bookingKeys.user(userId), 'payment-status', ...bookingIds] as const,
+    [...bookingKeys.paymentStatusRoot(userId), ...bookingIds] as const,
   availableVouchers: (userId: string, params: GetAvailableVouchersParams) =>
     [...bookingKeys.all, userId, 'vouchers', 'available', params] as const,
   promotions: (service: string) => [...bookingKeys.all, 'promotions', service] as const,

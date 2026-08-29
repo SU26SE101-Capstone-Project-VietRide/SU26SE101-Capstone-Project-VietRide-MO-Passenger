@@ -4,6 +4,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
 } from '@tanstack/react-query';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
@@ -141,33 +142,61 @@ export function useParcelClaims(parcelId: string, enabled = true) {
   });
 }
 
-function useInvalidateReliability(parcelId: string) {
+export async function invalidateParcelReliabilityQueries(
+  queryClient: QueryClient,
+  userId: string,
+  parcelId: string,
+  options: { includeClaims: boolean },
+): Promise<void> {
+  const invalidations = [
+    queryClient.invalidateQueries({
+      queryKey: parcelReliabilityKeys.trace(userId, parcelId),
+      exact: true,
+    }),
+    queryClient.invalidateQueries({
+      queryKey: parcelKeys.detail(userId, parcelId),
+      exact: true,
+    }),
+    queryClient.invalidateQueries({
+      queryKey: parcelReliabilityKeys.sentRoot(userId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: passengerHistoryKeys.parcel(userId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: passengerHistoryKeys.parcelRole(userId),
+    }),
+  ];
+  if (options.includeClaims) {
+    invalidations.push(queryClient.invalidateQueries({
+      queryKey: parcelReliabilityKeys.claims(userId, parcelId),
+      exact: true,
+    }));
+  }
+  await Promise.all(invalidations);
+}
+
+function useInvalidateReliability(
+  parcelId: string,
+  options: { includeClaims: boolean },
+) {
   const userId = useAuthStore((state) => state.user?.id);
   const queryClient = useQueryClient();
   return async (): Promise<void> => {
     if (!userId) return;
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: parcelReliabilityKeys.trace(userId, parcelId),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: parcelReliabilityKeys.claims(userId, parcelId),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: parcelKeys.detail(userId, parcelId),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: parcelReliabilityKeys.user(userId),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: passengerHistoryKeys.user(userId),
-      }),
-    ]);
+    await invalidateParcelReliabilityQueries(
+      queryClient,
+      userId,
+      parcelId,
+      options,
+    );
   };
 }
 
 export function useReportParcelIncident(parcelId: string) {
-  const invalidate = useInvalidateReliability(parcelId);
+  const invalidate = useInvalidateReliability(parcelId, {
+    includeClaims: false,
+  });
   const mutation = useRetainedParcelMutation<
     ReportParcelIncidentInput,
     ReportParcelIncidentResult
@@ -183,7 +212,9 @@ export function useReportParcelIncident(parcelId: string) {
 }
 
 export function useSubmitParcelClaim(parcelId: string) {
-  const invalidate = useInvalidateReliability(parcelId);
+  const invalidate = useInvalidateReliability(parcelId, {
+    includeClaims: true,
+  });
   const mutation = useRetainedParcelMutation<string, ParcelClaim>(
     `parcel-submit-claim-mobile:${parcelId}`,
     submitParcelClaim,
@@ -199,7 +230,9 @@ export function useSubmitParcelClaim(parcelId: string) {
 }
 
 export function useAppealParcelClaim(parcelId: string) {
-  const invalidate = useInvalidateReliability(parcelId);
+  const invalidate = useInvalidateReliability(parcelId, {
+    includeClaims: true,
+  });
   const mutation = useRetainedParcelMutation<AppealParcelClaimInput, ParcelClaim>(
     `parcel-appeal-claim-mobile:${parcelId}`,
     appealParcelClaim,
@@ -216,7 +249,9 @@ export function useAppealParcelClaim(parcelId: string) {
 
 /** API-ready only; no user-facing upload CTA until Passenger evidence upload is fixed. */
 export function useAddParcelClaimEvidence(parcelId: string) {
-  const invalidate = useInvalidateReliability(parcelId);
+  const invalidate = useInvalidateReliability(parcelId, {
+    includeClaims: true,
+  });
   const mutation = useRetainedParcelMutation<AddParcelClaimEvidenceInput, ParcelClaim>(
     `parcel-add-claim-evidence-mobile:${parcelId}`,
     addParcelClaimEvidence,

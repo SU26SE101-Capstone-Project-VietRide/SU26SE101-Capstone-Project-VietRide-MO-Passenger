@@ -2,7 +2,6 @@ import { useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
 import {
   IdempotencyKeyTracker,
 } from '@shared/api/idempotency';
@@ -11,6 +10,7 @@ import {
   toApiError,
 } from '@shared/api/errors';
 import { bookingKeys, cancelBooking } from '../api/bookingApi';
+import { bookingHistoryKeys } from '../api/bookingHistoryApi';
 import type {
   CancelBookingReason,
   CancelBookingResult,
@@ -64,7 +64,7 @@ export function useCancelBooking() {
 
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: passengerHistoryKeys.user(userId),
+          queryKey: bookingHistoryKeys.user(userId),
         }),
         queryClient.invalidateQueries({
           queryKey: bookingKeys.user(userId),
@@ -77,7 +77,7 @@ export function useCancelBooking() {
       }
 
       queryClient.invalidateQueries({
-        queryKey: passengerHistoryKeys.user(userId),
+        queryKey: bookingHistoryKeys.user(userId),
       }).catch(() => undefined);
     },
   });

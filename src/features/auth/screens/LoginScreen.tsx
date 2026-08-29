@@ -217,6 +217,8 @@ export function LoginScreen(): React.JSX.Element {
               ) : null}
 
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('auth.forgotPassword')}
                 onPress={() => navigation.navigate('ForgotPassword')}
                 style={({ pressed }) => [
                   styles.forgotButton,
@@ -325,7 +327,9 @@ const createStyles = (theme: AppTheme) => ({
   forgotButton: {
     alignSelf: 'flex-end',
     marginBottom: spacing.md,
-    paddingVertical: spacing.xs,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
   },
   forgotText: {
     fontFamily: fontFamilies.medium,

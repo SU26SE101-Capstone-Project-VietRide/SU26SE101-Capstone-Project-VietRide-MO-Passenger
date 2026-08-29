@@ -51,6 +51,8 @@ export const EmptyState = ({
         )}
         {actionLabel != null && onAction != null && (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}
             onPress={onAction}
             style={({ pressed }) => [styles.actionButton, pressed ? styles.actionButtonPressed : null]}
           >

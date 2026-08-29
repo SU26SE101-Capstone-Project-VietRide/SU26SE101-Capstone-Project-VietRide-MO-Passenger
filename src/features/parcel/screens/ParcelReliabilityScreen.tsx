@@ -48,7 +48,7 @@ import { ErrorView } from '../components';
 import { useParcelTrace } from '../hooks/useParcelReliabilityQueries';
 import {
   isParcelLocationTrackingTerminal,
-  isParcelTrackingEligible,
+  resolveParcelLiveTrackingTrip,
 } from '../utils/parcelTracking';
 import {
   getParcelCustodyEventLabelKey,
@@ -126,6 +126,17 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     () => dedupeTimeline(traceQuery.data?.pages ?? []),
     [traceQuery.data?.pages],
   );
+  const liveTrackingTrip = trace
+    ? resolveParcelLiveTrackingTrip({
+        parcelStatus: trace.parcelStatus,
+        trip: trace.trip,
+        forwardingTrip: trace.forwardingTrip,
+      })
+    : null;
+  const normalizedParcelStatus = trace?.parcelStatus.trim().toUpperCase();
+  const isTransferPending = normalizedParcelStatus === 'PENDING_TRANSFER_CONFIRM';
+  const isTransferEscalated = normalizedParcelStatus === 'TRANSFER_ESCALATED';
+  const hasTransferState = isTransferPending || isTransferEscalated;
 
   const trackingTarget = useMemo<TrackingTarget | undefined>(() => {
     if (routeTrackingTarget) return routeTrackingTarget;
@@ -137,13 +148,13 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
   }, [routeTrackingTarget, trace?.dropoffLocation]);
 
   const headerRoute = useMemo<TrackingHeaderRoute | undefined>(() => {
-    const routeSummary = trace?.trip.route;
+    const routeSummary = (liveTrackingTrip ?? trace?.trip)?.route;
     if (!routeSummary) return undefined;
     return {
       originName: routeSummary.origin.name ?? undefined,
       destinationName: routeSummary.destination.name ?? undefined,
     };
-  }, [trace?.trip.route]);
+  }, [liveTrackingTrip, trace?.trip]);
 
   const handleRefresh = useCallback(() => {
     traceQuery.refetch().catch(() => undefined);
@@ -169,7 +180,6 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     || trace?.availableActions.includes('ADD_EVIDENCE')
     || trace?.availableActions.includes('APPEAL'),
   );
-  const trackingEligible = isParcelTrackingEligible(trace?.parcelStatus);
   const trackingTerminal = isParcelLocationTrackingTerminal(trace?.parcelStatus);
   const headerActions = useMemo<readonly TrackingHeaderAction[]>(() => {
     const actions: TrackingHeaderAction[] = [];
@@ -181,7 +191,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
         onPress: handleReportIncident,
       });
     }
-    if (shareQuickAction && shareQuickAction.scopeKey === trace?.trip.tripId) {
+    if (shareQuickAction && shareQuickAction.scopeKey === liveTrackingTrip?.tripId) {
       const isRevoke = shareQuickAction.mode === 'revoke';
       actions.push({
         key: 'share-location',
@@ -209,7 +219,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     theme.colors.error,
     theme.colors.primary,
     theme.colors.warningForeground,
-    trace?.trip.tripId,
+    liveTrackingTrip?.tripId,
   ]);
 
   const detailsHeader = useMemo(() => {
@@ -272,7 +282,35 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
           </View>
         ) : null}
 
-        {trace.forwardingTrip ? (
+        {hasTransferState ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>
+              {t(isTransferEscalated
+                ? 'parcel.reliability.transferEscalatedTitle'
+                : 'parcel.reliability.transferPendingTitle')}
+            </Text>
+            <Text style={styles.infoText}>
+              {t(isTransferEscalated
+                ? trace.operator.contactPhone
+                  ? 'parcel.reliability.transferEscalatedDescriptionWithPhone'
+                  : 'parcel.reliability.transferEscalatedDescription'
+                : liveTrackingTrip
+                  ? 'parcel.reliability.transferPendingLiveDescription'
+                  : 'parcel.reliability.transferPendingDescription', {
+                operator: trace.operator.name
+                  ?? t('parcel.reliability.operatorFallback'),
+                phone: trace.operator.contactPhone ?? '',
+              })}
+            </Text>
+            {trace.forwardingTrip?.vehicle?.licensePlate ? (
+              <Text style={styles.infoMeta}>
+                {t('parcel.reliability.replacementVehicle', {
+                  licensePlate: trace.forwardingTrip.vehicle.licensePlate,
+                })}
+              </Text>
+            ) : null}
+          </View>
+        ) : trace.forwardingTrip ? (
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>{t('parcel.reliability.forwarding')}</Text>
             <Text style={styles.infoText}>
@@ -304,7 +342,10 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     );
   }, [
     handleOpenClaim,
+    hasTransferState,
     hasClaimSurface,
+    isTransferEscalated,
+    liveTrackingTrip,
     styles,
     t,
     theme.colors.primary,
@@ -439,11 +480,11 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
           )}
           onRetry={handleRefresh}
         />
-      ) : trackingEligible ? (
+      ) : liveTrackingTrip ? (
         <View style={styles.body}>
           <LiveTripTrackingPanel
             source="trip"
-            tripId={trace.trip.tripId}
+            tripId={liveTrackingTrip.tripId}
             trackingTarget={trackingTarget}
             fallbackToTripDestinationTarget={!trackingTarget}
             sourceTerminal={trackingTerminal}
@@ -518,6 +559,7 @@ const createStyles = (theme: AppTheme) => ({
   infoCard: { padding: spacing.md, borderRadius: borderRadius.lg, backgroundColor: theme.colors.surfaceAlt },
   infoTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
   infoText: { marginTop: spacing.xs, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs },
+  infoMeta: { marginTop: spacing.sm, color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.xs },
   actionRow: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: spacing.sm },
   primaryButton: {
     minHeight: 44,

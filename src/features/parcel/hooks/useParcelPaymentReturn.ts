@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
-
-import { useAuthStore } from '@features/auth/store/useAuthStore';
 import {
   addVnPaySdkPaymentBackListener,
   getPendingVnPaySession,
   isAbandonedVnPaySdkResult,
-  isTerminalPaymentSessionStatus,
-  pollVnPaySessionStatus,
-  VNPAY_CANCEL_POLL_DELAYS_MS,
-  VNPAY_SESSION_POLL_DELAYS_MS,
   type VnPaySdkResult,
   type VnPaySessionKind,
 } from '@shared/payments';
+import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { isParcelPaymentPending } from '../utils/parcelPayment';
 import { matchParcelVnPaySession } from '../utils/parcelVnPaySession';
 
@@ -22,26 +16,18 @@ export type ParcelPaymentReturnPhase =
   | 'abandoned'
   | 'awaiting_parcel';
 
-const PARCEL_AFTER_SUCCESS_DELAYS_MS = [
-  0,
-  400,
-  800,
-  1_200,
-  1_800,
-  2_500,
-] as const;
-
-const wait = (delayMs: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
-
 interface UseParcelPaymentReturnOptions {
   parcelId: string;
   paymentPending: boolean;
   expectedKind: VnPaySessionKind | null;
   enabled: boolean;
   refetchParcel: () => Promise<{ data?: { status?: string } | undefined }>;
+}
+
+interface ActiveParcelReconciliation {
+  generation: number;
+  promise: Promise<void>;
+  scope: string;
 }
 
 export function useParcelPaymentReturn({
@@ -55,47 +41,60 @@ export function useParcelPaymentReturn({
   isChecking: boolean;
   checkNow: (sdkResult?: VnPaySdkResult) => Promise<void>;
 } {
-  const userId = useAuthStore((state) => state.user?.id);
+  const userId = useAuthStore(state => state.user?.id);
   const [phase, setPhase] = useState<ParcelPaymentReturnPhase>('idle');
   const runGenerationRef = useRef(0);
-  const inFlightRef = useRef<Promise<void> | null>(null);
-  const lastAbandonedAtRef = useRef(0);
+  const activeRunRef = useRef<ActiveParcelReconciliation | null>(null);
   const refetchParcelRef = useRef(refetchParcel);
   refetchParcelRef.current = refetchParcel;
 
+  const mountedRef = useRef(true);
   const canReconcile = Boolean(
     enabled && paymentPending && userId && expectedKind && parcelId,
   );
+  const reconciliationScope = canReconcile
+    ? `${userId}:${expectedKind}:${parcelId}`
+    : null;
+  const reconciliationScopeRef = useRef(reconciliationScope);
+  reconciliationScopeRef.current = reconciliationScope;
 
   const cancel = useCallback(() => {
     runGenerationRef.current += 1;
-    inFlightRef.current = null;
-    setPhase((current) => (current === 'checking' ? 'idle' : current));
+    activeRunRef.current = null;
+    setPhase('idle');
   }, []);
 
   const checkNow = useCallback((sdkResult?: VnPaySdkResult): Promise<void> => {
-    if (!canReconcile || !userId || !expectedKind) {
+    if (
+      !canReconcile
+      || !mountedRef.current
+      || !reconciliationScope
+      || !userId
+      || !expectedKind
+    ) {
       return Promise.resolve();
     }
 
-    const abandoned = isAbandonedVnPaySdkResult(sdkResult)
-      || (
-        Date.now() - lastAbandonedAtRef.current < 12_000
-        && sdkResult === undefined
-      );
-    if (isAbandonedVnPaySdkResult(sdkResult)) {
-      lastAbandonedAtRef.current = Date.now();
+    const ownerUserId = userId;
+    const scope = reconciliationScope;
+    const abandoned = isAbandonedVnPaySdkResult(sdkResult);
+    const activeRun = activeRunRef.current;
+    if (activeRun?.scope === scope && !abandoned) {
+      return activeRun.promise;
     }
-
-    if (inFlightRef.current && !isAbandonedVnPaySdkResult(sdkResult)) {
-      return inFlightRef.current;
+    if (activeRun) {
+      // A changed parcel/account/kind (or an explicit cancel result) must not
+      // coalesce with a request that captured the previous reconciliation scope.
+      runGenerationRef.current += 1;
+      activeRunRef.current = null;
     }
 
     const generation = ++runGenerationRef.current;
-    const ownerUserId = userId;
-    const kind = expectedKind;
+    const refetchForScope = refetchParcelRef.current;
     const isCurrent = (): boolean =>
-      generation === runGenerationRef.current
+      mountedRef.current
+      && generation === runGenerationRef.current
+      && reconciliationScopeRef.current === scope
       && useAuthStore.getState().user?.id === ownerUserId;
 
     if (abandoned) {
@@ -105,114 +104,80 @@ export function useParcelPaymentReturn({
     }
 
     const task = (async () => {
-      const pending = await getPendingVnPaySession();
+      const result = await refetchForScope();
       if (!isCurrent()) return;
 
-      const matches = matchParcelVnPaySession(pending, {
-        ownerUserId,
-        parcelId,
-        kind,
-      });
-
-      await refetchParcelRef.current();
-      if (!isCurrent()) return;
-
-      if (!matches) {
-        if (!abandoned) {
-          setPhase('idle');
-        }
-        return;
-      }
-
-      const status = await pollVnPaySessionStatus({
-        sessionId: pending.sessionId,
-        isCurrent,
-        delaysMs: abandoned
-          ? VNPAY_CANCEL_POLL_DELAYS_MS
-          : VNPAY_SESSION_POLL_DELAYS_MS,
-      });
-      if (!isCurrent()) return;
-
-      await refetchParcelRef.current();
-      if (!isCurrent()) return;
-
-      if (
-        abandoned
-        || status?.status === 'FAILED'
-        || status?.status === 'EXPIRED'
-      ) {
+      if (abandoned) {
         setPhase('abandoned');
         return;
       }
 
-      if (status?.status === 'SUCCEEDED') {
-        for (const delayMs of PARCEL_AFTER_SUCCESS_DELAYS_MS) {
-          if (!isCurrent()) return;
-          if (delayMs > 0) await wait(delayMs);
-          if (!isCurrent()) return;
-          const result = await refetchParcelRef.current();
-          if (!isParcelPaymentPending(result.data?.status)) {
-            setPhase('idle');
-            return;
-          }
-        }
+      if (isParcelPaymentPending(result.data?.status)) {
         setPhase('awaiting_parcel');
         return;
       }
 
-      if (status && isTerminalPaymentSessionStatus(status.status)) {
-        setPhase('idle');
-        return;
-      }
-
-      setPhase(abandoned ? 'abandoned' : 'checking');
+      setPhase('idle');
     })()
       .catch(() => {
         if (!isCurrent()) return;
         setPhase(abandoned ? 'abandoned' : 'idle');
       })
       .finally(() => {
-        if (inFlightRef.current === task) {
-          inFlightRef.current = null;
+        if (activeRunRef.current?.generation === generation) {
+          activeRunRef.current = null;
         }
       });
 
-    inFlightRef.current = task;
+    activeRunRef.current = { generation, promise: task, scope };
     return task;
-  }, [canReconcile, expectedKind, parcelId, userId]);
+  }, [canReconcile, expectedKind, reconciliationScope, userId]);
 
   useEffect(() => {
-    if (!canReconcile) {
-      cancel();
-      setPhase('idle');
-    }
-  }, [canReconcile, cancel]);
+    cancel();
+    setPhase('idle');
+  }, [cancel, reconciliationScope]);
 
   useEffect(() => {
     if (!paymentPending && phase !== 'idle') {
       setPhase('idle');
-      lastAbandonedAtRef.current = 0;
     }
   }, [paymentPending, phase]);
 
   useEffect(() => {
-    const subscription = addVnPaySdkPaymentBackListener((event) => {
-      checkNow(event.result).catch(() => undefined);
-    });
-    return () => subscription?.remove();
-  }, [checkNow]);
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      runGenerationRef.current += 1;
+      activeRunRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener(
-      'change',
-      (nextState: AppStateStatus) => {
-        if (nextState === 'active') {
-          checkNow().catch(() => undefined);
-        }
-      },
-    );
-    return () => subscription.remove();
-  }, [checkNow]);
+    const subscription = addVnPaySdkPaymentBackListener((event) => {
+      if (!userId || !expectedKind || !reconciliationScope) return;
+      const ownerUserId = userId;
+      const scope = reconciliationScope;
+      getPendingVnPaySession()
+        .then(pending => {
+          if (
+            !mountedRef.current
+            || useAuthStore.getState().user?.id !== ownerUserId
+            || reconciliationScopeRef.current !== scope
+            || !matchParcelVnPaySession(pending, {
+              ownerUserId,
+              parcelId,
+              kind: expectedKind,
+            })
+          ) {
+            return;
+          }
+          return checkNow(event.result);
+        })
+        .catch(() => undefined);
+    });
+    return () => subscription?.remove();
+  }, [checkNow, expectedKind, parcelId, reconciliationScope, userId]);
 
   return {
     phase,

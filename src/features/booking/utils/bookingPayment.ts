@@ -5,6 +5,7 @@ import type {
   RoundTripResult,
 } from '../types';
 import { toApiError } from '@shared/api/errors';
+import type { PassengerTicketHistoryItem } from '@features/profile/types';
 
 const ACTIVE_BOOKING_STATUS: BookingStatus = 'CONFIRMED';
 const PENDING_BOOKING_STATUS: BookingStatus = 'PENDING_PAYMENT';
@@ -67,6 +68,45 @@ export const resolveBookingPayment = (
   }
 
   return { phase: 'pending', statuses };
+};
+
+/**
+ * Applies only a Booking-owned status response to an existing history
+ * snapshot. Ticket promotion mirrors the BE CONFIRMED transition and happens
+ * only after GET /bookings/{id} confirms the booking.
+ */
+export const reconcilePassengerHistoryBookingStatus = (
+  item: PassengerTicketHistoryItem,
+  statusResult: BookingStatusResult | undefined,
+): PassengerTicketHistoryItem => {
+  if (
+    !statusResult
+    || statusResult.bookingId.toLowerCase() !== item.id.toLowerCase()
+    || statusResult.status === item.status
+  ) {
+    return item;
+  }
+
+  const shouldPromoteTickets =
+    item.status === 'PENDING_PAYMENT'
+    && statusResult.status === 'CONFIRMED';
+
+  return {
+    ...item,
+    status: statusResult.status,
+    ...(shouldPromoteTickets
+      ? {
+          ticket: {
+            ...item.ticket,
+            tickets: item.ticket.tickets.map((ticket) => (
+              ticket.status === 'PENDING_PAYMENT'
+                ? { ...ticket, status: 'ISSUED' as const }
+                : ticket
+            )),
+          },
+        }
+      : {}),
+  };
 };
 
 type Wait = (delayMs: number) => Promise<void>;

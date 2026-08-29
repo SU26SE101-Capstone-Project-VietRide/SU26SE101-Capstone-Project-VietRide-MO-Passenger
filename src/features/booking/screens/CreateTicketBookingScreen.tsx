@@ -780,8 +780,8 @@ const createStyles = (theme: AppTheme) => ({
     transform: [{ scale: 0.96 }],
   },
   headerButtonGhost: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
   },
   filterButtonActive: {
     backgroundColor: theme.colors.primary,

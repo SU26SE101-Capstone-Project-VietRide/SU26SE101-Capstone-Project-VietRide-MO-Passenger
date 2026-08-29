@@ -92,7 +92,6 @@ export interface ParcelBookingState {
   customItemName: string;
   cod: boolean;
   estimatedValue?: string;
-  quantity: number;
   photos: string[];
   paymentMethod: ParcelPaymentMethod;
   promoApplied: boolean;

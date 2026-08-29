@@ -35,12 +35,16 @@ import { getNotificationNavigationIntent } from '@shared/notifications/notificat
 import {
   DEFAULT_NOTIFICATION_LIST_PARAMS,
   flattenNotificationPages,
-  trimNotificationInfiniteToFirstPage,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotificationUnreadCount,
   useNotifications,
 } from '../hooks/useNotifications';
+import {
+  prepareNotificationListFocusRefetch,
+  shouldRefetchNotificationQuery,
+  trimNotificationInfiniteToFirstPage,
+} from '../utils/notificationQueryFreshness';
 import { localizeNotificationCopy } from '../utils/notificationCopy';
 import {
   formatNotificationRelativeTime,
@@ -206,7 +210,6 @@ export function NotificationScreen(): React.JSX.Element {
     refetch: refetchUnreadCount,
   } = unreadCountQuery;
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
-  const isInitialLoadRef = useRef(true);
   const {
     mutate: markAllRead,
     isPending: isMarkingAll,
@@ -225,9 +228,17 @@ export function NotificationScreen(): React.JSX.Element {
 
   const unreadCount = unreadCountQuery.data ?? 0;
   const isInitialLoading = isNotificationsLoading && notifications.length === 0;
-  const listQueryKey = notificationKeys.list(
-    userId ?? 'none',
-    DEFAULT_NOTIFICATION_LIST_PARAMS,
+  const scopedUserId = userId ?? 'none';
+  const listQueryKey = useMemo(
+    () => notificationKeys.list(
+      scopedUserId,
+      DEFAULT_NOTIFICATION_LIST_PARAMS,
+    ),
+    [scopedUserId],
+  );
+  const unreadCountKey = useMemo(
+    () => notificationKeys.unreadCount(scopedUserId),
+    [scopedUserId],
   );
 
   const handleRefresh = useCallback(() => {
@@ -247,15 +258,19 @@ export function NotificationScreen(): React.JSX.Element {
 
   useFocusEffect(
     useCallback(() => {
-      // First mount already loads via the query. Later tab visits refetch
-      // in the background without the pull-to-refresh spinner.
-      if (isInitialLoadRef.current) {
-        isInitialLoadRef.current = false;
-        return;
+      if (prepareNotificationListFocusRefetch(queryClient, listQueryKey)) {
+        refetchNotifications().catch(() => undefined);
       }
-      refetchNotifications().catch(() => undefined);
-      refetchUnreadCount().catch(() => undefined);
-    }, [refetchNotifications, refetchUnreadCount]),
+      if (shouldRefetchNotificationQuery(queryClient, unreadCountKey)) {
+        refetchUnreadCount().catch(() => undefined);
+      }
+    }, [
+      listQueryKey,
+      queryClient,
+      refetchNotifications,
+      refetchUnreadCount,
+      unreadCountKey,
+    ]),
   );
 
   const handleEndReached = useCallback(() => {

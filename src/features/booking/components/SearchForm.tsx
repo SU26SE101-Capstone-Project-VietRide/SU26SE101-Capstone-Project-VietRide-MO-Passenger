@@ -181,8 +181,8 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
   },
   swapBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
     borderColor: theme.effects.contentBorderStrong,

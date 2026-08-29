@@ -16,7 +16,6 @@ const makeDraft = (): CreateParcelDraft => ({
   heightCm: 25,
   estimatedWeightKg: 2.5,
   declaredValueVnd: 2_500_000,
-  quantity: 1,
   photoUrl: null,
   recipient: {
     fullName: 'Passenger',
@@ -29,13 +28,6 @@ const makeDraft = (): CreateParcelDraft => ({
 });
 
 describe('Create Parcel contract bounds', () => {
-  it.each([0, 1.5, 10_001])('rejects quantity %p outside integer bounds', (quantity) => {
-    expect(() => buildCreateParcelPayload({
-      ...makeDraft(),
-      quantity,
-    })).toThrow('Parcel quantity');
-  });
-
   it('rejects negative, fractional, or unsafe declared VND values', () => {
     [-1, 2.5, Number.MAX_SAFE_INTEGER + 1].forEach((declaredValueVnd) => {
       expect(() => buildCreateParcelPayload({
@@ -73,7 +65,7 @@ describe('Create Parcel contract bounds', () => {
     }).recipient.email).toBe('passenger@example.com');
   });
 
-  it('preserves first-class declared value, quantity, and quote token fields', () => {
+  it('preserves declared value and quote token while fixing quantity to one', () => {
     const payload = buildCreateParcelPayload(makeDraft());
     expect(payload).toMatchObject({
       quoteToken: 'opaque.signed-quote',

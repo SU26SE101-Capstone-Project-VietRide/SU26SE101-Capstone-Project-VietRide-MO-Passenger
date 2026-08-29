@@ -72,20 +72,54 @@ type BookingResourceStatus = 'idle' | 'loading' | 'success' | 'empty' | 'error';
 const createDefaultSearchDate = (): string => toVietnamBusinessDate();
 
 const bookingIdempotency = new IdempotencyKeyTracker('booking-mobile');
+const TRIP_SEARCH_CACHE_TIME_MS = 30 * 1000;
 let bookingGeneration = 0;
 let searchRequestSequence = 0;
 let detailRequestSequence = 0;
 let seatRequestSequence = 0;
+let searchAbortController: AbortController | null = null;
+let detailAbortController: AbortController | null = null;
+let seatAbortController: AbortController | null = null;
+let activeSearchFingerprint: string | null = null;
+let lastCompletedSearchFingerprint: string | null = null;
+let lastCompletedSearchAt = 0;
 let activeBookingSubmission: Promise<BookingSubmissionResult> | null = null;
 
 class BookingSearchValidationError extends Error {}
 
+interface BookingFetchOptions {
+  force?: boolean;
+}
+
+const isAbortLikeError = (error: unknown): boolean => {
+  if (!(error instanceof Error) && (typeof error !== 'object' || error === null)) {
+    return false;
+  }
+  const candidate = error as { name?: unknown; code?: unknown };
+  return candidate.name === 'AbortError'
+    || candidate.name === 'CanceledError'
+    || candidate.code === 'ERR_CANCELED';
+};
+
+const abortBookingReads = (): void => {
+  searchAbortController?.abort();
+  detailAbortController?.abort();
+  seatAbortController?.abort();
+  searchAbortController = null;
+  detailAbortController = null;
+  seatAbortController = null;
+  activeSearchFingerprint = null;
+};
+
 const invalidateAsyncBookingWork = (): void => {
+  abortBookingReads();
   bookingGeneration += 1;
   searchRequestSequence += 1;
   detailRequestSequence += 1;
   seatRequestSequence += 1;
   activeBookingSubmission = null;
+  lastCompletedSearchFingerprint = null;
+  lastCompletedSearchAt = 0;
   bookingIdempotency.reset();
 };
 
@@ -411,14 +445,14 @@ interface BookingStore {
   tripResultsStatus: TripResultsStatus;
   lastTripSearchFingerprint: string | null;
   trips: BusTrip[];
-  searchTrips: () => void;
+  searchTrips: (options?: BookingFetchOptions) => Promise<void>;
 
   // ─── Selected Trip ───────────────────────────────────
   selectedTrip: BusTrip | null;
   selectTrip: (trip: BusTrip) => void;
   tripDetailStatus: BookingResourceStatus;
   tripDetailError: ApiRequestError | null;
-  initTripDetail: () => Promise<void>;
+  initTripDetail: (options?: BookingFetchOptions) => Promise<void>;
 
   // ─── Seats ───────────────────────────────────────────
   seatMap: SeatRow[];
@@ -834,9 +868,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   tripResultsStatus: 'loading',
   lastTripSearchFingerprint: null,
   trips: [],
-  searchTrips: async () => {
-    const generation = bookingGeneration;
-    const requestId = ++searchRequestSequence;
+  searchTrips: async ({ force = false } = {}) => {
+    let generation = bookingGeneration;
+    let requestId = searchRequestSequence;
+    let controller: AbortController | null = null;
     const { searchParams, currentLeg, outboundState } = get();
     try {
       const isReturnLeg = currentLeg === 'return';
@@ -853,16 +888,23 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         outboundTrip: outboundState?.trip,
       });
       if (!resolvedSearch.ok) {
+        searchAbortController?.abort();
+        searchAbortController = null;
+        activeSearchFingerprint = null;
+        requestId = ++searchRequestSequence;
         if (resolvedSearch.reason === 'collapsed-return-scope') {
+          const collapsedFingerprint = [
+            currentLeg,
+            'collapsed-return-scope',
+            searchParams.originLocationCode,
+            searchParams.destinationLocationCode,
+          ].join('|');
+          lastCompletedSearchFingerprint = collapsedFingerprint;
+          lastCompletedSearchAt = Date.now();
           set({
             tripResultsStatus: 'empty',
             trips: [],
-            lastTripSearchFingerprint: [
-              currentLeg,
-              'collapsed-return-scope',
-              searchParams.originLocationCode,
-              searchParams.destinationLocationCode,
-            ].join('|'),
+            lastTripSearchFingerprint: collapsedFingerprint,
           });
           return;
         }
@@ -890,8 +932,35 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         departureDate,
         passengerCount,
       ].join('|');
+      const currentState = get();
+      if (
+        !force
+        && activeSearchFingerprint === searchFingerprint
+        && currentState.tripResultsStatus === 'loading'
+      ) {
+        return;
+      }
+      if (
+        !force
+        && lastCompletedSearchFingerprint === searchFingerprint
+        && currentState.lastTripSearchFingerprint === searchFingerprint
+        && (
+          currentState.tripResultsStatus === 'success'
+          || currentState.tripResultsStatus === 'empty'
+        )
+        && Date.now() - lastCompletedSearchAt < TRIP_SEARCH_CACHE_TIME_MS
+      ) {
+        return;
+      }
+
+      searchAbortController?.abort();
+      controller = new AbortController();
+      searchAbortController = controller;
+      activeSearchFingerprint = searchFingerprint;
+      generation = bookingGeneration;
+      requestId = ++searchRequestSequence;
       const keepPreviousResults =
-        get().lastTripSearchFingerprint === searchFingerprint;
+        currentState.lastTripSearchFingerprint === searchFingerprint;
       set({
         tripResultsStatus: 'loading',
         ...(keepPreviousResults ? {} : { trips: [] }),
@@ -920,6 +989,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
               departureDate,
               passengerCount,
             },
+        controller.signal,
       );
 
       if (
@@ -933,18 +1003,33 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         trips: discoveredTrips,
         lastTripSearchFingerprint: searchFingerprint,
       });
+      lastCompletedSearchFingerprint = searchFingerprint;
+      lastCompletedSearchAt = Date.now();
     } catch (error) {
+      if (!controller) {
+        searchAbortController?.abort();
+        searchAbortController = null;
+        activeSearchFingerprint = null;
+        generation = bookingGeneration;
+        requestId = ++searchRequestSequence;
+      }
       if (
         generation !== bookingGeneration ||
         requestId !== searchRequestSequence
       ) {
         return;
       }
+      if (isAbortLikeError(error)) return;
       if (__DEV__ && !(error instanceof BookingSearchValidationError)) {
         const apiError = toApiError(error);
         console.warn(`[Booking] Trip search failed (${apiError.code}).`);
       }
       set({ tripResultsStatus: 'error' });
+    } finally {
+      if (controller && searchAbortController === controller) {
+        searchAbortController = null;
+        activeSearchFingerprint = null;
+      }
     }
   },
 
@@ -953,6 +1038,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   tripDetailStatus: 'idle',
   tripDetailError: null,
   selectTrip: trip => {
+    detailAbortController?.abort();
+    seatAbortController?.abort();
+    detailAbortController = null;
+    seatAbortController = null;
     detailRequestSequence += 1;
     seatRequestSequence += 1;
     set(state => {
@@ -984,16 +1073,21 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       };
     });
   },
-  initTripDetail: async () => {
+  initTripDetail: async ({ force = false } = {}) => {
     const { selectedTrip, selectedPickUp, selectedDropOff } = get();
     if (!selectedTrip?.id) return;
+    if (!force && get().tripDetailStatus === 'success') return;
+    if (!force && get().tripDetailStatus === 'loading') return;
+    detailAbortController?.abort();
+    const controller = new AbortController();
+    detailAbortController = controller;
     const generation = bookingGeneration;
     const requestId = ++detailRequestSequence;
     const tripId = selectedTrip.id;
     set({ tripDetailStatus: 'loading', tripDetailError: null });
 
     try {
-      const detail = await getTripDetail(tripId);
+      const detail = await getTripDetail(tripId, controller.signal);
       const enrichedTrip: TripDetail = {
         ...detail,
         operatorBadge: selectedTrip.operatorBadge || detail.operatorBadge,
@@ -1049,6 +1143,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         tripDetailError: null,
       });
     } catch (error) {
+      if (isAbortLikeError(error)) return;
       const apiError = toApiError(error);
       if (
         generation === bookingGeneration &&
@@ -1064,6 +1159,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
       ) {
         console.warn(`[Booking] Trip detail failed (${apiError.code}).`);
       }
+    } finally {
+      if (detailAbortController === controller) {
+        detailAbortController = null;
+      }
     }
   },
 
@@ -1076,12 +1175,15 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
   initSeatMap: async () => {
     const { selectedTrip } = get();
     if (!selectedTrip?.id) return;
+    seatAbortController?.abort();
+    const controller = new AbortController();
+    seatAbortController = controller;
     const generation = bookingGeneration;
     const requestId = ++seatRequestSequence;
     const tripId = selectedTrip.id;
     set({ seatMapStatus: 'loading', seatMapError: null });
     try {
-      const layout = await getSeatMap(tripId);
+      const layout = await getSeatMap(tripId, controller.signal);
       if (
         generation !== bookingGeneration ||
         requestId !== seatRequestSequence ||
@@ -1097,6 +1199,7 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         selectedSeats: reconcileSelectedSeats(layout.rows, state.selectedSeats),
       }));
     } catch (error) {
+      if (isAbortLikeError(error)) return;
       const apiError = toApiError(error);
       if (
         generation === bookingGeneration &&
@@ -1111,6 +1214,10 @@ export const useBookingStore = create<BookingStore>((set, get) => ({
         requestId === seatRequestSequence
       ) {
         console.warn(`[Booking] Seat map failed (${apiError.code}).`);
+      }
+    } finally {
+      if (seatAbortController === controller) {
+        seatAbortController = null;
       }
     }
   },

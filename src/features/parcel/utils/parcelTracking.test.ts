@@ -1,5 +1,5 @@
 import i18n from '@shared/i18n';
-import type { ParcelDetail } from '../types';
+import type { ParcelDetail, ParcelReliabilityTrip } from '../types';
 import {
   buildParcelMilestones,
   formatParcelEventTime,
@@ -7,7 +7,21 @@ import {
   isParcelLocationTrackingTerminal,
   isParcelRejected,
   isParcelTrackingEligible,
+  resolveParcelLiveTrackingTrip,
 } from './parcelTracking';
+
+const createReliabilityTrip = (
+  tripId: string,
+  status: string | null,
+): ParcelReliabilityTrip => ({
+  tripId,
+  status,
+  departureAt: null,
+  eta: null,
+  route: null,
+  vehicle: null,
+  stops: [],
+});
 
 const createParcel = (overrides: Partial<ParcelDetail> = {}): ParcelDetail => ({
   parcelId: '4d680b5f-8a94-4f26-9f5b-413bd1221e02',
@@ -155,6 +169,45 @@ describe('parcel tracking presentation', () => {
     expect(isParcelTrackingEligible('PENDING_PAYMENT')).toBe(false);
     expect(isParcelTrackingEligible('PENDING_OPERATOR_REVIEW')).toBe(false);
     expect(isParcelTrackingEligible('IN_TRANSIT')).toBe(true);
+  });
+
+  it('does not subscribe to the disrupted source trip while transfer confirmation waits', () => {
+    const sourceTrip = createReliabilityTrip(
+      '11111111-1111-4111-8111-111111111111',
+      'DISRUPTED',
+    );
+    const replacementTrip = createReliabilityTrip(
+      '22222222-2222-4222-8222-222222222222',
+      'BOARDING',
+    );
+
+    expect(resolveParcelLiveTrackingTrip({
+      parcelStatus: 'PENDING_TRANSFER_CONFIRM',
+      trip: sourceTrip,
+      forwardingTrip: replacementTrip,
+    })).toBeNull();
+  });
+
+  it('switches to the BE-provided replacement trip only when it is in progress', () => {
+    const sourceTrip = createReliabilityTrip(
+      '11111111-1111-4111-8111-111111111111',
+      'DISRUPTED',
+    );
+    const replacementTrip = createReliabilityTrip(
+      '22222222-2222-4222-8222-222222222222',
+      'IN_PROGRESS',
+    );
+
+    expect(resolveParcelLiveTrackingTrip({
+      parcelStatus: 'TRANSFER_ESCALATED',
+      trip: sourceTrip,
+      forwardingTrip: replacementTrip,
+    })).toBe(replacementTrip);
+    expect(resolveParcelLiveTrackingTrip({
+      parcelStatus: 'IN_TRANSIT',
+      trip: sourceTrip,
+      forwardingTrip: replacementTrip,
+    })).toBe(sourceTrip);
   });
 
   it('omits missing or invalid event times', () => {

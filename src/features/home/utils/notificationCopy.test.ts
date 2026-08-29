@@ -36,6 +36,9 @@ const translations: Record<string, string> = {
     '{{role}} is still {{status}} on another trip. Resolve the assignment before trying again.',
   'notification.types.BOOKING_CONFIRMED.title': 'Booking confirmed',
   'notification.types.BOOKING_CONFIRMED.body': 'Ticket {{bookingRef}} has been confirmed.',
+  'notification.types.VEHICLE_SUBSTITUTED.title': 'Replacement vehicle assigned',
+  'notification.types.VEHICLE_SUBSTITUTED.body':
+    'A replacement vehicle has been assigned to {{routeName}} ({{licensePlate}}).',
 };
 
 const translate = ((key: string, options?: Record<string, string>) => {
@@ -122,6 +125,18 @@ describe('notificationCopy', () => {
     }, translate)).toEqual({
       title: 'Trip could not start',
       body: 'The driver is still Active on another trip. Resolve the assignment before trying again.',
+    });
+  });
+
+  it('reads the replacement plate from the booking-transferred payload', () => {
+    expect(localizeNotificationCopy({
+      type: 'VEHICLE_SUBSTITUTED',
+      title: 'Xe thay thế đã được sắp xếp',
+      body: 'Nội dung do BE lưu',
+      data: { newVehiclePlateNumber: '51B-123.45' },
+    }, translate)).toEqual({
+      title: 'Replacement vehicle assigned',
+      body: 'A replacement vehicle has been assigned to your trip (51B-123.45).',
     });
   });
 

@@ -12,6 +12,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   RouteProp,
+  useIsFocused,
   useNavigation,
   usePreventRemove,
   useRoute,
@@ -31,7 +32,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { ScannableCodeCard, StatusChip } from '@shared/components';
-import { useThemedStyles } from '@shared/hooks';
+import {
+  useIsAppActive,
+  useNetworkStatus,
+  useThemedStyles,
+} from '@shared/hooks';
 import { useMotion } from '@shared/motion';
 import type { AppTheme } from '@shared/theme';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
@@ -102,6 +107,8 @@ interface ParcelPhotoItem {
   label: string;
   uri: string;
 }
+
+const PARCEL_PAYMENT_POLL_WINDOW_MS = 20_000;
 
 interface ParcelDetailFieldProps {
   compact?: boolean;
@@ -219,6 +226,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const queryClient = useQueryClient();
+  const isFocused = useIsFocused();
+  const isAppActive = useIsAppActive();
+  const isOnline = useNetworkStatus();
   const paymentOpenCoordinator = React.useMemo(
     () => new VnPayPaymentOpenCoordinator(),
     [],
@@ -235,14 +245,30 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const [paymentSessionActive, setPaymentSessionActive] = React.useState(
     Boolean(paymentRedirectUrl),
   );
+  const [paymentPollingStartedAt, setPaymentPollingStartedAt] =
+    React.useState<number | null>(() => (
+      paymentRedirectUrl ? Date.now() : null
+    ));
+  const beginPaymentPollingWindow = React.useCallback(() => {
+    setPaymentPollingStartedAt(Date.now());
+  }, []);
+  const stopPaymentPollingWindow = React.useCallback(() => {
+    setPaymentPollingStartedAt(null);
+  }, []);
   const [reopenSession, setReopenSession] =
     React.useState<PendingVnPaySession | null>(null);
   const [detailAmbiguousRetry, setDetailAmbiguousRetry] = React.useState<{
     paymentMethod: PaymentMethod;
   } | null>(null);
-  // Poll whenever BE status is still a passenger-payable stage, even if the
-  // local VNPay session is gone (cancel / fail / slow IPN).
-  const detailQuery = useParcelDetail(parcelId, true);
+  // Keep the fast detail poll scoped to an explicit, bounded reconciliation
+  // window. The query hook additionally verifies that this user is the sender.
+  const paymentReturnEnabled = isFocused && isAppActive && isOnline;
+  const shouldPollPayment = Boolean(
+    paymentSessionActive
+    && paymentPollingStartedAt !== null
+    && paymentReturnEnabled,
+  );
+  const detailQuery = useParcelDetail(parcelId, shouldPollPayment);
   const [allowLeaveDespiteRetry, setAllowLeaveDespiteRetry] =
     React.useState(false);
   const refetchParcelDetail = detailQuery.refetch;
@@ -301,7 +327,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
     parcelId,
     paymentPending,
     expectedKind: expectedVnPayKind,
-    enabled: isSender && paymentPending,
+    enabled: isSender && paymentPending && paymentReturnEnabled,
     refetchParcel: refetchParcelDetail,
   });
   const { checkNow: reconcileParcelPayment } = paymentReturn;
@@ -354,13 +380,36 @@ export function ParcelDetailScreen(): React.JSX.Element {
   ]);
 
   React.useEffect(() => {
+    if (paymentPollingStartedAt === null) {
+      return;
+    }
+
+    const remainingMs = PARCEL_PAYMENT_POLL_WINDOW_MS
+      - (Date.now() - paymentPollingStartedAt);
+    if (remainingMs <= 0) {
+      stopPaymentPollingWindow();
+      return;
+    }
+
+    const timeoutId = setTimeout(stopPaymentPollingWindow, remainingMs);
+    return () => clearTimeout(timeoutId);
+  }, [paymentPollingStartedAt, stopPaymentPollingWindow]);
+
+  React.useEffect(() => {
     if (paymentRedirectUrl && parcel?.status && !paymentStage) {
       navigation.setParams({ paymentRedirectUrl: undefined });
     }
     if (parcel?.status && !paymentStage) {
       setPaymentSessionActive(false);
+      stopPaymentPollingWindow();
     }
-  }, [navigation, parcel?.status, paymentRedirectUrl, paymentStage]);
+  }, [
+    navigation,
+    parcel?.status,
+    paymentRedirectUrl,
+    paymentStage,
+    stopPaymentPollingWindow,
+  ]);
 
   React.useEffect(() => {
     if (paymentIntentLocked) {
@@ -451,26 +500,29 @@ export function ParcelDetailScreen(): React.JSX.Element {
   );
 
   const handleRefreshPayment = React.useCallback(() => {
-    refetchParcelDetail().catch(() => undefined);
+    beginPaymentPollingWindow();
     reconcileParcelPayment().catch(() => undefined);
-  }, [reconcileParcelPayment, refetchParcelDetail]);
+  }, [beginPaymentPollingWindow, reconcileParcelPayment]);
+
+  const handleRetryDetail = React.useCallback(() => {
+    refetchParcelDetail().catch(() => undefined);
+  }, [refetchParcelDetail]);
 
   React.useEffect(() => {
     if (paymentReturn.phase === 'abandoned') {
       setPaymentSessionActive(false);
+      stopPaymentPollingWindow();
       return;
     }
     if (paymentReturn.phase === 'awaiting_parcel') {
       setPaymentSessionActive(true);
+      beginPaymentPollingWindow();
     }
-  }, [paymentReturn.phase]);
-
-  React.useEffect(() => {
-    if (!paymentSessionActive || !paymentPending) {
-      return;
-    }
-    reconcileParcelPayment().catch(() => undefined);
-  }, [paymentPending, paymentSessionActive, reconcileParcelPayment]);
+  }, [
+    beginPaymentPollingWindow,
+    paymentReturn.phase,
+    stopPaymentPollingWindow,
+  ]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -536,8 +588,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
         return;
       }
 
+      setPaymentSessionActive(true);
+      beginPaymentPollingWindow();
       await paymentOpenCoordinator.reopen(session, userId);
-      await reconcileParcelPayment();
     } catch {
       Alert.alert(
         t('parcel.payment.redirectErrorTitle'),
@@ -546,10 +599,10 @@ export function ParcelDetailScreen(): React.JSX.Element {
     }
   }, [
     expectedVnPayKind,
+    beginPaymentPollingWindow,
     navigation,
     parcelId,
     paymentOpenCoordinator,
-    reconcileParcelPayment,
     t,
     userId,
   ]);
@@ -589,6 +642,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
       setDetailAmbiguousRetry(null);
       setPaymentSessionActive(true);
+      beginPaymentPollingWindow();
       navigation.setParams({
         paymentRedirectUrl: result.paymentRedirectUrl ?? undefined,
         preferredPaymentMethod: methodForRequest,
@@ -613,7 +667,6 @@ export function ParcelDetailScreen(): React.JSX.Element {
               ? pending
               : null,
           );
-          await reconcileParcelPayment();
         } catch {
           Alert.alert(
             t('parcel.payment.redirectErrorTitle'),
@@ -625,6 +678,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
       if (isPaymentAlreadyStartedError(error)) {
         setDetailAmbiguousRetry(null);
         setPaymentSessionActive(false);
+        stopPaymentPollingWindow();
         await refetchParcelDetail().catch(() => undefined);
         Alert.alert(
           t('parcel.errors.paymentAlreadyStartedTitle'),
@@ -652,6 +706,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
     }
   }, [
     depositPaymentMutation,
+    beginPaymentPollingWindow,
     finalPaymentMutation,
     invalidatePaymentQueries,
     isStartingPayment,
@@ -660,8 +715,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
     parcelId,
     paymentIntentLocked,
     paymentStage,
-    reconcileParcelPayment,
     refetchParcelDetail,
+    stopPaymentPollingWindow,
     t,
     userId,
   ]);
@@ -674,7 +729,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
   }, [handleStartPayment]);
   const handlePayAgain = React.useCallback(() => {
     setPaymentSessionActive(false);
-  }, []);
+    stopPaymentPollingWindow();
+  }, [stopPaymentPollingWindow]);
   const handlePaymentMethodChange = React.useCallback((method: PaymentMethod) => {
     if (!paymentIntentLocked) {
       setSelectedPaymentMethod(method);
@@ -747,7 +803,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
         </View>
       ) : detailQuery.isError ? (
         <View style={styles.errorWrap}>
-          <ErrorView onRetry={handleRefreshPayment} />
+          <ErrorView onRetry={handleRetryDetail} />
           <Text style={styles.errorText}>
             {getLocalizedApiErrorMessage(
               detailQuery.error,

@@ -13,6 +13,10 @@ jest.mock('../api/bookingApi', () => ({
 
 import { useBookingStore } from './useBookingStore';
 
+const expectSearchRequest = (request: Record<string, unknown>): void => {
+  expect(mockSearchTrips).toHaveBeenCalledWith(request, expect.anything());
+};
+
 const searchParams = {
   from: 'Ha Noi',
   to: 'Ho Chi Minh City',
@@ -45,7 +49,7 @@ describe('booking trip search', () => {
   it('uses station-pair mode when both station ids are set (wins over province)', async () => {
     await useBookingStore.getState().searchTrips();
 
-    expect(mockSearchTrips).toHaveBeenCalledWith({
+    expectSearchRequest({
       originStationId: '31111111-1111-1111-1111-111111111111',
       destinationStationId: '41111111-1111-1111-1111-111111111111',
       departureDate: '2026-07-10',
@@ -72,7 +76,7 @@ describe('booking trip search', () => {
 
     await useBookingStore.getState().searchTrips();
 
-    expect(mockSearchTrips).toHaveBeenCalledWith({
+    expectSearchRequest({
       originStationId: '41111111-1111-1111-1111-111111111111',
       destinationStationId: '31111111-1111-1111-1111-111111111111',
       departureDate: '2026-07-14',
@@ -93,7 +97,7 @@ describe('booking trip search', () => {
 
     await useBookingStore.getState().searchTrips();
 
-    expect(mockSearchTrips).toHaveBeenCalledWith({
+    expectSearchRequest({
       originProvinceCode: '01',
       destinationProvinceCode: '79',
       departureDate: '2026-07-10',
@@ -116,7 +120,7 @@ describe('booking trip search', () => {
 
     await useBookingStore.getState().searchTrips();
 
-    expect(mockSearchTrips).toHaveBeenCalledWith({
+    expectSearchRequest({
       originProvinceCode: '01',
       originLocationCode: '00001',
       destinationProvinceCode: '79',
@@ -156,7 +160,7 @@ describe('booking trip search', () => {
 
     await useBookingStore.getState().searchTrips();
 
-    expect(mockSearchTrips).toHaveBeenCalledWith({
+    expectSearchRequest({
       originStationId: 'binh-duong',
       destinationStationId: 'mien-dong',
       departureDate: '2026-07-14',
@@ -195,5 +199,40 @@ describe('booking trip search', () => {
 
     expect(mockSearchTrips).not.toHaveBeenCalled();
     expect(useBookingStore.getState().tripResultsStatus).toBe('error');
+  });
+
+  it('reuses a fresh result for the same search fingerprint', async () => {
+    await useBookingStore.getState().searchTrips();
+    await useBookingStore.getState().searchTrips();
+
+    expect(mockSearchTrips).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows an explicit retry to bypass the short-lived cache', async () => {
+    await useBookingStore.getState().searchTrips();
+    await useBookingStore.getState().searchTrips({ force: true });
+
+    expect(mockSearchTrips).toHaveBeenCalledTimes(2);
+  });
+
+  it('aborts a superseded search and keeps the newest result', async () => {
+    let resolveFirst: ((value: never[]) => void) | undefined;
+    mockSearchTrips.mockReturnValueOnce(new Promise((resolve) => {
+      resolveFirst = resolve;
+    }));
+    const first = useBookingStore.getState().searchTrips({ force: true });
+    const firstSignal = mockSearchTrips.mock.calls[0]?.[1] as AbortSignal;
+
+    useBookingStore.setState({
+      searchParams: { ...searchParams, date: '11/07/2026' },
+    });
+    mockSearchTrips.mockResolvedValueOnce([]);
+    await useBookingStore.getState().searchTrips({ force: true });
+
+    expect(firstSignal.aborted).toBe(true);
+    resolveFirst?.([]);
+    await first;
+    expect(useBookingStore.getState().tripResultsStatus).toBe('empty');
+    expect(mockSearchTrips).toHaveBeenCalledTimes(2);
   });
 });

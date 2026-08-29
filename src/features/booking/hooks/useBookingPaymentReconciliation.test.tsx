@@ -154,6 +154,35 @@ describe('useBookingPaymentReconciliation lifecycle', () => {
     expect(latest?.isChecking).toBe(false);
   });
 
+  it('starts a fresh bounded check when VNPay returns during an older poll', async () => {
+    let firstRequestAborted = false;
+    mockGetBookingStatus
+      .mockImplementationOnce((_bookingId, signal) => new Promise(
+        (_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            firstRequestAborted = true;
+            reject(new Error('Cancelled stale pre-return poll.'));
+          });
+        },
+      ))
+      .mockResolvedValueOnce(confirmedStatus);
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(tree());
+      await Promise.resolve();
+    });
+    expect(mockGetBookingStatus).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      mockPaymentBackHandler.current?.();
+      await flushAsyncWork();
+    });
+
+    expect(firstRequestAborted).toBe(true);
+    expect(mockGetBookingStatus).toHaveBeenCalledTimes(2);
+    expect(latest?.phase).toBe('confirmed');
+  });
+
   it('waits offline and starts exactly once after connectivity returns', async () => {
     mockOnline = false;
     mockGetBookingStatus.mockResolvedValue(confirmedStatus);

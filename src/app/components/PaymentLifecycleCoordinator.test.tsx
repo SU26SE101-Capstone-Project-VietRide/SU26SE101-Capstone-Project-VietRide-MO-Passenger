@@ -35,6 +35,11 @@ jest.mock('react-i18next', () => ({
 jest.mock('@features/booking/api/bookingApi', () => ({
   bookingKeys: { user: (userId: string) => ['booking', userId] },
 }));
+jest.mock('@features/booking/api/bookingHistoryApi', () => ({
+  bookingHistoryKeys: {
+    user: (userId: string) => ['bookings', 'history', userId],
+  },
+}));
 jest.mock('@features/parcel/api/parcelApi', () => ({
   parcelKeys: { user: (userId: string) => ['parcel', userId] },
 }));
@@ -65,6 +70,9 @@ import { PaymentLifecycleCoordinator } from './PaymentLifecycleCoordinator';
 describe('PaymentLifecycleCoordinator', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthState.user = {
+      id: '11111111-1111-4111-8111-111111111111',
+    };
     mockGetPendingVnPaySession.mockResolvedValue(null);
     mockNativeHandler = undefined;
     mockAppStateHandler = undefined;
@@ -109,6 +117,7 @@ describe('PaymentLifecycleCoordinator', () => {
       expect.objectContaining({
         ownerUserId: mockAuthState.user.id,
         isCurrent: expect.any(Function),
+        delaysMs: [0],
       }),
     );
 
@@ -119,6 +128,12 @@ describe('PaymentLifecycleCoordinator', () => {
     });
     expect(mockReconcilePendingVnPaySession).toHaveBeenCalledTimes(1);
 
+    mockReconcilePendingVnPaySession.mockResolvedValue({
+      pending: null,
+      status: null,
+      cleared: false,
+    });
+
     await ReactTestRenderer.act(async () => {
       resolveReconciliation?.({
         pending: null,
@@ -126,7 +141,12 @@ describe('PaymentLifecycleCoordinator', () => {
         cleared: false,
       });
       await Promise.resolve();
+      await Promise.resolve();
     });
+
+    expect(mockReconcilePendingVnPaySession).toHaveBeenCalledTimes(2);
+    expect(mockReconcilePendingVnPaySession.mock.calls.at(-1)?.[0])
+      .not.toHaveProperty('delaysMs');
 
     ReactTestRenderer.act(() => renderer!.unmount());
     expect(mockNativeRemove).toHaveBeenCalledTimes(1);
@@ -181,12 +201,15 @@ describe('PaymentLifecycleCoordinator', () => {
       }),
     );
     expect(invalidateSpy).toHaveBeenCalled();
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['bookings', 'history', mockAuthState.user.id],
+    });
 
     ReactTestRenderer.act(() => renderer!.unmount());
     queryClient.clear();
   });
 
-  it('restarts cancel polling when PaymentBack arrives during app-active reconcile', async () => {
+  it('queues cancel polling when PaymentBack arrives during reconciliation', async () => {
     let resolveFirst: ((value: {
       pending: null;
       status: null;
@@ -221,6 +244,14 @@ describe('PaymentLifecycleCoordinator', () => {
       await Promise.resolve();
     });
 
+    expect(mockReconcilePendingVnPaySession).toHaveBeenCalledTimes(1);
+
+    await ReactTestRenderer.act(async () => {
+      resolveFirst?.({ pending: null, status: null, cleared: false });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
     expect(mockReconcilePendingVnPaySession).toHaveBeenCalledTimes(2);
     expect(mockReconcilePendingVnPaySession).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -228,12 +259,248 @@ describe('PaymentLifecycleCoordinator', () => {
       }),
     );
 
+    ReactTestRenderer.act(() => renderer!.unmount());
+    queryClient.clear();
+  });
+
+  it('uses one passive check and no processing alert on app active', async () => {
+    mockReconcilePendingVnPaySession.mockResolvedValue({
+      pending: null,
+      status: null,
+      cleared: false,
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <QueryClientProvider client={queryClient}>
+          <PaymentLifecycleCoordinator />
+        </QueryClientProvider>,
+      );
+    });
+    jest.mocked(Alert.alert).mockClear();
+    mockReconcilePendingVnPaySession.mockResolvedValue({
+      pending: {
+        sessionId: '33333333-3333-4333-8333-333333333333',
+        ownerUserId: mockAuthState.user.id,
+        kind: 'topup',
+        createdAt: '2026-08-15T00:00:00.000Z',
+        paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+        vnpaySdk: { tmnCode: 'tmn', scheme: 'vietride', isSandbox: true },
+      },
+      status: { sessionId: '33333333-3333-4333-8333-333333333333', status: 'PENDING' },
+      cleared: false,
+    });
+
+    await ReactTestRenderer.act(async () => {
+      mockAppStateHandler?.('active');
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockReconcilePendingVnPaySession).toHaveBeenLastCalledWith(
+      expect.objectContaining({ delaysMs: [0] }),
+    );
+    expect(Alert.alert).not.toHaveBeenCalled();
+
+    ReactTestRenderer.act(() => renderer!.unmount());
+    queryClient.clear();
+  });
+
+  it('opens a cold-start destination only for an explicitly unresolved PENDING session', async () => {
+    const pending = {
+      sessionId: '33333333-3333-4333-8333-333333333333',
+      ownerUserId: mockAuthState.user.id,
+      kind: 'parcel_deposit' as const,
+      businessId: '44444444-4444-4444-8444-444444444444',
+      createdAt: '2026-08-15T00:00:00.000Z',
+      paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+      vnpaySdk: { tmnCode: 'tmn', scheme: 'vietride', isSandbox: true },
+    };
+    mockReconcilePendingVnPaySession.mockResolvedValue({
+      pending,
+      status: { sessionId: pending.sessionId, status: 'PENDING' },
+      cleared: false,
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <QueryClientProvider client={queryClient}>
+          <PaymentLifecycleCoordinator />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(mockOpenPendingPaymentDestination).toHaveBeenCalledTimes(1);
+    expect(mockOpenPendingPaymentDestination).toHaveBeenCalledWith(pending);
+
+    ReactTestRenderer.act(() => renderer!.unmount());
+    queryClient.clear();
+  });
+
+  it('keeps a retained cold-start session resumable when status is temporarily unknown', async () => {
+    const pending = {
+      sessionId: '33333333-3333-4333-8333-333333333333',
+      ownerUserId: mockAuthState.user.id,
+      kind: 'parcel_deposit' as const,
+      businessId: '44444444-4444-4444-8444-444444444444',
+      createdAt: '2026-08-15T00:00:00.000Z',
+      paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+      vnpaySdk: { tmnCode: 'tmn', scheme: 'vietride', isSandbox: true },
+    };
+    mockReconcilePendingVnPaySession.mockResolvedValue({
+      pending,
+      status: null,
+      cleared: false,
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <QueryClientProvider client={queryClient}>
+          <PaymentLifecycleCoordinator />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(mockOpenPendingPaymentDestination).toHaveBeenCalledWith(pending);
+
+    ReactTestRenderer.act(() => renderer!.unmount());
+    queryClient.clear();
+  });
+
+  it('does not open a cold-start destination after the terminal session was cleared', async () => {
+    const pending = {
+      sessionId: '33333333-3333-4333-8333-333333333333',
+      ownerUserId: mockAuthState.user.id,
+      kind: 'parcel_deposit' as const,
+      businessId: '44444444-4444-4444-8444-444444444444',
+      createdAt: '2026-08-15T00:00:00.000Z',
+      paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+      vnpaySdk: { tmnCode: 'tmn', scheme: 'vietride', isSandbox: true },
+    };
+    mockReconcilePendingVnPaySession.mockResolvedValue({
+      pending,
+      status: { sessionId: pending.sessionId, status: 'SUCCEEDED' },
+      cleared: true,
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <QueryClientProvider client={queryClient}>
+          <PaymentLifecycleCoordinator />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(mockOpenPendingPaymentDestination).not.toHaveBeenCalled();
+
+    ReactTestRenderer.act(() => renderer!.unmount());
+    queryClient.clear();
+  });
+
+  it('detaches the old account run and starts cold reconciliation for the new account', async () => {
+    let resolveFirst: ((value: {
+      pending: null;
+      status: null;
+      cleared: false;
+    }) => void) | undefined;
+    mockReconcilePendingVnPaySession
+      .mockReturnValueOnce(new Promise((resolve) => {
+        resolveFirst = resolve;
+      }))
+      .mockResolvedValue({ pending: null, status: null, cleared: false });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <QueryClientProvider client={queryClient}>
+          <PaymentLifecycleCoordinator />
+        </QueryClientProvider>,
+      );
+    });
+    expect(mockReconcilePendingVnPaySession).toHaveBeenCalledTimes(1);
+
+    const secondUserId = '22222222-2222-4222-8222-222222222222';
+    mockAuthState.user = { id: secondUserId };
+    await ReactTestRenderer.act(async () => {
+      renderer!.update(
+        <QueryClientProvider client={queryClient}>
+          <PaymentLifecycleCoordinator />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(mockReconcilePendingVnPaySession).toHaveBeenCalledTimes(2);
+    expect(mockReconcilePendingVnPaySession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        ownerUserId: secondUserId,
+        delaysMs: [0],
+      }),
+    );
+
     await ReactTestRenderer.act(async () => {
       resolveFirst?.({ pending: null, status: null, cleared: false });
       await Promise.resolve();
     });
+    expect(mockReconcilePendingVnPaySession).toHaveBeenCalledTimes(2);
 
     ReactTestRenderer.act(() => renderer!.unmount());
+    queryClient.clear();
+  });
+
+  it('does not replay a queued native wake after unmount', async () => {
+    let resolveFirst: ((value: {
+      pending: null;
+      status: null;
+      cleared: false;
+    }) => void) | undefined;
+    mockReconcilePendingVnPaySession.mockReturnValueOnce(new Promise((resolve) => {
+      resolveFirst = resolve;
+    }));
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <QueryClientProvider client={queryClient}>
+          <PaymentLifecycleCoordinator />
+        </QueryClientProvider>,
+      );
+    });
+    await ReactTestRenderer.act(async () => {
+      mockNativeHandler?.({ result: 'CANCELLED' });
+      await Promise.resolve();
+    });
+    ReactTestRenderer.act(() => renderer!.unmount());
+
+    await ReactTestRenderer.act(async () => {
+      resolveFirst?.({ pending: null, status: null, cleared: false });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockReconcilePendingVnPaySession).toHaveBeenCalledTimes(1);
     queryClient.clear();
   });
 });

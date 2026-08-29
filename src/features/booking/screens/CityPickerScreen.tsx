@@ -216,8 +216,23 @@ export function CityPickerScreen(): React.JSX.Element {
         <View style={styles.stateContainer}>
           <Text style={styles.empty}>{t('booking.locations.loadError')}</Text>
           <Pressable
-            onPress={() => active.refetch()}
-            style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : null]}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.retry')}
+            accessibilityState={{
+              busy: active.isFetching,
+              disabled: active.isFetching,
+            }}
+            disabled={active.isFetching}
+            onPress={() => {
+              if (!active.isFetching) {
+                active.refetch().catch(() => undefined);
+              }
+            }}
+            style={({ pressed }) => [
+              styles.retryButton,
+              active.isFetching ? styles.retryButtonDisabled : null,
+              pressed && !active.isFetching ? styles.pressed : null,
+            ]}
           >
             <Text style={styles.retryText}>{t('common.retry')}</Text>
           </Pressable>
@@ -362,7 +377,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingBottom: spacing.sm,
   },
   backBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurface : theme.colors.surface,
     alignItems: 'center' as const, justifyContent: 'center' as const,
     borderWidth: 1.5,
@@ -373,7 +388,7 @@ const createStyles = (theme: AppTheme) => ({
     flex: 1, marginHorizontal: spacing.sm, textAlign: 'center' as const,
     fontFamily: fontFamilies.bold, fontSize: fontSizes.lg, color: theme.colors.textPrimary,
   },
-  headerSpacer: { width: 40 },
+  headerSpacer: { width: 44 },
   provinceChip: {
     flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.xs,
     alignSelf: 'center' as const, marginHorizontal: spacing.xl, marginBottom: spacing.sm,
@@ -439,10 +454,11 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center' as const, gap: spacing.md, marginTop: spacing.xxl,
   },
   retryButton: {
-    minWidth: 112, height: 40, paddingHorizontal: spacing.lg, borderRadius: 8,
+    minWidth: 112, minHeight: 44, paddingHorizontal: spacing.lg, borderRadius: 8,
     backgroundColor: theme.colors.primary,
     alignItems: 'center' as const, justifyContent: 'center' as const,
   },
+  retryButtonDisabled: { opacity: 0.55 },
   retryText: {
     fontFamily: fontFamilies.bold, fontSize: fontSizes.sm, color: theme.colors.textInverse,
   },

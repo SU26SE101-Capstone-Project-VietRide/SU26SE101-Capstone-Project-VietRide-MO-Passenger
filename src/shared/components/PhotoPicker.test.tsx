@@ -282,10 +282,13 @@ describe('PhotoPicker', () => {
         <PhotoPicker value={initialPhotos} onChange={onChange} photoLabel="parcel photo" />,
       );
     });
+    const removeButton = renderer!.root.findByProps({
+      accessibilityLabel: 'Remove parcel photo 1',
+    });
+    expect(removeButton.props.hitSlop).toBe(12);
+
     await act(async () => {
-      renderer!.root.findByProps({
-        accessibilityLabel: 'Remove parcel photo 1',
-      }).props.onPress();
+      removeButton.props.onPress();
     });
 
     expect(onChange).toHaveBeenCalledWith(['file:///two.jpg']);

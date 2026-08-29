@@ -65,7 +65,7 @@ export function TripResultsScreen({
   );
 
   const handleRetry = useCallback(() => {
-    searchTrips();
+    searchTrips({ force: true }).catch(() => undefined);
   }, [searchTrips]);
 
   const renderTrip = useCallback(

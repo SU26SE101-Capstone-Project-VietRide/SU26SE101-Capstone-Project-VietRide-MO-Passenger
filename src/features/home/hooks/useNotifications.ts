@@ -5,8 +5,6 @@ import {
   useQuery,
   useQueryClient,
   type InfiniteData,
-  type QueryClient,
-  type QueryKey,
 } from '@tanstack/react-query';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { createIdempotencyKey } from '@shared/api/idempotency';
@@ -22,6 +20,10 @@ import {
   type NotificationListKeyFilters,
   type PagedNotifications,
 } from '../api/notificationApi';
+import {
+  NOTIFICATION_STALE_TIME_MS,
+  trimNotificationInfiniteToFirstPage,
+} from '../utils/notificationQueryFreshness';
 
 /** Filters for the infinite list — cursor/page are never part of the query key. */
 export type NotificationListFilters = NotificationListKeyFilters;
@@ -76,20 +78,6 @@ const parsePageParam = (
 
 type InfiniteNotifications = InfiniteData<PagedNotifications, NotificationPageParam>;
 
-/** Keep only the first page so refresh/invalidation cannot O(n) refetch. */
-export const trimNotificationInfiniteToFirstPage = (
-  queryClient: QueryClient,
-  queryKey: QueryKey,
-): void => {
-  queryClient.setQueryData<InfiniteNotifications>(queryKey, (current) => {
-    if (!current?.pages?.length) return current;
-    return {
-      pages: [current.pages[0]],
-      pageParams: [current.pageParams[0] ?? null],
-    };
-  });
-};
-
 export function useNotifications(params: NotificationListFilters = {}) {
   const userId = useAuthStore((state) => state.user?.id);
   const filters = normalizeListFilters(params);
@@ -112,7 +100,7 @@ export function useNotifications(params: NotificationListFilters = {}) {
       return undefined;
     },
     enabled: Boolean(userId),
-    staleTime: 30 * 1000,
+    staleTime: NOTIFICATION_STALE_TIME_MS,
     gcTime: 5 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: false,
@@ -132,7 +120,7 @@ export function useNotificationUnreadCount() {
     }, signal),
     select: (data) => data.totalItems,
     enabled: Boolean(userId),
-    staleTime: 30 * 1000,
+    staleTime: NOTIFICATION_STALE_TIME_MS,
     gcTime: 5 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: false,

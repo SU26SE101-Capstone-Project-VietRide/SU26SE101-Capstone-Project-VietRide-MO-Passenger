@@ -1,15 +1,19 @@
 import { useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { notificationKeys } from '@features/home/api/notificationApi';
-import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
 import { walletKeys } from '@features/profile/api/walletApi';
 import { IdempotencyKeyTracker } from '@shared/api/idempotency';
 import { isAmbiguousIdempotentRequestError } from '@shared/api/errors';
 import {
   bookingKeys,
 } from '../api/bookingApi';
+import { bookingHistoryKeys } from '../api/bookingHistoryApi';
 import {
   resolveBookingPendingAction,
   type ResolvePendingActionPayload,
@@ -19,6 +23,26 @@ import {
 export interface ResolvePendingActionVariables extends ResolvePendingActionPayload {
   bookingId: string;
   pendingActionId: string;
+}
+
+export async function invalidateResolvedBookingQueries(
+  queryClient: QueryClient,
+  userId: string,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: bookingHistoryKeys.user(userId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: bookingKeys.paymentStatusRoot(userId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: notificationKeys.user(userId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: walletKeys.user(userId),
+    }),
+  ]);
 }
 
 export function useResolvePendingAction() {
@@ -62,26 +86,12 @@ export function useResolvePendingAction() {
         throw error;
       }
     },
-    onSuccess: async (_result, variables) => {
+    onSuccess: async () => {
       if (!userId) return;
-
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: passengerHistoryKeys.user(userId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: bookingKeys.user(userId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: bookingKeys.paymentStatus(userId, [variables.bookingId]),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: notificationKeys.user(userId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: walletKeys.user(userId),
-        }),
-      ]);
+      await invalidateResolvedBookingQueries(
+        queryClient,
+        userId,
+      );
     },
   });
 }

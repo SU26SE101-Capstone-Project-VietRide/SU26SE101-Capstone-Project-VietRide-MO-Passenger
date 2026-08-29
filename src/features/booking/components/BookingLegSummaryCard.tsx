@@ -309,7 +309,7 @@ const createStyles = (theme: AppTheme) => ({
   policyLink: {
     alignSelf: 'flex-start' as const,
     marginTop: spacing.md,
-    minHeight: 36,
+    minHeight: 44,
     justifyContent: 'center' as const,
   },
   policyLinkPressed: {

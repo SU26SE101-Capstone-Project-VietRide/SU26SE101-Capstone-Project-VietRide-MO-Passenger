@@ -28,7 +28,12 @@ export function ErrorView({
         <Text style={styles.title}>{t('common.error')}</Text>
         <Text style={styles.message}>{displayedMessage}</Text>
         {onRetry ? (
-          <Pressable style={styles.button} onPress={onRetry}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.retry')}
+            style={styles.button}
+            onPress={onRetry}
+          >
             <Text style={styles.buttonText}>{t('common.retry')}</Text>
           </Pressable>
         ) : null}

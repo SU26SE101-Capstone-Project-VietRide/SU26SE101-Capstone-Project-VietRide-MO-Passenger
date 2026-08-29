@@ -517,8 +517,8 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.xs,
   },
   closeButton: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
     backgroundColor: theme.effects.isLiquid ? theme.effects.glassSurfaceSoft : theme.colors.surfaceAlt,
     borderWidth: 1,

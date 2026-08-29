@@ -67,7 +67,7 @@ const PhotoPreview = memo(function PhotoPreviewItem({
           label: photoLabel,
           position: index + 1,
         })}
-        hitSlop={8}
+        hitSlop={12}
         onPress={handleRemove}
         style={styles.removeButton}
       >

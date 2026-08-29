@@ -15,7 +15,6 @@ describe('buildCreateParcelPayload', () => {
       heightCm: 25,
       estimatedWeightKg: 2.5,
       declaredValueVnd: 2_500_000,
-      quantity: 2,
       localPhotoUris: [
         'file:///private/parcel-one.jpg',
         'content://media/external/parcel-two.jpg',
@@ -35,7 +34,7 @@ describe('buildCreateParcelPayload', () => {
     expect(payload.quoteToken).toBe('opaque.signed-quote');
     expect(payload.itemName).toBe('Tài liệu');
     expect(payload.declaredValueVnd).toBe(2_500_000);
-    expect(payload.quantity).toBe(2);
+    expect(payload.quantity).toBe(1);
     expect(payload).not.toHaveProperty('localPhotoUris');
     const serializedPayload = JSON.stringify(payload);
     expect(serializedPayload).not.toContain('file://');

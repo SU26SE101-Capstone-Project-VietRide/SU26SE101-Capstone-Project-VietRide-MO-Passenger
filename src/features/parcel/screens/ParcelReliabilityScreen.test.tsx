@@ -5,6 +5,7 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 interface MockFlashListProps {
   data?: Array<{ eventId: string; sequence: number }>;
   ListFooterComponent?: React.ReactNode;
+  ListHeaderComponent?: React.ReactNode;
   renderItem: (info: {
     index: number;
     item: {
@@ -28,6 +29,15 @@ const mockRefetch = jest.fn(async () => undefined);
 const mockUseParcelTrace = jest.fn();
 let mockParcelStatus = 'RETURNED';
 let mockAvailableActions: string[] = [];
+let mockForwardingTrip: {
+  tripId: string;
+  status: string;
+  route: null;
+  vehicle: { vehicleId: string; licensePlate: string; status: string };
+  departureAt: null;
+  eta: null;
+  stops: never[];
+} | null = null;
 
 const mockTheme = {
   colors: new Proxy<Record<string, string>>({}, {
@@ -96,11 +106,17 @@ jest.mock('@shopify/flash-list', () => {
   const ReactModule = require('react');
   const { View: NativeView } = require('react-native');
   const MockFlashList = (props: MockFlashListProps) => {
-    const { data = [], ListFooterComponent, renderItem } = props;
+    const {
+      data = [],
+      ListFooterComponent,
+      ListHeaderComponent,
+      renderItem,
+    } = props;
     mockFlashListCalls.push(props);
     return ReactModule.createElement(
       NativeView,
       { testID: 'parcel-reliability-flash-list' },
+      ListHeaderComponent,
       ...data.map((item, index) => ReactModule.createElement(
         ReactModule.Fragment,
         { key: item.eventId },
@@ -160,7 +176,7 @@ const createTracePage = (
     name: null,
     type: null,
   },
-  forwardingTrip: null,
+  forwardingTrip: mockForwardingTrip,
   nextUpdateAt: null,
   operator: {},
   parcelCode: 'PRC-001',
@@ -209,6 +225,7 @@ describe('ParcelReliabilityScreen timeline virtualization', () => {
     mockNavigate.mockClear();
     mockParcelStatus = 'RETURNED';
     mockAvailableActions = [];
+    mockForwardingTrip = null;
     mockUseParcelTrace.mockReset();
     mockUseParcelTrace.mockImplementation(() => (
       createTraceQuery(mockParcelStatus)
@@ -384,6 +401,71 @@ describe('ParcelReliabilityScreen timeline virtualization', () => {
           ],
         }),
         tripId: '22222222-2222-4222-8222-222222222222',
+      }),
+    );
+
+    act(() => renderer!.unmount());
+  });
+
+  it('does not mount live tracking for the disrupted source while replacement waits', () => {
+    mockParcelStatus = 'PENDING_TRANSFER_CONFIRM';
+    mockForwardingTrip = {
+      tripId: '33333333-3333-4333-8333-333333333333',
+      status: 'BOARDING',
+      route: null,
+      vehicle: {
+        vehicleId: '44444444-4444-4444-8444-444444444444',
+        licensePlate: '51B-123.45',
+        status: 'ACTIVE',
+      },
+      departureAt: null,
+      eta: null,
+      stops: [],
+    };
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    act(() => {
+      renderer = ReactTestRenderer.create(<ParcelReliabilityScreen />);
+    });
+
+    expect(mockLiveTripTrackingPanel).not.toHaveBeenCalled();
+    expect(mockFlashListCalls).toHaveLength(1);
+    const visibleText = renderer!.root.findAllByType(Text).flatMap(node => (
+      typeof node.props.children === 'string' ? [node.props.children] : []
+    ));
+    expect(visibleText).toEqual(expect.arrayContaining([
+      'parcel.reliability.transferPendingTitle',
+      'parcel.reliability.transferPendingDescription',
+      'parcel.reliability.replacementVehicle',
+    ]));
+
+    act(() => renderer!.unmount());
+  });
+
+  it('tracks the replacement trip only after BE reports it in progress', () => {
+    mockParcelStatus = 'PENDING_TRANSFER_CONFIRM';
+    mockForwardingTrip = {
+      tripId: '33333333-3333-4333-8333-333333333333',
+      status: 'IN_PROGRESS',
+      route: null,
+      vehicle: {
+        vehicleId: '44444444-4444-4444-8444-444444444444',
+        licensePlate: '51B-123.45',
+        status: 'ACTIVE',
+      },
+      departureAt: null,
+      eta: null,
+      stops: [],
+    };
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    act(() => {
+      renderer = ReactTestRenderer.create(<ParcelReliabilityScreen />);
+    });
+
+    expect(mockLiveTripTrackingPanel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tripId: '33333333-3333-4333-8333-333333333333',
       }),
     );
 

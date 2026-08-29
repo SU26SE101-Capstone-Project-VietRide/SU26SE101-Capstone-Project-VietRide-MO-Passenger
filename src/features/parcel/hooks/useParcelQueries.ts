@@ -158,12 +158,14 @@ export const parcelDetailQueryOptions = (
     refetchOnReconnect: true,
   });
 
-export function useParcelDetail(parcelId: string, reconcilePayment = false) {
+export function useParcelDetail(parcelId: string, pollPendingPayment = false) {
   const userId = useAuthStore(state => state.user?.id);
   return useQuery({
     ...parcelDetailQueryOptions(userId, parcelId),
     refetchInterval: query =>
-      reconcilePayment && isParcelPaymentPending(query.state.data?.status)
+      pollPendingPayment
+      && query.state.data?.senderUserId === userId
+      && isParcelPaymentPending(query.state.data?.status)
         ? PARCEL_PAYMENT_REFETCH_INTERVAL_MS
         : false,
     refetchIntervalInBackground: false,

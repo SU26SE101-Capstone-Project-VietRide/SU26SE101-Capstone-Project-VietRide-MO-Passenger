@@ -53,10 +53,10 @@ describe('CreateParcel recipient privacy policy', () => {
     expect(screenSource).toContain('email: recipientEmail.trim()');
   });
 
-  it('sends declared value and a bounded quantity as first-class fields', () => {
+  it('sends declared value without exposing parcel quantity input', () => {
     expect(screenSource).toContain('declaredValueVnd: estimatedValue ? Number(estimatedValue) : null');
-    expect(screenSource).toContain('quantity,');
-    expect(screenSource).toContain('Math.min(10_000, Math.max(1, parsed))');
+    expect(screenSource).not.toContain('quantityLabel');
+    expect(screenSource).not.toContain('handleQuantityChange');
     expect(screenSource).not.toContain('estimatedValueMetadata');
   });
 
