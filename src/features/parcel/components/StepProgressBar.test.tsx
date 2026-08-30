@@ -109,4 +109,24 @@ describe('StepProgressBar', () => {
 
     expect(alignedTracks).toHaveLength(1);
   });
+
+  it('uses the teal primary token for the active progress fill', () => {
+    act(() => {
+      renderer = ReactTestRenderer.create(
+        <StepProgressBar
+          step={3}
+          onCancel={jest.fn()}
+          title="Gửi kiện hàng"
+        />,
+      );
+    });
+
+    const fill = renderer!.root.findByProps({
+      testID: 'parcel-step-progress-fill',
+    });
+
+    expect(StyleSheet.flatten(fill.props.style)).toMatchObject({
+      backgroundColor: mockTheme.colors.primary,
+    });
+  });
 });

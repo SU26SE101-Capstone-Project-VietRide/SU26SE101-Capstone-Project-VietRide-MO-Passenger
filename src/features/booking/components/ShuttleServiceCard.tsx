@@ -56,7 +56,7 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
     <SectionCard testID="shuttle-service-card" style={styles.card}>
       <View style={styles.headerRow}>
         <View style={styles.iconBox}>
-          <Van size={22} color={theme.accents.assistant.foreground} weight="duotone" />
+          <Van size={22} color={theme.colors.primary} weight="duotone" />
         </View>
         <View style={styles.headingCopy}>
           <Text style={styles.title}>
@@ -73,7 +73,7 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
           </Text>
         </View>
         {status === 'loading' ? (
-          <ActivityIndicator color={theme.accents.assistant.foreground} />
+          <ActivityIndicator color={theme.colors.primary} />
         ) : (
           <Switch
             accessibilityLabel={t(isDropoff
@@ -116,7 +116,7 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
         >
           <MapPinLine
             size={20}
-            color={theme.accents.assistant.foreground}
+            color={theme.colors.primary}
             weight="duotone"
           />
           <View style={styles.addressCopy}>
@@ -129,7 +129,7 @@ export const ShuttleServiceCard = memo(function ShuttleServiceCardComponent({
           <View style={styles.editIcon}>
             <PencilSimple
               size={15}
-              color={theme.accents.assistant.foreground}
+              color={theme.colors.primary}
               weight="bold"
             />
           </View>
@@ -178,9 +178,9 @@ const createStyles = (theme: AppTheme) => ({
     width: 44,
     height: 44,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.accents.assistant.soft,
+    backgroundColor: theme.colors.primaryFaded,
     borderWidth: 1,
-    borderColor: theme.accents.assistant.border,
+    borderColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -204,9 +204,9 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.md,
     padding: spacing.md,
     borderRadius: borderRadius.md,
-    backgroundColor: theme.accents.assistant.soft,
+    backgroundColor: theme.colors.primaryFaded,
     borderWidth: 1,
-    borderColor: theme.accents.assistant.border,
+    borderColor: theme.colors.primary,
   },
   noticeText: {
     fontFamily: fontFamilies.regular,
@@ -245,13 +245,13 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: spacing.xs,
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
-    color: theme.accents.assistant.foreground,
+    color: theme.colors.primary,
   },
   editIcon: {
     width: 30,
     height: 30,
     borderRadius: borderRadius.full,
-    backgroundColor: theme.accents.assistant.soft,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
   },

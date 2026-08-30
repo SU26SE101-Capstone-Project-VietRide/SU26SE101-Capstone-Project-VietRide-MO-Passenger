@@ -585,7 +585,7 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
             label={t('booking.paymentScreen.walletLabel')}
             sub={walletSubtitle}
             Icon={Wallet}
-            iconColor={theme.accents.finance.foreground}
+            iconColor={theme.colors.primary}
             onSelect={selectWallet}
           />
         </View>
@@ -751,7 +751,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   bentoSummaryCard: {
     ...theme.components.card,
-    borderColor: theme.accents.finance.border,
+    borderColor: theme.effects.contentBorder,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
@@ -822,9 +822,9 @@ const createStyles = (theme: AppTheme) => ({
     width: 36,
     height: 36,
     borderRadius: borderRadius.md,
-    backgroundColor: theme.accents.finance.soft,
+    backgroundColor: theme.colors.primaryFaded,
     borderWidth: 1,
-    borderColor: theme.accents.finance.border,
+    borderColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
@@ -881,7 +881,7 @@ const createStyles = (theme: AppTheme) => ({
   totalValue: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: theme.accents.finance.foreground,
+    color: theme.colors.primary,
   },
   submitErrorText: {
     marginTop: spacing.md,

@@ -99,7 +99,7 @@ const ShuttleRequestSummary = memo(function ShuttleRequestSummaryComponent({
         <Van
           size={18}
           weight="duotone"
-          color={theme.accents.assistant.foreground}
+          color={theme.colors.primary}
         />
       </View>
       <View style={styles.locationCopy}>
@@ -355,9 +355,9 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.md,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: theme.accents.assistant.soft,
+    backgroundColor: theme.colors.primaryFaded,
     borderWidth: 1,
-    borderColor: theme.accents.assistant.border,
+    borderColor: theme.colors.primary,
   },
   locationIconBox: {
     width: 36,
@@ -368,7 +368,7 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center' as const,
   },
   shuttleIconBox: {
-    backgroundColor: theme.accents.assistant.soft,
+    backgroundColor: theme.colors.primaryFaded,
   },
   locationCopy: {
     flex: 1,

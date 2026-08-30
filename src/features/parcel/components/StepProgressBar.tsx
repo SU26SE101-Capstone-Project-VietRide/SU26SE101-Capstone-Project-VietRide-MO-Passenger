@@ -90,6 +90,7 @@ function StepProgressBarComponent({
       <View style={styles.progressContainer}>
         <View style={styles.progressBarBackground}>
           <View
+            testID="parcel-step-progress-fill"
             style={[
               styles.progressBarActive,
               { width: `${((step - 1) / 3) * 100}%` },
@@ -246,9 +247,7 @@ const createStyles = (theme: AppTheme) => ({
   progressBarActive: {
     height: '100%',
     borderRadius: 1.5,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSheen
-      : theme.colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   stepsRow: {
     flexDirection: 'row',
