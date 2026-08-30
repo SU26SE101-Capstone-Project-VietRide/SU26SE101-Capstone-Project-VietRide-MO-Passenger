@@ -268,9 +268,11 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
                 {' · '}
                 {t(getParcelIncidentStatusLabelKey(trace.activeIncident.status))}
               </Text>
-              {shouldShowParcelIncidentSearchDeadline(
+              {trace.activeIncident.searchDeadline !== null
+              && shouldShowParcelIncidentSearchDeadline(
                 trace.activeIncident.status,
                 trace.activeIncident.slaState,
+                trace.activeIncident.searchDeadline,
               ) ? (
                 <Text style={styles.warningText}>
                   {t('parcel.reliability.searchDeadline', {

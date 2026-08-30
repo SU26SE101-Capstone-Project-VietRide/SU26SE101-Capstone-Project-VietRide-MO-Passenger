@@ -100,7 +100,7 @@ export const parcelReliabilityIncidentSummarySchema = z.object({
   incidentId: z.string().uuid(),
   type: parcelIncidentTypeSchema,
   status: statusTokenSchema,
-  searchDeadline: apiInstantSchema,
+  searchDeadline: nullableOptional(apiInstantSchema),
   nextUpdateAt: nullableOptional(apiInstantSchema),
   slaState: statusTokenSchema,
   operatorProcessBreach: z.boolean(),
@@ -145,6 +145,7 @@ const pagedShape = <T extends z.ZodType>(itemSchema: T) => z.object({
 
 export const createParcelResultSchema = z.object({
   parcelId: z.string().uuid(),
+  bookingId: nullableOptional(z.string().uuid()),
   parcelCode: z.string().trim().min(1).max(100),
   status: z.enum(PARCEL_STATUSES),
   estimatedSizeCategory: z.enum(PARCEL_SIZE_CATEGORIES),
@@ -169,6 +170,7 @@ const parcelDetailBaseSchema = z.object({
   recipientPhone: nullableOptional(z.string().trim().max(50)),
   operatorId: z.string().uuid(),
   tripId: z.string().uuid(),
+  bookingId: nullableOptional(z.string().uuid()),
   dropoffStopId: nullableUuidSchema,
   description: nullableTextSchema,
   quantity: z.number().int().min(1).max(10_000).default(1),
@@ -324,7 +326,7 @@ export const parcelIncidentSchema = z.object({
   type: parcelIncidentTypeSchema,
   status: statusTokenSchema,
   lastKnownLocation: nullableOptional(z.string().trim().max(500)),
-  searchDeadline: apiInstantSchema,
+  searchDeadline: nullableOptional(apiInstantSchema),
   createdAt: apiInstantSchema,
   resolvedAt: nullableOptional(apiInstantSchema),
   operatorProcessBreach: z.boolean(),
@@ -368,6 +370,31 @@ const parcelClaimEvidenceSchema = z.object({
   createdAt: apiInstantSchema,
 });
 
+export const parcelClaimAppealSchema = z.object({
+  appealId: z.string().uuid(),
+  claimId: z.string().uuid(),
+  originalClaimStatus: statusTokenSchema,
+  originalTotalAwardVnd: safeNonNegativeIntSchema,
+  status: statusTokenSchema,
+  // Current BE requires only nonblank input and persists unbounded text.
+  // The form's 2,000-character cap remains a separate Passenger safety bound.
+  reason: z.string().trim().min(1),
+  submittedByUserId: z.string().uuid(),
+  submittedAt: apiInstantSchema,
+  revisedProvenDirectLossVnd: safeNullableMoneySchema,
+  revisedCargoAwardVnd: safeNonNegativeIntSchema,
+  revisedFreightRefundVnd: safeNonNegativeIntSchema,
+  revisedTotalAwardVnd: safeNonNegativeIntSchema,
+  supplementaryAwardVnd: safeNonNegativeIntSchema,
+  decisionReason: nullableTextSchema,
+  decidedByUserId: nullableUuidSchema,
+  decidedAt: nullableOptional(apiInstantSchema),
+  payoutReferenceId: nullableUuidSchema,
+  paidAt: nullableOptional(apiInstantSchema),
+  availableActions: parcelPassengerActionsSchema.nullable().optional()
+    .transform((value) => value ?? []),
+});
+
 export const parcelClaimSchema = z.object({
   claimId: z.string().uuid(),
   parcelId: z.string().uuid(),
@@ -398,6 +425,8 @@ export const parcelClaimSchema = z.object({
   payoutDeadline: nullableOptional(apiInstantSchema),
   availableActions: parcelPassengerActionsSchema.nullable().optional()
     .transform((value) => value ?? []),
+  // Production can omit this during rolling deploy; new BE returns the child case.
+  appeal: nullableOptional(parcelClaimAppealSchema),
 });
 
 export const parcelClaimsSchema = z.array(parcelClaimSchema);

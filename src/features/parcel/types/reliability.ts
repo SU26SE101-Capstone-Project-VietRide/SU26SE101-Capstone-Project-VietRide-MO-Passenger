@@ -82,7 +82,7 @@ export interface ParcelReliabilityIncidentSummary {
   incidentId: string;
   type: ParcelIncidentType;
   status: string;
-  searchDeadline: string;
+  searchDeadline: string | null;
   nextUpdateAt: string | null;
   slaState: string;
   operatorProcessBreach: boolean;
@@ -159,7 +159,7 @@ export interface ParcelIncident {
   type: ParcelIncidentType;
   status: string;
   lastKnownLocation: string | null;
-  searchDeadline: string;
+  searchDeadline: string | null;
   createdAt: string;
   resolvedAt: string | null;
   operatorProcessBreach: boolean;
@@ -195,6 +195,41 @@ export interface ParcelClaimEvidence {
   createdAt: string;
 }
 
+export const PARCEL_CLAIM_APPEAL_STATUSES = [
+  'SUBMITTED',
+  'UNDER_REVIEW',
+  'UPHELD',
+  'ADJUSTMENT_APPROVED',
+  'FUNDING_PENDING',
+  'PAID',
+] as const;
+
+export type ParcelClaimAppealStatus =
+  | (typeof PARCEL_CLAIM_APPEAL_STATUSES)[number]
+  | (string & {});
+
+export interface ParcelClaimAppeal {
+  appealId: string;
+  claimId: string;
+  originalClaimStatus: string;
+  originalTotalAwardVnd: number;
+  status: ParcelClaimAppealStatus;
+  reason: string;
+  submittedByUserId: string;
+  submittedAt: string;
+  revisedProvenDirectLossVnd: number | null;
+  revisedCargoAwardVnd: number;
+  revisedFreightRefundVnd: number;
+  revisedTotalAwardVnd: number;
+  supplementaryAwardVnd: number;
+  decisionReason: string | null;
+  decidedByUserId: string | null;
+  decidedAt: string | null;
+  payoutReferenceId: string | null;
+  paidAt: string | null;
+  availableActions: ParcelPassengerAction[];
+}
+
 export interface ParcelClaim {
   claimId: string;
   parcelId: string;
@@ -224,6 +259,7 @@ export interface ParcelClaim {
   decisionDeadline: string | null;
   payoutDeadline: string | null;
   availableActions: ParcelPassengerAction[];
+  appeal: ParcelClaimAppeal | null;
 }
 
 export interface ReportParcelIncidentInput {

@@ -28,7 +28,7 @@ import {
   ApiRequestError,
   getLocalizedApiErrorMessage,
 } from '@shared/api/errors';
-import { AppKeyboardAwareScrollView } from '@shared/components';
+import { AppKeyboardAwareScrollView, VnPayLogo } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useFloatingTabBarContentInset, useThemedStyles } from '@shared/hooks';
 import {
@@ -590,9 +590,12 @@ export function TopUpScreen(): React.JSX.Element {
             )}
           </Pressable>
 
-          <Text style={styles.vnpayNote}>
-            {t('topUp.vnpayNote')}
-          </Text>
+          <View style={styles.vnpayNoteRow}>
+            <VnPayLogo size="compact" />
+            <Text style={styles.vnpayNote}>
+              {t('topUp.vnpayNote')}
+            </Text>
+          </View>
         </AppKeyboardAwareScrollView>
       </View>
     </SafeAreaView>
@@ -802,7 +805,15 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textInverse,
     textAlign: 'center' as const,
   },
+  vnpayNoteRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: spacing.xs,
+  },
   vnpayNote: {
+    minWidth: 0,
+    flexShrink: 1,
     fontFamily: fontFamilies.regular,
     fontSize: fontSizes.xs,
     lineHeight: 18,

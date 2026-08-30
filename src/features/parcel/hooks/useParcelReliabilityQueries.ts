@@ -146,7 +146,6 @@ export async function invalidateParcelReliabilityQueries(
   queryClient: QueryClient,
   userId: string,
   parcelId: string,
-  options: { includeClaims: boolean },
 ): Promise<void> {
   const invalidations = [
     queryClient.invalidateQueries({
@@ -167,19 +166,27 @@ export async function invalidateParcelReliabilityQueries(
       queryKey: passengerHistoryKeys.parcelRole(userId),
     }),
   ];
-  if (options.includeClaims) {
-    invalidations.push(queryClient.invalidateQueries({
-      queryKey: parcelReliabilityKeys.claims(userId, parcelId),
-      exact: true,
-    }));
-  }
   await Promise.all(invalidations);
 }
 
-function useInvalidateReliability(
+export function replaceParcelClaimInCache(
+  queryClient: QueryClient,
+  userId: string,
   parcelId: string,
-  options: { includeClaims: boolean },
-) {
+  claim: ParcelClaim,
+): void {
+  queryClient.setQueryData<ParcelClaim[]>(
+    parcelReliabilityKeys.claims(userId, parcelId),
+    (current) => {
+      if (!current) return [claim];
+      const existingIndex = current.findIndex(item => item.claimId === claim.claimId);
+      if (existingIndex < 0) return [claim, ...current];
+      return current.map((item, index) => index === existingIndex ? claim : item);
+    },
+  );
+}
+
+function useInvalidateReliability(parcelId: string) {
   const userId = useAuthStore((state) => state.user?.id);
   const queryClient = useQueryClient();
   return async (): Promise<void> => {
@@ -188,15 +195,26 @@ function useInvalidateReliability(
       queryClient,
       userId,
       parcelId,
-      options,
+    );
+  };
+}
+
+function useApplyParcelClaimMutationResult(parcelId: string) {
+  const userId = useAuthStore((state) => state.user?.id);
+  const queryClient = useQueryClient();
+  return async (claim: ParcelClaim): Promise<void> => {
+    if (!userId) return;
+    replaceParcelClaimInCache(queryClient, userId, parcelId, claim);
+    await invalidateParcelReliabilityQueries(
+      queryClient,
+      userId,
+      parcelId,
     );
   };
 }
 
 export function useReportParcelIncident(parcelId: string) {
-  const invalidate = useInvalidateReliability(parcelId, {
-    includeClaims: false,
-  });
+  const invalidate = useInvalidateReliability(parcelId);
   const mutation = useRetainedParcelMutation<
     ReportParcelIncidentInput,
     ReportParcelIncidentResult
@@ -212,9 +230,7 @@ export function useReportParcelIncident(parcelId: string) {
 }
 
 export function useSubmitParcelClaim(parcelId: string) {
-  const invalidate = useInvalidateReliability(parcelId, {
-    includeClaims: true,
-  });
+  const applyMutationResult = useApplyParcelClaimMutationResult(parcelId);
   const mutation = useRetainedParcelMutation<string, ParcelClaim>(
     `parcel-submit-claim-mobile:${parcelId}`,
     submitParcelClaim,
@@ -223,16 +239,14 @@ export function useSubmitParcelClaim(parcelId: string) {
     ...mutation,
     mutateAsync: async () => {
       const result = await mutation.mutateAsync(parcelId);
-      await invalidate();
+      await applyMutationResult(result);
       return result;
     },
   };
 }
 
 export function useAppealParcelClaim(parcelId: string) {
-  const invalidate = useInvalidateReliability(parcelId, {
-    includeClaims: true,
-  });
+  const applyMutationResult = useApplyParcelClaimMutationResult(parcelId);
   const mutation = useRetainedParcelMutation<AppealParcelClaimInput, ParcelClaim>(
     `parcel-appeal-claim-mobile:${parcelId}`,
     appealParcelClaim,
@@ -241,7 +255,7 @@ export function useAppealParcelClaim(parcelId: string) {
     ...mutation,
     mutateAsync: async (input: AppealParcelClaimInput) => {
       const result = await mutation.mutateAsync(input);
-      await invalidate();
+      await applyMutationResult(result);
       return result;
     },
   };
@@ -249,9 +263,7 @@ export function useAppealParcelClaim(parcelId: string) {
 
 /** API-ready only; no user-facing upload CTA until Passenger evidence upload is fixed. */
 export function useAddParcelClaimEvidence(parcelId: string) {
-  const invalidate = useInvalidateReliability(parcelId, {
-    includeClaims: true,
-  });
+  const applyMutationResult = useApplyParcelClaimMutationResult(parcelId);
   const mutation = useRetainedParcelMutation<AddParcelClaimEvidenceInput, ParcelClaim>(
     `parcel-add-claim-evidence-mobile:${parcelId}`,
     addParcelClaimEvidence,
@@ -260,7 +272,7 @@ export function useAddParcelClaimEvidence(parcelId: string) {
     ...mutation,
     mutateAsync: async (input: AddParcelClaimEvidenceInput) => {
       const result = await mutation.mutateAsync(input);
-      await invalidate();
+      await applyMutationResult(result);
       return result;
     },
   };

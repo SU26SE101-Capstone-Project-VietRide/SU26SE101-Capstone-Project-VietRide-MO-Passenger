@@ -163,6 +163,7 @@ jest.mock('../api/passengerHistoryApi', () => ({
 
 jest.mock('@shared/components', () => ({
   StatusChip: () => null,
+  VnPayLogo: () => null,
 }));
 
 jest.mock('@shared/contexts/ThemeContext', () => ({

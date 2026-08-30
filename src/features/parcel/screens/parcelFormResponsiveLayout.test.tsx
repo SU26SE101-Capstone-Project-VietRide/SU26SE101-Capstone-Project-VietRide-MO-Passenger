@@ -58,6 +58,7 @@ jest.mock('@shared/components', () => {
   const ReactModule = require('react');
   const {
     ScrollView: NativeScrollView,
+    Text: NativeText,
     TextInput: NativeTextInput,
   } = require('react-native');
   return {
@@ -70,6 +71,9 @@ jest.mock('@shared/components', () => {
     ),
     Input: (props: Record<string, unknown>) => (
       ReactModule.createElement(NativeTextInput, props)
+    ),
+    StatusChip: ({ label, ...props }: { label: string; [key: string]: unknown }) => (
+      ReactModule.createElement(NativeText, { ...props, testID: 'status-chip' }, label)
     ),
   };
 });
@@ -280,6 +284,66 @@ describe('Parcel reliability form responsive layout', () => {
     expect(mockAppeal).not.toHaveBeenCalled();
   });
 
+  it('renders the BE-owned appeal lifecycle separately from the original claim', () => {
+    mockTracePage = {
+      availableActions: [],
+      claimSummary: { status: 'PAID' },
+    };
+    mockClaims = [{
+      appeal: {
+        appealId: '55555555-5555-4555-8555-555555555555',
+        claimId: '33333333-3333-4333-8333-333333333333',
+        originalClaimStatus: 'PAID',
+        originalTotalAwardVnd: 1_600_000,
+        status: 'FUNDING_PENDING',
+        reason: 'The invoice was corrected.',
+        submittedByUserId: '22222222-2222-4222-8222-222222222222',
+        submittedAt: '2026-08-30T08:00:00Z',
+        revisedProvenDirectLossVnd: 2_500_000,
+        revisedCargoAwardVnd: 2_000_000,
+        revisedFreightRefundVnd: 100_000,
+        revisedTotalAwardVnd: 2_100_000,
+        supplementaryAwardVnd: 500_000,
+        decisionReason: 'The additional evidence was accepted.',
+        decidedByUserId: null,
+        decidedAt: '2026-08-30T09:00:00Z',
+        payoutReferenceId: null,
+        paidAt: null,
+        availableActions: [],
+      },
+      availableActions: [],
+      cargoAwardVnd: 1_500_000,
+      decidedAt: '2026-08-29T08:00:00Z',
+      decisionDeadline: null,
+      evidence: [],
+      freightRefundVnd: 100_000,
+      paidAt: '2026-08-29T09:00:00Z',
+      payoutDeadline: null,
+      policySnapshot: null,
+      status: 'PAID',
+      totalAwardVnd: 1_600_000,
+    }];
+
+    act(() => {
+      renderer = ReactTestRenderer.create(<ParcelClaimScreen />);
+    });
+
+    expect(renderer!.root.findByProps({
+      testID: 'parcel-claim-appeal-card',
+    })).toBeDefined();
+    expect(renderer!.root.findByProps({ testID: 'status-chip' }).props.children).toBe(
+      'parcel.claim.appealStatuses.FUNDING_PENDING',
+    );
+    const renderedKeys = new Set(
+      renderer!.root.findAllByType(Text).map(node => node.props.children),
+    );
+    expect(renderedKeys).toContain('parcel.claim.appealCaseTitle');
+    expect(renderedKeys).toContain('parcel.claim.appealRevisedTotal');
+    expect(renderedKeys).toContain('parcel.claim.appealSupplementaryAward');
+    expect(renderedKeys).toContain('parcel.claim.appealAdditionalPayoutPending');
+    expect(renderer!.root.findAllByType(TextInput)).toHaveLength(0);
+  });
+
   it('keeps the incident submit action keyboard-scrollable with a wrapping header', () => {
     act(() => {
       renderer = ReactTestRenderer.create(<ReportParcelIncidentScreen />);
@@ -325,9 +389,7 @@ describe('Parcel reliability form responsive layout', () => {
     expect(chipIds).toEqual([
       'parcel-incident-type-DAMAGED',
       'parcel-incident-type-DELIVERY_NOT_RECEIVED',
-      'parcel-incident-type-MISSING',
       'parcel-incident-type-PARTIAL_LOSS',
-      'parcel-incident-type-WRONG_STOP',
     ]);
 
     const damagedChip = renderer!.root.findAllByProps({

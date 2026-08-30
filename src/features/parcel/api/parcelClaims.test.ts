@@ -6,6 +6,8 @@ const IDS = {
   incident: '33333333-3333-4333-8333-333333333333',
   user: '44444444-4444-4444-8444-444444444444',
   evidence: '55555555-5555-4555-8555-555555555555',
+  appeal: '66666666-6666-4666-8666-666666666666',
+  payout: '77777777-7777-4777-8777-777777777777',
 } as const;
 const NOW = '2026-08-22T09:00:00+07:00';
 
@@ -64,6 +66,76 @@ describe('Parcel claim contract', () => {
     expect(claim.totalAwardVnd).toBe(1_600_000);
     expect(claim.availableActions).toEqual(['APPEAL']);
     expect(claim.policySnapshot?.maxCompensationVnd).toBe(1_500_000);
+    expect(claim.appeal).toBeNull();
+  });
+
+  it('parses the separate appeal case and drops operator-only actions', () => {
+    const claim = parseParcelClaims([{
+      ...claimWire,
+      status: 'PAID',
+      paidAt: NOW,
+      appeal: {
+        appealId: IDS.appeal,
+        claimId: IDS.claim,
+        originalClaimStatus: 'PAID',
+        originalTotalAwardVnd: 1_600_000,
+        status: 'FUNDING_PENDING',
+        reason: 'The invoice was corrected.',
+        submittedByUserId: IDS.user,
+        submittedAt: NOW,
+        revisedProvenDirectLossVnd: 2_500_000,
+        revisedCargoAwardVnd: 2_000_000,
+        revisedFreightRefundVnd: 100_000,
+        revisedTotalAwardVnd: 2_100_000,
+        supplementaryAwardVnd: 500_000,
+        decisionReason: 'The additional evidence was accepted.',
+        decidedByUserId: null,
+        decidedAt: NOW,
+        payoutReferenceId: IDS.payout,
+        paidAt: null,
+        availableActions: ['DECIDE_APPEAL', 'OPERATOR_APPROVE'],
+      },
+    }])[0];
+
+    expect(claim.status).toBe('PAID');
+    expect(claim.appeal).toMatchObject({
+      appealId: IDS.appeal,
+      originalClaimStatus: 'PAID',
+      status: 'FUNDING_PENDING',
+      revisedTotalAwardVnd: 2_100_000,
+      supplementaryAwardVnd: 500_000,
+      availableActions: [],
+    });
+  });
+
+  it('preserves an unknown appeal status without exposing its wire token as copy', () => {
+    const claim = parseParcelClaims([{
+      ...claimWire,
+      appeal: {
+        appealId: IDS.appeal,
+        claimId: IDS.claim,
+        originalClaimStatus: 'REJECTED',
+        originalTotalAwardVnd: 0,
+        status: 'NEW_APPEAL_STATE',
+        reason: 'Please review the case.',
+        submittedByUserId: IDS.user,
+        submittedAt: NOW,
+        revisedProvenDirectLossVnd: null,
+        revisedCargoAwardVnd: 0,
+        revisedFreightRefundVnd: 0,
+        revisedTotalAwardVnd: 0,
+        supplementaryAwardVnd: 0,
+        decisionReason: null,
+        decidedByUserId: null,
+        decidedAt: null,
+        payoutReferenceId: null,
+        paidAt: null,
+        availableActions: null,
+      },
+    }])[0];
+
+    expect(claim.appeal?.status).toBe('NEW_APPEAL_STATE');
+    expect(claim.appeal?.availableActions).toEqual([]);
   });
 
   it('rejects blank evidence references and unsafe awards', () => {
@@ -74,6 +146,30 @@ describe('Parcel claim contract', () => {
     expect(() => parseParcelClaims([{
       ...claimWire,
       totalAwardVnd: Number.MAX_SAFE_INTEGER + 1,
+    }])).toThrow();
+    expect(() => parseParcelClaims([{
+      ...claimWire,
+      appeal: {
+        appealId: 'not-a-uuid',
+        claimId: IDS.claim,
+        originalClaimStatus: 'REJECTED',
+        originalTotalAwardVnd: 0,
+        status: 'SUBMITTED',
+        reason: 'Please review the case.',
+        submittedByUserId: IDS.user,
+        submittedAt: NOW,
+        revisedProvenDirectLossVnd: null,
+        revisedCargoAwardVnd: 0,
+        revisedFreightRefundVnd: 0,
+        revisedTotalAwardVnd: 0,
+        supplementaryAwardVnd: 0,
+        decisionReason: null,
+        decidedByUserId: null,
+        decidedAt: null,
+        payoutReferenceId: null,
+        paidAt: null,
+        availableActions: [],
+      },
     }])).toThrow();
   });
 

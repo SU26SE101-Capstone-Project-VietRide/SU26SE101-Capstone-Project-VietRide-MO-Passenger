@@ -13,7 +13,6 @@ import {
   CalendarBlank,
   CheckCircle,
   ClockCountdown,
-  Coins,
   File,
   Flask,
   MapPin,
@@ -36,7 +35,7 @@ import { useTripDetail } from '@features/trip/hooks/useTripDetail';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
-import { ScannableCodeCard, StatusChip } from '@shared/components';
+import { ScannableCodeCard, StatusChip, VnPayLogo } from '@shared/components';
 import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import {
   borderRadius as BR,
@@ -354,7 +353,7 @@ function TicketView({
   const paymentIcon = model.paymentMethod
     ? model.paymentMethod === 'WALLET'
       ? <Wallet size={12} color={theme.colors.primary} weight="bold" />
-      : <Coins size={12} color={theme.colors.primary} weight="bold" />
+      : <VnPayLogo size="compact" />
     : null;
   const amountLabel = activeTicket?.paidAmount != null && pages.length > 1
     ? t('booking.ticket.ticketPaidAmount')
@@ -464,7 +463,7 @@ function TicketView({
                 ]}
                 onPress={pendingPaymentActions.onOpenPayment}
               >
-                <Coins size={18} color={theme.colors.textInverse} weight="bold" />
+                <VnPayLogo size="compact" />
                 <Text style={styles.primaryActionText}>{t('booking.ticket.openVnpay')}</Text>
               </Pressable>
             ) : null}

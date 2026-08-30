@@ -1,4 +1,5 @@
 import {
+  createParcelResultSchema,
   parcelIncidentTypeSchema,
   parcelPassengerActionsSchema,
   parseParcelTrace,
@@ -13,6 +14,7 @@ const IDS = {
   operator: '44444444-4444-4444-8444-444444444444',
   event: '55555555-5555-4555-8555-555555555555',
   location: '66666666-6666-4666-8666-666666666666',
+  incident: '77777777-7777-4777-8777-777777777777',
 } as const;
 
 const NOW = '2026-08-22T09:00:00+07:00';
@@ -123,6 +125,26 @@ const trace = {
 };
 
 describe('Parcel Reliability contract schemas', () => {
+  it('normalizes an omitted create booking association during rolling deploy', () => {
+    const parsed = createParcelResultSchema.parse({
+      parcelId: IDS.parcel,
+      parcelCode: 'PCL-001',
+      status: 'PENDING_PAYMENT',
+      estimatedSizeCategory: 'SMALL',
+      estimatedGrossPriceVnd: 100_000,
+      discountAmountVnd: 0,
+      estimatedTotalPriceVnd: 100_000,
+      depositPercent: 20,
+      depositRequiredVnd: 20_000,
+      depositPaidVnd: 0,
+      voucherCode: null,
+      settlementPolicyVersion: 1,
+      compensationPolicy: null,
+    });
+
+    expect(parsed.bookingId).toBeNull();
+  });
+
   it('allow-lists Passenger actions and silently drops operator-only values', () => {
     expect(parcelPassengerActionsSchema.parse([
       'REPORT_INCIDENT',
@@ -163,6 +185,35 @@ describe('Parcel Reliability contract schemas', () => {
     expect(parsed.timeline.nextCursor).toBe('opaque:cursor+with/slashes==');
     expect(parsed.currentCustody?.lastLocationSnapshot).toBe('Bến xe');
     expect(parsed.availableActions).toEqual(['REPORT_INCIDENT']);
+  });
+
+  it('accepts incidents whose search SLA has not started yet', () => {
+    const activeIncident = {
+      incidentId: IDS.incident,
+      type: 'DAMAGED',
+      status: 'OPEN',
+      searchDeadline: null,
+      nextUpdateAt: null,
+      slaState: 'NOT_STARTED',
+      operatorProcessBreach: false,
+    };
+    const parsed = parseParcelTrace({
+      ...trace,
+      activeIncident,
+      incidents: [{
+        incidentId: IDS.incident,
+        type: 'DAMAGED',
+        status: 'OPEN',
+        lastKnownLocation: null,
+        searchDeadline: null,
+        createdAt: NOW,
+        resolvedAt: null,
+        operatorProcessBreach: false,
+      }],
+    });
+
+    expect(parsed.activeIncident?.searchDeadline).toBeNull();
+    expect(parsed.incidents[0].searchDeadline).toBeNull();
   });
 
   it('does not accept list/detail nested custody as trace custody', () => {

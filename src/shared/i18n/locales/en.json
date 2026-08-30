@@ -1381,6 +1381,8 @@
       "photoUploadDescription": "The selected photo could not be prepared or uploaded. Try again, or remove it to continue without a photo.",
       "tripAvailabilityChangedTitle": "Trip availability changed",
       "tripAvailabilityChangedDescription": "The selected trip or parcel estimate changed while you were confirming. Please choose an available trip again.",
+      "tripAssistantRequired": "This trip does not have an assigned onboard assistant yet, so it cannot accept parcels. Please choose another trip.",
+      "incidentTypeNotReportable": "This incident type cannot be reported by a passenger. Refresh parcel details and choose one of the available options.",
       "quoteExpiredTitle": "Parcel quote expired",
       "quoteExpiredDescription": "The signed price quote expired. Refresh trips and confirm the latest price before continuing.",
       "quoteInvalidTitle": "Parcel quote is no longer valid",
@@ -1766,6 +1768,15 @@
       "appeal": "Request another review",
       "appealedTitle": "Request submitted",
       "appealedDescription": "Your request was recorded. Follow the case status for further updates.",
+      "appealCaseTitle": "Review request",
+      "appealSubmittedReason": "Your reason",
+      "appealSubmittedAt": "Submitted at {{time}}",
+      "appealDecisionReason": "Operator response",
+      "appealRevisedTotal": "Revised total amount",
+      "appealSupplementaryAward": "Additional amount",
+      "appealAdditionalPayoutPending": "The additional amount is being prepared for payout.",
+      "appealAdditionalPaidAt": "Additional amount paid at {{time}}",
+      "appealUpheldDescription": "The original compensation decision remains unchanged.",
       "unavailable": "A compensation claim is not available for this parcel yet.",
       "statuses": {
         "SUBMITTED": "Submitted",
@@ -1776,6 +1787,15 @@
         "REJECTED": "Not approved",
         "CANCELLED": "Cancelled",
         "APPEALED": "Request recorded",
+        "UNKNOWN": "Updating"
+      },
+      "appealStatuses": {
+        "SUBMITTED": "Submitted",
+        "UNDER_REVIEW": "Under review",
+        "UPHELD": "Original result upheld",
+        "ADJUSTMENT_APPROVED": "Adjustment approved",
+        "FUNDING_PENDING": "Preparing additional payout",
+        "PAID": "Additional amount paid",
         "UNKNOWN": "Updating"
       }
     },

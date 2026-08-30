@@ -33,6 +33,7 @@ const createParcel = (overrides: Partial<ParcelDetail> = {}): ParcelDetail => ({
   recipientPhone: null,
   operatorId: 'operator',
   tripId: 'trip',
+  bookingId: null,
   dropoffStopId: null,
   description: null,
   quantity: 1,

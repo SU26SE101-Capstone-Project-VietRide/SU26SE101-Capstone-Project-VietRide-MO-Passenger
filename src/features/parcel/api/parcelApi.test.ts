@@ -23,6 +23,7 @@ jest.mock('@shared/api/axiosInstance', () => ({
 
 const PARCEL_ID = '4d680b5f-8a94-4f26-9f5b-413bd1221e02';
 const TRIP_ID = '11111111-1111-4111-8111-111111111111';
+const BOOKING_ID = '77777777-7777-4777-8777-777777777777';
 const USER_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OPAQUE_QUOTE_TOKEN = 'opaque.base64url-payload.base64url-signature';
 
@@ -62,6 +63,7 @@ const parcelDetailWire: ParcelDetail = {
   recipientPhone: null,
   operatorId: '33333333-3333-4333-8333-333333333333',
   tripId: TRIP_ID,
+  bookingId: null,
   dropoffStopId: null,
   description: null,
   quantity: 1,
@@ -398,6 +400,7 @@ describe('parcel signed quote contract', () => {
       statusCode: 201,
       data: {
         parcelId: PARCEL_ID,
+        bookingId: BOOKING_ID,
         parcelCode: 'VR-PCL-1',
         status: 'PENDING_PAYMENT',
         estimatedSizeCategory: 'MEDIUM',
@@ -414,8 +417,9 @@ describe('parcel signed quote contract', () => {
     postMock.mockResolvedValueOnce({ data: envelope });
 
     const idempotencyKey = '11111111-1111-4111-8111-111111111111';
-    await createParcel(payload, idempotencyKey);
+    const result = await createParcel(payload, idempotencyKey);
 
+    expect(result.bookingId).toBe(BOOKING_ID);
     expect(postMock).toHaveBeenCalledWith(
       '/parcels',
       expect.objectContaining({

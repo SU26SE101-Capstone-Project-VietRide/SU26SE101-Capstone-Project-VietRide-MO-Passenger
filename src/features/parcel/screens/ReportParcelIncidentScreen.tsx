@@ -39,11 +39,9 @@ type IncidentNavigation = NativeStackNavigationProp<
 // The endpoint allows a nullable description. Passenger requires one so the
 // operator receives an actionable report while preserving the 2,000-character limit.
 const DESCRIPTION_MAX_LENGTH = 2_000;
-// BE shares one incident enum across USER/SYSTEM/ASSISTANT reporters. The form
-// only offers issues a Passenger can directly observe; read schemas keep all values.
+// BE shares one incident enum across USER/SYSTEM/ASSISTANT reporters, but v1.98.1
+// explicitly accepts only these three values from a Passenger caller.
 const PASSENGER_REPORTABLE_INCIDENT_TYPES = [
-  'MISSING',
-  'WRONG_STOP',
   'DELIVERY_NOT_RECEIVED',
   'PARTIAL_LOSS',
   'DAMAGED',
@@ -55,7 +53,9 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const [incidentType, setIncidentType] = useState<ParcelIncidentType>('MISSING');
+  const [incidentType, setIncidentType] = useState<ParcelIncidentType>(
+    'DELIVERY_NOT_RECEIVED',
+  );
   const [description, setDescription] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
   const mutation = useReportParcelIncident(route.params.parcelId);

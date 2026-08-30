@@ -15,7 +15,12 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { ParcelStackParamList } from '@app/navigation/types';
-import { AppKeyboardAwareScrollView, Input } from '@shared/components';
+import {
+  AppKeyboardAwareScrollView,
+  Input,
+  StatusChip,
+  type StatusChipTone,
+} from '@shared/components';
 import { getLocalizedApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -36,6 +41,7 @@ import {
 
 import { ParcelCompensationDisclosure } from '../components';
 import {
+  getParcelClaimAppealStatusLabelKey,
   getParcelClaimStatusLabelKey,
   PARCEL_ERROR_TRANSLATION_KEYS,
 } from '../utils/parcelPresentation';
@@ -45,6 +51,19 @@ type ClaimNavigation = NativeStackNavigationProp<ParcelStackParamList, 'ParcelCl
 // BE requires a nonblank appeal reason but does not publish a max length.
 // This is a Passenger safety/UX bound, not a server-contract constraint.
 const APPEAL_MAX_LENGTH = 2_000;
+
+const APPEAL_REVISED_AWARD_STATUSES = new Set([
+  'ADJUSTMENT_APPROVED',
+  'FUNDING_PENDING',
+  'PAID',
+]);
+
+const getAppealStatusTone = (status: string): StatusChipTone => {
+  if (status === 'PAID' || status === 'ADJUSTMENT_APPROVED') return 'success';
+  if (status === 'FUNDING_PENDING') return 'warning';
+  if (status === 'SUBMITTED' || status === 'UNDER_REVIEW') return 'info';
+  return 'neutral';
+};
 
 export function ParcelClaimScreen(): React.JSX.Element {
   const route = useRoute<ClaimRoute>();
@@ -67,15 +86,24 @@ export function ParcelClaimScreen(): React.JSX.Element {
   const [appealReason, setAppealReason] = useState('');
   const [appealError, setAppealError] = useState<string | null>(null);
   const claim = claimsQuery.data?.[0];
+  const appeal = claim?.appeal ?? null;
   const canSubmitClaim = trace?.availableActions.includes('SUBMIT_CLAIM') ?? false;
   const canAppeal = claim?.availableActions.includes('APPEAL') ?? false;
   const policy = claim?.policySnapshot;
   const claimStatusLabel = claim
     ? t(getParcelClaimStatusLabelKey(claim.status))
     : null;
+  const appealStatusLabel = appeal
+    ? t(getParcelClaimAppealStatusLabelKey(appeal.status))
+    : null;
   const hasDecision = Boolean(claim?.decidedAt);
   const isAwaitingPayout = claim?.status === 'APPROVED'
     || claim?.status === 'FUNDING_PENDING';
+  const hasRevisedAppealAward = appeal
+    ? APPEAL_REVISED_AWARD_STATUSES.has(appeal.status)
+    : false;
+  const isAppealAwaitingPayout = appeal?.status === 'ADJUSTMENT_APPROVED'
+    || appeal?.status === 'FUNDING_PENDING';
 
   const refresh = useCallback(() => {
     Promise.all([
@@ -284,6 +312,76 @@ export function ParcelClaimScreen(): React.JSX.Element {
                   ) : null}
                 </View>
 
+                {appeal ? (
+                  <View testID="parcel-claim-appeal-card" style={styles.card}>
+                    <View style={styles.appealHeader}>
+                      <Text style={[styles.sectionTitle, styles.appealSectionTitle]}>
+                        {t('parcel.claim.appealCaseTitle')}
+                      </Text>
+                      <StatusChip
+                        label={appealStatusLabel ?? t('parcel.claim.appealStatuses.UNKNOWN')}
+                        tone={getAppealStatusTone(appeal.status)}
+                      />
+                    </View>
+
+                    <Text style={styles.appealLabel}>
+                      {t('parcel.claim.appealSubmittedReason')}
+                    </Text>
+                    <Text style={styles.appealBody}>{appeal.reason}</Text>
+                    <Text style={styles.deadlineText}>
+                      {t('parcel.claim.appealSubmittedAt', {
+                        time: formatDateTime(appeal.submittedAt),
+                      })}
+                    </Text>
+
+                    {appeal.decisionReason ? (
+                      <View style={styles.appealDecision}>
+                        <Text style={styles.appealLabel}>
+                          {t('parcel.claim.appealDecisionReason')}
+                        </Text>
+                        <Text style={styles.appealBody}>{appeal.decisionReason}</Text>
+                      </View>
+                    ) : null}
+
+                    {hasRevisedAppealAward ? (
+                      <View style={styles.appealAmounts}>
+                        <View style={styles.valueRow}>
+                          <Text style={styles.valueLabel}>
+                            {t('parcel.claim.appealRevisedTotal')}
+                          </Text>
+                          <Text style={styles.valueText}>
+                            {formatVnd(appeal.revisedTotalAwardVnd)}
+                          </Text>
+                        </View>
+                        <View style={styles.totalRow}>
+                          <Text style={styles.totalLabel}>
+                            {t('parcel.claim.appealSupplementaryAward')}
+                          </Text>
+                          <Text style={styles.totalValue}>
+                            {formatVnd(appeal.supplementaryAwardVnd)}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
+
+                    {appeal.status === 'UPHELD' ? (
+                      <Text style={styles.pendingText}>
+                        {t('parcel.claim.appealUpheldDescription')}
+                      </Text>
+                    ) : appeal.paidAt ? (
+                      <Text style={styles.paidText}>
+                        {t('parcel.claim.appealAdditionalPaidAt', {
+                          time: formatDateTime(appeal.paidAt),
+                        })}
+                      </Text>
+                    ) : isAppealAwaitingPayout ? (
+                      <Text style={styles.pendingText}>
+                        {t('parcel.claim.appealAdditionalPayoutPending')}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
+
                 {policy ? (
                   <ParcelCompensationDisclosure
                     operatorName={trace?.operator.name}
@@ -385,6 +483,12 @@ const createStyles = (theme: AppTheme) => ({
   heroText: { marginTop: spacing.xs, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 20 },
   card: { ...theme.components.card, padding: spacing.lg, borderRadius: borderRadius.lg },
   sectionTitle: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, marginBottom: spacing.md },
+  appealHeader: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, gap: spacing.sm, marginBottom: spacing.md },
+  appealSectionTitle: { flex: 1, minWidth: 160, marginBottom: 0 },
+  appealLabel: { color: theme.colors.textSecondary, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
+  appealBody: { marginTop: spacing.xs, color: theme.colors.textPrimary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 20 },
+  appealDecision: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.divider },
+  appealAmounts: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.divider },
   valueRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, gap: spacing.md, marginBottom: spacing.sm },
   valueLabel: { flex: 1, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm },
   valueText: { minWidth: 0, flexShrink: 1, color: theme.colors.textPrimary, fontFamily: fontFamilies.medium, fontSize: fontSizes.sm, textAlign: 'right' as const },

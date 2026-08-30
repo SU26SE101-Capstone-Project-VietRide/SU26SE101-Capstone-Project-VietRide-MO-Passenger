@@ -173,6 +173,7 @@ jest.mock('@shared/components', () => {
       mockScannableCodeCard(props),
     StatusChip: ({ label }: { label: string }) =>
       ReactRuntime.createElement(NativeText, null, label),
+    VnPayLogo: () => null,
   };
 });
 

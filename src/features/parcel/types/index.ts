@@ -201,6 +201,7 @@ export interface CreateParcelPayload {
 
 export interface CreateParcelResult {
   parcelId: string;
+  bookingId: string | null;
   parcelCode: string;
   status: ParcelStatus;
   estimatedSizeCategory: ParcelSizeCategory;
@@ -262,10 +263,11 @@ export interface ParcelDetail {
   recipientPhone: string | null;
   operatorId: string;
   tripId: string;
+  bookingId: string | null;
   dropoffStopId: string | null;
   description: string | null;
   quantity: number;
-  /** Rolling-contract field. Current v1.91 detail omits it; trace carries it. */
+  /** Rolling-contract field. Current v1.98.1 detail omits it; trace carries it. */
   declaredValueVnd: number | null;
   photoUrl: string | null;
   checkInPhotoUrls: string[] | null;

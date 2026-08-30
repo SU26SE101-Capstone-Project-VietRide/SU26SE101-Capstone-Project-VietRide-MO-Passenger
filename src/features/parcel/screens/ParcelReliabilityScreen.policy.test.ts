@@ -30,7 +30,7 @@ describe('Parcel Reliability hub request policy', () => {
   });
 
   it('drives map and Reliability CTAs from Trace contract fields', () => {
-    expect(source).toContain('tripId={trace.trip.tripId}');
+    expect(source).toContain('tripId={liveTrackingTrip.tripId}');
     expect(source).toContain("trace?.availableActions.includes('REPORT_INCIDENT')");
     expect(source).toContain("trace?.availableActions.includes('SUBMIT_CLAIM')");
     expect(source).toContain("trace?.availableActions.includes('APPEAL')");

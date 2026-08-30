@@ -1381,6 +1381,8 @@
       "photoUploadDescription": "Không thể chuẩn bị hoặc tải ảnh đã chọn lên. Hãy thử lại hoặc xóa ảnh để tiếp tục mà không có ảnh.",
       "tripAvailabilityChangedTitle": "Tình trạng chuyến đã thay đổi",
       "tripAvailabilityChangedDescription": "Chuyến đã chọn hoặc giá ước tính đã thay đổi trong lúc xác nhận. Vui lòng chọn lại một chuyến khả dụng.",
+      "tripAssistantRequired": "Chuyến này chưa có phụ xe được phân công nên chưa thể nhận kiện hàng. Vui lòng chọn chuyến khác.",
+      "incidentTypeNotReportable": "Hành khách không thể báo loại sự cố này. Hãy làm mới chi tiết kiện hàng và chọn một loại đang được hỗ trợ.",
       "quoteExpiredTitle": "Báo giá gửi hàng đã hết hạn",
       "quoteExpiredDescription": "Báo giá có chữ ký đã hết hạn. Hãy làm mới danh sách chuyến và xác nhận lại giá mới trước khi tiếp tục.",
       "quoteInvalidTitle": "Báo giá gửi hàng không còn hợp lệ",
@@ -1766,6 +1768,15 @@
       "appeal": "Gửi yêu cầu xem xét lại",
       "appealedTitle": "Đã gửi yêu cầu",
       "appealedDescription": "Yêu cầu đã được ghi nhận. Hãy theo dõi trạng thái hồ sơ để xem cập nhật tiếp theo.",
+      "appealCaseTitle": "Hồ sơ xem xét lại",
+      "appealSubmittedReason": "Lý do bạn gửi",
+      "appealSubmittedAt": "Đã gửi lúc {{time}}",
+      "appealDecisionReason": "Phản hồi của nhà xe",
+      "appealRevisedTotal": "Tổng mức sau xem xét",
+      "appealSupplementaryAward": "Số tiền chi trả thêm",
+      "appealAdditionalPayoutPending": "Khoản chi trả thêm đang được chuẩn bị.",
+      "appealAdditionalPaidAt": "Khoản chi trả thêm đã được thanh toán lúc {{time}}",
+      "appealUpheldDescription": "Kết quả bồi thường ban đầu được giữ nguyên.",
       "unavailable": "Hiện chưa thể gửi yêu cầu bồi thường cho kiện hàng này.",
       "statuses": {
         "SUBMITTED": "Đã gửi",
@@ -1776,6 +1787,15 @@
         "REJECTED": "Không được duyệt",
         "CANCELLED": "Đã hủy",
         "APPEALED": "Đã ghi nhận yêu cầu",
+        "UNKNOWN": "Đang cập nhật"
+      },
+      "appealStatuses": {
+        "SUBMITTED": "Đã gửi",
+        "UNDER_REVIEW": "Đang xem xét",
+        "UPHELD": "Giữ nguyên kết quả",
+        "ADJUSTMENT_APPROVED": "Đã duyệt điều chỉnh",
+        "FUNDING_PENDING": "Đang chuẩn bị chi trả thêm",
+        "PAID": "Đã chi trả thêm",
         "UNKNOWN": "Đang cập nhật"
       }
     },

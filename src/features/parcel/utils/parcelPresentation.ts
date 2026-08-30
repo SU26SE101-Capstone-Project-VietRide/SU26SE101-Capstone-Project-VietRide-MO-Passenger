@@ -19,6 +19,8 @@ export const PARCEL_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   TRIP_NOT_FOUND: 'parcel.errors.tripAvailabilityChangedDescription',
   TRIP_NOT_ACCEPTING_PARCEL: 'parcel.errors.tripAvailabilityChangedDescription',
   TRIP_CARGO_CAPACITY_EXCEEDED: 'parcel.errors.tripAvailabilityChangedDescription',
+  PARCEL_ASSISTANT_REQUIRED: 'parcel.errors.tripAssistantRequired',
+  PARCEL_INCIDENT_TYPE_NOT_REPORTABLE: 'parcel.errors.incidentTypeNotReportable',
   VNPAY_SESSION_OWNER_MISMATCH: 'parcel.errors.paymentSessionUnavailable',
   VNPAY_SESSION_NOT_PENDING: 'parcel.errors.paymentSessionUnavailable',
   VNPAY_CHARGE_INCOMPLETE: 'parcel.errors.paymentSessionUnavailable',
@@ -159,6 +161,15 @@ const PARCEL_CLAIM_STATUS_LABEL_KEYS: Readonly<Record<string, string>> = {
   APPEALED: 'parcel.claim.statuses.APPEALED',
 };
 
+const PARCEL_CLAIM_APPEAL_STATUS_LABEL_KEYS: Readonly<Record<string, string>> = {
+  SUBMITTED: 'parcel.claim.appealStatuses.SUBMITTED',
+  UNDER_REVIEW: 'parcel.claim.appealStatuses.UNDER_REVIEW',
+  UPHELD: 'parcel.claim.appealStatuses.UPHELD',
+  ADJUSTMENT_APPROVED: 'parcel.claim.appealStatuses.ADJUSTMENT_APPROVED',
+  FUNDING_PENDING: 'parcel.claim.appealStatuses.FUNDING_PENDING',
+  PAID: 'parcel.claim.appealStatuses.PAID',
+};
+
 const PARCEL_TRACKING_CONFIDENCE_DESCRIPTION_KEYS: Readonly<Record<string, string>> = {
   CONFIRMED_SCAN: 'parcel.reliability.confidenceDescriptions.CONFIRMED_SCAN',
   MANUAL_EXCEPTION: 'parcel.reliability.confidenceDescriptions.MANUAL_EXCEPTION',
@@ -220,7 +231,8 @@ export const getParcelIncidentStatusLabelKey = (
 export const shouldShowParcelIncidentSearchDeadline = (
   status: string | null | undefined,
   slaState: string | null | undefined,
-): boolean => PARCEL_INCIDENT_SEARCH_PHASE_STATUSES.has(
+  searchDeadline: string | null | undefined,
+): boolean => Boolean(searchDeadline) && PARCEL_INCIDENT_SEARCH_PHASE_STATUSES.has(
   status?.trim().toUpperCase() ?? '',
 ) && slaState?.trim().toUpperCase() !== 'BREACHED';
 
@@ -230,6 +242,14 @@ export const getParcelClaimStatusLabelKey = (
   PARCEL_CLAIM_STATUS_LABEL_KEYS,
   status,
   'parcel.claim.statuses.UNKNOWN',
+);
+
+export const getParcelClaimAppealStatusLabelKey = (
+  status: string | null | undefined,
+): string => lookupParcelLabelKey(
+  PARCEL_CLAIM_APPEAL_STATUS_LABEL_KEYS,
+  status,
+  'parcel.claim.appealStatuses.UNKNOWN',
 );
 
 export const getParcelTrackingConfidenceDescriptionKey = (

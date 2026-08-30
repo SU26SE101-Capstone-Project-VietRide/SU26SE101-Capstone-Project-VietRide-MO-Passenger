@@ -1,8 +1,9 @@
 import React, { memo, useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { CreditCard, Wallet } from 'phosphor-react-native';
+import { Wallet } from 'phosphor-react-native';
 
+import { VnPayLogo } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -30,8 +31,9 @@ interface PaymentOptionProps {
   disabled?: boolean;
   label: string;
   subtitle: string;
-  Icon: React.ElementType;
-  iconColor: string;
+  brand?: 'vnpay';
+  Icon?: React.ElementType;
+  iconColor?: string;
   onSelect: () => void;
 }
 
@@ -40,6 +42,7 @@ const PaymentOption = memo(function PaymentOption({
   disabled = false,
   label,
   subtitle,
+  brand,
   Icon,
   iconColor,
   onSelect,
@@ -63,7 +66,11 @@ const PaymentOption = memo(function PaymentOption({
         {selected ? <View style={styles.paymentRadioDot} /> : null}
       </View>
       <View style={styles.paymentIconBackground}>
-        <Icon size={20} color={iconColor} weight="bold" />
+        {brand === 'vnpay'
+          ? <VnPayLogo />
+          : Icon && iconColor
+            ? <Icon size={20} color={iconColor} weight="bold" />
+            : null}
       </View>
       <View style={styles.paymentOptionText}>
         <Text style={styles.paymentTitle}>{label}</Text>
@@ -134,8 +141,7 @@ export const ParcelPaymentMethodSelector = memo(
           disabled={disabled}
           label={t('parcel.payment.vnpay.label')}
           subtitle={t('parcel.payment.vnpay.subtitle')}
-          Icon={CreditCard}
-          iconColor={theme.colors.accentDark}
+          brand="vnpay"
           onSelect={selectVnPay}
         />
       </View>

@@ -2,6 +2,7 @@ import en from '@shared/i18n/locales/en.json';
 import vi from '@shared/i18n/locales/vi.json';
 
 import {
+  getParcelClaimAppealStatusLabelKey,
   getParcelClaimStatusLabelKey,
   getParcelCustodyEventLabelKey,
   getParcelIncidentStatusLabelKey,
@@ -42,6 +43,17 @@ describe('parcel Reliability presentation', () => {
   });
 
   it.each([
+    ['SUBMITTED', 'parcel.claim.appealStatuses.SUBMITTED'],
+    ['UNDER_REVIEW', 'parcel.claim.appealStatuses.UNDER_REVIEW'],
+    ['UPHELD', 'parcel.claim.appealStatuses.UPHELD'],
+    ['ADJUSTMENT_APPROVED', 'parcel.claim.appealStatuses.ADJUSTMENT_APPROVED'],
+    ['FUNDING_PENDING', 'parcel.claim.appealStatuses.FUNDING_PENDING'],
+    ['PAID', 'parcel.claim.appealStatuses.PAID'],
+  ])('maps appeal status %s to app-owned copy', (value, expected) => {
+    expect(getParcelClaimAppealStatusLabelKey(value)).toBe(expected);
+  });
+
+  it.each([
     ['CONFIRMED_SCAN', 'parcel.reliability.confidenceDescriptions.CONFIRMED_SCAN'],
     ['MANUAL_EXCEPTION', 'parcel.reliability.confidenceDescriptions.MANUAL_EXCEPTION'],
     ['INFERRED_FROM_MANIFEST', 'parcel.reliability.confidenceDescriptions.INFERRED_FROM_MANIFEST'],
@@ -50,17 +62,27 @@ describe('parcel Reliability presentation', () => {
   });
 
   it.each([
-    ['OPEN', 'ON_TRACK', true],
-    ['SEARCHING', 'DUE_SOON', true],
-    ['ESCALATED', 'ON_TRACK', true],
-    ['OPEN', 'BREACHED', false],
-    ['SEARCH_EXPIRED', 'BREACHED', false],
-    ['FOUND', 'ON_TRACK', false],
-    ['FORWARDING', 'ON_TRACK', false],
-    ['RESOLVED', 'CLOSED', false],
-    ['NEW_INTERNAL_STATE', 'ON_TRACK', false],
-  ])('shows a search deadline for status %s and SLA %s: %s', (status, slaState, expected) => {
-    expect(shouldShowParcelIncidentSearchDeadline(status, slaState)).toBe(expected);
+    ['OPEN', 'ON_TRACK', '2026-08-30T09:00:00Z', true],
+    ['SEARCHING', 'DUE_SOON', '2026-08-30T09:00:00Z', true],
+    ['ESCALATED', 'ON_TRACK', '2026-08-30T09:00:00Z', true],
+    ['OPEN', 'NOT_STARTED', null, false],
+    ['OPEN', 'BREACHED', '2026-08-30T09:00:00Z', false],
+    ['SEARCH_EXPIRED', 'BREACHED', '2026-08-30T09:00:00Z', false],
+    ['FOUND', 'ON_TRACK', '2026-08-30T09:00:00Z', false],
+    ['FORWARDING', 'ON_TRACK', '2026-08-30T09:00:00Z', false],
+    ['RESOLVED', 'CLOSED', '2026-08-30T09:00:00Z', false],
+    ['NEW_INTERNAL_STATE', 'ON_TRACK', '2026-08-30T09:00:00Z', false],
+  ])('shows a deadline for status %s, SLA %s, value %s: %s', (
+    status,
+    slaState,
+    searchDeadline,
+    expected,
+  ) => {
+    expect(shouldShowParcelIncidentSearchDeadline(
+      status,
+      slaState,
+      searchDeadline,
+    )).toBe(expected);
   });
 
   it('never echoes unknown wire tokens back to the UI', () => {
@@ -74,6 +96,9 @@ describe('parcel Reliability presentation', () => {
     );
     expect(getParcelClaimStatusLabelKey(unknownToken)).toBe(
       'parcel.claim.statuses.UNKNOWN',
+    );
+    expect(getParcelClaimAppealStatusLabelKey(unknownToken)).toBe(
+      'parcel.claim.appealStatuses.UNKNOWN',
     );
     expect(getParcelTrackingConfidenceDescriptionKey(unknownToken)).toBe(
       'parcel.reliability.confidenceDescriptions.UNKNOWN',

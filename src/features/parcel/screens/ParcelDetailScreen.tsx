@@ -31,7 +31,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { ScannableCodeCard, StatusChip } from '@shared/components';
+import { ScannableCodeCard, StatusChip, VnPayLogo } from '@shared/components';
 import {
   useIsAppActive,
   useNetworkStatus,
@@ -1091,11 +1091,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
                   ]}
                   onPress={handleContinuePaymentPress}
                 >
-                  <CreditCard
-                    size={18}
-                    color={theme.colors.textInverse}
-                    weight="bold"
-                  />
+                  <VnPayLogo size="compact" />
                   <Text style={styles.trackButtonText}>
                     {t('parcel.payment.openVnPayAgain')}
                   </Text>
@@ -1193,11 +1189,15 @@ export function ParcelDetailScreen(): React.JSX.Element {
                         color={theme.colors.textInverse}
                       />
                     ) : (
-                      <CreditCard
-                        size={18}
-                        color={theme.colors.textInverse}
-                        weight="bold"
-                      />
+                      selectedPaymentMethod === 'vnpay' ? (
+                        <VnPayLogo size="compact" />
+                      ) : (
+                        <CreditCard
+                          size={18}
+                          color={theme.colors.textInverse}
+                          weight="bold"
+                        />
+                      )
                     )}
                     <Text style={styles.trackButtonText}>
                       {isStartingPayment

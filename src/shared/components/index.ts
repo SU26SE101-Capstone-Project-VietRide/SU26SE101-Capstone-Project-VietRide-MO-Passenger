@@ -12,6 +12,7 @@ export {
 } from './AppKeyboardAwareScrollView';
 export { ScannableCodeCard } from './ScannableCodeCard';
 export { StatusChip, type StatusChipTone } from './StatusChip';
+export { VnPayLogo, type VnPayLogoSize } from './VnPayLogo';
 export { VectorImage } from './VectorImage';
 export { CustomTabBar } from './CustomTabBar';
 export { GlassCarouselSection } from './GlassCarouselSection';
@@ -23,4 +24,3 @@ export {
   PhotoPicker,
   type PhotoPickerProps,
 } from './PhotoPicker';
-

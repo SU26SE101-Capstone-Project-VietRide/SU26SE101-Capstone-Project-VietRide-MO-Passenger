@@ -2,7 +2,7 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { QrCode, Wallet } from 'phosphor-react-native';
+import { Wallet } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useWalletBalance } from '@features/profile/hooks/useWallet';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
@@ -14,6 +14,7 @@ import { normalizePromoCode } from '@shared/utils/promo';
 import { formatVnd } from '@shared/utils/format';
 import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
+import { VnPayLogo } from '@shared/components';
 import { BookingLegSummaryCard, FloatingActionBar } from '../components';
 import { useBookingStore } from '../store/useBookingStore';
 import { PromoCodeInput } from '../../parcel/components/PromoCodeInput';
@@ -575,8 +576,7 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
             selected={paymentMethod === 'vnpay'}
             label={t('booking.paymentScreen.vnpayLabel')}
             sub={t('booking.paymentScreen.vnpayDescription')}
-            Icon={QrCode}
-            iconColor={theme.accents.finance.foreground}
+            brand="vnpay"
             onSelect={selectVnpay}
           />
           <PaymentOption
@@ -673,8 +673,9 @@ interface PaymentOptionProps {
   disabled?: boolean;
   label: string;
   sub: string;
-  Icon: React.ElementType;
-  iconColor: string;
+  brand?: 'vnpay';
+  Icon?: React.ElementType;
+  iconColor?: string;
   onSelect: () => void;
 }
 
@@ -683,6 +684,7 @@ const PaymentOption = memo(function PaymentOptionComponent({
   disabled = false,
   label,
   sub,
+  brand,
   Icon,
   iconColor,
   onSelect,
@@ -710,7 +712,11 @@ const PaymentOption = memo(function PaymentOptionComponent({
         {selected ? <View style={styles.paymentRadioDot} /> : null}
       </View>
       <View style={styles.paymentIconBackground}>
-        <Icon size={20} color={iconColor} weight="bold" />
+        {brand === 'vnpay'
+          ? <VnPayLogo />
+          : Icon && iconColor
+            ? <Icon size={20} color={iconColor} weight="bold" />
+            : null}
       </View>
       <View style={styles.paymentOptionText}>
         <Text style={styles.paymentTitle}>{label}</Text>

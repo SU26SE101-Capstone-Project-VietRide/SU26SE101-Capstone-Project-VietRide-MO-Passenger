@@ -51,6 +51,7 @@ import type {
   MainTabParamList,
   RootStackParamList,
 } from '@app/navigation/types';
+import { VnPayLogo } from '@shared/components';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useBookingHistory } from '@features/booking/hooks/useBookingHistory';
 import { getTicketStatusPresentation } from '@features/booking/utils/ticketPresentation';
@@ -718,11 +719,7 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
                   color={theme.colors.textInverse}
                 />
               ) : (
-                <CreditCard
-                  size={15}
-                  color={theme.colors.textInverse}
-                  weight="bold"
-                />
+                <VnPayLogo size="compact" />
               )}
               <Text style={styles.trackButtonText} numberOfLines={2}>
                 {t('bookingHistory.continuePayment')}
