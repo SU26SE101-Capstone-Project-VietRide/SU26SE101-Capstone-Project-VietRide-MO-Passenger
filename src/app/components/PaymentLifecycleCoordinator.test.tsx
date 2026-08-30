@@ -346,6 +346,55 @@ describe('PaymentLifecycleCoordinator', () => {
     queryClient.clear();
   });
 
+  it('waits for owner cache refresh before opening a retained payment destination', async () => {
+    const pending = {
+      sessionId: '33333333-3333-4333-8333-333333333333',
+      ownerUserId: mockAuthState.user.id,
+      kind: 'parcel_deposit' as const,
+      businessId: '44444444-4444-4444-8444-444444444444',
+      createdAt: '2026-08-15T00:00:00.000Z',
+      paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+      vnpaySdk: { tmnCode: 'tmn', scheme: 'vietride', isSandbox: true },
+    };
+    mockReconcilePendingVnPaySession.mockResolvedValue({
+      pending,
+      status: { sessionId: pending.sessionId, status: 'PENDING' },
+      cleared: false,
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    let resolveInvalidation: (() => void) | undefined;
+    const invalidation = new Promise<void>((resolve) => {
+      resolveInvalidation = resolve;
+    });
+    jest.spyOn(queryClient, 'invalidateQueries').mockReturnValue(invalidation);
+
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    await ReactTestRenderer.act(async () => {
+      renderer = ReactTestRenderer.create(
+        <QueryClientProvider client={queryClient}>
+          <PaymentLifecycleCoordinator />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockOpenPendingPaymentDestination).not.toHaveBeenCalled();
+
+    await ReactTestRenderer.act(async () => {
+      resolveInvalidation?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockOpenPendingPaymentDestination).toHaveBeenCalledWith(pending);
+
+    ReactTestRenderer.act(() => renderer!.unmount());
+    queryClient.clear();
+  });
+
   it('keeps a retained cold-start session resumable when status is temporarily unknown', async () => {
     const pending = {
       sessionId: '33333333-3333-4333-8333-333333333333',

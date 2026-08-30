@@ -117,6 +117,18 @@ describe('booking payment reconciliation', () => {
     });
   });
 
+  it('never downgrades a confirmed History snapshot back to pending', () => {
+    const confirmedItem = reconcilePassengerHistoryBookingStatus(
+      pendingHistoryItem,
+      status(oneWayResult.bookingId, 'CONFIRMED'),
+    );
+
+    expect(reconcilePassengerHistoryBookingStatus(
+      confirmedItem,
+      status(oneWayResult.bookingId, 'PENDING_PAYMENT'),
+    )).toBe(confirmedItem);
+  });
+
   it('treats EXPIRED as a definitive checkout payment expiry', () => {
     expect(resolveBookingPayment([
       status(oneWayResult.bookingId, 'EXPIRED'),

@@ -36,6 +36,7 @@ import {
 } from '@shared/notifications';
 import { parseFcmNotificationAction } from '@shared/notifications/notificationAction';
 import { useAppStore } from '@shared/store';
+import { shouldRefreshPassengerBookingHistory } from './notificationHistoryRefresh';
 
 const logNotificationWarning = (message: string): void => {
   if (__DEV__) console.warn(`[Notifications] ${message}`);
@@ -316,12 +317,7 @@ export function NotificationCoordinator(): null {
       queryClient.invalidateQueries({ queryKey: notificationKeys.user(userId) });
     };
     const refreshPassengerHistory = (notificationType: string): void => {
-      if (
-        notificationType === 'BOOKING_CONFIRMED'
-        || notificationType === 'BOOKING_CREATED'
-        || notificationType === 'BOOKING_CANCELLED'
-        || notificationType === 'BOOKING_REFUNDED'
-      ) {
+      if (shouldRefreshPassengerBookingHistory(notificationType)) {
         queryClient.invalidateQueries({
           queryKey: bookingHistoryKeys.user(userId),
         }).catch(() => undefined);

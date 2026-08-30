@@ -82,7 +82,7 @@ describe('passengerHistoryApi', () => {
     expect(getMock).not.toHaveBeenCalled();
   });
 
-  it('keeps the nested vehicle summary returned for ticket history', () => {
+  it('keeps the nested vehicle summary and nullable operational seat', () => {
     const page = parsePassengerHistoryPage({
       ...emptyPage,
       items: [{
@@ -106,7 +106,7 @@ describe('passengerHistoryApi', () => {
           tickets: [{
             ticketId: '33333333-3333-4333-8333-333333333333',
             ticketCode: 'VT-VEHICLE-01',
-            seatNumber: 'A01',
+            seatNumber: null,
             status: 'ISSUED',
             paidAmount: 350_000,
           }],
@@ -134,6 +134,9 @@ describe('passengerHistoryApi', () => {
             displayName: 'Limousine',
           },
         },
+        tickets: [{
+          seatNumber: null,
+        }],
       },
     });
   });

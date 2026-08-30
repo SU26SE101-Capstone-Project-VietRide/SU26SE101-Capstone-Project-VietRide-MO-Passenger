@@ -3,7 +3,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
 import { ApiRequestError } from '@shared/api/errors';
+import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import type { BookingResult, BookingStatusResult } from '../types';
+import { BOOKING_PAYMENT_POLL_DELAYS_MS } from '../utils/bookingPayment';
 import {
   useBookingPaymentReconciliation,
   type BookingPaymentReconciliationState,
@@ -12,6 +14,10 @@ import {
 const mockGetBookingStatus = jest.fn<
   Promise<BookingStatusResult>,
   [string, AbortSignal?]
+>();
+const mockGetRecentBookingHistoryItemsByIds = jest.fn<
+  Promise<PassengerTicketHistoryItem[]>,
+  [readonly string[], AbortSignal?]
 >();
 let mockFocused = true;
 let mockOnline = true;
@@ -63,6 +69,22 @@ jest.mock('../api/bookingApi', () => ({
     mockGetBookingStatus(bookingId, signal),
 }));
 
+jest.mock('../api/bookingHistoryApi', () => ({
+  bookingHistoryKeys: {
+    paymentRefresh: (userId: string, bookingIds: readonly string[]) => [
+      'bookings',
+      'history',
+      userId,
+      'payment-refresh',
+      ...bookingIds,
+    ],
+  },
+  getRecentBookingHistoryItemsByIds: (
+    bookingIds: readonly string[],
+    signal?: AbortSignal,
+  ) => mockGetRecentBookingHistoryItemsByIds(bookingIds, signal),
+}));
+
 const pendingBooking: BookingResult = {
   bookingId: '11111111-1111-4111-8111-111111111111',
   bookingCode: 'VR-PENDING',
@@ -77,6 +99,53 @@ const pendingBooking: BookingResult = {
 const confirmedStatus: BookingStatusResult = {
   bookingId: pendingBooking.bookingId,
   status: 'CONFIRMED',
+};
+const pendingStatus: BookingStatusResult = {
+  bookingId: pendingBooking.bookingId,
+  status: 'PENDING_PAYMENT',
+};
+const freshHistoryItem: PassengerTicketHistoryItem = {
+  id: pendingBooking.bookingId,
+  code: pendingBooking.bookingCode,
+  tripId: '44444444-4444-4444-8444-444444444444',
+  createdAt: '2026-08-31T02:00:00.000Z',
+  totalAmount: pendingBooking.totalAmount,
+  originName: 'Ho Chi Minh City',
+  destinationName: 'Da Lat',
+  departureDateTime: '2026-09-01T01:00:00.000Z',
+  estimatedArrivalTime: null,
+  paymentRedirectUrl: null,
+  trackingTarget: null,
+  type: 'TICKET',
+  status: 'CONFIRMED',
+  ticket: {
+    bookingGroupId: null,
+    tripDirection: 'OUTBOUND',
+    routeName: 'Ho Chi Minh City - Da Lat',
+    tickets: [{
+      ticketId: '55555555-5555-4555-8555-555555555555',
+      ticketCode: 'VR-FRESH-1',
+      seatNumber: 'A01',
+      status: 'ISSUED',
+      paidAmount: pendingBooking.totalAmount,
+    }],
+    vehicle: null,
+    shuttleRequests: [],
+  },
+  parcel: null,
+};
+const staleHistoryItem: PassengerTicketHistoryItem = {
+  ...freshHistoryItem,
+  status: 'PENDING_PAYMENT',
+  paymentRedirectUrl: pendingBooking.paymentRedirectUrl,
+  ticket: {
+    ...freshHistoryItem.ticket,
+    tickets: freshHistoryItem.ticket.tickets.map(ticket => ({
+      ...ticket,
+      status: 'PENDING_PAYMENT',
+      paidAmount: 0,
+    })),
+  },
 };
 
 const secondPendingBooking: BookingResult = {
@@ -114,6 +183,8 @@ describe('useBookingPaymentReconciliation lifecycle', () => {
     mockAppActive = true;
     mockUserId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     mockGetBookingStatus.mockReset();
+    mockGetRecentBookingHistoryItemsByIds.mockReset();
+    mockGetRecentBookingHistoryItemsByIds.mockResolvedValue([]);
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -152,6 +223,87 @@ describe('useBookingPaymentReconciliation lifecycle', () => {
 
     expect(latest?.phase).toBe('confirmed');
     expect(latest?.isChecking).toBe(false);
+  });
+
+  it('fetches the full fresh history DTO after payment confirms and replaces detail cache', async () => {
+    let resolveFreshHistory: ((items: PassengerTicketHistoryItem[]) => void) | undefined;
+    mockGetBookingStatus.mockResolvedValue(confirmedStatus);
+    mockGetRecentBookingHistoryItemsByIds.mockReturnValue(new Promise(resolve => {
+      resolveFreshHistory = resolve;
+    }));
+    const snapshotKey = [
+      'bookings',
+      'history',
+      mockUserId,
+      'ticket-snapshot',
+      pendingBooking.bookingId,
+    ];
+    queryClient.setQueryData(snapshotKey, staleHistoryItem);
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(tree());
+      await flushAsyncWork();
+    });
+
+    expect(queryClient.getQueryData(snapshotKey)).toEqual(staleHistoryItem);
+
+    await act(async () => {
+      resolveFreshHistory?.([freshHistoryItem]);
+      await flushAsyncWork();
+      await flushAsyncWork();
+    });
+
+    expect(mockGetRecentBookingHistoryItemsByIds).toHaveBeenCalledWith(
+      [pendingBooking.bookingId],
+      expect.any(AbortSignal),
+    );
+    expect(latest?.freshHistoryItems).toEqual([freshHistoryItem]);
+    expect(queryClient.getQueryData(snapshotKey)).toEqual(freshHistoryItem);
+  });
+
+  it('keeps a focused pending ticket fresh after the bounded return poll ends', async () => {
+    jest.useFakeTimers();
+    let requestCount = 0;
+    mockGetBookingStatus.mockImplementation(async () => {
+      requestCount += 1;
+      return requestCount <= 8 ? pendingStatus : confirmedStatus;
+    });
+
+    try {
+      await act(async () => {
+        renderer = ReactTestRenderer.create(tree());
+        await Promise.resolve();
+      });
+
+      expect(mockGetBookingStatus).toHaveBeenCalledTimes(1);
+
+      for (const delayMs of BOOKING_PAYMENT_POLL_DELAYS_MS.slice(1)) {
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(delayMs);
+        });
+      }
+
+      expect(mockGetBookingStatus).toHaveBeenCalledTimes(8);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(5_000);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+
+      expect(mockGetBookingStatus).toHaveBeenCalledTimes(9);
+      expect(queryClient.getQueryData([
+        'bookings',
+        mockUserId,
+        'payment-status',
+        pendingBooking.bookingId,
+      ])).toEqual([confirmedStatus]);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('starts a fresh bounded check when VNPay returns during an older poll', async () => {

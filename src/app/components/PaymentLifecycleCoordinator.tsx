@@ -43,10 +43,10 @@ export function PaymentLifecycleCoordinator(): null {
   ) => void>(() => undefined);
   const runGenerationRef = useRef(0);
 
-  const invalidatePaymentOwner = useCallback((
+  const invalidatePaymentOwner = useCallback(async (
     ownerUserId: string,
     pending: PendingVnPaySession,
-  ): void => {
+  ): Promise<void> => {
     const invalidations: Array<Promise<void>> = [];
     if (pending.kind === 'booking') {
       invalidations.push(
@@ -64,7 +64,7 @@ export function PaymentLifecycleCoordinator(): null {
       );
     }
 
-    Promise.all(invalidations).catch(() => undefined);
+    await Promise.allSettled(invalidations);
   }, [queryClient]);
 
   const wakePaymentLifecycle = useCallback((
@@ -112,7 +112,7 @@ export function PaymentLifecycleCoordinator(): null {
               ? {}
               : { delaysMs: PASSIVE_PAYMENT_CHECK_DELAYS_MS }),
         }))
-      .then((result) => {
+      .then(async (result) => {
         if (
           !mountedRef.current
           || runGenerationRef.current !== generation
@@ -125,7 +125,14 @@ export function PaymentLifecycleCoordinator(): null {
           ? result.pending
           : null;
         if (ownerPending) {
-          invalidatePaymentOwner(ownerUserId, ownerPending);
+          await invalidatePaymentOwner(ownerUserId, ownerPending);
+          if (
+            !mountedRef.current
+            || runGenerationRef.current !== generation
+            || useAuthStore.getState().user?.id !== ownerUserId
+          ) {
+            return;
+          }
         }
 
         const isUnresolvedPending = Boolean(

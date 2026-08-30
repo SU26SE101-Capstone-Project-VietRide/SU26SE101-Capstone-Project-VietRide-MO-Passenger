@@ -154,6 +154,7 @@ export const parcelDetailQueryOptions = (
     staleTime: PARCEL_DETAIL_STALE_TIME_MS,
     gcTime: 5 * 60 * 1000,
     retry: 1,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });

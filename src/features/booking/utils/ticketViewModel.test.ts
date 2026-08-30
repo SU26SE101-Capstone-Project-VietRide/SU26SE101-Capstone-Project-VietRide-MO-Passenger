@@ -11,6 +11,7 @@ import {
   buildCheckoutTicketViewModel,
   buildHistoryTicketViewModel,
   buildPassengerHistoryTicketViewModel,
+  hydrateCheckoutBookingResultFromHistory,
 } from './ticketViewModel';
 import { canShowBoardingQr } from './ticketPresentation';
 
@@ -322,6 +323,64 @@ describe('passenger history ticket view model', () => {
     expect(model.isPendingPayment).toBe(false);
     expect(model.bookingStatus).toBe('CANCELLED');
     expect(model.legs[0].trackingEnabled).toBe(false);
+  });
+
+  it('hydrates the stale checkout ticket from the fresh BE history DTO', () => {
+    const staleResult = {
+      bookingId: historyItem.id,
+      bookingCode: historyItem.code,
+      status: 'CONFIRMED' as const,
+      totalAmount: 250_000,
+      discountAmount: 0,
+      paymentId: '99999999-9999-4999-8999-999999999999',
+      paymentRedirectUrl: 'https://sandbox.vnpayment.vn/pay',
+      tickets: [{
+        ticketId: historyItem.ticket.tickets[0].ticketId,
+        ticketCode: historyItem.ticket.tickets[0].ticketCode,
+        seatNumber: 'OLD-SEAT',
+        status: 'PENDING_PAYMENT',
+        fareAmount: 250_000,
+        discountAmount: 0,
+        paidAmount: 0,
+      }],
+    };
+
+    const hydrated = hydrateCheckoutBookingResultFromHistory(
+      staleResult,
+      [historyItem],
+    );
+
+    expect(hydrated).toMatchObject({
+      paymentRedirectUrl: null,
+      tickets: [{
+        seatNumber: 'A01',
+        status: 'ISSUED',
+        paidAmount: 250_000,
+      }],
+      vehicle: historyItem.ticket.vehicle,
+    });
+  });
+
+  it('renders an unresolved operational seat without falling back to the issued seat', () => {
+    const model = buildPassengerHistoryTicketViewModel({
+      ...historyItem,
+      ticket: {
+        ...historyItem.ticket,
+        tickets: [{
+          ...historyItem.ticket.tickets[0],
+          seatNumber: null,
+        }],
+      },
+    }, (key) => (
+      key === 'history.seatPendingAssignment'
+        ? 'Pending seat assignment'
+        : key
+    ));
+
+    expect(model.legs[0].seatNumbers).toBe('Pending seat assignment');
+    expect(model.legs[0].ticketEntries?.[0]?.seatNumber)
+      .toBe('Pending seat assignment');
+    expect(model.legs[0].seatNumbers).not.toContain('A01');
   });
 
   it('preserves ordered active and cancelled shuttle requests for history detail', () => {

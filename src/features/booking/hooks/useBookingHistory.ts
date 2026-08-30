@@ -6,7 +6,12 @@
  * backward-compatible Digital Ticket routes that do not carry a live history
  * snapshot. BE still has no individual passenger ticket-detail endpoint.
  */
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { isDemoMode } from '@shared/constants/demoMode';
@@ -22,6 +27,11 @@ import {
   type BookingHistoryTicketDetail,
 } from '../data/bookingHistoryFixture';
 import type { BookingHistoryItem } from '../types/booking';
+import {
+  selectFresherBookingHistoryTicketSnapshot,
+  upsertBookingHistoryTicketSnapshot,
+} from '../utils/bookingHistoryCache';
+import type { PassengerTicketHistoryItem } from '@features/profile/types';
 
 export type BookingHistoryUnavailableReason =
   | 'authentication_required'
@@ -120,4 +130,34 @@ export function useBookingHistoryTicket(bookingId: string, enabled = true) {
     retry: false,
     enabled,
   });
+}
+
+export function useBookingHistoryTicketSnapshot(
+  bookingId: string,
+  initialItem?: PassengerTicketHistoryItem,
+): PassengerTicketHistoryItem | null {
+  const userId = useAuthStore((state) => state.user?.id);
+  const queryClient = useQueryClient();
+  const queryKey = useMemo(
+    () => bookingHistoryKeys.ticketSnapshot(userId ?? 'guest', bookingId),
+    [bookingId, userId],
+  );
+  const snapshotQuery = useQuery<PassengerTicketHistoryItem | null>({
+    queryKey,
+    queryFn: async () => initialItem ?? null,
+    initialData: initialItem ?? null,
+    enabled: false,
+    staleTime: Infinity,
+    gcTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!userId || initialItem?.id !== bookingId) return;
+    upsertBookingHistoryTicketSnapshot(queryClient, userId, initialItem);
+  }, [bookingId, initialItem, queryClient, userId]);
+
+  return selectFresherBookingHistoryTicketSnapshot(
+    snapshotQuery.data,
+    initialItem,
+  );
 }

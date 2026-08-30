@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, StyleSheet } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
 const mockUseParcelRoleHistory = jest.fn();
@@ -205,9 +206,16 @@ import { BookingHistoryScreen } from './BookingHistoryScreen';
 
 const renderScreen = async (): Promise<ReactTestRenderer.ReactTestRenderer> => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
 
   await act(async () => {
-    renderer = ReactTestRenderer.create(<BookingHistoryScreen />);
+    renderer = ReactTestRenderer.create(
+      <QueryClientProvider client={queryClient}>
+        <BookingHistoryScreen />
+      </QueryClientProvider>,
+    );
   });
 
   return renderer!;

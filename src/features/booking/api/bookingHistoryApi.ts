@@ -10,6 +10,7 @@ import type {
   PassengerTicketHistoryItem,
   PassengerTicketStatus,
 } from '@features/profile/types';
+export { bookingHistoryKeys } from './bookingHistoryKeys';
 
 const PAGE_SIZE_MAX = 100;
 const moneySchema = z.number().int().nonnegative().safe();
@@ -44,7 +45,8 @@ const bookingHistoryItemSchema = z.object({
   tickets: z.array(z.object({
     ticketId: z.string().uuid(),
     ticketCode: z.string().trim().min(1).max(100),
-    seatNumber: z.string().trim().min(1).max(50),
+    // Passenger.SeatNumber is the operational seat and can be unresolved after substitution.
+    seatNumber: z.string().trim().min(1).max(50).nullable(),
     status: statusSchema,
     paidAmount: moneySchema,
   })),
@@ -89,18 +91,6 @@ export interface BookingHistoryQuery {
   page?: number;
   pageSize?: number;
 }
-
-export const bookingHistoryKeys = {
-  root: ['bookings', 'history'] as const,
-  user: (userId: string) => [...bookingHistoryKeys.root, userId] as const,
-  list: (userId: string, query: Omit<BookingHistoryQuery, 'page'>) => [
-    ...bookingHistoryKeys.user(userId),
-    query.status ?? 'all',
-    query.from ?? 'any-from',
-    query.to ?? 'any-to',
-    query.pageSize ?? 10,
-  ] as const,
-};
 
 const mapShuttleRequests = (
   requests: z.infer<typeof bookingHistoryShuttleRequestSchema>[],
@@ -171,4 +161,28 @@ export async function getBookingHistory(
     ...(signal ? { signal } : {}),
   });
   return parseBookingHistoryPage(unwrapApiResponse(response.data));
+}
+
+/**
+ * Payment return only needs the booking(s) created immediately before VNPay
+ * opened. BE orders passenger history by CreatedAt descending, so one fresh
+ * maximum-size page gives us the full authoritative ticket DTO without
+ * pretending the minimal status projection is a detail response.
+ */
+export async function getRecentBookingHistoryItemsByIds(
+  bookingIds: readonly string[],
+  signal?: AbortSignal,
+): Promise<PassengerTicketHistoryItem[]> {
+  const requestedIds = new Set(
+    bookingIds
+      .map(bookingId => bookingId.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  if (requestedIds.size === 0) return [];
+
+  const page = await getBookingHistory(
+    { page: 1, pageSize: PAGE_SIZE_MAX },
+    signal,
+  );
+  return page.items.filter(item => requestedIds.has(item.id.toLowerCase()));
 }

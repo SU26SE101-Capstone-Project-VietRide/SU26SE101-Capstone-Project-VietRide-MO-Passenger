@@ -8,6 +8,11 @@ import { ApiRequestError, getLocalizedApiErrorMessage } from '@shared/api/errors
 import { useIsAppActive, useNetworkStatus } from '@shared/hooks';
 import { addVnPaySdkPaymentBackListener } from '@shared/payments';
 import { bookingKeys, getBookingStatus } from '../api/bookingApi';
+import {
+  bookingHistoryKeys,
+  getRecentBookingHistoryItemsByIds,
+} from '../api/bookingHistoryApi';
+import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import type {
   BookingResult,
   BookingStatus,
@@ -18,11 +23,18 @@ import {
   getBookingIds,
   isRetryableBookingStatusError,
   pollBookingPayment,
+  reconcilePassengerHistoryBookingStatus,
   resolveBookingPayment,
 } from '../utils/bookingPayment';
+import {
+  updateBookingHistoryTicketCaches,
+  upsertBookingHistoryTicketEverywhere,
+} from '../utils/bookingHistoryCache';
 
 const BOOKING_STATUS_GC_TIME_MS = 10 * 60 * 1000;
+const BOOKING_STATUS_STEADY_POLL_MS = 5_000;
 const EMPTY_BOOKING_STATUSES: readonly BookingStatusResult[] = [];
+const EMPTY_HISTORY_ITEMS: readonly PassengerTicketHistoryItem[] = [];
 const BOOKING_PAYMENT_ERROR_KEYS: Readonly<Record<string, string>> = {
   BOOKING_STATUS_CONTRACT_MISMATCH: 'booking.paymentStatus.contractMismatch',
   BOOKING_STATUS_UNAVAILABLE: 'booking.paymentStatus.unavailable',
@@ -32,6 +44,7 @@ export interface BookingPaymentReconciliationState {
   phase: 'idle' | 'pending' | 'confirmed' | 'expired' | 'inactive' | 'unavailable';
   terminalStatus?: BookingStatus;
   statuses: readonly BookingStatusResult[];
+  freshHistoryItems: readonly PassengerTicketHistoryItem[];
   isChecking: boolean;
   isOnline: boolean;
   errorMessage?: string;
@@ -87,6 +100,22 @@ function useBookingStatusReconciliation({
   });
   const refetchStatus = statusQuery.refetch;
 
+  useEffect(() => {
+    if (!userId || !statusQuery.data) return;
+    statusQuery.data.forEach(statusResult => {
+      // A confirmed payment must be replaced by the full BE history DTO below.
+      // Do not stamp a synthetic CONFIRMED state into the shared detail cache
+      // before that authoritative request finishes.
+      if (statusResult.status === 'CONFIRMED') return;
+      updateBookingHistoryTicketCaches(
+        queryClient,
+        userId,
+        statusResult.bookingId,
+        item => reconcilePassengerHistoryBookingStatus(item, statusResult),
+      );
+    });
+  }, [queryClient, statusQuery.data, userId]);
+
   const resolution = useMemo(() => {
     if (!status) return { phase: 'idle' as const };
     if (status === 'CONFIRMED') return { phase: 'confirmed' as const };
@@ -95,6 +124,52 @@ function useBookingStatusReconciliation({
     }
     return resolveBookingPayment(statusQuery.data ?? []);
   }, [status, statusQuery.data, statusQuery.error]);
+
+  const freshHistoryQuery = useQuery({
+    queryKey: bookingHistoryKeys.paymentRefresh(userId ?? 'none', bookingIds),
+    queryFn: ({ signal }) => getRecentBookingHistoryItemsByIds(bookingIds, signal),
+    enabled: Boolean(
+      userId
+      && bookingIds.length > 0
+      && resolution.phase === 'confirmed',
+    ),
+    staleTime: 5_000,
+    gcTime: BOOKING_STATUS_GC_TIME_MS,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (!userId || !freshHistoryQuery.isFetched) return;
+    const freshItems = freshHistoryQuery.data ?? [];
+    const freshIds = new Set(freshItems.map(item => item.id.toLowerCase()));
+    freshItems.forEach(item => {
+      upsertBookingHistoryTicketEverywhere(queryClient, userId, item);
+    });
+
+    // Fail safe: if the recent history page cannot contain a confirmed ID or
+    // the detail refresh failed, preserve the status endpoint's truth instead
+    // of leaving the old cache at PENDING_PAYMENT.
+    statusQuery.data?.forEach(statusResult => {
+      if (
+        statusResult.status !== 'CONFIRMED'
+        || freshIds.has(statusResult.bookingId.toLowerCase())
+      ) {
+        return;
+      }
+      updateBookingHistoryTicketCaches(
+        queryClient,
+        userId,
+        statusResult.bookingId,
+        item => reconcilePassengerHistoryBookingStatus(item, statusResult),
+      );
+    });
+  }, [
+    freshHistoryQuery.data,
+    freshHistoryQuery.isFetched,
+    queryClient,
+    statusQuery.data,
+    userId,
+  ]);
 
   const canReconcile = Boolean(
     status === 'PENDING_PAYMENT'
@@ -165,9 +240,48 @@ function useBookingStatusReconciliation({
 
   useEffect(() => {
     if (!canReconcile || resolution.phase !== 'pending') return undefined;
-    checkNow().catch(() => undefined);
-    return cancelReconciliation;
-  }, [canReconcile, cancelReconciliation, checkNow, resolution.phase]);
+    let cancelled = false;
+    let steadyPollId: ReturnType<typeof setInterval> | undefined;
+
+    checkNow()
+      .then(() => {
+        if (cancelled) return;
+        const latestStatuses =
+          queryClient.getQueryData<BookingStatusResult[]>(queryKey) ?? [];
+        if (resolveBookingPayment(latestStatuses).phase !== 'pending') return;
+
+        steadyPollId = setInterval(() => {
+          if (inFlightRef.current) return;
+          refetchStatus()
+            .then(result => {
+              if (
+                result.data
+                && resolveBookingPayment(result.data).phase !== 'pending'
+                && steadyPollId
+              ) {
+                clearInterval(steadyPollId);
+                steadyPollId = undefined;
+              }
+            })
+            .catch(() => undefined);
+        }, BOOKING_STATUS_STEADY_POLL_MS);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+      if (steadyPollId) clearInterval(steadyPollId);
+      cancelReconciliation();
+    };
+  }, [
+    canReconcile,
+    cancelReconciliation,
+    checkNow,
+    queryClient,
+    queryKey,
+    refetchStatus,
+    resolution.phase,
+  ]);
 
   useEffect(() => {
     const subscription = addVnPaySdkPaymentBackListener(() => {
@@ -195,6 +309,7 @@ function useBookingStatusReconciliation({
       ? resolution.terminalStatus
       : undefined,
     statuses: statusQuery.data ?? EMPTY_BOOKING_STATUSES,
+    freshHistoryItems: freshHistoryQuery.data ?? EMPTY_HISTORY_ITEMS,
     isChecking,
     isOnline,
     errorMessage,

@@ -52,6 +52,7 @@ import {
   useBookingPaymentReconciliation,
   usePendingHistoryBookingReconciliation,
 } from '../hooks/useBookingPaymentReconciliation';
+import { useBookingHistoryTicketSnapshot } from '../hooks/useBookingHistory';
 import { useCancelBooking } from '../hooks/useCancelBooking';
 import { useBookingStore } from '../store/useBookingStore';
 import type { BookingResult, RoundTripResult } from '../types';
@@ -59,6 +60,7 @@ import {
   buildCheckoutTicketViewModel,
   buildPassengerHistoryTicketViewModel,
   buildTicketPages,
+  hydrateCheckoutBookingResultFromHistory,
   type TicketLegViewModel,
   type TicketPageViewModel,
   type TicketViewModel,
@@ -854,7 +856,7 @@ function CheckoutTicketContent(): React.JSX.Element {
     userId,
   ]);
 
-  const effectiveBookingResult = useMemo<BookingResult | RoundTripResult | null>(() => {
+  const statusReconciledBookingResult = useMemo<BookingResult | RoundTripResult | null>(() => {
     if (
       paymentReconciliation.phase !== 'confirmed'
       || bookingResult?.status !== 'PENDING_PAYMENT'
@@ -864,6 +866,13 @@ function CheckoutTicketContent(): React.JSX.Element {
 
     return { ...bookingResult, status: 'CONFIRMED' };
   }, [bookingResult, paymentReconciliation.phase]);
+  const effectiveBookingResult = useMemo(
+    () => hydrateCheckoutBookingResultFromHistory(
+      statusReconciledBookingResult,
+      paymentReconciliation.freshHistoryItems,
+    ),
+    [paymentReconciliation.freshHistoryItems, statusReconciledBookingResult],
+  );
 
   const model = useMemo(
     () => buildCheckoutTicketViewModel(
@@ -1038,15 +1047,16 @@ function HistoryTicketContent({
   const { t } = useTranslation();
   const navigation = useNavigation<DigitalTicketNavigation>();
   const cancelMutation = useCancelBooking();
+  const liveHistoryItem = useBookingHistoryTicketSnapshot(bookingId, historyItem);
   const paymentReconciliation = usePendingHistoryBookingReconciliation(
     bookingId,
-    historyItem?.status === 'PENDING_PAYMENT',
+    liveHistoryItem?.status === 'PENDING_PAYMENT',
   );
   const effectiveHistoryItem = useMemo(() => {
-    if (!historyItem) return undefined;
+    if (!liveHistoryItem) return undefined;
 
     const reconciledItem = reconcilePassengerHistoryBookingStatus(
-      historyItem,
+      liveHistoryItem,
       paymentReconciliation.statuses[0],
     );
     if (cancelMutation.data?.bookingId !== bookingId) {
@@ -1056,7 +1066,7 @@ function HistoryTicketContent({
   }, [
     bookingId,
     cancelMutation.data,
-    historyItem,
+    liveHistoryItem,
     paymentReconciliation.statuses,
   ]);
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);

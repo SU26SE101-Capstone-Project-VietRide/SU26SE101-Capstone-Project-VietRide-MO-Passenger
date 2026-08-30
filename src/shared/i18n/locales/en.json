@@ -2124,6 +2124,7 @@
     "departureUnavailable": "Departure schedule unavailable",
     "seats": "Seats",
     "ticketSeat": "Seat {{seat}}",
+    "seatPendingAssignment": "Pending seat assignment",
     "ticketScanHint": "Show this exact code to the crew when boarding.",
     "ticketCount_one": "{{count}} ticket",
     "ticketCount_other": "{{count}} tickets",

@@ -32,6 +32,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   CalendarBlank,
@@ -54,7 +55,10 @@ import type {
 import { VnPayLogo } from '@shared/components';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useBookingHistory } from '@features/booking/hooks/useBookingHistory';
+import { upsertBookingHistoryTicketSnapshot } from '@features/booking/utils/bookingHistoryCache';
+import { formatOperationalSeatNumber } from '@features/booking/utils/operationalSeat';
 import { getTicketStatusPresentation } from '@features/booking/utils/ticketPresentation';
+import { parcelKeys } from '@features/parcel/api/parcelQueryKeys';
 import {
   getParcelClaimStatusLabelKey,
   getParcelSizePresentation,
@@ -548,9 +552,12 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
     ? item.paymentRedirectUrl
     : null;
   const seatNumbers = useMemo(
-    () =>
-      item.ticket.tickets.map(ticket => ticket.seatNumber).join(', ') ||
-      t('common.notAvailable'),
+    () => item.ticket.tickets
+      .map(ticket => formatOperationalSeatNumber(
+        ticket.seatNumber,
+        t('history.seatPendingAssignment'),
+      ))
+      .join(', ') || t('common.notAvailable'),
     [item.ticket.tickets, t],
   );
   const vehicleSummary = useMemo(() => {
@@ -1082,6 +1089,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<BookingHistoryNavigation>();
   const route = useRoute<BookingHistoryRoute>();
+  const queryClient = useQueryClient();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const handleTabBarScroll = useTabBarScrollBehavior();
@@ -1221,6 +1229,13 @@ export function BookingHistoryScreen(): React.JSX.Element {
       const historyItem = item.paymentRedirectUrl
         ? { ...item, paymentRedirectUrl: null }
         : item;
+      if (userId) {
+        upsertBookingHistoryTicketSnapshot(
+          queryClient,
+          userId,
+          historyItem,
+        );
+      }
       navigation.navigate('Booking', {
         screen: 'DigitalTicket',
         params: {
@@ -1230,7 +1245,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
         },
       });
     },
-    [navigation],
+    [navigation, queryClient, userId],
   );
 
   const handleTrack = useCallback(
@@ -1254,6 +1269,12 @@ export function BookingHistoryScreen(): React.JSX.Element {
       parcelId: string,
       trackingTarget?: PassengerParcelHistoryItem['trackingTarget'],
     ) => {
+      if (userId) {
+        queryClient.removeQueries({
+          queryKey: parcelKeys.detail(userId, parcelId),
+          exact: true,
+        });
+      }
       navigation.navigate('Parcel', {
         screen: 'ParcelDetail',
         params: {
@@ -1263,7 +1284,7 @@ export function BookingHistoryScreen(): React.JSX.Element {
         },
       });
     },
-    [navigation],
+    [navigation, queryClient, userId],
   );
 
   const handleContinuePayment = useCallback<ContinuePaymentHandler>(

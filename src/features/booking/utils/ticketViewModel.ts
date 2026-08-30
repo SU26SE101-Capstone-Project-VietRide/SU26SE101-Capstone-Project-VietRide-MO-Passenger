@@ -22,6 +22,7 @@ import type {
 } from '../types';
 import type { BookingHistoryTicketDetail } from '../data/bookingHistoryFixture';
 import { getBookingReference } from './bookingReference';
+import { formatOperationalSeatNumber } from './operationalSeat';
 import { getTicketStatusPresentation } from './ticketPresentation';
 
 export interface TicketLegViewModel {
@@ -158,6 +159,71 @@ export const confirmCheckoutBookingResult = (
     ...result,
     status: 'CONFIRMED',
     tickets: promotePaidCheckoutTickets(result.tickets),
+  };
+};
+
+const hydrateCheckoutTicketsFromHistory = (
+  tickets: readonly BookingTicketResult[],
+  historyItem: PassengerTicketHistoryItem | undefined,
+): BookingTicketResult[] => {
+  if (!historyItem) return [...tickets];
+  const freshTickets = new Map(
+    historyItem.ticket.tickets.map(ticket => [ticket.ticketId.toLowerCase(), ticket]),
+  );
+  return tickets.map(ticket => {
+    const fresh = freshTickets.get(ticket.ticketId.toLowerCase());
+    if (!fresh) return ticket;
+    return {
+      ...ticket,
+      ...(fresh.seatNumber ? { seatNumber: fresh.seatNumber } : {}),
+      status: fresh.status,
+      paidAmount: fresh.paidAmount,
+    };
+  });
+};
+
+/** Hydrates the checkout facade with the full DTO freshly read from BE history. */
+export const hydrateCheckoutBookingResultFromHistory = (
+  result: BookingResult | RoundTripResult | null,
+  historyItems: readonly PassengerTicketHistoryItem[],
+): BookingResult | RoundTripResult | null => {
+  if (!result || historyItems.length === 0) return result;
+  const byBookingId = new Map(
+    historyItems.map(item => [item.id.toLowerCase(), item]),
+  );
+
+  if ('bookingGroupId' in result) {
+    const outbound = byBookingId.get(result.outbound.bookingId.toLowerCase());
+    const returnItem = byBookingId.get(result.return.bookingId.toLowerCase());
+    if (!outbound && !returnItem) return result;
+    return {
+      ...result,
+      paymentRedirectUrl:
+        outbound?.status === 'CONFIRMED' || returnItem?.status === 'CONFIRMED'
+          ? null
+          : result.paymentRedirectUrl,
+      outbound: {
+        ...result.outbound,
+        ...(outbound ? { vehicle: outbound.ticket.vehicle } : {}),
+        tickets: hydrateCheckoutTicketsFromHistory(result.outbound.tickets, outbound),
+      },
+      return: {
+        ...result.return,
+        ...(returnItem ? { vehicle: returnItem.ticket.vehicle } : {}),
+        tickets: hydrateCheckoutTicketsFromHistory(result.return.tickets, returnItem),
+      },
+    };
+  }
+
+  const fresh = byBookingId.get(result.bookingId.toLowerCase());
+  if (!fresh) return result;
+  return {
+    ...result,
+    paymentRedirectUrl: fresh.status === 'CONFIRMED'
+      ? null
+      : fresh.paymentRedirectUrl,
+    vehicle: fresh.ticket.vehicle,
+    tickets: hydrateCheckoutTicketsFromHistory(result.tickets, fresh),
   };
 };
 
@@ -405,8 +471,8 @@ export const buildTicketPages = (model: TicketViewModel): TicketPageViewModel[] 
 };
 
 /**
- * Builds only from fields returned by GET /passenger/history. Values that the
- * facade does not own (payment method, stop address/id) stay absent so the
+ * Builds only from fields returned by passenger Booking History. Values that
+ * the history contract does not own (payment method, stop address/id) stay absent so the
  * ticket UI can omit them instead of fabricating details. Vehicle metadata is
  * sourced only from the nullable ticket.vehicle snapshot returned by BE.
  *
@@ -420,6 +486,7 @@ export const buildPassengerHistoryTicketViewModel = (
   const statusPresentation = getTicketStatusPresentation(item.status);
   const isPendingPayment = statusPresentation.pendingPayment;
   const statusTitle = translate(statusPresentation.labelKey);
+  const pendingSeatLabel = translate('history.seatPendingAssignment');
   const statusMessage = isPendingPayment
     ? translate('booking.ticket.completePayment')
     : item.status === 'CONFIRMED'
@@ -453,7 +520,7 @@ export const buildPassengerHistoryTicketViewModel = (
       ticketEntries: item.ticket.tickets.map((ticket) => ({
         ticketId: ticket.ticketId,
         ticketCode: ticket.ticketCode,
-        seatNumber: ticket.seatNumber,
+        seatNumber: formatOperationalSeatNumber(ticket.seatNumber, pendingSeatLabel),
         status: ticket.status,
         paidAmount: ticket.paidAmount,
       })),
@@ -473,7 +540,7 @@ export const buildPassengerHistoryTicketViewModel = (
         ? { licensePlate: item.ticket.vehicle.licensePlate }
         : {}),
       seatNumbers: item.ticket.tickets
-        .map((ticket) => ticket.seatNumber)
+        .map((ticket) => formatOperationalSeatNumber(ticket.seatNumber, pendingSeatLabel))
         .join(', ') || translate('common.none'),
       ticketCount: item.ticket.tickets.length,
       // Prefer booking total; fall back to summed per-ticket paid amounts.

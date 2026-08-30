@@ -87,6 +87,13 @@ export const reconcilePassengerHistoryBookingStatus = (
     return item;
   }
 
+  if (
+    item.status !== 'PENDING_PAYMENT'
+    && statusResult.status === 'PENDING_PAYMENT'
+  ) {
+    return item;
+  }
+
   const shouldPromoteTickets =
     item.status === 'PENDING_PAYMENT'
     && statusResult.status === 'CONFIRMED';

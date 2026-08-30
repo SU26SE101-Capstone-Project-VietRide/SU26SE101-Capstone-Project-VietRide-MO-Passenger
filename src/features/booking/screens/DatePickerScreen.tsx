@@ -350,7 +350,7 @@ export function DatePicker(): React.JSX.Element {
                   if (!d) return <View key={`empty-${ri}-${ci}`} style={styles.calCell} />;
                   const dateStr = toLocalDisplayDate(d);
                   const active = dateStr === selected;
-                  const dimmed = d.getMonth() !== firstSelectableDate.getMonth();
+                  const isOutsideStartMonth = d.getMonth() !== firstSelectableDate.getMonth();
                   return (
                     <Pressable
                       key={dateStr}
@@ -370,13 +370,12 @@ export function DatePicker(): React.JSX.Element {
                         style={[
                           styles.calCellText,
                           active && styles.calCellTextActive,
-                          dimmed && styles.calCellDimmed,
                         ]}
                         numberOfLines={1}
                         adjustsFontSizeToFit
                         minimumFontScale={0.65}
                       >
-                        {dimmed ? `${d.getDate()}/${d.getMonth() + 1}` : d.getDate()}
+                        {isOutsideStartMonth ? `${d.getDate()}/${d.getMonth() + 1}` : d.getDate()}
                       </Text>
                     </Pressable>
                   );
@@ -581,9 +580,6 @@ const createStyles = (theme: AppTheme) => ({
   calCellTextActive: {
     color: theme.colors.textInverse,
     fontFamily: fontFamilies.bold,
-  },
-  calCellDimmed: {
-    color: theme.colors.textTertiary,
   },
   footer: {
     ...theme.components.actionBar,

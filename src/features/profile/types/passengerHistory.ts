@@ -23,7 +23,8 @@ export type PassengerParcelStatus = ParcelStatus | (string & {});
 export interface PassengerHistoryTicketSummary {
   ticketId: string;
   ticketCode: string;
-  seatNumber: string;
+  /** Current operational seat; null while BE is waiting for a replacement assignment. */
+  seatNumber: string | null;
   status: PassengerTicketLifecycleStatus;
   paidAmount: number;
 }

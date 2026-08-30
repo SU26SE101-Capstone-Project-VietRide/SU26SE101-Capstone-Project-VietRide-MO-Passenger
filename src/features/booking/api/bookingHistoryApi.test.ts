@@ -1,4 +1,9 @@
-import { bookingHistoryKeys, parseBookingHistoryPage } from './bookingHistoryApi';
+import { apiClient } from '@shared/api/axiosInstance';
+import {
+  bookingHistoryKeys,
+  getRecentBookingHistoryItemsByIds,
+  parseBookingHistoryPage,
+} from './bookingHistoryApi';
 
 jest.mock('@shared/api/axiosInstance', () => ({
   apiClient: {
@@ -55,6 +60,18 @@ describe('direct Booking History adapter', () => {
     expect(parsed.items[0].ticket.shuttleRequests).toEqual([]);
   });
 
+  it('preserves a null operational seat while replacement assignment is pending', () => {
+    const parsed = parseBookingHistoryPage(page({
+      ...bookingItem,
+      tickets: [{
+        ...bookingItem.tickets[0],
+        seatNumber: null,
+      }],
+    }));
+
+    expect(parsed.items[0].ticket.tickets[0].seatNumber).toBeNull();
+  });
+
   it('preserves BE order and active/cancelled inbound/outbound state', () => {
     const parsed = parseBookingHistoryPage(page({
       ...bookingItem,
@@ -97,5 +114,36 @@ describe('direct Booking History adapter', () => {
     expect(bookingHistoryKeys.list('user-a', {})).not.toEqual(
       bookingHistoryKeys.list('user-b', {}),
     );
+  });
+
+  it('fetches the newest full history page and selects only requested booking IDs', async () => {
+    const otherBookingId = '66666666-6666-4666-8666-666666666666';
+    jest.mocked(apiClient.get).mockResolvedValueOnce({
+      data: {
+        success: true,
+        statusCode: 200,
+        data: {
+          ...page(bookingItem),
+          items: [
+            { ...bookingItem, bookingId: otherBookingId },
+            bookingItem,
+          ],
+          pageSize: 100,
+          totalItems: 2,
+        },
+      },
+    });
+    const controller = new AbortController();
+
+    const items = await getRecentBookingHistoryItemsByIds(
+      [BOOKING_ID],
+      controller.signal,
+    );
+
+    expect(apiClient.get).toHaveBeenCalledWith('/bookings/history', {
+      params: { page: 1, pageSize: 100 },
+      signal: controller.signal,
+    });
+    expect(items.map(item => item.id)).toEqual([BOOKING_ID]);
   });
 });

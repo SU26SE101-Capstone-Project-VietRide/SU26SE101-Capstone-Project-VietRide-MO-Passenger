@@ -272,6 +272,14 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const [allowLeaveDespiteRetry, setAllowLeaveDespiteRetry] =
     React.useState(false);
   const refetchParcelDetail = detailQuery.refetch;
+  const wasFocusedRef = React.useRef(isFocused);
+  React.useEffect(() => {
+    const wasFocused = wasFocusedRef.current;
+    wasFocusedRef.current = isFocused;
+    if (!wasFocused && isFocused) {
+      refetchParcelDetail().catch(() => undefined);
+    }
+  }, [isFocused, refetchParcelDetail]);
   const depositPaymentMutation = useStartParcelDepositPayment();
   const finalPaymentMutation = useStartParcelFinalPayment();
   const parcel = detailQuery.data;
@@ -452,6 +460,15 @@ export function ParcelDetailScreen(): React.JSX.Element {
       }),
     ]).catch(() => undefined);
   }, [parcelId, queryClient, userId]);
+  const wasPaymentPendingRef = React.useRef(paymentPending);
+
+  React.useEffect(() => {
+    const wasPaymentPending = wasPaymentPendingRef.current;
+    wasPaymentPendingRef.current = paymentPending;
+    if (wasPaymentPending && !paymentPending) {
+      invalidatePaymentQueries();
+    }
+  }, [invalidatePaymentQueries, paymentPending]);
 
   const handleTrack = React.useCallback(() => {
     navigation.navigate('ParcelTracking', {

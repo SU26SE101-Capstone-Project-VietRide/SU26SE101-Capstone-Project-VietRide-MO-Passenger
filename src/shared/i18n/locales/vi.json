@@ -2124,6 +2124,7 @@
     "departureUnavailable": "Chưa có lịch khởi hành",
     "seats": "Ghế",
     "ticketSeat": "Ghế {{seat}}",
+    "seatPendingAssignment": "Đang chờ xếp ghế",
     "ticketScanHint": "Đưa đúng mã này cho phụ xe khi lên xe.",
     "ticketCount_one": "{{count}} vé",
     "ticketCount_other": "{{count}} vé",

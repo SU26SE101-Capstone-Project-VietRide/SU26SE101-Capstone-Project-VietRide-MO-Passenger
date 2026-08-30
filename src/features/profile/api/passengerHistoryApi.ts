@@ -136,7 +136,8 @@ const ticketHistoryItemSchema = z.object({
     tickets: z.array(z.object({
       ticketId: z.string().uuid(),
       ticketCode: z.string().trim().min(1).max(100),
-      seatNumber: z.string().trim().min(1).max(50),
+      // Mirrors Booking's nullable operational seat through the history facade.
+      seatNumber: z.string().trim().min(1).max(50).nullable(),
       status: statusTokenSchema,
       paidAmount: moneySchema,
     })).max(5),
