@@ -620,6 +620,31 @@ describe('LiveTripTrackingPanel', () => {
     alertSpy.mockRestore();
   });
 
+  it('keeps Revoke available for an active grant after the old trip becomes terminal', async () => {
+    mockActiveTripId = tripId;
+    mockUseTripTracking.mockReturnValue(createTrackingResult({ isTerminal: true }));
+    const onShareQuickActionChange = jest.fn();
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          tripId={tripId}
+          onShareQuickActionChange={onShareQuickActionChange}
+        />,
+      );
+    });
+
+    expect(onShareQuickActionChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        scopeKey: tripId,
+        mode: 'revoke',
+        disabled: false,
+      }),
+    );
+    await act(async () => renderer!.unmount());
+  });
+
   it('publishes a disabled quick Share action while offline', async () => {
     mockUseTripTracking.mockReturnValue(createTrackingResult({ isOnline: false }));
     const onShareQuickActionChange = jest.fn();

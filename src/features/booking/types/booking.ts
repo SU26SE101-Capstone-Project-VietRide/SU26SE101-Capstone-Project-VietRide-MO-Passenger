@@ -178,7 +178,11 @@ export interface CancelBookingResult {
 export interface BookingTicketResult {
   ticketId: string;
   ticketCode: string;
-  seatNumber: string;
+  /**
+   * Create Booking returns the assigned seat, while a later Booking History
+   * hydration may replace it with the nullable operational seat.
+   */
+  seatNumber: string | null;
   status: string;
   fareAmount: number;
   discountAmount: number;

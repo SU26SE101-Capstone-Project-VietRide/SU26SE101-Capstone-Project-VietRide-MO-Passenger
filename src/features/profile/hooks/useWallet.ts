@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import {
+  queryOptions,
   type QueryClient,
   useInfiniteQuery,
   useMutation,
@@ -14,6 +16,7 @@ import {
   isAmbiguousIdempotentRequestError,
 } from '@shared/api/errors';
 import { IdempotencyKeyTracker } from '@shared/api/idempotency';
+import { useIsAppActive } from '@shared/hooks';
 import {
   getTokenSessionEpoch,
   isTokenSessionEpochCurrent,
@@ -34,6 +37,8 @@ import {
 const WALLET_BALANCE_STALE_TIME_MS = 30 * 1000;
 const WALLET_TRANSACTIONS_STALE_TIME_MS = 60 * 1000;
 const WALLET_GC_TIME_MS = 5 * 60 * 1000;
+
+export const LIVE_WALLET_BALANCE_REFRESH_INTERVAL_MS = 30 * 1000;
 
 interface TopUpSubmissionInput {
   userId: string;
@@ -151,19 +156,42 @@ export async function refreshWalletForUser(
   await queryClient.invalidateQueries({ queryKey: walletKeys.user(userId) });
 }
 
+export const walletBalanceQueryOptions = (
+  userId: string | undefined,
+  canFetch: boolean,
+  live = false,
+) => queryOptions({
+  queryKey: walletKeys.balance(userId ?? 'none'),
+  queryFn: ({ signal }) => getWalletBalance(signal),
+  enabled: canFetch,
+  staleTime: live ? 0 : WALLET_BALANCE_STALE_TIME_MS,
+  gcTime: WALLET_GC_TIME_MS,
+  retry: 1,
+  refetchOnMount: live ? 'always' : true,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: live ? 'always' : true,
+  refetchInterval:
+    live && canFetch ? LIVE_WALLET_BALANCE_REFRESH_INTERVAL_MS : false,
+  refetchIntervalInBackground: false,
+});
+
 export function useWalletBalance(enabled = true) {
   const userId = useAuthStore(state => state.user?.id);
 
-  return useQuery({
-    queryKey: walletKeys.balance(userId ?? 'none'),
-    queryFn: ({ signal }) => getWalletBalance(signal),
-    enabled: Boolean(userId) && enabled,
-    staleTime: WALLET_BALANCE_STALE_TIME_MS,
-    gcTime: WALLET_GC_TIME_MS,
-    retry: 1,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-  });
+  return useQuery(walletBalanceQueryOptions(
+    userId,
+    Boolean(userId) && enabled,
+  ));
+}
+
+/** Checkout-safe wallet balance: foreground/focus aware and periodically refreshed. */
+export function useLiveWalletBalance(enabled = true) {
+  const userId = useAuthStore(state => state.user?.id);
+  const isFocused = useIsFocused();
+  const isAppActive = useIsAppActive();
+  const canFetch = Boolean(userId) && enabled && isFocused && isAppActive;
+
+  return useQuery(walletBalanceQueryOptions(userId, canFetch, true));
 }
 
 export function useWalletTransactions(pageSize = WALLET_TRANSACTION_PAGE_SIZE) {

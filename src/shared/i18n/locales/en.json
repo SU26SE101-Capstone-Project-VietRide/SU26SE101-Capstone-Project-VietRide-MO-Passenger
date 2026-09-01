@@ -1150,7 +1150,7 @@
     },
     "share": {
       "title": "Share this live journey",
-      "description": "Send family a view-only link that expires automatically. Your account credentials are never included.",
+      "description": "Send family a view-only link that expires automatically and keeps working if the trip changes vehicles. Your account credentials are never included.",
       "privacyNote": "They only see this trip’s live map — not your login, wallet, or other bookings. You can stop sharing anytime.",
       "message": "Follow this VietRide vehicle journey live:",
       "action": "Share secure link",
@@ -1318,6 +1318,8 @@
       },
       "dropoffCode": "Terminal parcel code",
       "dropoffCodeHint": "Show this parcel code or QR at the terminal. Do not use the booking code.",
+      "transferCode": "Parcel transfer code",
+      "transferCodeHint": "Show this code or QR to staff so they can confirm the handoff to the replacement vehicle.",
       "code": {
         "unavailableRequest": "The delivery code is unavailable for this request.",
         "afterFinalPayment": "The delivery code unlocks after final payment is verified.",
@@ -1326,7 +1328,8 @@
         "unavailableStatus": "The delivery code is unavailable for the current parcel status.",
         "additionalPayment": "No drop-off code while the operator handles the surcharge.",
         "awaitingRecipient": "Waiting for the recipient to confirm. Do not show the drop-off code now.",
-        "showAtDropoff": "Show this parcel code at the terminal drop-off."
+        "showAtDropoff": "Show this parcel code at the terminal drop-off.",
+        "showForTransfer": "Keep this code ready while the parcel is waiting to move to the replacement vehicle."
       },
       "packageSize": "PACKAGE SIZE",
       "delivery": "DELIVERY",

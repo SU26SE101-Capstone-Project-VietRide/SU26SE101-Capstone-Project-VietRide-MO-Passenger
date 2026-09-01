@@ -175,7 +175,9 @@ const hydrateCheckoutTicketsFromHistory = (
     if (!fresh) return ticket;
     return {
       ...ticket,
-      ...(fresh.seatNumber ? { seatNumber: fresh.seatNumber } : {}),
+      // History owns the operational seat. Preserve null so a stale checkout
+      // seat never resurfaces while replacement assignment is pending.
+      seatNumber: fresh.seatNumber,
       status: fresh.status,
       paidAmount: fresh.paidAmount,
     };
@@ -246,6 +248,7 @@ const buildLeg = ({
   const alightingTimestamp = dropOff?.estimatedArrivalTime ?? trip?.estimatedArrivalDateTime;
   const boardingDate = boardingTimestamp ? formatDate(boardingTimestamp) : '';
   const alightingDate = alightingTimestamp ? formatDate(alightingTimestamp) : '';
+  const pendingSeatLabel = translate('history.seatPendingAssignment');
 
   return ({
   label,
@@ -258,7 +261,7 @@ const buildLeg = ({
     .map((ticket) => ({
       ticketId: ticket.ticketId,
       ticketCode: ticket.ticketCode.trim(),
-      seatNumber: ticket.seatNumber.trim(),
+      seatNumber: formatOperationalSeatNumber(ticket.seatNumber, pendingSeatLabel),
       status: ticket.status,
       paidAmount: ticket.paidAmount,
     }))
@@ -277,8 +280,7 @@ const buildLeg = ({
     || translate('booking.ticket.notReported'),
   ...(vehicle?.licensePlate ? { licensePlate: vehicle.licensePlate } : {}),
   seatNumbers: tickets
-    .map((ticket) => ticket.seatNumber.trim())
-    .filter(Boolean)
+    .map((ticket) => formatOperationalSeatNumber(ticket.seatNumber, pendingSeatLabel))
     .join(', ') || translate('common.none'),
   ticketCount: tickets.length,
   totalAmount,

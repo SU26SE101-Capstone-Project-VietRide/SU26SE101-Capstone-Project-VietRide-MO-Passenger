@@ -41,9 +41,11 @@ import {
 } from '../api/walletApi';
 import {
   getNextWalletTransactionsPage,
+  LIVE_WALLET_BALANCE_REFRESH_INTERVAL_MS,
   PaymentReturnGate,
   refreshWalletForUser,
   TopUpSubmissionCoordinator,
+  walletBalanceQueryOptions,
 } from './useWallet';
 
 const USER_ID = 'bd83a307-3314-43d6-8482-28341c8e366c';
@@ -243,6 +245,23 @@ describe('wallet payment-return cache refresh', () => {
     expect(invalidateQueries).toHaveBeenCalledTimes(2);
     expect(invalidateQueries).toHaveBeenNthCalledWith(2, {
       queryKey: walletKeys.user('user-b'),
+    });
+  });
+});
+
+describe('wallet balance query freshness', () => {
+  it('keeps checkout balance live only while its screen can fetch', () => {
+    expect(walletBalanceQueryOptions(USER_ID, true, true)).toMatchObject({
+      enabled: true,
+      staleTime: 0,
+      refetchOnMount: 'always',
+      refetchOnReconnect: 'always',
+      refetchInterval: LIVE_WALLET_BALANCE_REFRESH_INTERVAL_MS,
+      refetchIntervalInBackground: false,
+    });
+    expect(walletBalanceQueryOptions(USER_ID, false, true)).toMatchObject({
+      enabled: false,
+      refetchInterval: false,
     });
   });
 });

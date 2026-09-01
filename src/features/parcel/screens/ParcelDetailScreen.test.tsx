@@ -183,7 +183,7 @@ jest.mock('@features/auth/store/useAuthStore', () => ({
 }));
 
 jest.mock('@features/profile/hooks/useWallet', () => ({
-  useWalletBalance: () => ({ data: { balance: 1_000_000 } }),
+  useLiveWalletBalance: () => ({ data: { balance: 1_000_000 } }),
 }));
 
 jest.mock('@shared/payments', () => ({
@@ -426,6 +426,31 @@ describe('ParcelDetailScreen identity hierarchy', () => {
     await act(async () => renderer!.unmount());
   });
 
+  it('shows the parcel QR while waiting to transfer to the replacement vehicle', async () => {
+    mockUseParcelDetail.mockReturnValue(
+      queryFor(createParcel('PENDING_TRANSFER_CONFIRM')),
+    );
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+
+    expect(mockScannableCodeCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: PARCEL_CODE,
+        title: 'parcel.detail.transferCode',
+        description: 'parcel.detail.transferCodeHint',
+      }),
+    );
+    expect(getTextContent(renderer!)).toContain(
+      'parcel.detail.code.showForTransfer',
+    );
+    expect(countDashedDividers(renderer!)).toBe(1);
+
+    await act(async () => renderer!.unmount());
+  });
+
   it('moves the BE-gated incident action to one 44dp header quick action', async () => {
     mockUseParcelDetail.mockReturnValue(queryFor(
       createParcel('IN_TRANSIT', ['REPORT_INCIDENT']),
@@ -474,8 +499,29 @@ describe('ParcelDetailScreen identity hierarchy', () => {
     await act(async () => renderer!.unmount());
   });
 
-  it('uses a compact status header without QR, divider, UUID, or duplicate code', async () => {
+  it('shows the parcel QR while in transit', async () => {
     mockUseParcelDetail.mockReturnValue(queryFor(createParcel('IN_TRANSIT')));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+
+    expect(mockScannableCodeCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: PARCEL_CODE,
+        title: 'parcel.detail.dropoffCode',
+      }),
+    );
+    expect(countDashedDividers(renderer!)).toBe(1);
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('uses a compact status header without QR, divider, UUID, or duplicate code for recipient confirm', async () => {
+    mockUseParcelDetail.mockReturnValue(
+      queryFor(createParcel('DELIVERED_PENDING_CONFIRM')),
+    );
     let renderer: ReactTestRenderer.ReactTestRenderer;
 
     await act(async () => {
@@ -485,12 +531,13 @@ describe('ParcelDetailScreen identity hierarchy', () => {
     const text = getTextContent(renderer!);
     expect(mockScannableCodeCard).not.toHaveBeenCalled();
     expect(text.filter(value => value === PARCEL_CODE)).toHaveLength(1);
-    expect(text).toContain('parcel.detail.code.unavailableStatus');
+    expect(text).toContain('parcel.detail.code.awaitingRecipient');
     expect(text).not.toContain(PARCEL_ID);
     expect(countDashedDividers(renderer!)).toBe(0);
 
     await act(async () => renderer!.unmount());
   });
+
   it('keeps operator terms on demand and hides raw Reliability summary copy', async () => {
     const parcel = createParcel('IN_TRANSIT');
     parcel.operator = {

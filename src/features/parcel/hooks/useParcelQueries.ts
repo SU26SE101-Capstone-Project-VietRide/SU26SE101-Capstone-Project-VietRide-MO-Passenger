@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import {
   queryOptions,
   useInfiniteQuery,
@@ -7,6 +8,7 @@ import {
 } from '@tanstack/react-query';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { toApiError } from '@shared/api/errors';
+import { useIsAppActive } from '@shared/hooks';
 import i18n from '@shared/i18n';
 import {
   createParcel,
@@ -37,10 +39,11 @@ import {
 } from '../utils/parcelSubmissionCoordinator';
 
 const PARCEL_TRIP_STALE_TIME_MS = 30 * 1000;
-const PARCEL_VOUCHER_STALE_TIME_MS = 60 * 1000;
 const PARCEL_DETAIL_STALE_TIME_MS = 30 * 1000;
 const PARCEL_PAYMENT_REFETCH_INTERVAL_MS = 2_500;
 const AVAILABLE_PARCEL_TRIPS_PAGE_SIZE = 20;
+
+export const PARCEL_VOUCHER_REFRESH_INTERVAL_MS = 15 * 1000;
 
 const shouldRetryParcelQuery = (
   failureCount: number,
@@ -123,7 +126,24 @@ export function useAvailableParcelVouchers(
   enabled = true,
 ) {
   const userId = useAuthStore(state => state.user?.id);
-  return useQuery({
+  const isFocused = useIsFocused();
+  const isAppActive = useIsAppActive();
+  const canFetch =
+    enabled &&
+    Boolean(userId) &&
+    Boolean(params?.tripId) &&
+    isFocused &&
+    isAppActive;
+
+  return useQuery(parcelVoucherQueryOptions(userId, params, canFetch));
+}
+
+export const parcelVoucherQueryOptions = (
+  userId: string | undefined,
+  params: GetParcelVouchersParams | null,
+  canFetch: boolean,
+) =>
+  queryOptions({
     queryKey: params
       ? parcelKeys.vouchers(userId ?? 'none', params)
       : [...parcelKeys.all, userId ?? 'none', 'vouchers', 'none'],
@@ -134,14 +154,16 @@ export function useAvailableParcelVouchers(
 
       return getAvailableParcelVouchers(params, signal);
     },
-    enabled: enabled && Boolean(userId) && Boolean(params?.tripId),
-    staleTime: PARCEL_VOUCHER_STALE_TIME_MS,
+    enabled: canFetch,
+    staleTime: 0,
     gcTime: 5 * 60 * 1000,
     retry: shouldRetryParcelQuery,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
+    refetchOnReconnect: 'always',
+    refetchInterval: canFetch ? PARCEL_VOUCHER_REFRESH_INTERVAL_MS : false,
+    refetchIntervalInBackground: false,
   });
-}
 
 export const parcelDetailQueryOptions = (
   userId: string | undefined,

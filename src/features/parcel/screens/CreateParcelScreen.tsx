@@ -51,7 +51,7 @@ import {
 } from '@features/auth/validation/authValidation';
 import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
 import { walletKeys } from '@features/profile/api/walletApi';
-import { useWalletBalance } from '@features/profile/hooks/useWallet';
+import { useLiveWalletBalance } from '@features/profile/hooks/useWallet';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useCurrentCoordinates, useResponsiveLayout, useThemedStyles } from '@shared/hooks';
@@ -348,7 +348,7 @@ export function CreateParcelScreen(): React.JSX.Element {
       ? ambiguousRetry.paymentMethod
       : paymentMethod;
   const lockedBackendPaymentMethod = toBackendPaymentMethod(lockedPaymentMethod);
-  const walletBalanceQuery = useWalletBalance(step === 4);
+  const walletBalanceQuery = useLiveWalletBalance(step === 4);
   const hasParcelDraft = Boolean(
     fromLocationCode
     || toLocationCode

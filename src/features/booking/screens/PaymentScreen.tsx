@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Wallet } from 'phosphor-react-native';
 import { useShallow } from 'zustand/react/shallow';
-import { useWalletBalance } from '@features/profile/hooks/useWallet';
+import { useLiveWalletBalance } from '@features/profile/hooks/useWallet';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -258,7 +258,7 @@ export function PaymentScreen({ onNext, onGoToStep }: PaymentStepProps): React.J
 
   const promoDiscount = appliedVoucher?.discountAmount ?? voucherDiscountPreview;
   const finalPrice = Math.max(baseFare - promoDiscount, 0);
-  const walletBalanceQuery = useWalletBalance(baseFare > 0);
+  const walletBalanceQuery = useLiveWalletBalance(baseFare > 0);
   const walletBalance = walletBalanceQuery.data?.balance;
   const walletHasKnownBalance = typeof walletBalance === 'number';
   const walletHasEnoughBalance =

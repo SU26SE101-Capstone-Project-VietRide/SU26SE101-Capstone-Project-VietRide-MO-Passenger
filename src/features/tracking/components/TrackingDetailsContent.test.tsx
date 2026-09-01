@@ -49,7 +49,8 @@ jest.mock('phosphor-react-native', () => ({
 import { TrackingDetailsContent } from './TrackingDetailsContent';
 
 const createProps = (overrides: Record<string, unknown> = {}) => ({
-  canManageTripSharing: true,
+  canCreateTripShare: true,
+  canRevokeTripShare: true,
   hasEtaRouteMismatch: false,
   hasTrackingTarget: true,
   isOnline: true,
@@ -158,6 +159,31 @@ describe('TrackingDetailsContent', () => {
       'tracking.share.description',
       'tracking.share.privacyNote',
     ]));
+
+    act(() => renderer!.unmount());
+  });
+
+  it('shows only Revoke when an existing grant survives a terminal trip transition', () => {
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    act(() => {
+      renderer = ReactTestRenderer.create(
+        <TrackingDetailsContent
+          {...createProps({
+            canCreateTripShare: false,
+            canRevokeTripShare: true,
+            isTerminal: true,
+          })}
+        />,
+      );
+    });
+
+    expect(renderer!.root.findAllByProps({
+      accessibilityLabel: 'tracking.share.action',
+    })).toHaveLength(0);
+    expect(renderer!.root.findByProps({
+      accessibilityLabel: 'tracking.share.revokeAction',
+    })).toBeDefined();
 
     act(() => renderer!.unmount());
   });

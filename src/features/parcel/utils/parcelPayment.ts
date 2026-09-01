@@ -8,15 +8,12 @@ const PARCEL_CHECKOUT_FAILED_STATUSES = new Set([
   'RETURNED',
 ]);
 
-/** Origin drop-off QR only — not in-transit and not recipient-confirm. */
-const PARCEL_DROPOFF_QR_STATUSES = new Set([
+/** Active operational parcel QR statuses — drop-off, in-transit, transfer, and unloaded. */
+const PARCEL_ACTIVE_QR_STATUSES = new Set([
   'PENDING',
   'RESERVED',
   'CHECKED_IN',
   'READY_TO_LOAD',
-]);
-
-const PARCEL_IN_PROGRESS_STATUSES = new Set([
   'LOADED',
   'IN_TRANSIT',
   'PENDING_TRANSFER_CONFIRM',
@@ -44,6 +41,11 @@ export type ParcelPaymentStage = 'deposit' | 'final';
 
 const normalizeParcelStatus = (status?: string | null): string =>
   status?.trim().toUpperCase() ?? '';
+
+/** The replacement crew must scan this code before confirming the handoff. */
+export const isParcelTransferQrRequired = (
+  status?: string | null,
+): boolean => normalizeParcelStatus(status) === 'PENDING_TRANSFER_CONFIRM';
 
 export const getParcelPaymentStage = (
   status?: string | null,
@@ -90,12 +92,8 @@ export const getParcelCheckoutState = (
     return 'failed';
   }
 
-  if (PARCEL_DROPOFF_QR_STATUSES.has(normalizedStatus)) {
+  if (PARCEL_ACTIVE_QR_STATUSES.has(normalizedStatus)) {
     return 'active';
-  }
-
-  if (PARCEL_IN_PROGRESS_STATUSES.has(normalizedStatus)) {
-    return 'in_progress';
   }
 
   // Fail closed for return, delivery-rejection, operator-action and future BE

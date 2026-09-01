@@ -48,7 +48,7 @@ import {
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { passengerHistoryKeys } from '@features/profile/api/passengerHistoryApi';
 import { walletKeys } from '@features/profile/api/walletApi';
-import { useWalletBalance } from '@features/profile/hooks/useWallet';
+import { useLiveWalletBalance } from '@features/profile/hooks/useWallet';
 import {
   openVnPayPayment,
   assertVnPaySdkAvailable,
@@ -85,6 +85,7 @@ import {
   getParcelCheckoutState,
   getParcelDetailHeroCopy,
   getParcelPaymentStage,
+  isParcelTransferQrRequired,
 } from '../utils/parcelPayment';
 import {
   isParcelTrackingEligible,
@@ -286,7 +287,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const paymentStage = getParcelPaymentStage(parcel?.status);
   const checkoutState = getParcelCheckoutState(parcel?.status);
   const paymentPending = checkoutState === 'awaiting_payment';
-  const deliveryCodeActive = checkoutState === 'active';
+  const transferQrRequired = isParcelTransferQrRequired(parcel?.status);
+  const parcelQrVisible = checkoutState === 'active' || transferQrRequired;
   const heroCopy = getParcelDetailHeroCopy(checkoutState, paymentStage);
   const trackingAvailable = isParcelTrackingEligible(parcel?.status);
   const hasClaimSurface = Boolean(
@@ -328,7 +330,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
         0,
       )
     : 0;
-  const walletBalanceQuery = useWalletBalance(Boolean(paymentStage));
+  const walletBalanceQuery = useLiveWalletBalance(Boolean(paymentStage));
   const isStartingPayment =
     depositPaymentMutation.isPending || finalPaymentMutation.isPending;
   const paymentReturn = useParcelPaymentReturn({
@@ -866,16 +868,28 @@ export function ParcelDetailScreen(): React.JSX.Element {
           ) : null}
 
           <View style={styles.ticketCard}>
-            {deliveryCodeActive && parcel?.parcelCode ? (
+            {parcelQrVisible && parcel?.parcelCode ? (
               <>
                 <View style={styles.qrSection}>
                   <ScannableCodeCard
                     code={parcel.parcelCode}
-                    title={t('parcel.detail.dropoffCode')}
-                    description={t('parcel.detail.dropoffCodeHint')}
+                    title={t(
+                      transferQrRequired
+                        ? 'parcel.detail.transferCode'
+                        : 'parcel.detail.dropoffCode',
+                    )}
+                    description={t(
+                      transferQrRequired
+                        ? 'parcel.detail.transferCodeHint'
+                        : 'parcel.detail.dropoffCodeHint',
+                    )}
                   />
                   <Text style={styles.qrCaption}>
-                    {t(heroCopy.codeKey)}
+                    {t(
+                      transferQrRequired
+                        ? 'parcel.detail.code.showForTransfer'
+                        : heroCopy.codeKey,
+                    )}
                   </Text>
                   <StatusChip
                     label={t(statusPresentation.labelKey)}

@@ -598,14 +598,22 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     || tracking.targetEtaQuery.isRefetching
     || tracking.contextQuery.isRefetching,
   );
-  const canManageTripSharing = Boolean(
+  const hasTripShareOwnerAccess = Boolean(
     !isShuttle
-    && effectiveTripStatus === 'IN_PROGRESS'
     && tracking.hasValidTrackingId
     && tracking.hasAuthenticatedUser
     && !tracking.fatalError
+  );
+  const hasActiveTripShare = activeTripId === tripId;
+  const canCreateTripShare = Boolean(
+    hasTripShareOwnerAccess
+    && effectiveTripStatus === 'IN_PROGRESS'
     && !tracking.isTerminal
   );
+  // BE resolves DELETE with the old Trip ID after vehicle substitution. Keep
+  // revoke available for a grant activated in this screen even if the old trip
+  // becomes terminal; never use this branch to create a new share link.
+  const canRevokeTripShare = hasTripShareOwnerAccess && hasActiveTripShare;
   const isShareOperationPending = isSharing || isRevoking;
 
   const handleRetry = useCallback(() => {
@@ -617,7 +625,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     Promise.allSettled(requests).catch(() => undefined);
   }, [externalRefresh, refetchAll]);
   const handleShareTrip = useCallback(() => {
-    if (!canManageTripSharing || !tracking.isOnline || isShareOperationPending) return;
+    if (!canCreateTripShare || !tracking.isOnline || isShareOperationPending) return;
 
     shareTrip({
       tripId,
@@ -629,7 +637,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       );
     });
   }, [
-    canManageTripSharing,
+    canCreateTripShare,
     isShareOperationPending,
     shareTrip,
     t,
@@ -637,7 +645,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     tripId,
   ]);
   const handleRevokeTripShare = useCallback(() => {
-    if (!canManageTripSharing || !tracking.isOnline || isShareOperationPending) return;
+    if (!canRevokeTripShare || !tracking.isOnline || isShareOperationPending) return;
 
     Alert.alert(
       t('tracking.share.revokeConfirmTitle'),
@@ -668,31 +676,36 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       ],
     );
   }, [
-    canManageTripSharing,
+    canRevokeTripShare,
     isShareOperationPending,
     revokeTripShare,
     t,
     tracking.isOnline,
     tripId,
   ]);
-  const hasActiveTripShare = activeTripId === tripId;
   const shareQuickAction = useMemo<TrackingShareQuickAction | null>(() => (
-    canManageTripSharing
+    canRevokeTripShare
       ? {
           scopeKey: tripId,
-          mode: hasActiveTripShare ? 'revoke' : 'share',
+          mode: 'revoke',
           disabled: !tracking.isOnline || isShareOperationPending,
           pending: isShareOperationPending,
-          onPress: hasActiveTripShare
-            ? handleRevokeTripShare
-            : handleShareTrip,
+          onPress: handleRevokeTripShare,
         }
-      : null
+      : canCreateTripShare
+        ? {
+            scopeKey: tripId,
+            mode: 'share',
+            disabled: !tracking.isOnline || isShareOperationPending,
+            pending: isShareOperationPending,
+            onPress: handleShareTrip,
+          }
+        : null
   ), [
-    canManageTripSharing,
+    canCreateTripShare,
+    canRevokeTripShare,
     handleRevokeTripShare,
     handleShareTrip,
-    hasActiveTripShare,
     isShareOperationPending,
     tracking.isOnline,
     tripId,
@@ -1079,7 +1092,8 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       : null;
   const detailsContent = (
     <TrackingDetailsContent
-      canManageTripSharing={canManageTripSharing}
+      canCreateTripShare={canCreateTripShare}
+      canRevokeTripShare={canRevokeTripShare}
       detailsFooter={detailsFooter}
       hasEtaRouteMismatch={!isShuttle && tripPresentation.hasEtaRouteMismatch}
       hasTrackingTarget={Boolean(trackingTarget)}

@@ -1005,7 +1005,7 @@
       "routeEndpointsHint": "Đây là điểm đầu/cuối của tuyến, không phải điểm đón/trả riêng của bạn.",
       "ticketCode": "Mã vé",
       "ticketCodeInactiveHint": "Vé này không còn sẵn sàng để lên xe.",
-      "ticketPaidAmount": "Đã thanh toán cho vé này",
+      "ticketPaidAmount": "Đã thanh toán cho\nvé này",
       "busType": "Loại xe",
       "licensePlate": "Biển số xe",
       "seats": "Ghế",
@@ -1150,7 +1150,7 @@
     },
     "share": {
       "title": "Chia sẻ hành trình trực tiếp",
-      "description": "Gửi cho người thân liên kết chỉ xem và tự hết hạn. Thông tin đăng nhập của bạn không được đính kèm.",
+      "description": "Gửi cho người thân liên kết chỉ xem, tự hết hạn và tiếp tục hoạt động nếu chuyến đổi xe. Thông tin đăng nhập của bạn không được đính kèm.",
       "privacyNote": "Họ chỉ thấy bản đồ trực tiếp của chuyến này — không có đăng nhập, ví hay booking khác. Bạn có thể dừng chia sẻ bất cứ lúc nào.",
       "message": "Theo dõi trực tiếp hành trình xe VietRide này:",
       "action": "Chia sẻ liên kết an toàn",
@@ -1318,6 +1318,8 @@
       },
       "dropoffCode": "Mã kiện hàng tại bến",
       "dropoffCodeHint": "Đưa mã kiện hàng này hoặc QR cho nhân viên tại bến. Không dùng mã booking.",
+      "transferCode": "Mã chuyển xe của kiện hàng",
+      "transferCodeHint": "Đưa mã hoặc QR này cho nhân viên để xác nhận bàn giao kiện sang xe mới.",
       "code": {
         "unavailableRequest": "Mã giao hàng không khả dụng cho yêu cầu này.",
         "afterFinalPayment": "Mã giao hàng sẽ mở sau khi khoản thanh toán cuối được xác nhận.",
@@ -1326,7 +1328,8 @@
         "unavailableStatus": "Mã giao hàng không khả dụng ở trạng thái hiện tại.",
         "additionalPayment": "Không có mã gửi hàng trong lúc chờ nhà xe xử lý phụ thu.",
         "awaitingRecipient": "Đang chờ người nhận xác nhận. Không đưa mã gửi hàng ở bước này.",
-        "showAtDropoff": "Xuất trình mã kiện hàng này tại bến gửi."
+        "showAtDropoff": "Xuất trình mã kiện hàng này tại bến gửi.",
+        "showForTransfer": "Giữ mã này sẵn sàng trong lúc chờ chuyển kiện sang xe mới."
       },
       "packageSize": "KÍCH THƯỚC KIỆN",
       "delivery": "GIAO NHẬN",
@@ -2179,7 +2182,7 @@
         "readyToLoad": "Sẵn sàng xếp hàng",
         "loaded": "Đã xếp lên xe",
         "inTransit": "Đang vận chuyển",
-        "transferConfirm": "Đang chờ chuyển sang xe mới",
+        "transferConfirm": "Đang chờ chuyển sang \nxe mới",
         "transferEscalated": "Chuyển hàng quá hạn xác nhận",
         "unloaded": "Đã đến bến nhận",
         "deliveryConfirm": "Chờ xác nhận nhận hàng",

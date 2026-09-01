@@ -3,7 +3,10 @@ import {
   getPromotions,
 } from '@features/booking/api/bookingApi';
 import type { PromotionItem } from '@features/booking/types';
-import { homePromotionsQueryOptions } from './useHomePromotions';
+import {
+  HOME_PROMOTIONS_REFRESH_INTERVAL_MS,
+  homePromotionsQueryOptions,
+} from './useHomePromotions';
 
 jest.mock('@features/booking/api/bookingApi', () => {
   return {
@@ -46,5 +49,20 @@ describe('homePromotionsQueryOptions', () => {
     expect(homePromotionsQueryOptions('PARCEL').queryKey).not.toEqual(
       homePromotionsQueryOptions('BOOKING').queryKey,
     );
+  });
+
+  it('refreshes visible promotions without polling a hidden Home screen', () => {
+    expect(homePromotionsQueryOptions('BOOKING', true)).toMatchObject({
+      enabled: true,
+      staleTime: 0,
+      refetchOnMount: 'always',
+      refetchOnReconnect: 'always',
+      refetchInterval: HOME_PROMOTIONS_REFRESH_INTERVAL_MS,
+      refetchIntervalInBackground: false,
+    });
+    expect(homePromotionsQueryOptions('BOOKING', false)).toMatchObject({
+      enabled: false,
+      refetchInterval: false,
+    });
   });
 });

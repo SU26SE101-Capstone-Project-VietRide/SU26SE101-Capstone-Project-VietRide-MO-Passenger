@@ -72,6 +72,18 @@ describe('direct Booking History adapter', () => {
     expect(parsed.items[0].ticket.tickets[0].seatNumber).toBeNull();
   });
 
+  it('preserves the current operational seat returned after vehicle substitution', () => {
+    const parsed = parseBookingHistoryPage(page({
+      ...bookingItem,
+      tickets: [{
+        ...bookingItem.tickets[0],
+        seatNumber: 'A10',
+      }],
+    }));
+
+    expect(parsed.items[0].ticket.tickets[0].seatNumber).toBe('A10');
+  });
+
   it('preserves BE order and active/cancelled inbound/outbound state', () => {
     const parsed = parseBookingHistoryPage(page({
       ...bookingItem,

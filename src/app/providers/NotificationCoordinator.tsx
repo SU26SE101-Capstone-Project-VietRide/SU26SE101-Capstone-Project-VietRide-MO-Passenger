@@ -9,7 +9,6 @@ import {
   openNotificationFromSystemTray,
 } from '@app/navigation/navigationRef';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
-import { bookingHistoryKeys } from '@features/booking/api/bookingHistoryApi';
 import { notificationKeys } from '@features/home/api/notificationApi';
 import { localizeNotificationCopy } from '@features/home/utils/notificationCopy';
 import { useIsAppActive, useNetworkStatus } from '@shared/hooks';
@@ -36,7 +35,7 @@ import {
 } from '@shared/notifications';
 import { parseFcmNotificationAction } from '@shared/notifications/notificationAction';
 import { useAppStore } from '@shared/store';
-import { shouldRefreshPassengerBookingHistory } from './notificationHistoryRefresh';
+import { refreshPassengerQueriesForNotification } from './notificationHistoryRefresh';
 
 const logNotificationWarning = (message: string): void => {
   if (__DEV__) console.warn(`[Notifications] ${message}`);
@@ -316,19 +315,19 @@ export function NotificationCoordinator(): null {
     const refreshNotificationInbox = (): void => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.user(userId) });
     };
-    const refreshPassengerHistory = (notificationType: string): void => {
-      if (shouldRefreshPassengerBookingHistory(notificationType)) {
-        queryClient.invalidateQueries({
-          queryKey: bookingHistoryKeys.user(userId),
-        }).catch(() => undefined);
-      }
+    const refreshPassengerServerState = (notificationType: string): void => {
+      refreshPassengerQueriesForNotification(
+        queryClient,
+        userId,
+        notificationType,
+      ).catch(() => undefined);
     };
     const handleOpen = (message: RemoteMessage): void => {
       refreshNotificationInbox();
       const openedType = typeof message.data?.notificationType === 'string'
         ? message.data.notificationType
         : '';
-      refreshPassengerHistory(openedType);
+      refreshPassengerServerState(openedType);
       openNotificationFromSystemTray(
         parseFcmNotificationAction(message.data),
         message.data,
@@ -339,7 +338,7 @@ export function NotificationCoordinator(): null {
       const notificationType = typeof message.data?.notificationType === 'string'
         ? message.data.notificationType
         : '';
-      refreshPassengerHistory(notificationType);
+      refreshPassengerServerState(notificationType);
       const copy = localizeNotificationCopy({
         type: notificationType,
         title: message.notification?.title ?? '',

@@ -39,7 +39,7 @@ import {
   type WalletTransactionReferenceType,
   type WalletTransactionType,
 } from '../api/walletApi';
-import { useWalletBalance, useWalletTransactions } from '../hooks/useWallet';
+import { useLiveWalletBalance, useWalletTransactions } from '../hooks/useWallet';
 
 type WalletNavigation = NativeStackNavigationProp<
   ProfileStackParamList,
@@ -170,7 +170,7 @@ export function WalletScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const bottomTabClearance = useFloatingTabBarContentInset();
-  const balanceQuery = useWalletBalance();
+  const balanceQuery = useLiveWalletBalance();
   const transactionsQuery = useWalletTransactions();
   const {
     data: balanceData,

@@ -2,6 +2,7 @@ import {
   getParcelCheckoutState,
   getParcelDetailHeroCopy,
   getParcelPaymentStage,
+  isParcelTransferQrRequired,
   isParcelPaymentPending,
 } from './parcelPayment';
 
@@ -25,23 +26,34 @@ describe('getParcelCheckoutState', () => {
     expect(getParcelCheckoutState('DELIVERY_CONFIRMED')).toBe('completed');
   });
 
-  it('keeps origin drop-off QR only before load', () => {
+  it('keeps operational parcel QR active before load and throughout transit', () => {
     expect(getParcelCheckoutState('PENDING')).toBe('active');
     expect(getParcelCheckoutState('RESERVED')).toBe('active');
     expect(getParcelCheckoutState('CHECKED_IN')).toBe('active');
     expect(getParcelCheckoutState('READY_TO_LOAD')).toBe('active');
-  });
-
-  it('marks transit as in progress without drop-off QR', () => {
-    expect(getParcelCheckoutState('LOADED')).toBe('in_progress');
-    expect(getParcelCheckoutState('IN_TRANSIT')).toBe('in_progress');
-    expect(getParcelCheckoutState('UNLOADED')).toBe('in_progress');
+    expect(getParcelCheckoutState('LOADED')).toBe('active');
+    expect(getParcelCheckoutState('IN_TRANSIT')).toBe('active');
+    expect(getParcelCheckoutState('PENDING_TRANSFER_CONFIRM')).toBe('active');
+    expect(getParcelCheckoutState('TRANSFER_ESCALATED')).toBe('active');
+    expect(getParcelCheckoutState('UNLOADED')).toBe('active');
   });
 
   it('surfaces legacy additional payment as its own wait state', () => {
     expect(getParcelCheckoutState('PENDING_ADDITIONAL_PAYMENT')).toBe(
       'awaiting_additional',
     );
+  });
+});
+
+describe('isParcelTransferQrRequired', () => {
+  it('keeps the transfer-specific QR copy while the replacement crew must scan it', () => {
+    expect(isParcelTransferQrRequired('PENDING_TRANSFER_CONFIRM')).toBe(true);
+    expect(isParcelTransferQrRequired(' pending_transfer_confirm ')).toBe(true);
+  });
+
+  it('does not flag transfer-specific copy for regular in-transit or other statuses', () => {
+    expect(isParcelTransferQrRequired('TRANSFER_ESCALATED')).toBe(false);
+    expect(isParcelTransferQrRequired('IN_TRANSIT')).toBe(false);
   });
 });
 
@@ -60,11 +72,9 @@ describe('getParcelDetailHeroCopy', () => {
       .toBe('warning');
   });
 
-  it('keeps drop-off copy only while the origin QR is active', () => {
+  it('keeps drop-off copy while active', () => {
     expect(getParcelDetailHeroCopy('active', null).codeKey)
       .toBe('parcel.detail.code.showAtDropoff');
-    expect(getParcelDetailHeroCopy('in_progress', null).codeKey)
-      .toBe('parcel.detail.code.unavailableStatus');
     expect(getParcelDetailHeroCopy('completed', null).codeKey)
       .toBe('parcel.detail.code.unavailableStatus');
   });

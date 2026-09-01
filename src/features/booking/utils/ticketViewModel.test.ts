@@ -325,7 +325,17 @@ describe('passenger history ticket view model', () => {
     expect(model.legs[0].trackingEnabled).toBe(false);
   });
 
-  it('hydrates the stale checkout ticket from the fresh BE history DTO', () => {
+  it('replaces the stale checkout seat with the current operational seat', () => {
+    const operationalHistoryItem: PassengerTicketHistoryItem = {
+      ...historyItem,
+      ticket: {
+        ...historyItem.ticket,
+        tickets: [{
+          ...historyItem.ticket.tickets[0],
+          seatNumber: 'A10',
+        }],
+      },
+    };
     const staleResult = {
       bookingId: historyItem.id,
       bookingCode: historyItem.code,
@@ -337,7 +347,7 @@ describe('passenger history ticket view model', () => {
       tickets: [{
         ticketId: historyItem.ticket.tickets[0].ticketId,
         ticketCode: historyItem.ticket.tickets[0].ticketCode,
-        seatNumber: 'OLD-SEAT',
+        seatNumber: 'A01',
         status: 'PENDING_PAYMENT',
         fareAmount: 250_000,
         discountAmount: 0,
@@ -347,18 +357,75 @@ describe('passenger history ticket view model', () => {
 
     const hydrated = hydrateCheckoutBookingResultFromHistory(
       staleResult,
-      [historyItem],
+      [operationalHistoryItem],
     );
 
     expect(hydrated).toMatchObject({
       paymentRedirectUrl: null,
       tickets: [{
-        seatNumber: 'A01',
+        seatNumber: 'A10',
         status: 'ISSUED',
         paidAmount: 250_000,
       }],
       vehicle: historyItem.ticket.vehicle,
     });
+  });
+
+  it('clears the stale checkout seat while operational assignment is pending', () => {
+    const unresolvedHistoryItem: PassengerTicketHistoryItem = {
+      ...historyItem,
+      ticket: {
+        ...historyItem.ticket,
+        tickets: [{
+          ...historyItem.ticket.tickets[0],
+          seatNumber: null,
+        }],
+      },
+    };
+    const staleResult = {
+      bookingId: historyItem.id,
+      bookingCode: historyItem.code,
+      status: 'CONFIRMED' as const,
+      totalAmount: 250_000,
+      discountAmount: 0,
+      paymentId: null,
+      paymentRedirectUrl: null,
+      tickets: [{
+        ticketId: historyItem.ticket.tickets[0].ticketId,
+        ticketCode: historyItem.ticket.tickets[0].ticketCode,
+        seatNumber: 'A01',
+        status: 'ISSUED',
+        fareAmount: 250_000,
+        discountAmount: 0,
+        paidAmount: 250_000,
+      }],
+    };
+
+    const hydrated = hydrateCheckoutBookingResultFromHistory(
+      staleResult,
+      [unresolvedHistoryItem],
+    );
+    const model = buildCheckoutTicketViewModel({
+      bookingResult: hydrated,
+      paymentMethod: 'wallet',
+      selectedTrip: outboundTrip,
+      selectedPickUp: makePoint('Ha Noi', '08:00'),
+      selectedDropOff: makePoint('Da Nang', '12:00'),
+      outboundState: null,
+      returnState: null,
+    }, key => (
+      key === 'history.seatPendingAssignment'
+        ? 'Pending seat assignment'
+        : key
+    ));
+
+    expect(hydrated).toMatchObject({
+      tickets: [{ seatNumber: null }],
+    });
+    expect(model?.legs[0].seatNumbers).toBe('Pending seat assignment');
+    expect(model?.legs[0].ticketEntries?.[0]?.seatNumber)
+      .toBe('Pending seat assignment');
+    expect(model?.legs[0].seatNumbers).not.toContain('A01');
   });
 
   it('renders an unresolved operational seat without falling back to the issued seat', () => {

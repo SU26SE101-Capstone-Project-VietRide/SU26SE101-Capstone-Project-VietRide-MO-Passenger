@@ -28,7 +28,8 @@ import {
 import { getTrackingMapPalette } from './trackingMapStyles';
 
 interface TrackingDetailsContentProps {
-  canManageTripSharing: boolean;
+  canCreateTripShare: boolean;
+  canRevokeTripShare: boolean;
   detailsFooter?: ReactNode;
   hasEtaRouteMismatch: boolean;
   hasTrackingTarget: boolean;
@@ -50,7 +51,8 @@ interface TrackingDetailsContentProps {
 
 export const TrackingDetailsContent = React.memo(
   function TrackingDetailsContentComponent({
-    canManageTripSharing,
+    canCreateTripShare,
+    canRevokeTripShare,
     delayMinutes,
     detailsFooter,
     hasEtaRouteMismatch,
@@ -148,7 +150,7 @@ export const TrackingDetailsContent = React.memo(
           </View>
         ) : null}
 
-        {canManageTripSharing && showPrimaryShareAction ? (
+        {(canCreateTripShare || canRevokeTripShare) && showPrimaryShareAction ? (
           <View style={styles.shareCard}>
             <View style={styles.shareHeading}>
               <View style={styles.shareIcon}>
@@ -165,7 +167,7 @@ export const TrackingDetailsContent = React.memo(
               </View>
             </View>
             <View style={styles.shareActions}>
-              {showPrimaryShareAction ? (
+              {canCreateTripShare ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t('tracking.share.action')}
@@ -194,34 +196,36 @@ export const TrackingDetailsContent = React.memo(
                   </Text>
                 </Pressable>
               ) : null}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('tracking.share.revokeAction')}
-                accessibilityState={{
-                  busy: isRevoking,
-                  disabled: !isOnline || isShareOperationPending,
-                }}
-                disabled={!isOnline || isShareOperationPending}
-                onPress={onRevokeTripShare}
-                style={({ pressed }) => [
-                  styles.shareRevokeButton,
-                  !isOnline || isShareOperationPending
-                    ? styles.shareButtonDisabled
-                    : null,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                {isRevoking ? (
-                  <ActivityIndicator size="small" color={theme.colors.error} />
-                ) : (
-                  <LinkBreak size={18} color={theme.colors.error} weight="bold" />
-                )}
-                <Text style={styles.shareRevokeText}>
-                  {isRevoking
-                    ? t('tracking.share.revoking')
-                    : t('tracking.share.revokeAction')}
-                </Text>
-              </Pressable>
+              {canRevokeTripShare ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tracking.share.revokeAction')}
+                  accessibilityState={{
+                    busy: isRevoking,
+                    disabled: !isOnline || isShareOperationPending,
+                  }}
+                  disabled={!isOnline || isShareOperationPending}
+                  onPress={onRevokeTripShare}
+                  style={({ pressed }) => [
+                    styles.shareRevokeButton,
+                    !isOnline || isShareOperationPending
+                      ? styles.shareButtonDisabled
+                      : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  {isRevoking ? (
+                    <ActivityIndicator size="small" color={theme.colors.error} />
+                  ) : (
+                    <LinkBreak size={18} color={theme.colors.error} weight="bold" />
+                  )}
+                  <Text style={styles.shareRevokeText}>
+                    {isRevoking
+                      ? t('tracking.share.revoking')
+                      : t('tracking.share.revokeAction')}
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           </View>
         ) : null}

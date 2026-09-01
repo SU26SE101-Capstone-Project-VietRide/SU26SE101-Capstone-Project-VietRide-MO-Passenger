@@ -1,8 +1,12 @@
 import { useMemo } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { useIsAppActive } from '@shared/hooks';
 import type { AvailableVoucherItem, GetAvailableVouchersParams } from '../types';
 import { bookingKeys, getAvailableVouchers } from '../api/bookingApi';
+
+export const BOOKING_VOUCHER_REFRESH_INTERVAL_MS = 15 * 1000;
 
 export interface VoucherPreviewLeg {
   tripId: string;
@@ -52,6 +56,8 @@ export function useAvailableBookingVouchers({
   enabled = true,
 }: UseAvailableBookingVouchersParams) {
   const userId = useAuthStore((state) => state.user?.id);
+  const isFocused = useIsFocused();
+  const isAppActive = useIsAppActive();
   const normalizedLegs = useMemo(
     () =>
       legs
@@ -72,6 +78,12 @@ export function useAvailableBookingVouchers({
     }),
     [normalizedLegs, paymentMethod],
   );
+  const canFetch =
+    enabled &&
+    Boolean(userId) &&
+    normalizedLegs.length > 0 &&
+    isFocused &&
+    isAppActive;
 
   return useQuery({
     queryKey: bookingKeys.availableVouchers(userId ?? 'none', {
@@ -101,8 +113,12 @@ export function useAvailableBookingVouchers({
 
       return mergeVoucherLists(results);
     },
-    enabled: enabled && Boolean(userId) && normalizedLegs.length > 0,
-    staleTime: 60 * 1000,
+    enabled: canFetch,
+    staleTime: 0,
     gcTime: 5 * 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnReconnect: 'always',
+    refetchInterval: canFetch ? BOOKING_VOUCHER_REFRESH_INTERVAL_MS : false,
+    refetchIntervalInBackground: false,
   });
 }
