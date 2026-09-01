@@ -13,7 +13,10 @@ export const parcelKeys = {
       userId,
       {
         originStationId: params.originStationId,
-        destinationStationId: params.destinationStationId,
+        destinationStationId: params.destinationStationId ?? null,
+        dropoffStopId: params.dropoffStopId ?? null,
+        destinationProvinceCode: params.destinationProvinceCode ?? null,
+        destinationLocationCode: params.destinationLocationCode ?? null,
         departureDate: params.departureDate,
         lengthCm: params.lengthCm,
         widthCm: params.widthCm,

@@ -23,6 +23,7 @@ import type {
 import type { BookingHistoryTicketDetail } from '../data/bookingHistoryFixture';
 import { getBookingReference } from './bookingReference';
 import { formatOperationalSeatNumber } from './operationalSeat';
+import { resolveTicketJourneyPoint } from './ticketJourneyPresentation';
 import { getTicketStatusPresentation } from './ticketPresentation';
 
 export interface TicketLegViewModel {
@@ -56,11 +57,10 @@ export interface TicketLegViewModel {
   shuttleRequests?: readonly BookingHistoryShuttleRequest[];
   /** Route display name from history payload; omit when unknown. */
   routeName?: string;
-  /**
-   * History only returns route-level origin/destination (HIST-BE-002).
-   * When true, UI labels them as route endpoints — never as passenger stops.
-   */
-  usesRouteEndpoints?: boolean;
+  /** True when a missing booked pickup snapshot falls back to the route origin. */
+  boardingUsesRouteEndpoint?: boolean;
+  /** True when a missing booked drop-off snapshot falls back to the route destination. */
+  alightingUsesRouteEndpoint?: boolean;
 }
 
 export interface TicketCodeViewModel {
@@ -478,8 +478,8 @@ export const buildTicketPages = (model: TicketViewModel): TicketPageViewModel[] 
  * ticket UI can omit them instead of fabricating details. Vehicle metadata is
  * sourced only from the nullable ticket.vehicle snapshot returned by BE.
  *
- * HIST-BE-002: originName/destinationName are route endpoints, not the
- * passenger's booked STOP/STATION snapshots. Labels must not claim otherwise.
+ * pickupPoint/dropoffPoint are immutable booked-leg snapshots. Presentation
+ * falls back to route endpoints for legacy nulls without mutating the DTO.
  */
 export const buildPassengerHistoryTicketViewModel = (
   item: PassengerTicketHistoryItem,
@@ -498,6 +498,16 @@ export const buildPassengerHistoryTicketViewModel = (
   const ticketPaidTotal = item.ticket.tickets.reduce(
     (sum, ticket) => sum + (Number.isFinite(ticket.paidAmount) ? ticket.paidAmount : 0),
     0,
+  );
+  const boardingPoint = resolveTicketJourneyPoint(
+    item.ticket.pickupPoint?.displayName,
+    item.originName,
+    translate('history.bookedPickupUnavailable'),
+  );
+  const alightingPoint = resolveTicketJourneyPoint(
+    item.ticket.dropoffPoint?.displayName,
+    item.destinationName,
+    translate('history.bookedDropoffUnavailable'),
   );
 
   return {
@@ -526,14 +536,19 @@ export const buildPassengerHistoryTicketViewModel = (
         status: ticket.status,
         paidAmount: ticket.paidAmount,
       })),
-      // Route endpoints only — not passenger boarding/alighting stops.
-      boardingName: item.originName ?? translate('history.originUnavailable'),
-      boardingTime: item.departureDateTime
-        ? formatDateTime(item.departureDateTime)
+      boardingName: boardingPoint.name,
+      ...(item.ticket.pickupPoint?.address
+        ? { boardingAddress: item.ticket.pickupPoint.address }
+        : {}),
+      boardingTime: item.ticket.pickupPoint?.plannedAt
+        ? formatDateTime(item.ticket.pickupPoint.plannedAt)
         : undefined,
-      alightingName: item.destinationName ?? translate('history.destinationUnavailable'),
-      alightingTime: item.estimatedArrivalTime
-        ? formatDateTime(item.estimatedArrivalTime)
+      alightingName: alightingPoint.name,
+      ...(item.ticket.dropoffPoint?.address
+        ? { alightingAddress: item.ticket.dropoffPoint.address }
+        : {}),
+      alightingTime: item.ticket.dropoffPoint?.plannedAt
+        ? formatDateTime(item.ticket.dropoffPoint.plannedAt)
         : undefined,
       ...(item.ticket.vehicle?.vehicleType?.displayName
         ? { busType: item.ticket.vehicle.vehicleType.displayName }
@@ -554,7 +569,8 @@ export const buildPassengerHistoryTicketViewModel = (
       ...(item.ticket.shuttleRequests.length > 0
         ? { shuttleRequests: item.ticket.shuttleRequests }
         : {}),
-      usesRouteEndpoints: true,
+      boardingUsesRouteEndpoint: boardingPoint.usesRouteEndpoint,
+      alightingUsesRouteEndpoint: alightingPoint.usesRouteEndpoint,
       trackingEnabled: statusPresentation.trackingEnabled,
     }],
   };

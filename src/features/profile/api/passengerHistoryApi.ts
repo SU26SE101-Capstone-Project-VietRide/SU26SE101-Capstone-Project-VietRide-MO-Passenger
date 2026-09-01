@@ -51,6 +51,14 @@ export const passengerHistoryVehicleSchema = z.object({
   }).nullable(),
 });
 
+const passengerHistoryPointSchema = z.object({
+  type: z.enum(['STATION', 'STOP']),
+  id: z.string().uuid(),
+  displayName: z.string().trim().min(1).max(500),
+  address: z.string().trim().max(1_000).nullable(),
+  plannedAt: rfc3339Schema,
+});
+
 /**
  * BE may serialize the inactive id as null (e.g. STOP with stationId:null).
  * Accept both ids as optional/nullable, enforce XOR, transform to clean union.
@@ -133,6 +141,10 @@ const ticketHistoryItemSchema = z.object({
     bookingGroupId: z.string().uuid().nullable(),
     tripDirection: z.enum(['OUTBOUND', 'RETURN']).nullable(),
     routeName: nullableTextSchema,
+    // Rolling compatibility: pre-HIST-BE-002 responses omit these snapshots.
+    // Null means unknown and must never be replaced with route endpoints.
+    pickupPoint: passengerHistoryPointSchema.nullable().optional().default(null),
+    dropoffPoint: passengerHistoryPointSchema.nullable().optional().default(null),
     tickets: z.array(z.object({
       ticketId: z.string().uuid(),
       ticketCode: z.string().trim().min(1).max(100),

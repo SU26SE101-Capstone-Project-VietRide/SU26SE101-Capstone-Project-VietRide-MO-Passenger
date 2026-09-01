@@ -580,7 +580,7 @@ export function HomeScreen(): React.JSX.Element {
                   <Pressable
                     disabled={!canStartParcel}
                     accessibilityRole="button"
-                    accessibilityLabel={t('common.continue')}
+                    accessibilityLabel={t('home.parcel.setupShipment')}
                     accessibilityState={{ disabled: !canStartParcel }}
                     style={({ pressed }) => [
                       styles.nextButton,
@@ -589,7 +589,7 @@ export function HomeScreen(): React.JSX.Element {
                     ]}
                     onPress={handleStartShipment}
                   >
-                    <Text style={styles.searchButtonText}>{t('common.continue')}</Text>
+                    <Text style={styles.searchButtonText}>{t('home.parcel.setupShipment')}</Text>
                     <ArrowRight
                       size={18}
                       color={theme.colors.textInverse}

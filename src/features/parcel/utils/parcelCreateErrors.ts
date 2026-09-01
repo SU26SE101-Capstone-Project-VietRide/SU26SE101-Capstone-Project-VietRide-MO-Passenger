@@ -32,6 +32,7 @@ export type ParcelCreateConflictKind =
   | 'quote_invalid'
   | 'idempotency_pending'
   | 'trip_freshness'
+  | 'dropoff_unavailable'
   | 'code_collision'
   | 'retry_intent_changed'
   | 'ambiguous'
@@ -67,6 +68,9 @@ export const classifyParcelCreateConflict = (
   }
   if (code === 'PARCEL_CODE_COLLISION') {
     return 'code_collision';
+  }
+  if (code === 'DROP_OFF_STOP_NOT_FOUND') {
+    return 'dropoff_unavailable';
   }
   if (
     (PARCEL_TRIP_FRESHNESS_ERROR_CODES as readonly string[]).includes(code)

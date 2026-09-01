@@ -29,6 +29,14 @@ export const bookingHistoryShuttleRequestSchema = z.object({
   cancelledAt: apiInstantSchema.nullable(),
 });
 
+const bookingHistoryPointSchema = z.object({
+  type: z.enum(['STATION', 'STOP']),
+  id: z.string().uuid(),
+  displayName: z.string().trim().min(1).max(500),
+  address: z.string().trim().max(1_000).nullable(),
+  plannedAt: apiInstantSchema,
+});
+
 const bookingHistoryItemSchema = z.object({
   bookingId: z.string().uuid(),
   bookingCode: z.string().trim().min(1).max(100),
@@ -42,6 +50,8 @@ const bookingHistoryItemSchema = z.object({
   bookingGroupId: nullableUuidSchema,
   tripDirection: z.enum(['OUTBOUND', 'RETURN']).nullable(),
   routeName: nullableTextSchema,
+  pickupPoint: bookingHistoryPointSchema.nullable().optional().default(null),
+  dropoffPoint: bookingHistoryPointSchema.nullable().optional().default(null),
   tickets: z.array(z.object({
     ticketId: z.string().uuid(),
     ticketCode: z.string().trim().min(1).max(100),
@@ -124,6 +134,8 @@ export const parseBookingHistoryPage = (
         bookingGroupId: item.bookingGroupId,
         tripDirection: item.tripDirection,
         routeName: item.routeName,
+        pickupPoint: item.pickupPoint,
+        dropoffPoint: item.dropoffPoint,
         tickets: item.tickets,
         vehicle: item.vehicle,
         shuttleRequests: mapShuttleRequests(item.shuttleRequests),

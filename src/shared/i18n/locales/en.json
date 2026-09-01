@@ -30,7 +30,8 @@
     "or": "or",
     "searchPlaceholder": "Search...",
     "understood": "Understood",
-    "none": "None"
+    "none": "None",
+    "notice": "Notice"
   },
   "errors": {
     "api": {
@@ -217,12 +218,13 @@
       "searchBuses": "Search trips"
     },
     "parcel": {
-      "from": "Send from",
-      "to": "Send to",
-      "selectOrigin": "Select origin terminal",
-      "selectDestination": "Select destination terminal",
-      "swapLocations": "Swap origin and destination",
-      "terminalHint": "Choose the terminals where the parcel will be dropped off and collected."
+      "from": "Sending area",
+      "to": "Receiving area",
+      "selectOrigin": "Select sending area",
+      "selectDestination": "Select receiving area",
+      "swapLocations": "Swap sending and receiving areas",
+      "terminalHint": "Choose areas first. Exact sending station and drop-off point are selected in the next steps.",
+      "setupShipment": "Set up parcel delivery"
     },
     "wallet": {
       "open": "Open wallet",
@@ -266,6 +268,10 @@
       "emptyDescription": "Your recent shipments will appear here.",
       "viewAllAccessibility": "View all parcel history",
       "viewAll": "View all"
+    },
+    "booking": {
+      "today": "Today",
+      "tomorrow": "Tomorrow"
     }
   },
   "notification": {
@@ -1264,13 +1270,23 @@
       "backToDashboard": "Back to Dashboard",
       "chooseDestinationTerminal": "Choose a receiving terminal",
       "chooseOriginTerminal": "Choose a sending terminal",
-      "continueToDestination": "Continue to receiving terminal",
+      "continueToDestination": "Continue to receiving area",
       "continueToDetails": "Continue to parcel details",
       "next": "Next",
       "nextStep": "Next Step",
       "previous": "Previous",
       "refresh": "Refresh",
-      "retryPreviousRequest": "Retry previous request"
+      "retryPreviousRequest": "Retry previous request",
+      "changeArea": "Change area",
+      "changeSendingArea": "Change sending area",
+      "changeReceivingArea": "Change receiving area",
+      "continueToFit": "Continue to parcel details",
+      "findDeliveryOptions": "Find delivery options",
+      "continueToCheckout": "Continue",
+      "createAndPay": "Create parcel & pay",
+      "tryNextDay": "Try next day",
+      "changeRoute": "Change route",
+      "continueToConfirm": "Continue to confirmation"
     },
     "categories": {
       "documents": "Documents",
@@ -1384,6 +1400,8 @@
       "photoUploadDescription": "The selected photo could not be prepared or uploaded. Try again, or remove it to continue without a photo.",
       "tripAvailabilityChangedTitle": "Trip availability changed",
       "tripAvailabilityChangedDescription": "The selected trip or parcel estimate changed while you were confirming. Please choose an available trip again.",
+      "dropoffUnavailableTitle": "Receiving point unavailable",
+      "dropoffUnavailableDescription": "The selected receiving point no longer accepts parcels on this trip. Trips were refreshed; choose the trip and receiving point again.",
       "tripAssistantRequired": "This trip does not have an assigned onboard assistant yet, so it cannot accept parcels. Please choose another trip.",
       "incidentTypeNotReportable": "This incident type cannot be reported by a passenger. Refresh parcel details and choose one of the available options.",
       "quoteExpiredTitle": "Parcel quote expired",
@@ -1408,7 +1426,11 @@
       "voucherRevalidating": "Your voucher is being re-checked for the latest quote. Wait a moment before confirming.",
       "leaveAmbiguousTitle": "Leave this request?",
       "leaveAmbiguousCreateDescription": "The previous create request may already have succeeded. Check your activity history before creating again. Exact retry will be lost if you leave.",
-      "leaveAmbiguousDepositDescription": "Your parcel was saved, but deposit payment may still be processing. Leaving may prevent exact payment retry. Prefer waiting or opening parcel details later."
+      "leaveAmbiguousDepositDescription": "Your parcel was saved, but deposit payment may still be processing. Leaving may prevent exact payment retry. Prefer waiting or opening parcel details later.",
+      "quoteUnavailableTitle": "Quote no longer valid",
+      "quoteUnavailableDescription": "Trip info or fares have changed. Please select a delivery option again.",
+      "dropoffStopUnavailableTitle": "Dropoff point unavailable",
+      "dropoffStopUnavailableDescription": "The selected dropoff stop is no longer available on this trip. Please choose another point."
     },
     "form": {
       "photoLabel": "Parcel photo",
@@ -1455,7 +1477,8 @@
       "entireProvince": "All of {{province}}",
       "entireProvinceHint": "Find every station in this province. Same-province sending is allowed if you pick a different station.",
       "entireProvinceAccessibility": "Select all of {{province}}",
-      "wardInProvince": "{{ward}}, {{province}}"
+      "wardInProvince": "{{ward}}, {{province}}",
+      "selectedDestination": "Receiving area: {{name}}"
     },
     "packageSize": {
       "title": "Package Size",
@@ -1498,10 +1521,13 @@
     },
     "progress": {
       "origin": "Origin",
-      "destination": "Dest",
+      "destination": "Area",
       "item": "Item",
-      "payment": "Pay",
-      "stepAccessibility": "{{label}}, step {{step}} of {{total}}"
+      "payment": "Trip & point",
+      "stepAccessibility": "{{label}}, step {{step}} of {{total}}",
+      "stationDate": "Station & date",
+      "delivery": "Delivery",
+      "confirm": "Confirm"
     },
     "promos": {
       "title": "Promo Code",
@@ -1534,7 +1560,9 @@
         "expired": "This promo code has expired.",
         "minimumDeposit": "Minimum parcel order amount is {{amount}}.",
         "minimumSpend": "Minimum parcel order amount is {{amount}}."
-      }
+      },
+      "codeRequired": "Please enter a promo code",
+      "invalidCode": "Promo code is invalid or has expired"
     },
     "route": {
       "from": "FROM",
@@ -1544,7 +1572,12 @@
       "originTerminal": "Origin terminal",
       "destinationTerminal": "Destination terminal",
       "selectedOrigin": "Selected origin",
-      "selectedDestination": "Selected destination"
+      "selectedDestination": "Selected destination",
+      "changeOrigin": "Change origin area",
+      "changeDestination": "Change destination area",
+      "swap": "Swap origin and destination",
+      "editRouteTitle": "Edit shipment route",
+      "editRouteDescription": "Select the area you want to change or swap"
     },
     "stations": {
       "originAccessibility": "Sending terminal",
@@ -1571,24 +1604,40 @@
       "finding": "Finding terminals…",
       "availableCount_one": "{{count}} terminal available",
       "availableCount_other": "{{count}} terminals available",
-      "selected": "Selected: {{name}}"
+      "selected": "Selected: {{name}}",
+      "showMore": "Show more stations ({{count}} remaining)",
+      "showingCount": "Showing all {{total}} stations"
     },
     "steps": {
       "origin": {
         "heading": "Choose Sending Station",
-        "description": "Where will you drop off your parcel?"
+        "description": "Parcels are accepted at the trip's origin terminal."
       },
       "destination": {
-        "heading": "Choose Receiving Station",
-        "description": "Where should the recipient pick up?"
+        "heading": "Choose Receiving Area",
+        "description": "Choose an area to filter trips. This is not the final receiving point.",
+        "locationHint": "After entering parcel details, you will choose a terminal or eligible route stop on a trip.",
+        "changeLocation": "Change receiving area"
       },
       "package": {
         "heading": "Tell us about your package",
-        "description": "Help us find the right vehicle for you."
+        "description": "Enter dimensions, weight, and item type to find matching trips."
       },
       "summary": {
-        "heading": "Order Summary",
-        "description": "Confirm details and make payment."
+        "heading": "Choose Trip & Receiving Point",
+        "description": "Choose exactly one receiving point before confirming payment."
+      },
+      "stationDate": {
+        "heading": "Choose Station & Date",
+        "description": "Choose where to send the parcel and when the trip departs."
+      },
+      "delivery": {
+        "heading": "Choose Delivery Option",
+        "description": "Select the most convenient trip and drop-off point."
+      },
+      "confirm": {
+        "heading": "Confirm & Pay",
+        "description": "Enter recipient details and complete payment."
       }
     },
     "summary": {
@@ -1808,10 +1857,16 @@
       "quoteUnavailable": "Quote unavailable — refresh trips",
       "departureDate": "Departure Date",
       "availableTitle": "Available Trips",
+      "dropoffPointsTitle": "Choose your receiving point",
+      "dropoffPointAccessibility": "{{type}}: {{name}}",
+      "dropoffTypes": {
+        "STATION": "Terminal",
+        "STOP": "Route stop"
+      },
       "emptyTitle": "No parcel-enabled trip found",
       "emptyRouteDate": "{{origin}} → {{destination}} on {{date}}.",
-      "emptyDescription": "Parcel service requires a scheduled trip with cargo capacity and a parcel fare for this exact terminal pair. Try another date or choose different terminals.",
-      "changeTerminals": "Change terminals",
+      "emptyDescription": "Parcel service requires a scheduled trip with cargo capacity and an eligible receiving point in the selected area. Try another date or change the origin terminal/receiving area.",
+      "changeTerminals": "Change search route",
       "checkMore": "Check more trips",
       "tryNextDay": "Try next day",
       "operatorDeparture": "{{operator}} · {{departure}}",
@@ -1819,7 +1874,9 @@
       "availableCount_other": "{{count}} trips available",
       "loadingMore": "Loading more trips…",
       "loadMoreFailed": "Could not load more trips.",
-      "retryLoadMore": "Try again"
+      "retryLoadMore": "Try again",
+      "loadError": "Unable to load trips",
+      "loadErrorDescription": "Please check your network connection and try again."
     },
     "units": {
       "cm": "cm",
@@ -1830,6 +1887,8 @@
       "dimensionsPositive": "Each side must be at least 5 cm.",
       "selectOriginStation": "Please select an origin station.",
       "selectDestinationStation": "Please select a destination station.",
+      "selectDestinationLocation": "Please select a receiving area.",
+      "selectDropoffPoint": "Please select exactly one parcel receiving point.",
       "recipientRequired": "Recipient name, phone number, and email are required.",
       "recipientNameRequired": "Enter the recipient name.",
       "recipientPhoneRequired": "Enter the recipient phone number.",
@@ -1839,7 +1898,9 @@
       "invalidRecipientEmail": "Enter a valid recipient email address.",
       "invalidMeasurements": "Enter a valid package weight and dimensions.",
       "selectAvailableTrip": "Please select an available trip for this parcel.",
-      "selectTripBeforeCreate": "Please select a trip before creating parcel."
+      "selectTripBeforeCreate": "Please select a trip before creating parcel.",
+      "invalidDimensions": "Please check parcel dimensions (each side at least 5 cm)",
+      "invalidWeight": "Please check parcel weight"
     },
     "weight": {
       "title": "Weight",
@@ -1847,6 +1908,43 @@
       "sliderAccessibility": "Parcel weight",
       "valueAccessibility": "{{value}} {{unit}}",
       "sliderMaximum": "{{value}} {{unit}} slider range"
+    },
+    "delivery": {
+      "optionsTitle": "Delivery Options",
+      "dropoffStationBadge": "Station",
+      "dropoffStopBadge": "Stop",
+      "dropoffAtStation": "PICKUP AT STATION",
+      "dropoffAtStop": "PICKUP AT BUS STOP",
+      "selectThisOption": "Select this option",
+      "selectedOption": "Option selected",
+      "continuesAfterDropoff": "Trip continues to {{destination}} after delivering at {{point}}.",
+      "sendingFrom": "Sending: {{station}}, {{time}}",
+      "etaAtPoint": "Est. arrival: {{time}}",
+      "estimatedCost": "Est. price: {{price}}",
+      "depositCost": "Deposit: {{deposit}}",
+      "routeSummary": "{{origin}} → {{destination}}",
+      "optionAccessibility": "Delivery option {{pointName}}, pickup at {{pointType}}, departing {{departureTime}}, arriving {{arrivalTime}}, estimated price {{price}}",
+      "disabledQuote": "Quote unavailable for this trip",
+      "loadingMore": "Loading more options...",
+      "loadMore": "Load more options",
+      "emptyTitle": "No delivery options found",
+      "emptyDescription": "No trips found from {{from}} to {{to}} on {{date}}."
+    },
+    "routeGate": {
+      "title": "Set Up Delivery Route",
+      "description": "Please select a sending and receiving area before creating a parcel shipment.",
+      "selectSendingArea": "Select sending area",
+      "selectReceivingArea": "Select receiving area"
+    },
+    "checkout": {
+      "deliverySummary": "Selected Delivery Option",
+      "recipientSection": "Recipient Details",
+      "optionalDetails": "Additional Details",
+      "pricingSection": "Payment Breakdown"
+    },
+    "category": {
+      "title": "Item category",
+      "hint": "Select the category that best matches your item"
     }
   },
   "profile": {
@@ -2122,6 +2220,10 @@
   },
   "history": {
     "routeUnavailable": "Route unavailable",
+    "bookedLegUnavailable": "Booked leg unavailable",
+    "bookedPickupUnavailable": "Booked pickup unavailable",
+    "bookedDropoffUnavailable": "Booked drop-off unavailable",
+    "routeMetadata": "Route: {{route}}",
     "originUnavailable": "Origin unavailable",
     "destinationUnavailable": "Destination unavailable",
     "departureUnavailable": "Departure schedule unavailable",

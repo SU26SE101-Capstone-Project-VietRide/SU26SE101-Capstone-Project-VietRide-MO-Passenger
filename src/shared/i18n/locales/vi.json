@@ -30,7 +30,8 @@
     "or": "hoặc",
     "searchPlaceholder": "Tìm kiếm...",
     "understood": "Đã hiểu",
-    "none": "Không có"
+    "none": "Không có",
+    "notice": "Thông báo"
   },
   "errors": {
     "api": {
@@ -217,12 +218,13 @@
       "searchBuses": "Tìm chuyến"
     },
     "parcel": {
-      "from": "Gửi từ",
-      "to": "Gửi đến",
-      "selectOrigin": "Chọn bến gửi hàng",
-      "selectDestination": "Chọn bến nhận hàng",
-      "swapLocations": "Đổi bến gửi và bến nhận",
-      "terminalHint": "Chọn bến nơi kiện hàng được gửi và nhận."
+      "from": "Khu vực gửi",
+      "to": "Khu vực nhận",
+      "selectOrigin": "Chọn khu vực gửi",
+      "selectDestination": "Chọn khu vực nhận",
+      "swapLocations": "Đổi khu vực gửi và nhận",
+      "terminalHint": "Chọn khu vực trước. Bến gửi và điểm nhận chính xác được chọn ở bước tiếp theo.",
+      "setupShipment": "Thiết lập gửi hàng"
     },
     "wallet": {
       "open": "Mở ví",
@@ -266,6 +268,10 @@
       "emptyDescription": "Các đơn gửi hàng gần đây sẽ xuất hiện tại đây.",
       "viewAllAccessibility": "Xem toàn bộ lịch sử gửi hàng",
       "viewAll": "Xem tất cả"
+    },
+    "booking": {
+      "today": "Hôm nay",
+      "tomorrow": "Ngày mai"
     }
   },
   "notification": {
@@ -1264,13 +1270,23 @@
       "backToDashboard": "Về trang chủ",
       "chooseDestinationTerminal": "Chọn bến nhận",
       "chooseOriginTerminal": "Chọn bến gửi",
-      "continueToDestination": "Tiếp tục chọn bến nhận",
+      "continueToDestination": "Tiếp tục chọn khu vực nhận",
       "continueToDetails": "Tiếp tục nhập thông tin kiện hàng",
       "next": "Tiếp",
       "nextStep": "Bước tiếp theo",
       "previous": "Trước",
       "refresh": "Làm mới",
-      "retryPreviousRequest": "Thử lại yêu cầu trước"
+      "retryPreviousRequest": "Thử lại yêu cầu trước",
+      "changeArea": "Đổi khu vực",
+      "changeSendingArea": "Đổi khu vực gửi",
+      "changeReceivingArea": "Đổi khu vực nhận",
+      "continueToFit": "Tiếp tục nhập kiện hàng",
+      "findDeliveryOptions": "Tìm phương án giao",
+      "continueToCheckout": "Tiếp tục",
+      "createAndPay": "Tạo đơn & thanh toán",
+      "tryNextDay": "Xem ngày tiếp theo",
+      "changeRoute": "Đổi khu vực",
+      "continueToConfirm": "Tiếp tục đến xác nhận"
     },
     "categories": {
       "documents": "Tài liệu",
@@ -1384,6 +1400,8 @@
       "photoUploadDescription": "Không thể chuẩn bị hoặc tải ảnh đã chọn lên. Hãy thử lại hoặc xóa ảnh để tiếp tục mà không có ảnh.",
       "tripAvailabilityChangedTitle": "Tình trạng chuyến đã thay đổi",
       "tripAvailabilityChangedDescription": "Chuyến đã chọn hoặc giá ước tính đã thay đổi trong lúc xác nhận. Vui lòng chọn lại một chuyến khả dụng.",
+      "dropoffUnavailableTitle": "Điểm nhận không còn khả dụng",
+      "dropoffUnavailableDescription": "Điểm nhận đã chọn không còn nhận kiện trên chuyến này. Danh sách chuyến đã được làm mới; vui lòng chọn lại chuyến và điểm nhận.",
       "tripAssistantRequired": "Chuyến này chưa có phụ xe được phân công nên chưa thể nhận kiện hàng. Vui lòng chọn chuyến khác.",
       "incidentTypeNotReportable": "Hành khách không thể báo loại sự cố này. Hãy làm mới chi tiết kiện hàng và chọn một loại đang được hỗ trợ.",
       "quoteExpiredTitle": "Báo giá gửi hàng đã hết hạn",
@@ -1408,7 +1426,11 @@
       "voucherRevalidating": "Voucher đang được kiểm tra lại theo báo giá mới. Vui lòng chờ trước khi xác nhận.",
       "leaveAmbiguousTitle": "Rời yêu cầu này?",
       "leaveAmbiguousCreateDescription": "Yêu cầu tạo trước đó có thể đã thành công. Hãy kiểm tra lịch sử hoạt động trước khi tạo lại. Rời màn hình sẽ mất exact-retry.",
-      "leaveAmbiguousDepositDescription": "Kiện hàng đã được lưu nhưng thanh toán cọc có thể vẫn đang xử lý. Rời màn hình có thể khiến không retry đúng được. Nên chờ hoặc mở chi tiết kiện hàng sau."
+      "leaveAmbiguousDepositDescription": "Kiện hàng đã được lưu nhưng thanh toán cọc có thể vẫn đang xử lý. Rời màn hình có thể khiến không retry đúng được. Nên chờ hoặc mở chi tiết kiện hàng sau.",
+      "quoteUnavailableTitle": "Báo giá không còn hiệu lực",
+      "quoteUnavailableDescription": "Thông tin chuyến đi hoặc giá cước đã thay đổi. Vui lòng chọn lại phương án.",
+      "dropoffStopUnavailableTitle": "Điểm trả hàng không khả dụng",
+      "dropoffStopUnavailableDescription": "Điểm dừng đã chọn không còn khả dụng cho chuyến này. Vui lòng chọn điểm khác."
     },
     "form": {
       "photoLabel": "Ảnh kiện hàng",
@@ -1455,7 +1477,8 @@
       "entireProvince": "Toàn {{province}}",
       "entireProvinceHint": "Tìm mọi bến trong tỉnh/thành này. Có thể gửi trong cùng tỉnh nếu chọn bến khác.",
       "entireProvinceAccessibility": "Chọn toàn {{province}}",
-      "wardInProvince": "{{ward}}, {{province}}"
+      "wardInProvince": "{{ward}}, {{province}}",
+      "selectedDestination": "Khu vực nhận: {{name}}"
     },
     "packageSize": {
       "title": "Kích thước kiện hàng",
@@ -1498,10 +1521,13 @@
     },
     "progress": {
       "origin": "Bến gửi",
-      "destination": "Bến nhận",
+      "destination": "Khu vực nhận",
       "item": "Kiện hàng",
-      "payment": "Thanh toán",
-      "stepAccessibility": "{{label}}, bước {{step}} trên {{total}}"
+      "payment": "Chuyến & điểm nhận",
+      "stepAccessibility": "{{label}}, bước {{step}} trên {{total}}",
+      "stationDate": "Bến & ngày",
+      "delivery": "Phương án",
+      "confirm": "Xác nhận"
     },
     "promos": {
       "title": "Mã ưu đãi",
@@ -1534,7 +1560,9 @@
         "expired": "Mã ưu đãi này đã hết hạn.",
         "minimumDeposit": "Giá trị đơn tối thiểu là {{amount}}.",
         "minimumSpend": "Giá trị đơn tối thiểu là {{amount}}."
-      }
+      },
+      "codeRequired": "Vui lòng nhập mã ưu đãi",
+      "invalidCode": "Mã ưu đãi không hợp lệ hoặc đã hết hạn"
     },
     "route": {
       "from": "TỪ",
@@ -1544,7 +1572,12 @@
       "originTerminal": "Bến gửi",
       "destinationTerminal": "Bến nhận",
       "selectedOrigin": "Điểm đi đã chọn",
-      "selectedDestination": "Điểm đến đã chọn"
+      "selectedDestination": "Điểm đến đã chọn",
+      "changeOrigin": "Đổi khu vực gửi",
+      "changeDestination": "Đổi khu vực nhận",
+      "swap": "Đổi chiều gửi / nhận",
+      "editRouteTitle": "Tùy chỉnh tuyến gửi hàng",
+      "editRouteDescription": "Chọn khu vực bạn muốn thay đổi hoặc đảo chiều gửi - nhận"
     },
     "stations": {
       "originAccessibility": "Bến gửi",
@@ -1571,24 +1604,40 @@
       "finding": "Đang tìm bến…",
       "availableCount_one": "Có {{count}} bến khả dụng",
       "availableCount_other": "Có {{count}} bến khả dụng",
-      "selected": "Đã chọn: {{name}}"
+      "selected": "Đã chọn: {{name}}",
+      "showMore": "Xem thêm bến (còn {{count}} bến)",
+      "showingCount": "Đã hiển thị tất cả {{total}} bến"
     },
     "steps": {
       "origin": {
         "heading": "Chọn bến gửi",
-        "description": "Bạn sẽ gửi kiện hàng ở đâu?"
+        "description": "Kiện hàng được gửi tại bến khởi hành của chuyến."
       },
       "destination": {
-        "heading": "Chọn bến nhận",
-        "description": "Người nhận sẽ lấy kiện hàng ở đâu?"
+        "heading": "Chọn khu vực nhận",
+        "description": "Chọn khu vực để lọc chuyến. Đây chưa phải điểm nhận chính thức.",
+        "locationHint": "Sau khi nhập thông tin kiện, bạn sẽ tự chọn bến hoặc điểm dừng nhận kiện trên từng chuyến.",
+        "changeLocation": "Đổi khu vực nhận"
       },
       "package": {
         "heading": "Thông tin kiện hàng",
-        "description": "Giúp chúng tôi tìm chuyến xe phù hợp cho bạn."
+        "description": "Nhập kích thước, khối lượng và loại hàng để tìm chuyến phù hợp."
       },
       "summary": {
-        "heading": "Tóm tắt đơn hàng",
-        "description": "Xác nhận thông tin và thanh toán."
+        "heading": "Chọn chuyến & điểm nhận",
+        "description": "Bạn tự chọn chính xác một điểm nhận trước khi xác nhận thanh toán."
+      },
+      "stationDate": {
+        "heading": "Chọn bến gửi & ngày gửi",
+        "description": "Chọn nơi gửi kiện và ngày xe khởi hành."
+      },
+      "delivery": {
+        "heading": "Chọn phương án giao hàng",
+        "description": "Chọn chuyến xe và điểm nhận hàng thuận tiện nhất."
+      },
+      "confirm": {
+        "heading": "Xác nhận & thanh toán",
+        "description": "Nhập thông tin người nhận và hoàn tất thanh toán."
       }
     },
     "summary": {
@@ -1808,10 +1857,16 @@
       "quoteUnavailable": "Không có báo giá — làm mới danh sách chuyến",
       "departureDate": "Ngày khởi hành",
       "availableTitle": "Chuyến khả dụng",
+      "dropoffPointsTitle": "Bạn chọn điểm nhận kiện",
+      "dropoffPointAccessibility": "{{type}}: {{name}}",
+      "dropoffTypes": {
+        "STATION": "Bến xe",
+        "STOP": "Điểm dừng"
+      },
       "emptyTitle": "Không tìm thấy chuyến nhận gửi hàng",
       "emptyRouteDate": "{{origin}} → {{destination}} vào {{date}}.",
-      "emptyDescription": "Dịch vụ gửi hàng cần chuyến đã lên lịch, còn sức chứa và có giá cước kiện hàng cho đúng cặp bến này. Hãy thử ngày khác hoặc chọn bến khác.",
-      "changeTerminals": "Đổi bến",
+      "emptyDescription": "Dịch vụ gửi hàng cần chuyến đã lên lịch, còn sức chứa và có điểm nhận kiện phù hợp trong khu vực đã chọn. Hãy thử ngày khác hoặc đổi bến gửi/khu vực nhận.",
+      "changeTerminals": "Đổi tuyến tìm kiếm",
       "checkMore": "Xem thêm chuyến",
       "tryNextDay": "Thử ngày tiếp theo",
       "operatorDeparture": "{{operator}} · {{departure}}",
@@ -1819,7 +1874,9 @@
       "availableCount_other": "Có {{count}} chuyến khả dụng",
       "loadingMore": "Đang tải thêm chuyến…",
       "loadMoreFailed": "Không tải thêm được chuyến.",
-      "retryLoadMore": "Thử lại"
+      "retryLoadMore": "Thử lại",
+      "loadError": "Không thể tải danh sách chuyến",
+      "loadErrorDescription": "Vui lòng kiểm tra kết nối mạng và thử lại."
     },
     "units": {
       "cm": "cm",
@@ -1830,6 +1887,8 @@
       "dimensionsPositive": "Mỗi cạnh phải từ 5 cm trở lên.",
       "selectOriginStation": "Vui lòng chọn bến gửi.",
       "selectDestinationStation": "Vui lòng chọn bến nhận.",
+      "selectDestinationLocation": "Vui lòng chọn khu vực nhận.",
+      "selectDropoffPoint": "Vui lòng chọn chính xác một điểm nhận kiện.",
       "recipientRequired": "Cần nhập tên, số điện thoại và email người nhận.",
       "recipientNameRequired": "Nhập tên người nhận.",
       "recipientPhoneRequired": "Nhập số điện thoại người nhận.",
@@ -1839,7 +1898,9 @@
       "invalidRecipientEmail": "Nhập email người nhận hợp lệ.",
       "invalidMeasurements": "Nhập khối lượng và kích thước kiện hàng hợp lệ.",
       "selectAvailableTrip": "Vui lòng chọn một chuyến khả dụng cho kiện hàng.",
-      "selectTripBeforeCreate": "Vui lòng chọn chuyến trước khi tạo đơn gửi hàng."
+      "selectTripBeforeCreate": "Vui lòng chọn chuyến trước khi tạo đơn gửi hàng.",
+      "invalidDimensions": "Vui lòng kiểm tra kích thước kiện hàng (mỗi chiều từ 5 cm)",
+      "invalidWeight": "Vui lòng kiểm tra khối lượng kiện hàng"
     },
     "weight": {
       "title": "Khối lượng",
@@ -1847,6 +1908,43 @@
       "sliderAccessibility": "Khối lượng kiện hàng",
       "valueAccessibility": "{{value}} {{unit}}",
       "sliderMaximum": "Thanh trượt tối đa {{value}} {{unit}}"
+    },
+    "delivery": {
+      "optionsTitle": "Phương án giao hàng",
+      "dropoffStationBadge": "Bến xe",
+      "dropoffStopBadge": "Điểm dừng",
+      "dropoffAtStation": "NHẬN TẠI BẾN XE",
+      "dropoffAtStop": "NHẬN TẠI ĐIỂM DỪNG",
+      "selectThisOption": "Chọn phương án này",
+      "selectedOption": "Đã chọn phương án này",
+      "continuesAfterDropoff": "Tuyến xe tiếp tục đến {{destination}} sau khi trả kiện tại {{point}}.",
+      "sendingFrom": "Gửi: {{station}}, {{time}}",
+      "etaAtPoint": "Nhận dự kiến: {{time}}",
+      "estimatedCost": "Dự kiến: {{price}}",
+      "depositCost": "Cọc: {{deposit}}",
+      "routeSummary": "{{origin}} → {{destination}}",
+      "optionAccessibility": "Phương án giao {{pointName}}, nhận tại {{pointType}}, khởi hành {{departureTime}}, đến dự kiến {{arrivalTime}}, giá dự kiến {{price}}",
+      "disabledQuote": "Báo giá không khả dụng cho chuyến này",
+      "loadingMore": "Đang tải thêm phương án...",
+      "loadMore": "Tải thêm phương án",
+      "emptyTitle": "Không có phương án phù hợp",
+      "emptyDescription": "Không tìm thấy chuyến nào từ {{from}} đến {{to}} vào ngày {{date}}."
+    },
+    "routeGate": {
+      "title": "Thiết lập tuyến gửi hàng",
+      "description": "Vui lòng chọn khu vực gửi và khu vực nhận trước khi tiếp tục tạo đơn.",
+      "selectSendingArea": "Chọn khu vực gửi",
+      "selectReceivingArea": "Chọn khu vực nhận"
+    },
+    "checkout": {
+      "deliverySummary": "Phương án giao đã chọn",
+      "recipientSection": "Thông tin người nhận",
+      "optionalDetails": "Chi tiết bổ sung",
+      "pricingSection": "Chi tiết thanh toán"
+    },
+    "category": {
+      "title": "Loại hàng hóa",
+      "hint": "Chọn danh mục phù hợp để đảm bảo an toàn vận chuyển"
     }
   },
   "profile": {
@@ -2122,6 +2220,10 @@
   },
   "history": {
     "routeUnavailable": "Chưa có thông tin tuyến",
+    "bookedLegUnavailable": "Chưa có thông tin chặng đã đặt",
+    "bookedPickupUnavailable": "Chưa có điểm đón đã đặt",
+    "bookedDropoffUnavailable": "Chưa có điểm trả đã đặt",
+    "routeMetadata": "Tuyến xe: {{route}}",
     "originUnavailable": "Chưa có điểm đi",
     "destinationUnavailable": "Chưa có điểm đến",
     "departureUnavailable": "Chưa có lịch khởi hành",

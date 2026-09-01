@@ -4,10 +4,13 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 
 const translations: Record<string, string> = {
   'common.back': 'Quay lại',
-  'parcel.progress.origin': 'Bến gửi',
-  'parcel.progress.destination': 'Bến nhận',
+  'parcel.progress.stationDate': 'Bến & ngày',
   'parcel.progress.item': 'Kiện hàng',
-  'parcel.progress.payment': 'Thanh toán',
+  'parcel.progress.delivery': 'Phương án',
+  'parcel.progress.confirm': 'Xác nhận',
+  'parcel.route.from': 'TỪ',
+  'parcel.route.to': 'ĐẾN',
+  'parcel.actions.changeRoute': 'Đổi khu vực',
 };
 
 const mockTheme = {
@@ -48,11 +51,13 @@ jest.mock('phosphor-react-native', () => ({
   ArrowLeft: () => null,
   Check: () => null,
   FunnelSimple: () => null,
+  MapPin: () => null,
+  PencilSimple: () => null,
 }));
 
 import { StepProgressBar } from './StepProgressBar';
 
-const VIETNAMESE_LABELS = ['Bến gửi', 'Bến nhận', 'Kiện hàng', 'Thanh toán'];
+const VIETNAMESE_LABELS = ['Bến & ngày', 'Kiện hàng', 'Phương án', 'Xác nhận'];
 
 describe('StepProgressBar', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
@@ -128,5 +133,57 @@ describe('StepProgressBar', () => {
     expect(StyleSheet.flatten(fill.props.style)).toMatchObject({
       backgroundColor: mockTheme.colors.primary,
     });
+  });
+
+  it('renders minimalist route summary on header when provided and handles segmented press callbacks', () => {
+    const onEditFrom = jest.fn();
+    const onEditTo = jest.fn();
+    const onOpenEditSheet = jest.fn();
+
+    act(() => {
+      renderer = ReactTestRenderer.create(
+        <StepProgressBar
+          step={1}
+          onCancel={jest.fn()}
+          title="Tạo đơn gửi hàng"
+          routeSummary={{
+            from: 'TP. Hồ Chí Minh',
+            to: 'Vũng Tàu',
+            onEditFrom,
+            onEditTo,
+            onOpenEditSheet,
+          }}
+        />,
+      );
+    });
+
+    const fromText = renderer!.root.findByProps({
+      children: 'TP. Hồ Chí Minh',
+    });
+    expect(fromText).toBeDefined();
+
+    const fromSegment = renderer!.root.findByProps({
+      accessibilityLabel: 'TỪ: TP. Hồ Chí Minh',
+    });
+    act(() => {
+      fromSegment.props.onPress();
+    });
+    expect(onEditFrom).toHaveBeenCalledTimes(1);
+
+    const toSegment = renderer!.root.findByProps({
+      accessibilityLabel: 'ĐẾN: Vũng Tàu',
+    });
+    act(() => {
+      toSegment.props.onPress();
+    });
+    expect(onEditTo).toHaveBeenCalledTimes(1);
+
+    const editButton = renderer!.root.findByProps({
+      accessibilityLabel: 'Đổi khu vực',
+    });
+    act(() => {
+      editButton.props.onPress();
+    });
+    expect(onOpenEditSheet).toHaveBeenCalledTimes(1);
   });
 });

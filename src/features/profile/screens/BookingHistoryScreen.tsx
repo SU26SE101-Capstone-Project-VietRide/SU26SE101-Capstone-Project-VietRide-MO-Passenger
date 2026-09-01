@@ -57,6 +57,10 @@ import { useAuthStore } from '@features/auth/store/useAuthStore';
 import { useBookingHistory } from '@features/booking/hooks/useBookingHistory';
 import { upsertBookingHistoryTicketSnapshot } from '@features/booking/utils/bookingHistoryCache';
 import { formatOperationalSeatNumber } from '@features/booking/utils/operationalSeat';
+import {
+  resolveTicketJourneyPoint,
+  TICKET_JOURNEY_COLOR_TOKENS,
+} from '@features/booking/utils/ticketJourneyPresentation';
 import { getTicketStatusPresentation } from '@features/booking/utils/ticketPresentation';
 import { parcelKeys } from '@features/parcel/api/parcelQueryKeys';
 import {
@@ -567,6 +571,25 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
       .filter(Boolean)
       .join(' · ');
   }, [item.ticket.vehicle]);
+  const routeTitleLabel = useMemo(() => getRouteLabel(
+    item.originName,
+    item.destinationName,
+    t('history.routeUnavailable'),
+  ), [item.destinationName, item.originName, t]);
+  const pickupPoint = useMemo(() => resolveTicketJourneyPoint(
+    item.ticket.pickupPoint?.displayName,
+    item.originName,
+    t('history.bookedPickupUnavailable'),
+  ), [item.originName, item.ticket.pickupPoint?.displayName, t]);
+  const dropoffPoint = useMemo(() => resolveTicketJourneyPoint(
+    item.ticket.dropoffPoint?.displayName,
+    item.destinationName,
+    t('history.bookedDropoffUnavailable'),
+  ), [item.destinationName, item.ticket.dropoffPoint?.displayName, t]);
+  const routeMetadataLabel = item.ticket.routeName
+    && item.ticket.routeName !== routeTitleLabel
+    ? item.ticket.routeName
+    : null;
   const handleOpen = useCallback(() => onOpen(item), [item, onOpen]);
   const handleTrack = useCallback(
     () => onTrack(item.tripId, item.id, item.trackingTarget),
@@ -608,12 +631,12 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
         <View style={styles.ticketHeader}>
           <View style={styles.refRow}>
             <Ticket size={18} color={theme.colors.primary} />
-            <Text style={styles.refText} numberOfLines={1}>
-              {getRouteLabel(
-                item.originName,
-                item.destinationName,
-                t('history.routeUnavailable'),
-              )}
+            <Text
+              testID="ticket-history-route-title"
+              style={styles.refText}
+              numberOfLines={1}
+            >
+              {routeTitleLabel}
             </Text>
           </View>
           <StatusChip
@@ -627,24 +650,32 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
           {item.code}
         </Text>
 
-        {item.ticket.routeName ? (
+        {routeMetadataLabel ? (
           <Text style={styles.routeNameLabel} numberOfLines={1}>
-            {item.ticket.routeName}
+            {t('history.routeMetadata', { route: routeMetadataLabel })}
           </Text>
         ) : null}
 
         <View testID="ticket-history-route" style={styles.routeContainer}>
           <View style={styles.timelineDots}>
-            <View style={styles.greenDot} />
+            <View testID="ticket-history-pickup-dot" style={styles.pickupDot} />
             <View style={styles.timelineLine} />
-            <View style={styles.redDot} />
+            <View testID="ticket-history-dropoff-dot" style={styles.dropoffDot} />
           </View>
           <View style={styles.routeTextContainer}>
-            <Text style={styles.stationText} numberOfLines={1}>
-              {item.originName ?? t('history.originUnavailable')}
+            <Text
+              testID="ticket-history-pickup"
+              style={styles.stationText}
+              numberOfLines={1}
+            >
+              {pickupPoint.name}
             </Text>
-            <Text style={styles.stationText} numberOfLines={1}>
-              {item.destinationName ?? t('history.destinationUnavailable')}
+            <Text
+              testID="ticket-history-dropoff"
+              style={styles.stationText}
+              numberOfLines={1}
+            >
+              {dropoffPoint.name}
             </Text>
           </View>
         </View>
@@ -2059,23 +2090,25 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'space-between' as const,
     paddingVertical: 6,
   },
-  greenDot: {
+  pickupDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: theme.colors.success,
+    backgroundColor: theme.colors[TICKET_JOURNEY_COLOR_TOKENS.pickup],
   },
   timelineLine: {
     width: 1.5,
     flex: 1,
     marginVertical: 4,
-    backgroundColor: theme.colors.border,
+    backgroundColor: theme.colors[TICKET_JOURNEY_COLOR_TOKENS.connector],
   },
-  redDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.error,
+  dropoffDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: theme.colors[TICKET_JOURNEY_COLOR_TOKENS.dropoffHalo],
+    backgroundColor: theme.colors[TICKET_JOURNEY_COLOR_TOKENS.dropoff],
   },
   routeTextContainer: {
     flex: 1,

@@ -2,14 +2,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * Static policy checks for recipient privacy in CreateParcelScreen.
- * Full screen render is heavy; this guards the review-required no-prefill rules.
+ * Static policy checks for recipient privacy in CreateParcel flow.
+ * Guards the review-required no-prefill rules across screen and checkout component.
  */
 describe('CreateParcel recipient privacy policy', () => {
   const screenSource = fs.readFileSync(
     path.join(__dirname, 'CreateParcelScreen.tsx'),
     'utf8',
   );
+  const checkoutSource = fs.readFileSync(
+    path.join(__dirname, '../components/create/ParcelCheckoutStep.tsx'),
+    'utf8',
+  );
+  const combinedSource = `${screenSource}\n${checkoutSource}`;
 
   it('initializes recipient name, phone, and email as empty strings', () => {
     expect(screenSource).toMatch(
@@ -24,21 +29,21 @@ describe('CreateParcel recipient privacy policy', () => {
   });
 
   it('does not include Use-my-contact handlers or copy', () => {
-    expect(screenSource).not.toContain('handleUseMyContact');
-    expect(screenSource).not.toContain('useMyContact');
-    expect(screenSource).not.toContain('useMyContactHint');
-    expect(screenSource).not.toContain('Dùng thông tin của tôi');
-    expect(screenSource).not.toContain('Use my contact details');
+    expect(combinedSource).not.toContain('handleUseMyContact');
+    expect(combinedSource).not.toContain('useMyContact');
+    expect(combinedSource).not.toContain('useMyContactHint');
+    expect(combinedSource).not.toContain('Dùng thông tin của tôi');
+    expect(combinedSource).not.toContain('Use my contact details');
   });
 
   it('marks recipient name, phone, and email as required', () => {
-    expect(screenSource).toMatch(
+    expect(checkoutSource).toMatch(
       /label=\{t\('parcel\.form\.fullNameLabel'\)\}[\s\S]*?required/,
     );
-    expect(screenSource).toMatch(
+    expect(checkoutSource).toMatch(
       /label=\{t\('parcel\.form\.phoneLabel'\)\}[\s\S]*?required/,
     );
-    expect(screenSource).toMatch(
+    expect(checkoutSource).toMatch(
       /<Input[\s\S]*?label=\{t\('parcel\.form\.emailLabel'\)\}[\s\S]*?required[\s\S]*?\/>/,
     );
   });
@@ -55,29 +60,17 @@ describe('CreateParcel recipient privacy policy', () => {
 
   it('sends declared value without exposing parcel quantity input', () => {
     expect(screenSource).toContain('declaredValueVnd: estimatedValue ? Number(estimatedValue) : null');
-    expect(screenSource).not.toContain('quantityLabel');
-    expect(screenSource).not.toContain('handleQuantityChange');
-    expect(screenSource).not.toContain('estimatedValueMetadata');
+    expect(combinedSource).not.toContain('quantityLabel');
+    expect(combinedSource).not.toContain('handleQuantityChange');
+    expect(combinedSource).not.toContain('estimatedValueMetadata');
   });
 
   it('does not autofill recipient fields from the signed-in user profile', () => {
-    expect(screenSource).not.toMatch(
-      /setRecipientName\(user\?\.fullName/,
-    );
-    expect(screenSource).not.toMatch(
-      /setRecipientPhone\(user\?\.phone/,
-    );
-    expect(screenSource).not.toMatch(
-      /setRecipientEmail\(user\?\.email/,
-    );
-    expect(screenSource).not.toMatch(
-      /useState\(user\?\.fullName/,
-    );
-    expect(screenSource).not.toMatch(
-      /useState\(user\?\.phone/,
-    );
-    expect(screenSource).not.toMatch(
-      /useState\(user\?\.email/,
-    );
+    expect(screenSource).not.toMatch(/setRecipientName\(user\?\.fullName/);
+    expect(screenSource).not.toMatch(/setRecipientPhone\(user\?\.phone/);
+    expect(screenSource).not.toMatch(/setRecipientEmail\(user\?\.email/);
+    expect(screenSource).not.toMatch(/useState\(user\?\.fullName/);
+    expect(screenSource).not.toMatch(/useState\(user\?\.phone/);
+    expect(screenSource).not.toMatch(/useState\(user\?\.email/);
   });
 });

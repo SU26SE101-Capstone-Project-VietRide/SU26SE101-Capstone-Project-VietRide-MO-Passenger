@@ -31,6 +31,20 @@ const bookingItem = {
   bookingGroupId: null,
   tripDirection: 'OUTBOUND',
   routeName: 'Hà Nội - Đà Nẵng',
+  pickupPoint: {
+    type: 'STOP',
+    id: STOP_ID,
+    displayName: 'Điểm C',
+    address: '12 Đường C',
+    plannedAt: NOW,
+  },
+  dropoffPoint: {
+    type: 'STATION',
+    id: STATION_ID,
+    displayName: 'Bến D',
+    address: null,
+    plannedAt: '2026-08-22T14:00:00+07:00',
+  },
   tickets: [{
     ticketId: TICKET_ID,
     ticketCode: 'T-001',
@@ -70,6 +84,23 @@ describe('direct Booking History adapter', () => {
     }));
 
     expect(parsed.items[0].ticket.tickets[0].seatNumber).toBeNull();
+  });
+
+  it('preserves immutable booked pickup/drop-off snapshots separately from route endpoints', () => {
+    const parsed = parseBookingHistoryPage(page(bookingItem));
+
+    expect(parsed.items[0].ticket.pickupPoint).toMatchObject({
+      type: 'STOP',
+      id: STOP_ID,
+      displayName: 'Điểm C',
+    });
+    expect(parsed.items[0].ticket.dropoffPoint).toMatchObject({
+      type: 'STATION',
+      id: STATION_ID,
+      displayName: 'Bến D',
+    });
+    expect(parsed.items[0].originName).toBe('Hà Nội');
+    expect(parsed.items[0].destinationName).toBe('Đà Nẵng');
   });
 
   it('preserves the current operational seat returned after vehicle substitution', () => {

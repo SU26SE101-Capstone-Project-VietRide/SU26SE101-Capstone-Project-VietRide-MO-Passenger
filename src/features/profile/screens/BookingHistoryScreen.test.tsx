@@ -539,6 +539,23 @@ describe('BookingHistoryScreen parcel status filters', () => {
     const bookingBody = renderer.root.findByProps({
       accessibilityLabel: 'bookingHistory.bookingAccessibility',
     });
+    expect(
+      bookingBody.findByProps({ testID: 'ticket-history-route-title' }).props.children,
+    ).toBe('Origin station → Destination station');
+    expect(
+      bookingBody.findByProps({ testID: 'ticket-history-pickup' }).props.children,
+    ).toBe('Origin station');
+    expect(
+      bookingBody.findByProps({ testID: 'ticket-history-dropoff' }).props.children,
+    ).toBe('Destination station');
+    expect(StyleSheet.flatten(
+      bookingBody.findByProps({ testID: 'ticket-history-pickup-dot' }).props.style,
+    )?.backgroundColor).toBe(mockTheme.colors.primary);
+    const dropoffDotStyle = StyleSheet.flatten(
+      bookingBody.findByProps({ testID: 'ticket-history-dropoff-dot' }).props.style,
+    );
+    expect(dropoffDotStyle?.backgroundColor).toBe(mockTheme.colors.success);
+    expect(dropoffDotStyle?.borderColor).toBe(mockTheme.colors.successLight);
     const orderedBlocks = bookingBody
       .findAll(instance =>
         [

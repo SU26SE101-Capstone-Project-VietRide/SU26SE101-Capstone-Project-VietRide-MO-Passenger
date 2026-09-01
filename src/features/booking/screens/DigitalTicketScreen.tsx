@@ -65,6 +65,7 @@ import {
   type TicketPageViewModel,
   type TicketViewModel,
 } from '../utils/ticketViewModel';
+import { TICKET_JOURNEY_COLOR_TOKENS } from '../utils/ticketJourneyPresentation';
 import {
   canShowBoardingQr,
   getTicketLifecyclePresentation,
@@ -237,9 +238,11 @@ function JourneyTimeline({
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
-  const usesRouteEndpoints = leg.usesRouteEndpoints === true;
+  const boardingUsesRouteEndpoint = leg.boardingUsesRouteEndpoint === true;
+  const alightingUsesRouteEndpoint = leg.alightingUsesRouteEndpoint === true;
+  const usesRouteEndpoints = boardingUsesRouteEndpoint || alightingUsesRouteEndpoint;
 
-  const originLabel = usesRouteEndpoints
+  const originLabel = boardingUsesRouteEndpoint
     ? (leg.boardingTime
       ? t('booking.ticket.routeStartWithTime', { time: leg.boardingTime })
       : t('booking.ticket.routeStart'))
@@ -247,7 +250,7 @@ function JourneyTimeline({
       ? t('booking.ticket.boardingWithTime', { time: leg.boardingTime })
       : t('booking.ticket.boarding'));
 
-  const destinationLabel = usesRouteEndpoints
+  const destinationLabel = alightingUsesRouteEndpoint
     ? (leg.alightingTime
       ? t('booking.ticket.routeEndWithTime', { time: leg.alightingTime })
       : t('booking.ticket.routeEnd'))
@@ -1413,18 +1416,18 @@ const createStyles = (theme: AppTheme) => ({
     marginTop: 4,
   },
   timelineDotOrigin: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors[TICKET_JOURNEY_COLOR_TOKENS.pickup],
   },
   timelineDotDestination: {
-    backgroundColor: theme.colors.success,
+    backgroundColor: theme.colors[TICKET_JOURNEY_COLOR_TOKENS.dropoff],
     borderWidth: 2,
-    borderColor: theme.colors.successLight,
+    borderColor: theme.colors[TICKET_JOURNEY_COLOR_TOKENS.dropoffHalo],
   },
   timelineConnector: {
     flex: 1,
     width: 2,
     marginVertical: 4,
-    backgroundColor: theme.colors.divider,
+    backgroundColor: theme.colors[TICKET_JOURNEY_COLOR_TOKENS.connector],
     minHeight: 28,
   },
   timelineCopy: {

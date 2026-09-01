@@ -82,6 +82,14 @@ describe('notification actions', () => {
     expect(parseFcmNotificationAction(data)).toEqual(NONE_NOTIFICATION_ACTION);
   });
 
+  it('does not infer vehicle-substitution navigation from a raw newTripId', () => {
+    expect(parseFcmNotificationAction({
+      notificationType: 'VEHICLE_SUBSTITUTED',
+      bookingId: BOOKING_ID,
+      newTripId: TRIP_ID,
+    })).toEqual(NONE_NOTIFICATION_ACTION);
+  });
+
   it('maps only Passenger-supported actions to allow-listed navigation intents', () => {
     expect(getNotificationNavigationIntent(parseNotificationAction({
       type: 'OPEN_BOOKING_DETAIL',

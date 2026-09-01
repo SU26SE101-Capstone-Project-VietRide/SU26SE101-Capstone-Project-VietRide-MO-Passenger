@@ -39,6 +39,14 @@ export interface PassengerHistoryVehicle {
   vehicleType: PassengerHistoryVehicleType | null;
 }
 
+export interface PassengerHistoryPointSnapshot {
+  type: 'STATION' | 'STOP';
+  id: string;
+  displayName: string;
+  address: string | null;
+  plannedAt: string;
+}
+
 export interface BookingHistoryShuttleRequest {
   direction: 'INBOUND_TO_STATION' | 'OUTBOUND_FROM_STATION';
   address: string;
@@ -54,6 +62,8 @@ export interface PassengerTicketHistoryDetails {
   bookingGroupId: string | null;
   tripDirection: 'OUTBOUND' | 'RETURN' | null;
   routeName: string | null;
+  pickupPoint?: PassengerHistoryPointSnapshot | null;
+  dropoffPoint?: PassengerHistoryPointSnapshot | null;
   tickets: PassengerHistoryTicketSummary[];
   vehicle: PassengerHistoryVehicle | null;
   shuttleRequests: BookingHistoryShuttleRequest[];

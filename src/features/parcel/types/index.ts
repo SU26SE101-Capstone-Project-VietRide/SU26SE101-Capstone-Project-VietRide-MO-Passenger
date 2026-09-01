@@ -107,9 +107,8 @@ export interface PagedParcelResponse<T> {
   hasPreviousPage: boolean;
 }
 
-export interface AvailableParcelTripsParams {
+interface AvailableParcelTripsBaseParams {
   originStationId: string;
-  destinationStationId: string;
   departureDate: string;
   lengthCm: number;
   widthCm: number;
@@ -120,6 +119,45 @@ export interface AvailableParcelTripsParams {
   page?: number;
   pageSize?: number;
 }
+
+export type AvailableParcelTripsParams = AvailableParcelTripsBaseParams & (
+  | {
+      destinationStationId: string;
+      dropoffStopId?: never;
+      destinationProvinceCode?: never;
+      destinationLocationCode?: never;
+    }
+  | {
+      destinationStationId?: never;
+      dropoffStopId: string;
+      destinationProvinceCode?: never;
+      destinationLocationCode?: never;
+    }
+  | {
+      destinationStationId?: never;
+      dropoffStopId?: never;
+      destinationProvinceCode: string;
+      destinationLocationCode?: string;
+    }
+);
+
+export type ParcelDropoffPoint =
+  | {
+      type: 'STATION';
+      stationId: string;
+      stopId: null;
+      name: string;
+      orderIndex: number;
+      estimatedArrivalTime: string;
+    }
+  | {
+      type: 'STOP';
+      stationId: null;
+      stopId: string;
+      name: string;
+      orderIndex: number;
+      estimatedArrivalTime: string;
+    };
 
 export interface AvailableParcelTrip {
   tripId: string;
@@ -147,6 +185,7 @@ export interface AvailableParcelTrip {
   estimatedPriceVnd: number;
   estimatedDepositVnd: number;
   depositPercent: number;
+  dropoffPoints: ParcelDropoffPoint[];
 }
 
 export interface ParcelAvailableVoucher {

@@ -33,6 +33,14 @@ const trip = (overrides: Partial<AvailableParcelTrip> = {}): AvailableParcelTrip
   estimatedPriceVnd: 160_000,
   estimatedDepositVnd: 32_000,
   depositPercent: 20,
+  dropoffPoints: [{
+    type: 'STATION',
+    stationId: '55555555-5555-4555-8555-555555555555',
+    stopId: null,
+    name: 'Destination',
+    orderIndex: 2,
+    estimatedArrivalTime: '2026-08-12T12:00:00+07:00',
+  }],
   ...overrides,
 });
 

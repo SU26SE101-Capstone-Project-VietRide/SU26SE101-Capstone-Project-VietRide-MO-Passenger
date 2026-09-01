@@ -15,6 +15,12 @@ export const bookingHistoryKeys = {
     'ticket-snapshot',
     bookingId,
   ] as const,
+  replacementTrip: (userId: string, bookingId: string, sourceTripId: string) => [
+    ...bookingHistoryKeys.user(userId),
+    'replacement-trip',
+    bookingId.toLowerCase(),
+    sourceTripId.toLowerCase(),
+  ] as const,
   paymentRefresh: (userId: string, bookingIds: readonly string[]) => [
     ...bookingHistoryKeys.user(userId),
     'payment-refresh',

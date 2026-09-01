@@ -22,6 +22,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 
 import { useAuthStore } from '@features/auth/store/useAuthStore';
+import { useBookingReplacementTrip } from '@features/booking/hooks/useBookingHistory';
 import { useTripDetail } from '@features/trip/hooks';
 import type { TripLifecycleStatus } from '@features/trip/types';
 import { toApiError } from '@shared/api/errors';
@@ -86,12 +87,14 @@ interface TrackingLayoutSlots {
 interface LiveMainTripTrackingPanelProps extends TrackingLayoutSlots {
   source?: 'trip';
   tripId: string;
+  bookingId?: string;
   trackingTarget?: TrackingTarget;
   fallbackToTripDestinationTarget?: boolean;
   tripStatus?: TripLifecycleStatus;
   sourceTerminal?: boolean;
   terminalMessage?: string;
   onRouteHeaderChange?: (route: TrackingHeaderRoute | undefined) => void;
+  onResolvedTripIdChange?: (tripId: string) => void;
 }
 
 interface LiveShuttleTrackingPanelProps extends TrackingLayoutSlots {
@@ -302,8 +305,8 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   props: LiveTripTrackingPanelProps,
 ): React.JSX.Element {
   const isShuttle = props.source === 'shuttle';
-  const tripId = props.source === 'shuttle' ? props.shuttleTripId : props.tripId;
-  const bookingId = props.source === 'shuttle' ? props.bookingId : undefined;
+  const sourceTripId = props.source === 'shuttle' ? props.shuttleTripId : props.tripId;
+  const bookingId = props.bookingId;
   const pickupOrder = props.source === 'shuttle' ? props.pickupOrder : undefined;
   const providedTrackingTarget = props.source === 'shuttle'
     ? undefined
@@ -318,8 +321,11 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const terminalMessage = props.source === 'shuttle'
     ? undefined
     : props.terminalMessage;
-  const onRouteHeaderChange = props.source === 'trip'
+  const onRouteHeaderChange = props.source !== 'shuttle'
     ? props.onRouteHeaderChange
+    : undefined;
+  const onResolvedTripIdChange = props.source !== 'shuttle'
+    ? props.onResolvedTripIdChange
     : undefined;
   const detailsFooter = props.detailsFooter;
   const detailsListSection = props.detailsListSection;
@@ -338,7 +344,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   const isFocused = useIsFocused();
   const isAppActive = useIsAppActive();
   const isOnline = useNetworkStatus();
-  const hasValidRouteTripId = isUuid(tripId);
+  const hasValidRouteTripId = isUuid(sourceTripId);
   const [now, setNow] = useState(() => Date.now());
   const canLoadTrip = Boolean(
     !isShuttle
@@ -358,15 +364,47 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     ),
     [canLoadTrip, sourceTerminal, tripStatus],
   );
-  const tripQuery = useTripDetail(
-    !isShuttle && hasValidRouteTripId ? tripId : undefined,
+  const sourceTripQuery = useTripDetail(
+    !isShuttle && hasValidRouteTripId ? sourceTripId : undefined,
     {
       enabled: canLoadTrip,
-      staleTimeMs: TRIP_STATUS_REFRESH_MS,
+      // This status gates the Share action. A cached SCHEDULED/BOARDING value
+      // must not hide Share after the trip has moved to IN_PROGRESS.
+      staleTimeMs: 0,
+      refetchOnMount: 'always',
       getRefetchInterval: getTripRefetchInterval,
     },
   );
+  const sourceTripStatus = sourceTripQuery.data?.status ?? tripStatus;
+  const replacementQuery = useBookingReplacementTrip(
+    bookingId ?? '',
+    sourceTripId,
+    !isShuttle && sourceTripStatus === 'DISRUPTED',
+  );
+  const replacementTripId = !isShuttle
+    && replacementQuery.data?.tripId !== sourceTripId
+    && isUuid(replacementQuery.data?.tripId)
+      ? replacementQuery.data?.tripId
+      : undefined;
+  const tripId = replacementTripId ?? sourceTripId;
+  const replacementTripQuery = useTripDetail(
+    !isShuttle && replacementTripId ? replacementTripId : undefined,
+    {
+      enabled: canLoadTrip && Boolean(replacementTripId),
+      staleTimeMs: 0,
+      refetchOnMount: 'always',
+      getRefetchInterval: getTripRefetchInterval,
+    },
+  );
+  const tripQuery = replacementTripId ? replacementTripQuery : sourceTripQuery;
+  const effectiveSourceTerminal = sourceTerminal && !replacementTripId;
+  useEffect(() => {
+    if (!isShuttle) onResolvedTripIdChange?.(tripId);
+  }, [isShuttle, onResolvedTripIdChange, tripId]);
   const trackingTarget = useMemo<TrackingTarget | undefined>(() => {
+    if (replacementTripId && replacementQuery.data?.trackingTarget) {
+      return replacementQuery.data.trackingTarget;
+    }
     if (providedTrackingTarget) return providedTrackingTarget;
     const destinationStationId = tripQuery.data?.destinationStationId;
     if (
@@ -380,6 +418,8 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
   }, [
     fallbackToTripDestinationTarget,
     providedTrackingTarget,
+    replacementQuery.data?.trackingTarget,
+    replacementTripId,
     tripQuery.data?.destinationStationId,
   ]);
   const effectiveTripStatus = tripQuery.data?.status ?? tripStatus;
@@ -395,7 +435,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         tripId,
         ...(trackingTarget ? { trackingTarget } : {}),
         tripStatus: effectiveTripStatus,
-        sourceTerminal,
+        sourceTerminal: effectiveSourceTerminal,
       });
   const {
     activeTripId,
@@ -604,7 +644,10 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     && tracking.hasAuthenticatedUser
     && !tracking.fatalError
   );
-  const hasActiveTripShare = activeTripId === tripId;
+  const revokeTripId = activeTripId === tripId || activeTripId === sourceTripId
+    ? activeTripId
+    : null;
+  const hasActiveTripShare = Boolean(revokeTripId);
   const canCreateTripShare = Boolean(
     hasTripShareOwnerAccess
     && effectiveTripStatus === 'IN_PROGRESS'
@@ -656,7 +699,8 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
           text: t('tracking.share.revokeAction'),
           style: 'destructive',
           onPress: () => {
-            revokeTripShare({ tripId })
+            if (!revokeTripId) return;
+            revokeTripShare({ tripId: revokeTripId })
               .then((outcome) => {
                 if (outcome === 'revoked') {
                   Alert.alert(
@@ -679,9 +723,9 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
     canRevokeTripShare,
     isShareOperationPending,
     revokeTripShare,
+    revokeTripId,
     t,
     tracking.isOnline,
-    tripId,
   ]);
   const shareQuickAction = useMemo<TrackingShareQuickAction | null>(() => (
     canRevokeTripShare
@@ -1108,7 +1152,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
       routeUnavailable={Boolean(routeContext && routeContext.geometry === null)}
       showPrimaryShareAction={!onShareQuickActionChange}
       targetInsight={targetInsight}
-      terminalMessage={terminalMessage}
+      terminalMessage={replacementTripId ? undefined : terminalMessage}
       transientError={Boolean(transientError)}
       {...(tracking.delay ? { delayMinutes: tracking.delay.delayMinutes } : {})}
     />

@@ -5,6 +5,7 @@ import type { TripDetail } from '../types';
 interface UseTripDetailOptions {
   enabled?: boolean;
   staleTimeMs?: number;
+  refetchOnMount?: boolean | 'always';
   getRefetchInterval?: (trip: TripDetail | undefined) => number | false;
 }
 
@@ -13,6 +14,7 @@ export function useTripDetail(
   {
     enabled = true,
     staleTimeMs = 5 * 60 * 1000,
+    refetchOnMount,
     getRefetchInterval,
   }: UseTripDetailOptions = {},
 ): UseQueryResult<TripDetail, Error> {
@@ -22,6 +24,7 @@ export function useTripDetail(
     staleTime: staleTimeMs,
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
+    refetchOnMount,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchInterval: getRefetchInterval

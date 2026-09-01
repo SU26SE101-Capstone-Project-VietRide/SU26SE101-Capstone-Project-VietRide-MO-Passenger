@@ -21,6 +21,7 @@ export type {
   PassengerHistoryQuery,
   PassengerHistoryQueryInput,
   PassengerHistoryTicketSummary,
+  PassengerHistoryPointSnapshot,
   PassengerHistoryType,
   PassengerHistoryVehicle,
   PassengerHistoryVehicleType,

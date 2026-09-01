@@ -6,39 +6,20 @@ import React, {
   useState,
 } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   BackHandler,
   Pressable,
-  ScrollView,
   Text,
-  TextInput,
   View,
-  type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-  ArrowLeft,
-  CalendarBlank,
-  CheckCircle,
-  Clock,
-  MapPinLine,
-  Truck,
-  WarningCircle,
-} from 'phosphor-react-native';
-import { FlashList, type ListRenderItem } from '@shopify/flash-list';
+import { ArrowLeft, MapPin } from 'phosphor-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { AppKeyboardAwareScrollView, Input, PhotoPicker } from '@shared/components';
 import {
   getLocalizedApiErrorMessage,
   toApiError,
@@ -54,7 +35,7 @@ import { walletKeys } from '@features/profile/api/walletApi';
 import { useLiveWalletBalance } from '@features/profile/hooks/useWallet';
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
-import { useCurrentCoordinates, useResponsiveLayout, useThemedStyles } from '@shared/hooks';
+import { useCurrentCoordinates, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import {
   assertVnPaySdkAvailable,
@@ -65,14 +46,11 @@ import {
   toVietnamBusinessDate,
 } from '@shared/utils/apiTime';
 import {
-  formatDateTime,
   formatShortDate,
-  formatVnd,
 } from '@shared/utils/format';
 import { toBackendPaymentMethod } from '@shared/utils/paymentMethod';
 import type {
   ParcelStackParamList,
-  RootStackParamList,
 } from '@app/navigation/types';
 import type { PromoOffer } from '@shared/utils/promo';
 import {
@@ -91,28 +69,27 @@ import { useParcelPhotoUpload } from '../hooks/useParcelPhotoUpload';
 import { useParcelQuoteLifecycle } from '../hooks/useParcelQuoteLifecycle';
 import { useParcelStations } from '../hooks/useParcelStations';
 import type {
-  AvailableParcelTrip,
+  AvailableParcelTripsParams,
   CreateParcelPayload,
   CreateParcelResult,
+  GetParcelVouchersParams,
+  ParcelBackendPaymentMethod,
   ParcelSize,
   Station,
 } from '../types';
 import {
-  StationCard,
-  ParcelSkeleton,
-  ErrorView,
   StepProgressBar,
   StepHeaderWithMascot,
-  PackageSizeSelector,
-  ParcelDimensionsInput,
-  WeightSlider,
-  CategoryChips,
-  PricingBreakdown,
+  ParcelRouteDateStep,
+  ParcelFitStep,
+  ParcelDeliveryOptionsStep,
+  ParcelCheckoutStep,
+  RouteEditModal,
 } from '../components';
 import {
   areParcelDimensionsPositive,
   resolveParcelSizeFromDimensions,
-  formatParcelDimensions,
+  PARCEL_PACKAGE_SIZE_CONFIG,
   type ParcelDimensions,
 } from '../config/parcelPackage';
 import {
@@ -128,147 +105,31 @@ import {
   type AmbiguousRetryState,
 } from '../utils/parcelCreateErrors';
 import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
-import { resolveCreateParcelContentBottomPadding } from '../utils/createParcelLayout';
 import {
   calculateParcelQuotePricing,
   getParcelQuoteSemanticFingerprint,
-  hasParcelQuoteContract,
   isParcelQuoteErrorCode,
   isParcelQuoteUsable,
-  pickLowestFareParcelTrip,
   PARCEL_QUOTE_REFRESH_SAFETY_WINDOW_MS,
 } from '../utils/parcelQuote';
+import {
+  flattenTripDeliveryOptions,
+  type ParcelDeliveryOption,
+} from '../utils/parcelDeliveryOptions';
+import { isParcelRouteGateActive } from '../utils/parcelCreateFlow';
 
 type CreateParcelNavProp = NativeStackNavigationProp<
   ParcelStackParamList,
   'CreateParcel'
 >;
 
-const DATE_OFFSETS = Array.from({ length: 30 }, (_, index) => index);
-const MAX_DEPARTURE_OFFSET = DATE_OFFSETS.length - 1;
-const TRIP_LOAD_MORE_THRESHOLD_PX = 160;
-
-const formatTripTime = (dateLike: string): string => {
-  return formatDateTime(dateLike) || dateLike;
-};
-
-const DepartureDateChip = React.memo(function DepartureDateChip({
-  active,
-  label,
-  offset,
-  onSelect,
-}: {
-  active: boolean;
-  label: string;
-  offset: number;
-  onSelect: (offset: number) => void;
-}): React.JSX.Element {
-  const theme = useTheme();
-  const styles = useThemedStyles(createStyles);
-  const handlePress = useCallback(() => {
-    onSelect(offset);
-  }, [offset, onSelect]);
-
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected: active }}
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.dateChip,
-        active ? styles.dateChipActive : null,
-        pressed ? styles.pressed : null,
-      ]}
-    >
-      <CalendarBlank
-        size={14}
-        color={active ? theme.colors.textInverse : theme.colors.primary}
-        weight="bold"
-      />
-      <Text
-        style={[
-          styles.dateChipText,
-          active ? styles.dateChipTextActive : null,
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-});
-
-const TripOptionCard = React.memo(function TripOptionCard({
-  trip,
-  selected,
-  onPress,
-}: {
-  trip: AvailableParcelTrip;
-  selected: boolean;
-  onPress: (trip: AvailableParcelTrip) => void;
-}): React.JSX.Element {
-  const theme = useTheme();
-  const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
-  const quoteAvailable = isParcelQuoteUsable(trip);
-  const handlePress = useCallback(() => {
-    onPress(trip);
-  }, [onPress, trip]);
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected, disabled: !quoteAvailable }}
-      disabled={!quoteAvailable}
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.tripCard,
-        selected ? styles.tripCardActive : null,
-        !quoteAvailable ? styles.tripCardDisabled : null,
-        pressed && quoteAvailable ? styles.pressed : null,
-      ]}
-    >
-      <View style={[styles.tripIcon, selected ? styles.tripIconActive : null]}>
-        <Truck
-          size={20}
-          color={selected ? theme.colors.textInverse : theme.colors.primary}
-          weight="fill"
-        />
-      </View>
-      <View style={styles.tripMeta}>
-        <Text style={styles.tripOperator} numberOfLines={1}>
-          {trip.operatorName?.trim() || t('parcel.trips.operatorUnavailable')}
-        </Text>
-        <Text style={styles.tripRoute} numberOfLines={2}>
-          {trip.originStation.name} → {trip.destinationStation.name}
-        </Text>
-        <Text style={styles.tripTime}>
-          {formatTripTime(trip.departureDateTime)} →{' '}
-          {formatTripTime(trip.estimatedArrivalTime)}
-        </Text>
-        <Text style={styles.tripPrice}>
-          {quoteAvailable
-            ? t('parcel.trips.priceSummary', {
-                deposit: formatVnd(trip.estimatedDepositVnd),
-                estimated: formatVnd(trip.estimatedPriceVnd),
-              })
-            : t('parcel.trips.quoteUnavailable')}
-        </Text>
-      </View>
-      {selected ? (
-        <CheckCircle size={22} color={theme.colors.success} weight="fill" />
-      ) : null}
-    </Pressable>
-  );
-});
-
 export function CreateParcelScreen(): React.JSX.Element {
   const navigation = useNavigation<CreateParcelNavProp>();
-  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const { isCompact } = useResponsiveLayout();
   const queryClient = useQueryClient();
+
   const user = useAuthStore(state => state.user);
   const fromCity = useParcelStore(state => state.fromCity);
   const toCity = useParcelStore(state => state.toCity);
@@ -277,136 +138,111 @@ export function CreateParcelScreen(): React.JSX.Element {
   const fromWardCode = useParcelStore(state => state.fromWardCode);
   const toWardCode = useParcelStore(state => state.toWardCode);
   const receivingStation = useParcelStore(state => state.receivingStation);
-  const dropoffStation = useParcelStore(state => state.dropoffStation);
+  const setReceivingStation = useParcelStore(state => state.setReceivingStation);
+  const setDropoffStation = useParcelStore(state => state.setDropoffStation);
   const packageSize = useParcelStore(state => state.size);
-  const packageWeight = useParcelStore(state => state.weight);
   const packageLengthCm = useParcelStore(state => state.lengthCm);
   const packageWidthCm = useParcelStore(state => state.widthCm);
   const packageHeightCm = useParcelStore(state => state.heightCm);
+  const packageWeight = useParcelStore(state => state.weight);
   const packageCategory = useParcelStore(state => state.category);
   const customItemName = useParcelStore(state => state.customItemName);
-  const estimatedValue = useParcelStore(state => state.estimatedValue);
-  const photos = useParcelStore(state => state.photos);
   const paymentMethod = useParcelStore(state => state.paymentMethod);
   const setPackage = useParcelStore(state => state.setPackage);
   const setPaymentMethod = useParcelStore(state => state.setPaymentMethod);
-  const setReceivingStation = useParcelStore(
-    state => state.setReceivingStation,
-  );
-  const setDropoffStation = useParcelStore(state => state.setDropoffStation);
-  const [step, setStep] = useState(1);
-  const [highestStepReached, setHighestStepReached] = useState(1);
-  const [nearbySortRole, setNearbySortRole] = useState<
-    'origin' | 'destination' | null
-  >(null);
-  // Recipient starts empty; the sender profile is not applied in this batch
-  // because recipient email may link the parcel to another account.
+  const swapLocations = useParcelStore(state => state.swapLocations);
+
+  // Flow & Step State
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [highestStepReached, setHighestStepReached] = useState<number>(1);
+  const [departureOffset, setDepartureOffset] = useState<number>(0);
+  const [nearbySortRole, setNearbySortRole] = useState<'origin' | null>(null);
+  const [isRouteEditModalVisible, setIsRouteEditModalVisible] = useState(false);
+
+  // Form validity states for Step 2
+  const [dimensionsDraftValid, setDimensionsDraftValid] = useState<boolean>(true);
+  const [weightDraftValid, setWeightDraftValid] = useState<boolean>(true);
+  const [customItemNameError, setCustomItemNameError] = useState<string | undefined>();
+
+  // Selection states for Step 3
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [selectedDropoffPointKey, setSelectedDropoffPointKey] = useState<string | null>(null);
+  const [selectedQuoteFingerprint, setSelectedQuoteFingerprint] = useState<string | null>(null);
+
+  // Recipient form states for Step 4 (Strict privacy: NEVER prefill from user profile)
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
   const [recipientEmail, setRecipientEmail] = useState('');
-  const [customItemNameError, setCustomItemNameError] = useState<string>();
   const [recipientErrors, setRecipientErrors] = useState<{
     name?: string;
     phone?: string;
     email?: string;
   }>({});
-  const customItemNameRef = useRef<TextInput>(null);
-  const recipientNameRef = useRef<TextInput>(null);
-  const recipientPhoneRef = useRef<TextInput>(null);
-  const recipientEmailRef = useRef<TextInput>(null);
-  const departureDateBase = useMemo(() => toVietnamBusinessDate(), []);
-  const [departureOffset, setDepartureOffset] = useState(0);
-  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
-  const [selectedQuoteFingerprint, setSelectedQuoteFingerprint] = useState<
-    string | null
-  >(null);
+
+  // Optional step 4 states
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [estimatedValue, setEstimatedValue] = useState<string>('');
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<PromoOffer | null>(null);
-  const [promoError, setPromoError] = useState<string | undefined>(undefined);
-  const [dimensionsDraftValid, setDimensionsDraftValid] = useState(true);
-  const [weightDraftValid, setWeightDraftValid] = useState(true);
-  const previousTripSearchRef = useRef<string | null>(null);
-  const tripLoadMoreInFlightRef = useRef(false);
-  const selectedTripIdRef = useRef<string | null>(null);
-  const selectedQuoteFingerprintRef = useRef<string | null>(null);
-  const handledVoucherQuoteErrorAtRef = useRef(0);
-  const checkoutInFlightRef = useRef(false);
-  /** Held after ambiguous create/deposit so the user can exact-retry without leaving. */
+  const [promoError, setPromoError] = useState<string | undefined>();
+
+  // Idempotency & In-Flight Tracking
   const [ambiguousRetry, setAmbiguousRetry] = useState<AmbiguousRetryState>(null);
   const [allowLeaveDespiteRetry, setAllowLeaveDespiteRetry] = useState(false);
-  const [actionBarHeight, setActionBarHeight] = useState(0);
-  const handleActionBarLayout = useCallback((event: LayoutChangeEvent) => {
-    const measuredHeight = Math.ceil(event.nativeEvent.layout.height);
-    if (measuredHeight <= 0) return;
-    setActionBarHeight((currentHeight) => (
-      currentHeight === measuredHeight ? currentHeight : measuredHeight
-    ));
-  }, []);
   const intentLocked = isAmbiguousRetryActive(ambiguousRetry);
+  const checkoutInFlightRef = useRef(false);
+  const handledVoucherQuoteErrorAtRef = useRef<number>(0);
+
+  const selectedTripIdRef = useRef<string | null>(null);
+  const selectedQuoteFingerprintRef = useRef<string | null>(null);
+
+  const departureDateBase = useMemo(() => toVietnamBusinessDate(), []);
   const lockedPaymentMethod =
     ambiguousRetry?.kind === 'deposit'
       ? ambiguousRetry.paymentMethod
       : paymentMethod;
-  const lockedBackendPaymentMethod = toBackendPaymentMethod(lockedPaymentMethod);
-  const walletBalanceQuery = useLiveWalletBalance(step === 4);
-  const hasParcelDraft = Boolean(
-    fromLocationCode
-    || toLocationCode
-    || receivingStation
-    || dropoffStation
-    || step > 1
-    || selectedTripId
-    || appliedPromo
-    || photos.length > 0
-    || estimatedValue.trim()
-    || packageCategory.trim(),
+  const lockedBackendPaymentMethod: ParcelBackendPaymentMethod =
+    toBackendPaymentMethod(lockedPaymentMethod) as ParcelBackendPaymentMethod;
+
+  const walletBalanceQuery = useLiveWalletBalance();
+
+  const isGateActive = isParcelRouteGateActive(
+    fromLocationCode,
+    toLocationCode,
   );
 
   const clearTripSelection = useCallback(() => {
     selectedTripIdRef.current = null;
     selectedQuoteFingerprintRef.current = null;
     setSelectedTripId(null);
+    setSelectedDropoffPointKey(null);
     setSelectedQuoteFingerprint(null);
+    setDropoffStation(undefined);
     setPromoCode('');
     setAppliedPromo(null);
     setPromoError(undefined);
-  }, []);
+  }, [setDropoffStation]);
 
   const handleQuotePriceChanged = useCallback(() => {
+    clearTripSelection();
+    setStep(3);
     Alert.alert(
       t('parcel.errors.quotePriceChangedTitle'),
       t('parcel.errors.quotePriceChangedDescription'),
     );
-  }, [t]);
+  }, [clearTripSelection, t]);
 
-  const originScopeCode = (fromWardCode || fromLocationCode).trim();
-  const destinationScopeCode = (toWardCode || toLocationCode).trim();
-  const activeStationRole = step === 1
-    ? 'origin'
-    : step === 2
-      ? 'destination'
-      : null;
-  const shouldResolveCurrentLocation = activeStationRole === nearbySortRole
-    && (activeStationRole === 'origin'
-      ? Boolean(originScopeCode)
-      : activeStationRole === 'destination'
-        ? Boolean(destinationScopeCode)
-        : false);
-  const currentLocation = useCurrentCoordinates(shouldResolveCurrentLocation);
+  const originScopeCode = fromWardCode || fromLocationCode || undefined;
+  const currentLocation = useCurrentCoordinates(Boolean(nearbySortRole));
 
   const originStationsQuery = useParcelStations(
     originScopeCode,
-    step === 1,
+    true,
     nearbySortRole === 'origin' ? currentLocation.coords : null,
-    nearbySortRole === 'origin' && currentLocation.isResolving,
+    currentLocation.isResolving,
   );
-  const destinationStationsQuery = useParcelStations(
-    destinationScopeCode,
-    step === 2,
-    nearbySortRole === 'destination' ? currentLocation.coords : null,
-    nearbySortRole === 'destination' && currentLocation.isResolving,
-  );
-  const dimensions = useMemo(
+
+  const dimensions: ParcelDimensions = useMemo(
     () => ({
       lengthCm: packageLengthCm,
       widthCm: packageWidthCm,
@@ -414,102 +250,80 @@ export function CreateParcelScreen(): React.JSX.Element {
     }),
     [packageHeightCm, packageLengthCm, packageWidthCm],
   );
-  const parcelItemName = useMemo(
-    () => resolveParcelItemName(
-      packageCategory,
-      customItemName,
-      key => t(key),
-    ),
-    [customItemName, packageCategory, t],
+
+  const departureDate = useMemo(
+    () => addApiCalendarDays(departureDateBase, departureOffset),
+    [departureDateBase, departureOffset],
   );
-  const packageMeasurementsValid =
-    dimensionsDraftValid &&
-    areParcelDimensionsPositive(dimensions) &&
-    weightDraftValid &&
-    packageWeight > 0;
-  const dimensionsErrorMessage =
-    !dimensionsDraftValid || !areParcelDimensionsPositive(dimensions)
-    ? t('parcel.validation.dimensionsPositive')
-    : undefined;
+
   const estimatedWeightKg = packageWeight;
-  const departureDate = addApiCalendarDays(
-    departureDateBase,
-    departureOffset,
+  const parcelItemName = resolveParcelItemName(
+    packageCategory,
+    customItemName,
+    t,
   );
-  const backendPaymentMethod = toBackendPaymentMethod(paymentMethod);
 
-  const availableTripParams = useMemo(() => {
-    if (!receivingStation || !dropoffStation || !packageMeasurementsValid) {
-      return null;
-    }
-
+  const tripSearchParams: AvailableParcelTripsParams | null = useMemo(() => {
+    if (!receivingStation || !toLocationCode) return null;
     return {
       originStationId: receivingStation.id,
-      destinationStationId: dropoffStation.id,
       departureDate,
       lengthCm: dimensions.lengthCm,
       widthCm: dimensions.widthCm,
       heightCm: dimensions.heightCm,
       estimatedWeightKg,
-      pageSize: 20,
+      destinationProvinceCode: toLocationCode,
+      destinationLocationCode: toWardCode || undefined,
     };
   }, [
     departureDate,
     dimensions.heightCm,
     dimensions.lengthCm,
     dimensions.widthCm,
-    dropoffStation,
     estimatedWeightKg,
-    packageMeasurementsValid,
     receivingStation,
+    toLocationCode,
+    toWardCode,
   ]);
 
-  const availableTripsQuery = useAvailableParcelTrips(
-    availableTripParams,
-    step === 4,
+  const availableTripsQuery = useAvailableParcelTrips(tripSearchParams);
+
+  const availableTrips = useMemo(
+    () => availableTripsQuery.data?.pages.flatMap(page => page.items) ?? [],
+    [availableTripsQuery.data?.pages],
   );
-  const refetchAvailableTrips = availableTripsQuery.refetch;
-  const fetchNextTripsPage = availableTripsQuery.fetchNextPage;
-  const hasNextTripsPage = availableTripsQuery.hasNextPage;
-  const isFetchingNextTripsPage = availableTripsQuery.isFetchingNextPage;
-  const isFetchNextTripsPageError = availableTripsQuery.isFetchNextPageError;
-  const tripPages = availableTripsQuery.data?.pages;
-  const availableTrips = useMemo(() => {
-    const tripById = new Map<string, AvailableParcelTrip>();
-    tripPages?.forEach(page => {
-      page.items.forEach(trip => tripById.set(trip.tripId, trip));
-    });
-    return Array.from(tripById.values());
-  }, [tripPages]);
-  const emptyTripPrimaryDisabled =
-    isFetchingNextTripsPage ||
-    (!hasNextTripsPage && departureOffset >= MAX_DEPARTURE_OFFSET);
+
+  const deliveryOptions = useMemo(
+    () => flattenTripDeliveryOptions(availableTrips),
+    [availableTrips],
+  );
+
   const selectedTrip = useMemo(
     () => availableTrips.find(trip => trip.tripId === selectedTripId) ?? null,
     [availableTrips, selectedTripId],
   );
 
-  const tripSearchFingerprint = useMemo(
-    () =>
-      [
-        receivingStation?.id ?? '',
-        dropoffStation?.id ?? '',
-        departureDate,
-        dimensions.lengthCm,
-        dimensions.widthCm,
-        dimensions.heightCm,
-        estimatedWeightKg,
-      ].join('|'),
-    [
-      departureDate,
-      dimensions.heightCm,
-      dimensions.lengthCm,
-      dimensions.widthCm,
-      dropoffStation?.id,
-      estimatedWeightKg,
-      receivingStation?.id,
-    ],
+  const selectedDeliveryOption = useMemo(
+    () => deliveryOptions.find(opt => opt.key === selectedDropoffPointKey) ?? null,
+    [deliveryOptions, selectedDropoffPointKey],
   );
+
+  const selectedDropoffPoint = selectedDeliveryOption?.dropoffPoint ?? null;
+
+  useParcelQuoteLifecycle({
+    enabled: step === 4,
+    selectedTrip,
+    selectedFingerprint: selectedQuoteFingerprint,
+    isSearchSuccess: availableTripsQuery.isSuccess,
+    isFetching: availableTripsQuery.isFetching,
+    refetch: availableTripsQuery.refetch,
+    clearQuoteDependentSelection: clearTripSelection,
+    onPriceChanged: handleQuotePriceChanged,
+  });
+
+  const activeQuoteToken = selectedTrip?.quoteToken ?? null;
+  const activeGrossPriceVnd =
+    selectedTrip?.estimatedGrossPriceVnd ?? selectedTrip?.estimatedPriceVnd ?? 0;
 
   useEffect(() => {
     selectedTripIdRef.current = selectedTripId;
@@ -519,688 +333,307 @@ export function CreateParcelScreen(): React.JSX.Element {
     selectedQuoteFingerprintRef.current = selectedQuoteFingerprint;
   }, [selectedQuoteFingerprint]);
 
-  useEffect(() => {
-    const previousFingerprint = previousTripSearchRef.current;
-    previousTripSearchRef.current = tripSearchFingerprint;
-    tripLoadMoreInFlightRef.current = false;
-    if (previousFingerprint && previousFingerprint !== tripSearchFingerprint) {
-      clearTripSelection();
-    }
-  }, [clearTripSelection, tripSearchFingerprint]);
-
-  useParcelQuoteLifecycle({
-    enabled: step === 4,
-    selectedTrip,
-    selectedFingerprint: selectedQuoteFingerprint,
-    isSearchSuccess: availableTripsQuery.isSuccess,
-    isFetching: availableTripsQuery.isFetching,
-    refetch: refetchAvailableTrips,
-    clearQuoteDependentSelection: clearTripSelection,
-    onPriceChanged: handleQuotePriceChanged,
-  });
-
-  const voucherParams = useMemo(() => {
-    if (!hasParcelQuoteContract(selectedTrip)) {
+  const voucherParams: GetParcelVouchersParams | null = useMemo(() => {
+    if (
+      !selectedTrip
+      || !isParcelQuoteUsable(selectedTrip)
+      || !activeQuoteToken
+    ) {
       return null;
     }
-
     return {
       tripId: selectedTrip.tripId,
-      sizeCategory: selectedTrip.estimatedSizeCategory,
-      paymentMethod: backendPaymentMethod,
-      quoteToken: selectedTrip.quoteToken,
-      quoteExpiresAt: selectedTrip.quoteExpiresAt,
-      estimatedGrossPriceVnd: selectedTrip.estimatedGrossPriceVnd,
+      sizeCategory: PARCEL_PACKAGE_SIZE_CONFIG[resolveParcelSizeFromDimensions(dimensions)].sizeCategory,
+      paymentMethod: lockedBackendPaymentMethod,
+      quoteToken: activeQuoteToken,
+      quoteExpiresAt: selectedTrip.quoteExpiresAt || '',
+      estimatedGrossPriceVnd: activeGrossPriceVnd,
     };
-  }, [backendPaymentMethod, selectedTrip]);
+  }, [
+    activeGrossPriceVnd,
+    activeQuoteToken,
+    dimensions,
+    lockedBackendPaymentMethod,
+    selectedTrip,
+  ]);
 
-  const vouchersQuery = useAvailableParcelVouchers(voucherParams, step === 4);
-  const availablePromos = useMemo(
-    () =>
-      (vouchersQuery.data ?? []).map(voucher =>
-        mapParcelVoucherToPromo(voucher, t),
-      ),
-    [t, vouchersQuery.data],
+  const availableVouchersQuery = useAvailableParcelVouchers(
+    voucherParams,
+    Boolean(step === 4 && voucherParams),
   );
 
-  const selectedVoucher = useMemo(() => {
-    const code = appliedPromo?.code
-      ? normalizePromoCode(appliedPromo.code)
-      : '';
-    if (!code) {
-      return null;
-    }
+  const availablePromos = useMemo<PromoOffer[]>(() => {
+    return (availableVouchersQuery.data ?? []).map(v =>
+      mapParcelVoucherToPromo(v, t),
+    );
+  }, [availableVouchersQuery.data, t]);
 
+  const selectedVoucher = useMemo(() => {
+    if (!appliedPromo) return null;
     return (
-      (vouchersQuery.data ?? []).find(
-        voucher => normalizePromoCode(voucher.code) === code,
+      (availableVouchersQuery.data ?? []).find(
+        v => normalizePromoCode(v.code) === normalizePromoCode(appliedPromo.code),
       ) ?? null
     );
-  }, [appliedPromo?.code, vouchersQuery.data]);
+  }, [appliedPromo, availableVouchersQuery.data]);
 
   useEffect(() => {
-    // Only drop voucher after a successful revalidation proves the code is gone.
-    // While fetching after quote refresh, keep appliedPromo so we never submit null.
-    if (
-      vouchersQuery.isSuccess
-      && !vouchersQuery.isFetching
-      && appliedPromo
-      && !selectedVoucher
-    ) {
+    if (!appliedPromo) return;
+    if (availableVouchersQuery.isPending) return;
+    if (!selectedVoucher) {
       setAppliedPromo(null);
       setPromoError(t('parcel.promos.noLongerValid'));
     }
-  }, [
-    appliedPromo,
-    selectedVoucher,
-    t,
-    vouchersQuery.isFetching,
-    vouchersQuery.isSuccess,
-  ]);
+  }, [appliedPromo, availableVouchersQuery.isPending, selectedVoucher, t]);
 
   useEffect(() => {
-    if (!vouchersQuery.isError || !vouchersQuery.errorUpdatedAt) {
-      return;
+    if (availableVouchersQuery.isError) {
+      const apiError = toApiError(availableVouchersQuery.error);
+      if (apiError.code && isParcelQuoteErrorCode(apiError.code)) {
+        const now = Date.now();
+        if (now - handledVoucherQuoteErrorAtRef.current > PARCEL_QUOTE_REFRESH_SAFETY_WINDOW_MS) {
+          handledVoucherQuoteErrorAtRef.current = now;
+          clearTripSelection();
+          setStep(3);
+          Alert.alert(
+            t('parcel.errors.quoteUnavailableTitle'),
+            t('parcel.errors.quoteUnavailableDescription'),
+          );
+        }
+      }
     }
-    if (handledVoucherQuoteErrorAtRef.current === vouchersQuery.errorUpdatedAt) {
-      return;
-    }
+  }, [availableVouchersQuery.error, availableVouchersQuery.isError, clearTripSelection, t]);
 
-    const voucherErrorCode = toApiError(vouchersQuery.error).code;
-    if (!isParcelQuoteErrorCode(voucherErrorCode)) {
-      return;
-    }
-
-    handledVoucherQuoteErrorAtRef.current = vouchersQuery.errorUpdatedAt;
-
-    if (
-      voucherErrorCode === 'PARCEL_QUOTE_EXPIRED'
-      || voucherErrorCode === 'PARCEL_QUOTE_STALE'
-    ) {
-      setAppliedPromo(null);
-      setPromoCode('');
-      setPromoError(undefined);
-      refetchAvailableTrips().catch(() => undefined);
-      Alert.alert(
-        t('parcel.errors.quoteExpiredTitle'),
-        t('parcel.errors.quoteExpiredDescription'),
-      );
-      return;
-    }
-
-    clearTripSelection();
-    refetchAvailableTrips().catch(() => undefined);
-    Alert.alert(
-      t('parcel.errors.quoteInvalidTitle'),
-      t('parcel.errors.quoteInvalidDescription'),
-    );
-  }, [
-    clearTripSelection,
-    refetchAvailableTrips,
-    t,
-    vouchersQuery.error,
-    vouchersQuery.errorUpdatedAt,
-    vouchersQuery.isError,
-  ]);
-
-  const quotePricing = useMemo(
-    () => calculateParcelQuotePricing(
+  const quotePricing = useMemo(() => {
+    return calculateParcelQuotePricing(
       selectedTrip,
-      selectedVoucher?.discountAmount,
-    ),
-    [selectedTrip, selectedVoucher?.discountAmount],
-  );
+      selectedVoucher?.discountAmount ?? null,
+    );
+  }, [selectedTrip, selectedVoucher?.discountAmount]);
+
   const depositDue = quotePricing.depositDueVnd;
 
-  useEffect(() => {
-    if (intentLocked) {
-      return;
-    }
-    if (
-      paymentMethod === 'wallet' &&
-      !walletBalanceQuery.isLoading &&
-      (walletBalanceQuery.isError ||
-        walletBalanceQuery.data?.balance === undefined ||
-        walletBalanceQuery.data.balance < depositDue)
-    ) {
-      setPaymentMethod('vnpay');
-    }
-  }, [
-    depositDue,
-    intentLocked,
-    paymentMethod,
-    setPaymentMethod,
-    walletBalanceQuery.data?.balance,
-    walletBalanceQuery.isError,
-    walletBalanceQuery.isLoading,
-  ]);
-
-  const voucherNeedsRevalidation = Boolean(
-    appliedPromo
-    && (
-      vouchersQuery.isFetching
-      || !vouchersQuery.isSuccess
-      || !selectedVoucher
-    ),
-  );
-
-  const createParcelMutation = useCreateParcel();
-  const depositPaymentMutation = useStartParcelDepositPayment();
+  // Mutations
   const {
     uploadParcelPhoto,
     isUploadingParcelPhoto,
     resetParcelPhotoUpload,
   } = useParcelPhotoUpload();
+  const createParcelMutation = useCreateParcel();
+  const depositPaymentMutation = useStartParcelDepositPayment();
 
-  const confirmLeaveWithAmbiguousRetry = useCallback(
-    (onLeave: () => void) => {
-      const isDeposit = ambiguousRetry?.kind === 'deposit';
-      Alert.alert(
-        t('parcel.errors.leaveAmbiguousTitle'),
-        isDeposit
-          ? t('parcel.errors.leaveAmbiguousDepositDescription')
-          : t('parcel.errors.leaveAmbiguousCreateDescription'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('parcel.exitDraft.discard'),
-            style: 'destructive',
-            onPress: () => {
-              setAllowLeaveDespiteRetry(true);
-              requestAnimationFrame(onLeave);
-            },
-          },
-        ],
-      );
-    },
-    [ambiguousRetry?.kind, t],
-  );
+  const handleSelectDeliveryOption = useCallback((option: ParcelDeliveryOption) => {
+    const isSameTrip = option.trip.tripId === selectedTripIdRef.current;
+    const nextFingerprint = getParcelQuoteSemanticFingerprint(option.trip);
 
-  const showAmbiguousRetryLockedAlert = useCallback(() => {
-    const isDeposit = ambiguousRetry?.kind === 'deposit';
-    Alert.alert(
-      isDeposit
-        ? t('parcel.errors.ambiguousPaymentTitle')
-        : t('parcel.errors.ambiguousRequestTitle'),
-      isDeposit
-        ? t('parcel.errors.ambiguousPaymentDescription')
-        : t('parcel.errors.ambiguousRequestDescription'),
-      [{ text: t('common.ok') }],
-    );
-  }, [ambiguousRetry?.kind, t]);
-
-  const handleBackStep = useCallback(() => {
-    if (intentLocked) {
-      navigation.goBack();
-      return true;
+    if (
+      !isSameTrip
+      || !selectedQuoteFingerprintRef.current
+      || selectedQuoteFingerprintRef.current !== nextFingerprint
+    ) {
+      setPromoCode('');
+      setAppliedPromo(null);
+      setPromoError(undefined);
     }
 
-    if (step > 1) {
-      setStep(step - 1);
-      return true;
+    selectedTripIdRef.current = option.trip.tripId;
+    selectedQuoteFingerprintRef.current = nextFingerprint;
+    setSelectedTripId(option.trip.tripId);
+    setSelectedDropoffPointKey(option.key);
+    setSelectedQuoteFingerprint(nextFingerprint);
+
+    if (option.dropoffPoint.type === 'STATION') {
+      setDropoffStation({
+        id: option.dropoffPoint.stationId,
+        name: option.dropoffPoint.name,
+        address: '',
+        city: toCity,
+        distance: null,
+      });
+    } else {
+      setDropoffStation(undefined);
     }
+  }, [setDropoffStation, toCity]);
 
-    if (!hasParcelDraft) {
-      navigation.goBack();
-      return true;
-    }
+  const handleSelectReceivingStation = useCallback((station: Station) => {
+    setReceivingStation(station);
+    clearTripSelection();
+  }, [clearTripSelection, setReceivingStation]);
 
-    Alert.alert(
-      t('parcel.exitDraft.title'),
-      t('parcel.exitDraft.description'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('parcel.exitDraft.discard'),
-          style: 'destructive',
-          onPress: () => navigation.goBack(),
-        },
-      ],
-    );
-    return true;
-  }, [
-    hasParcelDraft,
-    intentLocked,
-    navigation,
-    step,
-    t,
-  ]);
+  const handleDepartureOffsetChange = useCallback((offset: number) => {
+    setDepartureOffset(offset);
+    clearTripSelection();
+  }, [clearTripSelection]);
 
-  const handleStepPress = useCallback((nextStep: number) => {
-    if (intentLocked) {
-      showAmbiguousRetryLockedAlert();
-      return;
-    }
-    setStep(nextStep);
-  }, [intentLocked, showAmbiguousRetryLockedAlert]);
+  const handlePackageSizeChange = useCallback((size: ParcelSize) => {
+    setPackage({ size });
+    clearTripSelection();
+  }, [clearTripSelection, setPackage]);
 
-  usePreventRemove(intentLocked && !allowLeaveDespiteRetry, ({ data }) => {
-    confirmLeaveWithAmbiguousRetry(() => navigation.dispatch(data.action));
-  });
-
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      'hardwareBackPress',
-      handleBackStep,
-    );
-    return () => subscription.remove();
-  }, [handleBackStep]);
-
-  const advanceStep = useCallback(() => {
-    setStep(currentStep => {
-      const nextStep = Math.min(currentStep + 1, 4);
-      setHighestStepReached(highest => Math.max(highest, nextStep));
-      return nextStep;
+  const handleDimensionsChange = useCallback((nextDimensions: ParcelDimensions) => {
+    setPackage({
+      lengthCm: nextDimensions.lengthCm,
+      widthCm: nextDimensions.widthCm,
+      heightCm: nextDimensions.heightCm,
     });
+    clearTripSelection();
+  }, [clearTripSelection, setPackage]);
+
+  const handleWeightChange = useCallback((weight: number) => {
+    setPackage({ weight });
+    clearTripSelection();
+  }, [clearTripSelection, setPackage]);
+
+  const handleCategoryChange = useCallback((category: ParcelItemCategory) => {
+    setPackage({ category });
+    if (category !== 'Others') {
+      setCustomItemNameError(undefined);
+    }
+  }, [setPackage]);
+
+  const handleCustomItemNameChange = useCallback((name: string) => {
+    setPackage({ customItemName: name });
+    if (name.trim()) {
+      setCustomItemNameError(undefined);
+    }
+  }, [setPackage]);
+
+  const handlePhotosChange = useCallback((nextPhotos: string[]) => {
+    setPhotos(nextPhotos);
   }, []);
 
-  const handleSelectReceivingStation = useCallback(
-    (station: Station) => {
-      setReceivingStation(station);
-      if (dropoffStation?.id === station.id) {
-        setDropoffStation(undefined);
-      }
-    },
-    [dropoffStation?.id, setDropoffStation, setReceivingStation],
-  );
+  const handleEstimatedValueChange = useCallback((value: string) => {
+    const clean = value.replace(/[^0-9]/g, '');
+    setEstimatedValue(clean);
+  }, []);
 
-  const handleSelectDropoffStation = useCallback(
-    (station: Station) => {
-      setDropoffStation(station);
-    },
-    [setDropoffStation],
-  );
-
-  const handlePhotosChange = useCallback(
-    (nextPhotos: string[]) => {
-      setPackage({ photos: nextPhotos });
-    },
-    [setPackage],
-  );
-
-  const handlePackageSizeChange = useCallback(
-    (size: ParcelSize) => {
-      setDimensionsDraftValid(true);
-      setPackage({ size });
-    },
-    [setPackage],
-  );
-
-  const handleDimensionsChange = useCallback(
-    (nextDimensions: ParcelDimensions) => {
-      setPackage({
-        ...nextDimensions,
-        size: resolveParcelSizeFromDimensions(nextDimensions),
-      });
-    },
-    [setPackage],
-  );
-
-  const handleWeightChange = useCallback(
-    (weight: number) => {
-      setPackage({ weight });
-    },
-    [setPackage],
-  );
-
-  const handleCategoryChange = useCallback(
-    (category: ParcelItemCategory) => {
-      setPackage({ category });
-      if (category !== CUSTOM_PARCEL_ITEM_CATEGORY) {
-        setCustomItemNameError(undefined);
-      }
-    },
-    [setPackage],
-  );
-
-  const handleCustomItemNameChange = useCallback(
-    (value: string) => {
-      setPackage({ customItemName: value });
-      if (customItemNameError && value.trim()) {
-        setCustomItemNameError(undefined);
-      }
-    },
-    [customItemNameError, setPackage],
-  );
-
-  const handleEstimatedValueChange = useCallback(
-    (value: string) => {
-      setPackage({ estimatedValue: value.replace(/\D/g, '').slice(0, 15) });
-    },
-    [setPackage],
-  );
-
-  const handleSelectTrip = useCallback((trip: AvailableParcelTrip) => {
-    if (intentLocked || !isParcelQuoteUsable(trip)) {
-      return;
-    }
-
-    const fingerprint = getParcelQuoteSemanticFingerprint(trip);
-    if (
-      trip.tripId === selectedTripIdRef.current
-      && fingerprint === selectedQuoteFingerprintRef.current
-    ) {
-      return;
-    }
-
-    selectedTripIdRef.current = trip.tripId;
-    selectedQuoteFingerprintRef.current = fingerprint;
-    setSelectedTripId(trip.tripId);
-    setSelectedQuoteFingerprint(fingerprint);
-    setPromoCode('');
-    setAppliedPromo(null);
+  const handlePromoCodeChange = useCallback((code: string) => {
+    setPromoCode(code);
     setPromoError(undefined);
-  }, [intentLocked]);
+  }, []);
 
-  useEffect(() => {
-    if (step !== 4 || intentLocked || availableTripsQuery.isPending) {
-      return;
-    }
-
-    const currentTrip = selectedTripId
-      ? availableTrips.find(trip => trip.tripId === selectedTripId)
-      : null;
-    if (currentTrip && isParcelQuoteUsable(currentTrip)) {
-      return;
-    }
-
-    const cheapestTrip = pickLowestFareParcelTrip(availableTrips);
-    if (!cheapestTrip) {
-      if (selectedTripId) {
-        clearTripSelection();
-      }
-      return;
-    }
-
-    handleSelectTrip(cheapestTrip);
-  }, [
-    availableTrips,
-    availableTripsQuery.isPending,
-    clearTripSelection,
-    handleSelectTrip,
-    intentLocked,
-    selectedTripId,
-    step,
-  ]);
-
-  const requestNextTripsPage = useCallback(() => {
-    if (
-      !hasNextTripsPage
-      || isFetchingNextTripsPage
-      || tripLoadMoreInFlightRef.current
-    ) {
-      return;
-    }
-
-    tripLoadMoreInFlightRef.current = true;
-    fetchNextTripsPage()
-      .catch(() => undefined)
-      .finally(() => {
-        tripLoadMoreInFlightRef.current = false;
-      });
-  }, [fetchNextTripsPage, hasNextTripsPage, isFetchingNextTripsPage]);
-
-  const handleContentScroll = useCallback((
-    event: NativeSyntheticEvent<NativeScrollEvent>,
-  ) => {
-    if (
-      step !== 4
-      || !hasNextTripsPage
-      || isFetchingNextTripsPage
-      || isFetchNextTripsPageError
-    ) {
-      return;
-    }
-
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const distanceFromEnd =
-      contentSize.height - (contentOffset.y + layoutMeasurement.height);
-    if (distanceFromEnd <= TRIP_LOAD_MORE_THRESHOLD_PX) {
-      requestNextTripsPage();
-    }
-  }, [
-    hasNextTripsPage,
-    isFetchNextTripsPageError,
-    isFetchingNextTripsPage,
-    requestNextTripsPage,
-    step,
-  ]);
-
-  const handleChangeTerminals = useCallback(() => {
-    if (intentLocked) {
-      showAmbiguousRetryLockedAlert();
-      return;
-    }
-    setStep(1);
-  }, [intentLocked, showAmbiguousRetryLockedAlert]);
-
-  const handleTryNextDate = useCallback(() => {
-    if (intentLocked) {
-      showAmbiguousRetryLockedAlert();
-      return;
-    }
-    setDepartureOffset(currentOffset =>
-      Math.min(currentOffset + 1, MAX_DEPARTURE_OFFSET),
-    );
-  }, [intentLocked, showAmbiguousRetryLockedAlert]);
-
-  const handleDepartureOffsetSelect = useCallback((offset: number) => {
-    if (intentLocked) {
-      showAmbiguousRetryLockedAlert();
-      return;
-    }
-    setDepartureOffset(offset);
-  }, [intentLocked, showAmbiguousRetryLockedAlert]);
-
-  const validateCurrentStep = useCallback(() => {
-    const validateWholeDraft = step === 4;
-
-    if ((step === 1 || validateWholeDraft) && !receivingStation) {
-      Alert.alert(
-        t('app.name'),
-        t('parcel.validation.selectOriginStation'),
-      );
+  const handlePromoApply = useCallback((code: string, promo?: PromoOffer) => {
+    const normalized = normalizePromoCode(code);
+    if (!normalized) {
+      setPromoError(t('parcel.promos.codeRequired'));
       return false;
     }
-    if ((step === 2 || validateWholeDraft) && !dropoffStation) {
-      Alert.alert(
-        t('app.name'),
-        t('parcel.validation.selectDestinationStation'),
-      );
+
+    const matched =
+      promo
+      || findPromoByCode(availablePromos, normalized)
+      || (availableVouchersQuery.data ?? [])
+        .filter(v => normalizePromoCode(v.code) === normalized)
+        .map(v => mapParcelVoucherToPromo(v, t))[0];
+
+    if (!matched) {
+      setPromoError(t('parcel.promos.invalidCode'));
       return false;
     }
-    if (step === 3 || validateWholeDraft) {
-      if (
-        packageCategory === CUSTOM_PARCEL_ITEM_CATEGORY
-        && !customItemName.trim()
-      ) {
-        setCustomItemNameError(t('parcel.validation.customItemNameRequired'));
-        requestAnimationFrame(() => customItemNameRef.current?.focus());
-        return false;
-      }
-      if (!recipientName.trim()) {
-        setRecipientErrors({ name: t('parcel.validation.recipientNameRequired') });
-        requestAnimationFrame(() => recipientNameRef.current?.focus());
-        return false;
-      }
-      if (!recipientPhone.trim()) {
-        setRecipientErrors({ phone: t('parcel.validation.recipientPhoneRequired') });
-        requestAnimationFrame(() => recipientPhoneRef.current?.focus());
-        return false;
-      }
-      if (!isValidVietnamPhone(recipientPhone)) {
-        setRecipientErrors({ phone: t('parcel.validation.invalidVietnamPhone') });
-        requestAnimationFrame(() => recipientPhoneRef.current?.focus());
-        return false;
-      }
-      if (!recipientEmail.trim()) {
-        setRecipientErrors({ email: t('parcel.validation.recipientEmailRequired') });
-        requestAnimationFrame(() => recipientEmailRef.current?.focus());
-        return false;
-      }
-      if (!isValidEmail(recipientEmail)) {
-        setRecipientErrors({ email: t('parcel.validation.invalidRecipientEmail') });
-        requestAnimationFrame(() => recipientEmailRef.current?.focus());
-        return false;
-      }
-      if (!packageMeasurementsValid) {
-        Alert.alert(
-          t('app.name'),
-          dimensionsErrorMessage ??
-            t('parcel.validation.invalidMeasurements'),
-        );
-        return false;
-      }
-    }
-    setRecipientErrors({});
-    setCustomItemNameError(undefined);
-    if (step === 4) {
-      if (!selectedTrip || !hasParcelQuoteContract(selectedTrip)) {
-        Alert.alert(
-          t('app.name'),
-          t('parcel.validation.selectAvailableTrip'),
-        );
-        return false;
-      }
-      if (!isParcelQuoteUsable(
-        selectedTrip,
-        Date.now(),
-        PARCEL_QUOTE_REFRESH_SAFETY_WINDOW_MS,
-      )) {
-        Alert.alert(
-          t('parcel.errors.quoteExpiredTitle'),
-          t('parcel.errors.quoteExpiredDescription'),
-        );
-        refetchAvailableTrips().catch(() => undefined);
-        return false;
-      }
-      if (voucherNeedsRevalidation) {
-        Alert.alert(
-          t('app.name'),
-          t('parcel.errors.voucherRevalidating'),
-        );
-        return false;
-      }
-    }
 
+    setAppliedPromo(matched);
+    setPromoCode(matched.code);
+    setPromoError(undefined);
     return true;
+  }, [availablePromos, availableVouchersQuery.data, t]);
+
+  // Step Navigators
+  const handleAdvanceFromStep1 = useCallback(() => {
+    if (!receivingStation?.id) {
+      Alert.alert(t('common.notice'), t('parcel.validation.selectOriginStation'));
+      return;
+    }
+    setStep(2);
+    setHighestStepReached(prev => Math.max(prev, 2));
+  }, [receivingStation?.id, t]);
+
+  const handleAdvanceFromStep2 = useCallback(() => {
+    if (!dimensionsDraftValid || !areParcelDimensionsPositive(dimensions)) {
+      Alert.alert(t('common.notice'), t('parcel.validation.invalidDimensions'));
+      return;
+    }
+    if (!weightDraftValid || estimatedWeightKg <= 0) {
+      Alert.alert(t('common.notice'), t('parcel.validation.invalidWeight'));
+      return;
+    }
+    if (packageCategory === CUSTOM_PARCEL_ITEM_CATEGORY && !customItemName.trim()) {
+      setCustomItemNameError(t('parcel.validation.customItemNameRequired'));
+      return;
+    }
+    setStep(3);
+    setHighestStepReached(prev => Math.max(prev, 3));
   }, [
-    dimensionsErrorMessage,
-    dropoffStation,
     customItemName,
-    packageMeasurementsValid,
-    receivingStation,
-    packageCategory,
-    recipientEmail,
-    recipientName,
-    recipientPhone,
-    refetchAvailableTrips,
-    selectedTrip,
-    step,
-    t,
-    voucherNeedsRevalidation,
-  ]);
-
-  const buildCreatePayload = useCallback((
-    photoUrl: string | null,
-  ): CreateParcelPayload => {
-    if (!hasParcelQuoteContract(selectedTrip)) {
-      throw new Error(t('parcel.validation.selectTripBeforeCreate'));
-    }
-
-    return buildCreateParcelPayload({
-      tripId: selectedTrip.tripId,
-      quoteToken: selectedTrip.quoteToken,
-      dropoffStopId: null,
-      bookingId: null,
-      itemName: parcelItemName,
-      description: null,
-      sizeCategory: selectedTrip.estimatedSizeCategory,
-      lengthCm: dimensions.lengthCm,
-      widthCm: dimensions.widthCm,
-      heightCm: dimensions.heightCm,
-      estimatedWeightKg,
-      photoUrl,
-      recipient: {
-        fullName: recipientName.trim(),
-        phoneNumber: normalizeVietnamPhone(recipientPhone),
-        email: recipientEmail.trim(),
-      },
-      deliveryMethod: 'TERMINAL_PICKUP',
-      paymentMethod: backendPaymentMethod,
-      voucherCode: selectedVoucher?.code ?? null,
-      declaredValueVnd: estimatedValue ? Number(estimatedValue) : null,
-    });
-  }, [
-    backendPaymentMethod,
-    dimensions.heightCm,
-    dimensions.lengthCm,
-    dimensions.widthCm,
-    estimatedValue,
+    dimensions,
+    dimensionsDraftValid,
     estimatedWeightKg,
-    parcelItemName,
-    recipientEmail,
-    recipientName,
-    recipientPhone,
-    selectedTrip,
-    selectedVoucher?.code,
+    packageCategory,
     t,
+    weightDraftValid,
   ]);
 
-  const invalidateParcelCheckoutQueries = useCallback((
-    includeWallet: boolean,
-  ): void => {
-    if (!user?.id) {
+  const handleAdvanceFromStep3 = useCallback(() => {
+    if (!selectedDeliveryOption || !selectedTrip || !selectedDropoffPoint) {
+      Alert.alert(t('common.notice'), t('parcel.validation.selectDropoffPoint'));
       return;
     }
-
-    const invalidations = [
-      queryClient.invalidateQueries({ queryKey: parcelKeys.user(user.id) }),
-      queryClient.invalidateQueries({
-        queryKey: parcelKeys.availableTripsRoot(),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: passengerHistoryKeys.user(user.id),
-      }),
-    ];
-
-    if (includeWallet) {
-      invalidations.push(
-        queryClient.invalidateQueries({
-          queryKey: walletKeys.user(user.id),
-        }),
-      );
-    }
-
-    Promise.all(invalidations).catch(() => undefined);
-  }, [queryClient, user?.id]);
-
-  const handleSubmit = useCallback(async () => {
-    if (step === 4 && !user?.id) {
-      navigation
-        .getParent<NativeStackNavigationProp<RootStackParamList>>()
-        ?.navigate('Auth', { screen: 'Login' });
+    if (!isParcelQuoteUsable(selectedTrip)) {
+      Alert.alert(t('common.notice'), t('parcel.trips.quoteUnavailable'));
       return;
     }
+    setStep(4);
+    setHighestStepReached(prev => Math.max(prev, 4));
+  }, [selectedDeliveryOption, selectedDropoffPoint, selectedTrip, t]);
 
-    if (step < 4) {
-      if (!validateCurrentStep()) {
-        return;
-      }
-      advanceStep();
-      return;
-    }
+  const openCityPicker = useCallback((mode: 'from' | 'to') => {
+    navigation.navigate('CityPicker', { mode });
+  }, [navigation]);
 
-    // Deposit exact-retry keeps parcelId; full step validation is not required.
-    if (ambiguousRetry?.kind !== 'deposit' && !validateCurrentStep()) {
-      return;
-    }
+  const handleCancel = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
 
-    if (checkoutInFlightRef.current) {
-      return;
-    }
+  // Submission handler
+  const handleCreateAndPay = useCallback(async () => {
+    if (checkoutInFlightRef.current) return;
+
     const ownerUserId = user?.id;
     if (!ownerUserId) return;
+
+    const isExactDepositRetry = ambiguousRetry?.kind === 'deposit';
+    const isExactCreateRetry = ambiguousRetry?.kind === 'create';
+
+    if (!isExactDepositRetry && !isExactCreateRetry) {
+      const nextRecipientErrors: { name?: string; phone?: string; email?: string } = {};
+      if (!recipientName.trim()) {
+        nextRecipientErrors.name = t('parcel.validation.recipientNameRequired');
+      }
+      if (!recipientPhone.trim()) {
+        nextRecipientErrors.phone = t('parcel.validation.recipientPhoneRequired');
+      } else if (!isValidVietnamPhone(recipientPhone)) {
+        nextRecipientErrors.phone = t('parcel.validation.invalidVietnamPhone');
+      }
+      if (!recipientEmail.trim()) {
+        nextRecipientErrors.email = t('parcel.validation.recipientEmailRequired');
+      } else if (!isValidEmail(recipientEmail)) {
+        nextRecipientErrors.email = t('parcel.validation.invalidRecipientEmail');
+      }
+
+      if (Object.keys(nextRecipientErrors).length > 0) {
+        setRecipientErrors(nextRecipientErrors);
+        return;
+      }
+
+      if (!selectedTrip || !selectedDropoffPoint || !receivingStation) {
+        Alert.alert(t('common.notice'), t('parcel.validation.selectTripBeforeCreate'));
+        return;
+      }
+
+      if (!isParcelQuoteUsable(selectedTrip)) {
+        Alert.alert(t('parcel.errors.quoteUnavailableTitle'), t('parcel.errors.quoteUnavailableDescription'));
+        return;
+      }
+    }
 
     if (lockedBackendPaymentMethod === 'VNPAY') {
       try {
@@ -1216,188 +649,123 @@ export function CreateParcelScreen(): React.JSX.Element {
 
     checkoutInFlightRef.current = true;
 
-    const navigateToCreatedParcel = (
+    const navigateToCreatedParcel = async (
       parcelId: string,
       paymentRedirectUrl?: string | null,
-      preferredMethod: typeof lockedPaymentMethod = lockedPaymentMethod,
-    ) => {
-      invalidateParcelCheckoutQueries(preferredMethod === 'wallet');
+    ): Promise<void> => {
       setAmbiguousRetry(null);
-      navigation.navigate('ParcelDetail', {
+      setAllowLeaveDespiteRetry(true);
+      setPhotos([]);
+      resetParcelPhotoUpload();
+
+      const invalidations: Array<Promise<unknown>> = [
+        queryClient.invalidateQueries({ queryKey: parcelKeys.all }),
+        queryClient.invalidateQueries({ queryKey: passengerHistoryKeys.all }),
+      ];
+      if (lockedBackendPaymentMethod === 'WALLET') {
+        invalidations.push(
+          queryClient.invalidateQueries({ queryKey: walletKeys.all }),
+        );
+      }
+      Promise.all(invalidations).catch(() => undefined);
+
+      // Let React commit the retry-guard release before removing this route.
+      // This keeps the completed checkout out of the back stack without letting
+      // usePreventRemove reinterpret the replace action as a wizard back press.
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      navigation.replace('ParcelDetail', {
         parcelId,
         paymentRedirectUrl: paymentRedirectUrl ?? undefined,
-        preferredPaymentMethod: preferredMethod,
-        ...(dropoffStation?.id
-          ? {
-              trackingTarget: {
-                kind: 'STATION' as const,
-                stationId: dropoffStation.id,
-              },
-            }
-          : {}),
+        preferredPaymentMethod: lockedPaymentMethod,
       });
     };
 
+    const openVnPayFromDetail = async (
+      parcelId: string,
+      depositResult: Awaited<ReturnType<typeof depositPaymentMutation.mutateAsync>>,
+    ): Promise<void> => {
+      await navigateToCreatedParcel(parcelId, depositResult.paymentRedirectUrl);
+
+      if (!depositResult.paymentRedirectUrl) return;
+
+      try {
+        await openVnPayPayment({
+          result: depositResult,
+          kind: 'parcel_deposit',
+          businessId: parcelId,
+          ownerUserId,
+        });
+      } catch {
+        Alert.alert(
+          t('parcel.payment.redirectErrorTitle'),
+          t('parcel.payment.redirectErrorDescription'),
+        );
+      }
+    };
+
+    const handleDepositFailure = async (
+      error: unknown,
+      parcelId: string,
+    ): Promise<void> => {
+      const apiError = toApiError(error);
+      if (apiError.code === 'SESSION_INVALIDATED') return;
+
+      if (isParcelAmbiguousPaymentError(error)) {
+        setAllowLeaveDespiteRetry(false);
+        setAmbiguousRetry({
+          kind: 'deposit',
+          parcelId,
+          paymentMethod: lockedPaymentMethod,
+        });
+        Alert.alert(
+          t('parcel.errors.ambiguousPaymentTitle'),
+          t('parcel.errors.ambiguousPaymentDescription'),
+        );
+        return;
+      }
+
+      await navigateToCreatedParcel(parcelId);
+      Alert.alert(
+        t('parcel.create.savedTitle'),
+        t('parcel.create.savedPaymentFailed', {
+          error: getLocalizedApiErrorMessage(
+            apiError,
+            t,
+            PARCEL_ERROR_TRANSLATION_KEYS,
+          ),
+        }),
+      );
+    };
+
     try {
-      // Exact-retry deposit only: parcel already exists; never re-upload/create.
-      if (ambiguousRetry?.kind === 'deposit') {
-        const depositParcelId = ambiguousRetry.parcelId;
+      if (isExactDepositRetry) {
+        const parcelId = ambiguousRetry.parcelId;
         try {
-          const depositPaymentResult =
-            await depositPaymentMutation.retryRetainedAsync();
-          navigateToCreatedParcel(
-            depositParcelId,
-            depositPaymentResult.paymentRedirectUrl,
-            ambiguousRetry.paymentMethod,
-          );
-          if (
-            depositPaymentResult.paymentRedirectUrl
-            && lockedBackendPaymentMethod === 'VNPAY'
-          ) {
-            try {
-              await openVnPayPayment({
-                result: depositPaymentResult,
-                kind: 'parcel_deposit',
-                businessId: depositParcelId,
-                ownerUserId,
-              });
-            } catch {
-              Alert.alert(
-                t('parcel.payment.redirectErrorTitle'),
-                t('parcel.payment.redirectErrorDescription'),
-              );
-            }
+          const depositResult = await depositPaymentMutation.retryRetainedAsync();
+          if (lockedBackendPaymentMethod === 'VNPAY') {
+            await openVnPayFromDetail(parcelId, depositResult);
+          } else {
+            await navigateToCreatedParcel(parcelId, depositResult.paymentRedirectUrl);
           }
         } catch (error) {
-          const apiError = toApiError(error);
-          if (apiError.code === 'SESSION_INVALIDATED') {
-            return;
-          }
-          if (isParcelAmbiguousPaymentError(error)) {
-            Alert.alert(
-              t('parcel.errors.ambiguousPaymentTitle'),
-              t('parcel.errors.ambiguousPaymentDescription'),
-            );
-            return;
-          }
-          navigateToCreatedParcel(
-            depositParcelId,
-            null,
-            ambiguousRetry.paymentMethod,
-          );
-          Alert.alert(
-            t('parcel.create.savedTitle'),
-            t('parcel.create.savedPaymentFailed', {
-              error: getLocalizedApiErrorMessage(
-                apiError,
-                t,
-                PARCEL_ERROR_TRANSLATION_KEYS,
-              ),
-            }),
-          );
+          await handleDepositFailure(error, parcelId);
         }
         return;
       }
 
       let photoUrl: string | null = null;
-      if (ambiguousRetry?.kind !== 'create' && photos[0]) {
+      if (!isExactCreateRetry && photos[0]) {
         try {
-          photoUrl = await uploadParcelPhoto(photos[0]);
+          if (photos[0].startsWith('http')) {
+            photoUrl = photos[0];
+          } else {
+            photoUrl = await uploadParcelPhoto(photos[0]);
+          }
         } catch (error) {
           const apiError = toApiError(error);
-          if (apiError.code === 'SESSION_INVALIDATED') {
-            return;
-          }
+          if (apiError.code === 'SESSION_INVALIDATED') return;
           Alert.alert(
             t('parcel.errors.photoUploadTitle'),
-            apiError.code === 'UNKNOWN_ERROR'
-              ? t('parcel.errors.photoUploadDescription')
-              : getLocalizedApiErrorMessage(
-                  apiError,
-                  t,
-                  PARCEL_ERROR_TRANSLATION_KEYS,
-                ),
-          );
-          return;
-        }
-      }
-
-      let result: CreateParcelResult;
-      try {
-        if (
-          ambiguousRetry?.kind !== 'create'
-          && !isParcelQuoteUsable(
-            selectedTrip,
-            Date.now(),
-            PARCEL_QUOTE_REFRESH_SAFETY_WINDOW_MS,
-          )
-        ) {
-          await refetchAvailableTrips().catch(() => undefined);
-          Alert.alert(
-            t('parcel.errors.quoteExpiredTitle'),
-            t('parcel.errors.quoteExpiredDescription'),
-          );
-          return;
-        }
-
-        result = ambiguousRetry?.kind === 'create'
-          ? await createParcelMutation.retryRetainedAsync()
-          : await createParcelMutation.mutateAsync(
-            buildCreatePayload(photoUrl),
-          );
-      } catch (error) {
-        const apiError = toApiError(error);
-        const conflict = classifyParcelCreateConflict(error);
-        if (conflict === 'session') {
-          return;
-        }
-        if (conflict === 'quote_expired') {
-          setAppliedPromo(null);
-          setPromoCode('');
-          setPromoError(undefined);
-          setAmbiguousRetry(null);
-          await refetchAvailableTrips().catch(() => undefined);
-          Alert.alert(
-            t('parcel.errors.quoteExpiredTitle'),
-            t('parcel.errors.quoteExpiredDescription'),
-          );
-          return;
-        }
-        if (conflict === 'quote_invalid') {
-          setAmbiguousRetry(null);
-          clearTripSelection();
-          await refetchAvailableTrips().catch(() => undefined);
-          Alert.alert(
-            t('parcel.errors.quoteInvalidTitle'),
-            t('parcel.errors.quoteInvalidDescription'),
-          );
-          return;
-        }
-        if (
-          conflict === 'ambiguous'
-          || conflict === 'idempotency_pending'
-        ) {
-          setAmbiguousRetry({ kind: 'create' });
-          Alert.alert(
-            t('parcel.errors.ambiguousRequestTitle'),
-            t('parcel.errors.ambiguousRequestDescription'),
-          );
-          return;
-        }
-        if (conflict === 'trip_freshness') {
-          setAmbiguousRetry(null);
-          clearTripSelection();
-          await refetchAvailableTrips().catch(() => undefined);
-          Alert.alert(
-            t('parcel.errors.tripAvailabilityChangedTitle'),
-            t('parcel.errors.tripAvailabilityChangedDescription'),
-          );
-          return;
-        }
-        if (conflict === 'code_collision') {
-          setAmbiguousRetry(null);
-          Alert.alert(
-            t('app.name'),
             getLocalizedApiErrorMessage(
               apiError,
               t,
@@ -1406,827 +774,348 @@ export function CreateParcelScreen(): React.JSX.Element {
           );
           return;
         }
-        if (conflict === 'retry_intent_changed') {
+      }
+
+      let parcelResult: CreateParcelResult;
+      try {
+        if (isExactCreateRetry) {
+          parcelResult = await createParcelMutation.retryRetainedAsync();
+        } else {
+          if (!selectedTrip || !selectedDropoffPoint || !receivingStation) {
+            return;
+          }
+
+          const payload: CreateParcelPayload = buildCreateParcelPayload({
+            tripId: selectedTrip.tripId,
+            quoteToken: activeQuoteToken || '',
+            dropoffStopId:
+              selectedDropoffPoint.type === 'STOP'
+                ? selectedDropoffPoint.stopId
+                : null,
+            bookingId: null,
+            itemName: parcelItemName,
+            description: null,
+            sizeCategory: PARCEL_PACKAGE_SIZE_CONFIG[resolveParcelSizeFromDimensions(dimensions)].sizeCategory,
+            lengthCm: dimensions.lengthCm,
+            widthCm: dimensions.widthCm,
+            heightCm: dimensions.heightCm,
+            estimatedWeightKg,
+            photoUrl,
+            recipient: {
+              fullName: recipientName.trim(),
+              phoneNumber: normalizeVietnamPhone(recipientPhone),
+              email: recipientEmail.trim(),
+            },
+            deliveryMethod: 'TERMINAL_PICKUP',
+            paymentMethod: lockedBackendPaymentMethod,
+            voucherCode: selectedVoucher?.code ?? null,
+            declaredValueVnd: estimatedValue ? Number(estimatedValue) : null,
+          });
+
+          parcelResult = await createParcelMutation.mutateAsync(payload);
+        }
+      } catch (error) {
+        const apiError = toApiError(error);
+        const conflict = classifyParcelCreateConflict(error);
+
+        if (conflict === 'session') return;
+
+        if (conflict === 'dropoff_unavailable') {
+          setAmbiguousRetry(null);
+          clearTripSelection();
+          setStep(3);
           Alert.alert(
-            t('app.name'),
-            t('parcel.errors.retryIntentChanged'),
+            t('parcel.errors.dropoffStopUnavailableTitle'),
+            t('parcel.errors.dropoffStopUnavailableDescription'),
           );
           return;
         }
+
+        if (conflict === 'trip_freshness' || conflict === 'quote_expired' || conflict === 'quote_invalid') {
+          setAmbiguousRetry(null);
+          clearTripSelection();
+          setStep(3);
+          Alert.alert(
+            t('parcel.errors.quoteUnavailableTitle'),
+            t('parcel.errors.quoteUnavailableDescription'),
+          );
+          return;
+        }
+
+        if (conflict === 'ambiguous' || conflict === 'idempotency_pending') {
+          setAllowLeaveDespiteRetry(false);
+          setAmbiguousRetry({ kind: 'create' });
+          Alert.alert(
+            t('parcel.errors.ambiguousRequestTitle'),
+            t('parcel.errors.ambiguousRequestDescription'),
+          );
+          return;
+        }
+
         setAmbiguousRetry(null);
+        const messageKey = PARCEL_ERROR_TRANSLATION_KEYS[apiError.code ?? ''] ?? 'parcel.errors.createFailed';
         Alert.alert(
-          t('app.name'),
-          getLocalizedApiErrorMessage(
-            apiError,
-            t,
-            PARCEL_ERROR_TRANSLATION_KEYS,
-          ),
+          t('common.error'),
+          t(messageKey, {
+            defaultValue: getLocalizedApiErrorMessage(
+              apiError,
+              t,
+              PARCEL_ERROR_TRANSLATION_KEYS,
+            ),
+          }),
         );
         return;
       }
 
-      setPackage({ photos: [] });
-      resetParcelPhotoUpload();
+      const parcelId = parcelResult.parcelId;
 
-      let depositPaymentResult: Awaited<
-        ReturnType<typeof depositPaymentMutation.mutateAsync>
-      > | null = null;
-      if (result.status === 'PENDING_PAYMENT') {
-        try {
-          depositPaymentResult = await depositPaymentMutation.mutateAsync({
-            parcelId: result.parcelId,
-            paymentMethod: lockedBackendPaymentMethod,
-          });
-        } catch (error) {
-          const apiError = toApiError(error);
-          if (apiError.code === 'SESSION_INVALIDATED') {
-            return;
-          }
-
-          if (isParcelAmbiguousPaymentError(error)) {
-            setAmbiguousRetry({
-              kind: 'deposit',
-              parcelId: result.parcelId,
-              paymentMethod: lockedPaymentMethod,
-            });
-            Alert.alert(
-              t('parcel.errors.ambiguousPaymentTitle'),
-              t('parcel.errors.ambiguousPaymentDescription'),
-            );
-            return;
-          }
-
-          navigateToCreatedParcel(result.parcelId);
-          Alert.alert(
-            t('parcel.create.savedTitle'),
-            t('parcel.create.savedPaymentFailed', {
-              error: getLocalizedApiErrorMessage(
-                apiError,
-                t,
-                PARCEL_ERROR_TRANSLATION_KEYS,
-              ),
-            }),
-          );
-          return;
-        }
+      if (parcelResult.status !== 'PENDING_PAYMENT') {
+        await navigateToCreatedParcel(parcelId);
+        return;
       }
 
-      navigateToCreatedParcel(
-        result.parcelId,
-        depositPaymentResult?.paymentRedirectUrl,
-      );
-
-      if (
-        depositPaymentResult?.paymentRedirectUrl
-        && lockedBackendPaymentMethod === 'VNPAY'
-      ) {
-        try {
-          await openVnPayPayment({
-            result: depositPaymentResult,
-            kind: 'parcel_deposit',
-            businessId: result.parcelId,
-            ownerUserId,
-          });
-        } catch {
-          Alert.alert(
-            t('parcel.payment.redirectErrorTitle'),
-            t('parcel.payment.redirectErrorDescription'),
-          );
-        }
+      let depositResult: Awaited<ReturnType<typeof depositPaymentMutation.mutateAsync>>;
+      try {
+        depositResult = await depositPaymentMutation.mutateAsync({
+          parcelId,
+          paymentMethod: lockedBackendPaymentMethod,
+          ...(lockedBackendPaymentMethod === 'VNPAY'
+            ? { paymentReturnMode: 'MOBILE_SDK' as const }
+            : {}),
+        });
+      } catch (error) {
+        await handleDepositFailure(error, parcelId);
+        return;
       }
+
+      if (lockedBackendPaymentMethod === 'VNPAY') {
+        await openVnPayFromDetail(parcelId, depositResult);
+        return;
+      }
+
+      await navigateToCreatedParcel(parcelId, depositResult.paymentRedirectUrl);
     } finally {
       checkoutInFlightRef.current = false;
     }
   }, [
-    advanceStep,
+    activeQuoteToken,
     ambiguousRetry,
-    buildCreatePayload,
     clearTripSelection,
     createParcelMutation,
     depositPaymentMutation,
+    dimensions,
+    estimatedValue,
+    estimatedWeightKg,
     lockedBackendPaymentMethod,
     lockedPaymentMethod,
-    dropoffStation?.id,
-    invalidateParcelCheckoutQueries,
     navigation,
+    parcelItemName,
     photos,
-    refetchAvailableTrips,
+    queryClient,
+    receivingStation,
+    recipientEmail,
+    recipientName,
+    recipientPhone,
     resetParcelPhotoUpload,
+    selectedDropoffPoint,
     selectedTrip,
-    setPackage,
-    step,
+    selectedVoucher?.code,
     t,
     uploadParcelPhoto,
     user?.id,
-    validateCurrentStep,
   ]);
 
-  const handleRetryAmbiguousRequest = useCallback(() => {
-    if (!isAmbiguousRetryActive(ambiguousRetry)) {
-      return;
-    }
-    handleSubmit().catch(() => undefined);
-  }, [ambiguousRetry, handleSubmit]);
+  const confirmLeaveWithAmbiguousRetry = useCallback((onLeave: () => void) => {
+    const isDeposit = ambiguousRetry?.kind === 'deposit';
+    Alert.alert(
+      t('parcel.errors.leaveAmbiguousTitle'),
+      isDeposit
+        ? t('parcel.errors.leaveAmbiguousDepositDescription')
+        : t('parcel.errors.leaveAmbiguousCreateDescription'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('parcel.exitDraft.discard'),
+          style: 'destructive',
+          onPress: () => {
+            setAllowLeaveDespiteRetry(true);
+            requestAnimationFrame(onLeave);
+          },
+        },
+      ],
+    );
+  }, [ambiguousRetry?.kind, t]);
 
-  const handlePromoCodeChange = useCallback((text: string) => {
+  const showAmbiguousRetryLockedAlert = useCallback(() => {
+    const isDeposit = ambiguousRetry?.kind === 'deposit';
+    Alert.alert(
+      isDeposit
+        ? t('parcel.errors.ambiguousPaymentTitle')
+        : t('parcel.errors.ambiguousRequestTitle'),
+      isDeposit
+        ? t('parcel.errors.ambiguousPaymentDescription')
+        : t('parcel.errors.ambiguousRequestDescription'),
+      [{ text: t('common.ok') }],
+    );
+  }, [ambiguousRetry?.kind, t]);
+
+  const handleStepBarSelect = useCallback((targetStep: number) => {
     if (intentLocked) {
+      showAmbiguousRetryLockedAlert();
       return;
     }
-    const normalizedCode = text.toUpperCase();
-    setPromoCode(normalizedCode);
-    setPromoError(undefined);
-    setAppliedPromo(currentPromo => {
-      if (!currentPromo) {
-        return null;
-      }
+    if (targetStep < step) {
+      setStep(targetStep as 1 | 2 | 3 | 4);
+    } else if (targetStep === 2 && highestStepReached >= 2) {
+      setStep(2);
+    } else if (targetStep === 3 && highestStepReached >= 3) {
+      setStep(3);
+    } else if (targetStep === 4 && highestStepReached >= 4) {
+      setStep(4);
+    }
+  }, [highestStepReached, intentLocked, showAmbiguousRetryLockedAlert, step]);
 
-      return normalizePromoCode(normalizedCode) ===
-        normalizePromoCode(currentPromo.code)
-        ? currentPromo
-        : null;
-    });
-  }, [intentLocked]);
-
-  const handlePromoApply = useCallback(
-    (nextCode: string, selectedPromo?: PromoOffer) => {
-      if (intentLocked) {
-        showAmbiguousRetryLockedAlert();
-        return false;
-      }
-      const normalizedCode = normalizePromoCode(nextCode);
-      const promo =
-        selectedPromo || findPromoByCode(availablePromos, normalizedCode);
-
-      setPromoCode(normalizedCode);
-
-      if (!normalizedCode) {
-        setAppliedPromo(null);
-        setPromoError(t('parcel.promos.validation.enterCode'));
-        return false;
-      }
-
-      if (!promo) {
-        setAppliedPromo(null);
-        setPromoError(t('parcel.promos.validation.unavailable'));
-        return false;
-      }
-
-      if (
-        promo.minimumSpend
-        && quotePricing.grossPriceVnd < promo.minimumSpend
-      ) {
-        setAppliedPromo(null);
-        setPromoError(
-          t('parcel.promos.validation.minimumSpend', {
-            amount: formatVnd(promo.minimumSpend),
-          }),
-        );
-        return false;
-      }
-
-      setAppliedPromo(promo);
-      setPromoError(undefined);
+  const handleBackPress = useCallback(() => {
+    if (intentLocked) {
+      navigation.goBack();
       return true;
-    },
-    [
-      availablePromos,
-      intentLocked,
-      quotePricing.grossPriceVnd,
-      showAmbiguousRetryLockedAlert,
-      t,
-    ],
-  );
-
-  const isStationSelectionStep = step === 1 || step === 2;
-  const stationStepQuery =
-    step === 1 ? originStationsQuery : destinationStationsQuery;
-  const refetchStationStep = stationStepQuery.refetch;
-  const stationStepStations = useMemo(
-    () =>
-      step === 1
-        ? originStationsQuery.stations
-        : destinationStationsQuery.stations.filter(
-            station => station.id !== receivingStation?.id,
-          ),
-    [destinationStationsQuery.stations, originStationsQuery.stations, receivingStation?.id, step],
-  );
-  const stationStepLocation = step === 1 ? originScopeCode : destinationScopeCode;
-  const missingLocation = !stationStepLocation;
-  const selectedStationForStep =
-    step === 1 ? receivingStation : step === 2 ? dropoffStation : undefined;
-  const stationSelectionRole = step === 1 ? 'origin' : 'destination';
-  const nearbySortRequested = nearbySortRole === stationSelectionRole;
-  const nearbySortResolved = nearbySortRequested && currentLocation.coords != null;
-  const nearbySortUnavailable = nearbySortRequested && currentLocation.error != null;
-  const handleStationSelect =
-    step === 1 ? handleSelectReceivingStation : handleSelectDropoffStation;
-  const handleSortStationsNearby = useCallback(() => {
-    setNearbySortRole(step === 1 ? 'origin' : 'destination');
-  }, [step]);
-  const handleRetryStationStep = useCallback(() => {
-    refetchStationStep().catch(() => undefined);
-  }, [refetchStationStep]);
-  const handleRetryAvailableTrips = useCallback(() => {
-    refetchAvailableTrips().catch(() => undefined);
-  }, [refetchAvailableTrips]);
-  const handleChooseRouteLocation = useCallback(() => {
-    navigation.navigate('CityPicker', { mode: step === 1 ? 'from' : 'to' });
-  }, [navigation, step]);
-  const isStationListReady =
-    isStationSelectionStep &&
-    !missingLocation &&
-    !stationStepQuery.isLoading &&
-    !stationStepQuery.isError &&
-    stationStepStations.length > 0;
-
-  const renderStation = useCallback(
-    ({ item }: { item: Station }) => (
-      <StationCard
-        station={item}
-        isSelected={selectedStationForStep?.id === item.id}
-        onSelect={handleStationSelect}
-        selectionRole={stationSelectionRole}
-      />
-    ),
-    [handleStationSelect, selectedStationForStep?.id, stationSelectionRole],
-  );
-
-  const stationKeyExtractor = useCallback((station: Station) => station.id, []);
-  const stationListHeader = (
-    <View style={styles.stationListHeader}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('parcel.stations.sortNearby')}
-        accessibilityState={{
-          disabled:
-            (nearbySortRequested && currentLocation.isResolving)
-            || nearbySortResolved
-            || nearbySortUnavailable,
-        }}
-        disabled={
-          (nearbySortRequested && currentLocation.isResolving)
-          || nearbySortResolved
-          || nearbySortUnavailable
-        }
-        onPress={handleSortStationsNearby}
-        style={({ pressed }) => [
-          styles.nearbySortButton,
-          nearbySortResolved ? styles.nearbySortButtonActive : null,
-          nearbySortUnavailable ? styles.nearbySortButtonUnavailable : null,
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <MapPinLine
-          size={20}
-          color={
-            nearbySortResolved
-              ? theme.colors.success
-              : nearbySortUnavailable
-                ? theme.colors.textTertiary
-                : theme.colors.primary
-          }
-          weight={nearbySortResolved ? 'fill' : 'duotone'}
-        />
-        <Text
-          numberOfLines={2}
-          style={[
-            styles.nearbySortButtonText,
-            nearbySortUnavailable ? styles.nearbySortButtonTextUnavailable : null,
-          ]}
-        >
-          {currentLocation.isResolving && nearbySortRequested
-            ? t('parcel.stations.sortingNearby')
-            : nearbySortResolved
-              ? t('parcel.stations.sortedNearby')
-              : nearbySortUnavailable
-                ? t('parcel.stations.locationUnavailable')
-                : t('parcel.stations.sortNearby')}
-        </Text>
-        {currentLocation.isResolving && nearbySortRequested ? (
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-        ) : null}
-      </Pressable>
-    </View>
-  );
-  const tripKeyExtractor = useCallback(
-    (trip: AvailableParcelTrip) => trip.tripId,
-    [],
-  );
-  const renderTrip: ListRenderItem<AvailableParcelTrip> = useCallback(
-    ({ item }) => (
-      <TripOptionCard
-        trip={item}
-        selected={selectedTripId === item.tripId}
-        onPress={handleSelectTrip}
-      />
-    ),
-    [handleSelectTrip, selectedTripId],
-  );
-
-  const renderStationStep = () => {
-    if (missingLocation) {
-      return (
-        <View style={styles.stateBox}>
-          <WarningCircle
-            size={32}
-            color={theme.colors.warningForeground}
-            weight="duotone"
-          />
-          <Text style={styles.stateTitle}>
-            {t('parcel.stations.chooseRouteFirstTitle')}
-          </Text>
-          <Text style={styles.stateText}>
-            {t('parcel.stations.chooseRouteFirstDescription')}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleChooseRouteLocation}
-            style={({ pressed }) => [
-              styles.routePickerButton,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <Text style={styles.routePickerButtonText}>
-              {step === 1
-                ? t('parcel.stations.chooseOriginAction')
-                : t('parcel.stations.chooseDestinationAction')}
-            </Text>
-          </Pressable>
-        </View>
-      );
     }
-
-    if (stationStepQuery.isLoading) {
-      return (
-        <View style={styles.stationLoadingContent}>
-          <ParcelSkeleton type="station" count={3} />
-        </View>
-      );
+    if (step > 1) {
+      setStep(curr => (curr - 1) as 1 | 2 | 3 | 4);
+      return true;
     }
+    return false;
+  }, [intentLocked, navigation, step]);
 
-    if (stationStepQuery.isError) {
-      return <ErrorView onRetry={handleRetryStationStep} />;
-    }
+  usePreventRemove(intentLocked && !allowLeaveDespiteRetry, ({ data }) => {
+    confirmLeaveWithAmbiguousRetry(() => navigation.dispatch(data.action));
+  });
 
-    if (stationStepStations.length === 0) {
-      return (
-        <View style={styles.stateBox}>
-          <WarningCircle
-            size={32}
-            color={theme.colors.warningForeground}
-            weight="duotone"
-          />
-          <Text style={styles.stateTitle}>
-            {t('parcel.stations.emptyTitle')}
-          </Text>
-          <Text style={styles.stateText}>
-            {stationStepLocation
-              ? t('parcel.stations.emptyInLocation', {
-                  location: step === 1 ? fromCity : toCity,
-                })
-              : t('parcel.stations.emptyDescription')}
-          </Text>
-        </View>
-      );
-    }
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    return () => sub.remove();
+  }, [handleBackPress]);
 
-    return null;
-  };
-
-  const renderTripPicker = (includeTripItems = true) => (
-    <View style={styles.bentoSummaryCard}>
-      <Text style={styles.bentoCardHeading}>
-        {t('parcel.trips.departureDate')}
-      </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.dateRow}
-      >
-        {DATE_OFFSETS.map(offset => {
-          const active = departureOffset === offset;
-          const date = addApiCalendarDays(departureDateBase, offset);
-          const label =
-            offset === 0
-              ? t('parcel.date.today')
-              : offset === 1
-              ? t('parcel.date.tomorrow')
-              : formatShortDate(date);
-          return (
-            <DepartureDateChip
-              active={active}
-              key={offset}
-              label={label}
-              offset={offset}
-              onSelect={handleDepartureOffsetSelect}
-            />
-          );
-        })}
-      </ScrollView>
-
-      <View style={styles.tripHeaderRow}>
-        <Text style={styles.bentoCardHeading}>
-          {t('parcel.trips.availableTitle')}
-        </Text>
-        {availableTripsQuery.isFetching ? (
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-        ) : null}
-      </View>
-
-      {availableTripsQuery.isLoading ? (
-        <ParcelSkeleton type="summary" count={2} />
-      ) : availableTripsQuery.isError && availableTrips.length === 0 ? (
-        <ErrorView onRetry={handleRetryAvailableTrips} />
-      ) : availableTrips.length === 0 ? (
-        <View style={styles.stateBoxCompact}>
-          <Clock size={24} color={theme.colors.textTertiary} weight="duotone" />
-          <Text style={styles.stateTitle}>
-            {t('parcel.trips.emptyTitle')}
-          </Text>
-          <Text style={styles.stateText}>
-            {t('parcel.trips.emptyRouteDate', {
-              origin:
-                receivingStation?.name ?? t('parcel.route.selectedOrigin'),
-              destination:
-                dropoffStation?.name ??
-                t('parcel.route.selectedDestination'),
-              date: formatShortDate(
-                addApiCalendarDays(departureDateBase, departureOffset),
-              ),
-            })}
-          </Text>
-          <Text style={styles.stateText}>
-            {t('parcel.trips.emptyDescription')}
-          </Text>
-          <View style={[
-            styles.emptyTripActions,
-            isCompact ? styles.emptyTripActionsCompact : null,
-          ]}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleChangeTerminals}
-              style={({ pressed }) => [
-                styles.emptyTripSecondaryButton,
-                isCompact ? styles.emptyTripButtonCompact : styles.emptyTripButtonRegular,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.emptyTripSecondaryText}>
-                {t('parcel.trips.changeTerminals')}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: emptyTripPrimaryDisabled }}
-              disabled={emptyTripPrimaryDisabled}
-              onPress={
-                hasNextTripsPage ? requestNextTripsPage : handleTryNextDate
-              }
-              style={({ pressed }) => [
-                styles.emptyTripPrimaryButton,
-                isCompact ? styles.emptyTripButtonCompact : styles.emptyTripButtonRegular,
-                emptyTripPrimaryDisabled
-                  ? styles.emptyTripButtonDisabled
-                  : null,
-                pressed && !emptyTripPrimaryDisabled ? styles.pressed : null,
-              ]}
-            >
-              {isFetchingNextTripsPage ? (
-                <ActivityIndicator
-                  size="small"
-                  color={theme.colors.textInverse}
-                />
-              ) : (
-                <Text style={styles.emptyTripPrimaryText}>
-                  {hasNextTripsPage
-                    ? t('parcel.trips.checkMore')
-                    : t('parcel.trips.tryNextDay')}
-                </Text>
-              )}
-            </Pressable>
-          </View>
-        </View>
-      ) : includeTripItems ? (
-        availableTrips.map(trip => (
-          <TripOptionCard
-            key={trip.tripId}
-            trip={trip}
-            selected={selectedTripId === trip.tripId}
-            onPress={handleSelectTrip}
-          />
-        ))
-      ) : null}
-      {includeTripItems && availableTrips.length > 0 && isFetchingNextTripsPage ? (
-        <View style={styles.tripLoadMoreFooter} accessibilityRole="progressbar">
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-          <Text style={styles.tripLoadMoreText}>
-            {t('parcel.trips.loadingMore')}
-          </Text>
-        </View>
-      ) : null}
-
-      {includeTripItems && availableTrips.length > 0 && isFetchNextTripsPageError && hasNextTripsPage ? (
-        <View style={styles.tripLoadMoreFooter} accessibilityRole="alert">
-          <Text style={styles.tripLoadMoreText}>
-            {t('parcel.trips.loadMoreFailed')}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('parcel.trips.retryLoadMore')}
-            onPress={requestNextTripsPage}
-            hitSlop={8}
-          >
-            <Text style={styles.tripLoadMoreAction}>
-              {t('parcel.trips.retryLoadMore')}
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
-    </View>
-  );
-
-  const renderStep = (includeTripPicker = true) => {
-    if (step === 1 || step === 2) {
-      return renderStationStep();
-    }
-
-    if (step === 3) {
-      return (
-        <View style={styles.stepContent}>
-          <PackageSizeSelector
-            packageSize={packageSize}
-            onSelect={handlePackageSizeChange}
-          />
-          <ParcelDimensionsInput
-            key={packageSize}
-            value={dimensions}
-            onChange={handleDimensionsChange}
-            onValidityChange={setDimensionsDraftValid}
-            errorMessage={dimensionsErrorMessage}
-          />
-          <WeightSlider
-            valueKg={packageWeight}
-            onValueChange={handleWeightChange}
-            onValidityChange={setWeightDraftValid}
-          />
-          <CategoryChips
-            value={packageCategory}
-            onChange={handleCategoryChange}
-          />
-
-          {packageCategory === CUSTOM_PARCEL_ITEM_CATEGORY ? (
-            <Input
-              ref={customItemNameRef}
-              testID="parcel-custom-item-name-input"
-              label={t('parcel.form.customItemNameLabel')}
-              placeholder={t('parcel.form.customItemNamePlaceholder')}
-              value={customItemName}
-              error={customItemNameError}
-              required
-              autoCapitalize="sentences"
-              returnKeyType="next"
-              blurOnSubmit={false}
-              onSubmitEditing={() => recipientNameRef.current?.focus()}
-              onChangeText={handleCustomItemNameChange}
-            />
-          ) : null}
-
-          <PhotoPicker
-            value={photos}
-            onChange={handlePhotosChange}
-            disabled={
-              isUploadingParcelPhoto
-              || createParcelMutation.isPending
-              || depositPaymentMutation.isPending
-            }
-            maxPhotos={1}
-            photoLabel={t('parcel.form.photoLabel')}
-            title={t('parcel.form.photoTitle')}
-            helperText={t('parcel.form.photoHelper')}
-          />
-
-          <Input
-            label={t('parcel.form.estimatedValueLabel')}
-            placeholder={t('parcel.form.estimatedValuePlaceholder')}
-            keyboardType="numeric"
-            maxLength={15}
-            value={estimatedValue}
-            onChangeText={handleEstimatedValueChange}
-            hint={t('parcel.form.estimatedValueHint')}
-          />
-
-          <View style={styles.formSection}>
-            <Text style={styles.sectionLabel}>
-              {t('parcel.form.recipientTitle')}
-            </Text>
-            <Input
-              ref={recipientNameRef}
-              label={t('parcel.form.fullNameLabel')}
-              placeholder={t('parcel.form.fullNamePlaceholder')}
-              maxLength={255}
-              value={recipientName}
-              error={recipientErrors.name}
-              required
-              onChangeText={(value) => {
-                setRecipientName(value);
-                if (recipientErrors.name) setRecipientErrors((current) => ({ ...current, name: undefined }));
-              }}
-            />
-            <Input
-              ref={recipientPhoneRef}
-              label={t('parcel.form.phoneLabel')}
-              placeholder={t('parcel.form.phonePlaceholder')}
-              keyboardType="phone-pad"
-              maxLength={20}
-              value={recipientPhone}
-              error={recipientErrors.phone}
-              required
-              onChangeText={(value) => {
-                setRecipientPhone(value);
-                if (recipientErrors.phone) setRecipientErrors((current) => ({ ...current, phone: undefined }));
-              }}
-            />
-            <Input
-              ref={recipientEmailRef}
-              label={t('parcel.form.emailLabel')}
-              placeholder={t('parcel.form.emailPlaceholder')}
-              keyboardType="email-address"
-              maxLength={255}
-              value={recipientEmail}
-              error={recipientErrors.email}
-              onChangeText={(value) => {
-                setRecipientEmail(value);
-                if (recipientErrors.email) setRecipientErrors((current) => ({ ...current, email: undefined }));
-              }}
-              autoCapitalize="none"
-              required
-            />
-          </View>
-        </View>
-      );
-    }
-
+  // If Route Gate is active (from/to missing), render Area Gate Screen
+  if (isGateActive) {
     return (
-      <View style={styles.stepContent}>
-        {includeTripPicker ? renderTripPicker() : null}
-        <PricingBreakdown
-          receivingStation={receivingStation}
-          dropoffStation={dropoffStation}
-          packageSize={packageSize}
-          packageItemName={parcelItemName}
-          packageWeightKg={estimatedWeightKg}
-          dimensionsLabel={formatParcelDimensions(dimensions)}
-          grossPrice={quotePricing.grossPriceVnd}
-          discountAmount={quotePricing.discountAmountVnd}
-          totalAfterDiscount={quotePricing.totalAfterDiscountVnd}
-          depositPercent={quotePricing.depositPercent}
-          depositDue={depositDue}
-          promoCode={promoCode}
-          promoApplied={Boolean(selectedVoucher)}
-          onPromoCodeChange={handlePromoCodeChange}
-          onPromoApplyCode={handlePromoApply}
-          availablePromos={availablePromos}
-          selectedPromoCode={appliedPromo?.code}
-          appliedPromoLabel={
-            selectedVoucher
-              ? t('parcel.promos.appliedCode', {
-                  code: selectedVoucher.code,
-                })
-              : undefined
-          }
-          promoError={promoError}
-          paymentMethod={lockedPaymentMethod}
-          disabled={intentLocked}
-          onPaymentMethodChange={method => {
-            if (!intentLocked) {
-              setPaymentMethod(method);
-            }
-          }}
-          walletBalance={walletBalanceQuery.data?.balance}
-          walletIsLoading={walletBalanceQuery.isLoading}
-          walletHasError={walletBalanceQuery.isError}
-        />
-        {ambiguousRetry ? (
-          <View style={styles.ambiguousRetryCard}>
-            <Text style={styles.ambiguousRetryText}>
-              {ambiguousRetry.kind === 'deposit'
-                ? t('parcel.errors.ambiguousPaymentDescription')
-                : t('parcel.errors.ambiguousRequestDescription')}
-            </Text>
+      <View style={styles.root}>
+        {/* Universal Gradient background */}
+        <View style={styles.gradientContainer} pointerEvents="none">
+          <Svg height="460" width="100%">
+            <Defs>
+              <LinearGradient id="gateHeaderGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <Stop
+                  offset="0%"
+                  stopColor={theme.colors.primaryLight}
+                  stopOpacity={theme.isDark ? 0.24 : 0.36}
+                />
+                <Stop
+                  offset="55%"
+                  stopColor={theme.colors.primaryLight}
+                  stopOpacity={theme.isDark ? 0.08 : 0.12}
+                />
+                <Stop
+                  offset="100%"
+                  stopColor={theme.colors.background}
+                  stopOpacity={0}
+                />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#gateHeaderGrad)" />
+          </Svg>
+        </View>
+
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+          {/* Top Bar with Back Button */}
+          <View style={styles.gateNavbar}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t('parcel.actions.retryPreviousRequest')}
-              disabled={isUploadingParcelPhoto
-                || createParcelMutation.isPending
-                || depositPaymentMutation.isPending}
-              onPress={handleRetryAmbiguousRequest}
+              accessibilityLabel={t('common.back')}
+              onPress={handleCancel}
               style={({ pressed }) => [
-                styles.ambiguousRetryButton,
+                styles.navButtonLeft,
                 pressed ? styles.pressed : null,
               ]}
             >
-              <Text style={styles.ambiguousRetryButtonText}>
-                {t('parcel.actions.retryPreviousRequest')}
-              </Text>
+              <ArrowLeft
+                size={20}
+                color={theme.colors.primary}
+                weight="bold"
+              />
             </Pressable>
+            <Text style={styles.gateNavbarTitle}>{t('parcel.create.title')}</Text>
+            <View style={styles.navButtonPlaceholder} />
           </View>
-        ) : null}
+
+          <View style={styles.gateContainer}>
+            <View style={styles.gateIconCircle}>
+              <MapPin size={40} color={theme.colors.primary} weight="duotone" />
+            </View>
+
+            <Text style={styles.gateTitle}>
+              {t('parcel.routeGate.title')}
+            </Text>
+            <Text style={styles.gateDescription}>
+              {t('parcel.routeGate.description')}
+            </Text>
+
+            <View style={styles.gateButtonsCol}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('parcel.routeGate.selectSendingArea')}
+                onPress={() => openCityPicker('from')}
+                style={({ pressed }) => [
+                  styles.gateActionButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={styles.gateActionButtonText}>
+                  {fromCity
+                    ? `${t('parcel.route.from')}: ${fromCity}`
+                    : t('parcel.routeGate.selectSendingArea')}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('parcel.routeGate.selectReceivingArea')}
+                onPress={() => openCityPicker('to')}
+                style={({ pressed }) => [
+                  styles.gateActionButton,
+                  styles.gateActionSecondary,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={[styles.gateActionButtonText, styles.gateActionSecondaryText]}>
+                  {toCity
+                    ? `${t('parcel.route.to')}: ${toCity}`
+                    : t('parcel.routeGate.selectReceivingArea')}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </SafeAreaView>
       </View>
     );
-  };
-
-  const isSubmitting =
-    isUploadingParcelPhoto
-    || createParcelMutation.isPending
-    || depositPaymentMutation.isPending;
-  const actionDisabled =
-    isSubmitting ||
-    intentLocked ||
-    (isStationSelectionStep && !selectedStationForStep) ||
-    ((step === 3 || step === 4) && !packageMeasurementsValid) ||
-    (step === 4 && (
-      availableTripsQuery.isLoading
-      || !hasParcelQuoteContract(selectedTrip)
-      || !isParcelQuoteUsable(selectedTrip)
-      || voucherNeedsRevalidation
-    ));
-  const actionLabel =
-    step === 1
-      ? selectedStationForStep
-        ? t('parcel.actions.continueToDestination')
-        : t('parcel.actions.chooseOriginTerminal')
-      : step === 2
-      ? selectedStationForStep
-        ? t('parcel.actions.continueToDetails')
-        : t('parcel.actions.chooseDestinationTerminal')
-      : step === 4
-      ? t('common.confirm')
-      : t('parcel.actions.nextStep');
-  const routeTitle = selectedTrip
-    ? `${selectedTrip.originStation.name} → ${selectedTrip.destinationStation.name}`
-    : `${fromCity || t('parcel.route.origin')} → ${
-        toCity || t('parcel.route.destination')
-      }`;
-  const stationCount = stationStepStations.length;
-  const headerSubtitle =
-    step === 1 || step === 2
-      ? !stationStepLocation
-        ? t('parcel.stations.chooseValidRoute')
-        : stationStepQuery.isError
-        ? t('parcel.stations.loadError')
-        : stationStepQuery.isLoading
-        ? t('parcel.stations.finding')
-        : t('parcel.stations.availableCount', { count: stationCount })
-      : step === 3
-      ? t('parcel.summary.dimensionsAndWeight', {
-          dimensions: formatParcelDimensions(dimensions),
-          weight: estimatedWeightKg,
-          unit: t('parcel.units.kg'),
-        })
-      : selectedTrip
-      ? t('parcel.trips.operatorDeparture', {
-          operator: selectedTrip.operatorName,
-          departure: formatTripTime(selectedTrip.departureDateTime),
-        })
-      : t('parcel.trips.availableCount', {
-          count: availableTrips.length,
-        });
-  const contentBottomPadding = resolveCreateParcelContentBottomPadding({
-    measuredActionBarHeight: actionBarHeight,
-    bottomInset: insets.bottom,
-    contentGap: spacing.md,
-  });
-  const stationListContentStyle = useMemo(
-    () => [styles.stationListContent, { paddingBottom: contentBottomPadding }],
-    [contentBottomPadding, styles.stationListContent],
-  );
-  const scrollContentStyle = useMemo(
-    () => [styles.scrollContent, { paddingBottom: contentBottomPadding }],
-    [contentBottomPadding, styles.scrollContent],
-  );
-  const actionBarStyle = useMemo(
-    () => [
-      styles.actionBar,
-      { paddingBottom: Math.max(insets.bottom, spacing.md) },
-    ],
-    [insets.bottom, styles.actionBar],
-  );
+  }
 
   return (
     <View style={styles.root}>
+      {/* Universal Gradient background */}
       <View style={styles.gradientContainer} pointerEvents="none">
         <Svg height="460" width="100%">
           <Defs>
-            <LinearGradient id="headerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <LinearGradient id="parcelHeaderGrad" x1="0%" y1="0%" x2="0%" y2="100%">
               <Stop
                 offset="0%"
                 stopColor={theme.colors.primaryLight}
-                stopOpacity={0.36}
+                stopOpacity={theme.isDark ? 0.24 : 0.36}
               />
               <Stop
                 offset="55%"
                 stopColor={theme.colors.primaryLight}
-                stopOpacity={0.12}
+                stopOpacity={theme.isDark ? 0.08 : 0.12}
               />
               <Stop
                 offset="100%"
@@ -2235,121 +1124,169 @@ export function CreateParcelScreen(): React.JSX.Element {
               />
             </LinearGradient>
           </Defs>
-          <Rect width="100%" height="100%" fill="url(#headerGrad)" />
+          <Rect width="100%" height="100%" fill="url(#parcelHeaderGrad)" />
         </Svg>
       </View>
 
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        {/* Wizard Progress Bar */}
         <StepProgressBar
           step={step}
           highestStepReached={highestStepReached}
-          onStepPress={handleStepPress}
-          onCancel={handleBackStep}
-          title={routeTitle}
-          subtitle={headerSubtitle}
+          onStepPress={handleStepBarSelect}
+          onCancel={handleCancel}
+          title={t('parcel.create.title')}
+          routeSummary={
+            fromCity && toCity
+              ? {
+                  from: fromCity,
+                  to: toCity,
+                  onEditFrom: () => openCityPicker('from'),
+                  onEditTo: () => openCityPicker('to'),
+                  onOpenEditSheet: () => setIsRouteEditModalVisible(true),
+                }
+              : undefined
+          }
         />
-        <StepHeaderWithMascot step={step} />
 
-        <View
-          style={styles.keyboardAvoidingView}
-        >
-        {isStationListReady ? (
-          <FlashList
-            data={stationStepStations}
-            renderItem={renderStation}
-            keyExtractor={stationKeyExtractor}
-            style={styles.scrollContainer}
-            contentContainerStyle={stationListContentStyle}
-            ListHeaderComponent={stationListHeader}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          />
-        ) : step === 4 ? (
-          <FlashList
-            data={availableTrips}
-            renderItem={renderTrip}
-            keyExtractor={tripKeyExtractor}
-            style={styles.scrollContainer}
-            contentContainerStyle={scrollContentStyle}
-            ListHeaderComponent={renderTripPicker(false)}
-            ListFooterComponent={renderStep(false)}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            automaticallyAdjustKeyboardInsets
-            showsVerticalScrollIndicator={false}
-            onEndReached={() => {
-              if (hasNextTripsPage) requestNextTripsPage();
-            }}
-            onEndReachedThreshold={0.4}
-          />
-        ) : (
-          <AppKeyboardAwareScrollView
-            style={styles.scrollContainer}
-            contentContainerStyle={scrollContentStyle}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            onScroll={handleContentScroll}
-            scrollEventThrottle={16}
-          >
-            {renderStep()}
-          </AppKeyboardAwareScrollView>
-        )}
+        {/* Mascot Step Header */}
+        <StepHeaderWithMascot
+          step={step}
+        />
 
-        <View style={actionBarStyle} onLayout={handleActionBarLayout}>
-          {step === 4 ? (
-            <View style={styles.priceSummaryBox}>
-              <Text style={styles.totalPriceLabel}>
-                {t('parcel.summary.depositDue')}
-              </Text>
-              <Text style={styles.totalPriceValue}>
-                {formatVnd(depositDue)}
-              </Text>
-            </View>
-          ) : null}
-          {isStationSelectionStep && selectedStationForStep ? (
-            <Text style={styles.selectedStationSummary} numberOfLines={2} ellipsizeMode="tail">
-              {t('parcel.stations.selected', {
-                name: selectedStationForStep.name,
-              })}
-            </Text>
-          ) : null}
-          <Pressable
-            disabled={actionDisabled}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: actionDisabled }}
-            style={({ pressed }) => [
-              styles.nextActionButton,
-              step === 4 ? styles.nextActionButtonSummary : null,
-              actionDisabled ? styles.nextActionButtonDisabled : null,
-              pressed && !actionDisabled ? styles.pressed : null,
-            ]}
-            onPress={handleSubmit}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color={theme.colors.textInverse} />
-            ) : (
-              <>
-                <Text style={styles.nextActionButtonText}>
-                  {actionLabel}
-                </Text>
-                <ArrowLeft
-                  size={18}
-                  color={theme.colors.textInverse}
-                  weight="bold"
-                  style={{ transform: [{ rotate: '180deg' }] }}
-                />
-              </>
-            )}
-          </Pressable>
+        {/* Wizard Step Body */}
+        <View style={styles.content}>
+          {step === 1 ? (
+            <ParcelRouteDateStep
+              stations={originStationsQuery.stations}
+              selectedStation={receivingStation ?? null}
+              onSelectStation={handleSelectReceivingStation}
+              departureOffset={departureOffset}
+              onSelectDepartureOffset={handleDepartureOffsetChange}
+              departureDateBase={departureDateBase}
+              isLoadingStations={originStationsQuery.isLoading}
+              isStationsError={originStationsQuery.isError}
+              onRetryStations={() => originStationsQuery.refetch().catch(() => undefined)}
+              nearbySortRequested={Boolean(nearbySortRole)}
+              nearbySortResolved={nearbySortRole === 'origin' && currentLocation.coords != null}
+              nearbySortUnavailable={nearbySortRole === 'origin' && currentLocation.error != null}
+              isResolvingLocation={currentLocation.isResolving}
+              onSortNearby={() => setNearbySortRole('origin')}
+              onContinue={handleAdvanceFromStep1}
+            />
+          ) : step === 2 ? (
+            <ParcelFitStep
+              packageSize={packageSize}
+              dimensions={dimensions}
+              weight={estimatedWeightKg}
+              category={packageCategory}
+              customItemName={customItemName}
+              onSelectPackageSize={handlePackageSizeChange}
+              onChangeDimensions={handleDimensionsChange}
+              onChangeWeight={handleWeightChange}
+              onChangeCategory={handleCategoryChange}
+              onChangeCustomItemName={handleCustomItemNameChange}
+              dimensionsDraftValid={dimensionsDraftValid}
+              onDimensionsValidityChange={setDimensionsDraftValid}
+              weightDraftValid={weightDraftValid}
+              onWeightValidityChange={setWeightDraftValid}
+              customItemNameError={customItemNameError}
+              onContinue={handleAdvanceFromStep2}
+            />
+          ) : step === 3 ? (
+            <ParcelDeliveryOptionsStep
+              options={deliveryOptions}
+              selectedOptionKey={selectedDropoffPointKey}
+              onSelectOption={handleSelectDeliveryOption}
+              isLoading={availableTripsQuery.isLoading}
+              isError={availableTripsQuery.isError}
+              onRetry={() => availableTripsQuery.refetch().catch(() => undefined)}
+              onTryNextDay={() => handleDepartureOffsetChange(departureOffset + 1)}
+              onChangeRoute={() => openCityPicker('from')}
+              isFetchingNextPage={availableTripsQuery.isFetchingNextPage}
+              hasNextPage={Boolean(availableTripsQuery.hasNextPage)}
+              onLoadMore={() => availableTripsQuery.fetchNextPage()}
+              onContinue={handleAdvanceFromStep3}
+              departureOffset={departureOffset}
+              onSelectDepartureOffset={handleDepartureOffsetChange}
+              departureDateBase={departureDateBase}
+              departureDateText={formatShortDate(departureDate)}
+            />
+          ) : (
+            <ParcelCheckoutStep
+              selectedOption={selectedDeliveryOption}
+              recipientName={recipientName}
+              recipientPhone={recipientPhone}
+              recipientEmail={recipientEmail}
+              onRecipientNameChange={(name) => {
+                setRecipientName(name);
+                if (recipientErrors.name) setRecipientErrors(curr => ({ ...curr, name: undefined }));
+              }}
+              onRecipientPhoneChange={(phone) => {
+                setRecipientPhone(phone);
+                if (recipientErrors.phone) setRecipientErrors(curr => ({ ...curr, phone: undefined }));
+              }}
+              onRecipientEmailChange={(email) => {
+                setRecipientEmail(email);
+                if (recipientErrors.email) setRecipientErrors(curr => ({ ...curr, email: undefined }));
+              }}
+              recipientErrors={recipientErrors}
+              photos={photos}
+              onPhotosChange={handlePhotosChange}
+              isPhotoUploading={isUploadingParcelPhoto}
+              estimatedValue={estimatedValue}
+              onEstimatedValueChange={handleEstimatedValueChange}
+              receivingStation={receivingStation}
+              toCity={toCity}
+              packageSize={packageSize}
+              parcelItemName={parcelItemName}
+              estimatedWeightKg={estimatedWeightKg}
+              dimensions={dimensions}
+              quotePricing={quotePricing}
+              depositDue={depositDue}
+              promoCode={promoCode}
+              selectedVoucher={selectedVoucher}
+              onPromoCodeChange={handlePromoCodeChange}
+              onPromoApply={handlePromoApply}
+              availablePromos={availablePromos}
+              appliedPromo={appliedPromo}
+              promoError={promoError}
+              paymentMethod={paymentMethod}
+              onPaymentMethodChange={setPaymentMethod}
+              walletBalance={walletBalanceQuery.data?.balance}
+              walletIsLoading={walletBalanceQuery.isLoading}
+              walletHasError={walletBalanceQuery.isError}
+              ambiguousRetry={ambiguousRetry}
+              onRetryAmbiguous={handleCreateAndPay}
+              intentLocked={intentLocked}
+              isSubmitting={isUploadingParcelPhoto || createParcelMutation.isPending || depositPaymentMutation.isPending}
+              onSubmit={handleCreateAndPay}
+            />
+          )}
         </View>
-        </View>
+
+        <RouteEditModal
+          visible={isRouteEditModalVisible}
+          onClose={() => setIsRouteEditModalVisible(false)}
+          fromCity={fromCity}
+          toCity={toCity}
+          onEditFrom={() => openCityPicker('from')}
+          onEditTo={() => openCityPicker('to')}
+          onSwap={() => {
+            swapLocations();
+            clearTripSelection();
+          }}
+        />
       </SafeAreaView>
     </View>
   );
 }
 
 const createStyles = (theme: AppTheme) => ({
-  root: { flex: 1, backgroundColor: theme.colors.background },
+  root: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   gradientContainer: {
     position: 'absolute',
     top: 0,
@@ -2358,372 +1295,99 @@ const createStyles = (theme: AppTheme) => ({
     height: 460,
     zIndex: 0,
   },
-  container: { flex: 1, backgroundColor: 'transparent' },
-  keyboardAvoidingView: { flex: 1 },
-  scrollContainer: { flex: 1 },
-  stationLoadingContent: {
-    padding: spacing.xl,
-  },
-  scrollContent: { paddingHorizontal: spacing.xl, paddingTop: 0 },
-  stationListContent: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xs,
-  },
-  stationListHeader: {
-    paddingBottom: spacing.sm,
-  },
-  nearbySortButton: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primaryFaded,
-  },
-  nearbySortButtonActive: {
-    borderColor: theme.colors.success,
-    backgroundColor: theme.colors.successLight,
-  },
-  nearbySortButtonUnavailable: {
-    borderColor: theme.colors.divider,
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  nearbySortButtonText: {
+  safeArea: {
     flex: 1,
-    minWidth: 0,
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primary,
-    textAlign: 'center',
+    backgroundColor: 'transparent',
   },
-  nearbySortButtonTextUnavailable: {
-    color: theme.colors.textTertiary,
+  content: {
+    flex: 1,
   },
-  stepContent: { paddingBottom: 80 },
-  formSection: {
-    marginTop: spacing.md,
-  },
-  sectionLabel: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  bentoSummaryCard: {
-    ...theme.components.card,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  bentoCardHeading: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
-    color: theme.colors.textPrimary,
-    marginBottom: spacing.md,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingRight: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  dateChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.contentSurfaceSoft
-      : theme.colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.contentBorder
-      : theme.colors.divider,
-  },
-  dateChipActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  dateChipText: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
-  },
-  dateChipTextActive: {
-    color: theme.colors.textInverse,
-  },
-  tripHeaderRow: {
+  gateNavbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
   },
-  tripCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.contentSurfaceSoft
-      : theme.colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.effects.isLiquid
-      ? theme.effects.contentBorder
-      : theme.colors.divider,
-  },
-  tripCardActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primaryFaded,
-  },
-  tripCardDisabled: {
-    opacity: 0.55,
-  },
-  ambiguousRetryCard: {
-    ...theme.components.card,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  ambiguousRetryText: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textSecondary,
-  },
-  ambiguousRetryButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.colors.primary,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  ambiguousRetryButtonText: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textInverse,
-  },
-  tripIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: borderRadius.full,
-    backgroundColor: theme.colors.primaryFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tripIconActive: {
-    backgroundColor: theme.colors.primary,
-  },
-  tripMeta: {
-    flex: 1,
-    minWidth: 0,
-  },
-  tripOperator: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
-  },
-  tripRoute: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textPrimary,
-    marginTop: 2,
-  },
-  tripTime: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  tripPrice: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.primary,
-    marginTop: 4,
-  },
-  tripLoadMoreFooter: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-  },
-  tripLoadMoreText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textSecondary,
-  },
-  tripLoadMoreAction: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primary,
-  },
-  stateBox: {
-    ...theme.components.card,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  stateBoxCompact: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: theme.effects.isLiquid
-      ? theme.effects.contentSurfaceSoft
-      : theme.colors.surfaceAlt,
-  },
-  stateTitle: {
+  gateNavbarTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
   },
-  stateText: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  routePickerButton: {
-    minHeight: 48,
+  navButtonLeft: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.lg,
-    backgroundColor: theme.colors.primary,
-    marginTop: spacing.sm,
+    borderRadius: 22,
+    backgroundColor: theme.colors.primaryFaded,
   },
-  routePickerButtonText: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textInverse,
+  navButtonPlaceholder: {
+    width: 44,
+    height: 44,
   },
-  emptyTripActions: {
-    width: '100%',
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  emptyTripActionsCompact: {
-    flexDirection: 'column',
-  },
-  emptyTripButtonRegular: {
+  gateContainer: {
     flex: 1,
+    padding: spacing.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  emptyTripButtonCompact: {
-    width: '100%',
-    flexGrow: 0,
-    flexShrink: 0,
-    flexBasis: 'auto' as const,
-  },
-  emptyTripSecondaryButton: {
-    minHeight: 48,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
+  gateIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: theme.colors.primaryFaded,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing.xs,
   },
-  emptyTripPrimaryButton: {
-    minHeight: 48,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.lg,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTripButtonDisabled: {
-    opacity: 0.45,
-  },
-  emptyTripSecondaryText: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.primary,
-    textAlign: 'center',
-  },
-  emptyTripPrimaryText: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textInverse,
-    textAlign: 'center',
-  },
-  actionBar: {
-    ...theme.components.actionBar,
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-  },
-  priceSummaryBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  gateCard: {
+    ...theme.components.card,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
     alignItems: 'center',
     gap: spacing.md,
-    marginBottom: spacing.sm,
   },
-  totalPriceLabel: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textSecondary,
-  },
-  totalPriceValue: {
-    minWidth: 0,
-    flexShrink: 1,
+  gateTitle: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
-    color: theme.colors.primary,
-    textAlign: 'right',
+    color: theme.colors.textPrimary,
+    textAlign: 'center',
   },
-  nextActionButton: {
-    flexDirection: 'row',
+  gateDescription: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: fontSizes.sm * 1.4,
+  },
+  gateButtonsCol: {
+    width: '100%',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  gateActionButton: {
+    height: 48,
+    borderRadius: borderRadius.md,
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.components.primaryButton,
-    borderRadius: borderRadius.md,
-    minHeight: 52,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
   },
-  nextActionButtonSummary: {
-    marginTop: 0,
-  },
-  nextActionButtonDisabled: {
-    opacity: 0.52,
-  },
-  selectedStationSummary: {
-    color: theme.colors.textSecondary,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  nextActionButtonText: {
-    minWidth: 0,
-    flexShrink: 1,
-    paddingHorizontal: spacing.xs,
+  gateActionButtonText: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.sm,
     color: theme.colors.textInverse,
-    textAlign: 'center',
+  },
+  gateActionSecondary: {
+    backgroundColor: theme.colors.primaryFaded,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  gateActionSecondaryText: {
+    color: theme.colors.primary,
   },
   pressed: {
-    opacity: 0.86,
+    opacity: 0.85,
     transform: [{ scale: 0.98 }],
   },
 });

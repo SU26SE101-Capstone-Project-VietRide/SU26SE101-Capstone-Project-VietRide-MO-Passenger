@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
@@ -12,26 +12,39 @@ export interface StepHeaderWithMascotProps {
   step: number;
 }
 
-export const StepHeaderWithMascot = ({ step }: StepHeaderWithMascotProps): React.JSX.Element => {
+function StepHeaderWithMascotComponent({
+  step,
+}: StepHeaderWithMascotProps): React.JSX.Element {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+
   const heading = (() => {
     switch (step) {
-      case 1: return t('parcel.steps.origin.heading');
-      case 2: return t('parcel.steps.destination.heading');
-      case 3: return t('parcel.steps.package.heading');
-      case 4: return t('parcel.steps.summary.heading');
-      default: return t('parcel.create.title');
+      case 1:
+        return t('parcel.steps.stationDate.heading');
+      case 2:
+        return t('parcel.steps.package.heading');
+      case 3:
+        return t('parcel.steps.delivery.heading');
+      case 4:
+        return t('parcel.steps.confirm.heading');
+      default:
+        return t('parcel.create.title');
     }
   })();
 
   const subtext = (() => {
     switch (step) {
-      case 1: return t('parcel.steps.origin.description');
-      case 2: return t('parcel.steps.destination.description');
-      case 3: return t('parcel.steps.package.description');
-      case 4: return t('parcel.steps.summary.description');
-      default: return '';
+      case 1:
+        return t('parcel.steps.stationDate.description');
+      case 2:
+        return t('parcel.steps.package.description');
+      case 3:
+        return t('parcel.steps.delivery.description');
+      case 4:
+        return t('parcel.steps.confirm.description');
+      default:
+        return '';
     }
   })();
 
@@ -48,7 +61,9 @@ export const StepHeaderWithMascot = ({ step }: StepHeaderWithMascotProps): React
       />
     </View>
   );
-};
+}
+
+export const StepHeaderWithMascot = memo(StepHeaderWithMascotComponent);
 
 const createStyles = (theme: AppTheme) => ({
   stepHeaderWithMascotInsideNavbar: {

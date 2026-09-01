@@ -37,6 +37,24 @@ const stationSummarySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
 });
+const parcelDropoffPointSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('STATION'),
+    stationId: z.string().uuid(),
+    stopId: z.null(),
+    name: z.string().trim().min(1).max(500),
+    orderIndex: z.number().int().nonnegative(),
+    estimatedArrivalTime: apiInstantSchema,
+  }),
+  z.object({
+    type: z.literal('STOP'),
+    stationId: z.null(),
+    stopId: z.string().uuid(),
+    name: z.string().trim().min(1).max(500),
+    orderIndex: z.number().int().nonnegative(),
+    estimatedArrivalTime: apiInstantSchema,
+  }),
+]);
 const availableParcelTripSchema = z.object({
   tripId: z.string().uuid(),
   routeId: z.string().uuid(),
@@ -66,6 +84,7 @@ const availableParcelTripSchema = z.object({
   estimatedPriceVnd: nonNegativeVndSchema,
   estimatedDepositVnd: nonNegativeVndSchema,
   depositPercent: z.number().min(0).max(100),
+  dropoffPoints: z.array(parcelDropoffPointSchema).min(1),
 });
 const availableParcelTripsPageSchema = z.object({
   items: z.array(availableParcelTripSchema),
@@ -85,6 +104,15 @@ export async function getAvailableParcelTrips(
   params: AvailableParcelTripsParams,
   signal?: AbortSignal,
 ): Promise<PagedParcelResponse<AvailableParcelTrip>> {
+  const destinationModeCount = Number(Boolean(params.destinationStationId))
+    + Number(Boolean(params.dropoffStopId))
+    + Number(Boolean(params.destinationProvinceCode));
+  if (destinationModeCount !== 1) {
+    throw new Error('Exactly one parcel destination mode is required.');
+  }
+  if (params.destinationLocationCode && !params.destinationProvinceCode) {
+    throw new Error('Parcel destination location requires a province.');
+  }
   const response = await apiClient.get<
     ApiEnvelope<PagedParcelResponse<AvailableParcelTrip>>
   >('/parcels/available-trips', { params, ...(signal ? { signal } : {}) });

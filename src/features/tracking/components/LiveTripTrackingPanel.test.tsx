@@ -38,7 +38,7 @@ const mockTripTrackingMapExperience = jest.fn((props: {
   renderMap: (bottomContentInset: number) => React.ReactNode;
 }) => props.renderMap(132));
 const mockTrackingDetailsContent = jest.fn((_props: unknown) => null);
-const mockUseTripDetail = jest.fn((_tripId: unknown, _options: unknown) => ({
+const defaultTripDetailResult = {
   data: {
     status: 'IN_PROGRESS',
     destinationStationId: '33333333-3333-4333-8333-333333333333',
@@ -55,7 +55,22 @@ const mockUseTripDetail = jest.fn((_tripId: unknown, _options: unknown) => ({
       },
     ],
   },
-}));
+};
+const mockUseTripDetail = jest.fn((_tripId: unknown, _options: unknown) => (
+  defaultTripDetailResult
+));
+interface MockReplacementTripResult {
+  data: null | {
+    id: string;
+    tripId: string;
+    trackingTarget: { kind: 'STOP'; stopId: string };
+  };
+}
+const mockUseBookingReplacementTrip = jest.fn((
+  _bookingId: string,
+  _sourceTripId: string,
+  _enabled: boolean,
+): MockReplacementTripResult => ({ data: null }));
 
 jest.mock('@features/auth/store/useAuthStore', () => ({
   useAuthStore: (selector: (state: { user: { id: string } }) => unknown) => (
@@ -65,6 +80,14 @@ jest.mock('@features/auth/store/useAuthStore', () => ({
 
 jest.mock('@features/trip/hooks', () => ({
   useTripDetail: (tripId: unknown, options: unknown) => mockUseTripDetail(tripId, options),
+}));
+
+jest.mock('@features/booking/hooks/useBookingHistory', () => ({
+  useBookingReplacementTrip: (
+    bookingId: string,
+    sourceTripId: string,
+    enabled: boolean,
+  ) => mockUseBookingReplacementTrip(bookingId, sourceTripId, enabled),
 }));
 
 jest.mock('@shopify/flash-list', () => ({
@@ -210,6 +233,9 @@ describe('LiveTripTrackingPanel', () => {
     mockTripTrackingMapExperience.mockClear();
     mockTrackingDetailsContent.mockClear();
     mockUseTripDetail.mockClear();
+    mockUseTripDetail.mockImplementation(() => defaultTripDetailResult);
+    mockUseBookingReplacementTrip.mockClear();
+    mockUseBookingReplacementTrip.mockReturnValue({ data: null });
     mockShareTrip.mockClear();
     mockRevokeTripShare.mockClear();
     mockActiveTripId = null;
@@ -542,6 +568,27 @@ describe('LiveTripTrackingPanel', () => {
     await act(async () => renderer!.unmount());
   });
 
+  it('always refreshes the Trip status that gates the Share action', async () => {
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel tripId={tripId} />,
+      );
+    });
+
+    expect(mockUseTripDetail).toHaveBeenCalledWith(
+      tripId,
+      expect.objectContaining({
+        enabled: true,
+        staleTimeMs: 0,
+        refetchOnMount: 'always',
+      }),
+    );
+
+    await act(async () => renderer!.unmount());
+  });
+
   it('publishes an enabled quick Share action, invokes it, and clears it on unmount', async () => {
     const onShareQuickActionChange = jest.fn();
     let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -618,6 +665,68 @@ describe('LiveTripTrackingPanel', () => {
 
     await act(async () => renderer!.unmount());
     alertSpy.mockRestore();
+  });
+
+  it('follows the replacement trip from Booking History and creates Share for that trip', async () => {
+    const replacementTripId = '99999999-9999-4999-8999-999999999999';
+    const bookingId = '88888888-8888-4888-8888-888888888888';
+    const replacementStopId = '77777777-7777-4777-8777-777777777777';
+    mockUseBookingReplacementTrip.mockReturnValue({
+      data: {
+        id: bookingId,
+        tripId: replacementTripId,
+        trackingTarget: { kind: 'STOP', stopId: replacementStopId },
+      },
+    });
+    mockUseTripDetail.mockImplementation((requestedTripId: unknown) => ({
+      data: {
+        ...defaultTripDetailResult.data,
+        status: requestedTripId === tripId ? 'DISRUPTED' : 'IN_PROGRESS',
+      },
+    }));
+    const onResolvedTripIdChange = jest.fn();
+    const onShareQuickActionChange = jest.fn();
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(
+        <LiveTripTrackingPanel
+          tripId={tripId}
+          bookingId={bookingId}
+          onResolvedTripIdChange={onResolvedTripIdChange}
+          onShareQuickActionChange={onShareQuickActionChange}
+        />,
+      );
+    });
+
+    expect(mockUseBookingReplacementTrip).toHaveBeenCalledWith(
+      bookingId,
+      tripId,
+      true,
+    );
+    expect(mockUseTripTracking).toHaveBeenLastCalledWith(expect.objectContaining({
+      source: 'trip',
+      tripId: replacementTripId,
+      trackingTarget: { kind: 'STOP', stopId: replacementStopId },
+    }));
+    expect(onResolvedTripIdChange).toHaveBeenLastCalledWith(replacementTripId);
+    const action = [...onShareQuickActionChange.mock.calls]
+      .reverse()
+      .map(([value]) => value as TrackingShareQuickAction | null)
+      .find((value): value is TrackingShareQuickAction => value !== null);
+    expect(action).toEqual(expect.objectContaining({
+      scopeKey: replacementTripId,
+      mode: 'share',
+    }));
+    await act(async () => {
+      action?.onPress();
+      await Promise.resolve();
+    });
+    expect(mockShareTrip).toHaveBeenCalledWith(expect.objectContaining({
+      tripId: replacementTripId,
+    }));
+
+    await act(async () => renderer!.unmount());
   });
 
   it('keeps Revoke available for an active grant after the old trip becomes terminal', async () => {

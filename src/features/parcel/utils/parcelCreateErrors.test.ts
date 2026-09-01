@@ -32,6 +32,12 @@ describe('classifyParcelCreateConflict', () => {
       code: 'IDEMPOTENCY_REQUEST_PENDING',
       statusCode: 409,
     }))).toBe('idempotency_pending');
+
+    expect(classifyParcelCreateConflict(new ApiRequestError({
+      message: 'dropoff',
+      code: 'DROP_OFF_STOP_NOT_FOUND',
+      statusCode: 409,
+    }))).toBe('dropoff_unavailable');
   });
 
   it('treats network/timeout as ambiguous', () => {

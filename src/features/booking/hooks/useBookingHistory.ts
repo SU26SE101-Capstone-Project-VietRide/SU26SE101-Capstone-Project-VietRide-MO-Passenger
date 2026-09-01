@@ -19,6 +19,7 @@ import { isUuid } from '@shared/utils/pathSegment';
 import {
   bookingHistoryKeys,
   getBookingHistory,
+  getRecentBookingHistoryItemsByIds,
   type BookingHistoryQuery,
 } from '../api/bookingHistoryApi';
 import {
@@ -160,4 +161,44 @@ export function useBookingHistoryTicketSnapshot(
     snapshotQuery.data,
     initialItem,
   );
+}
+
+const REPLACEMENT_TRIP_REFRESH_MS = 15_000;
+
+/**
+ * After a vehicle substitution, Booking History is the Passenger-owned source
+ * for the booking's current trip. Poll only while the old disrupted trip still
+ * appears, then stop as soon as BE projects the replacement trip.
+ */
+export function useBookingReplacementTrip(
+  bookingId: string,
+  sourceTripId: string,
+  enabled = true,
+) {
+  const userId = useAuthStore((state) => state.user?.id);
+  const hasValidIds = isUuid(bookingId) && isUuid(sourceTripId);
+
+  return useQuery<PassengerTicketHistoryItem | null>({
+    queryKey: bookingHistoryKeys.replacementTrip(
+      userId ?? 'guest',
+      bookingId,
+      sourceTripId,
+    ),
+    queryFn: async ({ signal }) => {
+      const items = await getRecentBookingHistoryItemsByIds([bookingId], signal);
+      return items.find(item => item.id === bookingId) ?? null;
+    },
+    enabled: enabled && Boolean(userId) && hasValidIds,
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchOnMount: 'always',
+    refetchOnReconnect: true,
+    refetchInterval: (query) => {
+      const item = query.state.data;
+      return item && item.tripId !== sourceTripId
+        ? false
+        : REPLACEMENT_TRIP_REFRESH_MS;
+    },
+  });
 }

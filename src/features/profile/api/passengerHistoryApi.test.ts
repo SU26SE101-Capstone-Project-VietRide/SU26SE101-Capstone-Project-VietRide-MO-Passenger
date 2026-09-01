@@ -103,6 +103,20 @@ describe('passengerHistoryApi', () => {
           bookingGroupId: null,
           tripDirection: 'OUTBOUND',
           routeName: 'Ho Chi Minh City - Da Lat',
+          pickupPoint: {
+            type: 'STOP',
+            id: '44444444-4444-4444-8444-444444444444',
+            displayName: 'Điểm C',
+            address: null,
+            plannedAt: '2026-08-13T02:00:00Z',
+          },
+          dropoffPoint: {
+            type: 'STATION',
+            id: '55555555-5555-4555-8555-555555555555',
+            displayName: 'Bến D',
+            address: '45 Đường D',
+            plannedAt: '2026-08-13T07:00:00Z',
+          },
           tickets: [{
             ticketId: '33333333-3333-4333-8333-333333333333',
             ticketCode: 'VT-VEHICLE-01',
@@ -137,6 +151,14 @@ describe('passengerHistoryApi', () => {
         tickets: [{
           seatNumber: null,
         }],
+        pickupPoint: {
+          type: 'STOP',
+          displayName: 'Điểm C',
+        },
+        dropoffPoint: {
+          type: 'STATION',
+          displayName: 'Bến D',
+        },
       },
     });
   });

@@ -1,11 +1,17 @@
 import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Check, FunnelSimple } from 'phosphor-react-native';
+import {
+  ArrowLeft,
+  Check,
+  FunnelSimple,
+  MapPin,
+  PencilSimple,
+} from 'phosphor-react-native';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
-import { fontFamilies, fontSizes, spacing, type AppTheme } from '@shared/theme';
+import { borderRadius, fontFamilies, fontSizes, spacing, type AppTheme } from '@shared/theme';
 
 export interface StepProgressBarProps {
   step: number;
@@ -15,13 +21,20 @@ export interface StepProgressBarProps {
   title: string;
   subtitle?: string;
   onFilter?: () => void;
+  routeSummary?: {
+    from: string;
+    to: string;
+    onEditFrom?: () => void;
+    onEditTo?: () => void;
+    onOpenEditSheet?: () => void;
+  };
 }
 
 const STEP_LABEL_KEYS = [
-  'parcel.progress.origin',
-  'parcel.progress.destination',
+  'parcel.progress.stationDate',
   'parcel.progress.item',
-  'parcel.progress.payment',
+  'parcel.progress.delivery',
+  'parcel.progress.confirm',
 ] as const;
 
 function StepProgressBarComponent({
@@ -32,6 +45,7 @@ function StepProgressBarComponent({
   title,
   subtitle,
   onFilter,
+  routeSummary,
 }: StepProgressBarProps): React.JSX.Element {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -63,6 +77,54 @@ function StepProgressBarComponent({
           <Text style={styles.navTitle} numberOfLines={1}>
             {title}
           </Text>
+
+          {/* Minimalist Interactive Route Bar on Header */}
+          {routeSummary?.from && routeSummary?.to ? (
+            <View style={styles.headerRoutePill}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${t('parcel.route.from')}: ${routeSummary.from}`}
+                onPress={routeSummary.onEditFrom ?? routeSummary.onOpenEditSheet}
+                style={({ pressed }) => [
+                  styles.headerRouteSegment,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <MapPin size={10} color={theme.colors.primary} weight="fill" />
+                <Text style={styles.headerRouteText} numberOfLines={1}>
+                  {routeSummary.from}
+                </Text>
+              </Pressable>
+
+              <Text style={styles.headerRouteArrow}>→</Text>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${t('parcel.route.to')}: ${routeSummary.to}`}
+                onPress={routeSummary.onEditTo ?? routeSummary.onOpenEditSheet}
+                style={({ pressed }) => [
+                  styles.headerRouteSegment,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={styles.headerRouteText} numberOfLines={1}>
+                  {routeSummary.to}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('parcel.actions.changeRoute')}
+                onPress={routeSummary.onOpenEditSheet ?? routeSummary.onEditFrom}
+                style={({ pressed }) => [
+                  styles.headerEditIconContainer,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <PencilSimple size={11} color={theme.colors.primary} weight="bold" />
+              </Pressable>
+            </View>
+          ) : null}
         </View>
 
         {onFilter ? (
@@ -231,6 +293,42 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: 2,
     maxWidth: '100%',
   },
+  headerRoutePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.primaryFaded,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginTop: 4,
+    maxWidth: '100%',
+  },
+  headerRouteSegment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    maxWidth: 110,
+  },
+  headerRouteArrow: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs - 2,
+    color: theme.colors.textTertiary,
+  },
+  headerRouteText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs - 2,
+    color: theme.colors.primaryDark,
+    flexShrink: 1,
+  },
+  headerEditIconContainer: {
+    paddingLeft: 4,
+    marginLeft: 2,
+    borderLeftWidth: 1,
+    borderLeftColor: theme.colors.border,
+  },
   progressContainer: {
     marginTop: spacing.xs,
   },
@@ -253,55 +351,56 @@ const createStyles = (theme: AppTheme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginTop: -10,
   },
   stepContainer: {
     flex: 1,
     minWidth: 0,
     alignItems: 'center',
-    paddingHorizontal: spacing.xxs,
   },
   stepBubble: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: theme.effects.isLiquid
-      ? theme.effects.glassSurfaceStrong
-      : theme.colors.surface,
+      ? theme.effects.glassSurfaceSoft
+      : theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 4,
   },
   stepBubbleActive: {
     backgroundColor: theme.colors.primary,
-    ...theme.effects.cardShadow,
+    borderColor: theme.colors.primary,
+    transform: [{ scale: 1.08 }],
   },
   stepBubbleCompleted: {
     backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
   stepNumber: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.primary,
+    fontSize: fontSizes.xs - 2,
+    color: theme.colors.textSecondary,
   },
   stepNumberActive: {
     color: theme.colors.textInverse,
   },
   stepLabel: {
     width: '100%',
-    minHeight: fontSizes.xs * 2.6,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    lineHeight: fontSizes.xs * 1.3,
-    color: theme.colors.primary,
-    marginTop: spacing.xs,
-    opacity: 0.7,
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs - 2,
+    color: theme.colors.textTertiary,
     textAlign: 'center',
+    lineHeight: 12,
   },
   stepLabelCompact: {
-    paddingHorizontal: 0,
+    fontSize: 9,
+    lineHeight: 11,
   },
   stepLabelActive: {
     fontFamily: fontFamilies.bold,
-    opacity: 1,
+    color: theme.colors.primary,
   },
 });

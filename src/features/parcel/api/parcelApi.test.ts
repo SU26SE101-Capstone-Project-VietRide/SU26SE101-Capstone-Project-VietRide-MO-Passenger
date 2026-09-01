@@ -51,6 +51,14 @@ const availableTripWire = {
   estimatedPriceVnd: 150_000,
   estimatedDepositVnd: 30_000,
   depositPercent: 20,
+  dropoffPoints: [{
+    type: 'STOP',
+    stationId: null,
+    stopId: '66666666-6666-4666-8666-666666666666',
+    name: 'Central stop',
+    orderIndex: 2,
+    estimatedArrivalTime: '2026-05-18T14:00:00+07:00',
+  }],
 };
 
 const parcelDetailWire: ParcelDetail = {
@@ -176,7 +184,7 @@ describe('parcel signed quote contract', () => {
     postMock.mockReset();
   });
 
-  it('parses available-trips signed quote fields and keeps the token opaque', async () => {
+  it('searches by destination location and parses typed drop-off points', async () => {
     const envelope: ApiSuccessEnvelope<{
       items: typeof availableTripWire[];
       page: number;
@@ -202,7 +210,8 @@ describe('parcel signed quote contract', () => {
 
     const page = await getAvailableParcelTrips({
       originStationId: availableTripWire.originStation.id,
-      destinationStationId: availableTripWire.destinationStation.id,
+      destinationProvinceCode: '79',
+      destinationLocationCode: '26734',
       departureDate: '2026-05-18',
       lengthCm: 40,
       widthCm: 30,
@@ -217,7 +226,22 @@ describe('parcel signed quote contract', () => {
     expect(trip.estimatedSizeCategory).toBe('MEDIUM');
     expect(trip.estimatedGrossPriceVnd).toBe(160_000);
     expect(trip.estimatedDiscountVnd).toBe(10_000);
+    expect(trip.dropoffPoints).toEqual([{
+      type: 'STOP',
+      stationId: null,
+      stopId: '66666666-6666-4666-8666-666666666666',
+      name: 'Central stop',
+      orderIndex: 2,
+      estimatedArrivalTime: '2026-05-18T14:00:00+07:00',
+    }]);
     expect(JSON.stringify(trip)).toContain(OPAQUE_QUOTE_TOKEN);
+    expect(getMock).toHaveBeenCalledWith('/parcels/available-trips', {
+      params: expect.objectContaining({
+        originStationId: availableTripWire.originStation.id,
+        destinationProvinceCode: '79',
+        destinationLocationCode: '26734',
+      }),
+    });
   });
 
   it('parses pre-v1.76 trips without quote money fields as null (rolling deploy)', async () => {

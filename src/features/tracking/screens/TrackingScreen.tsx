@@ -42,7 +42,9 @@ export function TrackingScreen(): React.JSX.Element {
   const bookingId = route.params.bookingId;
   const pickupOrder = isShuttle ? route.params.pickupOrder : undefined;
   const tripStatus = isShuttle ? undefined : route.params.tripStatus;
-  const shareScopeKey = isShuttle ? undefined : route.params.tripId;
+  const [shareScopeKey, setShareScopeKey] = useState(
+    isShuttle ? undefined : route.params.tripId,
+  );
   const terminalMessageKey = terminalMessageKeyForStatus(tripStatus);
   const [routeHeader, setRouteHeader] = useState<TrackingHeaderRoute>();
   const [shareQuickAction, setShareQuickAction] = useState<TrackingShareQuickAction | null>(null);
@@ -119,10 +121,12 @@ export function TrackingScreen(): React.JSX.Element {
           <LiveTripTrackingPanel
             source="trip"
             tripId={route.params.tripId}
+            bookingId={bookingId}
             trackingTarget={route.params.trackingTarget}
             tripStatus={tripStatus}
             terminalMessage={terminalMessageKey ? t(terminalMessageKey) : undefined}
             onRouteHeaderChange={handleRouteHeaderChange}
+            onResolvedTripIdChange={setShareScopeKey}
             onShareQuickActionChange={setShareQuickAction}
           />
         )}

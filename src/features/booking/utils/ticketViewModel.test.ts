@@ -256,6 +256,20 @@ const historyItem: PassengerTicketHistoryItem = {
     bookingGroupId: null,
     tripDirection: 'OUTBOUND',
     routeName: 'Ha Noi - Da Nang Express',
+    pickupPoint: {
+      type: 'STOP',
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      displayName: 'Central pickup',
+      address: '12 Central Street',
+      plannedAt: '2026-08-10T02:00:00.000Z',
+    },
+    dropoffPoint: {
+      type: 'STATION',
+      id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      displayName: 'Riverside station',
+      address: null,
+      plannedAt: '2026-08-10T08:00:00.000Z',
+    },
     tickets: [{
       ticketId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
       ticketCode: 'VR-TICKET-1',
@@ -276,7 +290,7 @@ const historyItem: PassengerTicketHistoryItem = {
 };
 
 describe('passenger history ticket view model', () => {
-  it('labels route endpoints and surfaces history-only fields without inventing stops', () => {
+  it('uses booked point snapshots and keeps route metadata secondary', () => {
     const model = buildPassengerHistoryTicketViewModel(historyItem);
 
     expect(model.bookingStatus).toBe('CONFIRMED');
@@ -285,12 +299,14 @@ describe('passenger history ticket view model', () => {
     expect(model.legs[0]).toMatchObject({
       reference: 'BK-HIST-01',
       ticketReferences: 'VR-TICKET-1',
-      boardingName: 'Ha Noi',
-      alightingName: 'Da Nang',
+      boardingName: 'Central pickup',
+      boardingAddress: '12 Central Street',
+      alightingName: 'Riverside station',
       routeName: 'Ha Noi - Da Nang Express',
       busType: 'Limousine',
       licensePlate: '51B-123.45',
-      usesRouteEndpoints: true,
+      boardingUsesRouteEndpoint: false,
+      alightingUsesRouteEndpoint: false,
       trackingEnabled: true,
       ticketEntries: [{
         ticketCode: 'VR-TICKET-1',
@@ -302,9 +318,26 @@ describe('passenger history ticket view model', () => {
     expect(model.legs[0].reference).not.toBe(
       model.legs[0].ticketEntries?.[0]?.ticketCode,
     );
-    // No fabricated address/stop identity for history snapshots (HIST-BE-002).
-    expect(model.legs[0].boardingAddress).toBeUndefined();
+    expect(model.legs[0].boardingAddress).toBe('12 Central Street');
     expect(model.legs[0].alightingAddress).toBeUndefined();
+  });
+
+  it('uses route endpoints when legacy booked points are absent', () => {
+    const model = buildPassengerHistoryTicketViewModel({
+      ...historyItem,
+      ticket: {
+        ...historyItem.ticket,
+        pickupPoint: null,
+        dropoffPoint: null,
+      },
+    }, key => key);
+
+    expect(model.legs[0]).toMatchObject({
+      boardingName: historyItem.originName,
+      alightingName: historyItem.destinationName,
+      boardingUsesRouteEndpoint: true,
+      alightingUsesRouteEndpoint: true,
+    });
   });
 
   it('maps cancelled history status to a non-success pending-free presentation', () => {
