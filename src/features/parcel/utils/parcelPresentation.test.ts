@@ -20,7 +20,10 @@ describe('parcel Reliability presentation', () => {
   it.each([
     ['ACCEPTED', 'parcel.reliability.events.ACCEPTED'],
     ['HANDOFF', 'parcel.reliability.events.HANDOFF'],
-    ['MANUAL_CUSTODY_EXCEPTION', 'parcel.reliability.events.MANUAL_CUSTODY_EXCEPTION'],
+    [
+      'MANUAL_CUSTODY_EXCEPTION',
+      'parcel.reliability.events.MANUAL_CUSTODY_EXCEPTION',
+    ],
   ])('maps custody event %s to app-owned copy', (value, expected) => {
     expect(getParcelCustodyEventLabelKey(value)).toBe(expected);
   });
@@ -54,9 +57,18 @@ describe('parcel Reliability presentation', () => {
   });
 
   it.each([
-    ['CONFIRMED_SCAN', 'parcel.reliability.confidenceDescriptions.CONFIRMED_SCAN'],
-    ['MANUAL_EXCEPTION', 'parcel.reliability.confidenceDescriptions.MANUAL_EXCEPTION'],
-    ['INFERRED_FROM_MANIFEST', 'parcel.reliability.confidenceDescriptions.INFERRED_FROM_MANIFEST'],
+    [
+      'CONFIRMED_SCAN',
+      'parcel.reliability.confidenceDescriptions.CONFIRMED_SCAN',
+    ],
+    [
+      'MANUAL_EXCEPTION',
+      'parcel.reliability.confidenceDescriptions.MANUAL_EXCEPTION',
+    ],
+    [
+      'INFERRED_FROM_MANIFEST',
+      'parcel.reliability.confidenceDescriptions.INFERRED_FROM_MANIFEST',
+    ],
   ])('maps tracking confidence %s to a user explanation', (value, expected) => {
     expect(getParcelTrackingConfidenceDescriptionKey(value)).toBe(expected);
   });
@@ -72,18 +84,18 @@ describe('parcel Reliability presentation', () => {
     ['FORWARDING', 'ON_TRACK', '2026-08-30T09:00:00Z', false],
     ['RESOLVED', 'CLOSED', '2026-08-30T09:00:00Z', false],
     ['NEW_INTERNAL_STATE', 'ON_TRACK', '2026-08-30T09:00:00Z', false],
-  ])('shows a deadline for status %s, SLA %s, value %s: %s', (
-    status,
-    slaState,
-    searchDeadline,
-    expected,
-  ) => {
-    expect(shouldShowParcelIncidentSearchDeadline(
-      status,
-      slaState,
-      searchDeadline,
-    )).toBe(expected);
-  });
+  ])(
+    'shows a deadline for status %s, SLA %s, value %s: %s',
+    (status, slaState, searchDeadline, expected) => {
+      expect(
+        shouldShowParcelIncidentSearchDeadline(
+          status,
+          slaState,
+          searchDeadline,
+        ),
+      ).toBe(expected);
+    },
+  );
 
   it('never echoes unknown wire tokens back to the UI', () => {
     const unknownToken = 'NEW_INTERNAL_STATE';
@@ -130,22 +142,23 @@ describe('parcel Reliability presentation', () => {
     expect(locale.parcel.compensation.subtitle).toContain('{{operator}}');
   });
 
-  it('keeps the official shipment total phrase together on the second line in Vietnamese', () => {
-    expect(vi.parcel.detail.finalTotal).toBe(
-      'Tổng phí vận chuyển\nchính thức',
-    );
+  it('uses a clear, single-line Vietnamese label for the final shipment fee', () => {
+    expect(vi.parcel.detail.finalTotal).toBe('Tổng phí chính thức');
   });
 
   it.each([
     ['en', en],
     ['vi', vi],
-  ] as const)('does not annotate optional fields in %s copy', (_language, locale) => {
-    [
-      locale.parcel.form.photoTitle,
-      locale.parcel.form.estimatedValueLabel,
-      locale.shared.photoPicker.defaultTitle,
-    ].forEach(copy => {
-      expect(copy.toLowerCase()).not.toMatch(/optional|không bắt buộc/);
-    });
-  });
+  ] as const)(
+    'does not annotate optional fields in %s copy',
+    (_language, locale) => {
+      [
+        locale.parcel.form.photoTitle,
+        locale.parcel.form.estimatedValueLabel,
+        locale.shared.photoPicker.defaultTitle,
+      ].forEach(copy => {
+        expect(copy.toLowerCase()).not.toMatch(/optional|không bắt buộc/);
+      });
+    },
+  );
 });

@@ -1,16 +1,11 @@
 import React, { type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { ArrowLeft, ArrowRight } from 'phosphor-react-native';
+import { ArrowLeft } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
-import {
-  fontFamilies,
-  fontSizes,
-  spacing,
-  type AppTheme,
-} from '@shared/theme';
+import { fontFamilies, fontSizes, spacing, type AppTheme } from '@shared/theme';
 
 export interface TrackingHeaderRoute {
   destinationName?: string;
@@ -75,7 +70,7 @@ export const TrackingHeader = React.memo(function TrackingHeaderComponent({
 
         {visibleActions.length > 0 ? (
           <View style={styles.actions} testID="tracking-header-actions">
-            {visibleActions.map((action) => {
+            {visibleActions.map(action => {
               const disabled = Boolean(action.disabled || action.busy);
               return (
                 <Pressable
@@ -102,12 +97,16 @@ export const TrackingHeader = React.memo(function TrackingHeaderComponent({
                 >
                   {action.busy ? (
                     <ActivityIndicator
-                      color={action.tone === 'destructive'
-                        ? theme.colors.error
-                        : theme.colors.primary}
+                      color={
+                        action.tone === 'destructive'
+                          ? theme.colors.error
+                          : theme.colors.primary
+                      }
                       size="small"
                     />
-                  ) : action.icon}
+                  ) : (
+                    action.icon
+                  )}
                 </Pressable>
               );
             })}
@@ -126,20 +125,25 @@ export const TrackingHeader = React.memo(function TrackingHeaderComponent({
             <Text style={styles.routeLabel} numberOfLines={1}>
               {t('tracking.boardingPoint')}
             </Text>
-            <Text style={styles.routeName} numberOfLines={1}>
+            <Text
+              testID="tracking-header-route-origin"
+              style={styles.routeName}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {route.originName ?? t('common.notAvailable')}
             </Text>
           </View>
-          <ArrowRight
-            size={16}
-            color={theme.colors.textTertiary}
-            weight="bold"
-          />
           <View style={styles.routeEndpoint}>
             <Text style={styles.routeLabel} numberOfLines={1}>
               {t('tracking.dropOff')}
             </Text>
-            <Text style={styles.routeName} numberOfLines={1}>
+            <Text
+              testID="tracking-header-route-destination"
+              style={styles.routeName}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {route.destinationName ?? t('common.notAvailable')}
             </Text>
           </View>
@@ -217,23 +221,26 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.errorLight,
   },
   routeSummary: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.sm,
+    gap: spacing.xs,
     marginBottom: spacing.sm,
     marginHorizontal: spacing.lg,
   },
   routeEndpoint: {
-    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
     minWidth: 0,
   },
   routeLabel: {
+    width: 72,
+    flexShrink: 0,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
     color: theme.colors.textTertiary,
   },
   routeName: {
-    marginTop: 1,
+    flex: 1,
+    minWidth: 0,
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.xs,
     color: theme.colors.textPrimary,

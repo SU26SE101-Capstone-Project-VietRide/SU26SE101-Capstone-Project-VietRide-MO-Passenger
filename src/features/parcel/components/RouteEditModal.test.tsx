@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { RouteEditModal } from './RouteEditModal';
 
@@ -24,11 +25,21 @@ const mockTheme = {
   },
 };
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, options?: { defaultValue?: string }) =>
-      options?.defaultValue ?? key,
-  }),
+jest.mock('react-i18next', () => {
+  const translations: Record<string, string> = {
+    'parcel.route.changeOrigin': 'Đổi khu vực gửi',
+    'parcel.route.changeDestination': 'Đổi khu vực nhận',
+    'parcel.route.swap': 'Đổi chiều gửi / nhận',
+  };
+  return {
+    useTranslation: () => ({
+      t: (key: string, options?: { defaultValue?: string }) =>
+        translations[key] ?? options?.defaultValue ?? key,
+    }),
+  };
+});
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 20, left: 0 }),
 }));
 jest.mock('@shared/contexts/ThemeContext', () => ({
   useTheme: () => mockTheme,
@@ -88,9 +99,17 @@ describe('RouteEditModal', () => {
     const swapBtn = renderer!.root.findByProps({
       accessibilityLabel: 'Đổi chiều gửi / nhận',
     });
+    const swapButtonStyle =
+      typeof swapBtn.props.style === 'function'
+        ? swapBtn.props.style({ pressed: false })
+        : swapBtn.props.style;
+    expect(StyleSheet.flatten(swapButtonStyle)).toMatchObject({
+      minHeight: 44,
+    });
     act(() => {
       swapBtn.props.onPress();
     });
     expect(onSwap).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(3);
   });
 });

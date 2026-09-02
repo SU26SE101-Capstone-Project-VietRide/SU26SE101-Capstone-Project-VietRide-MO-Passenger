@@ -87,9 +87,7 @@ import {
   getParcelPaymentStage,
   isParcelTransferQrRequired,
 } from '../utils/parcelPayment';
-import {
-  isParcelTrackingEligible,
-} from '../utils/parcelTracking';
+import { isParcelTrackingEligible } from '../utils/parcelTracking';
 import {
   getParcelDeliveryMethodPresentation,
   getParcelStatusPresentation,
@@ -127,7 +125,9 @@ const ParcelDetailField = React.memo(function ParcelDetailField({
   const styles = useThemedStyles(createStyles);
 
   return (
-    <View style={[styles.detailField, compact ? styles.detailFieldCompact : null]}>
+    <View
+      style={[styles.detailField, compact ? styles.detailFieldCompact : null]}
+    >
       <Text
         numberOfLines={compact ? 1 : undefined}
         ellipsizeMode="tail"
@@ -203,9 +203,7 @@ const ParcelPhotoGallery = React.memo(function ParcelPhotoGallery({
 
   return (
     <View style={styles.evidenceCard}>
-      <Text style={styles.evidenceTitle}>
-        {t('parcel.detail.photosTitle')}
-      </Text>
+      <Text style={styles.evidenceTitle}>{t('parcel.detail.photosTitle')}</Text>
       <FlashList
         data={photos}
         horizontal
@@ -235,21 +233,16 @@ export function ParcelDetailScreen(): React.JSX.Element {
     [],
   );
   const userId = useAuthStore(state => state.user?.id);
-  const {
-    parcelId,
-    fromHistory,
-    paymentRedirectUrl,
-    preferredPaymentMethod,
-  } = route.params;
+  const { parcelId, fromHistory, paymentRedirectUrl, preferredPaymentMethod } =
+    route.params;
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     React.useState<PaymentMethod>(preferredPaymentMethod ?? 'vnpay');
   const [paymentSessionActive, setPaymentSessionActive] = React.useState(
     Boolean(paymentRedirectUrl),
   );
-  const [paymentPollingStartedAt, setPaymentPollingStartedAt] =
-    React.useState<number | null>(() => (
-      paymentRedirectUrl ? Date.now() : null
-    ));
+  const [paymentPollingStartedAt, setPaymentPollingStartedAt] = React.useState<
+    number | null
+  >(() => (paymentRedirectUrl ? Date.now() : null));
   const beginPaymentPollingWindow = React.useCallback(() => {
     setPaymentPollingStartedAt(Date.now());
   }, []);
@@ -265,9 +258,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
   // window. The query hook additionally verifies that this user is the sender.
   const paymentReturnEnabled = isFocused && isAppActive && isOnline;
   const shouldPollPayment = Boolean(
-    paymentSessionActive
-    && paymentPollingStartedAt !== null
-    && paymentReturnEnabled,
+    paymentSessionActive &&
+      paymentPollingStartedAt !== null &&
+      paymentReturnEnabled,
   );
   const detailQuery = useParcelDetail(parcelId, shouldPollPayment);
   const [allowLeaveDespiteRetry, setAllowLeaveDespiteRetry] =
@@ -292,10 +285,13 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const heroCopy = getParcelDetailHeroCopy(checkoutState, paymentStage);
   const trackingAvailable = isParcelTrackingEligible(parcel?.status);
   const hasClaimSurface = Boolean(
-    parcel?.reliabilitySummary?.claim
-    || parcel?.availableActions.some(action => (
-      action === 'SUBMIT_CLAIM' || action === 'ADD_EVIDENCE' || action === 'APPEAL'
-    )),
+    parcel?.reliabilitySummary?.claim ||
+      parcel?.availableActions.some(
+        action =>
+          action === 'SUBMIT_CLAIM' ||
+          action === 'ADD_EVIDENCE' ||
+          action === 'APPEAL',
+      ),
   );
   const isSender = Boolean(userId && parcel?.senderUserId === userId);
   const statusPresentation = getParcelStatusPresentation(parcel?.status);
@@ -304,9 +300,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const lockedDetailPaymentMethod =
     detailAmbiguousRetry?.paymentMethod ?? selectedPaymentMethod;
   const packageDimensions = parcel
-    ? parcel.actualLengthCm !== null
-      && parcel.actualWidthCm !== null
-      && parcel.actualHeightCm !== null
+    ? parcel.actualLengthCm !== null &&
+      parcel.actualWidthCm !== null &&
+      parcel.actualHeightCm !== null
       ? formatParcelDimensions({
           lengthCm: parcel.actualLengthCm,
           widthCm: parcel.actualWidthCm,
@@ -318,18 +314,26 @@ export function ParcelDetailScreen(): React.JSX.Element {
           heightCm: parcel.estimatedHeightCm,
         })
     : '-';
-  const deliveryPresentation = getParcelDeliveryMethodPresentation(parcel?.deliveryMethod);
-  const paymentAmount = paymentStage === 'deposit'
-    ? Math.max(
-        (parcel?.depositRequiredVnd ?? 0) - (parcel?.depositPaidVnd ?? 0),
-        0,
-      )
-    : paymentStage === 'final'
-    ? Math.max(
-        (parcel?.balanceRequiredVnd ?? 0) - (parcel?.balancePaidVnd ?? 0),
-        0,
-      )
-    : 0;
+  const deliveryPresentation = getParcelDeliveryMethodPresentation(
+    parcel?.deliveryMethod,
+  );
+  const depositOutstanding = Math.max(
+    (parcel?.depositRequiredVnd ?? 0) - (parcel?.depositPaidVnd ?? 0),
+    0,
+  );
+  const balanceOutstanding = Math.max(
+    (parcel?.balanceRequiredVnd ?? 0) - (parcel?.balancePaidVnd ?? 0),
+    0,
+  );
+  const hasFinalPrice =
+    Boolean(parcel?.actualSizeCategory) ||
+    (parcel?.balanceRequiredVnd ?? 0) > 0;
+  const paymentAmount =
+    paymentStage === 'deposit'
+      ? depositOutstanding
+      : paymentStage === 'final'
+      ? balanceOutstanding
+      : 0;
   const walletBalanceQuery = useLiveWalletBalance(Boolean(paymentStage));
   const isStartingPayment =
     depositPaymentMutation.isPending || finalPaymentMutation.isPending;
@@ -394,8 +398,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
       return;
     }
 
-    const remainingMs = PARCEL_PAYMENT_POLL_WINDOW_MS
-      - (Date.now() - paymentPollingStartedAt);
+    const remainingMs =
+      PARCEL_PAYMENT_POLL_WINDOW_MS - (Date.now() - paymentPollingStartedAt);
     if (remainingMs <= 0) {
       stopPaymentPollingWindow();
       return;
@@ -426,13 +430,11 @@ export function ParcelDetailScreen(): React.JSX.Element {
       return;
     }
     if (
-      selectedPaymentMethod === 'wallet'
-      && !walletBalanceQuery.isLoading
-      && (
-        walletBalanceQuery.isError
-        || walletBalanceQuery.data?.balance === undefined
-        || walletBalanceQuery.data.balance < paymentAmount
-      )
+      selectedPaymentMethod === 'wallet' &&
+      !walletBalanceQuery.isLoading &&
+      (walletBalanceQuery.isError ||
+        walletBalanceQuery.data?.balance === undefined ||
+        walletBalanceQuery.data.balance < paymentAmount)
     ) {
       setSelectedPaymentMethod('vnpay');
     }
@@ -593,11 +595,13 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
     try {
       const session = await getPendingVnPaySession();
-      if (!matchParcelVnPaySession(session, {
-        ownerUserId: userId,
-        parcelId,
-        kind: expectedVnPayKind,
-      })) {
+      if (
+        !matchParcelVnPaySession(session, {
+          ownerUserId: userId,
+          parcelId,
+          kind: expectedVnPayKind,
+        })
+      ) {
         setReopenSession(null);
         navigation.setParams({ paymentRedirectUrl: undefined });
         Alert.alert(
@@ -656,8 +660,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
           ? await depositPaymentMutation.retryRetainedAsync()
           : await finalPaymentMutation.retryRetainedAsync()
         : paymentStage === 'deposit'
-          ? await depositPaymentMutation.mutateAsync(input)
-          : await finalPaymentMutation.mutateAsync(input);
+        ? await depositPaymentMutation.mutateAsync(input)
+        : await finalPaymentMutation.mutateAsync(input);
 
       setDetailAmbiguousRetry(null);
       setPaymentSessionActive(true);
@@ -672,7 +676,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
         try {
           await openVnPayPayment({
             result,
-            kind: paymentStage === 'deposit' ? 'parcel_deposit' : 'parcel_final',
+            kind:
+              paymentStage === 'deposit' ? 'parcel_deposit' : 'parcel_final',
             businessId: parcelId,
             ownerUserId: userId!,
           });
@@ -681,7 +686,8 @@ export function ParcelDetailScreen(): React.JSX.Element {
             matchParcelVnPaySession(pending, {
               ownerUserId: userId!,
               parcelId,
-              kind: paymentStage === 'deposit' ? 'parcel_deposit' : 'parcel_final',
+              kind:
+                paymentStage === 'deposit' ? 'parcel_deposit' : 'parcel_final',
             })
               ? pending
               : null,
@@ -716,11 +722,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
       setDetailAmbiguousRetry(null);
       Alert.alert(
         t('parcel.payment.startErrorTitle'),
-        getLocalizedApiErrorMessage(
-          error,
-          t,
-          PARCEL_ERROR_TRANSLATION_KEYS,
-        ),
+        getLocalizedApiErrorMessage(error, t, PARCEL_ERROR_TRANSLATION_KEYS),
       );
     }
   }, [
@@ -750,14 +752,18 @@ export function ParcelDetailScreen(): React.JSX.Element {
     setPaymentSessionActive(false);
     stopPaymentPollingWindow();
   }, [stopPaymentPollingWindow]);
-  const handlePaymentMethodChange = React.useCallback((method: PaymentMethod) => {
-    if (!paymentIntentLocked) {
-      setSelectedPaymentMethod(method);
-    }
-  }, [paymentIntentLocked]);
-  const heroIconColor = heroCopy.iconColor === 'error'
-    ? theme.colors.error
-    : heroCopy.iconColor === 'success'
+  const handlePaymentMethodChange = React.useCallback(
+    (method: PaymentMethod) => {
+      if (!paymentIntentLocked) {
+        setSelectedPaymentMethod(method);
+      }
+    },
+    [paymentIntentLocked],
+  );
+  const heroIconColor =
+    heroCopy.iconColor === 'error'
+      ? theme.colors.error
+      : heroCopy.iconColor === 'success'
       ? theme.colors.success
       : theme.colors.warningForeground;
 
@@ -765,9 +771,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
     <SafeAreaView style={styles.container}>
       <View style={styles.navbar}>
         <Pressable
-          accessibilityLabel={fromHistory
-            ? t('common.back')
-            : t('parcel.actions.backToDashboard')}
+          accessibilityLabel={
+            fromHistory ? t('common.back') : t('parcel.actions.backToDashboard')
+          }
           accessibilityRole="button"
           style={styles.navButton}
           onPress={fromHistory ? handleBack : handleGoHome}
@@ -816,9 +822,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
       {detailQuery.isLoading ? (
         <View style={styles.stateContainer}>
           <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.stateText}>
-            {t('parcel.detail.loading')}
-          </Text>
+          <Text style={styles.stateText}>{t('parcel.detail.loading')}</Text>
         </View>
       ) : detailQuery.isError ? (
         <View style={styles.errorWrap}>
@@ -846,21 +850,11 @@ export function ParcelDetailScreen(): React.JSX.Element {
                   weight="duotone"
                 />
               ) : heroCopy.icon === 'clock' ? (
-                <Clock
-                  size={56}
-                  color={heroIconColor}
-                  weight="duotone"
-                />
+                <Clock size={56} color={heroIconColor} weight="duotone" />
               ) : (
-                <CheckCircle
-                  size={56}
-                  color={heroIconColor}
-                  weight="fill"
-                />
+                <CheckCircle size={56} color={heroIconColor} weight="fill" />
               )}
-              <Text style={styles.successTitle}>
-                {t(heroCopy.titleKey)}
-              </Text>
+              <Text style={styles.successTitle}>{t(heroCopy.titleKey)}</Text>
               <Text style={styles.successSubtitle}>
                 {t(heroCopy.descriptionKey)}
               </Text>
@@ -919,12 +913,18 @@ export function ParcelDetailScreen(): React.JSX.Element {
               <View style={styles.routeList}>
                 <ParcelDetailField
                   label={t('parcel.route.from')}
-                  value={parcel?.originStationName || t('parcel.route.originTerminal')}
+                  value={
+                    parcel?.originStationName ||
+                    t('parcel.route.originTerminal')
+                  }
                   variant="route"
                 />
                 <ParcelDetailField
                   label={t('parcel.route.to')}
-                  value={parcel?.destinationStationName || t('parcel.route.destinationTerminal')}
+                  value={
+                    parcel?.destinationStationName ||
+                    t('parcel.route.destinationTerminal')
+                  }
                   variant="route"
                 />
               </View>
@@ -941,46 +941,31 @@ export function ParcelDetailScreen(): React.JSX.Element {
                   <ParcelDetailField
                     compact
                     label={t('parcel.weight.title')}
-                    value={`${parcel?.actualWeightKg ?? parcel?.estimatedWeightKg ?? '-'} ${t('parcel.units.kg')}`}
+                    value={`${
+                      parcel?.actualWeightKg ?? parcel?.estimatedWeightKg ?? '-'
+                    } ${t('parcel.units.kg')}`}
                   />
                 </View>
                 <View style={styles.detailFieldRow}>
                   <ParcelDetailField
                     compact
-                    label={t('parcel.detail.quantity')}
-                    value={String(parcel?.quantity ?? 1)}
+                    label={t('parcel.detail.declaredValue')}
+                    value={
+                      parcel?.declaredValueVnd == null
+                        ? '-'
+                        : formatVnd(parcel.declaredValueVnd)
+                    }
                   />
                   <ParcelDetailField
                     compact
-                    label={t('parcel.detail.declaredValue')}
-                    value={parcel?.declaredValueVnd == null ? '-' : formatVnd(parcel.declaredValueVnd)}
-                  />
-                </View>
-                {isSender ? (
-                  <View style={styles.detailFieldRow}>
-                    <ParcelDetailField
-                      compact
-                      label={t('parcel.detail.delivery')}
-                      value={t(deliveryPresentation.labelKey)}
-                    />
-                    <ParcelDetailField
-                      compact
-                      label={t('parcel.detail.recipient')}
-                      value={parcel?.recipientName || '-'}
-                    />
-                  </View>
-                ) : (
-                  <ParcelDetailField
                     label={t('parcel.detail.delivery')}
                     value={t(deliveryPresentation.labelKey)}
                   />
-                )}
+                </View>
                 {isSender ? (
                   <ParcelDetailField
-                    label={t('parcel.detail.payment')}
-                    value={(parcel?.balanceRequiredVnd ?? 0) > 0
-                      ? t('parcel.detail.depositAndBalance')
-                      : t('parcel.detail.deposit')}
+                    label={t('parcel.detail.recipient')}
+                    value={parcel?.recipientName || '-'}
                   />
                 ) : null}
               </View>
@@ -995,46 +980,105 @@ export function ParcelDetailScreen(): React.JSX.Element {
               ) : null}
 
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>
-                  {parcel?.actualSizeCategory
-                    ? t('parcel.detail.finalTotal')
-                    : t('parcel.detail.estimatedTotal')}
-                </Text>
+                <View style={styles.totalCopy}>
+                  <Text style={styles.totalLabel}>
+                    {hasFinalPrice
+                      ? t('parcel.detail.finalTotal')
+                      : t('parcel.detail.estimatedTotal')}
+                  </Text>
+                  <Text style={styles.totalCaption}>
+                    {hasFinalPrice
+                      ? t('parcel.detail.priceConfirmedAfterWeigh')
+                      : t('parcel.detail.priceEstimatedFromDeclaration')}
+                  </Text>
+                </View>
                 <Text style={styles.totalValue}>
                   {formatVnd(
-                    parcel?.actualSizeCategory
-                      ? parcel.finalTotalPriceVnd
+                    hasFinalPrice
+                      ? parcel?.finalTotalPriceVnd ?? 0
                       : parcel?.estimatedTotalPriceVnd ?? 0,
                     {
-                    display: 'code',
-                    clampNegative: true,
+                      display: 'code',
+                      clampNegative: true,
                     },
                   )}
                 </Text>
               </View>
-              <View style={styles.settlementRow}>
-                <Text style={styles.settlementLabel}>
-                  {t('parcel.detail.depositPaid')}
-                </Text>
-                <Text style={styles.settlementValue}>
-                  {formatVnd(parcel?.depositPaidVnd ?? 0)} /{' '}
-                  {formatVnd(parcel?.depositRequiredVnd ?? 0)}
-                </Text>
-              </View>
-              {(parcel?.balanceRequiredVnd ?? 0) > 0 ? (
-                <View style={styles.settlementRow}>
-                  <Text style={styles.settlementLabel}>
-                    {t('parcel.detail.remainingBalance')}
-                  </Text>
-                  <Text style={styles.settlementValue}>
-                    {formatVnd(parcel?.balancePaidVnd ?? 0)} /{' '}
-                    {formatVnd(parcel?.balanceRequiredVnd ?? 0)}
+              <View
+                style={styles.paymentSummary}
+                testID="parcel-payment-summary"
+              >
+                <View style={styles.paymentSummaryRow}>
+                  <View style={styles.paymentSummaryCopy}>
+                    <Text style={styles.paymentSummaryLabel}>
+                      {depositOutstanding > 0
+                        ? t('parcel.detail.depositDue')
+                        : t('parcel.detail.depositPaid')}
+                    </Text>
+                    {depositOutstanding > 0 ? (
+                      <Text style={styles.paymentSummaryHint}>
+                        {t('parcel.detail.depositTotal', {
+                          amount: formatVnd(parcel?.depositRequiredVnd ?? 0),
+                        })}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text
+                    style={[
+                      styles.paymentSummaryValue,
+                      depositOutstanding > 0 ? styles.paymentDueValue : null,
+                    ]}
+                  >
+                    {formatVnd(
+                      depositOutstanding > 0
+                        ? depositOutstanding
+                        : parcel?.depositPaidVnd ?? 0,
+                    )}
                   </Text>
                 </View>
-              ) : null}
+                {hasFinalPrice && (parcel?.balanceRequiredVnd ?? 0) > 0 ? (
+                  <View style={styles.paymentSummaryRow}>
+                    <View style={styles.paymentSummaryCopy}>
+                      <Text style={styles.paymentSummaryLabel}>
+                        {balanceOutstanding > 0
+                          ? t('parcel.detail.remainingBalance')
+                          : t('parcel.detail.balancePaid')}
+                      </Text>
+                      {balanceOutstanding > 0 ? (
+                        <Text style={styles.paymentSummaryHint}>
+                          {t('parcel.detail.balanceTotal', {
+                            amount: formatVnd(parcel?.balanceRequiredVnd ?? 0),
+                          })}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text
+                      style={[
+                        styles.paymentSummaryValue,
+                        balanceOutstanding > 0 ? styles.paymentDueValue : null,
+                      ]}
+                    >
+                      {formatVnd(
+                        balanceOutstanding > 0
+                          ? balanceOutstanding
+                          : parcel?.balancePaidVnd ?? 0,
+                      )}
+                    </Text>
+                  </View>
+                ) : !hasFinalPrice ? (
+                  <View style={styles.paymentSummaryRow}>
+                    <Text style={styles.paymentSummaryLabel}>
+                      {t('parcel.detail.remainingAfterWeigh')}
+                    </Text>
+                    <Text style={styles.paymentSummaryPending}>
+                      {t('parcel.detail.awaitingWeigh')}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               {(parcel?.refundDueVnd ?? 0) > 0 ? (
-                <View style={styles.settlementRow}>
-                  <Text style={styles.settlementLabel}>
+                <View style={styles.paymentSummaryRow}>
+                  <Text style={styles.paymentSummaryLabel}>
                     {t('parcel.detail.refundDue')}
                   </Text>
                   <Text style={styles.refundValue}>
@@ -1077,9 +1121,14 @@ export function ParcelDetailScreen(): React.JSX.Element {
             <Pressable
               accessibilityRole="button"
               onPress={handleOpenClaim}
-              style={({ pressed }) => [styles.secondaryActionButton, pressed ? styles.pressed : null]}
+              style={({ pressed }) => [
+                styles.secondaryActionButton,
+                pressed ? styles.pressed : null,
+              ]}
             >
-              <Text style={styles.secondaryActionText}>{t('parcel.reliability.openClaim')}</Text>
+              <Text style={styles.secondaryActionText}>
+                {t('parcel.reliability.openClaim')}
+              </Text>
             </Pressable>
           ) : null}
 
@@ -1219,16 +1268,14 @@ export function ParcelDetailScreen(): React.JSX.Element {
                         size="small"
                         color={theme.colors.textInverse}
                       />
+                    ) : selectedPaymentMethod === 'vnpay' ? (
+                      <VnPayLogo size="compact" />
                     ) : (
-                      selectedPaymentMethod === 'vnpay' ? (
-                        <VnPayLogo size="compact" />
-                      ) : (
-                        <CreditCard
-                          size={18}
-                          color={theme.colors.textInverse}
-                          weight="bold"
-                        />
-                      )
+                      <CreditCard
+                        size={18}
+                        color={theme.colors.textInverse}
+                        weight="bold"
+                      />
                     )}
                     <Text style={styles.trackButtonText}>
                       {isStartingPayment
@@ -1268,9 +1315,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
 
           {fromHistory ? (
             <Pressable style={styles.homeButton} onPress={handleBack}>
-              <Text style={styles.homeButtonText}>
-                {t('common.back')}
-              </Text>
+              <Text style={styles.homeButtonText}>{t('common.back')}</Text>
             </Pressable>
           ) : (
             <Pressable style={styles.homeButton} onPress={handleGoHome}>
@@ -1599,30 +1644,62 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },
+  totalCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  totalCaption: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+  },
   totalValue: {
     flexShrink: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.primary,
   },
-  settlementRow: {
+  paymentSummary: {
+    gap: spacing.sm,
+    paddingTop: spacing.md,
+  },
+  paymentSummaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-    marginTop: spacing.sm,
   },
-  settlementLabel: {
+  paymentSummaryCopy: {
     flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  paymentSummaryLabel: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
   },
-  settlementValue: {
+  paymentSummaryHint: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+  },
+  paymentSummaryValue: {
     flexShrink: 1,
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.xs,
     color: theme.colors.textPrimary,
+    textAlign: 'right',
+  },
+  paymentDueValue: {
+    color: theme.colors.primary,
+  },
+  paymentSummaryPending: {
+    flexShrink: 1,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
     textAlign: 'right',
   },
   refundValue: {
@@ -1660,7 +1737,11 @@ const createStyles = (theme: AppTheme) => ({
     borderColor: theme.colors.primary,
     borderRadius: borderRadius.md,
   },
-  secondaryActionText: { color: theme.colors.primary, fontFamily: fontFamilies.bold, fontSize: fontSizes.sm },
+  secondaryActionText: {
+    color: theme.colors.primary,
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.sm,
+  },
   paymentActionCard: {
     ...theme.components.card,
     borderRadius: borderRadius.xl,

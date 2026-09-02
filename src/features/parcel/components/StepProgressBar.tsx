@@ -11,7 +11,13 @@ import {
 
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
-import { borderRadius, fontFamilies, fontSizes, spacing, type AppTheme } from '@shared/theme';
+import {
+  borderRadius,
+  fontFamilies,
+  fontSizes,
+  spacing,
+  type AppTheme,
+} from '@shared/theme';
 
 export interface StepProgressBarProps {
   step: number;
@@ -24,9 +30,7 @@ export interface StepProgressBarProps {
   routeSummary?: {
     from: string;
     to: string;
-    onEditFrom?: () => void;
-    onEditTo?: () => void;
-    onOpenEditSheet?: () => void;
+    onPress: () => void;
   };
 }
 
@@ -78,52 +82,61 @@ function StepProgressBarComponent({
             {title}
           </Text>
 
-          {/* Minimalist Interactive Route Bar on Header */}
           {routeSummary?.from && routeSummary?.to ? (
-            <View style={styles.headerRoutePill}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${t('parcel.route.from')}: ${routeSummary.from}`}
-                onPress={routeSummary.onEditFrom ?? routeSummary.onOpenEditSheet}
-                style={({ pressed }) => [
-                  styles.headerRouteSegment,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <MapPin size={10} color={theme.colors.primary} weight="fill" />
-                <Text style={styles.headerRouteText} numberOfLines={1}>
-                  {routeSummary.from}
+            <Pressable
+              testID="parcel-header-route-button"
+              accessibilityRole="button"
+              accessibilityLabel={t('parcel.route.summaryAccessibility', {
+                from: routeSummary.from,
+                to: routeSummary.to,
+              })}
+              accessibilityHint={t('parcel.route.summaryAccessibilityHint')}
+              onPress={routeSummary.onPress}
+              style={({ pressed }) => [
+                styles.headerRoutePill,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <MapPin size={14} color={theme.colors.primary} weight="fill" />
+              <View style={styles.headerRouteStack}>
+                <View style={styles.headerRouteLine}>
+                  <Text style={styles.headerRouteLabel}>
+                    {t('parcel.route.from')}
+                  </Text>
+                  <Text
+                    testID="parcel-header-route-origin"
+                    style={styles.headerRouteText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {routeSummary.from}
+                  </Text>
+                </View>
+                <View style={styles.headerRouteLine}>
+                  <Text style={styles.headerRouteLabel}>
+                    {t('parcel.route.to')}
+                  </Text>
+                  <Text
+                    testID="parcel-header-route-destination"
+                    style={styles.headerRouteText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {routeSummary.to}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.headerEditAction}>
+                <Text style={styles.headerEditActionText}>
+                  {t('parcel.actions.changeRouteShort')}
                 </Text>
-              </Pressable>
-
-              <Text style={styles.headerRouteArrow}>→</Text>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${t('parcel.route.to')}: ${routeSummary.to}`}
-                onPress={routeSummary.onEditTo ?? routeSummary.onOpenEditSheet}
-                style={({ pressed }) => [
-                  styles.headerRouteSegment,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <Text style={styles.headerRouteText} numberOfLines={1}>
-                  {routeSummary.to}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('parcel.actions.changeRoute')}
-                onPress={routeSummary.onOpenEditSheet ?? routeSummary.onEditFrom}
-                style={({ pressed }) => [
-                  styles.headerEditIconContainer,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <PencilSimple size={11} color={theme.colors.primary} weight="bold" />
-              </Pressable>
-            </View>
+                <PencilSimple
+                  size={13}
+                  color={theme.colors.primary}
+                  weight="bold"
+                />
+              </View>
+            </Pressable>
           ) : null}
         </View>
 
@@ -296,38 +309,55 @@ const createStyles = (theme: AppTheme) => ({
   headerRoutePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     backgroundColor: theme.colors.primaryFaded,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     borderColor: theme.colors.border,
     marginTop: 4,
+    width: '100%',
     maxWidth: '100%',
   },
-  headerRouteSegment: {
+  headerRouteStack: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  headerRouteLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    maxWidth: 110,
+    gap: spacing.xs,
   },
-  headerRouteArrow: {
+  headerRouteLabel: {
+    width: 34,
+    flexShrink: 0,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs - 2,
     color: theme.colors.textTertiary,
   },
   headerRouteText: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs - 2,
+    fontSize: fontSizes.xs,
     color: theme.colors.primaryDark,
+    flex: 1,
+    minWidth: 0,
     flexShrink: 1,
   },
-  headerEditIconContainer: {
-    paddingLeft: 4,
-    marginLeft: 2,
+  headerEditAction: {
+    minHeight: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingLeft: spacing.sm,
     borderLeftWidth: 1,
     borderLeftColor: theme.colors.border,
+  },
+  headerEditActionText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs - 1,
+    color: theme.colors.primary,
   },
   progressContainer: {
     marginTop: spacing.xs,

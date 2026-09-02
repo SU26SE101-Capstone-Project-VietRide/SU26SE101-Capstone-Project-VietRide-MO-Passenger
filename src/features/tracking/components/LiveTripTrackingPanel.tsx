@@ -1117,6 +1117,7 @@ export const LiveTripTrackingPanel = React.memo(function LiveTripTrackingPanelCo
         plannedRoute={plannedRoute}
         markers={markers}
         vehicleKind="shuttle"
+        showDrivenTrail={false}
         connectionState={connectionState}
         bottomDock={journeyDock}
       />

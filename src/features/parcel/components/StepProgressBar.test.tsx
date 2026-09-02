@@ -11,6 +11,8 @@ const translations: Record<string, string> = {
   'parcel.route.from': 'TỪ',
   'parcel.route.to': 'ĐẾN',
   'parcel.actions.changeRoute': 'Đổi khu vực',
+  'parcel.actions.changeRouteShort': 'Đổi',
+  'parcel.route.summaryAccessibilityHint': 'Mở bảng chỉnh tuyến gửi hàng',
 };
 
 const mockTheme = {
@@ -33,9 +35,11 @@ const mockTheme = {
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, params?: { label?: string }) =>
+    t: (key: string, params?: { label?: string; from?: string; to?: string }) =>
       key === 'parcel.progress.stepAccessibility'
         ? params?.label ?? key
+        : key === 'parcel.route.summaryAccessibility'
+        ? `Đổi khu vực gửi và nhận. Từ ${params?.from} đến ${params?.to}`
         : translations[key] ?? key,
   }),
 }));
@@ -100,17 +104,16 @@ describe('StepProgressBar', () => {
   it('aligns the progress track with the centers of four equal segments', () => {
     act(() => {
       renderer = ReactTestRenderer.create(
-        <StepProgressBar
-          step={3}
-          onCancel={jest.fn()}
-          title="Gửi kiện hàng"
-        />,
+        <StepProgressBar step={3} onCancel={jest.fn()} title="Gửi kiện hàng" />,
       );
     });
 
-    const alignedTracks = renderer!.root.findAllByType(View).filter(
-      (view) => StyleSheet.flatten(view.props.style)?.marginHorizontal === '12.5%',
-    );
+    const alignedTracks = renderer!.root
+      .findAllByType(View)
+      .filter(
+        view =>
+          StyleSheet.flatten(view.props.style)?.marginHorizontal === '12.5%',
+      );
 
     expect(alignedTracks).toHaveLength(1);
   });
@@ -118,11 +121,7 @@ describe('StepProgressBar', () => {
   it('uses the teal primary token for the active progress fill', () => {
     act(() => {
       renderer = ReactTestRenderer.create(
-        <StepProgressBar
-          step={3}
-          onCancel={jest.fn()}
-          title="Gửi kiện hàng"
-        />,
+        <StepProgressBar step={3} onCancel={jest.fn()} title="Gửi kiện hàng" />,
       );
     });
 
@@ -135,10 +134,8 @@ describe('StepProgressBar', () => {
     });
   });
 
-  it('renders minimalist route summary on header when provided and handles segmented press callbacks', () => {
-    const onEditFrom = jest.fn();
-    const onEditTo = jest.fn();
-    const onOpenEditSheet = jest.fn();
+  it('renders the route summary as one accessible 44px press target', () => {
+    const onPress = jest.fn();
 
     act(() => {
       renderer = ReactTestRenderer.create(
@@ -149,41 +146,41 @@ describe('StepProgressBar', () => {
           routeSummary={{
             from: 'TP. Hồ Chí Minh',
             to: 'Vũng Tàu',
-            onEditFrom,
-            onEditTo,
-            onOpenEditSheet,
+            onPress,
           }}
         />,
       );
     });
 
-    const fromText = renderer!.root.findByProps({
-      children: 'TP. Hồ Chí Minh',
+    const routeButton = renderer!.root.findByProps({
+      testID: 'parcel-header-route-button',
     });
-    expect(fromText).toBeDefined();
+    expect(routeButton.props.accessibilityLabel).toBe(
+      'Đổi khu vực gửi và nhận. Từ TP. Hồ Chí Minh đến Vũng Tàu',
+    );
+    const routeButtonStyle =
+      typeof routeButton.props.style === 'function'
+        ? routeButton.props.style({ pressed: false })
+        : routeButton.props.style;
+    expect(StyleSheet.flatten(routeButtonStyle)).toMatchObject({
+      minHeight: 44,
+      width: '100%',
+    });
+    const origin = renderer!.root.findByProps({
+      testID: 'parcel-header-route-origin',
+    });
+    const destination = renderer!.root.findByProps({
+      testID: 'parcel-header-route-destination',
+    });
+    expect(origin.props.numberOfLines).toBe(1);
+    expect(origin.props.ellipsizeMode).toBe('tail');
+    expect(destination.props.numberOfLines).toBe(1);
+    expect(destination.props.ellipsizeMode).toBe('tail');
+    expect(origin.parent).not.toBe(destination.parent);
 
-    const fromSegment = renderer!.root.findByProps({
-      accessibilityLabel: 'TỪ: TP. Hồ Chí Minh',
-    });
     act(() => {
-      fromSegment.props.onPress();
+      routeButton.props.onPress();
     });
-    expect(onEditFrom).toHaveBeenCalledTimes(1);
-
-    const toSegment = renderer!.root.findByProps({
-      accessibilityLabel: 'ĐẾN: Vũng Tàu',
-    });
-    act(() => {
-      toSegment.props.onPress();
-    });
-    expect(onEditTo).toHaveBeenCalledTimes(1);
-
-    const editButton = renderer!.root.findByProps({
-      accessibilityLabel: 'Đổi khu vực',
-    });
-    act(() => {
-      editButton.props.onPress();
-    });
-    expect(onOpenEditSheet).toHaveBeenCalledTimes(1);
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

@@ -42,7 +42,6 @@ jest.mock('react-i18next', () => ({
 
 jest.mock('phosphor-react-native', () => ({
   ArrowLeft: () => null,
-  ArrowRight: () => null,
 }));
 
 import { TrackingHeader } from './TrackingHeader';
@@ -172,6 +171,23 @@ describe('TrackingHeader', () => {
     expect(
       renderer!.root.findByProps({ accessibilityRole: 'summary' }),
     ).toBeDefined();
+    const routeSummary = renderer!.root.findByProps({
+      accessibilityRole: 'summary',
+    });
+    const origin = renderer!.root.findByProps({
+      testID: 'tracking-header-route-origin',
+    });
+    const destination = renderer!.root.findByProps({
+      testID: 'tracking-header-route-destination',
+    });
+    expect(StyleSheet.flatten(routeSummary.props.style)).not.toMatchObject({
+      flexDirection: 'row',
+    });
+    expect(origin.props.numberOfLines).toBe(1);
+    expect(origin.props.ellipsizeMode).toBe('tail');
+    expect(destination.props.numberOfLines).toBe(1);
+    expect(destination.props.ellipsizeMode).toBe('tail');
+    expect(origin.parent).not.toBe(destination.parent);
 
     act(() => renderer!.unmount());
   });

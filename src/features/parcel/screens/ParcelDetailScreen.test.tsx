@@ -219,9 +219,9 @@ jest.mock('../hooks/useParcelPaymentReturn', () => ({
 
 jest.mock('../components', () => ({
   ErrorView: (props: { onRetry?: () => void }) => mockErrorView(props),
-  ParcelCompensationDisclosure: (
-    props: { operatorName: string | null | undefined },
-  ) => mockParcelCompensationDisclosure(props),
+  ParcelCompensationDisclosure: (props: {
+    operatorName: string | null | undefined;
+  }) => mockParcelCompensationDisclosure(props),
   ParcelPaymentMethodSelector: () => null,
 }));
 
@@ -314,25 +314,47 @@ describe('ParcelDetailScreen identity hierarchy', () => {
   });
 
   it.each([
-    ['screen is not focused', () => { mockIsFocused = false; }],
-    ['app is inactive', () => { mockIsAppActive = false; }],
-    ['network is offline', () => { mockIsOnline = false; }],
-  ])('disables pending-payment polling when %s', async (_label, disableGate) => {
-    mockPaymentRedirectUrl = 'https://sandbox.vnpayment.vn/pay';
-    disableGate();
-    mockUseParcelDetail.mockReturnValue(queryFor(createParcel('PENDING_PAYMENT')));
-    let renderer: ReactTestRenderer.ReactTestRenderer;
+    [
+      'screen is not focused',
+      () => {
+        mockIsFocused = false;
+      },
+    ],
+    [
+      'app is inactive',
+      () => {
+        mockIsAppActive = false;
+      },
+    ],
+    [
+      'network is offline',
+      () => {
+        mockIsOnline = false;
+      },
+    ],
+  ])(
+    'disables pending-payment polling when %s',
+    async (_label, disableGate) => {
+      mockPaymentRedirectUrl = 'https://sandbox.vnpayment.vn/pay';
+      disableGate();
+      mockUseParcelDetail.mockReturnValue(
+        queryFor(createParcel('PENDING_PAYMENT')),
+      );
+      let renderer: ReactTestRenderer.ReactTestRenderer;
 
-    await act(async () => {
-      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
-    });
+      await act(async () => {
+        renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+      });
 
-    expect(mockUseParcelDetail).toHaveBeenCalledWith(PARCEL_ID, false);
-    await act(async () => renderer!.unmount());
-  });
+      expect(mockUseParcelDetail).toHaveBeenCalledWith(PARCEL_ID, false);
+      await act(async () => renderer!.unmount());
+    },
+  );
 
   it('does not start fast polling merely because the Parcel status is payable', async () => {
-    mockUseParcelDetail.mockReturnValue(queryFor(createParcel('PENDING_PAYMENT')));
+    mockUseParcelDetail.mockReturnValue(
+      queryFor(createParcel('PENDING_PAYMENT')),
+    );
     let renderer: ReactTestRenderer.ReactTestRenderer;
 
     await act(async () => {
@@ -346,7 +368,9 @@ describe('ParcelDetailScreen identity hierarchy', () => {
   it('ends the fast polling window after twenty seconds', async () => {
     jest.useFakeTimers();
     mockPaymentRedirectUrl = 'https://sandbox.vnpayment.vn/pay';
-    mockUseParcelDetail.mockReturnValue(queryFor(createParcel('PENDING_PAYMENT')));
+    mockUseParcelDetail.mockReturnValue(
+      queryFor(createParcel('PENDING_PAYMENT')),
+    );
     let renderer: ReactTestRenderer.ReactTestRenderer;
 
     try {
@@ -452,9 +476,9 @@ describe('ParcelDetailScreen identity hierarchy', () => {
   });
 
   it('moves the BE-gated incident action to one 44dp header quick action', async () => {
-    mockUseParcelDetail.mockReturnValue(queryFor(
-      createParcel('IN_TRANSIT', ['REPORT_INCIDENT']),
-    ));
+    mockUseParcelDetail.mockReturnValue(
+      queryFor(createParcel('IN_TRANSIT', ['REPORT_INCIDENT'])),
+    );
     let renderer: ReactTestRenderer.ReactTestRenderer;
 
     await act(async () => {
@@ -464,8 +488,7 @@ describe('ParcelDetailScreen identity hierarchy', () => {
     const visualActions = renderer!.root
       .findAll(
         node =>
-          node.props.accessibilityLabel ===
-          'parcel.reliability.reportIncident',
+          node.props.accessibilityLabel === 'parcel.reliability.reportIncident',
       )
       .filter(
         node =>
@@ -481,8 +504,7 @@ describe('ParcelDetailScreen identity hierarchy', () => {
     expect(visualActions[0].props.hitSlop).toBe(4);
     const interactiveAction = renderer!.root.find(
       node =>
-        node.props.accessibilityLabel ===
-          'parcel.reliability.reportIncident' &&
+        node.props.accessibilityLabel === 'parcel.reliability.reportIncident' &&
         typeof node.props.onPress === 'function',
     );
     await act(async () => interactiveAction.props.onPress());
@@ -601,6 +623,55 @@ describe('ParcelDetailScreen identity hierarchy', () => {
     expect(text).not.toContain('INTERNAL_INCIDENT_STATUS');
     expect(text).not.toContain('parcel.detail.reliabilityTitle');
     expect(text).toContain('parcel.reliability.openClaim');
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('does not display parcel quantity in the digital ticket card', async () => {
+    const parcel = createParcel('DELIVERED');
+    parcel.quantity = 1;
+    mockUseParcelDetail.mockReturnValue(queryFor(parcel));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+
+    const text = getTextContent(renderer!);
+    expect(text).not.toContain('parcel.detail.quantity');
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('separates the final total, paid deposit, and outstanding balance into labeled payment states', async () => {
+    const parcel = createParcel('IN_TRANSIT');
+    parcel.actualSizeCategory = 'MEDIUM';
+    parcel.actualWeightKg = 2;
+    parcel.finalTotalPriceVnd = 100_000;
+    parcel.depositRequiredVnd = 30_000;
+    parcel.depositPaidVnd = 30_000;
+    parcel.balanceRequiredVnd = 70_000;
+    parcel.balancePaidVnd = 0;
+    mockUseParcelDetail.mockReturnValue(queryFor(parcel));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+
+    const text = getTextContent(renderer!);
+    expect(text).toContain('parcel.detail.finalTotal');
+    expect(text).toContain('parcel.detail.depositPaid');
+    expect(text).toContain('parcel.detail.remainingBalance');
+    expect(text).toContain('parcel.detail.balanceTotal');
+    expect(text).not.toContain('parcel.detail.remainingAfterWeigh');
+    expect(text).not.toContain('parcel.detail.payment');
+    expect(text).not.toContain('parcel.detail.depositAndBalance');
+    expect(
+      renderer!.root.findByProps({
+        testID: 'parcel-payment-summary',
+      }),
+    ).toBeDefined();
 
     await act(async () => renderer!.unmount());
   });

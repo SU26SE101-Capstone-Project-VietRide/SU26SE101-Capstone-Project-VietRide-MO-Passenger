@@ -1,17 +1,8 @@
 import React, { memo } from 'react';
-import {
-  Modal,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import {
-  ArrowsDownUp,
-  MapPin,
-  PencilSimple,
-  X,
-} from 'phosphor-react-native';
+import { ArrowsDownUp, MapPin, PencilSimple, X } from 'phosphor-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -45,6 +36,7 @@ function RouteEditModalComponent({
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
 
   const handleEditFrom = () => {
     onClose();
@@ -56,27 +48,38 @@ function RouteEditModalComponent({
     onEditTo();
   };
 
+  const handleSwap = () => {
+    onClose();
+    onSwap();
+  };
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="slide"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheetContainer} onPress={e => e.stopPropagation()}>
+        <Pressable
+          accessibilityViewIsModal
+          onAccessibilityEscape={onClose}
+          style={[
+            styles.sheetContainer,
+            { paddingBottom: Math.max(insets.bottom, spacing.xl) },
+          ]}
+          onPress={e => e.stopPropagation()}
+        >
           {/* Header */}
           <View style={styles.headerRow}>
             <View style={styles.headerTitleCol}>
               <Text style={styles.sheetTitle}>
-                {t('parcel.route.editRouteTitle', {
-                  defaultValue: 'Tùy chỉnh tuyến gửi hàng',
-                })}
+                {t('parcel.route.editRouteTitle')}
               </Text>
               <Text style={styles.sheetSubtitle}>
-                {t('parcel.route.editRouteDescription', {
-                  defaultValue: 'Chọn khu vực bạn muốn thay đổi hoặc đảo chiều gửi - nhận',
-                })}
+                {t('parcel.route.editRouteDescription')}
               </Text>
             </View>
             <Pressable
@@ -97,8 +100,11 @@ function RouteEditModalComponent({
           <View style={styles.cardsContainer}>
             {/* Origin Card */}
             <Pressable
+              testID="parcel-route-edit-origin"
               accessibilityRole="button"
-              accessibilityLabel={`${t('parcel.route.changeOrigin', { defaultValue: 'Đổi khu vực gửi' })}: ${fromCity}`}
+              accessibilityLabel={`${t(
+                'parcel.route.changeOrigin',
+              )}: ${fromCity}`}
               onPress={handleEditFrom}
               style={({ pressed }) => [
                 styles.locationCard,
@@ -110,7 +116,7 @@ function RouteEditModalComponent({
               </View>
               <View style={styles.locationInfoCol}>
                 <Text style={styles.locationLabel}>
-                  {t('parcel.route.from', { defaultValue: 'TỪ' })} ({t('home.parcel.from', { defaultValue: 'Khu vực gửi' })})
+                  {t('home.parcel.from')}
                 </Text>
                 <Text style={styles.locationName} numberOfLines={1}>
                   {fromCity || t('home.parcel.selectOrigin')}
@@ -118,9 +124,13 @@ function RouteEditModalComponent({
               </View>
               <View style={styles.editActionBadge}>
                 <Text style={styles.editActionText}>
-                  {t('common.save', { defaultValue: 'Đổi' })}
+                  {t('parcel.actions.changeRouteShort')}
                 </Text>
-                <PencilSimple size={12} color={theme.colors.primary} weight="bold" />
+                <PencilSimple
+                  size={12}
+                  color={theme.colors.primary}
+                  weight="bold"
+                />
               </View>
             </Pressable>
 
@@ -129,16 +139,20 @@ function RouteEditModalComponent({
               <View style={styles.dividerLine} />
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t('parcel.route.swap', { defaultValue: 'Đổi chiều gửi / nhận' })}
-                onPress={onSwap}
+                accessibilityLabel={t('parcel.route.swap')}
+                onPress={handleSwap}
                 style={({ pressed }) => [
                   styles.swapButton,
                   pressed ? styles.pressed : null,
                 ]}
               >
-                <ArrowsDownUp size={16} color={theme.colors.primary} weight="bold" />
+                <ArrowsDownUp
+                  size={16}
+                  color={theme.colors.primary}
+                  weight="bold"
+                />
                 <Text style={styles.swapButtonText}>
-                  {t('parcel.route.swap', { defaultValue: 'Đổi chiều gửi / nhận' })}
+                  {t('parcel.route.swap')}
                 </Text>
               </Pressable>
               <View style={styles.dividerLine} />
@@ -146,8 +160,11 @@ function RouteEditModalComponent({
 
             {/* Destination Card */}
             <Pressable
+              testID="parcel-route-edit-destination"
               accessibilityRole="button"
-              accessibilityLabel={`${t('parcel.route.changeDestination', { defaultValue: 'Đổi khu vực nhận' })}: ${toCity}`}
+              accessibilityLabel={`${t(
+                'parcel.route.changeDestination',
+              )}: ${toCity}`}
               onPress={handleEditTo}
               style={({ pressed }) => [
                 styles.locationCard,
@@ -159,7 +176,7 @@ function RouteEditModalComponent({
               </View>
               <View style={styles.locationInfoCol}>
                 <Text style={[styles.locationLabel, styles.destinationLabel]}>
-                  {t('parcel.route.to', { defaultValue: 'ĐẾN' })} ({t('home.parcel.to', { defaultValue: 'Khu vực nhận' })})
+                  {t('home.parcel.to')}
                 </Text>
                 <Text style={styles.locationName} numberOfLines={1}>
                   {toCity || t('home.parcel.selectDestination')}
@@ -167,9 +184,13 @@ function RouteEditModalComponent({
               </View>
               <View style={styles.editActionBadge}>
                 <Text style={styles.editActionText}>
-                  {t('common.save', { defaultValue: 'Đổi' })}
+                  {t('parcel.actions.changeRouteShort')}
                 </Text>
-                <PencilSimple size={12} color={theme.colors.primary} weight="bold" />
+                <PencilSimple
+                  size={12}
+                  color={theme.colors.primary}
+                  weight="bold"
+                />
               </View>
             </Pressable>
           </View>
@@ -193,7 +214,6 @@ const createStyles = (theme: AppTheme) => ({
     borderTopRightRadius: borderRadius.xl,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
     gap: spacing.lg,
   },
   headerRow: {
@@ -218,9 +238,9 @@ const createStyles = (theme: AppTheme) => ({
     lineHeight: fontSizes.xs * 1.3,
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.surfaceAlt,
@@ -293,11 +313,12 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.divider,
   },
   swapButton: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
     backgroundColor: theme.colors.surfaceAlt,
     borderWidth: 1,

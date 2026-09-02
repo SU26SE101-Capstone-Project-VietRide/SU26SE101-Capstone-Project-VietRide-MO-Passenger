@@ -11,6 +11,8 @@ import {
   DEFAULT_PARCEL_SIZE,
   DEFAULT_PARCEL_WEIGHT_KG,
   getParcelDimensions,
+  resolveParcelSizeFromDimensions,
+  type ParcelDimensions,
 } from '../config/parcelPackage';
 import type { ParcelItemCategory } from '../config/parcelItemCategories';
 import type {
@@ -119,9 +121,10 @@ export const useParcelStore = create<ParcelStore>(set => ({
   setToLocation: (city, code, wardCode = '') =>
     set(state => ({
       toCity: city,
-      toDistrict: state.toLocationCode === code && state.toWardCode === wardCode
-        ? state.toDistrict
-        : '',
+      toDistrict:
+        state.toLocationCode === code && state.toWardCode === wardCode
+          ? state.toDistrict
+          : '',
       toLocationCode: code,
       toWardCode: wardCode,
       dropoffStation:
@@ -154,9 +157,23 @@ export const useParcelStore = create<ParcelStore>(set => ({
   estimatedValue: '',
   photos: [],
   setPackage: partial =>
-    set({
-      ...(partial.size ? getParcelDimensions(partial.size) : {}),
-      ...partial,
+    set(state => {
+      const presetDimensions: Partial<ParcelDimensions> = partial.size
+        ? getParcelDimensions(partial.size)
+        : {};
+      const nextDimensions = {
+        lengthCm:
+          partial.lengthCm ?? presetDimensions.lengthCm ?? state.lengthCm,
+        widthCm: partial.widthCm ?? presetDimensions.widthCm ?? state.widthCm,
+        heightCm:
+          partial.heightCm ?? presetDimensions.heightCm ?? state.heightCm,
+      };
+
+      return {
+        ...presetDimensions,
+        ...partial,
+        size: resolveParcelSizeFromDimensions(nextDimensions),
+      };
     }),
 
   // ─── Stations ───────────────────────────────────────

@@ -2,8 +2,10 @@ import {
   canAdvanceFromStep1,
   canAdvanceFromStep2,
   canAdvanceFromStep3,
+  canLoadParcelDeliveryOptions,
   canSubmitStep4,
   isParcelRouteGateActive,
+  resolveParcelRouteChangeWizardState,
 } from './parcelCreateFlow';
 
 describe('parcelCreateFlow', () => {
@@ -17,6 +19,30 @@ describe('parcelCreateFlow', () => {
 
     it('returns false when both location codes exist', () => {
       expect(isParcelRouteGateActive('79', '71')).toBe(false);
+    });
+  });
+
+  describe('resolveParcelRouteChangeWizardState', () => {
+    it('returns to station selection when the sending area changes or the route swaps', () => {
+      expect(resolveParcelRouteChangeWizardState(4, 4, 'from')).toEqual({
+        step: 1,
+        highestStepReached: 1,
+      });
+      expect(resolveParcelRouteChangeWizardState(3, 4, 'swap')).toEqual({
+        step: 1,
+        highestStepReached: 1,
+      });
+    });
+
+    it('keeps package progress but requires a new delivery option after receiving-area changes', () => {
+      expect(resolveParcelRouteChangeWizardState(4, 4, 'to')).toEqual({
+        step: 3,
+        highestStepReached: 3,
+      });
+      expect(resolveParcelRouteChangeWizardState(2, 4, 'to')).toEqual({
+        step: 2,
+        highestStepReached: 3,
+      });
     });
   });
 
@@ -111,6 +137,20 @@ describe('parcelCreateFlow', () => {
     });
   });
 
+  describe('canLoadParcelDeliveryOptions', () => {
+    it('does not query trips while the user is still editing parcel fit', () => {
+      expect(canLoadParcelDeliveryOptions(1, true, true)).toBe(false);
+      expect(canLoadParcelDeliveryOptions(2, true, true)).toBe(false);
+    });
+
+    it('queries from delivery selection onward only with valid measurements', () => {
+      expect(canLoadParcelDeliveryOptions(3, true, true)).toBe(true);
+      expect(canLoadParcelDeliveryOptions(4, true, true)).toBe(true);
+      expect(canLoadParcelDeliveryOptions(3, false, true)).toBe(false);
+      expect(canLoadParcelDeliveryOptions(3, true, false)).toBe(false);
+    });
+  });
+
   describe('canAdvanceFromStep3', () => {
     it('requires selected trip, selected point, and usable quote', () => {
       expect(
@@ -173,7 +213,9 @@ describe('parcelCreateFlow', () => {
     });
 
     it('returns false during in-flight operations', () => {
-      expect(canSubmitStep4({ ...validBase, isPhotoUploading: true })).toBe(false);
+      expect(canSubmitStep4({ ...validBase, isPhotoUploading: true })).toBe(
+        false,
+      );
       expect(canSubmitStep4({ ...validBase, isCreating: true })).toBe(false);
       expect(canSubmitStep4({ ...validBase, isPaying: true })).toBe(false);
     });

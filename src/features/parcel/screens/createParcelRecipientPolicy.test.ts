@@ -49,8 +49,8 @@ describe('CreateParcel recipient privacy policy', () => {
   });
 
   it('blocks a blank email before validating format and serializes trimmed text', () => {
-    expect(screenSource).toContain(
-      "t('parcel.validation.recipientEmailRequired')",
+    expect(screenSource).toMatch(
+      /t\(\s*['"]parcel\.validation\.recipientEmailRequired['"]\s*,?\s*\)/,
     );
     expect(screenSource).toMatch(
       /if \(!recipientEmail\.trim\(\)\) \{[\s\S]*?if \(!isValidEmail\(recipientEmail\)\) \{/,
@@ -59,7 +59,9 @@ describe('CreateParcel recipient privacy policy', () => {
   });
 
   it('sends declared value without exposing parcel quantity input', () => {
-    expect(screenSource).toContain('declaredValueVnd: estimatedValue ? Number(estimatedValue) : null');
+    expect(screenSource).toContain(
+      'declaredValueVnd: estimatedValue ? Number(estimatedValue) : null',
+    );
     expect(combinedSource).not.toContain('quantityLabel');
     expect(combinedSource).not.toContain('handleQuantityChange');
     expect(combinedSource).not.toContain('estimatedValueMetadata');

@@ -5,8 +5,34 @@ describe('useParcelStore locations', () => {
     useParcelStore.getState().resetParcel();
   });
 
+  it('keeps the visible package size synchronized with manually typed dimensions', () => {
+    useParcelStore.getState().setPackage({ size: 'medium' });
+    useParcelStore.getState().setPackage({
+      lengthCm: 20,
+      widthCm: 15,
+      heightCm: 10,
+    });
+
+    expect(useParcelStore.getState()).toMatchObject({
+      size: 'small',
+      lengthCm: 20,
+      widthCm: 15,
+      heightCm: 10,
+    });
+
+    useParcelStore.getState().setPackage({
+      lengthCm: 50,
+      widthCm: 40,
+      heightCm: 30,
+    });
+
+    expect(useParcelStore.getState().size).toBe('large');
+  });
+
   it('keeps the same province when origin and destination wards differ', () => {
-    useParcelStore.getState().setFromLocation('Phường 1, TP.HCM', '79', '26734');
+    useParcelStore
+      .getState()
+      .setFromLocation('Phường 1, TP.HCM', '79', '26734');
     useParcelStore.getState().setToLocation('Phường 2, TP.HCM', '79', '26737');
 
     expect(useParcelStore.getState()).toMatchObject({
@@ -18,7 +44,9 @@ describe('useParcelStore locations', () => {
   });
 
   it('swaps province and ward codes together', () => {
-    useParcelStore.getState().setFromLocation('Phường 1, TP.HCM', '79', '26734');
+    useParcelStore
+      .getState()
+      .setFromLocation('Phường 1, TP.HCM', '79', '26734');
     useParcelStore.getState().setToLocation('Hà Nội', '01', '');
 
     useParcelStore.getState().swapLocations();

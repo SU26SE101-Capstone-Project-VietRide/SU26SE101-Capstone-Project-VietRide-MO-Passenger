@@ -106,9 +106,7 @@ function PricingBreakdownComponent({
               ) : null}
             </View>
             <View style={styles.routeStationSection}>
-              <Text style={styles.routeLabelText}>
-                {t('parcel.route.to')}
-              </Text>
+              <Text style={styles.routeLabelText}>{t('parcel.route.to')}</Text>
               <Text style={styles.routeStationName}>
                 {dropoffStation?.name || t('parcel.route.destinationTerminal')}
               </Text>
@@ -177,10 +175,7 @@ function PricingBreakdownComponent({
         <Text style={styles.cardHeading}>
           {t('parcel.summary.paymentDetails')}
         </Text>
-        <PriceRow
-          label={t('parcel.summary.grossPrice')}
-          value={grossPrice}
-        />
+        <PriceRow label={t('parcel.summary.grossPrice')} value={grossPrice} />
         {discountAmount > 0 ? (
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>
@@ -197,18 +192,19 @@ function PricingBreakdownComponent({
           label={t('parcel.summary.totalAfterDiscount')}
           value={totalAfterDiscount}
         />
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>
-            {t('parcel.summary.depositPercent')}
-          </Text>
-          <Text style={styles.priceValue}>{depositPercent}%</Text>
-        </View>
         <View style={styles.summaryDivider} />
-        <View style={[styles.priceRow, styles.totalRow]}>
-          <Text style={styles.totalLabel}>
-            {t('parcel.summary.depositDueNow')}
+        <View style={styles.paymentNowCard}>
+          <Text style={styles.paymentNowEyebrow}>
+            {t('parcel.summary.paymentToday')}
           </Text>
-          <Text style={styles.totalValue}>{formatVnd(depositDue)}</Text>
+          <View style={styles.paymentNowRow}>
+            <Text style={styles.paymentNowLabel}>
+              {t('parcel.summary.depositOfEstimatedTotal', {
+                percent: depositPercent,
+              })}
+            </Text>
+            <Text style={styles.paymentNowValue}>{formatVnd(depositDue)}</Text>
+          </View>
         </View>
         <Text style={styles.priceHint}>
           {t('parcel.summary.serverPricingHint')}
@@ -371,15 +367,34 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.divider,
     marginVertical: spacing.sm,
   },
-  totalRow: {
-    marginTop: spacing.md,
+  paymentNowCard: {
+    gap: spacing.xs,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderCurve: 'continuous',
+    backgroundColor: theme.effects.isLiquid
+      ? theme.effects.contentSurfaceSoft
+      : theme.colors.primaryFaded,
   },
-  totalLabel: {
+  paymentNowEyebrow: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+    textTransform: 'uppercase',
+  },
+  paymentNowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  paymentNowLabel: {
+    flex: 1,
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
     color: theme.colors.textPrimary,
   },
-  totalValue: {
+  paymentNowValue: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.primary,

@@ -390,7 +390,6 @@ const createStyles = (theme: AppTheme) => ({
   listContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xs,
-    paddingBottom: 110,
   },
   listContentCompact: {
     paddingHorizontal: spacing.md,
@@ -545,10 +544,7 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.primary,
   },
   bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    flexShrink: 0,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     backgroundColor: theme.colors.background,

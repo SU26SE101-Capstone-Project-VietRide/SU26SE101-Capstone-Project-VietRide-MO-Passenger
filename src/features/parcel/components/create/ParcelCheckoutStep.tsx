@@ -1,8 +1,7 @@
-import React, { memo, useRef } from 'react';
+import React, { memo, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -12,10 +11,15 @@ import {
   Clock,
   LockKey,
   MapPin,
+  PencilSimple,
   Truck,
 } from 'phosphor-react-native';
 
-import { Input, PhotoPicker } from '@shared/components';
+import {
+  AppKeyboardAwareScrollView,
+  Input,
+  PhotoPicker,
+} from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
 import {
@@ -41,6 +45,7 @@ import { canSubmitStep4 } from '../../utils/parcelCreateFlow';
 
 export interface ParcelCheckoutStepProps {
   selectedOption: ParcelDeliveryOption | null;
+  onChangeDeliveryOption: () => void;
   recipientName: string;
   recipientPhone: string;
   recipientEmail: string;
@@ -87,6 +92,7 @@ export interface ParcelCheckoutStepProps {
 
 function ParcelCheckoutStepComponent({
   selectedOption,
+  onChangeDeliveryOption,
   recipientName,
   recipientPhone,
   recipientEmail,
@@ -133,6 +139,7 @@ function ParcelCheckoutStepComponent({
   const recipientNameRef = useRef<TextInput>(null);
   const recipientPhoneRef = useRef<TextInput>(null);
   const recipientEmailRef = useRef<TextInput>(null);
+  const [bottomBarHeight, setBottomBarHeight] = useState(80);
 
   const canSubmit = canSubmitStep4({
     recipientName,
@@ -148,23 +155,55 @@ function ParcelCheckoutStepComponent({
 
   const trip = selectedOption?.trip;
   const dropoffPoint = selectedOption?.dropoffPoint;
+  const scrollContentStyle = useMemo(
+    () => [
+      styles.scrollContent,
+      isCompact ? styles.scrollContentCompact : null,
+      { paddingBottom: bottomBarHeight + spacing.lg },
+    ],
+    [bottomBarHeight, isCompact, styles],
+  );
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          isCompact ? styles.scrollContentCompact : null,
-        ]}
+      <AppKeyboardAwareScrollView
+        testID="parcel-checkout-scroll-view"
+        bottomOffset={bottomBarHeight + spacing.md}
+        contentContainerStyle={scrollContentStyle}
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         {/* Selected Delivery Option Summary */}
         {trip && dropoffPoint ? (
           <View style={styles.card}>
-            <Text style={styles.cardSectionTitle}>
-              {t('parcel.checkout.deliverySummary')}
-            </Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={[styles.cardSectionTitle, styles.sectionTitleGrow]}>
+                {t('parcel.checkout.deliverySummary')}
+              </Text>
+              <Pressable
+                testID="parcel-change-delivery-option"
+                accessibilityRole="button"
+                accessibilityLabel={t('parcel.actions.changeDeliveryOption')}
+                accessibilityState={{ disabled: intentLocked }}
+                disabled={intentLocked}
+                onPress={onChangeDeliveryOption}
+                style={({ pressed }) => [
+                  styles.changeOptionButton,
+                  intentLocked ? styles.changeOptionButtonDisabled : null,
+                  pressed && !intentLocked ? styles.pressed : null,
+                ]}
+              >
+                <PencilSimple
+                  size={14}
+                  color={theme.colors.primary}
+                  weight="bold"
+                />
+                <Text style={styles.changeOptionText}>
+                  {t('parcel.actions.changeDeliveryOptionShort')}
+                </Text>
+              </Pressable>
+            </View>
             <View style={styles.optionHeaderRow}>
               <View style={styles.optionBadge}>
                 <MapPin size={12} color={theme.colors.primary} weight="fill" />
@@ -180,9 +219,14 @@ function ParcelCheckoutStepComponent({
             </View>
 
             <View style={styles.optionMetaRow}>
-              <Truck size={16} color={theme.colors.textSecondary} weight="duotone" />
+              <Truck
+                size={16}
+                color={theme.colors.textSecondary}
+                weight="duotone"
+              />
               <Text style={styles.optionOperator} numberOfLines={1}>
-                {trip.operatorName?.trim() || t('parcel.trips.operatorUnavailable')}
+                {trip.operatorName?.trim() ||
+                  t('parcel.trips.operatorUnavailable')}
               </Text>
               <Text style={styles.optionRoute} numberOfLines={1}>
                 · {trip.originStation.name} → {trip.destinationStation.name}
@@ -193,7 +237,8 @@ function ParcelCheckoutStepComponent({
               <View style={styles.timeBlock}>
                 <Text style={styles.timeLabel}>{t('parcel.route.from')}</Text>
                 <Text style={styles.timeValue}>
-                  {formatDateTime(trip.departureDateTime) || trip.departureDateTime}
+                  {formatDateTime(trip.departureDateTime) ||
+                    trip.departureDateTime}
                 </Text>
                 <Text style={styles.stationSubtitle} numberOfLines={1}>
                   {trip.originStation.name}
@@ -207,7 +252,8 @@ function ParcelCheckoutStepComponent({
               <View style={styles.timeBlock}>
                 <Text style={styles.timeLabel}>{t('parcel.route.to')}</Text>
                 <Text style={styles.timeValue}>
-                  {formatDateTime(dropoffPoint.estimatedArrivalTime) || dropoffPoint.estimatedArrivalTime}
+                  {formatDateTime(dropoffPoint.estimatedArrivalTime) ||
+                    dropoffPoint.estimatedArrivalTime}
                 </Text>
                 <Text style={styles.stationSubtitle} numberOfLines={1}>
                   {dropoffPoint.name}
@@ -352,19 +398,30 @@ function ParcelCheckoutStepComponent({
             </Pressable>
           </View>
         ) : null}
-      </ScrollView>
+      </AppKeyboardAwareScrollView>
 
       {/* Sticky Bottom Action Bar */}
-      <View style={styles.bottomBar}>
+      <View
+        style={styles.bottomBar}
+        onLayout={({ nativeEvent }) => {
+          setBottomBarHeight(Math.ceil(nativeEvent.layout.height));
+        }}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('parcel.actions.createAndPay')}
-          accessibilityState={{ disabled: !canSubmit || isSubmitting || intentLocked }}
+          accessibilityState={{
+            disabled: !canSubmit || isSubmitting || intentLocked,
+          }}
           disabled={!canSubmit || isSubmitting || intentLocked}
           style={({ pressed }) => [
             styles.submitButton,
-            (!canSubmit || isSubmitting || intentLocked) ? styles.submitButtonDisabled : null,
-            pressed && canSubmit && !isSubmitting && !intentLocked ? styles.pressed : null,
+            !canSubmit || isSubmitting || intentLocked
+              ? styles.submitButtonDisabled
+              : null,
+            pressed && canSubmit && !isSubmitting && !intentLocked
+              ? styles.pressed
+              : null,
           ]}
           onPress={onSubmit}
         >
@@ -390,7 +447,6 @@ const createStyles = (theme: AppTheme) => ({
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
-    paddingBottom: 110,
     gap: spacing.lg,
   },
   scrollContentCompact: {
@@ -406,6 +462,34 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
+  },
+  sectionTitleRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sectionTitleGrow: {
+    flex: 1,
+    minWidth: 0,
+  },
+  changeOptionButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  changeOptionButtonDisabled: {
+    opacity: 0.5,
+  },
+  changeOptionText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
   },
   optionHeaderRow: {
     gap: 4,

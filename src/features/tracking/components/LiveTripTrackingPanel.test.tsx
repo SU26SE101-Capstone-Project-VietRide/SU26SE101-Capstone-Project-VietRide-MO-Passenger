@@ -528,11 +528,11 @@ describe('LiveTripTrackingPanel', () => {
       latest: shuttleLatest,
       trail: [shuttleLatest],
       vehicleKind: 'shuttle',
+      showDrivenTrail: false,
       bottomDock: expect.anything(),
     }));
     const shuttleMapProps = mockTrackingMap.mock.calls[0][0] as Record<string, unknown>;
     expect(shuttleMapProps).not.toHaveProperty('edgeToEdge');
-    expect(shuttleMapProps).not.toHaveProperty('showDrivenTrail');
 
     await act(async () => renderer!.unmount());
   });
