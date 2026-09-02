@@ -1,5 +1,6 @@
 const React = require('react');
 const ReactTestRenderer = require('react-test-renderer');
+const { StyleSheet } = require('react-native');
 
 const mockSetCamera = jest.fn();
 
@@ -575,5 +576,56 @@ describe('MapboxTrackingMap', () => {
     ).toBe('42 km/h');
 
     ReactTestRenderer.act(() => renderer.unmount());
+  });
+
+  it('points a bus along the route ahead while keeping shuttle telemetry heading', () => {
+    const latest = makePoint('2026-08-12T01:01:00.000Z', {
+      latitude: 10,
+      longitude: 106.0005,
+      headingDeg: 270,
+    });
+    const plannedRoute = [
+      { latitude: 10, longitude: 106 },
+      { latitude: 10, longitude: 106.002 },
+      { latitude: 10.01, longitude: 106.002 },
+    ];
+    let busRenderer;
+    let shuttleRenderer;
+
+    ReactTestRenderer.act(() => {
+      busRenderer = ReactTestRenderer.create(
+        React.createElement(MapboxTrackingMap, {
+          latest,
+          plannedRoute,
+          vehicleKind: 'bus',
+        }),
+      );
+      shuttleRenderer = ReactTestRenderer.create(
+        React.createElement(MapboxTrackingMap, {
+          latest,
+          plannedRoute,
+          vehicleKind: 'shuttle',
+        }),
+      );
+    });
+
+    const busRotation = StyleSheet.flatten(
+      busRenderer.root.findByProps({
+        testID: 'tracking-bus-vehicle-glyph',
+      }).props.style,
+    ).transform[0].rotate;
+    const shuttleRotation = StyleSheet.flatten(
+      shuttleRenderer.root.findByProps({
+        testID: 'tracking-shuttle-vehicle-glyph',
+      }).props.style,
+    ).transform[0].rotate;
+
+    expect(Number.parseFloat(busRotation)).toBeCloseTo(90, 0);
+    expect(shuttleRotation).toBe('270deg');
+
+    ReactTestRenderer.act(() => {
+      busRenderer.unmount();
+      shuttleRenderer.unmount();
+    });
   });
 });

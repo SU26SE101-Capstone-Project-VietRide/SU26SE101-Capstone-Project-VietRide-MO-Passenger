@@ -1,10 +1,25 @@
 import {
+  applyParcelPaymentResultToDetail,
   getParcelCheckoutState,
   getParcelDetailHeroCopy,
   getParcelPaymentStage,
   isParcelTransferQrRequired,
   isParcelPaymentPending,
 } from './parcelPayment';
+import type { ParcelDetail } from '../types';
+
+const detail = (status: string): ParcelDetail =>
+  ({
+    parcelId: 'parcel-1',
+    status,
+    depositPaymentId: null,
+    depositRequiredVnd: 30_000,
+    depositPaidVnd: 0,
+    balancePaymentId: null,
+    balanceRequiredVnd: 70_000,
+    balancePaidVnd: 0,
+    finalPaymentDeadline: null,
+  } as ParcelDetail);
 
 describe('getParcelPaymentStage', () => {
   it('maps only the two passenger payment POSTs', () => {
@@ -15,6 +30,69 @@ describe('getParcelPaymentStage', () => {
   it('does not invent a stage for legacy additional payment', () => {
     expect(getParcelPaymentStage('PENDING_ADDITIONAL_PAYMENT')).toBeNull();
     expect(isParcelPaymentPending('PENDING_ADDITIONAL_PAYMENT')).toBe(false);
+  });
+});
+
+describe('applyParcelPaymentResultToDetail', () => {
+  it('applies a synchronously confirmed Wallet deposit to the detail cache', () => {
+    const updated = applyParcelPaymentResultToDetail(
+      detail('PENDING_PAYMENT'),
+      'deposit',
+      {
+        parcelId: 'parcel-1',
+        status: 'RESERVED',
+        depositPaymentId: 'payment-1',
+        depositRequiredVnd: 30_000,
+        depositPaidVnd: 30_000,
+        paymentDueAt: null,
+        paymentRedirectUrl: null,
+      },
+    );
+
+    expect(updated).toMatchObject({
+      status: 'RESERVED',
+      depositPaymentId: 'payment-1',
+      depositPaidVnd: 30_000,
+    });
+    expect(isParcelPaymentPending(updated?.status)).toBe(false);
+  });
+
+  it('applies a synchronously confirmed Wallet balance to the detail cache', () => {
+    const updated = applyParcelPaymentResultToDetail(
+      detail('PENDING_FINAL_PAYMENT'),
+      'final',
+      {
+        parcelId: 'parcel-1',
+        status: 'READY_TO_LOAD',
+        balancePaymentId: 'payment-2',
+        balanceRequiredVnd: 70_000,
+        balancePaidVnd: 70_000,
+        finalPaymentDeadline: '2026-09-03T10:00:00+07:00',
+        paymentRedirectUrl: null,
+      },
+    );
+
+    expect(updated).toMatchObject({
+      status: 'READY_TO_LOAD',
+      balancePaymentId: 'payment-2',
+      balancePaidVnd: 70_000,
+    });
+    expect(isParcelPaymentPending(updated?.status)).toBe(false);
+  });
+
+  it('does not mutate another parcel cache entry', () => {
+    const current = detail('PENDING_PAYMENT');
+    const updated = applyParcelPaymentResultToDetail(current, 'deposit', {
+      parcelId: 'parcel-2',
+      status: 'RESERVED',
+      depositPaymentId: 'payment-1',
+      depositRequiredVnd: 30_000,
+      depositPaidVnd: 30_000,
+      paymentDueAt: null,
+      paymentRedirectUrl: null,
+    });
+
+    expect(updated).toBe(current);
   });
 });
 

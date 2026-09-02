@@ -11,9 +11,14 @@ const mockNavigation = {
   setParams: jest.fn(),
 };
 const mockInvalidateQueries = jest.fn(async () => undefined);
+const mockSetQueryData = jest.fn();
 const mockRefetch = jest.fn(async () => undefined);
 const mockUseParcelDetail = jest.fn();
 const mockReconcileParcelPayment = jest.fn(async () => undefined);
+const mockStartDepositPayment = jest.fn();
+const mockRetryDepositPayment = jest.fn();
+const mockStartFinalPayment = jest.fn();
+const mockRetryFinalPayment = jest.fn();
 const mockErrorView = jest.fn(({ onRetry }: { onRetry?: () => void }) => (
   <Pressable accessibilityLabel="parcel-detail-error-retry" onPress={onRetry} />
 ));
@@ -21,6 +26,7 @@ let mockIsFocused = true;
 let mockIsAppActive = true;
 let mockIsOnline = true;
 let mockPaymentRedirectUrl: string | undefined;
+let mockPreferredPaymentMethod: 'wallet' | 'vnpay' | undefined;
 const mockScannableCodeCard = jest.fn(
   ({ code, title }: { code: string; title: string }) => (
     <View accessibilityLabel={`${title}. ${code}`}>
@@ -84,12 +90,18 @@ jest.mock('@react-navigation/native', () => ({
       ...(mockPaymentRedirectUrl
         ? { paymentRedirectUrl: mockPaymentRedirectUrl }
         : {}),
+      ...(mockPreferredPaymentMethod
+        ? { preferredPaymentMethod: mockPreferredPaymentMethod }
+        : {}),
     },
   }),
 }));
 
 jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+  useQueryClient: () => ({
+    invalidateQueries: mockInvalidateQueries,
+    setQueryData: mockSetQueryData,
+  }),
 }));
 
 jest.mock('@features/profile/api/passengerHistoryApi', () => ({
@@ -197,16 +209,18 @@ jest.mock('@shared/payments', () => ({
 }));
 
 jest.mock('../hooks/useParcelQueries', () => ({
+  PARCEL_PAYMENT_STANDARD_REFETCH_INTERVAL_MS: 2_500,
+  PARCEL_PAYMENT_WALLET_REFETCH_INTERVAL_MS: 1_000,
   useParcelDetail: (...args: unknown[]) => mockUseParcelDetail(...args),
   useStartParcelDepositPayment: () => ({
     isPending: false,
-    mutateAsync: jest.fn(),
-    retryRetainedAsync: jest.fn(),
+    mutateAsync: mockStartDepositPayment,
+    retryRetainedAsync: mockRetryDepositPayment,
   }),
   useStartParcelFinalPayment: () => ({
     isPending: false,
-    mutateAsync: jest.fn(),
-    retryRetainedAsync: jest.fn(),
+    mutateAsync: mockStartFinalPayment,
+    retryRetainedAsync: mockRetryFinalPayment,
   }),
 }));
 
@@ -311,6 +325,7 @@ describe('ParcelDetailScreen identity hierarchy', () => {
     mockIsAppActive = true;
     mockIsOnline = true;
     mockPaymentRedirectUrl = undefined;
+    mockPreferredPaymentMethod = undefined;
   });
 
   it.each([
@@ -378,7 +393,7 @@ describe('ParcelDetailScreen identity hierarchy', () => {
         renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
         await Promise.resolve();
       });
-      expect(mockUseParcelDetail).toHaveBeenLastCalledWith(PARCEL_ID, true);
+      expect(mockUseParcelDetail).toHaveBeenLastCalledWith(PARCEL_ID, 2_500);
 
       await act(async () => {
         jest.advanceTimersByTime(20_001);
@@ -390,6 +405,72 @@ describe('ParcelDetailScreen identity hierarchy', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('acknowledges a submitted Wallet payment and polls its active payment faster', async () => {
+    mockPreferredPaymentMethod = 'wallet';
+    const parcel = createParcel('PENDING_PAYMENT');
+    parcel.depositPaidVnd = 0;
+    parcel.depositPaymentId = '44444444-4444-4444-8444-444444444444';
+    mockUseParcelDetail.mockReturnValue(queryFor(parcel));
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+      await Promise.resolve();
+    });
+
+    expect(mockUseParcelDetail).toHaveBeenLastCalledWith(PARCEL_ID, 1_000);
+    expect(mockReconcileParcelPayment).toHaveBeenCalledTimes(1);
+    const text = getTextContent(renderer!);
+    expect(text).toContain('parcel.payment.walletConfirmationTitle');
+    expect(text).toContain('parcel.payment.walletConfirmationDescription');
+    expect(text).not.toContain('parcel.payment.payWithWallet');
+    expect(text).not.toContain('parcel.payment.payAgain');
+
+    await act(async () => renderer!.unmount());
+  });
+
+  it('reconciles Wallet immediately from the payment response instead of waiting for polling', async () => {
+    mockPreferredPaymentMethod = 'wallet';
+    const parcel = createParcel('PENDING_PAYMENT');
+    parcel.depositPaidVnd = 0;
+    parcel.depositPaymentId = null;
+    mockUseParcelDetail.mockReturnValue(queryFor(parcel));
+    mockStartDepositPayment.mockResolvedValue({
+      parcelId: PARCEL_ID,
+      status: 'PENDING_PAYMENT',
+      depositPaymentId: '44444444-4444-4444-8444-444444444444',
+      depositRequiredVnd: 20_000,
+      depositPaidVnd: 20_000,
+      paymentDueAt: null,
+      paymentRedirectUrl: null,
+    });
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+    const walletPaymentButton = renderer!.root.find(
+      node =>
+        node.props.accessibilityLabel === 'parcel.payment.payWithWallet' &&
+        typeof node.props.onPress === 'function',
+    );
+
+    await act(async () => {
+      walletPaymentButton.props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockStartDepositPayment).toHaveBeenCalledWith({
+      parcelId: PARCEL_ID,
+      paymentMethod: 'WALLET',
+    });
+    expect(mockReconcileParcelPayment).toHaveBeenCalledTimes(1);
+    expect(mockSetQueryData).toHaveBeenCalled();
+
+    await act(async () => renderer!.unmount());
   });
 
   it('retries an initial detail error directly without starting reconciliation', async () => {

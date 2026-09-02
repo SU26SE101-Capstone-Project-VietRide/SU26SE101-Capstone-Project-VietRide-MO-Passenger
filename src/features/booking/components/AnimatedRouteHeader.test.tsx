@@ -13,6 +13,22 @@ jest.mock('@shared/motion', () => ({
   },
   useMotion: () => ({ reduceMotion: true }),
 }));
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (
+      key: string,
+      params?: {
+        origin?: string;
+        destination?: string;
+        defaultValue?: string;
+      },
+    ) => {
+      if (key === 'booking.header.from') return 'Từ';
+      if (key === 'booking.header.to') return 'Đến';
+      return params?.defaultValue ?? key;
+    },
+  }),
+}));
 jest.mock('react-native-reanimated', () => {
   const { View: MockAnimatedView } = require('react-native');
 
@@ -32,7 +48,7 @@ jest.mock('react-native-reanimated', () => {
 import { AnimatedRouteHeader } from './AnimatedRouteHeader';
 
 describe('AnimatedRouteHeader', () => {
-  it('lets localized secondary copy grow to two lines instead of clipping at 22dp', () => {
+  it('lets localized secondary copy grow to two lines instead of clipping at 22dp and renders Từ and Đến badges with distinct styling', () => {
     let renderer: ReactTestRenderer.ReactTestRenderer;
 
     act(() => {
@@ -49,7 +65,12 @@ describe('AnimatedRouteHeader', () => {
     const destination = renderer!.root.findByProps({
       testID: 'booking-route-destination',
     });
-    const arrow = renderer!.root.findByProps({ testID: 'booking-route-arrow' });
+    const originBadge = renderer!.root.findByProps({
+      testID: 'booking-route-origin-badge',
+    });
+    const destinationBadge = renderer!.root.findByProps({
+      testID: 'booking-route-destination-badge',
+    });
     const secondary = renderer!.root.findByProps({ testID: 'booking-route-secondary' });
     const shell = renderer!.root.findByProps({
       testID: 'booking-route-secondary-shell',
@@ -58,14 +79,17 @@ describe('AnimatedRouteHeader', () => {
 
     expect(origin.props.numberOfLines).toBe(1);
     expect(origin.props.ellipsizeMode).toBe('tail');
+    expect(StyleSheet.flatten(origin.props.style)?.textAlign).toBe('center');
     expect(destination.props.numberOfLines).toBe(1);
     expect(destination.props.ellipsizeMode).toBe('tail');
-    expect(origin.parent).toBe(destination.parent);
-    expect(arrow.props.children).toBe('→');
-    expect(arrow.props.accessible).toBe(false);
-    expect(StyleSheet.flatten(arrow.props.style).fontSize).toBeLessThan(
-      StyleSheet.flatten(origin.props.style).fontSize,
-    );
+    expect(StyleSheet.flatten(destination.props.style)?.textAlign).toBe('center');
+    expect(origin.props.children).toBe('Thành phố Hồ Chí Minh');
+    expect(destination.props.children).toBe('Thành phố Đà Lạt');
+    expect(originBadge.props.children).toBe('Từ');
+    expect(destinationBadge.props.children).toBe('Đến');
+    expect(
+      renderer!.root.findAllByProps({ testID: 'booking-route-arrow' }),
+    ).toHaveLength(0);
     expect(secondary.props.numberOfLines).toBe(2);
     expect(shellStyle).toMatchObject({
       minHeight: 22,

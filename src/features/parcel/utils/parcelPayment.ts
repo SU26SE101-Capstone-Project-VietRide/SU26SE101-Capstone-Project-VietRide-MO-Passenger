@@ -1,3 +1,9 @@
+import type {
+  ParcelDepositPaymentResult,
+  ParcelDetail,
+  ParcelFinalPaymentResult,
+} from '../types';
+
 const PARCEL_DEPOSIT_PAYMENT_STATUS = 'PENDING_PAYMENT';
 const PARCEL_FINAL_PAYMENT_STATUS = 'PENDING_FINAL_PAYMENT';
 
@@ -62,6 +68,49 @@ export const getParcelPaymentStage = (
 
 export const isParcelPaymentPending = (status?: string | null): boolean => {
   return getParcelPaymentStage(status) !== null;
+};
+
+type ParcelPaymentResult =
+  | ParcelDepositPaymentResult
+  | ParcelFinalPaymentResult;
+
+/**
+ * Applies the authoritative payment mutation response to the detail cache.
+ * A terminal response becomes visible immediately, while a pending response
+ * only records its payment ID/amounts and remains subject to reconciliation.
+ * The following query invalidation still verifies the full server snapshot.
+ */
+export const applyParcelPaymentResultToDetail = (
+  detail: ParcelDetail | undefined,
+  stage: ParcelPaymentStage,
+  result: ParcelPaymentResult,
+): ParcelDetail | undefined => {
+  if (!detail || detail.parcelId !== result.parcelId) {
+    return detail;
+  }
+
+  if (stage === 'deposit' && 'depositPaymentId' in result) {
+    return {
+      ...detail,
+      status: result.status,
+      depositPaymentId: result.depositPaymentId,
+      depositRequiredVnd: result.depositRequiredVnd,
+      depositPaidVnd: result.depositPaidVnd,
+    };
+  }
+
+  if (stage === 'final' && 'balancePaymentId' in result) {
+    return {
+      ...detail,
+      status: result.status,
+      balancePaymentId: result.balancePaymentId,
+      balanceRequiredVnd: result.balanceRequiredVnd,
+      balancePaidVnd: result.balancePaidVnd,
+      finalPaymentDeadline: result.finalPaymentDeadline,
+    };
+  }
+
+  return detail;
 };
 
 export const getParcelCheckoutState = (

@@ -68,8 +68,11 @@ import type {
   ParcelStackParamList,
   RootStackParamList,
 } from '@app/navigation/types';
+import type { ParcelDetail } from '../types';
 import { useParcelPaymentReturn } from '../hooks/useParcelPaymentReturn';
 import {
+  PARCEL_PAYMENT_STANDARD_REFETCH_INTERVAL_MS,
+  PARCEL_PAYMENT_WALLET_REFETCH_INTERVAL_MS,
   useParcelDetail,
   useStartParcelDepositPayment,
   useStartParcelFinalPayment,
@@ -82,10 +85,12 @@ import {
 import { parcelKeys } from '../api/parcelApi';
 import { formatParcelDimensions } from '../config/parcelPackage';
 import {
+  applyParcelPaymentResultToDetail,
   getParcelCheckoutState,
   getParcelDetailHeroCopy,
   getParcelPaymentStage,
   isParcelTransferQrRequired,
+  isParcelPaymentPending,
 } from '../utils/parcelPayment';
 import { isParcelTrackingEligible } from '../utils/parcelTracking';
 import {
@@ -237,6 +242,10 @@ export function ParcelDetailScreen(): React.JSX.Element {
     route.params;
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     React.useState<PaymentMethod>(preferredPaymentMethod ?? 'vnpay');
+  const [paymentConfirmationMethod, setPaymentConfirmationMethod] =
+    React.useState<PaymentMethod | null>(() =>
+      paymentRedirectUrl ? 'vnpay' : preferredPaymentMethod ?? null,
+    );
   const [paymentSessionActive, setPaymentSessionActive] = React.useState(
     Boolean(paymentRedirectUrl),
   );
@@ -262,7 +271,12 @@ export function ParcelDetailScreen(): React.JSX.Element {
       paymentPollingStartedAt !== null &&
       paymentReturnEnabled,
   );
-  const detailQuery = useParcelDetail(parcelId, shouldPollPayment);
+  const paymentRefetchIntervalMs = shouldPollPayment
+    ? paymentConfirmationMethod === 'wallet'
+      ? PARCEL_PAYMENT_WALLET_REFETCH_INTERVAL_MS
+      : PARCEL_PAYMENT_STANDARD_REFETCH_INTERVAL_MS
+    : false;
+  const detailQuery = useParcelDetail(parcelId, paymentRefetchIntervalMs);
   const [allowLeaveDespiteRetry, setAllowLeaveDespiteRetry] =
     React.useState(false);
   const refetchParcelDetail = detailQuery.refetch;
@@ -280,6 +294,18 @@ export function ParcelDetailScreen(): React.JSX.Element {
   const paymentStage = getParcelPaymentStage(parcel?.status);
   const checkoutState = getParcelCheckoutState(parcel?.status);
   const paymentPending = checkoutState === 'awaiting_payment';
+  const activePaymentId =
+    paymentStage === 'deposit'
+      ? parcel?.depositPaymentId
+      : paymentStage === 'final'
+      ? parcel?.balancePaymentId
+      : null;
+  const paymentConfirmationActive = Boolean(
+    paymentSessionActive || activePaymentId,
+  );
+  const walletConfirmationActive = Boolean(
+    paymentConfirmationActive && paymentConfirmationMethod === 'wallet',
+  );
   const transferQrRequired = isParcelTransferQrRequired(parcel?.status);
   const parcelQrVisible = checkoutState === 'active' || transferQrRequired;
   const heroCopy = getParcelDetailHeroCopy(checkoutState, paymentStage);
@@ -345,6 +371,41 @@ export function ParcelDetailScreen(): React.JSX.Element {
     refetchParcel: refetchParcelDetail,
   });
   const { checkNow: reconcileParcelPayment } = paymentReturn;
+  const reconciledPaymentScopeRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (!paymentPending || !activePaymentId) {
+      if (!paymentPending) {
+        reconciledPaymentScopeRef.current = null;
+      }
+      return;
+    }
+
+    setPaymentSessionActive(true);
+    setPaymentConfirmationMethod(
+      current => current ?? preferredPaymentMethod ?? null,
+    );
+
+    if (!paymentReturnEnabled) {
+      return;
+    }
+
+    const scope = `${parcelId}:${activePaymentId}`;
+    if (reconciledPaymentScopeRef.current === scope) {
+      return;
+    }
+    reconciledPaymentScopeRef.current = scope;
+    beginPaymentPollingWindow();
+    reconcileParcelPayment().catch(() => undefined);
+  }, [
+    activePaymentId,
+    beginPaymentPollingWindow,
+    parcelId,
+    paymentPending,
+    paymentReturnEnabled,
+    preferredPaymentMethod,
+    reconcileParcelPayment,
+  ]);
 
   const parcelPhotos = React.useMemo<ParcelPhotoItem[]>(() => {
     const photos: ParcelPhotoItem[] = [];
@@ -415,7 +476,9 @@ export function ParcelDetailScreen(): React.JSX.Element {
     }
     if (parcel?.status && !paymentStage) {
       setPaymentSessionActive(false);
+      setPaymentConfirmationMethod(null);
       stopPaymentPollingWindow();
+      reconciledPaymentScopeRef.current = null;
     }
   }, [
     navigation,
@@ -663,14 +726,51 @@ export function ParcelDetailScreen(): React.JSX.Element {
         ? await depositPaymentMutation.mutateAsync(input)
         : await finalPaymentMutation.mutateAsync(input);
 
+      const paymentStillPending = isParcelPaymentPending(result.status);
+      const resultPaymentId =
+        'depositPaymentId' in result
+          ? result.depositPaymentId
+          : result.balancePaymentId;
+      const shouldReconcileWalletImmediately =
+        paymentStillPending &&
+        methodForRequest === 'wallet' &&
+        paymentReturnEnabled;
+
+      if (shouldReconcileWalletImmediately && resultPaymentId) {
+        // The query-cache update below can expose activePaymentId immediately.
+        // Claim this scope first so its effect does not start a duplicate check.
+        reconciledPaymentScopeRef.current = `${parcelId}:${resultPaymentId}`;
+      }
+      if (userId) {
+        queryClient.setQueryData<ParcelDetail>(
+          parcelKeys.detail(userId, parcelId),
+          current =>
+            applyParcelPaymentResultToDetail(current, paymentStage, result),
+        );
+      }
       setDetailAmbiguousRetry(null);
-      setPaymentSessionActive(true);
-      beginPaymentPollingWindow();
+      setPaymentConfirmationMethod(
+        paymentStillPending ? methodForRequest : null,
+      );
+      setPaymentSessionActive(paymentStillPending);
+      if (paymentStillPending) {
+        beginPaymentPollingWindow();
+      } else {
+        stopPaymentPollingWindow();
+        setReopenSession(null);
+      }
       navigation.setParams({
         paymentRedirectUrl: result.paymentRedirectUrl ?? undefined,
         preferredPaymentMethod: methodForRequest,
       });
       invalidatePaymentQueries();
+
+      // Wallet returns directly to this screen, so reconcile from the mutation
+      // response just like VNPay does from its SDK return signal. The bounded
+      // detail polling remains a fallback for eventual Parcel status updates.
+      if (shouldReconcileWalletImmediately) {
+        reconcileParcelPayment().catch(() => undefined);
+      }
 
       if (result.paymentRedirectUrl && methodForRequest === 'vnpay') {
         try {
@@ -735,7 +835,10 @@ export function ParcelDetailScreen(): React.JSX.Element {
     navigation,
     parcelId,
     paymentIntentLocked,
+    paymentReturnEnabled,
     paymentStage,
+    queryClient,
+    reconcileParcelPayment,
     refetchParcelDetail,
     stopPaymentPollingWindow,
     t,
@@ -750,6 +853,7 @@ export function ParcelDetailScreen(): React.JSX.Element {
   }, [handleStartPayment]);
   const handlePayAgain = React.useCallback(() => {
     setPaymentSessionActive(false);
+    setPaymentConfirmationMethod(null);
     stopPaymentPollingWindow();
   }, [stopPaymentPollingWindow]);
   const handlePaymentMethodChange = React.useCallback(
@@ -1203,9 +1307,21 @@ export function ParcelDetailScreen(): React.JSX.Element {
                 </View>
               ) : (
                 <>
-                  {paymentSessionActive ? (
+                  {paymentConfirmationActive ? (
                     <View style={styles.verifyingPayment}>
-                      {paymentReturn.phase === 'awaiting_parcel' ? null : (
+                      {walletConfirmationActive ? (
+                        <CheckCircle
+                          size={22}
+                          color={theme.colors.success}
+                          weight="fill"
+                        />
+                      ) : paymentReturn.phase === 'awaiting_parcel' ? (
+                        <Clock
+                          size={22}
+                          color={theme.colors.primary}
+                          weight="duotone"
+                        />
+                      ) : (
                         <ActivityIndicator
                           size="small"
                           color={theme.colors.primary}
@@ -1213,12 +1329,18 @@ export function ParcelDetailScreen(): React.JSX.Element {
                       )}
                       <View style={styles.verifyingPaymentCopy}>
                         <Text style={styles.verifyingPaymentTitle}>
-                          {paymentReturn.phase === 'awaiting_parcel'
+                          {walletConfirmationActive
+                            ? t('parcel.payment.walletConfirmationTitle')
+                            : paymentReturn.phase === 'awaiting_parcel'
                             ? t('paymentReturn.processingTitle')
                             : t('parcel.payment.verifyingTitle')}
                         </Text>
                         <Text style={styles.verifyingPaymentText}>
-                          {paymentReturn.phase === 'awaiting_parcel'
+                          {walletConfirmationActive
+                            ? t(
+                                'parcel.payment.walletConfirmationDescription',
+                              )
+                            : paymentReturn.phase === 'awaiting_parcel'
                             ? t('paymentReturn.processingDescription')
                             : t('parcel.payment.verifyingDescription')}
                         </Text>
@@ -1232,59 +1354,74 @@ export function ParcelDetailScreen(): React.JSX.Element {
                           {t('parcel.actions.refresh')}
                         </Text>
                       </Pressable>
-                      <Pressable
-                        accessibilityRole="button"
-                        hitSlop={8}
-                        onPress={handlePayAgain}
-                      >
-                        <Text style={styles.refreshPaymentText}>
-                          {t('parcel.payment.payAgain')}
-                        </Text>
-                      </Pressable>
+                      {!activePaymentId && !walletConfirmationActive ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          hitSlop={8}
+                          onPress={handlePayAgain}
+                        >
+                          <Text style={styles.refreshPaymentText}>
+                            {t('parcel.payment.payAgain')}
+                          </Text>
+                        </Pressable>
+                      ) : null}
                     </View>
                   ) : null}
-                  <ParcelPaymentMethodSelector
-                    value={lockedDetailPaymentMethod}
-                    onChange={handlePaymentMethodChange}
-                    requiredAmount={paymentAmount}
-                    walletBalance={walletBalanceQuery.data?.balance}
-                    walletIsLoading={walletBalanceQuery.isLoading}
-                    walletHasError={walletBalanceQuery.isError}
-                    disabled={isStartingPayment || paymentIntentLocked}
-                  />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: isStartingPayment }}
-                    disabled={isStartingPayment}
-                    style={({ pressed }) => [
-                      styles.trackButton,
-                      isStartingPayment ? styles.trackButtonDisabled : null,
-                      pressed && !isStartingPayment ? styles.pressed : null,
-                    ]}
-                    onPress={handleStartPaymentPress}
-                  >
-                    {isStartingPayment ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={theme.colors.textInverse}
+                  {!paymentConfirmationActive ? (
+                    <>
+                      <ParcelPaymentMethodSelector
+                        value={lockedDetailPaymentMethod}
+                        onChange={handlePaymentMethodChange}
+                        requiredAmount={paymentAmount}
+                        walletBalance={walletBalanceQuery.data?.balance}
+                        walletIsLoading={walletBalanceQuery.isLoading}
+                        walletHasError={walletBalanceQuery.isError}
+                        disabled={isStartingPayment || paymentIntentLocked}
                       />
-                    ) : selectedPaymentMethod === 'vnpay' ? (
-                      <VnPayLogo size="compact" />
-                    ) : (
-                      <CreditCard
-                        size={18}
-                        color={theme.colors.textInverse}
-                        weight="bold"
-                      />
-                    )}
-                    <Text style={styles.trackButtonText}>
-                      {isStartingPayment
-                        ? t('parcel.payment.starting')
-                        : selectedPaymentMethod === 'wallet'
-                        ? t('parcel.payment.payWithWallet')
-                        : t('parcel.payment.continueToVnPay')}
-                    </Text>
-                  </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          selectedPaymentMethod === 'wallet'
+                            ? t('parcel.payment.payWithWallet')
+                            : t('parcel.payment.continueToVnPay')
+                        }
+                        accessibilityState={{ disabled: isStartingPayment }}
+                        disabled={isStartingPayment}
+                        style={({ pressed }) => [
+                          styles.trackButton,
+                          isStartingPayment
+                            ? styles.trackButtonDisabled
+                            : null,
+                          pressed && !isStartingPayment
+                            ? styles.pressed
+                            : null,
+                        ]}
+                        onPress={handleStartPaymentPress}
+                      >
+                        {isStartingPayment ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={theme.colors.textInverse}
+                          />
+                        ) : selectedPaymentMethod === 'vnpay' ? (
+                          <VnPayLogo size="compact" />
+                        ) : (
+                          <CreditCard
+                            size={18}
+                            color={theme.colors.textInverse}
+                            weight="bold"
+                          />
+                        )}
+                        <Text style={styles.trackButtonText}>
+                          {isStartingPayment
+                            ? t('parcel.payment.starting')
+                            : selectedPaymentMethod === 'wallet'
+                            ? t('parcel.payment.payWithWallet')
+                            : t('parcel.payment.continueToVnPay')}
+                        </Text>
+                      </Pressable>
+                    </>
+                  ) : null}
                 </>
               )}
             </View>

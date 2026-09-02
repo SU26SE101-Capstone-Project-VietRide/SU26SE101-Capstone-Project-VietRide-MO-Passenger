@@ -938,7 +938,11 @@
       "departureDate": "Departure date",
       "return": "Return",
       "outbound": "Outbound",
-      "trip": "Trip"
+      "trip": "Trip",
+      "routeFrom": "From {{origin}}",
+      "routeTo": "To {{destination}}",
+      "from": "From",
+      "to": "To"
     },
     "paymentRedirect": {
       "errorTitle": "Could not open VNPay",
@@ -1522,6 +1526,8 @@
       "openVnPayAgain": "Open VNPay again",
       "verifyingTitle": "Verifying payment",
       "verifyingDescription": "VietRide is confirming your payment. If you cancelled VNPay, pay again below.",
+      "walletConfirmationTitle": "Wallet payment successful",
+      "walletConfirmationDescription": "VietRide is finalizing the parcel confirmation. You do not need to pay again; the status will update automatically.",
       "payAgain": "Pay again",
       "starting": "Starting payment…",
       "payWithWallet": "Pay with Wallet",
@@ -1575,6 +1581,8 @@
     "route": {
       "from": "FROM",
       "to": "TO",
+      "routeFrom": "From {{origin}}",
+      "routeTo": "To {{destination}}",
       "origin": "Origin",
       "destination": "Destination",
       "originTerminal": "Origin terminal",

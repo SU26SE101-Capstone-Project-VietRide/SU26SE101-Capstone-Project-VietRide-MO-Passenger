@@ -35,12 +35,26 @@ const mockTheme = {
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, params?: { label?: string; from?: string; to?: string }) =>
+    t: (
+      key: string,
+      params?: {
+        label?: string;
+        from?: string;
+        to?: string;
+        origin?: string;
+        destination?: string;
+        defaultValue?: string;
+      },
+    ) =>
       key === 'parcel.progress.stepAccessibility'
         ? params?.label ?? key
         : key === 'parcel.route.summaryAccessibility'
         ? `Đổi khu vực gửi và nhận. Từ ${params?.from} đến ${params?.to}`
-        : translations[key] ?? key,
+        : key === 'parcel.route.routeFrom'
+        ? `Từ ${params?.origin}`
+        : key === 'parcel.route.routeTo'
+        ? `Đến ${params?.destination}`
+        : translations[key] ?? params?.defaultValue ?? key,
   }),
 }));
 jest.mock('@shared/contexts/ThemeContext', () => ({
@@ -172,19 +186,23 @@ describe('StepProgressBar', () => {
     const destination = renderer!.root.findByProps({
       testID: 'parcel-header-route-destination',
     });
-    const arrow = renderer!.root.findByProps({
-      testID: 'parcel-header-route-arrow',
+    const originBadge = renderer!.root.findByProps({
+      testID: 'parcel-header-route-origin-badge',
+    });
+    const destinationBadge = renderer!.root.findByProps({
+      testID: 'parcel-header-route-destination-badge',
     });
     expect(origin.props.numberOfLines).toBe(1);
     expect(origin.props.ellipsizeMode).toBe('tail');
     expect(destination.props.numberOfLines).toBe(1);
     expect(destination.props.ellipsizeMode).toBe('tail');
-    expect(origin.parent).toBe(destination.parent);
-    expect(arrow.props.children).toBe('→');
-    expect(arrow.props.accessible).toBe(false);
-    expect(StyleSheet.flatten(arrow.props.style).fontSize).toBeLessThan(
-      StyleSheet.flatten(origin.props.style).fontSize,
-    );
+    expect(origin.props.children).toBe('TP. Hồ Chí Minh');
+    expect(destination.props.children).toBe('Vũng Tàu');
+    expect(originBadge.props.children).toBe('TỪ');
+    expect(destinationBadge.props.children).toBe('ĐẾN');
+    expect(
+      renderer!.root.findAllByProps({ testID: 'parcel-header-route-arrow' }),
+    ).toHaveLength(0);
 
     act(() => {
       routeButton.props.onPress();

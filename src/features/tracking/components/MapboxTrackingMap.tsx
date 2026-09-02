@@ -38,6 +38,10 @@ import type { GeoCoordinate } from '@shared/types/common';
 import { getGeoDistanceKm } from '@shared/utils/geo';
 import type { TrackingPoint } from '../api/trackingApi';
 import {
+  deriveTrailHeading,
+  matchVehicleHeadingToRoute,
+  prepareRouteHeadingPath,
+  type PreparedRouteHeadingPath,
   type TrackingMapMarker,
   type TrackingMapMarkerKind,
   type TrackingMapStop,
@@ -399,6 +403,8 @@ function VehiclePuck({
 }): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const pulse = useSharedValue(0);
+  const rotation = useSharedValue(heading);
+  const unwrappedHeadingRef = useRef(heading);
 
   useEffect(() => {
     if (reduceMotion) {
@@ -419,9 +425,31 @@ function VehiclePuck({
     return () => cancelAnimation(pulse);
   }, [pulse, reduceMotion]);
 
+  useEffect(() => {
+    const previous = unwrappedHeadingRef.current;
+    const previousNormalized = ((previous % 360) + 360) % 360;
+    const shortestDelta = ((heading - previousNormalized + 540) % 360) - 180;
+    const next = previous + shortestDelta;
+    unwrappedHeadingRef.current = next;
+
+    if (reduceMotion) {
+      cancelAnimation(rotation);
+      rotation.value = next;
+      return;
+    }
+
+    rotation.value = withTiming(next, {
+      duration: motionTokens.duration.emphasis,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [heading, reduceMotion, rotation]);
+
   const haloStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 0.55 + pulse.value * 0.95 }],
     opacity: reduceMotion ? 0.24 : 0.4 * (1 - pulse.value),
+  }));
+  const rotationStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: String(rotation.value) + 'deg' }],
   }));
 
   return (
@@ -431,11 +459,8 @@ function VehiclePuck({
       testID="tracking-vehicle-marker"
     >
       <Animated.View style={[styles.vehiclePulse, haloStyle]} />
-      <View
-        style={[
-          styles.vehicleMarker,
-          { transform: [{ rotate: String(heading) + 'deg' }] },
-        ]}
+      <Animated.View
+        style={[styles.vehicleMarker, rotationStyle]}
         testID={
           vehicleKind === 'shuttle'
             ? 'tracking-shuttle-vehicle-glyph'
@@ -443,7 +468,7 @@ function VehiclePuck({
         }
       >
         <NavigationArrow size={20} color={glyphColor} weight="fill" />
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -464,6 +489,11 @@ export const MapboxTrackingMap = React.memo(
     const isMapReadyRef = useRef(false);
     const hasFittedInitialViewportRef = useRef(false);
     const lastFollowedCoordinateRef = useRef<GeoCoordinate | null>(null);
+    const routeHeadingProgressRef = useRef<{
+      path: PreparedRouteHeadingPath;
+      segmentIndex: number;
+    } | null>(null);
+    const lastStableHeadingRef = useRef(0);
     const [cameraMode, setCameraMode] = useState<CameraMode>('follow');
     const [selectedMarkerKey, setSelectedMarkerKey] = useState<string | null>(
       null,
@@ -498,6 +528,10 @@ export const MapboxTrackingMap = React.memo(
     );
 
     const trailPoints = trail ?? points ?? EMPTY_TRACKING_POINTS;
+    const routeHeadingPath = useMemo(
+      () => prepareRouteHeadingPath(plannedRoute),
+      [plannedRoute],
+    );
     const legacyMarkers = useMemo(
       () => legacyStopsToMarkers(stops ?? EMPTY_STOPS),
       [stops],
@@ -520,6 +554,30 @@ export const MapboxTrackingMap = React.memo(
           ? { latitude: latest.latitude, longitude: latest.longitude }
           : null,
       [latest],
+    );
+    const routeHeadingMatch = useMemo(() => {
+      if (vehicleKind !== 'bus' || !latestCoordinate) return null;
+      const previousSegmentIndex =
+        routeHeadingProgressRef.current?.path === routeHeadingPath
+          ? routeHeadingProgressRef.current.segmentIndex
+          : undefined;
+
+      return matchVehicleHeadingToRoute(
+        routeHeadingPath,
+        latestCoordinate,
+        previousSegmentIndex,
+      );
+    }, [latestCoordinate, routeHeadingPath, vehicleKind]);
+    useEffect(() => {
+      if (!routeHeadingMatch) return;
+      routeHeadingProgressRef.current = {
+        path: routeHeadingPath,
+        segmentIndex: routeHeadingMatch.segmentIndex,
+      };
+    }, [routeHeadingMatch, routeHeadingPath]);
+    const trailHeading = useMemo(
+      () => deriveTrailHeading(trailPoints),
+      [trailPoints],
     );
     const markerCoordinates = useMemo(
       () =>
@@ -620,7 +678,14 @@ export const MapboxTrackingMap = React.memo(
       }),
       [mapPalette.trail],
     );
-    const heading = latest?.headingDeg ?? 0;
+    const headingCandidate =
+      routeHeadingMatch?.headingDeg ?? latest?.headingDeg ?? trailHeading;
+    const heading = headingCandidate ?? lastStableHeadingRef.current;
+    useEffect(() => {
+      if (headingCandidate !== undefined) {
+        lastStableHeadingRef.current = headingCandidate;
+      }
+    }, [headingCandidate]);
     const currentSpeedKmh = latest?.speedKmh;
     const speedLabel =
       vehicleKind === 'bus' &&

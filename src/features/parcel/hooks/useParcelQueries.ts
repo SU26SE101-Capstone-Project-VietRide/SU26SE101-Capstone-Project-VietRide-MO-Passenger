@@ -40,10 +40,11 @@ import {
 
 const PARCEL_TRIP_STALE_TIME_MS = 30 * 1000;
 const PARCEL_DETAIL_STALE_TIME_MS = 30 * 1000;
-const PARCEL_PAYMENT_REFETCH_INTERVAL_MS = 2_500;
 const AVAILABLE_PARCEL_TRIPS_PAGE_SIZE = 20;
 
 export const PARCEL_VOUCHER_REFRESH_INTERVAL_MS = 15 * 1000;
+export const PARCEL_PAYMENT_STANDARD_REFETCH_INTERVAL_MS = 2_500;
+export const PARCEL_PAYMENT_WALLET_REFETCH_INTERVAL_MS = 1_000;
 
 const shouldRetryParcelQuery = (
   failureCount: number,
@@ -181,15 +182,18 @@ export const parcelDetailQueryOptions = (
     refetchOnReconnect: true,
   });
 
-export function useParcelDetail(parcelId: string, pollPendingPayment = false) {
+export function useParcelDetail(
+  parcelId: string,
+  paymentRefetchIntervalMs: number | false = false,
+) {
   const userId = useAuthStore(state => state.user?.id);
   return useQuery({
     ...parcelDetailQueryOptions(userId, parcelId),
     refetchInterval: query =>
-      pollPendingPayment
+      paymentRefetchIntervalMs !== false
       && query.state.data?.senderUserId === userId
       && isParcelPaymentPending(query.state.data?.status)
-        ? PARCEL_PAYMENT_REFETCH_INTERVAL_MS
+        ? paymentRefetchIntervalMs
         : false,
     refetchIntervalInBackground: false,
   });

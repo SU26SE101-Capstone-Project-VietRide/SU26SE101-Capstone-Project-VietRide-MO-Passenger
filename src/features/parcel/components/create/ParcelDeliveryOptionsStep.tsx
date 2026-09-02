@@ -284,7 +284,9 @@ function ParcelDeliveryOptionsStepComponent({
       ) : (
         <View style={styles.listContainer}>
           <FlashList
+            style={styles.list}
             data={options}
+            extraData={selectedOptionKey}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
             contentContainerStyle={[
@@ -300,6 +302,7 @@ function ParcelDeliveryOptionsStepComponent({
       {/* Sticky Bottom Action Bar */}
       <View style={styles.bottomBar}>
         <Pressable
+          testID="parcel-delivery-continue"
           accessibilityRole="button"
           accessibilityLabel={t('parcel.actions.continueToConfirm')}
           accessibilityState={{ disabled: !canContinue }}
@@ -326,6 +329,7 @@ export const ParcelDeliveryOptionsStep = memo(ParcelDeliveryOptionsStepComponent
 const createStyles = (theme: AppTheme) => ({
   container: {
     flex: 1,
+    minHeight: 0,
   },
   dateSelectorSection: {
     paddingHorizontal: spacing.xl,
@@ -386,6 +390,10 @@ const createStyles = (theme: AppTheme) => ({
   },
   listContainer: {
     flex: 1,
+    minHeight: 0,
+  },
+  list: {
+    flex: 1,
   },
   listContent: {
     paddingHorizontal: spacing.xl,
@@ -395,6 +403,7 @@ const createStyles = (theme: AppTheme) => ({
     paddingHorizontal: spacing.md,
   },
   loadingContainer: {
+    flex: 1,
     padding: spacing.xl,
     gap: spacing.md,
   },
@@ -545,6 +554,8 @@ const createStyles = (theme: AppTheme) => ({
   },
   bottomBar: {
     flexShrink: 0,
+    zIndex: 1,
+    elevation: 1,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     backgroundColor: theme.colors.background,

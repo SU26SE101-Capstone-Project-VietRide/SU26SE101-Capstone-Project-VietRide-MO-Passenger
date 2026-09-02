@@ -938,7 +938,11 @@
       "departureDate": "Ngày đi",
       "return": "Chiều về",
       "outbound": "Chiều đi",
-      "trip": "Chuyến đi"
+      "trip": "Chuyến đi",
+      "routeFrom": "Từ {{origin}}",
+      "routeTo": "Đến {{destination}}",
+      "from": "Từ",
+      "to": "Đến"
     },
     "paymentRedirect": {
       "errorTitle": "Không thể mở VNPay",
@@ -1522,6 +1526,8 @@
       "openVnPayAgain": "Mở lại VNPay",
       "verifyingTitle": "Đang xác minh thanh toán",
       "verifyingDescription": "VietRide đang xác nhận thanh toán. Nếu bạn đã hủy VNPay, hãy thanh toán lại bên dưới.",
+      "walletConfirmationTitle": "Thanh toán ví thành công",
+      "walletConfirmationDescription": "VietRide đang hoàn tất xác nhận đơn. Bạn không cần thanh toán lại; trạng thái sẽ tự cập nhật.",
       "payAgain": "Thanh toán lại",
       "starting": "Đang bắt đầu thanh toán…",
       "payWithWallet": "Thanh toán bằng ví",
@@ -1575,6 +1581,8 @@
     "route": {
       "from": "TỪ",
       "to": "ĐẾN",
+      "routeFrom": "Từ {{origin}}",
+      "routeTo": "Đến {{destination}}",
       "origin": "Điểm đi",
       "destination": "Điểm đến",
       "originTerminal": "Bến gửi",

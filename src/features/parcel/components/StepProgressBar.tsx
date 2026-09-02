@@ -99,29 +99,52 @@ function StepProgressBarComponent({
             >
               <MapPin size={14} color={theme.colors.primary} weight="fill" />
               <View style={styles.headerRouteStack}>
-                <Text
-                  testID="parcel-header-route-origin"
-                  style={styles.headerRouteText}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {routeSummary.from}
-                </Text>
-                <Text
-                  testID="parcel-header-route-arrow"
-                  style={styles.headerRouteArrow}
-                  accessible={false}
-                >
-                  →
-                </Text>
-                <Text
-                  testID="parcel-header-route-destination"
-                  style={styles.headerRouteText}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {routeSummary.to}
-                </Text>
+                <View style={styles.headerRouteLine}>
+                  <View style={styles.headerRouteBadge} accessible={false}>
+                    <Text
+                      testID="parcel-header-route-origin-badge"
+                      style={styles.headerRouteBadgeText}
+                      numberOfLines={1}
+                      accessible={false}
+                    >
+                      {t('parcel.route.from', { defaultValue: 'TỪ' })}
+                    </Text>
+                  </View>
+                  <Text
+                    testID="parcel-header-route-origin"
+                    style={styles.headerRouteText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    accessibilityLabel={`${t('parcel.route.from', { defaultValue: 'Từ' })} ${routeSummary.from}`}
+                  >
+                    {routeSummary.from}
+                  </Text>
+                </View>
+                <View style={styles.headerRouteLine}>
+                  <View style={styles.headerRouteBadge} accessible={false}>
+                    <Text
+                      testID="parcel-header-route-destination-badge"
+                      style={styles.headerRouteBadgeText}
+                      numberOfLines={1}
+                      accessible={false}
+                    >
+                      {t('parcel.route.to', { defaultValue: 'ĐẾN' })}
+                    </Text>
+                  </View>
+                  <Text
+                    testID="parcel-header-route-destination"
+                    style={styles.headerRouteText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    accessibilityLabel={`${t('parcel.route.to', { defaultValue: 'Đến' })} ${routeSummary.to}`}
+                  >
+                    {routeSummary.to}
+                  </Text>
+                </View>
               </View>
               <View style={styles.headerEditAction}>
                 <Text style={styles.headerEditActionText}>
@@ -320,20 +343,43 @@ const createStyles = (theme: AppTheme) => ({
   headerRouteStack: {
     flex: 1,
     minWidth: 0,
-    gap: 0,
+    gap: 3,
+  },
+  headerRouteLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    width: '100%',
+    minWidth: 0,
+  },
+  headerRouteBadge: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    minWidth: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  headerRouteBadgeText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: 9,
+    lineHeight: 12,
+    color: theme.colors.primaryDark,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   headerRouteText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
     color: theme.colors.primaryDark,
-    width: '100%',
+    flex: 1,
     minWidth: 0,
-  },
-  headerRouteArrow: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs - 2,
-    lineHeight: fontSizes.xs,
-    color: theme.colors.textTertiary,
   },
   headerEditAction: {
     minHeight: 24,

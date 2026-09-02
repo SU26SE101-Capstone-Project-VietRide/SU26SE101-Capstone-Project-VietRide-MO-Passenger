@@ -1,5 +1,10 @@
 import type { TrackingPoint } from '../api/trackingApi';
-import { prepareTrackingMapData } from './trackingMapModel';
+import {
+  deriveTrailHeading,
+  matchVehicleHeadingToRoute,
+  prepareRouteHeadingPath,
+  prepareTrackingMapData,
+} from './trackingMapModel';
 
 const point = (
   recordedAt: string,
@@ -89,8 +94,8 @@ describe('prepareTrackingMapData', () => {
     });
 
     expect(result.markers).toHaveLength(50);
-    expect(result.markers.map((marker) => marker.id)).toEqual(
-      markers.map((marker) => marker.id),
+    expect(result.markers.map(marker => marker.id)).toEqual(
+      markers.map(marker => marker.id),
     );
     expect(result).not.toHaveProperty('hiddenIntermediateCount');
   });
@@ -122,5 +127,63 @@ describe('prepareTrackingMapData', () => {
         sequence: 7,
       }),
     ]);
+  });
+});
+
+describe('route-aware vehicle heading', () => {
+  const route = [
+    { latitude: 10, longitude: 106 },
+    { latitude: 10, longitude: 106.002 },
+    { latitude: 10.01, longitude: 106.002 },
+  ];
+
+  it('follows the road segment ahead instead of pointing straight at destination', () => {
+    const path = prepareRouteHeadingPath(route);
+    const match = matchVehicleHeadingToRoute(path, {
+      latitude: 10,
+      longitude: 106.0005,
+    });
+
+    expect(match).not.toBeNull();
+    expect(match!.segmentIndex).toBe(0);
+    expect(match!.headingDeg).toBeCloseTo(90, 0);
+    expect(match!.distanceFromRouteMeters).toBeLessThan(1);
+  });
+
+  it('looks through the next segment near a turn', () => {
+    const path = prepareRouteHeadingPath(route);
+    const match = matchVehicleHeadingToRoute(path, {
+      latitude: 10,
+      longitude: 106.0019,
+    });
+
+    expect(match).not.toBeNull();
+    expect(match!.headingDeg).toBeGreaterThan(0);
+    expect(match!.headingDeg).toBeLessThan(45);
+  });
+
+  it('does not force route bearing when the vehicle is off-route', () => {
+    const path = prepareRouteHeadingPath(route);
+    const match = matchVehicleHeadingToRoute(path, {
+      latitude: 10.005,
+      longitude: 106,
+    });
+
+    expect(match).toBeNull();
+  });
+
+  it('derives a stable fallback only after meaningful GPS movement', () => {
+    expect(
+      deriveTrailHeading([
+        { latitude: 10, longitude: 106 },
+        { latitude: 10.001, longitude: 106 },
+      ]),
+    ).toBeCloseTo(0, 0);
+    expect(
+      deriveTrailHeading([
+        { latitude: 10, longitude: 106 },
+        { latitude: 10.00001, longitude: 106 },
+      ]),
+    ).toBeUndefined();
   });
 });
