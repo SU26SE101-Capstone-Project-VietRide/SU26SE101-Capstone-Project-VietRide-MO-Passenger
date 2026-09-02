@@ -1361,7 +1361,7 @@
       "finalTotal": "Tổng phí chính thức",
       "estimatedTotal": "Tổng phí dự kiến",
       "priceConfirmedAfterWeigh": "Đã chốt sau khi cân/đo thực tế",
-      "priceEstimatedFromDeclaration": "Tính theo thông tin kiện hàng đã khai báo",
+      "priceEstimatedFromDeclaration": "Tính theo thông tin kiện hàng \nđã khai báo",
       "depositPaid": "Tiền cọc đã thanh toán",
       "depositDue": "Tiền cọc cần thanh toán",
       "depositTotal": "Tổng tiền cọc: {{amount}}",
@@ -1671,7 +1671,7 @@
       "totalAfterDiscount": "Tổng phí dự kiến sau ưu đãi",
       "depositPercent": "Tỷ lệ cọc",
       "paymentToday": "Thanh toán hôm nay",
-      "depositOfEstimatedTotal": "Tiền cọc ({{percent}}% tổng phí dự kiến)",
+      "depositOfEstimatedTotal": "Tiền cọc \n({{percent}}% tổng phí dự kiến)",
       "depositDueNow": "Tiền cọc cần thanh toán",
       "serverPricingHint": "Phí dự kiến tính theo thông tin kiện hàng đã khai báo. Nhà xe có thể điều chỉnh sau khi cân/đo thực tế; phần chênh lệch, nếu có, sẽ được thông báo trước khi thanh toán.",
       "depositDue": "Tiền cọc cần trả"
