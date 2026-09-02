@@ -539,9 +539,27 @@ describe('BookingHistoryScreen parcel status filters', () => {
     const bookingBody = renderer.root.findByProps({
       accessibilityLabel: 'bookingHistory.bookingAccessibility',
     });
-    expect(
-      bookingBody.findByProps({ testID: 'ticket-history-route-title' }).props.children,
-    ).toBe('Origin station → Destination station');
+    const routeOrigin = bookingBody.findByProps({
+      testID: 'ticket-history-route-origin',
+    });
+    const routeDestination = bookingBody.findByProps({
+      testID: 'ticket-history-route-destination',
+    });
+    const routeArrow = bookingBody.findByProps({
+      testID: 'ticket-history-route-arrow',
+    });
+    expect(routeOrigin.props.children).toBe('Origin station');
+    expect(routeOrigin.props.numberOfLines).toBe(1);
+    expect(routeOrigin.props.ellipsizeMode).toBe('tail');
+    expect(routeDestination.props.children).toBe('Destination station');
+    expect(routeDestination.props.numberOfLines).toBe(1);
+    expect(routeDestination.props.ellipsizeMode).toBe('tail');
+    expect(routeOrigin.parent).toBe(routeDestination.parent);
+    expect(routeArrow.props.children).toBe('→');
+    expect(routeArrow.props.accessible).toBe(false);
+    expect(StyleSheet.flatten(routeArrow.props.style).fontSize).toBeLessThan(
+      StyleSheet.flatten(routeOrigin.props.style).fontSize,
+    );
     expect(
       bookingBody.findByProps({ testID: 'ticket-history-pickup' }).props.children,
     ).toBe('Origin station');

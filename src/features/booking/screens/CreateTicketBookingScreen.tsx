@@ -67,7 +67,8 @@ type NavProp = NativeStackNavigationProp<BookingStackParamList, 'CreateTicketBoo
 type CreateBookingRouteProp = RouteProp<BookingStackParamList, 'CreateTicketBooking'>;
 
 type RouteHeaderSnapshot = {
-  primary: string;
+  origin: string;
+  destination: string;
   secondary?: string;
 };
 
@@ -119,16 +120,6 @@ const countActiveTripFilters = (filters: TripFilterState): number => {
     filters.priceRange !== DEFAULT_TRIP_FILTERS.priceRange,
   ].filter(Boolean).length;
 };
-
-const makeRouteLabel = (
-  from: string,
-  to: string,
-): string => `${from} → ${to}`;
-
-const makeRoundTripRouteLabel = (
-  from: string,
-  to: string,
-): string => `${from} ⇄ ${to}`;
 
 const makeHeaderContextLabel = (
   label: string,
@@ -439,7 +430,8 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
       const trip = selectedTrip ?? outboundState?.trip;
 
       return {
-        primary: makeRouteLabel(from, to),
+        origin: from,
+        destination: to,
         secondary: makeHeaderContextLabel(
           t('booking.header.oneWay'),
           makeBookingDateLabel(searchParams.date, t('booking.header.selectDate')),
@@ -461,7 +453,8 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
 
     if (isCheckoutOrPaymentStep) {
       return {
-        primary: makeRoundTripRouteLabel(from, to),
+        origin: from,
+        destination: to,
         secondary: makeTravelDateRangeLabel(
           makeBookingDateLabel(searchParams.date, t('booking.header.departureDate')),
           makeBookingDateLabel(searchParams.returnDate, t('booking.header.returnDate')),
@@ -472,7 +465,8 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     }
 
     return {
-      primary: makeRoundTripRouteLabel(from, to),
+      origin: from,
+      destination: to,
       secondary: makeHeaderContextLabel(
         stepLeg === 'return'
           ? t('booking.header.return')
@@ -679,7 +673,8 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
           <View style={styles.headerTitleSlot}>
             {routeHeader ? (
               <AnimatedRouteHeader
-                primary={routeHeader.primary}
+                origin={routeHeader.origin}
+                destination={routeHeader.destination}
                 secondary={routeHeader.secondary}
               />
             ) : (

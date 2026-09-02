@@ -121,32 +121,29 @@ export const TrackingHeader = React.memo(function TrackingHeaderComponent({
 
       {route?.originName || route?.destinationName ? (
         <View style={styles.routeSummary} accessibilityRole="summary">
-          <View style={styles.routeEndpoint}>
-            <Text style={styles.routeLabel} numberOfLines={1}>
-              {t('tracking.boardingPoint')}
-            </Text>
-            <Text
-              testID="tracking-header-route-origin"
-              style={styles.routeName}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {route.originName ?? t('common.notAvailable')}
-            </Text>
-          </View>
-          <View style={styles.routeEndpoint}>
-            <Text style={styles.routeLabel} numberOfLines={1}>
-              {t('tracking.dropOff')}
-            </Text>
-            <Text
-              testID="tracking-header-route-destination"
-              style={styles.routeName}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {route.destinationName ?? t('common.notAvailable')}
-            </Text>
-          </View>
+          <Text
+            testID="tracking-header-route-origin"
+            style={styles.routeName}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {route.originName ?? t('common.notAvailable')}
+          </Text>
+          <Text
+            testID="tracking-header-route-arrow"
+            style={styles.routeArrow}
+            accessible={false}
+          >
+            →
+          </Text>
+          <Text
+            testID="tracking-header-route-destination"
+            style={styles.routeName}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {route.destinationName ?? t('common.notAvailable')}
+          </Text>
         </View>
       ) : null}
     </View>
@@ -221,25 +218,18 @@ const createStyles = (theme: AppTheme) => ({
     backgroundColor: theme.colors.errorLight,
   },
   routeSummary: {
-    gap: spacing.xs,
+    gap: 0,
     marginBottom: spacing.sm,
     marginHorizontal: spacing.lg,
   },
-  routeEndpoint: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.sm,
-    minWidth: 0,
-  },
-  routeLabel: {
-    width: 72,
-    flexShrink: 0,
+  routeArrow: {
     fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs,
+    fontSize: fontSizes.xs - 2,
+    lineHeight: fontSizes.xs,
     color: theme.colors.textTertiary,
   },
   routeName: {
-    flex: 1,
+    width: '100%' as const,
     minWidth: 0,
     fontFamily: fontFamilies.semiBold,
     fontSize: fontSizes.xs,

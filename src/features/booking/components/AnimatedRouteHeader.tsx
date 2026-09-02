@@ -13,7 +13,8 @@ import { useThemedStyles } from '@shared/hooks';
 import { motionTokens, useMotion } from '@shared/motion';
 
 export interface AnimatedRouteHeaderProps {
-  readonly primary: string;
+  readonly origin: string;
+  readonly destination: string;
   readonly secondary?: string;
 }
 
@@ -22,7 +23,8 @@ export interface AnimatedRouteHeaderProps {
  * Keeping the animated layer in normal flow prevents fixed-height clipping.
  */
 export function AnimatedRouteHeader({
-  primary,
+  origin,
+  destination,
   secondary,
 }: AnimatedRouteHeaderProps): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
@@ -53,14 +55,31 @@ export function AnimatedRouteHeader({
 
   return (
     <View style={styles.root}>
-      <Text
-        testID="booking-route-primary"
-        style={styles.primary}
-        numberOfLines={2}
-        ellipsizeMode="tail"
-      >
-        {primary}
-      </Text>
+      <View testID="booking-route-endpoints" style={styles.endpointStack}>
+        <Text
+          testID="booking-route-origin"
+          style={styles.primary}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {origin}
+        </Text>
+        <Text
+          testID="booking-route-arrow"
+          style={styles.routeArrow}
+          accessible={false}
+        >
+          →
+        </Text>
+        <Text
+          testID="booking-route-destination"
+          style={styles.primary}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {destination}
+        </Text>
+      </View>
       <View testID="booking-route-secondary-shell" style={styles.secondaryShell}>
         <Animated.View style={[styles.layer, incomingStyle]}>
           {visibleSecondary ? (
@@ -87,6 +106,18 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: 2,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  endpointStack: {
+    width: '100%',
+    minWidth: 0,
+    gap: 0,
+  },
+  routeArrow: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs - 2,
+    lineHeight: fontSizes.xs,
+    color: theme.colors.textTertiary,
+    textAlign: 'center',
   },
   secondaryShell: {
     width: '100%',

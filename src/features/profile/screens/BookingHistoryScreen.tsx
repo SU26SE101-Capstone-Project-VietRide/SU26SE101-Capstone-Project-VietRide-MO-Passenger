@@ -631,13 +631,38 @@ const TicketHistoryRow = memo(function TicketHistoryRowComponent({
         <View style={styles.ticketHeader}>
           <View style={styles.refRow}>
             <Ticket size={18} color={theme.colors.primary} />
-            <Text
+            <View
               testID="ticket-history-route-title"
-              style={styles.refText}
-              numberOfLines={1}
+              style={styles.routeTitleStack}
             >
-              {routeTitleLabel}
-            </Text>
+              <Text
+                testID="ticket-history-route-origin"
+                style={styles.refText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {item.originName ?? routeTitleLabel}
+              </Text>
+              {item.originName && item.destinationName ? (
+                <Text
+                  testID="ticket-history-route-arrow"
+                  style={styles.routeTitleArrow}
+                  accessible={false}
+                >
+                  →
+                </Text>
+              ) : null}
+              {item.originName && item.destinationName ? (
+                <Text
+                  testID="ticket-history-route-destination"
+                  style={styles.refText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {item.destinationName}
+                </Text>
+              ) : null}
+            </View>
           </View>
           <StatusChip
             label={t(statusPresentation.labelKey)}
@@ -2051,10 +2076,20 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.sm,
   },
   refText: {
-    flex: 1,
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
+  },
+  routeTitleStack: {
+    flex: 1,
+    minWidth: 0,
+    gap: 0,
+  },
+  routeTitleArrow: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs - 2,
+    lineHeight: fontSizes.xs,
+    color: theme.colors.textTertiary,
   },
   statusBadge: {
     maxWidth: '48%' as const,

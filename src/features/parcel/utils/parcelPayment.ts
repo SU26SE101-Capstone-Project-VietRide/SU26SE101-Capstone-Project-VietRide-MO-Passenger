@@ -8,7 +8,7 @@ const PARCEL_CHECKOUT_FAILED_STATUSES = new Set([
   'RETURNED',
 ]);
 
-/** Active operational parcel QR statuses — drop-off, in-transit, transfer, and unloaded. */
+/** Active operational parcel QR statuses — drop-off, in-transit, transfer, unloaded, and operator action. */
 const PARCEL_ACTIVE_QR_STATUSES = new Set([
   'PENDING',
   'RESERVED',
@@ -19,6 +19,7 @@ const PARCEL_ACTIVE_QR_STATUSES = new Set([
   'PENDING_TRANSFER_CONFIRM',
   'TRANSFER_ESCALATED',
   'UNLOADED',
+  'PENDING_OPERATOR_ACTION',
 ]);
 
 export type ParcelCheckoutState =
@@ -96,7 +97,7 @@ export const getParcelCheckoutState = (
     return 'active';
   }
 
-  // Fail closed for return, delivery-rejection, operator-action and future BE
+  // Fail closed for return, delivery-rejection and future BE
   // statuses. A drop-off QR must only appear for explicitly allowed states.
   return 'attention';
 };

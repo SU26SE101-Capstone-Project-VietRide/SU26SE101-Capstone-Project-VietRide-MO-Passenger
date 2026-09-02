@@ -99,32 +99,29 @@ function StepProgressBarComponent({
             >
               <MapPin size={14} color={theme.colors.primary} weight="fill" />
               <View style={styles.headerRouteStack}>
-                <View style={styles.headerRouteLine}>
-                  <Text style={styles.headerRouteLabel}>
-                    {t('parcel.route.from')}
-                  </Text>
-                  <Text
-                    testID="parcel-header-route-origin"
-                    style={styles.headerRouteText}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {routeSummary.from}
-                  </Text>
-                </View>
-                <View style={styles.headerRouteLine}>
-                  <Text style={styles.headerRouteLabel}>
-                    {t('parcel.route.to')}
-                  </Text>
-                  <Text
-                    testID="parcel-header-route-destination"
-                    style={styles.headerRouteText}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {routeSummary.to}
-                  </Text>
-                </View>
+                <Text
+                  testID="parcel-header-route-origin"
+                  style={styles.headerRouteText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {routeSummary.from}
+                </Text>
+                <Text
+                  testID="parcel-header-route-arrow"
+                  style={styles.headerRouteArrow}
+                  accessible={false}
+                >
+                  →
+                </Text>
+                <Text
+                  testID="parcel-header-route-destination"
+                  style={styles.headerRouteText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {routeSummary.to}
+                </Text>
               </View>
               <View style={styles.headerEditAction}>
                 <Text style={styles.headerEditActionText}>
@@ -323,27 +320,20 @@ const createStyles = (theme: AppTheme) => ({
   headerRouteStack: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
-  },
-  headerRouteLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  headerRouteLabel: {
-    width: 34,
-    flexShrink: 0,
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs - 2,
-    color: theme.colors.textTertiary,
+    gap: 0,
   },
   headerRouteText: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.xs,
     color: theme.colors.primaryDark,
-    flex: 1,
+    width: '100%',
     minWidth: 0,
-    flexShrink: 1,
+  },
+  headerRouteArrow: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs - 2,
+    lineHeight: fontSizes.xs,
+    color: theme.colors.textTertiary,
   },
   headerEditAction: {
     minHeight: 24,

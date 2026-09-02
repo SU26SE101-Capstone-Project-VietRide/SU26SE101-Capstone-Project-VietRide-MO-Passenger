@@ -172,11 +172,19 @@ describe('StepProgressBar', () => {
     const destination = renderer!.root.findByProps({
       testID: 'parcel-header-route-destination',
     });
+    const arrow = renderer!.root.findByProps({
+      testID: 'parcel-header-route-arrow',
+    });
     expect(origin.props.numberOfLines).toBe(1);
     expect(origin.props.ellipsizeMode).toBe('tail');
     expect(destination.props.numberOfLines).toBe(1);
     expect(destination.props.ellipsizeMode).toBe('tail');
-    expect(origin.parent).not.toBe(destination.parent);
+    expect(origin.parent).toBe(destination.parent);
+    expect(arrow.props.children).toBe('→');
+    expect(arrow.props.accessible).toBe(false);
+    expect(StyleSheet.flatten(arrow.props.style).fontSize).toBeLessThan(
+      StyleSheet.flatten(origin.props.style).fontSize,
+    );
 
     act(() => {
       routeButton.props.onPress();

@@ -36,6 +36,7 @@ describe('getParcelCheckoutState', () => {
     expect(getParcelCheckoutState('PENDING_TRANSFER_CONFIRM')).toBe('active');
     expect(getParcelCheckoutState('TRANSFER_ESCALATED')).toBe('active');
     expect(getParcelCheckoutState('UNLOADED')).toBe('active');
+    expect(getParcelCheckoutState('PENDING_OPERATOR_ACTION')).toBe('active');
   });
 
   it('surfaces legacy additional payment as its own wait state', () => {

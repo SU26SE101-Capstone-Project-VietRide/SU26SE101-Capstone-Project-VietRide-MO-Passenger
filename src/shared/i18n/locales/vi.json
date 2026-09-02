@@ -1320,7 +1320,7 @@
       "state": {
         "unavailableTitle": "Yêu cầu gửi hàng không khả dụng",
         "unavailableDescription": "Yêu cầu này không thể tiếp tục. Hãy kiểm tra trạng thái hoặc tạo yêu cầu gửi hàng mới.",
-        "finalPaymentTitle": "Cần thanh toán phần còn lại",
+        "finalPaymentTitle": "Cần thanh toán phần \ncòn lại",
         "finalPaymentDescription": "Kiện hàng đã được cân lại. Hãy thanh toán phần còn lại trước hạn để kiện hàng được xếp lên xe.",
         "depositTitle": "Cần thanh toán tiền cọc",
         "depositDescription": "Chọn phương thức thanh toán để giữ chỗ chứa hàng cho kiện này.",
@@ -2292,7 +2292,7 @@
         "additionalPayment": "Cần thanh toán thêm",
         "reserved": "Đã giữ chỗ",
         "checkedIn": "Đã nhận hàng",
-        "finalPayment": "Cần thanh toán phần còn lại",
+        "finalPayment": "Cần thanh toán phần \ncòn lại",
         "readyToLoad": "Sẵn sàng xếp hàng",
         "loaded": "Đã xếp lên xe",
         "inTransit": "Đang vận chuyển",

@@ -540,6 +540,27 @@ describe('ParcelDetailScreen identity hierarchy', () => {
     await act(async () => renderer!.unmount());
   });
 
+  it('shows the parcel QR when status is PENDING_OPERATOR_ACTION (Cần nhà xe xử lý)', async () => {
+    mockUseParcelDetail.mockReturnValue(
+      queryFor(createParcel('PENDING_OPERATOR_ACTION')),
+    );
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelDetailScreen />);
+    });
+
+    expect(mockScannableCodeCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: PARCEL_CODE,
+        title: 'parcel.detail.dropoffCode',
+      }),
+    );
+    expect(countDashedDividers(renderer!)).toBe(1);
+
+    await act(async () => renderer!.unmount());
+  });
+
   it('uses a compact status header without QR, divider, UUID, or duplicate code for recipient confirm', async () => {
     mockUseParcelDetail.mockReturnValue(
       queryFor(createParcel('DELIVERED_PENDING_CONFIRM')),
