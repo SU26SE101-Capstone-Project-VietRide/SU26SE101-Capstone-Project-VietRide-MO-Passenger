@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   useNavigation,
   useRoute,
@@ -18,7 +18,6 @@ import {
   Flask,
   MapPin,
   PathIcon,
-  ShareNetwork,
   Ticket,
   Wallet,
   Van,
@@ -384,35 +383,6 @@ function TicketView({
     ? activeTicket.paidAmount
     : activeLeg?.totalAmount ?? model.totalAmount;
 
-  const handleShareTrip = useCallback(async () => {
-    if (!activeLeg) return;
-
-    const messageParts = [
-      t('booking.ticket.shareHeading'),
-      `${activeLeg.boardingName} → ${activeLeg.alightingName}`,
-      activeLeg.boardingDate
-        ? t('booking.ticket.shareDeparture', { date: activeLeg.boardingDate })
-        : null,
-      activeLeg.seatNumbers
-        ? t('booking.ticket.shareSeats', { seats: activeLeg.seatNumbers })
-        : null,
-      t('booking.ticket.shareReference', { reference: activeLeg.reference }),
-      t('booking.ticket.shareSecurityNote'),
-    ].filter((part): part is string => Boolean(part));
-
-    try {
-      await Share.share(
-        { message: messageParts.join('\n') },
-        { dialogTitle: t('booking.ticket.shareTrip') },
-      );
-    } catch {
-      showSnackbar({
-        message: t('booking.ticket.shareFailed'),
-        tone: 'error',
-      });
-    }
-  }, [activeLeg, t]);
-
   const reminderAt = useMemo(() => {
     if (!reminderDepartureDateTime) return null;
     const departureMs = new Date(reminderDepartureDateTime).getTime();
@@ -609,40 +579,6 @@ function TicketView({
           <View style={styles.legBlock}>
             <View style={styles.ticketCard}>
               <View style={styles.detailsSection}>
-                <View style={styles.ticketCardHeader}>
-                  <View style={styles.ticketCardHeaderLeft}>
-                    <View style={styles.ticketCardBadge}>
-                      <Ticket size={13} color={theme.colors.primary} weight="bold" />
-                      <Text style={styles.ticketCardBadgeText}>
-                        {activeLeg.label || t('booking.ticket.detailTitle')}
-                      </Text>
-                    </View>
-                    {activeLeg.reference ? (
-                      <Text style={styles.ticketCardRefText} selectable>
-                        #{activeLeg.reference}
-                      </Text>
-                    ) : null}
-                  </View>
-
-                  {!model.isPendingPayment ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={t('booking.ticket.shareTripAccessibility')}
-                      accessibilityHint={t('booking.ticket.shareTrip')}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      style={({ pressed }) => [
-                        styles.ticketCardShareIconButton,
-                        pressed ? styles.ticketCardShareIconButtonPressed : null,
-                      ]}
-                      onPress={() => {
-                        handleShareTrip().catch(() => undefined);
-                      }}
-                    >
-                      <ShareNetwork size={18} color={theme.colors.primary} weight="bold" />
-                    </Pressable>
-                  ) : null}
-                </View>
-
                 {!model.isPendingPayment && activeTicket ? (
                   showBoardingQr ? (
                     <View style={styles.codeList}>
@@ -1725,58 +1661,6 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.md,
     borderRadius: BR.xl,
     borderCurve: 'continuous' as const,
-  },
-  ticketCardHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-    marginBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.effects.isLiquid
-      ? theme.effects.contentBorder
-      : theme.colors.divider,
-  },
-  ticketCardHeaderLeft: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.sm,
-    flex: 1,
-    minWidth: 0,
-  },
-  ticketCardBadge: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: BR.sm,
-    backgroundColor: theme.colors.primaryFaded,
-  },
-  ticketCardBadgeText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.primary,
-    textTransform: 'uppercase' as const,
-  },
-  ticketCardRefText: {
-    flexShrink: 1,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
-  },
-  ticketCardShareIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: BR.full,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: theme.colors.primaryFaded,
-  },
-  ticketCardShareIconButtonPressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.92 }],
   },
   detailsSection: { padding: spacing.xl },
   shuttleDetailsGroup: {
