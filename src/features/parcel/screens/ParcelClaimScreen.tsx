@@ -18,6 +18,7 @@ import type { ParcelStackParamList } from '@app/navigation/types';
 import {
   AppKeyboardAwareScrollView,
   Input,
+  PhotoPicker,
   StatusChip,
   type StatusChipTone,
 } from '@shared/components';
@@ -33,11 +34,13 @@ import {
 } from '@shared/theme';
 import { formatDateTime, formatVnd } from '@shared/utils/format';
 import {
+  useAddParcelClaimEvidence,
   useAppealParcelClaim,
   useParcelClaims,
   useParcelTrace,
   useSubmitParcelClaim,
 } from '../hooks/useParcelReliabilityQueries';
+import { useParcelPhotoUpload } from '../hooks/useParcelPhotoUpload';
 
 import { ParcelCompensationDisclosure } from '../components';
 import {
@@ -51,6 +54,7 @@ type ClaimNavigation = NativeStackNavigationProp<ParcelStackParamList, 'ParcelCl
 // BE requires a nonblank appeal reason but does not publish a max length.
 // This is a Passenger safety/UX bound, not a server-contract constraint.
 const APPEAL_MAX_LENGTH = 2_000;
+const MAX_CLAIM_EVIDENCE_PHOTOS = 3;
 
 const APPEAL_REVISED_AWARD_STATUSES = new Set([
   'ADJUSTMENT_APPROVED',
@@ -82,12 +86,22 @@ export function ParcelClaimScreen(): React.JSX.Element {
   );
   const claimsQuery = useParcelClaims(parcelId, canLoadClaims);
   const submitMutation = useSubmitParcelClaim(parcelId);
+  const addEvidenceMutation = useAddParcelClaimEvidence(parcelId);
   const appealMutation = useAppealParcelClaim(parcelId);
+  // Claim photos reuse Passenger's existing PARCEL_PHOTO upload scope. The
+  // resulting HTTPS URL is attached to the claim through its evidence API.
+  const {
+    uploadParcelPhoto: uploadClaimEvidencePhoto,
+    isUploadingParcelPhoto: isUploadingClaimEvidence,
+    resetParcelPhotoUpload: resetClaimEvidenceUpload,
+  } = useParcelPhotoUpload();
+  const [evidencePhotoUris, setEvidencePhotoUris] = useState<string[]>([]);
   const [appealReason, setAppealReason] = useState('');
   const [appealError, setAppealError] = useState<string | null>(null);
   const claim = claimsQuery.data?.[0];
   const appeal = claim?.appeal ?? null;
   const canSubmitClaim = trace?.availableActions.includes('SUBMIT_CLAIM') ?? false;
+  const canAddEvidence = claim?.availableActions.includes('ADD_EVIDENCE') ?? false;
   const canAppeal = claim?.availableActions.includes('APPEAL') ?? false;
   const policy = claim?.policySnapshot;
   const claimStatusLabel = claim
@@ -112,17 +126,103 @@ export function ParcelClaimScreen(): React.JSX.Element {
     ]).catch(() => undefined);
   }, [canLoadClaims, claimsQuery, traceQuery]);
 
+  const isEvidenceBusy = (
+    submitMutation.isPending
+    || addEvidenceMutation.isPending
+    || isUploadingClaimEvidence
+  );
+
+  const attachEvidencePhotos = useCallback(async (claimId: string) => {
+    const photosToAttach = [...evidencePhotoUris];
+    for (const sourceUri of photosToAttach) {
+      const reference = await uploadClaimEvidencePhoto(sourceUri);
+      await addEvidenceMutation.mutateAsync({
+        parcelId,
+        claimId,
+        evidenceType: 'PHOTO',
+        reference,
+        note: null,
+      });
+      setEvidencePhotoUris((current) => (
+        current.filter((uri) => uri !== sourceUri)
+      ));
+    }
+    resetClaimEvidenceUpload();
+  }, [
+    addEvidenceMutation,
+    evidencePhotoUris,
+    parcelId,
+    resetClaimEvidenceUpload,
+    uploadClaimEvidencePhoto,
+  ]);
+
   const handleSubmitClaim = useCallback(async () => {
+    let createdClaimId: string | null = null;
+    const evidenceCount = evidencePhotoUris.length;
     try {
-      await submitMutation.mutateAsync();
-      Alert.alert(t('parcel.claim.submittedTitle'), t('parcel.claim.submittedDescription'));
+      const submittedClaim = await submitMutation.mutateAsync();
+      createdClaimId = submittedClaim.claimId;
+      await attachEvidencePhotos(submittedClaim.claimId);
+      Alert.alert(
+        t('parcel.claim.submittedTitle'),
+        t(
+          evidenceCount > 0
+            ? 'parcel.claim.submittedWithEvidenceDescription'
+            : 'parcel.claim.submittedDescription',
+          { count: evidenceCount },
+        ),
+      );
     } catch (error) {
       Alert.alert(
-        t('parcel.claim.errorTitle'),
-        getLocalizedApiErrorMessage(error, t, PARCEL_ERROR_TRANSLATION_KEYS),
+        t(
+          createdClaimId
+            ? 'parcel.claim.evidencePartialTitle'
+            : 'parcel.claim.errorTitle',
+        ),
+        createdClaimId
+          ? `${t('parcel.claim.evidencePartialDescription')}\n\n${getLocalizedApiErrorMessage(
+              error,
+              t,
+              PARCEL_ERROR_TRANSLATION_KEYS,
+            )}`
+          : getLocalizedApiErrorMessage(error, t, PARCEL_ERROR_TRANSLATION_KEYS),
       );
     }
-  }, [submitMutation, t]);
+  }, [
+    attachEvidencePhotos,
+    evidencePhotoUris.length,
+    submitMutation,
+    t,
+  ]);
+
+  const handleAddEvidence = useCallback(async () => {
+    if (!claim || !canAddEvidence || evidencePhotoUris.length === 0) {
+      return;
+    }
+    const evidenceCount = evidencePhotoUris.length;
+    try {
+      await attachEvidencePhotos(claim.claimId);
+      Alert.alert(
+        t('parcel.claim.evidenceAddedTitle'),
+        t('parcel.claim.evidenceAddedDescription', { count: evidenceCount }),
+      );
+    } catch (error) {
+      Alert.alert(
+        t('parcel.claim.evidenceErrorTitle'),
+        `${t('parcel.claim.evidenceRetryDescription')}\n\n${getLocalizedApiErrorMessage(
+          error,
+          t,
+          PARCEL_ERROR_TRANSLATION_KEYS,
+        )}`,
+      );
+    }
+  }, [
+    attachEvidencePhotos,
+    canAddEvidence,
+    claim,
+    evidencePhotoUris.length,
+    t,
+  ]);
 
   const trimmedAppealReason = appealReason.trim();
   const appealReasonTooLong = appealReason.length > APPEAL_MAX_LENGTH;
@@ -183,6 +283,19 @@ export function ParcelClaimScreen(): React.JSX.Element {
       && claimsQuery.data === undefined
       && claimsQuery.isError
     )
+  );
+  const evidencePicker = (
+    <PhotoPicker
+      value={evidencePhotoUris}
+      onChange={setEvidencePhotoUris}
+      disabled={isEvidenceBusy}
+      maxPhotos={MAX_CLAIM_EVIDENCE_PHOTOS}
+      title={t('parcel.claim.evidencePickerTitle')}
+      photoLabel={t('parcel.claim.evidencePhotoLabel')}
+      helperText={t('parcel.claim.evidencePickerHelper', {
+        count: MAX_CLAIM_EVIDENCE_PHOTOS,
+      })}
+    />
   );
 
   return (
@@ -245,16 +358,40 @@ export function ParcelClaimScreen(): React.JSX.Element {
             </View>
 
             {canSubmitClaim && !claim ? (
-              <Pressable
-                accessibilityRole="button"
-                disabled={submitMutation.isPending}
-                onPress={() => { handleSubmitClaim().catch(() => undefined); }}
-                style={({ pressed }) => [styles.primaryButton, pressed ? styles.pressed : null]}
-              >
-                {submitMutation.isPending
-                  ? <ActivityIndicator color={theme.colors.textInverse} />
-                  : <Text style={styles.primaryButtonText}>{t('parcel.claim.submit')}</Text>}
-              </Pressable>
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>
+                  {t('parcel.claim.evidencePrepareTitle')}
+                </Text>
+                <Text style={styles.evidenceDescription}>
+                  {t('parcel.claim.evidencePrepareDescription')}
+                </Text>
+                {evidencePicker}
+                <Pressable
+                  testID="parcel-claim-submit"
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isEvidenceBusy }}
+                  disabled={isEvidenceBusy}
+                  onPress={() => { handleSubmitClaim().catch(() => undefined); }}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    isEvidenceBusy ? styles.disabled : null,
+                    pressed && !isEvidenceBusy ? styles.pressed : null,
+                  ]}
+                >
+                  {isEvidenceBusy
+                    ? <ActivityIndicator color={theme.colors.textInverse} />
+                    : (
+                        <Text style={styles.primaryButtonText}>
+                          {t(
+                            evidencePhotoUris.length > 0
+                              ? 'parcel.claim.submitWithEvidence'
+                              : 'parcel.claim.submit',
+                            { count: evidencePhotoUris.length },
+                          )}
+                        </Text>
+                      )}
+                </Pressable>
+              </View>
             ) : null}
 
             {claim ? (
@@ -404,6 +541,37 @@ export function ParcelClaimScreen(): React.JSX.Element {
                   )) : (
                     <Text style={styles.emptyText}>{t('parcel.claim.noEvidence')}</Text>
                   )}
+                  {canAddEvidence ? (
+                    <View style={styles.evidenceComposer}>
+                      {evidencePicker}
+                      <Pressable
+                        testID="parcel-claim-evidence-submit"
+                        accessibilityRole="button"
+                        accessibilityState={{
+                          disabled: evidencePhotoUris.length === 0 || isEvidenceBusy,
+                        }}
+                        disabled={evidencePhotoUris.length === 0 || isEvidenceBusy}
+                        onPress={() => { handleAddEvidence().catch(() => undefined); }}
+                        style={({ pressed }) => [
+                          styles.primaryButton,
+                          evidencePhotoUris.length === 0 || isEvidenceBusy
+                            ? styles.disabled
+                            : null,
+                          pressed && !isEvidenceBusy ? styles.pressed : null,
+                        ]}
+                      >
+                        {isEvidenceBusy
+                          ? <ActivityIndicator color={theme.colors.textInverse} />
+                          : (
+                              <Text style={styles.primaryButtonText}>
+                                {t('parcel.claim.addEvidence', {
+                                  count: evidencePhotoUris.length,
+                                })}
+                              </Text>
+                            )}
+                      </Pressable>
+                    </View>
+                  ) : null}
                 </View>
 
                 {canAppeal ? (
@@ -503,6 +671,8 @@ const createStyles = (theme: AppTheme) => ({
   evidenceRow: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: theme.colors.divider },
   evidenceType: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.xs },
   evidenceNote: { marginTop: 2, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs },
+  evidenceDescription: { color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 20 },
+  evidenceComposer: { marginTop: spacing.sm },
   emptyText: { color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm },
   textArea: { minHeight: 116, paddingTop: spacing.md },
   primaryButton: { minHeight: 50, alignItems: 'center' as const, justifyContent: 'center' as const, borderRadius: borderRadius.md, backgroundColor: theme.colors.primary },

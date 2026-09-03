@@ -4,6 +4,19 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 
 const mockGoBack = jest.fn();
 const mockAppeal = jest.fn();
+const mockSubmitClaim = jest.fn(async () => ({
+  claimId: '33333333-3333-4333-8333-333333333333',
+}));
+const mockAddEvidence = jest.fn(async () => ({}));
+const mockUploadEvidence = jest.fn(async (uri: string) => (
+  `https://storage.example/${encodeURIComponent(uri)}.jpg`
+));
+const mockResetEvidenceUpload = jest.fn();
+const mockUseParcelPhotoUpload = jest.fn(() => ({
+  uploadParcelPhoto: mockUploadEvidence,
+  isUploadingParcelPhoto: false,
+  resetParcelPhotoUpload: mockResetEvidenceUpload,
+}));
 const mockReportIncident = jest.fn(async () => undefined);
 let mockClaims: Array<Record<string, unknown>> = [];
 let mockClaimsIsError = false;
@@ -72,6 +85,12 @@ jest.mock('@shared/components', () => {
     Input: (props: Record<string, unknown>) => (
       ReactModule.createElement(NativeTextInput, props)
     ),
+    PhotoPicker: (props: Record<string, unknown>) => (
+      ReactModule.createElement(NativeText, {
+        ...props,
+        testID: 'photo-picker',
+      })
+    ),
     StatusChip: ({ label, ...props }: { label: string; [key: string]: unknown }) => (
       ReactModule.createElement(NativeText, { ...props, testID: 'status-chip' }, label)
     ),
@@ -93,7 +112,14 @@ jest.mock('../hooks/useParcelReliabilityQueries', () => ({
     isRefetching: false,
     refetch: jest.fn(),
   }),
-  useSubmitParcelClaim: () => ({ isPending: false, mutateAsync: jest.fn() }),
+  useSubmitParcelClaim: () => ({
+    isPending: false,
+    mutateAsync: mockSubmitClaim,
+  }),
+  useAddParcelClaimEvidence: () => ({
+    isPending: false,
+    mutateAsync: mockAddEvidence,
+  }),
   useAppealParcelClaim: () => ({
     isPending: false,
     mutateAsync: mockAppeal,
@@ -102,6 +128,10 @@ jest.mock('../hooks/useParcelReliabilityQueries', () => ({
     isPending: false,
     mutateAsync: mockReportIncident,
   }),
+}));
+
+jest.mock('../hooks/useParcelPhotoUpload', () => ({
+  useParcelPhotoUpload: () => mockUseParcelPhotoUpload(),
 }));
 
 import { ParcelClaimScreen } from './ParcelClaimScreen';
@@ -200,7 +230,7 @@ describe('Parcel reliability form responsive layout', () => {
     expect(renderedKeys).not.toContain('parcel.claim.totalAward');
   });
 
-  it('does not expose upload or manual-reference UI for ADD_EVIDENCE', () => {
+  it('shows a controlled photo picker only when ADD_EVIDENCE is available', () => {
     mockTracePage = {
       availableActions: ['ADD_EVIDENCE'],
       claimSummary: { status: 'SUBMITTED' },
@@ -220,13 +250,78 @@ describe('Parcel reliability form responsive layout', () => {
       renderer = ReactTestRenderer.create(<ParcelClaimScreen />);
     });
 
-    const buttons = renderer!.root.findAll(
-      node => node.props.accessibilityRole === 'button',
-    );
-    expect(new Set(buttons.map(node => node.props.accessibilityLabel))).toEqual(
-      new Set(['common.back']),
-    );
+    expect(renderer!.root.findByProps({ testID: 'photo-picker' })).toBeDefined();
+    expect(renderer!.root.findByProps({
+      testID: 'parcel-claim-evidence-submit',
+    }).props.disabled).toBe(true);
     expect(renderer!.root.findAllByType(TextInput)).toHaveLength(0);
+  });
+
+  it('creates the claim before uploading and attaching selected evidence photos', async () => {
+    mockTracePage = { availableActions: ['SUBMIT_CLAIM'] };
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelClaimScreen />);
+    });
+
+    const photoPicker = renderer!.root.findByProps({ testID: 'photo-picker' });
+    await act(async () => {
+      photoPicker.props.onChange(['file://invoice.jpg', 'file://damage.jpg']);
+    });
+
+    const submit = renderer!.root.findByProps({ testID: 'parcel-claim-submit' });
+    await act(async () => {
+      submit.props.onPress();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    expect(mockUseParcelPhotoUpload).toHaveBeenCalledWith();
+    expect(mockSubmitClaim).toHaveBeenCalledTimes(1);
+    expect(mockUploadEvidence).toHaveBeenNthCalledWith(1, 'file://invoice.jpg');
+    expect(mockUploadEvidence).toHaveBeenNthCalledWith(2, 'file://damage.jpg');
+    expect(mockSubmitClaim.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUploadEvidence.mock.invocationCallOrder[0],
+    );
+    expect(mockAddEvidence).toHaveBeenNthCalledWith(1, {
+      parcelId: '11111111-1111-4111-8111-111111111111',
+      claimId: '33333333-3333-4333-8333-333333333333',
+      evidenceType: 'PHOTO',
+      reference: 'https://storage.example/file%3A%2F%2Finvoice.jpg.jpg',
+      note: null,
+    });
+    expect(mockAddEvidence).toHaveBeenNthCalledWith(2, {
+      parcelId: '11111111-1111-4111-8111-111111111111',
+      claimId: '33333333-3333-4333-8333-333333333333',
+      evidenceType: 'PHOTO',
+      reference: 'https://storage.example/file%3A%2F%2Fdamage.jpg.jpg',
+      note: null,
+    });
+    expect(mockResetEvidenceUpload).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps only unattached photos after a partial evidence failure', async () => {
+    mockTracePage = { availableActions: ['SUBMIT_CLAIM'] };
+    mockAddEvidence
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error('temporary evidence failure'));
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelClaimScreen />);
+    });
+
+    await act(async () => {
+      renderer!.root.findByProps({ testID: 'photo-picker' }).props.onChange([
+        'file://attached.jpg',
+        'file://retry.jpg',
+      ]);
+    });
+    await act(async () => {
+      renderer!.root.findByProps({ testID: 'parcel-claim-submit' }).props.onPress();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    expect(renderer!.root.findByProps({ testID: 'photo-picker' }).props.value).toEqual([
+      'file://retry.jpg',
+    ]);
+    expect(mockResetEvidenceUpload).not.toHaveBeenCalled();
   });
 
   it('blocks an appeal that exceeds the deliberate Passenger input cap', async () => {

@@ -261,7 +261,6 @@ export function useAppealParcelClaim(parcelId: string) {
   };
 }
 
-/** API-ready only; no user-facing upload CTA until Passenger evidence upload is fixed. */
 export function useAddParcelClaimEvidence(parcelId: string) {
   const applyMutationResult = useApplyParcelClaimMutationResult(parcelId);
   const mutation = useRetainedParcelMutation<AddParcelClaimEvidenceInput, ParcelClaim>(
