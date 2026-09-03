@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { apiInstantSchema } from '@shared/utils/apiTime';
+import { MAX_PARCEL_CLAIM_EVIDENCE_REFERENCE_LENGTH } from '../config/parcelReliability';
 import {
   PARCEL_INCIDENT_TYPES,
   PARCEL_PASSENGER_ACTIONS,
@@ -364,7 +365,8 @@ export const reportParcelIncidentResultSchema = z.object({
 const parcelClaimEvidenceSchema = z.object({
   evidenceId: z.string().uuid(),
   evidenceType: z.string().trim().min(1).max(100),
-  reference: z.string().trim().min(1).max(2_048),
+  reference: z.string().trim().min(1)
+    .max(MAX_PARCEL_CLAIM_EVIDENCE_REFERENCE_LENGTH),
   note: nullableTextSchema,
   uploadedByUserId: z.string().uuid(),
   createdAt: apiInstantSchema,

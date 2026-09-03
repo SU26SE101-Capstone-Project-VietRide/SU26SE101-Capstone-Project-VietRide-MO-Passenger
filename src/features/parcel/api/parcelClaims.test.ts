@@ -73,6 +73,27 @@ describe('Parcel claim contract', () => {
     expect(claim.appeal).toBeNull();
   });
 
+  it('preserves incident evidence inherited by the claim response', () => {
+    const inheritedReference = 'https://storage.example/incident.jpg';
+    const claim = parseParcelClaims([{
+      ...claimWire,
+      acceptedEvidenceIds: [],
+      evidence: [{
+        ...claimWire.evidence[0],
+        evidenceType: 'INCIDENT_PHOTO',
+        reference: inheritedReference,
+        note: 'Inherited from the incident report.',
+      }],
+    }])[0];
+
+    expect(claim.evidence[0]).toMatchObject({
+      evidenceId: IDS.evidence,
+      evidenceType: 'INCIDENT_PHOTO',
+      reference: inheritedReference,
+    });
+    expect(claim.acceptedEvidenceIds).toEqual([]);
+  });
+
   it('parses the separate appeal case and drops operator-only actions', () => {
     const claim = parseParcelClaims([{
       ...claimWire,
@@ -150,6 +171,10 @@ describe('Parcel claim contract', () => {
     expect(() => parseParcelClaims([{
       ...claimWire,
       evidence: [{ ...claimWire.evidence[0], reference: ' ' }],
+    }])).toThrow();
+    expect(() => parseParcelClaims([{
+      ...claimWire,
+      evidence: [{ ...claimWire.evidence[0], reference: 'x'.repeat(2_001) }],
     }])).toThrow();
     expect(() => parseParcelClaims([{
       ...claimWire,

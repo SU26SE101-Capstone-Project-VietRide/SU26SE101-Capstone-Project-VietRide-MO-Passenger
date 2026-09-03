@@ -4,7 +4,7 @@ import ReactTestRenderer, { act } from 'react-test-renderer';
 
 const mockGoBack = jest.fn();
 const mockAppeal = jest.fn();
-const mockSubmitClaim = jest.fn(async () => ({
+const mockSubmitClaim = jest.fn(async (): Promise<Record<string, unknown>> => ({
   claimId: '33333333-3333-4333-8333-333333333333',
 }));
 const mockAddEvidence = jest.fn(async () => ({}));
@@ -28,6 +28,11 @@ const mockTheme = {
     get: () => '#007d78',
   }),
   components: { card: {} },
+  effects: {
+    isLiquid: true,
+    contentBorder: 'rgba(0, 106, 103, 0.18)',
+    contentSurfaceSoft: '#EEF7F7',
+  },
 };
 
 jest.mock('@react-navigation/native', () => ({
@@ -53,11 +58,24 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 jest.mock('phosphor-react-native', () => ({
+  ArrowSquareOut: () => null,
   ArrowLeft: () => null,
   FileText: () => null,
+  ImageSquare: () => null,
   ShieldCheck: () => null,
   ShieldWarning: () => null,
+  X: () => null,
 }));
+
+jest.mock('expo-image', () => {
+  const ReactModule = require('react');
+  const { View: NativeView } = require('react-native');
+  return {
+    Image: (props: Record<string, unknown>) => (
+      ReactModule.createElement(NativeView, props)
+    ),
+  };
+});
 
 jest.mock('@shared/contexts/ThemeContext', () => ({
   useTheme: () => mockTheme,
@@ -304,6 +322,31 @@ describe('Parcel reliability form responsive layout', () => {
       note: null,
     });
     expect(mockResetEvidenceUpload).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not upload or post evidence already inherited in the claim response', async () => {
+    mockTracePage = { availableActions: ['SUBMIT_CLAIM'] };
+    mockSubmitClaim.mockResolvedValueOnce({
+      claimId: '33333333-3333-4333-8333-333333333333',
+      evidence: [{
+        evidenceId: '66666666-6666-4666-8666-666666666666',
+        evidenceType: 'INCIDENT_PHOTO',
+        reference: 'https://storage.example/incident.jpg',
+        note: 'Inherited from the incident report.',
+      }],
+    });
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ParcelClaimScreen />);
+    });
+
+    await act(async () => {
+      renderer!.root.findByProps({ testID: 'parcel-claim-submit' }).props.onPress();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    expect(mockSubmitClaim).toHaveBeenCalledTimes(1);
+    expect(mockUploadEvidence).not.toHaveBeenCalled();
+    expect(mockAddEvidence).not.toHaveBeenCalled();
   });
 
   it('keeps only unattached photos after a partial evidence failure', async () => {

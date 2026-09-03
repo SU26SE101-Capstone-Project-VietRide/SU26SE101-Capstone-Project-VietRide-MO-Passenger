@@ -3,6 +3,7 @@ import {
   addParcelClaimEvidence,
   appealParcelClaim,
 } from './parcelReliabilityApi';
+import { MAX_PARCEL_CLAIM_EVIDENCE_REFERENCE_LENGTH } from '../config/parcelReliability';
 
 jest.mock('@shared/api/axiosInstance', () => ({
   apiClient: {
@@ -27,6 +28,19 @@ describe('Parcel claim mutation input guards', () => {
       reference: ' ',
       note: null,
     }, KEY)).rejects.toThrow('required');
+    expect(postMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects evidence references longer than the BE contract limit', async () => {
+    await expect(addParcelClaimEvidence({
+      parcelId: PARCEL_ID,
+      claimId: CLAIM_ID,
+      evidenceType: 'INVOICE',
+      reference: `https://storage.example/${'x'.repeat(
+        MAX_PARCEL_CLAIM_EVIDENCE_REFERENCE_LENGTH,
+      )}`,
+      note: null,
+    }, KEY)).rejects.toThrow('must not exceed');
     expect(postMock).not.toHaveBeenCalled();
   });
 

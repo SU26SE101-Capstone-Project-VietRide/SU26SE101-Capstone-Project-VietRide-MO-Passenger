@@ -39,6 +39,10 @@ const translations: Record<string, string> = {
   'notification.types.VEHICLE_SUBSTITUTED.title': 'Replacement vehicle assigned',
   'notification.types.VEHICLE_SUBSTITUTED.body':
     'A replacement vehicle has been assigned to {{routeName}} ({{licensePlate}}).',
+  'notification.types.WALLET_CREDITED.title': 'Ví đã được cộng tiền',
+  'notification.types.WALLET_CREDITED.body': 'Ví VietRide của bạn vừa được cộng {{amount}} VND.',
+  'notification.types.WALLET_CREDITED.claimTitle': 'Đã chi trả tiền bồi thường',
+  'notification.types.WALLET_CREDITED.claimBody': '{{amount}} VND đã được cộng vào ví VietRide của bạn.',
 };
 
 const translate = ((key: string, options?: Record<string, string>) => {
@@ -157,5 +161,44 @@ describe('notificationCopy', () => {
       title: 'Đặt vé thành công',
       body: 'Vé của bạn đã được xác nhận.',
     }, translate).body).toBe('Ticket your ticket has been confirmed.');
+  });
+
+  it('formats WALLET_CREDITED with claimId and amountVnd with thousand separators', () => {
+    expect(localizeNotificationCopy({
+      type: 'WALLET_CREDITED',
+      title: 'Đã chi trả tiền bồi thường',
+      body: '326600 VND đã được cộng vào ví VietRide của người gửi.',
+      data: {
+        status: 'PAID',
+        claimId: '087a2db6-51df-405e-adc0-a5e17b3667be',
+        amountVnd: 326600,
+      },
+    }, translate)).toEqual({
+      title: 'Đã chi trả tiền bồi thường',
+      body: '326.600 VND đã được cộng vào ví VietRide của bạn.',
+    });
+  });
+
+  it('formats WALLET_CREDITED regular top-up with amount', () => {
+    expect(localizeNotificationCopy({
+      type: 'WALLET_CREDITED',
+      title: 'Thông báo nạp tiền',
+      body: 'Nội dung nạp tiền',
+      data: { amount: 500000 },
+    }, translate)).toEqual({
+      title: 'Ví đã được cộng tiền',
+      body: 'Ví VietRide của bạn vừa được cộng 500.000 VND.',
+    });
+  });
+
+  it('formats raw money values in fallback messages', () => {
+    expect(localizeNotificationCopy({
+      type: 'UNKNOWN_MONEY_EVENT',
+      title: 'Thông báo',
+      body: 'Giao dịch 326600 VND thành công.',
+    }, translate)).toEqual({
+      title: 'Thông báo',
+      body: 'Giao dịch 326.600 VND thành công.',
+    });
   });
 });

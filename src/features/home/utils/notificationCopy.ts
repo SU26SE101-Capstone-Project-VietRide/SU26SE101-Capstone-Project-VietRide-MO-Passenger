@@ -153,15 +153,46 @@ const readNestedString = (
   return typeof current === 'string' && current.trim() ? current.trim() : undefined;
 };
 
-const formatMoneyAmount = (value: unknown): string => {
+export const formatMoneyAmount = (
+  value: unknown,
+  locale: string = 'vi',
+): string => {
+  let num: number | undefined;
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(Math.trunc(value));
+    num = Math.trunc(value);
+  } else if (typeof value === 'string') {
+    const cleaned = value.replace(/[.,\s]/g, '').trim();
+    if (/^\d+$/.test(cleaned)) {
+      num = parseInt(cleaned, 10);
+    }
   }
-  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
-    return value.trim();
+  if (num !== undefined) {
+    try {
+      return new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'vi-VN', {
+        maximumFractionDigits: 0,
+      }).format(num);
+    } catch {
+      return num.toLocaleString(locale === 'en' ? 'en-US' : 'vi-VN');
+    }
   }
   return '';
 };
+
+export const formatRawMoneyInText = (
+  text: string,
+  locale: string = 'vi',
+): string =>
+  text.replace(
+    /\b(\d{4,})\s*(VND|đ|₫)\b/gi,
+    (_, amountStr: string, currency: string) => {
+      const num = parseInt(amountStr, 10);
+      if (!Number.isFinite(num)) return `${amountStr} ${currency}`;
+      const formatted = new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'vi-VN', {
+        maximumFractionDigits: 0,
+      }).format(num);
+      return `${formatted} ${currency}`;
+    },
+  );
 
 const formatTicketRef = (
   bookingCode: string | undefined,
@@ -219,9 +250,27 @@ export const localizeNotificationCopy = (
     getNotificationDataString(input.data, 'resourceRole'),
     translate,
   );
-  const amount = formatMoneyAmount(
+  const rawAmount =
     readDataValue(input.data, 'amount')
-      ?? readDataValue(input.data, 'refundAmount'),
+    ?? readDataValue(input.data, 'amountVnd')
+    ?? readDataValue(input.data, 'refundAmount')
+    ?? readDataValue(input.data, 'payoutAmount')
+    ?? readDataValue(input.data, 'payoutAmountVnd');
+  let amountCandidate: unknown = rawAmount;
+  if (amountCandidate === undefined && typeof input.body === 'string') {
+    const match = input.body.match(/(\d[\d.,\s]*)\s*(?:VND|đ|₫)/i);
+    if (match) {
+      amountCandidate = match[1];
+    }
+  }
+  const locale =
+    (translate as unknown as { language?: string }).language?.startsWith('en')
+      ? 'en'
+      : 'vi';
+  const amount = formatMoneyAmount(amountCandidate, locale);
+  const hasClaim = Boolean(
+    readDataValue(input.data, 'claimId')
+    || readDataValue(input.data, 'payoutId'),
   );
 
   const interpolation = {
@@ -243,6 +292,12 @@ export const localizeNotificationCopy = (
   };
 
   if (TYPED_NOTIFICATION_COPY.has(input.type)) {
+    if (input.type === 'WALLET_CREDITED' && hasClaim) {
+      return {
+        title: translate('notification.types.WALLET_CREDITED.claimTitle', interpolation),
+        body: translate('notification.types.WALLET_CREDITED.claimBody', interpolation),
+      };
+    }
     return {
       title: translate(`notification.types.${input.type}.title`, interpolation),
       body: translate(`notification.types.${input.type}.body`, interpolation),
@@ -251,6 +306,6 @@ export const localizeNotificationCopy = (
 
   return {
     title: replaceNotificationCodes(input.title, translate),
-    body: replaceNotificationCodes(input.body, translate),
+    body: formatRawMoneyInText(replaceNotificationCodes(input.body, translate), locale),
   };
 };

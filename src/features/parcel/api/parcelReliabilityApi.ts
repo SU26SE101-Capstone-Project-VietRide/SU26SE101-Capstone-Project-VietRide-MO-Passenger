@@ -16,6 +16,7 @@ import type {
   SentParcel,
   SentParcelQuery,
 } from '../types';
+import { MAX_PARCEL_CLAIM_EVIDENCE_REFERENCE_LENGTH } from '../config/parcelReliability';
 import {
   confirmParcelDeliveryResultSchema,
   rejectParcelDeliveryResultSchema,
@@ -175,6 +176,11 @@ export async function addParcelClaimEvidence(
   const reference = input.reference.trim();
   if (!evidenceType || !reference) {
     throw new Error('Parcel claim evidence type and reference are required.');
+  }
+  if (reference.length > MAX_PARCEL_CLAIM_EVIDENCE_REFERENCE_LENGTH) {
+    throw new Error(
+      `Parcel claim evidence reference must not exceed ${MAX_PARCEL_CLAIM_EVIDENCE_REFERENCE_LENGTH} characters.`,
+    );
   }
   const response = await apiClient.post<ApiEnvelope<ParcelClaim>>(
     `/parcels/${safeParcelId}/claims/${safeClaimId}/evidence`,

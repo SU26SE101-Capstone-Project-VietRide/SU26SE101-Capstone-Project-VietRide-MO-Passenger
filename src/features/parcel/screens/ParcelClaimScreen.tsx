@@ -43,6 +43,7 @@ import {
 import { useParcelPhotoUpload } from '../hooks/useParcelPhotoUpload';
 
 import {
+  ParcelClaimEvidenceItem,
   ParcelCompensationDisclosure,
   ParcelProofAssessment,
 } from '../components';
@@ -571,31 +572,17 @@ export function ParcelClaimScreen(): React.JSX.Element {
                 <View style={styles.card}>
                   <View style={styles.evidenceHeader}>
                     <FileText size={20} color={theme.colors.primary} />
-                    <Text style={styles.sectionTitle}>{t('parcel.claim.evidenceTitle')}</Text>
+                    <Text style={[styles.sectionTitle, styles.evidenceSectionTitle]}>
+                      {t('parcel.claim.evidenceTitle')}
+                    </Text>
                   </View>
-                  {claim.evidence.length > 0 ? claim.evidence.map((evidence, index) => (
-                    <View key={evidence.evidenceId} style={styles.evidenceRow}>
-                      <View style={styles.evidenceItemHeader}>
-                        <Text style={styles.evidenceType}>
-                          {t('parcel.claim.evidenceItem', { index: index + 1 })}
-                        </Text>
-                        <View style={styles.evidenceBadges}>
-                          {claimAcceptedEvidenceIds.has(evidence.evidenceId) ? (
-                            <StatusChip
-                              label={t('parcel.claim.acceptedForClaim')}
-                              tone="success"
-                            />
-                          ) : null}
-                          {appealAcceptedEvidenceIds.has(evidence.evidenceId) ? (
-                            <StatusChip
-                              label={t('parcel.claim.acceptedForAppeal')}
-                              tone="info"
-                            />
-                          ) : null}
-                        </View>
-                      </View>
-                      {evidence.note ? <Text style={styles.evidenceNote}>{evidence.note}</Text> : null}
-                    </View>
+                  {claim.evidence.length > 0 ? claim.evidence.map((evidence) => (
+                    <ParcelClaimEvidenceItem
+                      key={evidence.evidenceId}
+                      evidence={evidence}
+                      acceptedForClaim={claimAcceptedEvidenceIds.has(evidence.evidenceId)}
+                      acceptedForAppeal={appealAcceptedEvidenceIds.has(evidence.evidenceId)}
+                    />
                   )) : (
                     <Text style={styles.emptyText}>{t('parcel.claim.noEvidence')}</Text>
                   )}
@@ -725,12 +712,8 @@ const createStyles = (theme: AppTheme) => ({
   deadlineText: { marginTop: spacing.sm, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs },
   paidText: { marginTop: spacing.sm, color: theme.colors.success, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
   pendingText: { marginTop: spacing.sm, color: theme.colors.warningForeground, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
-  evidenceHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.sm },
-  evidenceRow: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: theme.colors.divider },
-  evidenceItemHeader: { minWidth: 0, gap: spacing.sm },
-  evidenceBadges: { minWidth: 0, flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: spacing.xs },
-  evidenceType: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.xs },
-  evidenceNote: { marginTop: 2, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs },
+  evidenceHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.sm, marginBottom: spacing.xs },
+  evidenceSectionTitle: { marginBottom: 0 },
   evidenceDescription: { color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 20 },
   evidenceComposer: { marginTop: spacing.sm },
   emptyText: { color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm },
