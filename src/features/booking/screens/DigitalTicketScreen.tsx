@@ -609,6 +609,40 @@ function TicketView({
           <View style={styles.legBlock}>
             <View style={styles.ticketCard}>
               <View style={styles.detailsSection}>
+                <View style={styles.ticketCardHeader}>
+                  <View style={styles.ticketCardHeaderLeft}>
+                    <View style={styles.ticketCardBadge}>
+                      <Ticket size={13} color={theme.colors.primary} weight="bold" />
+                      <Text style={styles.ticketCardBadgeText}>
+                        {activeLeg.label || t('booking.ticket.detailTitle')}
+                      </Text>
+                    </View>
+                    {activeLeg.reference ? (
+                      <Text style={styles.ticketCardRefText} selectable>
+                        #{activeLeg.reference}
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  {!model.isPendingPayment ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('booking.ticket.shareTripAccessibility')}
+                      accessibilityHint={t('booking.ticket.shareTrip')}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={({ pressed }) => [
+                        styles.ticketCardShareIconButton,
+                        pressed ? styles.ticketCardShareIconButtonPressed : null,
+                      ]}
+                      onPress={() => {
+                        handleShareTrip().catch(() => undefined);
+                      }}
+                    >
+                      <ShareNetwork size={18} color={theme.colors.primary} weight="bold" />
+                    </Pressable>
+                  ) : null}
+                </View>
+
                 {!model.isPendingPayment && activeTicket ? (
                   showBoardingQr ? (
                     <View style={styles.codeList}>
@@ -782,25 +816,6 @@ function TicketView({
                 <MapPin size={18} color={theme.colors.textInverse} weight="bold" />
                 <Text style={styles.primaryActionText}>
                   {t('booking.ticket.trackLeg', { leg: activeLeg.label })}
-                </Text>
-              </Pressable>
-            ) : null}
-
-            {!model.isPendingPayment ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('booking.ticket.shareTripAccessibility')}
-                style={({ pressed }) => [
-                  styles.secondaryAction,
-                  pressed ? styles.pressed : null,
-                ]}
-                onPress={() => {
-                  handleShareTrip().catch(() => undefined);
-                }}
-              >
-                <ShareNetwork size={18} color={theme.colors.primary} weight="bold" />
-                <Text style={styles.secondaryActionText}>
-                  {t('booking.ticket.shareTrip')}
                 </Text>
               </Pressable>
             ) : null}
@@ -1710,6 +1725,58 @@ const createStyles = (theme: AppTheme) => ({
     marginBottom: spacing.md,
     borderRadius: BR.xl,
     borderCurve: 'continuous' as const,
+  },
+  ticketCardHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    gap: spacing.sm,
+    paddingBottom: spacing.md,
+    marginBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.effects.isLiquid
+      ? theme.effects.contentBorder
+      : theme.colors.divider,
+  },
+  ticketCardHeaderLeft: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    flex: 1,
+    minWidth: 0,
+  },
+  ticketCardBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BR.sm,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  ticketCardBadgeText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+    textTransform: 'uppercase' as const,
+  },
+  ticketCardRefText: {
+    flexShrink: 1,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  ticketCardShareIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: BR.full,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  ticketCardShareIconButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.92 }],
   },
   detailsSection: { padding: spacing.xl },
   shuttleDetailsGroup: {
