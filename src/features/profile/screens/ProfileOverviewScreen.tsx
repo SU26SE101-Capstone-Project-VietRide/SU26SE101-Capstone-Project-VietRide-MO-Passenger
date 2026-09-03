@@ -219,10 +219,11 @@ export function ProfileOverviewScreen(): React.JSX.Element {
                 accessibilityRole="button"
                 accessibilityLabel={item.title}
                 key={item.id}
-                style={[
+                style={({ pressed }) => [
                   styles.menuItem,
-                  isFirst && styles.firstMenuItem,
-                  isLast && styles.lastMenuItem,
+                  isFirst ? styles.firstMenuItem : null,
+                  isLast ? styles.lastMenuItem : null,
+                  pressed ? styles.pressed : null,
                 ]}
                 onPress={item.onPress}
               >

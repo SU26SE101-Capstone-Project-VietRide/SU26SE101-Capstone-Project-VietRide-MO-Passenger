@@ -1,3 +1,4 @@
+export { AppErrorBoundary } from './AppErrorBoundary';
 /**
  * Shared UI Components — Barrel Export
  */
@@ -24,3 +25,5 @@ export {
   PhotoPicker,
   type PhotoPickerProps,
 } from './PhotoPicker';
+export { AppSnackbar } from './AppSnackbar';
+export { AppConnectivityOverlay } from './AppConnectivityOverlay';

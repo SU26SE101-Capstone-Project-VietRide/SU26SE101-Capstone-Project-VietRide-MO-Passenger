@@ -25,6 +25,7 @@ import {
 
 import { NOTIFICATION_LARGE_ICON } from '@shared/constants/assets';
 import { appConfig } from '@shared/constants/config';
+import { registerSessionCleanup } from '@shared/session/cleanup';
 
 const ANDROID_NOTIFICATION_ICON = {
   smallIcon: 'ic_stat_notification',
@@ -51,6 +52,13 @@ interface NotificationChannelLabels {
 interface DailyReminderContent {
   title: string;
   body: string;
+}
+
+interface TripReminderContent {
+  bookingId: string;
+  title: string;
+  body: string;
+  remindAt: number;
 }
 
 interface RemoteNotificationFallback {
@@ -197,6 +205,75 @@ export const scheduleDailyReminder = async ({
 export const cancelDailyReminder = (): Promise<void> => (
   notifee.cancelTriggerNotification(DAILY_REMINDER_NOTIFICATION_ID)
 );
+
+const TRIP_REMINDER_NOTIFICATION_PREFIX = 'vietride-trip-reminder-';
+
+const tripReminderNotificationId = (bookingId: string): string => (
+  `${TRIP_REMINDER_NOTIFICATION_PREFIX}${bookingId}`
+);
+
+export const scheduleTripReminder = async ({
+  bookingId,
+  title,
+  body,
+  remindAt,
+}: TripReminderContent): Promise<void> => {
+  if (!Number.isFinite(remindAt) || remindAt <= Date.now()) {
+    throw new Error('Trip reminder must be scheduled in the future.');
+  }
+
+  const id = tripReminderNotificationId(bookingId);
+  const trigger: TimestampTrigger = {
+    type: TriggerType.TIMESTAMP,
+    timestamp: remindAt,
+    // A 30-minute heads-up can tolerate WorkManager scheduling and avoids
+    // requesting Android's restricted exact-alarm permission.
+    alarmManager: false,
+  };
+
+  const actionParams = JSON.stringify({ bookingId });
+  await notifee.cancelTriggerNotification(id);
+  await notifee.createTriggerNotification(
+    {
+      id,
+      title,
+      body,
+      data: {
+        notificationKind: 'trip-reminder',
+        bookingId,
+        actionType: 'OPEN_BOOKING_DETAIL',
+        actionParams,
+      },
+      android: {
+        channelId: REMINDERS_CHANNEL_ID,
+        ...ANDROID_NOTIFICATION_ICON,
+        pressAction: { id: 'open-booking-history' },
+      },
+      ios: { sound: 'default' },
+    },
+    trigger,
+  );
+};
+
+export const cancelTripReminder = (bookingId: string): Promise<void> => (
+  notifee.cancelTriggerNotification(tripReminderNotificationId(bookingId))
+);
+
+export const cancelAllTripReminders = async (): Promise<void> => {
+  const ids = await notifee.getTriggerNotificationIds();
+  const tripReminderIds = ids.filter(id => (
+    id.startsWith(TRIP_REMINDER_NOTIFICATION_PREFIX)
+  ));
+  if (tripReminderIds.length === 0) return;
+  await notifee.cancelTriggerNotifications(tripReminderIds);
+};
+
+registerSessionCleanup('trip-reminders', () => {
+  // Trip reminders can contain route information, so they are session-bound.
+  // Keep the generic daily reminder untouched because that is an app-level
+  // preference rather than account-specific journey data.
+  cancelAllTripReminders().catch(() => undefined);
+});
 
 export const displayForegroundRemoteNotification = async (
   message: RemoteMessage,

@@ -260,9 +260,10 @@ export function SettingsScreen(): React.JSX.Element {
               accessibilityRole="radio"
               accessibilityLabel={t('settings.language.vietnamese')}
               accessibilityState={{ checked: localeStore === 'vi' }}
-              style={[
+              style={({ pressed }) => [
                 styles.languageRow,
                 localeStore === 'vi' ? styles.activeLanguageRow : null,
+                pressed ? styles.pressed : null,
               ]}
               onPress={handleVietnameseLanguage}
             >
@@ -283,9 +284,10 @@ export function SettingsScreen(): React.JSX.Element {
               accessibilityRole="radio"
               accessibilityLabel={t('settings.language.english')}
               accessibilityState={{ checked: localeStore === 'en' }}
-              style={[
+              style={({ pressed }) => [
                 styles.languageRow,
                 localeStore === 'en' ? styles.activeLanguageRow : null,
+                pressed ? styles.pressed : null,
               ]}
               onPress={handleEnglishLanguage}
             >

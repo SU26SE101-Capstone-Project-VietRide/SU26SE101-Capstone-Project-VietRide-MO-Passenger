@@ -2,7 +2,7 @@
  * Visual style: matches Parcel flow (gradient bg, mint palette, card surfaces)
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -73,6 +73,74 @@ const resolveDisplayDate = (
   }
 };
 
+const dateKeyExtractor = (date: Date): string => toLocalDisplayDate(date);
+
+interface DateStripItemProps {
+  accessibilityLabel: string;
+  active: boolean;
+  date: string;
+  dayLabel: string;
+  dayNumber: number;
+  isToday: boolean;
+  onSelect: (date: string) => void;
+  todayLabel: string;
+}
+
+const DateStripItem = memo(function DateStripItem({
+  accessibilityLabel,
+  active,
+  date,
+  dayLabel,
+  dayNumber,
+  isToday,
+  onSelect,
+  todayLabel,
+}: DateStripItemProps): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+  const handlePress = useCallback(() => onSelect(date), [date, onSelect]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ selected: active }}
+      style={({ pressed }) => [
+        styles.dayItem,
+        active ? styles.dayItemActive : null,
+        pressed ? styles.pressed : null,
+      ]}
+      onPress={handlePress}
+    >
+      <Text
+        style={[styles.dayLabel, active ? styles.dayLabelActive : null]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+      >
+        {dayLabel}
+      </Text>
+      <Text
+        style={[styles.dayNum, active ? styles.dayNumActive : null]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+      >
+        {dayNumber}
+      </Text>
+      {isToday ? (
+        <Text
+          style={[styles.dayBadge, active ? styles.dayBadgeActive : null]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.65}
+        >
+          {todayLabel}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
+});
+
 export function DatePicker(): React.JSX.Element {
   const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
@@ -89,6 +157,10 @@ export function DatePicker(): React.JSX.Element {
     [width, widthClass],
   );
   const [footerHeight, setFooterHeight] = useState(88);
+  const scrollContentStyle = useMemo(
+    () => ({ paddingBottom: footerHeight + spacing.md }),
+    [footerHeight],
+  );
   const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
     const measuredHeight = event.nativeEvent.layout.height;
     setFooterHeight((currentHeight) => resolveDatePickerFooterHeight(
@@ -147,6 +219,25 @@ export function DatePicker(): React.JSX.Element {
     () => DAY_KEYS.map(key => t(`booking.datePicker.weekdays.${key}`)),
     [t],
   );
+
+  const handleDateSelect = useCallback((date: string) => {
+    setSelected(date);
+  }, []);
+  const renderDateStripItem = useCallback(({ item }: { item: Date }) => {
+    const date = toLocalDisplayDate(item);
+    return (
+      <DateStripItem
+        accessibilityLabel={t('booking.datePicker.dateAccessibility', { date })}
+        active={date === selected}
+        date={date}
+        dayLabel={dayLabels[item.getDay()]}
+        dayNumber={item.getDate()}
+        isToday={date === todayStr}
+        onSelect={handleDateSelect}
+        todayLabel={t('booking.datePicker.today')}
+      />
+    );
+  }, [dayLabels, handleDateSelect, selected, t, todayStr]);
 
   const onConfirm = () => {
     if (mode === 'return') {
@@ -240,9 +331,7 @@ export function DatePicker(): React.JSX.Element {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingBottom: footerHeight + spacing.md,
-          }}
+          contentContainerStyle={scrollContentStyle}
         >
         {/* 30-day strip */}
         <View style={[styles.stripCard, isCompact ? styles.stripCardCompact : null]}>
@@ -250,56 +339,9 @@ export function DatePicker(): React.JSX.Element {
             data={days}
             horizontal
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(date) => toLocalDisplayDate(date)}
+            keyExtractor={dateKeyExtractor}
             contentContainerStyle={styles.strip}
-            renderItem={({ item }) => {
-              const label = dayLabels[item.getDay()];
-              const dateStr = toLocalDisplayDate(item);
-              const isToday = dateStr === todayStr;
-              const active = dateStr === selected;
-              return (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('booking.datePicker.dateAccessibility', {
-                    date: dateStr,
-                  })}
-                  accessibilityState={{ selected: active }}
-                  style={({ pressed }) => [
-                    styles.dayItem,
-                    active && styles.dayItemActive,
-                    pressed ? styles.pressed : null,
-                  ]}
-                  onPress={() => setSelected(dateStr)}
-                >
-                  <Text
-                    style={[styles.dayLabel, active && styles.dayLabelActive]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.75}
-                  >
-                    {label}
-                  </Text>
-                  <Text
-                    style={[styles.dayNum, active && styles.dayNumActive]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.75}
-                  >
-                    {item.getDate()}
-                  </Text>
-                  {isToday ? (
-                    <Text
-                      style={[styles.dayBadge, active && styles.dayBadgeActive]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.65}
-                    >
-                      {t('booking.datePicker.today')}
-                    </Text>
-                  ) : null}
-                </Pressable>
-              );
-            }}
+            renderItem={renderDateStripItem}
           />
         </View>
 

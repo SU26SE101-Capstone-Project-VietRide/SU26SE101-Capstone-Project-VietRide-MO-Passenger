@@ -329,9 +329,24 @@ export function NotificationScreen(): React.JSX.Element {
   const renderEmptyState = useCallback(() => {
     if (isInitialLoading) {
       return (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.emptyText}>{t('notification.loading')}</Text>
+        <View
+          style={styles.notificationSkeletonList}
+          accessibilityRole="summary"
+          accessibilityLabel={t('notification.loading')}
+        >
+          {[0, 1, 2, 3, 4].map(index => (
+            <View key={index} style={styles.notificationSkeletonRow}>
+              <View style={[styles.notificationSkeletonBlock, styles.notificationSkeletonIcon]} />
+              <View style={styles.notificationSkeletonCopy}>
+                <View style={styles.notificationSkeletonTop}>
+                  <View style={[styles.notificationSkeletonBlock, styles.notificationSkeletonTitle]} />
+                  <View style={[styles.notificationSkeletonBlock, styles.notificationSkeletonTime]} />
+                </View>
+                <View style={[styles.notificationSkeletonBlock, styles.notificationSkeletonBody]} />
+                <View style={[styles.notificationSkeletonBlock, styles.notificationSkeletonBodyShort]} />
+              </View>
+            </View>
+          ))}
         </View>
       );
     }
@@ -369,11 +384,20 @@ export function NotificationScreen(): React.JSX.Element {
     notificationsError,
     styles.emptyContainer,
     styles.emptyText,
+    styles.notificationSkeletonBlock,
+    styles.notificationSkeletonBody,
+    styles.notificationSkeletonBodyShort,
+    styles.notificationSkeletonCopy,
+    styles.notificationSkeletonIcon,
+    styles.notificationSkeletonList,
+    styles.notificationSkeletonRow,
+    styles.notificationSkeletonTime,
+    styles.notificationSkeletonTitle,
+    styles.notificationSkeletonTop,
     styles.pressedRow,
     styles.retryButton,
     styles.retryText,
     t,
-    theme.colors.primary,
     theme.colors.textTertiary,
   ]);
 
@@ -633,6 +657,43 @@ const createStyles = (theme: AppTheme) => ({
     paddingVertical: spacing.xxl,
     gap: spacing.md,
   },
+  notificationSkeletonList: {
+    width: '100%' as const,
+    paddingTop: spacing.xs,
+  },
+  notificationSkeletonRow: {
+    minHeight: 88,
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  notificationSkeletonBlock: {
+    borderRadius: borderRadius.sm,
+    backgroundColor: theme.colors.skeleton,
+  },
+  notificationSkeletonIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+  },
+  notificationSkeletonCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing.xs,
+  },
+  notificationSkeletonTop: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    gap: spacing.md,
+  },
+  notificationSkeletonTitle: { width: '48%' as const, height: 14 },
+  notificationSkeletonTime: { width: 48, height: 11 },
+  notificationSkeletonBody: { width: '92%' as const, height: 12 },
+  notificationSkeletonBodyShort: { width: '62%' as const, height: 12 },
   emptyText: {
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,

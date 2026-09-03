@@ -28,6 +28,7 @@ import {
   toApiError,
 } from '@shared/api/errors';
 import { pickLocalImages } from '@shared/services/localImagePicker';
+import { showSnackbar } from '@shared/store/useSnackbarStore';
 import {
   apiProfileFieldErrors,
   editProfileFieldErrors,
@@ -113,6 +114,10 @@ export function EditProfileScreen(): React.JSX.Element {
       }
 
       setAllowLeave(true);
+      showSnackbar({
+        message: t('profile.edit.saved'),
+        tone: 'success',
+      });
       requestAnimationFrame(() => navigation.goBack());
     },
     onError: (error) => {

@@ -15,6 +15,12 @@ import {
 
 const STEP_SLOT_WIDTH = 48;
 
+const ROUND_TRIP_PHASES = [
+  { key: 'outbound', labelKey: 'booking.progressPhases.outbound', start: 1, end: 4 },
+  { key: 'return', labelKey: 'booking.progressPhases.return', start: 5, end: 8 },
+  { key: 'finish', labelKey: 'booking.progressPhases.finish', start: 9, end: 10 },
+] as const;
+
 interface BookingProgressBarProps {
   step: number;
   totalSteps?: number;
@@ -108,111 +114,179 @@ export const BookingProgressBar = ({
           <Text style={styles.stepLabel}>{stepLabel}</Text>
         </View>
 
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          nestedScrollEnabled
-          bounces={false}
-          overScrollMode="never"
-          showsHorizontalScrollIndicator={isRoundTrip}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.trackContent}
-          onLayout={(event) => {
-            viewportWidthRef.current = event.nativeEvent.layout.width;
-            scrollCurrentStepIntoView();
-          }}
-          onContentSizeChange={(width) => {
-            contentWidthRef.current = width;
-            scrollCurrentStepIntoView();
-          }}
-        >
-        <View
-          style={[
-            styles.trackInner,
-            { minWidth: totalSteps * STEP_SLOT_WIDTH },
-          ]}
-        >
         {isRoundTrip ? (
-          <View style={styles.legLabels} accessibilityRole="summary">
-            <Text style={[styles.legLabel, styles.legLabelMain]}>
-              {t('booking.header.outbound')}
-            </Text>
-            <Text style={[styles.legLabel, styles.legLabelMain]}>
-              {t('booking.header.return')}
-            </Text>
-            <Text style={styles.legLabel}>{t('booking.steps.checkout')}</Text>
-          </View>
-        ) : null}
+          <View style={styles.roundTripPhaseTrack}>
+            {ROUND_TRIP_PHASES.map((phase) => {
+              const phaseActive = step >= phase.start && step <= phase.end;
+              const phaseComplete = step > phase.end;
+              const phaseSteps = Array.from(
+                { length: phase.end - phase.start + 1 },
+                (_, index) => phase.start + index,
+              );
 
-        <View style={styles.progressBarBg}>
-          <View
-            style={[
-              styles.progressBarActive,
-              { width: `${progressPercent}%` },
-            ]}
-          />
-        </View>
-        <View style={styles.stepsRow}>
-          {steps.map((s) => {
-            const isActive = s === step;
-            const isCompleted = s < step;
-            const isReturn = isReturnStep(s);
-            const isCheckout = isCheckoutStep(s);
-            const isPayment = isPaymentStep(s);
-            const isPending = !isActive && !isCompleted;
-            const isDisabled = !onStepPress || s > maxAccessibleStep;
-            return (
-              <Pressable
-                key={`step-${s}`}
-                accessibilityRole="button"
-                accessibilityLabel={t('booking.steps.accessibilityLabel', {
-                  current: s,
-                  total: totalSteps,
-                  label: t(getStepLabelKey(s, isRoundTrip)),
-                })}
-                accessibilityState={{
-                  selected: isActive,
-                  disabled: isDisabled,
-                }}
-                style={({ pressed }) => [
-                  styles.stepBubbleContainer,
-                  pressed && !isDisabled ? styles.stepBubblePressed : null,
-                ]}
-                disabled={isDisabled}
-                onPress={() => onStepPress?.(s)}
-              >
+              return (
                 <View
+                  key={phase.key}
                   style={[
-                    styles.stepBubble,
-                    isPending && isReturn && styles.stepBubbleReturn,
-                    isPending && isCheckout && styles.stepBubbleCheckout,
-                    isPending && isPayment && styles.stepBubblePayment,
-                    isCompleted && styles.stepBubbleCompleted,
-                    isActive && styles.stepBubbleActive,
+                    styles.phaseGroup,
+                    phase.key === 'finish'
+                      ? styles.phaseGroupFinish
+                      : styles.phaseGroupMain,
                   ]}
                 >
-                  {isCompleted ? (
-                    <Check size={12} color={theme.colors.textInverse} weight="bold" />
-                  ) : (
-                    <Text
-                      style={[
-                        styles.stepText,
-                        isPending && isReturn && styles.stepTextReturn,
-                        isPending && isCheckout && styles.stepTextCheckout,
-                        isPending && isPayment && styles.stepTextPayment,
-                        isActive && styles.stepTextActive,
-                      ]}
-                    >
-                      {s}
-                    </Text>
-                  )}
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.phaseLabel,
+                      phaseActive || phaseComplete
+                        ? styles.phaseLabelHighlighted
+                        : null,
+                    ]}
+                  >
+                    {t(phase.labelKey)}
+                  </Text>
+                  <View style={styles.phaseDotsRow}>
+                    {phaseSteps.map((phaseStep) => {
+                      const isActive = phaseStep === step;
+                      const isCompleted = phaseStep < step;
+                      const isDisabled = !onStepPress || phaseStep > maxAccessibleStep;
+                      return (
+                        <Pressable
+                          key={`phase-step-${phaseStep}`}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('booking.steps.accessibilityLabel', {
+                            current: phaseStep,
+                            total: totalSteps,
+                            label: t(getStepLabelKey(phaseStep, true)),
+                          })}
+                          accessibilityState={{
+                            selected: isActive,
+                            disabled: isDisabled,
+                          }}
+                          disabled={isDisabled}
+                          hitSlop={6}
+                          onPress={() => onStepPress?.(phaseStep)}
+                          style={({ pressed }) => [
+                            styles.phaseDotHitArea,
+                            pressed && !isDisabled ? styles.phaseDotPressed : null,
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.phaseDot,
+                              isCompleted ? styles.phaseDotCompleted : null,
+                              isActive ? styles.phaseDotActive : null,
+                            ]}
+                          />
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
-              </Pressable>
-            );
-          })}
-        </View>
-        </View>
-        </ScrollView>
+              );
+            })}
+            <Text style={styles.phaseStepCount}>
+              {t('booking.progressPhases.stepCount', {
+                current: step,
+                total: totalSteps,
+              })}
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            nestedScrollEnabled
+            bounces={false}
+            overScrollMode="never"
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.trackContent}
+            onLayout={(event) => {
+              viewportWidthRef.current = event.nativeEvent.layout.width;
+              scrollCurrentStepIntoView();
+            }}
+            onContentSizeChange={(width) => {
+              contentWidthRef.current = width;
+              scrollCurrentStepIntoView();
+            }}
+          >
+            <View
+              style={[
+                styles.trackInner,
+                { minWidth: totalSteps * STEP_SLOT_WIDTH },
+              ]}
+            >
+              <View style={styles.progressBarBg}>
+                <View
+                  style={[
+                    styles.progressBarActive,
+                    { width: `${progressPercent}%` },
+                  ]}
+                />
+              </View>
+              <View style={styles.stepsRow}>
+                {steps.map((s) => {
+                  const isActive = s === step;
+                  const isCompleted = s < step;
+                  const isReturn = isReturnStep(s);
+                  const isCheckout = isCheckoutStep(s);
+                  const isPayment = isPaymentStep(s);
+                  const isPending = !isActive && !isCompleted;
+                  const isDisabled = !onStepPress || s > maxAccessibleStep;
+                  return (
+                    <Pressable
+                      key={`step-${s}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('booking.steps.accessibilityLabel', {
+                        current: s,
+                        total: totalSteps,
+                        label: t(getStepLabelKey(s, isRoundTrip)),
+                      })}
+                      accessibilityState={{
+                        selected: isActive,
+                        disabled: isDisabled,
+                      }}
+                      style={({ pressed }) => [
+                        styles.stepBubbleContainer,
+                        pressed && !isDisabled ? styles.stepBubblePressed : null,
+                      ]}
+                      disabled={isDisabled}
+                      onPress={() => onStepPress?.(s)}
+                    >
+                      <View
+                        style={[
+                          styles.stepBubble,
+                          isPending && isReturn && styles.stepBubbleReturn,
+                          isPending && isCheckout && styles.stepBubbleCheckout,
+                          isPending && isPayment && styles.stepBubblePayment,
+                          isCompleted && styles.stepBubbleCompleted,
+                          isActive && styles.stepBubbleActive,
+                        ]}
+                      >
+                        {isCompleted ? (
+                          <Check size={12} color={theme.colors.textInverse} weight="bold" />
+                        ) : (
+                          <Text
+                            style={[
+                              styles.stepText,
+                              isPending && isReturn && styles.stepTextReturn,
+                              isPending && isCheckout && styles.stepTextCheckout,
+                              isPending && isPayment && styles.stepTextPayment,
+                              isActive && styles.stepTextActive,
+                            ]}
+                          >
+                            {s}
+                          </Text>
+                        )}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </ScrollView>
+        )}
       </View>
     </View>
   );
@@ -266,6 +340,70 @@ const createStyles = (theme: AppTheme) => ({
     textAlign: 'center',
   },
   legLabelMain: { flex: 2 },
+  roundTripPhaseTrack: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-end' as const,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
+  phaseGroup: {
+    minWidth: 0,
+    gap: spacing.xs,
+  },
+  phaseGroupMain: { flex: 4 },
+  phaseGroupFinish: { flex: 2 },
+  phaseLabel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+  },
+  phaseLabelHighlighted: {
+    color: theme.colors.primary,
+    fontFamily: fontFamilies.semiBold,
+  },
+  phaseDotsRow: {
+    minHeight: 30,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  phaseDotHitArea: {
+    minWidth: 24,
+    minHeight: 30,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  phaseDotPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.9 }],
+  },
+  phaseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.effects.contentSurfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.effects.contentBorderStrong,
+  },
+  phaseDotCompleted: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  phaseDotActive: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  phaseStepCount: {
+    alignSelf: 'center' as const,
+    paddingBottom: spacing.xs,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textTertiary,
+  },
   progressBarActive: {
     height: '100%',
     borderRadius: 2,

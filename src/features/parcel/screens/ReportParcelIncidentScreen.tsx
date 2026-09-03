@@ -18,6 +18,7 @@ import { AppKeyboardAwareScrollView, Input } from '@shared/components';
 import { getLocalizedApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
+import { showSnackbar } from '@shared/store/useSnackbarStore';
 import {
   borderRadius,
   fontFamilies,
@@ -85,11 +86,11 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
         description: trimmedDescription,
         evidenceUrls: [],
       });
-      Alert.alert(
-        t('parcel.incident.successTitle'),
-        t('parcel.incident.successDescription'),
-        [{ text: t('common.ok'), onPress: () => navigation.goBack() }],
-      );
+      showSnackbar({
+        message: t('parcel.incident.successDescription'),
+        tone: 'success',
+      });
+      navigation.goBack();
     } catch (error) {
       const apiError = toApiError(error);
       const descriptionError = apiError.fields.find((field) => (

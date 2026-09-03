@@ -10,6 +10,7 @@ import { create } from 'zustand';
 import { queryClient } from '@shared/api/queryClient';
 import { ApiRequestError, toApiError } from '@shared/api/errors';
 import { clearSessionBoundState } from '@shared/session/cleanup';
+import { setLocalSessionUser } from '@shared/session/scope';
 import { revokeDeviceRegistration } from '@shared/notifications';
 import {
   isTokenExpired,
@@ -69,6 +70,7 @@ const cacheUser = (user: User): void => {
 };
 
 const clearSessionData = (): void => {
+  setLocalSessionUser(null);
   // Destroy/cancel private queries and mutations before another account can
   // become active in this process.
   queryClient.clear();
@@ -155,6 +157,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     clearSessionData();
+    setLocalSessionUser(session.user.id);
     // Both primary login endpoints return the login-safe user projection,
     // including avatarUrl when present. Keep that response as the first
     // app-frame profile without an extra /users/me round trip.
@@ -184,6 +187,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     });
     cacheUser(user);
+    setLocalSessionUser(user.id);
     set({
       user,
       isAuthenticated: true,
@@ -213,6 +217,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (!tokenBundle) {
+        clearSessionData();
         set(unauthenticatedState);
         return;
       }
@@ -281,6 +286,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
 
+      setLocalSessionUser(user.id);
       set({
         user,
         isAuthenticated: true,
@@ -296,6 +302,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const cachedUser =
           queryClient.getQueryData<User>(authApi.authKeys.me) ?? null;
 
+        setLocalSessionUser(cachedUser?.id ?? null);
         set({
           user: cachedUser,
           isAuthenticated: cachedUser !== null,
@@ -316,6 +323,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return;
         }
         cacheUser(session.user);
+        setLocalSessionUser(session.user.id);
         set({
           user: session.user,
           isAuthenticated: true,
@@ -344,6 +352,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const cachedUser =
         queryClient.getQueryData<User>(authApi.authKeys.me) ?? null;
 
+      setLocalSessionUser(cachedUser?.id ?? null);
       set({
         user: cachedUser,
         isAuthenticated: cachedUser !== null,
@@ -388,6 +397,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return null;
       }
       cacheUser(session.user);
+      setLocalSessionUser(session.user.id);
 
       set({
         user: session.user,

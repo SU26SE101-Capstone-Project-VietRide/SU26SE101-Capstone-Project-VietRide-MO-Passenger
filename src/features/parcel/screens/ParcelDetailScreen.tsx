@@ -81,6 +81,7 @@ import {
   ErrorView,
   ParcelCompensationDisclosure,
   ParcelPaymentMethodSelector,
+  ParcelSkeleton,
 } from '../components';
 import { parcelKeys } from '../api/parcelApi';
 import { formatParcelDimensions } from '../config/parcelPackage';
@@ -924,9 +925,13 @@ export function ParcelDetailScreen(): React.JSX.Element {
       </View>
 
       {detailQuery.isLoading ? (
-        <View style={styles.stateContainer}>
-          <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.stateText}>{t('parcel.detail.loading')}</Text>
+        <View
+          style={styles.detailLoadingSkeleton}
+          accessibilityRole="summary"
+          accessibilityLabel={t('parcel.detail.loading')}
+        >
+          <ParcelSkeleton type="summary" count={1} />
+          <ParcelSkeleton type="shipment" count={2} />
         </View>
       ) : detailQuery.isError ? (
         <View style={styles.errorWrap}>
@@ -1516,6 +1521,12 @@ const createStyles = (theme: AppTheme) => ({
     fontSize: fontSizes.xs,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+  },
+  detailLoadingSkeleton: {
+    flex: 1,
+    width: '100%' as const,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
   },
   stateContainer: {
     flex: 1,

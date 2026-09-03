@@ -1,6 +1,5 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
   Text,
   useWindowDimensions,
   View,
@@ -93,7 +92,6 @@ export const PromotionsSection = memo(function PromotionsSectionComponent({
   title,
 }: PromotionsSectionProps): React.JSX.Element {
   const { t } = useTranslation();
-  const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const { fontScale } = useWindowDimensions();
   const promotionsQuery = useHomePromotions(service);
@@ -116,11 +114,21 @@ export const PromotionsSection = memo(function PromotionsSectionComponent({
   if (promotionsQuery.isPending) {
     content = (
       <View
-        style={styles.stateBox}
+        style={[styles.skeletonRow, listFrameStyle]}
         accessibilityLabel={t('home.promotions.loadingAccessibility')}
       >
-        <ActivityIndicator color={theme.colors.primary} />
-        <Text style={styles.stateText}>{t('home.promotions.loading')}</Text>
+        {[0, 1].map(index => (
+          <View key={index} style={styles.skeletonCard}>
+            <View style={styles.skeletonHeader}>
+              <View style={[styles.skeletonBlock, styles.skeletonIcon]} />
+              <View style={[styles.skeletonBlock, styles.skeletonValue]} />
+            </View>
+            <View style={[styles.skeletonBlock, styles.skeletonTitle]} />
+            <View style={[styles.skeletonBlock, styles.skeletonTitleShort]} />
+            <View style={[styles.skeletonBlock, styles.skeletonCode]} />
+            <View style={[styles.skeletonBlock, styles.skeletonMeta]} />
+          </View>
+        ))}
       </View>
     );
   } else if (promotionsQuery.isError) {
@@ -173,6 +181,37 @@ const createStyles = (theme: AppTheme) => ({
   list: {
     minHeight: 196,
   },
+  skeletonRow: {
+    minHeight: 196,
+    flexDirection: 'row' as const,
+    gap: spacing.md,
+    overflow: 'hidden' as const,
+  },
+  skeletonCard: {
+    width: 252,
+    minHeight: 184,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    backgroundColor: theme.effects.contentSurfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.effects.contentBorder,
+  },
+  skeletonHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  skeletonBlock: {
+    borderRadius: borderRadius.sm,
+    backgroundColor: theme.colors.skeleton,
+  },
+  skeletonIcon: { width: 38, height: 38, borderRadius: borderRadius.md },
+  skeletonValue: { width: 78, height: 18 },
+  skeletonTitle: { width: '88%' as const, height: 16 },
+  skeletonTitleShort: { width: '58%' as const, height: 16 },
+  skeletonCode: { width: '100%' as const, height: 30 },
+  skeletonMeta: { width: '46%' as const, height: 12 },
   card: {
     ...theme.components.card,
     width: 252,

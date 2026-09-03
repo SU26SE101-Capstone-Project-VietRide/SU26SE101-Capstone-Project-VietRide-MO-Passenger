@@ -47,8 +47,8 @@ export interface PricingBreakdownProps {
 }
 
 function PricingBreakdownComponent({
-  receivingStation,
-  dropoffStation,
+  receivingStation: _receivingStation,
+  dropoffStation: _dropoffStation,
   packageSize,
   packageItemName,
   packageWeightKg,

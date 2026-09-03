@@ -42,7 +42,9 @@ export type BookingStackParamList = {
         intent?: BookingEntryIntent;
       }
     | undefined;
-  CreateTicketBooking: { intent: BookingEntryIntent } | undefined;
+  CreateTicketBooking:
+    | { intent: BookingEntryIntent; resumeDraft?: boolean }
+    | undefined;
   /**
    * Provider-backed Shuttle address picker. Params are strictly serializable;
    * station coordinates bias autocomplete around the terminal.
@@ -76,7 +78,7 @@ export type ParcelStackParamList = {
     mode: 'from' | 'to';
     next?: 'to' | 'create';
   };
-  CreateParcel: undefined;
+  CreateParcel: { resumeDraft?: boolean } | undefined;
   ParcelDetail: {
     parcelId: string;
     fromHistory?: boolean;

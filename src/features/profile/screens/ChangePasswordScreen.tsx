@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import { AppKeyboardAwareScrollView, Button, Input } from '@shared/components';
 import { getLocalizedApiErrorMessage, toApiError } from '@shared/api/errors';
+import { showSnackbar } from '@shared/store/useSnackbarStore';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import {
   useFloatingTabBarContentInset,
@@ -68,12 +69,11 @@ export function ChangePasswordScreen(): React.JSX.Element {
 
       await logout();
 
-      Alert.alert(
-        t('security.changePassword.successTitle'),
-        t('security.changePassword.successDescription'),
-        [{ text: t('common.ok') }],
-        { cancelable: false },
-      );
+      showSnackbar({
+        message: t('security.changePassword.successDescription'),
+        tone: 'success',
+        durationMs: 5000,
+      });
     },
     onError: error => {
       const apiError = toApiError(error);

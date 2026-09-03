@@ -13,6 +13,7 @@ import { notificationKeys } from '@features/home/api/notificationApi';
 import { localizeNotificationCopy } from '@features/home/utils/notificationCopy';
 import { useIsAppActive, useNetworkStatus } from '@shared/hooks';
 import {
+  cancelAllTripReminders,
   cancelDailyReminder,
   clearPendingNotificationOpen,
   consumePendingNotificationOpen,
@@ -166,6 +167,8 @@ export function NotificationCoordinator(): null {
     discardPendingNotificationOpen();
     clearPendingNotificationOpen()
       .catch(() => logNotificationWarning('Could not clear a notification tap.'));
+    cancelAllTripReminders()
+      .catch(() => logNotificationWarning('Could not clear trip reminders.'));
     if (!isAppActive) return;
 
     // Also runs after later foreground transitions so a cleanup tombstone is

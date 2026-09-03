@@ -170,6 +170,14 @@ export function WalletScreen(): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
   const bottomTabClearance = useFloatingTabBarContentInset();
+  const listContentStyle = useMemo(
+    () => [styles.listContent, { paddingBottom: bottomTabClearance }],
+    [bottomTabClearance, styles.listContent],
+  );
+  const scrollIndicatorInsets = useMemo(
+    () => ({ bottom: bottomTabClearance }),
+    [bottomTabClearance],
+  );
   const balanceQuery = useLiveWalletBalance();
   const transactionsQuery = useWalletTransactions();
   const {
@@ -253,10 +261,10 @@ export function WalletScreen(): React.JSX.Element {
         </Text>
 
         {isBalancePending ? (
-          <ActivityIndicator
-            color={theme.colors.textInverse}
-            style={styles.balanceLoader}
-          />
+          <View style={styles.balanceSkeleton} accessibilityElementsHidden>
+            <View style={styles.balanceSkeletonAmount} />
+            <View style={styles.balanceSkeletonMeta} />
+          </View>
         ) : isBalanceError && !balanceData ? (
           <View style={styles.balanceErrorGroup}>
             <Text style={styles.balanceErrorText}>
@@ -337,7 +345,6 @@ export function WalletScreen(): React.JSX.Element {
       styles,
       t,
       theme.colors.primary,
-      theme.colors.textInverse,
       transactions.length,
     ],
   );
@@ -345,8 +352,17 @@ export function WalletScreen(): React.JSX.Element {
   const listEmpty = useMemo(() => {
     if (isTransactionsPending) {
       return (
-        <View style={styles.emptyState}>
-          <ActivityIndicator color={theme.colors.primary} />
+        <View style={styles.transactionSkeletonList} accessibilityElementsHidden>
+          {[0, 1, 2].map(index => (
+            <View key={`wallet-transaction-skeleton-${index}`} style={styles.transactionSkeletonRow}>
+              <View style={styles.transactionSkeletonIcon} />
+              <View style={styles.transactionSkeletonCopy}>
+                <View style={styles.transactionSkeletonTitle} />
+                <View style={styles.transactionSkeletonDate} />
+              </View>
+              <View style={styles.transactionSkeletonAmount} />
+            </View>
+          ))}
         </View>
       );
     }
@@ -386,7 +402,6 @@ export function WalletScreen(): React.JSX.Element {
     handleRetryTransactions,
     styles,
     t,
-    theme.colors.primary,
     theme.colors.textTertiary,
     isTransactionsError,
     isTransactionsPending,
@@ -463,8 +478,8 @@ export function WalletScreen(): React.JSX.Element {
           isBalanceRefetching
           || (isTransactionsRefetching && !isFetchingNextPage)
         }
-        contentContainerStyle={[styles.listContent, { paddingBottom: bottomTabClearance }]}
-        scrollIndicatorInsets={{ bottom: bottomTabClearance }}
+        contentContainerStyle={listContentStyle}
+        scrollIndicatorInsets={scrollIndicatorInsets}
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
@@ -522,8 +537,23 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textInverse,
     opacity: 0.76,
   },
-  balanceLoader: {
-    marginVertical: spacing.md,
+  balanceSkeleton: {
+    width: '68%' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  balanceSkeletonAmount: {
+    width: '100%' as const,
+    height: 34,
+    borderRadius: BR.md,
+    backgroundColor: theme.effects.onPrimarySurface,
+  },
+  balanceSkeletonMeta: {
+    width: '46%' as const,
+    height: 10,
+    borderRadius: BR.sm,
+    backgroundColor: theme.effects.onPrimarySurface,
   },
   balanceAmount: {
     fontFamily: fontFamilies.bold,
@@ -594,46 +624,6 @@ const createStyles = (theme: AppTheme) => ({
     color: theme.colors.textInverse,
     opacity: 0.82,
   },
-  comingSoonAction: {
-    minHeight: 52,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: BR.lg,
-    borderCurve: 'continuous' as const,
-    backgroundColor: theme.effects.onPrimarySurface,
-    borderWidth: 1,
-    borderColor: theme.effects.onPrimaryBorder,
-  },
-  comingSoonIcon: {
-    width: 32,
-    height: 32,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    borderRadius: BR.md,
-    borderCurve: 'continuous' as const,
-    backgroundColor: theme.effects.onPrimarySurface,
-  },
-  comingSoonTitle: {
-    flex: 1,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textInverse,
-  },
-  comingSoonBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: BR.full,
-    borderCurve: 'continuous' as const,
-    backgroundColor: theme.effects.onPrimarySurface,
-  },
-  comingSoonBadgeText: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textInverse,
-  },
   pressed: {
     opacity: 0.82,
   },
@@ -651,6 +641,48 @@ const createStyles = (theme: AppTheme) => ({
     lineHeight: 18,
     color: theme.colors.textInverse,
     opacity: 0.82,
+  },
+  transactionSkeletonList: {
+    paddingTop: spacing.xs,
+  },
+  transactionSkeletonRow: {
+    minHeight: 76,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.effects.contentBorder,
+    backgroundColor: theme.effects.contentSurface,
+  },
+  transactionSkeletonIcon: {
+    width: 44,
+    height: 44,
+    marginRight: spacing.md,
+    borderRadius: BR.lg,
+    backgroundColor: theme.colors.skeleton,
+  },
+  transactionSkeletonCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  transactionSkeletonTitle: {
+    width: '72%' as const,
+    height: 13,
+    borderRadius: BR.sm,
+    backgroundColor: theme.colors.skeleton,
+  },
+  transactionSkeletonDate: {
+    width: '45%' as const,
+    height: 10,
+    borderRadius: BR.sm,
+    backgroundColor: theme.colors.skeleton,
+  },
+  transactionSkeletonAmount: {
+    width: 82,
+    height: 14,
+    borderRadius: BR.sm,
+    backgroundColor: theme.colors.skeleton,
   },
   transactionRow: {
     minHeight: 76,

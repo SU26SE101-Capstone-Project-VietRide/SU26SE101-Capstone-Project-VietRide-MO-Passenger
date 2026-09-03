@@ -1,9 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   Pressable,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -29,10 +30,15 @@ import type {
   RootStackParamList,
 } from '@app/navigation/types';
 import { AppKeyboardAwareScrollView, ProfileHeader } from '@shared/components';
+import { useAppStore } from '@shared/store';
+import { showSnackbar } from '@shared/store/useSnackbarStore';
 import { useNotificationUnreadCount } from '../hooks/useNotifications';
 import { useBookingStore } from '../../booking/store/useBookingStore';
+import { clearBookingDraft } from '../../booking/store/useBookingDraftStore';
+import { favoriteRouteId, type FavoriteRouteInput } from '../../booking/hooks/useFavoriteRoutes';
 import { useBookingDiscovery } from '../../booking/hooks/useBookingDiscovery';
 import { useParcelStore } from '../../parcel/store/useParcelStore';
+import { useParcelDraftStore } from '../../parcel/store/useParcelDraftStore';
 import {
   Ticket,
   Package,
@@ -46,12 +52,16 @@ import {
 
 import {
   PassengerCountInput,
+  FavoriteRoutesSection,
   PopularRoutesSection,
   RecentSearchesSection,
 } from '../../booking/components';
 import { PromotionsSection } from '../components/PromotionsSection';
 import { RecentParcelsSection } from '../components/RecentParcelsSection';
 import { WalletSummaryCard } from '../components/WalletSummaryCard';
+import { ResumeDraftsSection } from '../components/ResumeDraftsSection';
+import { UpcomingJourneyCard } from '../components/UpcomingJourneyCard';
+import type { PassengerTicketHistoryItem } from '@features/profile/types';
 import { toTripSearchDate } from '../../booking/utils/searchParams';
 import { formatTicketSearchDate } from '../../booking/utils/ticketSearchDate';
 import { resolveHomeTicketSearchContinuation } from '../../booking/utils/homeTicketSearchContinuation';
@@ -72,7 +82,8 @@ export function HomeScreen(): React.JSX.Element {
   const bottomTabClearance = useFloatingTabBarContentInset();
   const unreadNotificationCount = useNotificationUnreadCount().data ?? 0;
 
-  const [activeTab, setActiveTab] = useState<'ticket' | 'parcel'>('ticket');
+  const activeTab = useAppStore(state => state.lastHomeService);
+  const setActiveTab = useAppStore(state => state.setLastHomeService);
 
   const searchParams = useBookingStore(state => state.searchParams);
   const appLanguage = i18n.resolvedLanguage ?? i18n.language;
@@ -103,14 +114,23 @@ export function HomeScreen(): React.JSX.Element {
     popularRoutes,
     popularRoutesLoading,
     popularRoutesError,
+    favoriteRoutes,
+    favoriteRoutesLoading,
     recentSearches,
     recentSearchError,
     recentSearchesLoading,
     applyPopularRoute,
+    applyFavoriteRoute,
     applyRecentSearch,
     saveCurrentSearch,
+    toggleFavoriteRoute,
+    removeFavoriteRoute,
     clearRecentSearches,
   } = useBookingDiscovery();
+  const favoriteRouteIds = useMemo(
+    () => favoriteRoutes.map(route => favoriteRouteId(route.originCode, route.destinationCode)),
+    [favoriteRoutes],
+  );
   const walletBalanceQuery = useWalletBalance();
   const canChooseTicketDate = Boolean(
     searchParams.originLocationCode &&
@@ -186,6 +206,41 @@ export function HomeScreen(): React.JSX.Element {
     clearRecentSearches().catch(() => undefined);
   }, [clearRecentSearches]);
 
+  const handleFavoriteRoutePress = useCallback((routeId: string) => {
+    if (applyFavoriteRoute(routeId) !== 'applied') return;
+    navigation.navigate('Booking', {
+      screen: 'DatePicker',
+      params: { mode: 'departure', next: 'search', intent: { type: 'search' } },
+    });
+  }, [applyFavoriteRoute, navigation]);
+
+  const handleToggleFavoriteRoute = useCallback((route: FavoriteRouteInput) => {
+    toggleFavoriteRoute(route).then(result => {
+      if (result === 'invalid') return;
+      if (result === 'storage_error') {
+        showSnackbar({ message: t('booking.favorites.storageError'), tone: 'error' });
+        return;
+      }
+      showSnackbar({
+        message: result === 'added'
+          ? t('booking.favorites.saved')
+          : t('booking.favorites.removed'),
+        tone: result === 'added' ? 'success' : 'neutral',
+      });
+    });
+  }, [t, toggleFavoriteRoute]);
+
+  const handleRemoveFavoriteRoute = useCallback((routeId: string) => {
+    removeFavoriteRoute(routeId).then(committed => {
+      showSnackbar({
+        message: committed
+          ? t('booking.favorites.removed')
+          : t('booking.favorites.storageError'),
+        tone: committed ? 'neutral' : 'error',
+      });
+    });
+  }, [removeFavoriteRoute, t]);
+
   const handleWalletPress = useCallback(() => {
     navigation.navigate('Profile', {
       screen: 'Wallet',
@@ -248,6 +303,73 @@ export function HomeScreen(): React.JSX.Element {
   const handleStartShipment = useCallback(() => {
     navigation.navigate('Parcel', { screen: 'CreateParcel' });
   }, [navigation]);
+
+  const handleResumeBooking = useCallback(() => {
+    navigation.navigate('Booking', {
+      screen: 'CreateTicketBooking',
+      params: { intent: { type: 'search' }, resumeDraft: true },
+    });
+  }, [navigation]);
+
+  const handleResumeParcel = useCallback(() => {
+    navigation.navigate('Parcel', {
+      screen: 'CreateParcel',
+      params: { resumeDraft: true },
+    });
+  }, [navigation]);
+
+  const handleOpenUpcomingJourney = useCallback(
+    (item: PassengerTicketHistoryItem) => {
+      const historyItem = item.paymentRedirectUrl
+        ? { ...item, paymentRedirectUrl: null }
+        : item;
+      navigation.navigate('Booking', {
+        screen: 'DigitalTicket',
+        params: {
+          source: 'history',
+          bookingId: item.id,
+          historyItem,
+        },
+      });
+    },
+    [navigation],
+  );
+
+  const handleDiscardBookingDraft = useCallback(() => {
+    Alert.alert(
+      t('home.drafts.discardBookingTitle'),
+      t('home.drafts.discardBookingDescription'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('home.drafts.discardAction'),
+          style: 'destructive',
+          onPress: () => {
+            clearBookingDraft();
+            useBookingStore.getState().resetBooking();
+          },
+        },
+      ],
+    );
+  }, [t]);
+
+  const handleDiscardParcelDraft = useCallback(() => {
+    Alert.alert(
+      t('home.drafts.discardParcelTitle'),
+      t('home.drafts.discardParcelDescription'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('home.drafts.discardAction'),
+          style: 'destructive',
+          onPress: () => {
+            useParcelDraftStore.getState().clearDraft();
+            useParcelStore.getState().resetParcel();
+          },
+        },
+      ],
+    );
+  }, [t]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -352,7 +474,7 @@ export function HomeScreen(): React.JSX.Element {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t('home.ticket.selectOrigin')}
-                  style={styles.selectorField}
+                  style={({ pressed }) => [styles.selectorField, pressed ? styles.pressed : null]}
                   onPress={() => openBookingCityPicker('from')}
                 >
                   <MapPin
@@ -381,7 +503,11 @@ export function HomeScreen(): React.JSX.Element {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t('home.ticket.selectDestination')}
-                    style={[styles.selectorField, styles.selectorFieldGrow]}
+                    style={({ pressed }) => [
+                      styles.selectorField,
+                      styles.selectorFieldGrow,
+                      pressed ? styles.pressed : null,
+                    ]}
                     onPress={() => openBookingCityPicker('to')}
                   >
                     <MapPin
@@ -406,7 +532,7 @@ export function HomeScreen(): React.JSX.Element {
                     accessibilityRole="button"
                     accessibilityLabel={t('home.ticket.swapLocations')}
                     onPress={swapCities}
-                    style={styles.swapBtn}
+                    style={({ pressed }) => [styles.swapBtn, pressed ? styles.pressed : null]}
                   >
                     <ArrowsDownUp
                       size={18}
@@ -420,7 +546,7 @@ export function HomeScreen(): React.JSX.Element {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t('home.ticket.selectDepartureDate')}
-                    style={styles.metaField}
+                    style={({ pressed }) => [styles.metaField, pressed ? styles.pressed : null]}
                     onPress={() => openBookingDatePicker('departure')}
                   >
                     <CalendarBlank
@@ -444,7 +570,7 @@ export function HomeScreen(): React.JSX.Element {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={t('home.ticket.selectReturnDate')}
-                      style={styles.metaField}
+                      style={({ pressed }) => [styles.metaField, pressed ? styles.pressed : null]}
                       onPress={() => openBookingDatePicker('return')}
                     >
                       <CalendarBlank
@@ -470,7 +596,7 @@ export function HomeScreen(): React.JSX.Element {
                           isRoundTrip: !searchParams.isRoundTrip,
                         })
                       }
-                      style={styles.switchHitArea}
+                      style={({ pressed }) => [styles.switchHitArea, pressed ? styles.pressed : null]}
                     >
                       <View
                         style={[
@@ -517,7 +643,7 @@ export function HomeScreen(): React.JSX.Element {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t('home.parcel.selectOrigin')}
-                  style={styles.selectorField}
+                  style={({ pressed }) => [styles.selectorField, pressed ? styles.pressed : null]}
                   onPress={() => openParcelCityPicker('from')}
                 >
                   <MapPin
@@ -544,7 +670,11 @@ export function HomeScreen(): React.JSX.Element {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t('home.parcel.selectDestination')}
-                    style={[styles.selectorField, styles.selectorFieldGrow]}
+                    style={({ pressed }) => [
+                      styles.selectorField,
+                      styles.selectorFieldGrow,
+                      pressed ? styles.pressed : null,
+                    ]}
                     onPress={() => openParcelCityPicker('to')}
                   >
                     <PaperPlaneTilt
@@ -563,7 +693,7 @@ export function HomeScreen(): React.JSX.Element {
                     accessibilityRole="button"
                     accessibilityLabel={t('home.parcel.swapLocations')}
                     onPress={swapParcelLocations}
-                    style={styles.swapBtn}
+                    style={({ pressed }) => [styles.swapBtn, pressed ? styles.pressed : null]}
                   >
                     <ArrowsDownUp
                       size={18}
@@ -602,6 +732,18 @@ export function HomeScreen(): React.JSX.Element {
           </View>
         </View>
 
+        <UpcomingJourneyCard
+          enabled={Boolean(user)}
+          onOpen={handleOpenUpcomingJourney}
+        />
+
+        <ResumeDraftsSection
+          onDiscardBooking={handleDiscardBookingDraft}
+          onDiscardParcel={handleDiscardParcelDraft}
+          onResumeBooking={handleResumeBooking}
+          onResumeParcel={handleResumeParcel}
+        />
+
         {user ? (
           <WalletSummaryCard
             balance={walletBalanceQuery.data?.balance}
@@ -613,12 +755,21 @@ export function HomeScreen(): React.JSX.Element {
 
         {activeTab === 'ticket' ? (
           <>
+            {!favoriteRoutesLoading ? (
+              <FavoriteRoutesSection
+                routes={favoriteRoutes}
+                onRoutePress={handleFavoriteRoutePress}
+                onRemove={handleRemoveFavoriteRoute}
+              />
+            ) : null}
             <PopularRoutesSection
               routes={popularRoutes}
               isLoading={popularRoutesLoading}
               hasError={popularRoutesError}
               onRoutePress={handlePopularRoutePress}
               onViewAll={handleViewAllPopularRoutes}
+              favoriteRouteIds={favoriteRouteIds}
+              onToggleFavorite={handleToggleFavoriteRoute}
             />
             <RecentSearchesSection
               searches={recentSearches}
@@ -626,6 +777,8 @@ export function HomeScreen(): React.JSX.Element {
               isLoading={recentSearchesLoading}
               onSearchPress={handleRecentSearchPress}
               onClear={handleClearRecentSearches}
+              favoriteRouteIds={favoriteRouteIds}
+              onToggleFavorite={handleToggleFavoriteRoute}
             />
             <PromotionsSection />
           </>

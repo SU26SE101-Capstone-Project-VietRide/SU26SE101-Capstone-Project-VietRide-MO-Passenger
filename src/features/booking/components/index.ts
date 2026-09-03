@@ -29,3 +29,4 @@ export { SearchForm } from './SearchForm';
 export { PassengerCountInput } from './PassengerCountInput';
 export { PopularRoutesSection } from './PopularRoutesSection';
 export { RecentSearchesSection } from './RecentSearchesSection';
+export { FavoriteRoutesSection } from './FavoriteRoutesSection';

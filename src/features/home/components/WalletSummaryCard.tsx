@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { ArrowRight, Wallet } from 'phosphor-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -44,7 +44,10 @@ export const WalletSummaryCard = memo(function WalletSummaryCardComponent({
       <View style={styles.content}>
         <Text style={styles.label}>{t('home.wallet.title')}</Text>
         {isLoading ? (
-          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <View
+            accessibilityLabel={t('common.loading')}
+            style={styles.balanceSkeleton}
+          />
         ) : (
           <>
             <Text style={balance === undefined ? styles.error : styles.balance}>
@@ -96,6 +99,12 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.lg,
     color: theme.colors.textPrimary,
+  },
+  balanceSkeleton: {
+    width: 118,
+    height: 21,
+    borderRadius: borderRadius.sm,
+    backgroundColor: theme.colors.skeleton,
   },
   error: {
     fontFamily: fontFamilies.medium,

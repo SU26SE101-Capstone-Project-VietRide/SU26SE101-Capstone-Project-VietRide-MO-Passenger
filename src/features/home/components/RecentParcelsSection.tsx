@@ -1,6 +1,5 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   Text,
   useWindowDimensions,
@@ -122,6 +121,26 @@ const RecentParcelCard = memo(function RecentParcelCardItem({
   );
 });
 
+
+const RecentParcelSkeleton = memo(function RecentParcelSkeleton(): React.JSX.Element {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View style={styles.skeletonRow} accessibilityElementsHidden>
+      {[0, 1].map(index => (
+        <View key={`parcel-skeleton-${index}`} style={styles.skeletonCard}>
+          <View style={styles.skeletonHeader}>
+            <View style={[styles.skeletonBlock, styles.skeletonIcon]} />
+            <View style={[styles.skeletonBlock, styles.skeletonStatus]} />
+          </View>
+          <View style={[styles.skeletonBlock, styles.skeletonCode]} />
+          <View style={[styles.skeletonBlock, styles.skeletonRoute]} />
+          <View style={[styles.skeletonBlock, styles.skeletonMeta]} />
+        </View>
+      ))}
+    </View>
+  );
+});
+
 export interface RecentParcelsSectionProps {
   onParcelPress?: (parcelId: string, tripId: string) => void;
   onViewAll?: () => void;
@@ -180,12 +199,8 @@ export const RecentParcelsSection = memo(
     let content: React.ReactNode;
     if (parcelsQuery.isLoading) {
       content = (
-        <View
-          style={styles.stateBox}
-          accessibilityLabel={t('home.parcels.loadingAccessibility')}
-        >
-          <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.stateText}>{t('home.parcels.loading')}</Text>
+        <View accessibilityLabel={t('home.parcels.loadingAccessibility')}>
+          <RecentParcelSkeleton />
         </View>
       );
     } else if (parcelsQuery.isError && parcels.length === 0) {
@@ -303,6 +318,33 @@ const createStyles = (theme: AppTheme) => ({
   listContent: {
     paddingRight: spacing.lg,
   },
+  skeletonRow: {
+    flexDirection: 'row' as const,
+    gap: spacing.lg,
+    overflow: 'hidden' as const,
+  },
+  skeletonCard: {
+    ...theme.components.card,
+    width: 276,
+    minHeight: 176,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    gap: spacing.md,
+  },
+  skeletonHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  skeletonBlock: {
+    borderRadius: borderRadius.sm,
+    backgroundColor: theme.effects.contentSurfaceSoft,
+  },
+  skeletonIcon: { width: 38, height: 38, borderRadius: borderRadius.md },
+  skeletonStatus: { width: 84, height: 24 },
+  skeletonCode: { width: 112, height: 18 },
+  skeletonRoute: { width: 214, height: 32 },
+  skeletonMeta: { width: 176, height: 14 },
   card: {
     ...theme.components.card,
     width: 276,

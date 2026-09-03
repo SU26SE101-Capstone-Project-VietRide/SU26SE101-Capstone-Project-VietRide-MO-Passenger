@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
+import { setLocalSessionUser } from '@shared/session/scope';
 import { useSavedRecipientsStore } from '../store/useSavedRecipientsStore';
 import { SavedRecipientsModal } from './SavedRecipientsModal';
 
@@ -28,6 +29,11 @@ const mockTheme = {
       backgroundColor: '#FFFFFF',
     },
   },
+  effects: {
+    contentBorderStrong: '#CBD5E1',
+    contentSurfaceElevated: '#FFFFFF',
+    floatingShadow: {},
+  },
   isDark: false,
 };
 
@@ -51,6 +57,9 @@ jest.mock('phosphor-react-native', () => {
     Plus: MockIcon,
     Star: MockIcon,
     Trash: MockIcon,
+    CheckCircle: MockIcon,
+    Info: MockIcon,
+    WarningCircle: MockIcon,
     X: MockIcon,
   };
 });
@@ -74,9 +83,14 @@ jest.mock('react-i18next', () => ({
 }));
 
 describe('SavedRecipientsModal', () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | null = null;
+
   beforeEach(() => {
-    useSavedRecipientsStore.getState().reset();
-    useSavedRecipientsStore.setState({
+    act(() => {
+      setLocalSessionUser('11111111-1111-4111-8111-111111111111');
+      useSavedRecipientsStore.getState().reset();
+      useSavedRecipientsStore.setState({
+      ownerUserId: '11111111-1111-4111-8111-111111111111',
       recipients: [
         {
           id: 'rec_1',
@@ -97,12 +111,18 @@ describe('SavedRecipientsModal', () => {
           createdAt: 1000,
         },
       ],
+      hydrationStatus: 'ready',
       isLoaded: true,
+      });
     });
   });
 
+  afterEach(() => {
+    act(() => renderer?.unmount());
+    renderer = null;
+  });
+
   it('renders recipient items when visible', () => {
-    let renderer: ReactTestRenderer.ReactTestRenderer;
     act(() => {
       renderer = ReactTestRenderer.create(
         <SavedRecipientsModal
@@ -122,11 +142,10 @@ describe('SavedRecipientsModal', () => {
     expect(item2).toBeTruthy();
   });
 
-  it('calls onSelectRecipient when a recipient card is pressed in picker mode', () => {
+  it('calls onSelectRecipient when a recipient card is pressed in picker mode', async () => {
     const onSelectRecipient = jest.fn();
     const onClose = jest.fn();
 
-    let renderer: ReactTestRenderer.ReactTestRenderer;
     act(() => {
       renderer = ReactTestRenderer.create(
         <SavedRecipientsModal
@@ -139,8 +158,9 @@ describe('SavedRecipientsModal', () => {
     });
 
     const item1 = renderer!.root.findByProps({ testID: 'saved-recipient-item-rec_1' });
-    act(() => {
+    await act(async () => {
       item1.props.onPress();
+      await Promise.resolve();
     });
 
     expect(onSelectRecipient).toHaveBeenCalledWith(
@@ -153,7 +173,6 @@ describe('SavedRecipientsModal', () => {
   });
 
   it('filters recipients when search query changes', () => {
-    let renderer: ReactTestRenderer.ReactTestRenderer;
     act(() => {
       renderer = ReactTestRenderer.create(
         <SavedRecipientsModal
@@ -181,7 +200,6 @@ describe('SavedRecipientsModal', () => {
   });
 
   it('switches to add form when add button is pressed', () => {
-    let renderer: ReactTestRenderer.ReactTestRenderer;
     act(() => {
       renderer = ReactTestRenderer.create(
         <SavedRecipientsModal

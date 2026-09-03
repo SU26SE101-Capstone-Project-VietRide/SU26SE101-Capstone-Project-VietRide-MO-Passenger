@@ -246,6 +246,17 @@ export function CityPickerScreen(): React.JSX.Element {
     );
   }, [active, step, styles, t, theme.colors.primary]);
 
+  const renderLocation = useCallback(
+    ({ item }: ListRenderItemInfo<Location>) => (
+      <LocationRow
+        location={item}
+        onSelect={step === 'province' ? onPickProvince : onPickWard}
+        chevron={step === 'province'}
+      />
+    ),
+    [onPickProvince, onPickWard, step],
+  );
+
   return (
     <View style={styles.root}>
       <View style={styles.gradientContainer} pointerEvents="none">
@@ -325,13 +336,7 @@ export function CityPickerScreen(): React.JSX.Element {
             contentContainerStyle={styles.list}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            renderItem={({ item }: ListRenderItemInfo<Location>) => (
-              <LocationRow
-                location={item}
-                onSelect={step === 'province' ? onPickProvince : onPickWard}
-                chevron={step === 'province'}
-              />
-            )}
+            renderItem={renderLocation}
             ListHeaderComponent={
               step === 'ward' && province && !active.isLoading && !active.isError ? (
                 <Pressable

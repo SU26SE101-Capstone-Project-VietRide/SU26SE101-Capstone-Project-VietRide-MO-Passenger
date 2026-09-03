@@ -58,7 +58,7 @@ export const SearchForm = ({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('booking.searchForm.selectDeparture')}
-        style={styles.selectorField}
+        style={({ pressed }) => [styles.selectorField, pressed ? styles.pressed : null]}
         onPress={onFromPress}
       >
         <MapPin size={20} color={theme.colors.primary} weight="bold" />
@@ -75,7 +75,11 @@ export const SearchForm = ({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('booking.searchForm.selectDestination')}
-          style={[styles.selectorField, styles.selectorFieldGrow]}
+          style={({ pressed }) => [
+            styles.selectorField,
+            styles.selectorFieldGrow,
+            pressed ? styles.pressed : null,
+          ]}
           onPress={onToPress}
         >
           <MapPin size={18} color={theme.colors.primary} weight="bold" />
@@ -87,7 +91,7 @@ export const SearchForm = ({
           accessibilityRole="button"
           accessibilityLabel={t('booking.searchForm.swapLocations')}
           onPress={onSwapPress}
-          style={styles.swapBtn}
+          style={({ pressed }) => [styles.swapBtn, pressed ? styles.pressed : null]}
         >
           <ArrowsDownUp size={18} color={theme.colors.primary} weight="bold" />
         </Pressable>
@@ -98,7 +102,7 @@ export const SearchForm = ({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('booking.searchForm.selectDate')}
-          style={styles.metaField}
+          style={({ pressed }) => [styles.metaField, pressed ? styles.pressed : null]}
           onPress={onDatePress}
         >
           <CalendarBlank size={16} color={theme.colors.primary} weight="fill" />

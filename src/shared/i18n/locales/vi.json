@@ -5,7 +5,12 @@
     "restoringSession": "Đang khôi phục phiên đăng nhập...",
     "tagline": "Đi lại dễ dàng, an tâm mỗi chuyến",
     "loadingLabel": "Màn hình đang tải VietRide",
-    "logoLabel": "Logo VietRide"
+    "logoLabel": "Logo VietRide",
+    "errorBoundary": {
+      "title": "Ứng dụng gặp sự cố tạm thời",
+      "message": "VietRide không thể hiển thị màn hình này. Hãy thử tải lại giao diện để tiếp tục.",
+      "retry": "Thử lại"
+    }
   },
   "common": {
     "loading": "Đang tải...",
@@ -16,6 +21,7 @@
     "save": "Lưu",
     "delete": "Xóa",
     "search": "Tìm kiếm",
+    "clear": "Xóa nội dung",
     "noResults": "Không tìm thấy kết quả",
     "networkError": "Không có kết nối internet",
     "unknownError": "Đã xảy ra lỗi. Vui lòng thử lại.",
@@ -31,7 +37,8 @@
     "searchPlaceholder": "Tìm kiếm...",
     "understood": "Đã hiểu",
     "none": "Không có",
-    "notice": "Thông báo"
+    "notice": "Thông báo",
+    "dismiss": "Đóng thông báo"
   },
   "errors": {
     "api": {
@@ -272,6 +279,31 @@
     "booking": {
       "today": "Hôm nay",
       "tomorrow": "Ngày mai"
+    },
+    "drafts": {
+      "title": "Tiếp tục việc đang làm",
+      "subtitle": "Bản nháp được giữ trên thiết bị cho đến khi bạn hoàn tất hoặc xóa.",
+      "bookingTitle": "Đặt vé chưa hoàn tất",
+      "bookingStep": "Bước {{step}}",
+      "parcelTitle": "Gửi hàng chưa hoàn tất",
+      "parcelStep": "Bước {{step}}/4",
+      "resumeBookingAccessibility": "Tiếp tục đặt vé tuyến {{route}}",
+      "resumeParcelAccessibility": "Tiếp tục gửi hàng tuyến {{route}}",
+      "discardAccessibility": "Xóa {{title}}",
+      "discardBookingTitle": "Xóa bản nháp đặt vé?",
+      "discardBookingDescription": "Thông tin đặt vé chưa hoàn tất sẽ bị xóa khỏi thiết bị này.",
+      "discardParcelTitle": "Xóa bản nháp gửi hàng?",
+      "discardParcelDescription": "Thông tin gửi hàng chưa hoàn tất sẽ bị xóa khỏi thiết bị này.",
+      "discardAction": "Xóa bản nháp"
+    },
+    "upcoming": {
+      "activeEyebrow": "Chuyến đi đang diễn ra",
+      "upcomingEyebrow": "Chuyến đi sắp tới",
+      "activeHint": "Mở vé và thông tin chuyến đi trực tiếp",
+      "upcomingHint": "Mở vé và thông tin lên xe",
+      "unknownOrigin": "Điểm đi",
+      "unknownDestination": "Điểm đến",
+      "openAccessibility": "Mở vé từ {{origin}} đến {{destination}}"
     }
   },
   "notification": {
@@ -642,6 +674,16 @@
       "areaEmpty": "Khu vực này chưa có tuyến phổ biến.",
       "searchAccessibility": "Tìm tuyến phổ biến",
       "searchPlaceholder": "Tìm theo thành phố hoặc tỉnh"
+    },
+    "favorites": {
+      "title": "Tuyến yêu thích",
+      "subtitle": "Ghim tuyến thường đi để mở nhanh hơn",
+      "openAccessibility": "Lập kế hoạch tuyến yêu thích từ {{origin}} đến {{destination}}",
+      "addAccessibility": "Lưu tuyến từ {{origin}} đến {{destination}} vào yêu thích",
+      "removeAccessibility": "Bỏ tuyến yêu thích từ {{origin}} đến {{destination}}",
+      "saved": "Đã lưu tuyến vào yêu thích",
+      "removed": "Đã bỏ tuyến khỏi yêu thích",
+      "storageError": "Không thể cập nhật tuyến yêu thích. Vui lòng thử lại."
     },
     "promo": {
       "title": "Mã ưu đãi",
@@ -1052,7 +1094,23 @@
       "detailsUnavailable": "Chưa có chi tiết vé",
       "detailsUnavailableDescription": "Lượt đặt vé này chưa có đủ thông tin để hiển thị vé.",
       "unavailable": "Vé không khả dụng",
-      "unavailableDescription": "Không thể tải vé này. Hãy quay lại lịch sử đặt vé và thử lại."
+      "unavailableDescription": "Không thể tải vé này. Hãy quay lại lịch sử đặt vé và thử lại.",
+      "shareTrip": "Chia sẻ thông tin chuyến",
+      "shareTripAccessibility": "Chia sẻ thông tin chuyến mà không gửi QR lên xe hoặc mã vé",
+      "shareHeading": "Chuyến đi VietRide",
+      "shareDeparture": "Khởi hành: {{date}}",
+      "shareSeats": "Ghế: {{seats}}",
+      "shareReference": "Mã đặt chỗ: {{reference}}",
+      "shareSecurityNote": "Vì lý do bảo mật, QR lên xe và mã vé không được đưa vào nội dung chia sẻ.",
+      "shareFailed": "Không thể mở bảng chia sẻ.",
+      "remindThirtyMinutes": "Nhắc tôi trước 30 phút",
+      "tripReminderAccessibility": "Đặt lời nhắc trên thiết bị trước giờ khởi hành 30 phút",
+      "tripReminderTitle": "Chuyến VietRide của bạn sắp khởi hành",
+      "tripReminderBody": "{{origin}} → {{destination}} sắp khởi hành. Mở VietRide để kiểm tra thông tin lên xe.",
+      "tripReminderScheduled": "Đã đặt nhắc trước giờ khởi hành 30 phút.",
+      "tripReminderFailed": "Không thể đặt lời nhắc cho chuyến đi.",
+      "reminderPermissionDenied": "Thông báo của VietRide đang bị tắt.",
+      "openNotificationSettings": "Cài đặt"
     },
     "vouchers": {
       "percentOff": "Giảm {{value}}%",
@@ -1113,6 +1171,19 @@
       "selectOutbound": "Chọn chuyến chiều đi",
       "selectReturn": "Chọn chuyến chiều về",
       "selectTrip": "Chọn chuyến"
+    },
+    "draft": {
+      "exitTitle": "Lưu đặt vé để làm tiếp sau?",
+      "exitDescription": "Tuyến, chuyến và ghế đã chọn có thể được giữ trên thiết bị. Khi quay lại, VietRide sẽ kiểm tra lại tình trạng chuyến và ghế theo dữ liệu mới nhất.",
+      "keepEditing": "Tiếp tục đặt vé",
+      "saveAndExit": "Lưu & thoát",
+      "discard": "Xóa bản nháp"
+    },
+    "progressPhases": {
+      "outbound": "Lượt đi",
+      "return": "Lượt về",
+      "finish": "Xác nhận",
+      "stepCount": "{{current}}/{{total}}"
     }
   },
   "tracking": {
@@ -1265,9 +1336,11 @@
     "parcelDetails": "Chi tiết bưu kiện",
     "otpConfirm": "Xác nhận OTP",
     "exitDraft": {
-      "title": "Rời luồng gửi hàng?",
-      "description": "Bản nháp gửi hàng vẫn được giữ trên thiết bị, nhưng thông tin người nhận và chuyến xe chưa lưu có thể bị mất.",
-      "discard": "Rời luồng"
+      "title": "Lưu đơn gửi hàng để làm tiếp sau?",
+      "description": "Tuyến và thông tin kiện hàng có thể được giữ trên thiết bị. Thông tin người nhận, ảnh và lựa chọn chuyến theo thời gian thực sẽ không được lưu và cần chọn lại.",
+      "keepEditing": "Tiếp tục gửi hàng",
+      "saveAndExit": "Lưu & thoát",
+      "discard": "Xóa bản nháp"
     },
     "actions": {
       "apply": "Áp dụng",
@@ -1488,7 +1561,16 @@
       "useThisRecipient": "Chọn người này",
       "saveButton": "Lưu người nhận",
       "cancel": "Hủy",
-      "selectRecipient": "Chọn từ danh bạ"
+      "selectRecipient": "Chọn từ danh bạ",
+      "deletedSuccess": "Đã xóa người nhận",
+      "undo": "Hoàn tác",
+      "defaultSuccess": "Đã đặt {{name}} làm người nhận mặc định",
+      "loadError": "Không thể tải sổ địa chỉ người nhận trên thiết bị này.",
+      "storageError": "Không thể cập nhật sổ địa chỉ. Vui lòng thử lại.",
+      "duplicatePhone": "Số điện thoại này đã có trong sổ địa chỉ.",
+      "limitReached": "Bạn có thể lưu tối đa 50 người nhận.",
+      "parcelCreatedSaveFailed": "Đã tạo đơn nhưng chưa lưu được người nhận.",
+      "retry": "Thử lại"
     },
     "locations": {
       "municipality": "Thành phố trực thuộc trung ương",
@@ -1805,7 +1887,8 @@
         "SEARCH_EXPIRED": "Cần thêm thời gian kiểm tra",
         "LOST_CONFIRMED": "Đã xác nhận thất lạc",
         "UNKNOWN": "Đang được nhà xe kiểm tra"
-      }
+      },
+      "staleData": "Không thể tải bản cập nhật mới nhất. Đang hiển thị dữ liệu gần nhất đã tải."
     },
     "incident": {
       "title": "Báo vấn đề về kiện hàng",
@@ -2047,7 +2130,8 @@
       "discardAction": "Bỏ thay đổi",
       "errors": {
         "sessionRefresh": "Hồ sơ đã được cập nhật nhưng không thể làm mới phiên bảo mật. Vui lòng đăng nhập lại."
-      }
+      },
+      "saved": "Đã cập nhật hồ sơ."
     },
     "validation": {
       "fullNameRequired": "Hãy nhập họ và tên.",
@@ -2531,5 +2615,10 @@
       "timeout": "Trợ lý phản hồi quá lâu. Vui lòng thử lại.",
       "generic": "Chưa thể nhận phản hồi từ trợ lý. Vui lòng thử lại sau."
     }
+  },
+  "network": {
+    "offlineTitle": "Bạn đang offline",
+    "offlineDescription": "Ứng dụng vẫn hiển thị dữ liệu đã lưu khi có thể. Thao tác trực tuyến sẽ tiếp tục khi có mạng.",
+    "reconnected": "Đã có mạng trở lại. Dữ liệu trực tuyến sẽ tự cập nhật."
   }
 }

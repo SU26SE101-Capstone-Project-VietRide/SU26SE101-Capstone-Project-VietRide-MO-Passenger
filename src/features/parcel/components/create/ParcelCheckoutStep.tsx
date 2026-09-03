@@ -26,6 +26,7 @@ import {
 } from '@shared/components';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useResponsiveLayout, useThemedStyles } from '@shared/hooks';
+import { showSnackbar } from '@shared/store/useSnackbarStore';
 import {
   borderRadius,
   fontFamilies,
@@ -39,6 +40,7 @@ import { formatParcelDimensions } from '../../config/parcelPackage';
 import { PricingBreakdown } from '../PricingBreakdown';
 import { SavedRecipientsModal } from '../SavedRecipientsModal';
 import {
+  getSavedRecipientsErrorKey,
   selectSortedRecipients,
   useSavedRecipientsStore,
 } from '../../store/useSavedRecipientsStore';
@@ -157,15 +159,20 @@ function ParcelCheckoutStepComponent({
   const [showRecipientsModal, setShowRecipientsModal] = useState(false);
 
   const recipients = useSavedRecipientsStore(state => state.recipients);
-  const isLoaded = useSavedRecipientsStore(state => state.isLoaded);
+  const hydrationStatus = useSavedRecipientsStore(state => state.hydrationStatus);
   const loadRecipients = useSavedRecipientsStore(state => state.loadRecipients);
   const touchRecipient = useSavedRecipientsStore(state => state.touchRecipient);
 
   React.useEffect(() => {
-    if (!isLoaded) {
-      void loadRecipients();
+    if (hydrationStatus === 'idle') {
+      loadRecipients().catch(error => {
+        showSnackbar({
+          message: t(getSavedRecipientsErrorKey(error)),
+          tone: 'error',
+        });
+      });
     }
-  }, [isLoaded, loadRecipients]);
+  }, [hydrationStatus, loadRecipients, t]);
 
   const quickRecipients = useMemo(() => {
     return selectSortedRecipients(recipients).slice(0, 5);
@@ -178,9 +185,14 @@ function ParcelCheckoutStepComponent({
       if (recipient.email) {
         onRecipientEmailChange(recipient.email);
       }
-      void touchRecipient(recipient.id);
+      touchRecipient(recipient.id).catch(error => {
+        showSnackbar({
+          message: t(getSavedRecipientsErrorKey(error)),
+          tone: 'error',
+        });
+      });
     },
-    [onRecipientNameChange, onRecipientPhoneChange, onRecipientEmailChange, touchRecipient],
+    [onRecipientNameChange, onRecipientPhoneChange, onRecipientEmailChange, touchRecipient, t],
   );
 
   const canSubmit = canSubmitStep4({

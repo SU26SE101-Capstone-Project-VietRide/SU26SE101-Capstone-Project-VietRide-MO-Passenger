@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import {
   useNavigation,
   useRoute,
@@ -10,6 +10,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
+  BellRinging,
   CalendarBlank,
   CheckCircle,
   ClockCountdown,
@@ -17,6 +18,7 @@ import {
   Flask,
   MapPin,
   PathIcon,
+  ShareNetwork,
   Ticket,
   Wallet,
   Van,
@@ -45,6 +47,15 @@ import {
   type AppTheme,
 } from '@shared/theme';
 import { formatVnd } from '@shared/utils/format';
+import { showSnackbar } from '@shared/store/useSnackbarStore';
+import {
+  cancelTripReminder,
+  ensureNotificationChannels,
+  getNotificationPermissionState,
+  openSystemNotificationSettings,
+  requestNotificationPermission,
+  scheduleTripReminder,
+} from '@shared/notifications';
 import {
   VnPayPaymentOpenCoordinator,
 } from '@shared/payments';
@@ -99,6 +110,7 @@ interface TicketViewProps {
   onTrack: (leg: TicketLegViewModel) => void;
   pendingPaymentActions?: PendingPaymentActions;
   cancellationActions?: CancellationActions;
+  reminderDepartureDateTime?: string;
 }
 
 interface PendingPaymentActions {
@@ -315,6 +327,7 @@ function TicketView({
   onTrack,
   pendingPaymentActions,
   cancellationActions,
+  reminderDepartureDateTime,
 }: TicketViewProps): React.JSX.Element {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -370,6 +383,97 @@ function TicketView({
   const amountValue = activeTicket?.paidAmount != null && pages.length > 1
     ? activeTicket.paidAmount
     : activeLeg?.totalAmount ?? model.totalAmount;
+
+  const handleShareTrip = useCallback(async () => {
+    if (!activeLeg) return;
+
+    const messageParts = [
+      t('booking.ticket.shareHeading'),
+      `${activeLeg.boardingName} → ${activeLeg.alightingName}`,
+      activeLeg.boardingDate
+        ? t('booking.ticket.shareDeparture', { date: activeLeg.boardingDate })
+        : null,
+      activeLeg.seatNumbers
+        ? t('booking.ticket.shareSeats', { seats: activeLeg.seatNumbers })
+        : null,
+      t('booking.ticket.shareReference', { reference: activeLeg.reference }),
+      t('booking.ticket.shareSecurityNote'),
+    ].filter((part): part is string => Boolean(part));
+
+    try {
+      await Share.share(
+        { message: messageParts.join('\n') },
+        { dialogTitle: t('booking.ticket.shareTrip') },
+      );
+    } catch {
+      showSnackbar({
+        message: t('booking.ticket.shareFailed'),
+        tone: 'error',
+      });
+    }
+  }, [activeLeg, t]);
+
+  const reminderAt = useMemo(() => {
+    if (!reminderDepartureDateTime) return null;
+    const departureMs = new Date(reminderDepartureDateTime).getTime();
+    if (!Number.isFinite(departureMs)) return null;
+    const timestamp = departureMs - 30 * 60 * 1000;
+    return timestamp > Date.now() ? timestamp : null;
+  }, [reminderDepartureDateTime]);
+  const canScheduleTripReminder = Boolean(
+    model.bookingStatus === 'CONFIRMED'
+    && reminderAt !== null
+    && activeLeg?.bookingId,
+  );
+
+  const handleScheduleTripReminder = useCallback(async () => {
+    if (!canScheduleTripReminder || !activeLeg?.bookingId || reminderAt === null) return;
+
+    try {
+      let permission = await getNotificationPermissionState();
+      if (permission === 'not_determined') {
+        permission = await requestNotificationPermission();
+      }
+
+      if (permission !== 'authorized') {
+        showSnackbar({
+          message: t('booking.ticket.reminderPermissionDenied'),
+          tone: 'warning',
+          action: {
+            label: t('booking.ticket.openNotificationSettings'),
+            onPress: () => {
+              openSystemNotificationSettings().catch(() => undefined);
+            },
+          },
+          durationMs: 6000,
+        });
+        return;
+      }
+
+      await ensureNotificationChannels({
+        updates: t('settings.notifications.updatesChannel'),
+        reminders: t('settings.notifications.remindersChannel'),
+      });
+      await scheduleTripReminder({
+        bookingId: activeLeg.bookingId,
+        remindAt: reminderAt,
+        title: t('booking.ticket.tripReminderTitle'),
+        body: t('booking.ticket.tripReminderBody', {
+          origin: activeLeg.boardingName,
+          destination: activeLeg.alightingName,
+        }),
+      });
+      showSnackbar({
+        message: t('booking.ticket.tripReminderScheduled'),
+        tone: 'success',
+      });
+    } catch {
+      showSnackbar({
+        message: t('booking.ticket.tripReminderFailed'),
+        tone: 'error',
+      });
+    }
+  }, [activeLeg, canScheduleTripReminder, reminderAt, t]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -678,6 +782,44 @@ function TicketView({
                 <MapPin size={18} color={theme.colors.textInverse} weight="bold" />
                 <Text style={styles.primaryActionText}>
                   {t('booking.ticket.trackLeg', { leg: activeLeg.label })}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {!model.isPendingPayment ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('booking.ticket.shareTripAccessibility')}
+                style={({ pressed }) => [
+                  styles.secondaryAction,
+                  pressed ? styles.pressed : null,
+                ]}
+                onPress={() => {
+                  handleShareTrip().catch(() => undefined);
+                }}
+              >
+                <ShareNetwork size={18} color={theme.colors.primary} weight="bold" />
+                <Text style={styles.secondaryActionText}>
+                  {t('booking.ticket.shareTrip')}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {canScheduleTripReminder ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('booking.ticket.tripReminderAccessibility')}
+                style={({ pressed }) => [
+                  styles.secondaryAction,
+                  pressed ? styles.pressed : null,
+                ]}
+                onPress={() => {
+                  handleScheduleTripReminder().catch(() => undefined);
+                }}
+              >
+                <BellRinging size={18} color={theme.colors.primary} weight="bold" />
+                <Text style={styles.secondaryActionText}>
+                  {t('booking.ticket.remindThirtyMinutes')}
                 </Text>
               </Pressable>
             ) : null}
@@ -1162,6 +1304,7 @@ function HistoryTicketContent({
       const result = await cancelMutation.mutateAsync({
         bookingId: effectiveHistoryItem.id,
       });
+      await cancelTripReminder(effectiveHistoryItem.id).catch(() => undefined);
       Alert.alert(
         t('booking.ticket.cancelSuccessTitle'),
         result.refundAmount > 0
@@ -1256,6 +1399,11 @@ function HistoryTicketContent({
       onHome={handleBack}
       onTrack={handleTrack}
       cancellationActions={cancellationActions}
+      reminderDepartureDateTime={
+        effectiveHistoryItem?.ticket.pickupPoint?.plannedAt
+        ?? effectiveHistoryItem?.departureDateTime
+        ?? undefined
+      }
     />
   );
 }

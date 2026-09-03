@@ -59,6 +59,23 @@ describe('CreateParcel checkout recovery policy', () => {
     );
   });
 
+  it('does not classify recipient persistence as a parcel creation failure', () => {
+    const createIndex = screenSource.indexOf(
+      'parcelResult = await createParcelMutation.mutateAsync(payload);',
+    );
+    const createCatchIndex = screenSource.indexOf('} catch (error) {', createIndex);
+    const recipientSaveIndex = screenSource.indexOf(
+      'await useSavedRecipientsStore.getState().saveOrTouchRecipient(',
+      createCatchIndex,
+    );
+
+    expect(createCatchIndex).toBeGreaterThan(createIndex);
+    expect(recipientSaveIndex).toBeGreaterThan(createCatchIndex);
+    expect(screenSource).toContain('parcel.recipients.parcelCreatedSaveFailed');
+    expect(screenSource).toContain('parcel.recipients.retry');
+    expect(screenSource).toContain('isLocalSessionScopeCurrent(recipientScope)');
+  });
+
   it('routes a saved parcel to Detail when payment initialization fails', () => {
     const failureHandlerIndex = screenSource.indexOf(
       'const handleDepositFailure =',

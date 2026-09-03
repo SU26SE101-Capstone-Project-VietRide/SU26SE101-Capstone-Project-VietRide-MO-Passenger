@@ -1038,9 +1038,26 @@ const HistoryEmptyState = memo(function HistoryEmptyStateComponent({
 
   if (isPending) {
     return (
-      <View style={styles.emptyContainer} accessibilityRole="summary">
-        <ActivityIndicator color={theme.colors.primary} />
-        <Text style={styles.emptyText}>{t('bookingHistory.loading')}</Text>
+      <View
+        style={styles.historySkeletonList}
+        accessibilityRole="summary"
+        accessibilityLabel={t('bookingHistory.loading')}
+      >
+        {[0, 1, 2].map(index => (
+          <View key={index} style={styles.historySkeletonCard}>
+            <View style={styles.historySkeletonHeader}>
+              <View style={[styles.historySkeletonBlock, styles.historySkeletonRoute]} />
+              <View style={[styles.historySkeletonBlock, styles.historySkeletonBadge]} />
+            </View>
+            <View style={[styles.historySkeletonBlock, styles.historySkeletonReference]} />
+            <View style={[styles.historySkeletonBlock, styles.historySkeletonLine]} />
+            <View style={[styles.historySkeletonBlock, styles.historySkeletonLineShort]} />
+            <View style={styles.historySkeletonFooter}>
+              <View style={[styles.historySkeletonBlock, styles.historySkeletonMeta]} />
+              <View style={[styles.historySkeletonBlock, styles.historySkeletonAmount]} />
+            </View>
+          </View>
+        ))}
       </View>
     );
   }
@@ -1998,6 +2015,44 @@ const createStyles = (theme: AppTheme) => ({
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
+  historySkeletonList: {
+    width: '100%' as const,
+    gap: spacing.md,
+    paddingTop: spacing.xs,
+  },
+  historySkeletonCard: {
+    minHeight: 148,
+    gap: spacing.sm,
+    padding: spacing.lg,
+    borderRadius: BR.xl,
+    borderCurve: 'continuous' as const,
+    backgroundColor: theme.effects.contentSurfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.effects.contentBorder,
+  },
+  historySkeletonHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    gap: spacing.md,
+  },
+  historySkeletonBlock: {
+    borderRadius: BR.sm,
+    backgroundColor: theme.colors.skeleton,
+  },
+  historySkeletonRoute: { width: '58%' as const, height: 18 },
+  historySkeletonBadge: { width: 74, height: 22, borderRadius: BR.full },
+  historySkeletonReference: { width: '34%' as const, height: 12 },
+  historySkeletonLine: { width: '82%' as const, height: 14 },
+  historySkeletonLineShort: { width: '64%' as const, height: 14 },
+  historySkeletonFooter: {
+    marginTop: spacing.xs,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  historySkeletonMeta: { width: '42%' as const, height: 12 },
+  historySkeletonAmount: { width: 76, height: 16 },
   emptyTitle: {
     marginTop: spacing.md,
     fontFamily: fontFamilies.bold,

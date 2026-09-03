@@ -5,7 +5,12 @@
     "restoringSession": "Restoring your session...",
     "tagline": "Easy journeys, peace of mind",
     "loadingLabel": "VietRide loading screen",
-    "logoLabel": "VietRide logo"
+    "logoLabel": "VietRide logo",
+    "errorBoundary": {
+      "title": "The app hit a temporary problem",
+      "message": "VietRide could not render this screen. Try reloading the interface to continue.",
+      "retry": "Try again"
+    }
   },
   "common": {
     "loading": "Loading...",
@@ -16,6 +21,7 @@
     "save": "Save",
     "delete": "Delete",
     "search": "Search",
+    "clear": "Clear",
     "noResults": "No results found",
     "networkError": "No internet connection",
     "unknownError": "Something went wrong. Please try again.",
@@ -31,7 +37,8 @@
     "searchPlaceholder": "Search...",
     "understood": "Understood",
     "none": "None",
-    "notice": "Notice"
+    "notice": "Notice",
+    "dismiss": "Dismiss"
   },
   "errors": {
     "api": {
@@ -272,6 +279,31 @@
     "booking": {
       "today": "Today",
       "tomorrow": "Tomorrow"
+    },
+    "drafts": {
+      "title": "Continue where you left off",
+      "subtitle": "Drafts stay on this device until you finish or discard them.",
+      "bookingTitle": "Ticket booking draft",
+      "bookingStep": "Step {{step}}",
+      "parcelTitle": "Parcel booking draft",
+      "parcelStep": "Step {{step}} of 4",
+      "resumeBookingAccessibility": "Resume ticket booking for {{route}}",
+      "resumeParcelAccessibility": "Resume parcel booking for {{route}}",
+      "discardAccessibility": "Discard {{title}}",
+      "discardBookingTitle": "Discard ticket draft?",
+      "discardBookingDescription": "Your unfinished ticket booking will be removed from this device.",
+      "discardParcelTitle": "Discard parcel draft?",
+      "discardParcelDescription": "Your unfinished parcel setup will be removed from this device.",
+      "discardAction": "Discard draft"
+    },
+    "upcoming": {
+      "activeEyebrow": "Trip in progress",
+      "upcomingEyebrow": "Your next trip",
+      "activeHint": "Open your ticket and live trip details",
+      "upcomingHint": "Open your ticket and boarding details",
+      "unknownOrigin": "Origin",
+      "unknownDestination": "Destination",
+      "openAccessibility": "Open ticket from {{origin}} to {{destination}}"
     }
   },
   "notification": {
@@ -642,6 +674,16 @@
       "areaEmpty": "No popular routes are available in this area.",
       "searchAccessibility": "Search popular routes",
       "searchPlaceholder": "Search by city or province"
+    },
+    "favorites": {
+      "title": "Favorite routes",
+      "subtitle": "Keep frequent routes one tap away",
+      "openAccessibility": "Plan favorite route from {{origin}} to {{destination}}",
+      "addAccessibility": "Save route from {{origin}} to {{destination}} as favorite",
+      "removeAccessibility": "Remove favorite route from {{origin}} to {{destination}}",
+      "saved": "Route saved to favorites",
+      "removed": "Route removed from favorites",
+      "storageError": "Could not update favorites. Please try again."
     },
     "promo": {
       "title": "Promo code",
@@ -1052,7 +1094,23 @@
       "detailsUnavailable": "Ticket details unavailable",
       "detailsUnavailableDescription": "This booking does not include enough information to display a ticket.",
       "unavailable": "Ticket unavailable",
-      "unavailableDescription": "We could not load this ticket. Return to booking history and try again."
+      "unavailableDescription": "We could not load this ticket. Return to booking history and try again.",
+      "shareTrip": "Share trip details",
+      "shareTripAccessibility": "Share trip details without the boarding QR or ticket code",
+      "shareHeading": "VietRide trip",
+      "shareDeparture": "Departure: {{date}}",
+      "shareSeats": "Seat: {{seats}}",
+      "shareReference": "Booking reference: {{reference}}",
+      "shareSecurityNote": "For your security, the boarding QR and ticket code are not included.",
+      "shareFailed": "Could not open the share sheet.",
+      "remindThirtyMinutes": "Remind me 30 minutes before",
+      "tripReminderAccessibility": "Schedule a local reminder 30 minutes before departure",
+      "tripReminderTitle": "Your VietRide trip is coming up",
+      "tripReminderBody": "{{origin}} → {{destination}} departs soon. Open VietRide to review your boarding details.",
+      "tripReminderScheduled": "Trip reminder scheduled for 30 minutes before departure.",
+      "tripReminderFailed": "Could not schedule the trip reminder.",
+      "reminderPermissionDenied": "Notifications are disabled for VietRide.",
+      "openNotificationSettings": "Settings"
     },
     "vouchers": {
       "percentOff": "{{value}}% off",
@@ -1113,6 +1171,19 @@
       "selectOutbound": "Select outbound trip",
       "selectReturn": "Select return trip",
       "selectTrip": "Select a trip"
+    },
+    "draft": {
+      "exitTitle": "Save this booking for later?",
+      "exitDescription": "Your route, trip and seat choices can stay on this device so you can continue later. Live availability will be checked again when you return.",
+      "keepEditing": "Keep booking",
+      "saveAndExit": "Save & exit",
+      "discard": "Discard draft"
+    },
+    "progressPhases": {
+      "outbound": "Outbound",
+      "return": "Return",
+      "finish": "Review",
+      "stepCount": "{{current}}/{{total}}"
     }
   },
   "tracking": {
@@ -1265,9 +1336,11 @@
     "parcelDetails": "Parcel Details",
     "otpConfirm": "OTP Confirmation",
     "exitDraft": {
-      "title": "Leave booking?",
-      "description": "Your booking draft will stay on this device, but unsaved recipient and trip choices may be lost.",
-      "discard": "Leave booking"
+      "title": "Save this parcel booking for later?",
+      "description": "Your route and package details can stay on this device. Recipient details, photos and live delivery options are not stored and will be requested again.",
+      "keepEditing": "Keep booking",
+      "saveAndExit": "Save & exit",
+      "discard": "Discard draft"
     },
     "actions": {
       "apply": "Apply",
@@ -1488,7 +1561,16 @@
       "useThisRecipient": "Use this recipient",
       "saveButton": "Save recipient",
       "cancel": "Cancel",
-      "selectRecipient": "Select from saved"
+      "selectRecipient": "Select from saved",
+      "deletedSuccess": "Recipient removed",
+      "undo": "Undo",
+      "defaultSuccess": "{{name}} is now your default recipient",
+      "loadError": "Your saved recipients could not be loaded on this device.",
+      "storageError": "Could not update saved recipients. Please try again.",
+      "duplicatePhone": "A recipient with this phone number already exists.",
+      "limitReached": "You can save up to 50 recipients.",
+      "parcelCreatedSaveFailed": "Parcel created, but the recipient was not saved.",
+      "retry": "Retry"
     },
     "locations": {
       "municipality": "Municipality",
@@ -1805,7 +1887,8 @@
         "SEARCH_EXPIRED": "More review time is needed",
         "LOST_CONFIRMED": "Confirmed lost",
         "UNKNOWN": "The operator is reviewing it"
-      }
+      },
+      "staleData": "Could not load the latest update. Showing the most recently loaded data."
     },
     "incident": {
       "title": "Report a parcel issue",
@@ -2047,7 +2130,8 @@
       "discardAction": "Discard",
       "errors": {
         "sessionRefresh": "Your profile was updated, but the secure session could not be refreshed. Please sign in again."
-      }
+      },
+      "saved": "Profile updated."
     },
     "validation": {
       "fullNameRequired": "Enter your full name.",
@@ -2531,5 +2615,10 @@
       "timeout": "The assistant took too long to respond. Please try again.",
       "generic": "The assistant could not respond. Please try again later."
     }
+  },
+  "network": {
+    "offlineTitle": "You’re offline",
+    "offlineDescription": "Showing saved data where available. Live actions will resume when you reconnect.",
+    "reconnected": "Back online. Live data will update automatically."
   }
 }

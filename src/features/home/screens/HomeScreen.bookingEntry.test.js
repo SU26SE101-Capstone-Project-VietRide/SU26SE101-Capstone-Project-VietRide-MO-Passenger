@@ -12,8 +12,8 @@ describe('Homepage booking entry contract', () => {
   const promotionsSource = read('../components/PromotionsSection.tsx');
 
   it('opens the date picker before searching from the Home form and popular routes', () => {
-    expect(homeSource.match(/screen: 'DatePicker'/g)).toHaveLength(4);
-    expect(homeSource.match(/next: 'search'/g)).toHaveLength(3);
+    expect(homeSource.match(/screen: 'DatePicker'/g)).toHaveLength(5);
+    expect(homeSource.match(/next: 'search'/g)).toHaveLength(4);
     expect(popularRoutesSource).toContain("navigation.navigate('DatePicker'");
     expect(popularRoutesSource).toContain("next: 'search'");
   });

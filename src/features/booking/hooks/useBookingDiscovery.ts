@@ -10,6 +10,7 @@ import {
   toRecentSearchInput,
 } from '../utils/bookingDiscovery';
 import { useRecentSearches } from './useRecentSearches';
+import { useFavoriteRoutes } from './useFavoriteRoutes';
 
 export type DiscoveryActionResult =
   | 'applied'
@@ -26,12 +27,36 @@ export function useBookingDiscovery() {
     [locationsQuery.data],
   );
   const recent = useRecentSearches(userId);
+  const favorites = useFavoriteRoutes(userId);
   const recentItems = recent.items;
   const saveRecentSearch = recent.saveSearch;
 
   const applyPrefill = useCallback((prefill: BookingSearchPrefill): void => {
     applySearchPrefill(prefill);
   }, [applySearchPrefill]);
+
+  const applyRouteShortcut = useCallback((route: {
+    originCode: string;
+    originName: string;
+    destinationCode: string;
+    destinationName: string;
+  }): DiscoveryActionResult => {
+    const current = useBookingStore.getState().searchParams;
+    applyPrefill({
+      ...current,
+      from: route.originName,
+      to: route.destinationName,
+      originLocationCode: route.originCode,
+      destinationLocationCode: route.destinationCode,
+      originWardCode: '',
+      destinationWardCode: '',
+      originStationId: '',
+      destinationStationId: '',
+      originStationName: '',
+      destinationStationName: '',
+    });
+    return 'applied';
+  }, [applyPrefill]);
 
   const applyPopularRoute = useCallback((
     originCode: string,
@@ -40,22 +65,13 @@ export function useBookingDiscovery() {
     const route = popularRoutes.find((item) => (
       item.originCode === originCode && item.destinationCode === destinationCode
     ));
-    if (!route) return 'not_found';
+    return route ? applyRouteShortcut(route) : 'not_found';
+  }, [applyRouteShortcut, popularRoutes]);
 
-    const current = useBookingStore.getState().searchParams;
-    applyPrefill({
-      ...current,
-      from: route.originName,
-      to: route.destinationName,
-      originLocationCode: route.originCode,
-      destinationLocationCode: route.destinationCode,
-      originStationId: '',
-      destinationStationId: '',
-      originStationName: '',
-      destinationStationName: '',
-    });
-    return 'applied';
-  }, [applyPrefill, popularRoutes]);
+  const applyFavoriteRoute = useCallback((routeId: string): DiscoveryActionResult => {
+    const route = favorites.items.find(item => item.id === routeId);
+    return route ? applyRouteShortcut(route) : 'not_found';
+  }, [applyRouteShortcut, favorites.items]);
 
   const applyRecentSearch = useCallback((searchId: string): DiscoveryActionResult => {
     const search = recentItems.find((item) => item.id === searchId);
@@ -76,6 +92,9 @@ export function useBookingDiscovery() {
 
   return {
     popularRoutes,
+    favoriteRoutes: favorites.items,
+    favoriteRoutesLoading: favorites.isLoading,
+    favoriteRoutesError: favorites.error,
     recentSearches: recent.items,
     recentSearchError: recent.error,
     recentSearchesLoading: recent.isLoading,
@@ -83,8 +102,11 @@ export function useBookingDiscovery() {
     popularRoutesError: locationsQuery.isError,
     applyPrefill,
     applyPopularRoute,
+    applyFavoriteRoute,
     applyRecentSearch,
     saveCurrentSearch,
+    toggleFavoriteRoute: favorites.toggleRoute,
+    removeFavoriteRoute: favorites.removeRoute,
     clearRecentSearches: recent.clearSearches,
   } as const;
 }

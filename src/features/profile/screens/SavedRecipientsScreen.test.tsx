@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
+import { setLocalSessionUser } from '@shared/session/scope';
 import { useSavedRecipientsStore } from '@features/parcel/store/useSavedRecipientsStore';
 import { SavedRecipientsScreen } from './SavedRecipientsScreen';
 
@@ -27,6 +28,11 @@ const mockTheme = {
   components: {
     primaryButton: { borderRadius: 8, height: 48 },
     card: { backgroundColor: '#FFFFFF' },
+  },
+  effects: {
+    contentBorderStrong: '#CBD5E1',
+    contentSurfaceElevated: '#FFFFFF',
+    floatingShadow: {},
   },
 };
 
@@ -81,14 +87,22 @@ jest.mock('phosphor-react-native', () => {
     Plus: MockIcon,
     Star: MockIcon,
     Trash: MockIcon,
+    CheckCircle: MockIcon,
+    Info: MockIcon,
+    WarningCircle: MockIcon,
     X: MockIcon,
   };
 });
 
 describe('SavedRecipientsScreen', () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer | null = null;
+
   beforeEach(() => {
-    useSavedRecipientsStore.getState().reset();
-    useSavedRecipientsStore.setState({
+    act(() => {
+      setLocalSessionUser('11111111-1111-4111-8111-111111111111');
+      useSavedRecipientsStore.getState().reset();
+      useSavedRecipientsStore.setState({
+      ownerUserId: '11111111-1111-4111-8111-111111111111',
       recipients: [
         {
           id: 'rec_10',
@@ -100,12 +114,18 @@ describe('SavedRecipientsScreen', () => {
           createdAt: 1000,
         },
       ],
+      hydrationStatus: 'ready',
       isLoaded: true,
+      });
     });
   });
 
+  afterEach(() => {
+    act(() => renderer?.unmount());
+    renderer = null;
+  });
+
   it('renders recipients list and header controls', () => {
-    let renderer: ReactTestRenderer.ReactTestRenderer;
     act(() => {
       renderer = ReactTestRenderer.create(<SavedRecipientsScreen />);
     });
@@ -117,12 +137,14 @@ describe('SavedRecipientsScreen', () => {
   });
 
   it('renders empty state when store has no recipients', () => {
-    useSavedRecipientsStore.setState({
-      recipients: [],
-      isLoaded: true,
+    act(() => {
+      useSavedRecipientsStore.setState({
+        recipients: [],
+        hydrationStatus: 'ready',
+        isLoaded: true,
+      });
     });
 
-    let renderer: ReactTestRenderer.ReactTestRenderer;
     act(() => {
       renderer = ReactTestRenderer.create(<SavedRecipientsScreen />);
     });

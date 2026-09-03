@@ -20,9 +20,10 @@ export interface SavedRecipient {
 
 export type CreateSavedRecipientInput = Omit<
   SavedRecipient,
-  'id' | 'createdAt' | 'lastUsedAt'
+  'id' | 'createdAt' | 'lastUsedAt' | 'email'
 > & {
   id?: string;
+  email?: string;
   lastUsedAt?: number;
 };
 

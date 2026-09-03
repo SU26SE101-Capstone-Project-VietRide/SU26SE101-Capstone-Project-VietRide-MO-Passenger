@@ -7,7 +7,7 @@ import { createNativeStackOptions, useMotion } from '@shared/motion';
 import {
   CreateParcelScreen,
   ParcelDetailScreen,
-  ParcelReliabilityScreen,
+  ParcelTrackingScreen,
   ReportParcelIncidentScreen,
   ParcelClaimScreen,
   ParcelCityPicker,
@@ -36,7 +36,7 @@ export function ParcelNavigator(): React.JSX.Element {
         component={ParcelDetailScreen}
         options={{ gestureEnabled: false }}
       />
-      <Stack.Screen name="ParcelTracking" component={ParcelReliabilityScreen} />
+      <Stack.Screen name="ParcelTracking" component={ParcelTrackingScreen} />
       <Stack.Screen
         name="ReportParcelIncident"
         component={ReportParcelIncidentScreen}

@@ -1,289 +1,523 @@
 /**
- * Saved Recipients Store — Zustand Store with AsyncStorage persistence
+ * User-scoped saved-recipient address book.
  *
- * Manages the user's parcel recipient address book.
- * Provides instant in-memory CRUD operations backed by asynchronous storage.
+ * Writes are serialized and persisted before Zustand is updated. This keeps
+ * storage and UI in agreement and prevents an older failed write from rolling
+ * back a newer successful mutation.
  */
 
-import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from 'zustand';
+
 import { normalizeVietnamPhone } from '@features/auth/validation/authValidation';
+import { registerSessionCleanup } from '@shared/session/cleanup';
+import {
+  getLocalSessionScope,
+  isLocalSessionScopeCurrent,
+  type LocalSessionScope,
+} from '@shared/session/scope';
 import type {
   CreateSavedRecipientInput,
+  RecipientLabel,
   SavedRecipient,
   UpdateSavedRecipientInput,
 } from '../types/savedRecipient';
 
 const STORAGE_PREFIX = 'vietride:saved-recipients';
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
+const LEGACY_STORAGE_VERSION = 1;
 export const MAX_SAVED_RECIPIENTS = 50;
+
+const RECIPIENT_LABELS = new Set<RecipientLabel>([
+  'home',
+  'office',
+  'family',
+  'customer',
+  'other',
+]);
 
 interface StoredEnvelope {
   version: number;
   items: SavedRecipient[];
 }
 
-let activeUserId: string | null = null;
+export type SavedRecipientsHydrationStatus =
+  | 'idle'
+  | 'loading'
+  | 'ready'
+  | 'error';
 
-export const setSavedRecipientsUserId = (userId: string | null): void => {
-  activeUserId = userId;
+export type SavedRecipientsErrorCode =
+  | 'unauthenticated'
+  | 'not_ready'
+  | 'stale_session'
+  | 'storage_read_failed'
+  | 'storage_write_failed'
+  | 'duplicate_phone'
+  | 'limit_reached';
+
+export class SavedRecipientsStoreError extends Error {
+  readonly code: SavedRecipientsErrorCode;
+
+  constructor(code: SavedRecipientsErrorCode) {
+    super(code);
+    this.name = 'SavedRecipientsStoreError';
+    this.code = code;
+  }
+}
+
+export const getSavedRecipientsErrorKey = (error: unknown): string => {
+  if (!(error instanceof SavedRecipientsStoreError)) {
+    return 'parcel.recipients.storageError';
+  }
+  switch (error.code) {
+    case 'duplicate_phone':
+      return 'parcel.recipients.duplicatePhone';
+    case 'limit_reached':
+      return 'parcel.recipients.limitReached';
+    case 'storage_read_failed':
+      return 'parcel.recipients.loadError';
+    default:
+      return 'parcel.recipients.storageError';
+  }
 };
-
-export const getSavedRecipientsStorageKey = (userId?: string | null): string => {
-  const resolved = (userId !== undefined ? userId : activeUserId)?.trim() || 'guest';
-  return `${STORAGE_PREFIX}:v${STORAGE_VERSION}:${resolved}`;
-};
-
-const generateRecipientId = (): string =>
-  `rcp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
 interface SavedRecipientsState {
+  ownerUserId: string | null;
   recipients: SavedRecipient[];
+  hydrationStatus: SavedRecipientsHydrationStatus;
   isLoaded: boolean;
-
-  /** Loads persisted recipients from storage */
   loadRecipients: () => Promise<void>;
-
-  /** Adds a new recipient to the address book */
   addRecipient: (input: CreateSavedRecipientInput) => Promise<SavedRecipient>;
-
-  /** Updates an existing recipient */
   updateRecipient: (
     id: string,
     patch: UpdateSavedRecipientInput,
   ) => Promise<SavedRecipient | null>;
-
-  /** Deletes a recipient by ID */
   deleteRecipient: (id: string) => Promise<boolean>;
-
-  /** Marks a recipient as default (unsets default on others) */
   setDefaultRecipient: (id: string) => Promise<void>;
-
-  /** Updates lastUsedAt timestamp to elevate recipient in quick-pick lists */
   touchRecipient: (id: string) => Promise<void>;
-
-  /**
-   * Helper to either touch an existing recipient (matched by normalized phone)
-   * or add a new recipient entry.
-   */
   saveOrTouchRecipient: (
     input: CreateSavedRecipientInput,
   ) => Promise<SavedRecipient>;
-
-  /** Reset store state (used on logout/test cleanup) */
+  restoreRecipient: (recipient: SavedRecipient) => Promise<SavedRecipient>;
   reset: () => void;
 }
 
-const persistItems = async (items: SavedRecipient[]): Promise<void> => {
+const emptyState = {
+  ownerUserId: null,
+  recipients: [],
+  hydrationStatus: 'idle',
+  isLoaded: false,
+} satisfies Pick<
+  SavedRecipientsState,
+  'ownerUserId' | 'recipients' | 'hydrationStatus' | 'isLoaded'
+>;
+
+const requireAuthenticatedScope = (): LocalSessionScope => {
+  const scope = getLocalSessionScope();
+  if (!scope.userId) {
+    throw new SavedRecipientsStoreError('unauthenticated');
+  }
+  return scope;
+};
+
+export const getSavedRecipientsStorageKey = (userId: string): string => {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) {
+    throw new SavedRecipientsStoreError('unauthenticated');
+  }
+  return `${STORAGE_PREFIX}:v${STORAGE_VERSION}:${normalizedUserId}`;
+};
+
+const getLegacySavedRecipientsStorageKey = (userId: string): string =>
+  `${STORAGE_PREFIX}:v${LEGACY_STORAGE_VERSION}:${userId.trim()}`;
+
+const generateRecipientId = (): string =>
+  `rcp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+const normalizedPhone = (value: string): string =>
+  normalizeVietnamPhone(value).trim();
+
+const sanitizeStoredItems = (
+  value: unknown,
+  expectedVersion = STORAGE_VERSION,
+): SavedRecipient[] => {
+  if (!value || typeof value !== 'object') {
+    throw new SavedRecipientsStoreError('storage_read_failed');
+  }
+
+  const envelope = value as Partial<StoredEnvelope>;
+  if (envelope.version !== expectedVersion || !Array.isArray(envelope.items)) {
+    throw new SavedRecipientsStoreError('storage_read_failed');
+  }
+
+  const seenIds = new Set<string>();
+  const seenPhones = new Set<string>();
+  let hasDefault = false;
+  const recipients: SavedRecipient[] = [];
+
+  for (const rawItem of envelope.items) {
+    if (!rawItem || typeof rawItem !== 'object') continue;
+    const item = rawItem as Partial<SavedRecipient>;
+    const id = typeof item.id === 'string' ? item.id.trim() : '';
+    const fullName = typeof item.fullName === 'string' ? item.fullName.trim() : '';
+    const phoneNumber = typeof item.phoneNumber === 'string'
+      ? normalizedPhone(item.phoneNumber)
+      : '';
+    if (!id || !fullName || !phoneNumber) continue;
+    if (seenIds.has(id) || seenPhones.has(phoneNumber)) continue;
+
+    seenIds.add(id);
+    seenPhones.add(phoneNumber);
+    const isDefault: boolean = Boolean(item.isDefault) && !hasDefault;
+    hasDefault ||= isDefault;
+    const label = item.label && RECIPIENT_LABELS.has(item.label)
+      ? item.label
+      : undefined;
+    const now = Date.now();
+
+    recipients.push({
+      id,
+      fullName,
+      phoneNumber,
+      email: typeof item.email === 'string' ? item.email.trim() : '',
+      ...(label ? { label } : {}),
+      ...(typeof item.customLabel === 'string' && item.customLabel.trim()
+        ? { customLabel: item.customLabel.trim() }
+        : {}),
+      isDefault,
+      lastUsedAt: typeof item.lastUsedAt === 'number' && Number.isFinite(item.lastUsedAt)
+        ? item.lastUsedAt
+        : now,
+      createdAt: typeof item.createdAt === 'number' && Number.isFinite(item.createdAt)
+        ? item.createdAt
+        : now,
+    });
+
+    if (recipients.length === MAX_SAVED_RECIPIENTS) break;
+  }
+
+  return recipients;
+};
+
+const persistItems = async (
+  scope: LocalSessionScope,
+  items: readonly SavedRecipient[],
+): Promise<void> => {
   try {
-    const key = getSavedRecipientsStorageKey();
-    const envelope: StoredEnvelope = {
-      version: STORAGE_VERSION,
-      items,
-    };
-    await AsyncStorage.setItem(key, JSON.stringify(envelope));
+    await AsyncStorage.setItem(
+      getSavedRecipientsStorageKey(scope.userId ?? ''),
+      JSON.stringify({
+        version: STORAGE_VERSION,
+        items: [...items],
+      } satisfies StoredEnvelope),
+    );
   } catch {
-    // Non-blocking storage write failure
+    throw new SavedRecipientsStoreError('storage_write_failed');
   }
 };
 
-export const useSavedRecipientsStore = create<SavedRecipientsState>(
-  (set, get) => ({
-    recipients: [],
-    isLoaded: false,
+let hydration:
+  | { scope: LocalSessionScope; promise: Promise<void> }
+  | null = null;
+let mutationQueue: Promise<void> = Promise.resolve();
 
-    loadRecipients: async () => {
+const enqueueMutation = <T>(
+  mutate: (current: SavedRecipient[]) => {
+    next: SavedRecipient[];
+    result: T;
+  },
+): Promise<T> => {
+  const requestedScope = getLocalSessionScope();
+
+  const operation = mutationQueue.then(async () => {
+    if (!requestedScope.userId) {
+      throw new SavedRecipientsStoreError('unauthenticated');
+    }
+    if (!isLocalSessionScopeCurrent(requestedScope)) {
+      throw new SavedRecipientsStoreError('stale_session');
+    }
+
+    const state = useSavedRecipientsStore.getState();
+    if (
+      state.hydrationStatus !== 'ready'
+      || state.ownerUserId !== requestedScope.userId
+    ) {
+      throw new SavedRecipientsStoreError('not_ready');
+    }
+
+    const { next, result } = mutate(state.recipients);
+    if (next === state.recipients) return result;
+    await persistItems(requestedScope, next);
+
+    if (!isLocalSessionScopeCurrent(requestedScope)) {
+      throw new SavedRecipientsStoreError('stale_session');
+    }
+
+    useSavedRecipientsStore.setState({ recipients: next });
+    return result;
+  });
+
+  mutationQueue = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+  return operation;
+};
+
+const assertUniquePhone = (
+  items: readonly SavedRecipient[],
+  phoneNumber: string,
+  exceptId?: string,
+): void => {
+  if (items.some(item => item.id !== exceptId && normalizedPhone(item.phoneNumber) === phoneNumber)) {
+    throw new SavedRecipientsStoreError('duplicate_phone');
+  }
+};
+
+export const useSavedRecipientsStore = create<SavedRecipientsState>((set) => ({
+  ...emptyState,
+
+  loadRecipients: async () => {
+    const scope = requireAuthenticatedScope();
+    const current = useSavedRecipientsStore.getState();
+    if (current.ownerUserId === scope.userId && current.hydrationStatus === 'ready') {
+      return;
+    }
+    if (
+      hydration
+      && hydration.scope.epoch === scope.epoch
+      && hydration.scope.userId === scope.userId
+    ) {
+      return hydration.promise;
+    }
+
+    set({
+      ownerUserId: scope.userId,
+      recipients: [],
+      hydrationStatus: 'loading',
+      isLoaded: false,
+    });
+
+    const promise = (async () => {
       try {
-        const key = getSavedRecipientsStorageKey();
-        const raw = await AsyncStorage.getItem(key);
-        if (!raw) {
-          set({ recipients: [], isLoaded: true });
-          return;
+        const userId = scope.userId ?? '';
+        const raw = await AsyncStorage.getItem(getSavedRecipientsStorageKey(userId));
+        let items: SavedRecipient[];
+        if (raw) {
+          items = sanitizeStoredItems(JSON.parse(raw) as unknown);
+        } else {
+          const legacyRaw = await AsyncStorage.getItem(
+            getLegacySavedRecipientsStorageKey(userId),
+          );
+          items = legacyRaw
+            ? sanitizeStoredItems(
+                JSON.parse(legacyRaw) as unknown,
+                LEGACY_STORAGE_VERSION,
+              )
+            : [];
+          if (legacyRaw) {
+            await persistItems(scope, items);
+          }
         }
+        if (!isLocalSessionScopeCurrent(scope)) return;
 
-        const envelope = JSON.parse(raw) as Partial<StoredEnvelope>;
-        const rawItems = Array.isArray(envelope.items) ? envelope.items : [];
-        const validated: SavedRecipient[] = rawItems
-          .filter(
-            item =>
-              item &&
-              typeof item.id === 'string' &&
-              typeof item.fullName === 'string' &&
-              typeof item.phoneNumber === 'string',
-          )
-          .map(item => ({
-            id: item.id,
-            fullName: item.fullName.trim(),
-            phoneNumber: item.phoneNumber.trim(),
-            email: (item.email ?? '').trim(),
-            label: item.label,
-            customLabel: item.customLabel?.trim(),
-            isDefault: Boolean(item.isDefault),
-            lastUsedAt: typeof item.lastUsedAt === 'number' ? item.lastUsedAt : Date.now(),
-            createdAt: typeof item.createdAt === 'number' ? item.createdAt : Date.now(),
-          }));
-
-        set({ recipients: validated, isLoaded: true });
+        set({
+          ownerUserId: scope.userId,
+          recipients: items,
+          hydrationStatus: 'ready',
+          isLoaded: true,
+        });
       } catch {
-        set({ recipients: [], isLoaded: true });
+        if (!isLocalSessionScopeCurrent(scope)) return;
+        set({
+          ownerUserId: scope.userId,
+          recipients: [],
+          hydrationStatus: 'error',
+          isLoaded: false,
+        });
+      } finally {
+        if (
+          hydration?.scope.epoch === scope.epoch
+          && hydration.scope.userId === scope.userId
+        ) {
+          hydration = null;
+        }
       }
-    },
+    })();
 
-    addRecipient: async input => {
-      const now = Date.now();
-      const newRecipient: SavedRecipient = {
-        id: input.id ?? generateRecipientId(),
-        fullName: input.fullName.trim(),
-        phoneNumber: input.phoneNumber.trim(),
-        email: (input.email ?? '').trim(),
-        label: input.label,
-        customLabel: input.customLabel?.trim(),
-        isDefault: Boolean(input.isDefault),
-        lastUsedAt: input.lastUsedAt ?? now,
-        createdAt: now,
-      };
+    hydration = { scope, promise };
+    return promise;
+  },
 
-      const current = get().recipients;
-      let nextList = [newRecipient, ...current];
+  addRecipient: input => enqueueMutation(current => {
+    if (current.length >= MAX_SAVED_RECIPIENTS) {
+      throw new SavedRecipientsStoreError('limit_reached');
+    }
+    const phoneNumber = normalizedPhone(input.phoneNumber);
+    assertUniquePhone(current, phoneNumber);
+    const now = Date.now();
+    const created: SavedRecipient = {
+      id: input.id ?? generateRecipientId(),
+      fullName: input.fullName.trim(),
+      phoneNumber,
+      email: (input.email ?? '').trim(),
+      ...(input.label ? { label: input.label } : {}),
+      ...(input.customLabel?.trim()
+        ? { customLabel: input.customLabel.trim() }
+        : {}),
+      isDefault: Boolean(input.isDefault),
+      lastUsedAt: input.lastUsedAt ?? now,
+      createdAt: now,
+    };
+    const next = [
+      created,
+      ...current.map(item => (
+        created.isDefault && item.isDefault
+          ? { ...item, isDefault: false }
+          : item
+      )),
+    ];
+    return { next, result: created };
+  }),
 
-      if (newRecipient.isDefault) {
-        nextList = nextList.map(item =>
-          item.id === newRecipient.id
-            ? item
-            : item.isDefault
-              ? { ...item, isDefault: false }
-              : item,
-        );
-      }
+  updateRecipient: (id, patch) => enqueueMutation(current => {
+    const existing = current.find(item => item.id === id);
+    if (!existing) return { next: current, result: null };
+    const phoneNumber = patch.phoneNumber !== undefined
+      ? normalizedPhone(patch.phoneNumber)
+      : existing.phoneNumber;
+    assertUniquePhone(current, phoneNumber, id);
 
-      if (nextList.length > MAX_SAVED_RECIPIENTS) {
-        nextList = nextList.slice(0, MAX_SAVED_RECIPIENTS);
-      }
+    const updated: SavedRecipient = {
+      ...existing,
+      ...(patch.fullName !== undefined ? { fullName: patch.fullName.trim() } : {}),
+      phoneNumber,
+      ...(patch.email !== undefined ? { email: patch.email.trim() } : {}),
+      ...(patch.label !== undefined ? { label: patch.label } : {}),
+      ...(patch.customLabel !== undefined
+        ? { customLabel: patch.customLabel?.trim() }
+        : {}),
+      ...(patch.isDefault !== undefined ? { isDefault: patch.isDefault } : {}),
+      ...(patch.lastUsedAt !== undefined ? { lastUsedAt: patch.lastUsedAt } : {}),
+    };
+    const next = current.map(item => {
+      if (item.id === id) return updated;
+      if (updated.isDefault && item.isDefault) return { ...item, isDefault: false };
+      return item;
+    });
+    return { next, result: updated };
+  }),
 
-      set({ recipients: nextList });
-      await persistItems(nextList);
-      return newRecipient;
-    },
+  deleteRecipient: id => enqueueMutation(current => {
+    const next = current.filter(item => item.id !== id);
+    return {
+      next: next.length === current.length ? current : next,
+      result: next.length !== current.length,
+    };
+  }),
 
-    updateRecipient: async (id, patch) => {
-      const current = get().recipients;
-      const targetIndex = current.findIndex(r => r.id === id);
-      if (targetIndex < 0) return null;
+  setDefaultRecipient: id => enqueueMutation(current => {
+    if (!current.some(item => item.id === id)) {
+      return { next: current, result: undefined };
+    }
+    return {
+      next: current.map(item => ({ ...item, isDefault: item.id === id })),
+      result: undefined,
+    };
+  }),
 
-      const existing = current[targetIndex];
+  touchRecipient: id => enqueueMutation(current => {
+    if (!current.some(item => item.id === id)) {
+      return { next: current, result: undefined };
+    }
+    return {
+      next: current.map(item => (
+        item.id === id ? { ...item, lastUsedAt: Date.now() } : item
+      )),
+      result: undefined,
+    };
+  }),
+
+  saveOrTouchRecipient: input => enqueueMutation(current => {
+    const phoneNumber = normalizedPhone(input.phoneNumber);
+    const existing = current.find(
+      item => normalizedPhone(item.phoneNumber) === phoneNumber,
+    );
+    if (existing) {
       const updated: SavedRecipient = {
         ...existing,
-        fullName:
-          patch.fullName !== undefined ? patch.fullName.trim() : existing.fullName,
-        phoneNumber:
-          patch.phoneNumber !== undefined
-            ? patch.phoneNumber.trim()
-            : existing.phoneNumber,
-        email:
-          patch.email !== undefined ? patch.email.trim() : existing.email,
-        label: patch.label !== undefined ? patch.label : existing.label,
-        customLabel:
-          patch.customLabel !== undefined
-            ? patch.customLabel?.trim()
-            : existing.customLabel,
-        isDefault:
-          patch.isDefault !== undefined ? patch.isDefault : existing.isDefault,
-        lastUsedAt:
-          patch.lastUsedAt !== undefined ? patch.lastUsedAt : existing.lastUsedAt,
+        fullName: input.fullName.trim() || existing.fullName,
+        phoneNumber,
+        email: (input.email ?? '').trim() || existing.email,
+        ...(input.label ? { label: input.label } : {}),
+        ...(input.customLabel?.trim()
+          ? { customLabel: input.customLabel.trim() }
+          : {}),
+        lastUsedAt: Date.now(),
       };
-
-      let nextList = current.map(item => (item.id === id ? updated : item));
-
-      if (updated.isDefault) {
-        nextList = nextList.map(item =>
-          item.id === id
-            ? item
-            : item.isDefault
-              ? { ...item, isDefault: false }
-              : item,
-        );
-      }
-
-      set({ recipients: nextList });
-      await persistItems(nextList);
-      return updated;
-    },
-
-    deleteRecipient: async id => {
-      const current = get().recipients;
-      const nextList = current.filter(r => r.id !== id);
-      if (nextList.length === current.length) return false;
-
-      set({ recipients: nextList });
-      await persistItems(nextList);
-      return true;
-    },
-
-    setDefaultRecipient: async id => {
-      const current = get().recipients;
-      const nextList = current.map(item => ({
-        ...item,
-        isDefault: item.id === id,
-      }));
-      set({ recipients: nextList });
-      await persistItems(nextList);
-    },
-
-    touchRecipient: async id => {
-      const current = get().recipients;
-      const target = current.find(r => r.id === id);
-      if (!target) return;
-
-      const nextList = current.map(item =>
-        item.id === id ? { ...item, lastUsedAt: Date.now() } : item,
-      );
-      set({ recipients: nextList });
-      await persistItems(nextList);
-    },
-
-    saveOrTouchRecipient: async input => {
-      const current = get().recipients;
-      const normalizedPhone = normalizeVietnamPhone(input.phoneNumber);
-
-      const existing = current.find(
-        r =>
-          normalizeVietnamPhone(r.phoneNumber) === normalizedPhone &&
-          normalizedPhone.length > 0,
-      );
-
-      if (existing) {
-        const patch: UpdateSavedRecipientInput = {
-          lastUsedAt: Date.now(),
-          fullName: input.fullName.trim() || existing.fullName,
-          email: (input.email ?? '').trim() || existing.email,
-        };
-        if (input.label) patch.label = input.label;
-        if (input.customLabel) patch.customLabel = input.customLabel;
-
-        const updated = await get().updateRecipient(existing.id, patch);
-        return updated ?? existing;
-      }
-
-      return get().addRecipient(input);
-    },
-
-    reset: () => {
-      set({ recipients: [], isLoaded: false });
-    },
+      return {
+        next: current.map(item => item.id === existing.id ? updated : item),
+        result: updated,
+      };
+    }
+    if (current.length >= MAX_SAVED_RECIPIENTS) {
+      throw new SavedRecipientsStoreError('limit_reached');
+    }
+    const now = Date.now();
+    const created: SavedRecipient = {
+      id: input.id ?? generateRecipientId(),
+      fullName: input.fullName.trim(),
+      phoneNumber,
+      email: (input.email ?? '').trim(),
+      ...(input.label ? { label: input.label } : {}),
+      ...(input.customLabel?.trim()
+        ? { customLabel: input.customLabel.trim() }
+        : {}),
+      isDefault: Boolean(input.isDefault),
+      lastUsedAt: input.lastUsedAt ?? now,
+      createdAt: now,
+    };
+    const next = created.isDefault
+      ? [created, ...current.map(item => (
+          item.isDefault ? { ...item, isDefault: false } : item
+        ))]
+      : [created, ...current];
+    return { next, result: created };
   }),
-);
 
-/**
- * Returns recipients sorted for quick selection:
- * 1. Default recipient first (if set)
- * 2. Most recently used recipients next
- */
+  restoreRecipient: recipient => enqueueMutation(current => {
+    const phoneNumber = normalizedPhone(recipient.phoneNumber);
+    assertUniquePhone(current, phoneNumber);
+    if (current.length >= MAX_SAVED_RECIPIENTS) {
+      throw new SavedRecipientsStoreError('limit_reached');
+    }
+    const restored = { ...recipient, phoneNumber };
+    return {
+      next: [
+        restored,
+        ...current.map(item => (
+          restored.isDefault && item.isDefault
+            ? { ...item, isDefault: false }
+            : item
+        )),
+      ],
+      result: restored,
+    };
+  }),
+
+  reset: () => set(emptyState),
+}));
+
+registerSessionCleanup('saved-recipients', () => {
+  hydration = null;
+  useSavedRecipientsStore.getState().reset();
+});
+
 export const selectSortedRecipients = (
   recipients: readonly SavedRecipient[],
-): SavedRecipient[] => {
-  return [...recipients].sort((a, b) => {
-    if (a.isDefault && !b.isDefault) return -1;
-    if (!a.isDefault && b.isDefault) return 1;
-    return b.lastUsedAt - a.lastUsedAt;
-  });
-};
+): SavedRecipient[] => [...recipients].sort((a, b) => {
+  if (a.isDefault && !b.isDefault) return -1;
+  if (!a.isDefault && b.isDefault) return 1;
+  return b.lastUsedAt - a.lastUsedAt;
+});

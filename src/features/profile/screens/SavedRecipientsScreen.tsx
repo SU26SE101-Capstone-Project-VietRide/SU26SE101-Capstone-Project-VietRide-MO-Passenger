@@ -29,8 +29,10 @@ import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { Button } from '@shared/components/Button';
+import { showSnackbar } from '@shared/store/useSnackbarStore';
 import { SavedRecipientsModal } from '@features/parcel/components/SavedRecipientsModal';
 import {
+  getSavedRecipientsErrorKey,
   selectSortedRecipients,
   useSavedRecipientsStore,
 } from '@features/parcel/store/useSavedRecipientsStore';
@@ -43,6 +45,8 @@ const getInitials = (name: string): string => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+const recipientKeyExtractor = (item: SavedRecipient): string => item.id;
+
 export function SavedRecipientsScreen(): React.JSX.Element {
   const navigation = useNavigation();
   const theme = useTheme();
@@ -50,18 +54,28 @@ export function SavedRecipientsScreen(): React.JSX.Element {
   const { t } = useTranslation();
 
   const recipients = useSavedRecipientsStore(state => state.recipients);
-  const isLoaded = useSavedRecipientsStore(state => state.isLoaded);
+  const hydrationStatus = useSavedRecipientsStore(state => state.hydrationStatus);
   const loadRecipients = useSavedRecipientsStore(state => state.loadRecipients);
   const deleteRecipient = useSavedRecipientsStore(state => state.deleteRecipient);
+  const restoreRecipient = useSavedRecipientsStore(state => state.restoreRecipient);
+  const setDefaultRecipient = useSavedRecipientsStore(state => state.setDefaultRecipient);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingRecipientId, setEditingRecipientId] = useState<string | null>(null);
+
+  const showStoreError = useCallback((error: unknown) => {
+    showSnackbar({
+      message: t(getSavedRecipientsErrorKey(error)),
+      tone: 'error',
+    });
+  }, [t]);
 
   useEffect(() => {
-    if (!isLoaded) {
-      void loadRecipients();
+    if (hydrationStatus === 'idle') {
+      loadRecipients().catch(showStoreError);
     }
-  }, [isLoaded, loadRecipients]);
+  }, [hydrationStatus, loadRecipients, showStoreError]);
 
   const sortedRecipients = useMemo(() => {
     return selectSortedRecipients(recipients);
@@ -90,14 +104,52 @@ export function SavedRecipientsScreen(): React.JSX.Element {
             text: t('parcel.recipients.delete'),
             style: 'destructive',
             onPress: () => {
-              void deleteRecipient(recipient.id);
+              deleteRecipient(recipient.id).then(deleted => {
+                if (!deleted) return;
+                showSnackbar({
+                  message: t('parcel.recipients.deletedSuccess'),
+                  tone: 'neutral',
+                  action: {
+                    label: t('parcel.recipients.undo'),
+                    onPress: () => {
+                      restoreRecipient(recipient).catch(showStoreError);
+                    },
+                  },
+                  durationMs: 6000,
+                });
+              }).catch(showStoreError);
             },
           },
         ],
       );
     },
-    [deleteRecipient, t],
+    [deleteRecipient, restoreRecipient, showStoreError, t],
   );
+
+  const handleSetDefaultRecipient = useCallback((recipient: SavedRecipient) => {
+    if (recipient.isDefault) return;
+    setDefaultRecipient(recipient.id).then(() => {
+      showSnackbar({
+        message: t('parcel.recipients.defaultSuccess', { name: recipient.fullName }),
+        tone: 'success',
+      });
+    }).catch(showStoreError);
+  }, [setDefaultRecipient, showStoreError, t]);
+
+  const handleOpenAddRecipient = useCallback(() => {
+    setEditingRecipientId(null);
+    setModalVisible(true);
+  }, []);
+
+  const handleOpenEditRecipient = useCallback((recipientId: string) => {
+    setEditingRecipientId(recipientId);
+    setModalVisible(true);
+  }, []);
+
+  const handleCloseRecipientModal = useCallback(() => {
+    setModalVisible(false);
+    setEditingRecipientId(null);
+  }, []);
 
   const renderItem = useCallback(
     ({ item }: { item: SavedRecipient }) => {
@@ -145,15 +197,42 @@ export function SavedRecipientsScreen(): React.JSX.Element {
 
           <View style={styles.cardActions}>
             <Pressable
-              style={styles.iconButton}
-              onPress={() => setModalVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('parcel.recipients.setDefault')}
+              accessibilityState={{ selected: Boolean(item.isDefault) }}
+              style={({ pressed }) => [
+                styles.iconButton,
+                pressed ? styles.iconButtonPressed : null,
+              ]}
+              onPress={() => handleSetDefaultRecipient(item)}
+            >
+              <Star
+                size={18}
+                color={item.isDefault
+                  ? theme.colors.warningForeground
+                  : theme.colors.textTertiary}
+                weight={item.isDefault ? 'fill' : 'regular'}
+              />
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.iconButton,
+                pressed ? styles.iconButtonPressed : null,
+              ]}
+              onPress={() => handleOpenEditRecipient(item.id)}
               accessibilityLabel={t('parcel.recipients.editTitle')}
             >
               <PencilSimple size={18} color={theme.colors.textSecondary} />
             </Pressable>
 
             <Pressable
-              style={styles.iconButton}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.iconButton,
+                pressed ? styles.iconButtonPressed : null,
+              ]}
               onPress={() => handleDeleteRecipient(item)}
               accessibilityLabel={t('parcel.recipients.delete')}
             >
@@ -163,7 +242,14 @@ export function SavedRecipientsScreen(): React.JSX.Element {
         </View>
       );
     },
-    [handleDeleteRecipient, theme, styles, t],
+    [
+      handleDeleteRecipient,
+      handleOpenEditRecipient,
+      handleSetDefaultRecipient,
+      theme,
+      styles,
+      t,
+    ],
   );
 
   return (
@@ -176,10 +262,13 @@ export function SavedRecipientsScreen(): React.JSX.Element {
       {/* Header */}
       <View style={styles.header}>
         <Pressable
-          style={styles.backButton}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed ? styles.iconButtonPressed : null,
+          ]}
           onPress={() => navigation.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
         >
           <ArrowLeft size={24} color={theme.colors.textPrimary} weight="bold" />
         </Pressable>
@@ -189,8 +278,11 @@ export function SavedRecipientsScreen(): React.JSX.Element {
         </View>
 
         <Pressable
-          style={styles.addButton}
-          onPress={() => setModalVisible(true)}
+          style={({ pressed }) => [
+            styles.addButton,
+            pressed ? styles.iconButtonPressed : null,
+          ]}
+          onPress={handleOpenAddRecipient}
           accessibilityRole="button"
           accessibilityLabel={t('parcel.recipients.addNew')}
         >
@@ -218,7 +310,13 @@ export function SavedRecipientsScreen(): React.JSX.Element {
               autoCorrect={false}
             />
             {searchQuery ? (
-              <Pressable onPress={() => setSearchQuery('')}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('common.clear')}
+                hitSlop={8}
+                onPress={() => setSearchQuery('')}
+                style={({ pressed }) => pressed ? styles.iconButtonPressed : null}
+              >
                 <X size={16} color={theme.colors.textSecondary} />
               </Pressable>
             ) : null}
@@ -228,8 +326,9 @@ export function SavedRecipientsScreen(): React.JSX.Element {
         {/* List */}
         <FlatList
           data={filteredRecipients}
-          keyExtractor={item => item.id}
+          keyExtractor={recipientKeyExtractor}
           renderItem={renderItem}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -242,14 +341,22 @@ export function SavedRecipientsScreen(): React.JSX.Element {
                 />
               </View>
               <Text style={styles.emptyTitle}>
-                {t('parcel.recipients.emptyTitle')}
+                {hydrationStatus === 'error'
+                  ? t('parcel.recipients.loadError')
+                  : t('parcel.recipients.emptyTitle')}
               </Text>
               <Text style={styles.emptySubtitle}>
-                {t('parcel.recipients.emptySubtitle')}
+                {hydrationStatus === 'error'
+                  ? t('parcel.recipients.storageError')
+                  : t('parcel.recipients.emptySubtitle')}
               </Text>
               <Button
-                title={t('parcel.recipients.addNew')}
-                onPress={() => setModalVisible(true)}
+                title={hydrationStatus === 'error'
+                  ? t('parcel.recipients.retry')
+                  : t('parcel.recipients.addNew')}
+                onPress={hydrationStatus === 'error'
+                  ? () => loadRecipients().catch(showStoreError)
+                  : handleOpenAddRecipient}
                 variant="primary"
                 size="md"
                 style={styles.emptyAddButton}
@@ -262,8 +369,9 @@ export function SavedRecipientsScreen(): React.JSX.Element {
       {/* Modal for adding/editing */}
       <SavedRecipientsModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onClose={handleCloseRecipientModal}
         mode="manage"
+        initialEditRecipientId={editingRecipientId}
       />
     </SafeAreaView>
   );
@@ -429,11 +537,15 @@ const createStyles = (theme: AppTheme) => ({
     gap: spacing.xs,
   },
   iconButton: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 17,
+    borderRadius: 18,
+  },
+  iconButtonPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.96 }],
   },
   emptyContainer: {
     alignItems: 'center',

@@ -1,9 +1,8 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -30,14 +29,20 @@ import { useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
 import { borderRadius, fontFamilies, fontSizes, spacing } from '@shared/theme';
 import { AppKeyboardAwareScrollView } from '@shared/components/AppKeyboardAwareScrollView';
+import { SnackbarCard } from '@shared/components/SnackbarCard';
 import { Button } from '@shared/components/Button';
 import { Input } from '@shared/components/Input';
+import {
+  showSnackbar,
+  type SnackbarPayload,
+} from '@shared/store/useSnackbarStore';
 import {
   isValidEmail,
   isValidVietnamPhone,
   normalizeVietnamPhone,
 } from '@features/auth/validation/authValidation';
 import {
+  getSavedRecipientsErrorKey,
   selectSortedRecipients,
   useSavedRecipientsStore,
 } from '../store/useSavedRecipientsStore';
@@ -52,6 +57,7 @@ export interface SavedRecipientsModalProps {
   onSelectRecipient?: (recipient: SavedRecipient) => void;
   selectedRecipientId?: string | null;
   mode?: 'picker' | 'manage';
+  initialEditRecipientId?: string | null;
 }
 
 const LABELS: { key: RecipientLabel; i18nKey: string }[] = [
@@ -69,12 +75,15 @@ const getInitials = (name: string): string => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+const recipientKeyExtractor = (item: SavedRecipient): string => item.id;
+
 function SavedRecipientsModalComponent({
   visible,
   onClose,
   onSelectRecipient,
   selectedRecipientId,
   mode = 'picker',
+  initialEditRecipientId = null,
 }: SavedRecipientsModalProps): React.JSX.Element {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -82,16 +91,19 @@ function SavedRecipientsModalComponent({
   const { t } = useTranslation();
 
   const recipients = useSavedRecipientsStore(state => state.recipients);
-  const isLoaded = useSavedRecipientsStore(state => state.isLoaded);
+  const hydrationStatus = useSavedRecipientsStore(state => state.hydrationStatus);
   const loadRecipients = useSavedRecipientsStore(state => state.loadRecipients);
   const addRecipient = useSavedRecipientsStore(state => state.addRecipient);
   const updateRecipient = useSavedRecipientsStore(state => state.updateRecipient);
   const deleteRecipient = useSavedRecipientsStore(state => state.deleteRecipient);
+  const restoreRecipient = useSavedRecipientsStore(state => state.restoreRecipient);
   const touchRecipient = useSavedRecipientsStore(state => state.touchRecipient);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [formMode, setFormMode] = useState<'list' | 'add' | 'edit'>('list');
   const [editingRecipient, setEditingRecipient] = useState<SavedRecipient | null>(null);
+  const [localFeedback, setLocalFeedback] = useState<SnackbarPayload | null>(null);
+  const initialEditAppliedRef = useRef(false);
 
   // Form states
   const [formName, setFormName] = useState('');
@@ -106,21 +118,39 @@ function SavedRecipientsModalComponent({
     email?: string;
   }>({});
 
+  const showLocalError = useCallback((error: unknown) => {
+    setLocalFeedback({
+      message: t(getSavedRecipientsErrorKey(error)),
+      tone: 'error',
+    });
+  }, [t]);
+
   useEffect(() => {
-    if (visible && !isLoaded) {
-      void loadRecipients();
+    if (visible && hydrationStatus === 'idle') {
+      loadRecipients().catch(showLocalError);
     }
-  }, [visible, isLoaded, loadRecipients]);
+  }, [visible, hydrationStatus, loadRecipients, showLocalError]);
 
   // Reset view state when modal closes
   useEffect(() => {
     if (!visible) {
+      initialEditAppliedRef.current = false;
       setSearchQuery('');
       setFormMode('list');
       setEditingRecipient(null);
       setFormErrors({});
+      setLocalFeedback(null);
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (!localFeedback) return;
+    const timer = setTimeout(
+      () => setLocalFeedback(null),
+      localFeedback.durationMs ?? (localFeedback.action ? 6000 : 3600),
+    );
+    return () => clearTimeout(timer);
+  }, [localFeedback]);
 
   const sortedRecipients = useMemo(() => {
     return selectSortedRecipients(recipients);
@@ -162,6 +192,27 @@ function SavedRecipientsModalComponent({
     setFormMode('edit');
   }, []);
 
+  useEffect(() => {
+    if (
+      !visible
+      || !initialEditRecipientId
+      || hydrationStatus !== 'ready'
+      || initialEditAppliedRef.current
+    ) return;
+
+    const recipient = recipients.find(item => item.id === initialEditRecipientId);
+    initialEditAppliedRef.current = true;
+    if (recipient) {
+      handleOpenEditForm(recipient);
+    }
+  }, [
+    handleOpenEditForm,
+    initialEditRecipientId,
+    hydrationStatus,
+    recipients,
+    visible,
+  ]);
+
   const handleSaveForm = useCallback(async () => {
     const nextErrors: { name?: string; phone?: string; email?: string } = {};
 
@@ -184,30 +235,48 @@ function SavedRecipientsModalComponent({
       return;
     }
 
-    if (formMode === 'add') {
-      const created = await addRecipient({
-        fullName: formName.trim(),
-        phoneNumber: normalizeVietnamPhone(formPhone),
-        email: formEmail.trim(),
-        label: formLabel,
-        customLabel: formLabel === 'other' ? formCustomLabel.trim() : undefined,
-        isDefault: formIsDefault,
-      });
+    try {
+      if (formMode === 'add') {
+        const created = await addRecipient({
+          fullName: formName.trim(),
+          phoneNumber: normalizeVietnamPhone(formPhone),
+          email: formEmail.trim(),
+          label: formLabel,
+          customLabel: formLabel === 'other' ? formCustomLabel.trim() : undefined,
+          isDefault: formIsDefault,
+        });
 
-      if (mode === 'picker' && onSelectRecipient) {
-        onSelectRecipient(created);
-        onClose();
-        return;
+        if (mode === 'picker' && onSelectRecipient) {
+          onSelectRecipient(created);
+          onClose();
+          showSnackbar({
+            message: t('parcel.recipients.savedSuccess'),
+            tone: 'success',
+          });
+          return;
+        }
+
+        setLocalFeedback({
+          message: t('parcel.recipients.savedSuccess'),
+          tone: 'success',
+        });
+      } else if (formMode === 'edit' && editingRecipient) {
+        await updateRecipient(editingRecipient.id, {
+          fullName: formName.trim(),
+          phoneNumber: normalizeVietnamPhone(formPhone),
+          email: formEmail.trim(),
+          label: formLabel,
+          customLabel: formLabel === 'other' ? formCustomLabel.trim() : undefined,
+          isDefault: formIsDefault,
+        });
+        setLocalFeedback({
+          message: t('parcel.recipients.savedSuccess'),
+          tone: 'success',
+        });
       }
-    } else if (formMode === 'edit' && editingRecipient) {
-      await updateRecipient(editingRecipient.id, {
-        fullName: formName.trim(),
-        phoneNumber: normalizeVietnamPhone(formPhone),
-        email: formEmail.trim(),
-        label: formLabel,
-        customLabel: formLabel === 'other' ? formCustomLabel.trim() : undefined,
-        isDefault: formIsDefault,
-      });
+    } catch (error) {
+      showLocalError(error);
+      return;
     }
 
     setFormMode('list');
@@ -226,6 +295,7 @@ function SavedRecipientsModalComponent({
     mode,
     onSelectRecipient,
     onClose,
+    showLocalError,
     t,
   ]);
 
@@ -240,24 +310,44 @@ function SavedRecipientsModalComponent({
             text: t('parcel.recipients.delete'),
             style: 'destructive',
             onPress: () => {
-              void deleteRecipient(recipient.id);
+              deleteRecipient(recipient.id).then(deleted => {
+                if (!deleted) return;
+                setLocalFeedback({
+                  message: t('parcel.recipients.deletedSuccess'),
+                  tone: 'neutral',
+                  durationMs: 6000,
+                  action: {
+                    label: t('parcel.recipients.undo'),
+                    onPress: () => {
+                      restoreRecipient(recipient)
+                        .then(() => setLocalFeedback(null))
+                        .catch(showLocalError);
+                    },
+                  },
+                });
+              }).catch(showLocalError);
             },
           },
         ],
       );
     },
-    [deleteRecipient, t],
+    [deleteRecipient, restoreRecipient, showLocalError, t],
   );
 
   const handleSelect = useCallback(
     (recipient: SavedRecipient) => {
-      void touchRecipient(recipient.id);
+      touchRecipient(recipient.id).catch(error => {
+        showSnackbar({
+          message: t(getSavedRecipientsErrorKey(error)),
+          tone: 'error',
+        });
+      });
       if (onSelectRecipient) {
         onSelectRecipient(recipient);
       }
       onClose();
     },
-    [touchRecipient, onSelectRecipient, onClose],
+    [touchRecipient, onSelectRecipient, onClose, t],
   );
 
   const renderRecipientItem = useCallback(
@@ -334,7 +424,10 @@ function SavedRecipientsModalComponent({
                   styles.selectButton,
                   isSelected && styles.selectButtonActive,
                 ]}
-                onPress={() => handleSelect(item)}
+                onPress={event => {
+                  event.stopPropagation();
+                  handleSelect(item);
+                }}
                 accessibilityLabel={t('parcel.recipients.useThisRecipient')}
               >
                 {isSelected ? (
@@ -349,8 +442,14 @@ function SavedRecipientsModalComponent({
 
             <Pressable
               testID={`saved-recipient-edit-${item.id}`}
-              style={styles.iconButton}
-              onPress={() => handleOpenEditForm(item)}
+              style={({ pressed }) => [
+                styles.iconButton,
+                pressed ? styles.iconButtonPressed : null,
+              ]}
+              onPress={event => {
+                event.stopPropagation();
+                handleOpenEditForm(item);
+              }}
               accessibilityLabel={t('parcel.recipients.editTitle')}
             >
               <PencilSimple size={18} color={theme.colors.textSecondary} />
@@ -358,8 +457,14 @@ function SavedRecipientsModalComponent({
 
             <Pressable
               testID={`saved-recipient-delete-${item.id}`}
-              style={styles.iconButton}
-              onPress={() => handleDeleteRecipient(item)}
+              style={({ pressed }) => [
+                styles.iconButton,
+                pressed ? styles.iconButtonPressed : null,
+              ]}
+              onPress={event => {
+                event.stopPropagation();
+                handleDeleteRecipient(item);
+              }}
               accessibilityLabel={t('parcel.recipients.delete')}
             >
               <Trash size={18} color={theme.colors.error} />
@@ -408,7 +513,10 @@ function SavedRecipientsModalComponent({
             <View style={styles.headerRow}>
               {formMode !== 'list' ? (
                 <Pressable
-                  style={styles.iconButton}
+                  style={({ pressed }) => [
+                    styles.iconButton,
+                    pressed ? styles.iconButtonPressed : null,
+                  ]}
                   onPress={() => setFormMode('list')}
                   accessibilityLabel={t('parcel.recipients.cancel')}
                 >
@@ -435,7 +543,10 @@ function SavedRecipientsModalComponent({
                 <View style={styles.headerActions}>
                   <Pressable
                     testID="saved-recipients-add-button"
-                    style={styles.addHeaderButton}
+                    style={({ pressed }) => [
+                      styles.addHeaderButton,
+                      pressed ? styles.iconButtonPressed : null,
+                    ]}
                     onPress={handleOpenAddForm}
                     accessibilityLabel={t('parcel.recipients.addNew')}
                   >
@@ -446,7 +557,10 @@ function SavedRecipientsModalComponent({
                   </Pressable>
 
                   <Pressable
-                    style={styles.closeButton}
+                    style={({ pressed }) => [
+                      styles.closeButton,
+                      pressed ? styles.iconButtonPressed : null,
+                    ]}
                     onPress={onClose}
                     accessibilityLabel={t('parcel.recipients.cancel')}
                   >
@@ -455,7 +569,10 @@ function SavedRecipientsModalComponent({
                 </View>
               ) : (
                 <Pressable
-                  style={styles.closeButton}
+                  style={({ pressed }) => [
+                    styles.closeButton,
+                    pressed ? styles.iconButtonPressed : null,
+                  ]}
                   onPress={onClose}
                   accessibilityLabel={t('parcel.recipients.cancel')}
                 >
@@ -463,6 +580,22 @@ function SavedRecipientsModalComponent({
                 </Pressable>
               )}
             </View>
+
+            {localFeedback ? (
+              <View style={styles.localFeedback}>
+                <SnackbarCard
+                  message={localFeedback.message}
+                  tone={localFeedback.tone}
+                  action={localFeedback.action}
+                  onAction={localFeedback.action ? () => {
+                    const action = localFeedback.action;
+                    setLocalFeedback(null);
+                    action?.onPress();
+                  } : undefined}
+                  onDismiss={() => setLocalFeedback(null)}
+                />
+              </View>
+            ) : null}
 
             {/* List Mode */}
             {formMode === 'list' ? (
@@ -486,8 +619,11 @@ function SavedRecipientsModalComponent({
                   />
                   {searchQuery ? (
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('common.clear')}
+                      hitSlop={8}
                       onPress={() => setSearchQuery('')}
-                      accessibilityLabel="Clear search"
+                      style={({ pressed }) => pressed ? styles.iconButtonPressed : null}
                     >
                       <X size={16} color={theme.colors.textSecondary} />
                     </Pressable>
@@ -497,8 +633,9 @@ function SavedRecipientsModalComponent({
                 {/* Recipients List */}
                 <FlatList
                   data={filteredRecipients}
-                  keyExtractor={item => item.id}
+                  keyExtractor={recipientKeyExtractor}
                   renderItem={renderRecipientItem}
+                  keyboardShouldPersistTaps="handled"
                   contentContainerStyle={styles.listContent}
                   showsVerticalScrollIndicator={false}
                   ListEmptyComponent={
@@ -511,14 +648,22 @@ function SavedRecipientsModalComponent({
                         />
                       </View>
                       <Text style={styles.emptyTitle}>
-                        {t('parcel.recipients.emptyTitle')}
+                        {hydrationStatus === 'error'
+                          ? t('parcel.recipients.loadError')
+                          : t('parcel.recipients.emptyTitle')}
                       </Text>
                       <Text style={styles.emptySubtitle}>
-                        {t('parcel.recipients.emptySubtitle')}
+                        {hydrationStatus === 'error'
+                          ? t('parcel.recipients.storageError')
+                          : t('parcel.recipients.emptySubtitle')}
                       </Text>
                       <Button
-                        title={t('parcel.recipients.addNew')}
-                        onPress={handleOpenAddForm}
+                        title={hydrationStatus === 'error'
+                          ? t('parcel.recipients.retry')
+                          : t('parcel.recipients.addNew')}
+                        onPress={hydrationStatus === 'error'
+                          ? () => loadRecipients().catch(showLocalError)
+                          : handleOpenAddForm}
                         variant="primary"
                         size="md"
                         style={styles.emptyAddButton}
@@ -587,9 +732,12 @@ function SavedRecipientsModalComponent({
                       return (
                         <Pressable
                           key={lbl.key}
-                          style={[
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: isSelected }}
+                          style={({ pressed }) => [
                             styles.labelChip,
-                            isSelected && styles.labelChipSelected,
+                            isSelected ? styles.labelChipSelected : null,
+                            pressed ? styles.iconButtonPressed : null,
                           ]}
                           onPress={() =>
                             setFormLabel(prev =>
@@ -625,7 +773,12 @@ function SavedRecipientsModalComponent({
 
                 {/* Set Default Switch */}
                 <Pressable
-                  style={styles.defaultToggleRow}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: formIsDefault }}
+                  style={({ pressed }) => [
+                    styles.defaultToggleRow,
+                    pressed ? styles.iconButtonPressed : null,
+                  ]}
                   onPress={() => setFormIsDefault(d => !d)}
                 >
                   <View
@@ -874,6 +1027,10 @@ const createStyles = (theme: AppTheme) => ({
     justifyContent: 'center',
     borderRadius: 16,
   },
+  iconButtonPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.97 }],
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -980,5 +1137,9 @@ const createStyles = (theme: AppTheme) => ({
   },
   formButton: {
     flex: 1,
+  },
+  localFeedback: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
 });

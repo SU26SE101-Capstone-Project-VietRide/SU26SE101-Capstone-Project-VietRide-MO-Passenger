@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type Locale = 'en' | 'vi';
+export type HomeService = 'ticket' | 'parcel';
 export type PushNotificationStatus =
   | 'idle'
   | 'syncing'
@@ -32,6 +33,9 @@ interface AppState {
   /** Current app locale */
   locale: Locale;
 
+  /** Service tab the passenger used most recently on Home. */
+  lastHomeService: HomeService;
+
   /** Global loading overlay (e.g., during app initialization) */
   isGlobalLoading: boolean;
 
@@ -50,6 +54,7 @@ interface AppState {
   // ─── Actions ────────────────────────────────────────────
   setOnline: (status: boolean) => void;
   setLocale: (locale: Locale) => void;
+  setLastHomeService: (service: HomeService) => void;
   setGlobalLoading: (loading: boolean) => void;
   setPushNotificationsEnabled: (enabled: boolean) => void;
   setDailyReminderEnabled: (enabled: boolean) => void;
@@ -61,6 +66,7 @@ export const useAppStore = create<AppState>()(
     set => ({
       isOnline: true,
       locale: DEFAULT_LOCALE,
+      lastHomeService: 'ticket',
       isGlobalLoading: false,
       hasHydrated: false,
       pushNotificationsEnabled: true,
@@ -69,6 +75,7 @@ export const useAppStore = create<AppState>()(
 
       setOnline: status => set({ isOnline: status }),
       setLocale: locale => set({ locale }),
+      setLastHomeService: lastHomeService => set({ lastHomeService }),
       setGlobalLoading: loading => set({ isGlobalLoading: loading }),
       setPushNotificationsEnabled: enabled => set({ pushNotificationsEnabled: enabled }),
       setDailyReminderEnabled: enabled => set({ dailyReminderEnabled: enabled }),
@@ -76,10 +83,11 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'vietride-app-preferences',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: state => ({
         locale: state.locale,
+        lastHomeService: state.lastHomeService,
         pushNotificationsEnabled: state.pushNotificationsEnabled,
         dailyReminderEnabled: state.dailyReminderEnabled,
       }),
@@ -92,6 +100,8 @@ export const useAppStore = create<AppState>()(
           locale: isLocale(persistedLocale)
             ? persistedLocale
             : DEFAULT_LOCALE,
+          lastHomeService:
+            persisted?.lastHomeService === 'parcel' ? 'parcel' : 'ticket',
           pushNotificationsEnabled: persistedBoolean(
             persisted?.pushNotificationsEnabled,
             true,

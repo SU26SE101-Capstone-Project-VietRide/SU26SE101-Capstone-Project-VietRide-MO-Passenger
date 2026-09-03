@@ -23,6 +23,7 @@ import {
   type BookingPendingActionStop,
 } from '@features/booking/utils/bookingPendingAction';
 import { getLocalizedApiErrorMessage } from '@shared/api/errors';
+import { showSnackbar } from '@shared/store/useSnackbarStore';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
 import {
@@ -89,29 +90,22 @@ export function BookingPendingActionScreen(): React.JSX.Element {
   const reportResult = useCallback((
     decision: 'ACCEPTED' | 'REJECTED',
   ) => {
-    Alert.alert(
-      decision === 'ACCEPTED'
-        ? t('booking.pendingAction.acceptSuccessTitle')
-        : t('booking.pendingAction.rejectSuccessTitle'),
-      decision === 'ACCEPTED'
+    showSnackbar({
+      message: decision === 'ACCEPTED'
         ? t('booking.pendingAction.acceptSuccessBody')
         : t('booking.pendingAction.rejectSuccessBody'),
-      [
-        {
-          text: t('common.ok'),
-          onPress: () => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-              return;
-            }
-            navigation.navigate('Main', {
-              screen: 'BookingHistory',
-              params: { initialTab: 'ticket' },
-            });
-          },
-        },
-      ],
-    );
+      tone: 'success',
+      durationMs: 5000,
+    });
+
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate('Main', {
+      screen: 'BookingHistory',
+      params: { initialTab: 'ticket' },
+    });
   }, [navigation, t]);
 
   const submit = useCallback(async (decision: 'ACCEPTED' | 'REJECTED') => {
@@ -145,10 +139,10 @@ export function BookingPendingActionScreen(): React.JSX.Element {
 
   const handleAccept = useCallback(() => {
     if (!canAccept) {
-      Alert.alert(
-        t('app.name'),
-        t('booking.pendingAction.selectStopRequired'),
-      );
+      showSnackbar({
+        message: t('booking.pendingAction.selectStopRequired'),
+        tone: 'warning',
+      });
       return;
     }
     submit('ACCEPTED').catch(() => undefined);

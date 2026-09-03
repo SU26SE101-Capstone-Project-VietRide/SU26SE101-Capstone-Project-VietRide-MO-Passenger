@@ -38,6 +38,15 @@ import {
 } from '@shared/payments';
 
 import { useBookingStore } from '../store/useBookingStore';
+import {
+  beginBookingDraftSession,
+  clearBookingDraft,
+  endBookingDraftSession,
+  hasRestorableBookingDraft,
+  restoreBookingDraft,
+  updateBookingDraftStep,
+  useBookingDraftStore,
+} from '../store/useBookingDraftStore';
 import { BookingProgressBar } from '../components/BookingProgressBar';
 import { AnimatedRouteHeader } from '../components/AnimatedRouteHeader';
 import type {
@@ -358,6 +367,9 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
   const [filterVisible, setFilterVisible] = useState(false);
   const [initializedEntryKey, setInitializedEntryKey] = useState<string | null>(null);
   const bookingCompletionRef = useRef<BookingCompletionCoordinator | null>(null);
+  const resumeProcessedRef = useRef(false);
+  const resumeSucceededRef = useRef(false);
+  const resumeRefreshStartedRef = useRef(false);
   if (!bookingCompletionRef.current) {
     bookingCompletionRef.current = new BookingCompletionCoordinator();
   }
@@ -397,9 +409,49 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     [route.params?.intent, searchParams],
   );
   const isBookingEntryInitialized = initializedEntryKey === bookingEntryKey;
+  const resumeRequested = route.params?.resumeDraft === true;
+  const bookingDraftHasHydrated = useBookingDraftStore(
+    state => state.hasHydrated,
+  );
 
-  // Reset booking data when search params change (new booking)
   useEffect(() => {
+    if (!bookingDraftHasHydrated) return undefined;
+    beginBookingDraftSession(!resumeRequested);
+    return endBookingDraftSession;
+  }, [bookingDraftHasHydrated, resumeRequested]);
+
+  useEffect(() => {
+    if (!bookingDraftHasHydrated) return;
+    if (resumeRequested && !resumeProcessedRef.current) return;
+    updateBookingDraftStep(step);
+  }, [bookingDraftHasHydrated, resumeRequested, step]);
+
+  // A normal entry starts a fresh transient flow. Resume is explicit so a
+  // user's new search never gets silently replaced by an older local draft.
+  useEffect(() => {
+    if (resumeRequested && !bookingDraftHasHydrated) return;
+
+    if (resumeRequested && !resumeProcessedRef.current) {
+      resumeProcessedRef.current = true;
+      const resumeStep = restoreBookingDraft();
+      resumeSucceededRef.current = resumeStep !== null;
+
+      if (resumeStep !== null) {
+        const restoredParams = useBookingStore.getState().searchParams;
+        setTripFilters(DEFAULT_TRIP_FILTERS);
+        setStep(resumeStep);
+        setInitializedEntryKey(
+          createBookingEntryKey(restoredParams, route.params?.intent),
+        );
+        return;
+      }
+    }
+
+    if (resumeRequested && resumeSucceededRef.current) {
+      setInitializedEntryKey(bookingEntryKey);
+      return;
+    }
+
     initializeBookingEntry(route.params?.intent, {
       resetFlowPreservingSearch,
       setVoucherCode,
@@ -408,11 +460,36 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
     setStep(1);
     setInitializedEntryKey(bookingEntryKey);
   }, [
+    bookingDraftHasHydrated,
     bookingEntryKey,
     resetFlowPreservingSearch,
+    resumeRequested,
     route.params?.intent,
     setVoucherCode,
   ]);
+
+  // Persisted selections are user intent, not availability truth. Refresh the
+  // selected trip and seat map once after a resume so sold seats/stops are
+  // reconciled before the user continues.
+  useEffect(() => {
+    if (
+      !resumeRequested
+      || !resumeSucceededRef.current
+      || resumeRefreshStartedRef.current
+      || step < 2
+    ) {
+      return;
+    }
+
+    const booking = useBookingStore.getState();
+    if (!booking.selectedTrip?.id) return;
+
+    resumeRefreshStartedRef.current = true;
+    Promise.allSettled([
+      booking.initTripDetail({ force: true }),
+      booking.initSeatMap(),
+    ]).catch(() => undefined);
+  }, [resumeRequested, selectedTrip?.id, step]);
 
   const operatorOptions = useMemo(() => {
     return Array.from(new Set(trips.map((trip) => trip.operatorBadge))).filter(Boolean);
@@ -511,12 +588,39 @@ export function CreateTicketBookingScreen(): React.JSX.Element {
 
     if (step > 1) {
       navigateToFlowStep(step - 1);
-      return true; // Prevent default behavior
-    } else {
+      return true;
+    }
+
+    if (!hasRestorableBookingDraft()) {
       navigation.goBack();
       return true;
     }
-  }, [isBookingInteractionLocked, navigateToFlowStep, navigation, step]);
+
+    Alert.alert(
+      t('booking.draft.exitTitle'),
+      t('booking.draft.exitDescription'),
+      [
+        {
+          text: t('booking.draft.keepEditing'),
+          style: 'cancel',
+        },
+        {
+          text: t('booking.draft.saveAndExit'),
+          onPress: () => navigation.goBack(),
+        },
+        {
+          text: t('booking.draft.discard'),
+          style: 'destructive',
+          onPress: () => {
+            clearBookingDraft();
+            useBookingStore.getState().resetBooking();
+            navigation.goBack();
+          },
+        },
+      ],
+    );
+    return true;
+  }, [isBookingInteractionLocked, navigateToFlowStep, navigation, step, t]);
 
   useFocusEffect(useCallback(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', handleBack);

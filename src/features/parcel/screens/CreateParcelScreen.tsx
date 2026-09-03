@@ -9,12 +9,22 @@ import { Alert, BackHandler, Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { useNavigation, usePreventRemove } from '@react-navigation/native';
+import {
+  useNavigation,
+  usePreventRemove,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft, MapPin } from 'phosphor-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { getLocalizedApiErrorMessage, toApiError } from '@shared/api/errors';
+import { showSnackbar } from '@shared/store/useSnackbarStore';
+import {
+  getLocalSessionScope,
+  isLocalSessionScopeCurrent,
+} from '@shared/session/scope';
 import { useAuthStore } from '@features/auth/store/useAuthStore';
 import {
   isValidEmail,
@@ -40,6 +50,10 @@ import type { ParcelStackParamList } from '@app/navigation/types';
 import type { PromoOffer } from '@shared/utils/promo';
 import { findPromoByCode, normalizePromoCode } from '@shared/utils/promo';
 import { useParcelStore } from '../store/useParcelStore';
+import {
+  resolveParcelDraftDepartureOffset,
+  useParcelDraftStore,
+} from '../store/useParcelDraftStore';
 import { mapParcelVoucherToPromo, parcelKeys } from '../api/parcelApi';
 import {
   useAvailableParcelTrips,
@@ -110,9 +124,11 @@ type CreateParcelNavProp = NativeStackNavigationProp<
   ParcelStackParamList,
   'CreateParcel'
 >;
+type CreateParcelRouteProp = RouteProp<ParcelStackParamList, 'CreateParcel'>;
 
 export function CreateParcelScreen(): React.JSX.Element {
   const navigation = useNavigation<CreateParcelNavProp>();
+  const route = useRoute<CreateParcelRouteProp>();
   const theme = useTheme();
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -141,6 +157,26 @@ export function CreateParcelScreen(): React.JSX.Element {
   const setPackage = useParcelStore(state => state.setPackage);
   const setPaymentMethod = useParcelStore(state => state.setPaymentMethod);
   const swapLocations = useParcelStore(state => state.swapLocations);
+  const resetParcel = useParcelStore(state => state.resetParcel);
+  const parcelStoreOwnerUserId = useParcelStore(state => state.ownerUserId);
+  const parcelStoreHasHydrated = useParcelStore(state => state.hasHydrated);
+  const parcelDraftHasHydrated = useParcelDraftStore(state => state.hasHydrated);
+  const parcelDraftOwnerUserId = useParcelDraftStore(state => state.ownerUserId);
+  const parcelDraftLastStep = useParcelDraftStore(state => state.lastStep);
+  const parcelDraftHighestStep = useParcelDraftStore(
+    state => state.highestStepReached,
+  );
+  const parcelDraftDepartureOffset = useParcelDraftStore(
+    state => state.departureOffset,
+  );
+  const parcelDraftDepartureDate = useParcelDraftStore(
+    state => state.departureDate,
+  );
+  const parcelDraftSavedAt = useParcelDraftStore(state => state.savedAt);
+  const setParcelDraftProgress = useParcelDraftStore(state => state.setProgress);
+  const clearParcelDraft = useParcelDraftStore(state => state.clearDraft);
+  const resumeRequested = route.params?.resumeDraft === true;
+  const resumeAppliedRef = useRef(false);
 
   // Flow & Step State
   const [step, setStep] = useState<ParcelCreateStep>(1);
@@ -149,6 +185,83 @@ export function CreateParcelScreen(): React.JSX.Element {
   const [departureOffset, setDepartureOffset] = useState<number>(0);
   const [nearbySortRole, setNearbySortRole] = useState<'origin' | null>(null);
   const [isRouteEditModalVisible, setIsRouteEditModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (
+      !resumeRequested
+      || !parcelStoreHasHydrated
+      || !parcelDraftHasHydrated
+      || resumeAppliedRef.current
+    ) {
+      return;
+    }
+
+    resumeAppliedRef.current = true;
+
+    const currentUserId = user?.id ?? null;
+    const ownsDraft = Boolean(
+      currentUserId
+      && parcelStoreOwnerUserId === currentUserId
+      && parcelDraftOwnerUserId === currentUserId,
+    );
+
+    // Guard locally persisted data at the point of use as well as at app root.
+    // This closes the short race where a deep-linked resume screen can mount
+    // before the global ownership cleanup effect has run.
+    if (!ownsDraft) {
+      resetParcel();
+      clearParcelDraft();
+      setStep(1);
+      setHighestStepReached(1);
+      setDepartureOffset(0);
+      return;
+    }
+
+    // Step 4 contains recipient contact data and a quote-backed delivery
+    // selection. Those are intentionally not persisted as plain local data;
+    // resume at delivery options so the server can refresh them safely.
+    const safeResumeStep = Math.min(parcelDraftLastStep, 3) as ParcelCreateStep;
+    setStep(safeResumeStep);
+    setHighestStepReached(
+      Math.min(parcelDraftHighestStep, 3) as ParcelCreateStep,
+    );
+    setDepartureOffset(resolveParcelDraftDepartureOffset({
+      departureDate: parcelDraftDepartureDate,
+      departureOffset: parcelDraftDepartureOffset,
+      savedAt: parcelDraftSavedAt,
+    }));
+  }, [
+    clearParcelDraft,
+    parcelDraftDepartureDate,
+    parcelDraftDepartureOffset,
+    parcelDraftHasHydrated,
+    parcelDraftHighestStep,
+    parcelDraftLastStep,
+    parcelDraftOwnerUserId,
+    parcelDraftSavedAt,
+    parcelStoreHasHydrated,
+    parcelStoreOwnerUserId,
+    resetParcel,
+    resumeRequested,
+    user?.id,
+  ]);
+
+  useEffect(() => {
+    if (!parcelStoreHasHydrated || !parcelDraftHasHydrated) return;
+    if (!fromLocationCode || !toLocationCode) return;
+    if (resumeRequested && !resumeAppliedRef.current) return;
+    setParcelDraftProgress(step, highestStepReached, departureOffset);
+  }, [
+    departureOffset,
+    fromLocationCode,
+    highestStepReached,
+    parcelDraftHasHydrated,
+    parcelStoreHasHydrated,
+    resumeRequested,
+    setParcelDraftProgress,
+    step,
+    toLocationCode,
+  ]);
 
   // Form validity states for Step 2
   const [dimensionsDraftValid, setDimensionsDraftValid] =
@@ -636,10 +749,10 @@ export function CreateParcelScreen(): React.JSX.Element {
   // Step Navigators
   const handleAdvanceFromStep1 = useCallback(() => {
     if (!receivingStation?.id) {
-      Alert.alert(
-        t('common.notice'),
-        t('parcel.validation.selectOriginStation'),
-      );
+      showSnackbar({
+        message: t('parcel.validation.selectOriginStation'),
+        tone: 'warning',
+      });
       return;
     }
     setStep(2);
@@ -648,11 +761,17 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   const handleAdvanceFromStep2 = useCallback(() => {
     if (!dimensionsDraftValid || !areParcelDimensionsPositive(dimensions)) {
-      Alert.alert(t('common.notice'), t('parcel.validation.invalidDimensions'));
+      showSnackbar({
+        message: t('parcel.validation.invalidDimensions'),
+        tone: 'warning',
+      });
       return;
     }
     if (!weightDraftValid || estimatedWeightKg <= 0) {
-      Alert.alert(t('common.notice'), t('parcel.validation.invalidWeight'));
+      showSnackbar({
+        message: t('parcel.validation.invalidWeight'),
+        tone: 'warning',
+      });
       return;
     }
     if (
@@ -676,14 +795,17 @@ export function CreateParcelScreen(): React.JSX.Element {
 
   const handleAdvanceFromStep3 = useCallback(() => {
     if (!selectedDeliveryOption || !selectedTrip || !selectedDropoffPoint) {
-      Alert.alert(
-        t('common.notice'),
-        t('parcel.validation.selectDropoffPoint'),
-      );
+      showSnackbar({
+        message: t('parcel.validation.selectDropoffPoint'),
+        tone: 'warning',
+      });
       return;
     }
     if (!isParcelQuoteUsable(selectedTrip)) {
-      Alert.alert(t('common.notice'), t('parcel.trips.quoteUnavailable'));
+      showSnackbar({
+        message: t('parcel.trips.quoteUnavailable'),
+        tone: 'warning',
+      });
       return;
     }
     setStep(4);
@@ -743,10 +865,10 @@ export function CreateParcelScreen(): React.JSX.Element {
       }
 
       if (!selectedTrip || !selectedDropoffPoint || !receivingStation) {
-        Alert.alert(
-          t('common.notice'),
-          t('parcel.validation.selectTripBeforeCreate'),
-        );
+        showSnackbar({
+          message: t('parcel.validation.selectTripBeforeCreate'),
+          tone: 'warning',
+        });
         return;
       }
 
@@ -779,6 +901,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     ): Promise<void> => {
       setAmbiguousRetry(null);
       setAllowLeaveDespiteRetry(true);
+      clearParcelDraft();
       setPhotos([]);
       resetParcelPhotoUpload();
 
@@ -948,14 +1071,6 @@ export function CreateParcelScreen(): React.JSX.Element {
           });
 
           parcelResult = await createParcelMutation.mutateAsync(payload);
-
-          if (saveRecipientToBook && recipientName.trim() && recipientPhone.trim()) {
-            void useSavedRecipientsStore.getState().saveOrTouchRecipient({
-              fullName: recipientName.trim(),
-              phoneNumber: normalizeVietnamPhone(recipientPhone),
-              email: recipientEmail.trim(),
-            });
-          }
         }
       } catch (error) {
         const apiError = toApiError(error);
@@ -1016,6 +1131,36 @@ export function CreateParcelScreen(): React.JSX.Element {
         return;
       }
 
+      if (saveRecipientToBook && recipientName.trim() && recipientPhone.trim()) {
+        const recipientScope = getLocalSessionScope();
+        const recipientSnapshot = {
+          fullName: recipientName.trim(),
+          phoneNumber: normalizeVietnamPhone(recipientPhone),
+          email: recipientEmail.trim(),
+        };
+        const saveRecipient = async (): Promise<void> => {
+          if (!isLocalSessionScopeCurrent(recipientScope)) return;
+          try {
+            await useSavedRecipientsStore.getState().saveOrTouchRecipient(
+              recipientSnapshot,
+            );
+          } catch {
+            if (!isLocalSessionScopeCurrent(recipientScope)) return;
+            showSnackbar({
+              message: t('parcel.recipients.parcelCreatedSaveFailed'),
+              tone: 'warning',
+              action: {
+                label: t('parcel.recipients.retry'),
+                onPress: () => {
+                  saveRecipient().catch(() => undefined);
+                },
+              },
+            });
+          }
+        };
+        await saveRecipient();
+      }
+
       const parcelId = parcelResult.parcelId;
 
       if (parcelResult.status !== 'PENDING_PAYMENT') {
@@ -1051,6 +1196,7 @@ export function CreateParcelScreen(): React.JSX.Element {
   }, [
     activeQuoteToken,
     ambiguousRetry,
+    clearParcelDraft,
     clearTripSelection,
     createParcelMutation,
     depositPaymentMutation,
@@ -1068,6 +1214,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     recipientName,
     recipientPhone,
     resetParcelPhotoUpload,
+    saveRecipientToBook,
     selectedDropoffPoint,
     selectedTrip,
     selectedVoucher?.code,
@@ -1157,8 +1304,42 @@ export function CreateParcelScreen(): React.JSX.Element {
       setStep(curr => (curr - 1) as ParcelCreateStep);
       return true;
     }
-    return false;
-  }, [intentLocked, navigation, step]);
+    if (!fromLocationCode || !toLocationCode) {
+      navigation.goBack();
+      return true;
+    }
+
+    Alert.alert(
+      t('parcel.exitDraft.title'),
+      t('parcel.exitDraft.description'),
+      [
+        { text: t('parcel.exitDraft.keepEditing'), style: 'cancel' },
+        {
+          text: t('parcel.exitDraft.saveAndExit'),
+          onPress: () => navigation.goBack(),
+        },
+        {
+          text: t('parcel.exitDraft.discard'),
+          style: 'destructive',
+          onPress: () => {
+            clearParcelDraft();
+            resetParcel();
+            navigation.goBack();
+          },
+        },
+      ],
+    );
+    return true;
+  }, [
+    clearParcelDraft,
+    fromLocationCode,
+    intentLocked,
+    navigation,
+    resetParcel,
+    step,
+    t,
+    toLocationCode,
+  ]);
 
   usePreventRemove(intentLocked && !allowLeaveDespiteRetry, ({ data }) => {
     confirmLeaveWithAmbiguousRetry(() => navigation.dispatch(data.action));
@@ -1323,7 +1504,7 @@ export function CreateParcelScreen(): React.JSX.Element {
           step={step}
           highestStepReached={highestStepReached}
           onStepPress={handleStepBarSelect}
-          onCancel={handleCancel}
+          onCancel={handleBackPress}
           title={t('parcel.create.title')}
           routeSummary={
             fromCity && toCity

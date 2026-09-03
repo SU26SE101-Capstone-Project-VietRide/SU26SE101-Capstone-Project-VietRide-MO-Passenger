@@ -29,9 +29,15 @@ import {
 } from '@app/navigation/navigationRef';
 import { AppPreferencesProvider } from './AppPreferencesProvider';
 import { MotionProvider } from '@shared/motion';
-import { AppLaunchScreen } from '@shared/components';
+import {
+  AppConnectivityOverlay,
+  AppErrorBoundary,
+  AppLaunchScreen,
+  AppSnackbar,
+} from '@shared/components';
 import { useTranslation } from 'react-i18next';
 import { NotificationCoordinator } from './NotificationCoordinator';
+import { SessionDraftOwnershipGuard } from './SessionDraftOwnershipGuard';
 
 interface AppProvidersProps {
   children?: React.ReactNode;
@@ -42,6 +48,7 @@ function ThemedNavigation({
   children,
 }: AppProvidersProps): React.JSX.Element {
   const theme = useTheme();
+  const [isMainTabActive, setIsMainTabActive] = React.useState(false);
   const navigationTheme = React.useMemo<NavigationTheme>(() => {
     const baseTheme = theme.isDark
       ? NavigationDarkTheme
@@ -62,18 +69,30 @@ function ThemedNavigation({
     };
   }, [theme]);
 
+  const handleNavigationChange = React.useCallback(() => {
+    const state = navigationRef.getRootState();
+    const activeRoute = state?.routes[state.index];
+    setIsMainTabActive(activeRoute?.name === 'Main');
+    flushPendingNavigationOpens();
+  }, []);
+
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      theme={navigationTheme}
-      onReady={flushPendingNavigationOpens}
-      onStateChange={flushPendingNavigationOpens}
-    >
-      <StatusBarDynamic />
-      <RootNavigator />
-      <NotificationCoordinator />
-      {children}
-    </NavigationContainer>
+    <AppErrorBoundary>
+      <NavigationContainer
+        ref={navigationRef}
+        theme={navigationTheme}
+        onReady={handleNavigationChange}
+        onStateChange={handleNavigationChange}
+      >
+        <StatusBarDynamic />
+        <RootNavigator />
+        <NotificationCoordinator />
+        <SessionDraftOwnershipGuard />
+        <AppConnectivityOverlay />
+        <AppSnackbar isMainTabActive={isMainTabActive} />
+        {children}
+      </NavigationContainer>
+    </AppErrorBoundary>
   );
 }
 

@@ -44,7 +44,7 @@ import {
 import { formatDateTime } from '@shared/utils/format';
 import { isUuid } from '@shared/utils/pathSegment';
 import type { TrackingTarget } from '@features/tracking/types/trackingTarget';
-import { ErrorView } from '../components';
+import { ErrorView, ParcelSkeleton } from '../components';
 import { useParcelTrace } from '../hooks/useParcelReliabilityQueries';
 import {
   isParcelLocationTrackingTerminal,
@@ -137,6 +137,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
   const isTransferPending = normalizedParcelStatus === 'PENDING_TRANSFER_CONFIRM';
   const isTransferEscalated = normalizedParcelStatus === 'TRANSFER_ESCALATED';
   const hasTransferState = isTransferPending || isTransferEscalated;
+  const isShowingStaleTrace = Boolean(trace && traceQuery.isError);
 
   const trackingTarget = useMemo<TrackingTarget | undefined>(() => {
     if (routeTrackingTarget) return routeTrackingTarget;
@@ -226,6 +227,19 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     if (!trace) return null;
     return (
       <View style={styles.details}>
+        {isShowingStaleTrace ? (
+          <View style={styles.staleNotice} accessibilityRole="alert">
+            <WarningCircle
+              size={18}
+              color={theme.colors.warningForeground}
+              weight="fill"
+            />
+            <Text style={styles.staleNoticeText}>
+              {t('parcel.reliability.staleData')}
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.summaryCard} accessibilityRole="summary">
           <View style={styles.summaryHeader}>
             <Package size={22} color={theme.colors.primary} weight="duotone" />
@@ -347,6 +361,7 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     hasTransferState,
     hasClaimSurface,
     isTransferEscalated,
+    isShowingStaleTrace,
     liveTrackingTrip,
     styles,
     t,
@@ -431,8 +446,12 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
     <View style={styles.nonTrackingHeader}>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={t('parcel.actions.refresh')}
         onPress={handleRefresh}
-        style={styles.refreshHint}
+        style={({ pressed }) => [
+          styles.refreshHint,
+          pressed ? styles.pressed : null,
+        ]}
       >
         <ArrowClockwise size={18} color={theme.colors.primary} />
         <Text style={styles.refreshHintText}>
@@ -469,9 +488,12 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
       />
 
       {traceQuery.isLoading ? (
-        <View style={styles.state}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.stateText}>{t('parcel.reliability.loading')}</Text>
+        <View
+          accessibilityLabel={t('parcel.reliability.loading')}
+          style={styles.loadingBody}
+        >
+          <ParcelSkeleton type="summary" count={1} />
+          <ParcelSkeleton type="shipment" count={3} />
         </View>
       ) : !trace ? (
         <ErrorView
@@ -521,21 +543,29 @@ export function ParcelReliabilityScreen(): React.JSX.Element {
 const createStyles = (theme: AppTheme) => ({
   container: { flex: 1, backgroundColor: theme.colors.background },
   body: { flex: 1, minHeight: 0 },
-  state: {
+  loadingBody: {
     flex: 1,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: spacing.md,
-    padding: spacing.xl,
-  },
-  stateText: {
-    color: theme.colors.textSecondary,
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
   },
   scrollContent: { padding: spacing.xl, paddingBottom: spacing.huge },
   nonTrackingHeader: { gap: spacing.md },
   details: { gap: spacing.md },
+  staleNotice: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: theme.colors.warningLight,
+  },
+  staleNoticeText: {
+    flex: 1,
+    color: theme.colors.warningForeground,
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+  },
   summaryCard: {
     ...theme.components.card,
     gap: spacing.sm,

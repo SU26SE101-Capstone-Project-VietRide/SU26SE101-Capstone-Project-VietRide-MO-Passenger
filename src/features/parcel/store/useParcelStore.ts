@@ -6,7 +6,10 @@
  */
 
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import { registerSessionCleanup } from '@shared/session/cleanup';
+import { getLocalSessionScope } from '@shared/session/scope';
+import { createDebouncedAsyncStorage } from '@shared/utils/debouncedAsyncStorage';
 import {
   DEFAULT_PARCEL_SIZE,
   DEFAULT_PARCEL_WEIGHT_KG,
@@ -23,8 +26,12 @@ import type {
 } from '../types/index';
 
 const DEFAULT_DIMENSIONS = getParcelDimensions(DEFAULT_PARCEL_SIZE);
+const PARCEL_DRAFT_STORAGE_KEY = 'vietride-parcel-draft-v1';
+const parcelPersistStorage = createDebouncedAsyncStorage(180);
 
 interface ParcelStore {
+  ownerUserId: string | null;
+
   // ─── Locations ──────────────────────────────────────
   fromCity: string;
   toCity: string;
@@ -80,11 +87,18 @@ interface ParcelStore {
   paymentMethod: ParcelPaymentMethod;
   setPaymentMethod: (method: ParcelPaymentMethod) => void;
 
+  // ─── Persistence ────────────────────────────────────
+  hasHydrated: boolean;
+
   // ─── Reset ──────────────────────────────────────────
   resetParcel: () => void;
 }
 
-export const useParcelStore = create<ParcelStore>(set => ({
+export const useParcelStore = create<ParcelStore>()(
+  persist(
+    set => ({
+  ownerUserId: null,
+
   // ─── Locations ──────────────────────────────────────
   fromCity: '',
   toCity: '',
@@ -95,6 +109,7 @@ export const useParcelStore = create<ParcelStore>(set => ({
   toWardCode: '',
   setFromCity: city =>
     set({
+      ownerUserId: getLocalSessionScope().userId,
       fromCity: city,
       fromLocationCode: '',
       fromWardCode: '',
@@ -102,6 +117,7 @@ export const useParcelStore = create<ParcelStore>(set => ({
     }),
   setToCity: city =>
     set({
+      ownerUserId: getLocalSessionScope().userId,
       toCity: city,
       toDistrict: '',
       toLocationCode: '',
@@ -110,6 +126,7 @@ export const useParcelStore = create<ParcelStore>(set => ({
     }),
   setFromLocation: (city, code, wardCode = '') =>
     set(state => ({
+      ownerUserId: getLocalSessionScope().userId,
       fromCity: city,
       fromLocationCode: code,
       fromWardCode: wardCode,
@@ -120,6 +137,7 @@ export const useParcelStore = create<ParcelStore>(set => ({
     })),
   setToLocation: (city, code, wardCode = '') =>
     set(state => ({
+      ownerUserId: getLocalSessionScope().userId,
       toCity: city,
       toDistrict:
         state.toLocationCode === code && state.toWardCode === wardCode
@@ -132,9 +150,13 @@ export const useParcelStore = create<ParcelStore>(set => ({
           ? state.dropoffStation
           : undefined,
     })),
-  setToDistrict: district => set({ toDistrict: district }),
+  setToDistrict: district => set({
+    ownerUserId: getLocalSessionScope().userId,
+    toDistrict: district,
+  }),
   swapLocations: () =>
     set(state => ({
+      ownerUserId: getLocalSessionScope().userId,
       fromCity: state.toCity,
       toCity: state.fromCity,
       fromLocationCode: state.toLocationCode,
@@ -170,6 +192,7 @@ export const useParcelStore = create<ParcelStore>(set => ({
       };
 
       return {
+        ownerUserId: getLocalSessionScope().userId,
         ...presetDimensions,
         ...partial,
         size: resolveParcelSizeFromDimensions(nextDimensions),
@@ -179,16 +202,29 @@ export const useParcelStore = create<ParcelStore>(set => ({
   // ─── Stations ───────────────────────────────────────
   receivingStation: undefined,
   dropoffStation: undefined,
-  setReceivingStation: station => set({ receivingStation: station }),
-  setDropoffStation: station => set({ dropoffStation: station }),
+  setReceivingStation: station => set({
+    ownerUserId: getLocalSessionScope().userId,
+    receivingStation: station,
+  }),
+  setDropoffStation: station => set({
+    ownerUserId: getLocalSessionScope().userId,
+    dropoffStation: station,
+  }),
 
   // ─── Payment ────────────────────────────────────────
   paymentMethod: 'vnpay',
-  setPaymentMethod: method => set({ paymentMethod: method }),
+  setPaymentMethod: method => set({
+    ownerUserId: getLocalSessionScope().userId,
+    paymentMethod: method,
+  }),
+
+  // ─── Persistence ────────────────────────────────────
+  hasHydrated: false,
 
   // ─── Reset ──────────────────────────────────────────
-  resetParcel: () =>
+  resetParcel: () => {
     set({
+      ownerUserId: null,
       fromCity: '',
       toCity: '',
       toDistrict: '',
@@ -207,9 +243,52 @@ export const useParcelStore = create<ParcelStore>(set => ({
       receivingStation: undefined,
       dropoffStation: undefined,
       paymentMethod: 'vnpay',
+    });
+
+    // Reset/discard is destructive user intent. Flush the cleared snapshot as
+    // soon as Zustand persist has enqueued it so an abrupt app kill cannot
+    // resurrect a draft the passenger explicitly removed.
+    Promise.resolve()
+      .then(() => parcelPersistStorage.flush(PARCEL_DRAFT_STORAGE_KEY))
+      .catch(() => undefined);
+  },
     }),
-}));
+    {
+      name: PARCEL_DRAFT_STORAGE_KEY,
+      version: 1,
+      storage: createJSONStorage(() => parcelPersistStorage),
+      partialize: state => ({
+        ownerUserId: state.ownerUserId,
+        fromCity: state.fromCity,
+        toCity: state.toCity,
+        toDistrict: state.toDistrict,
+        fromLocationCode: state.fromLocationCode,
+        toLocationCode: state.toLocationCode,
+        fromWardCode: state.fromWardCode,
+        toWardCode: state.toWardCode,
+        size: state.size,
+        weight: state.weight,
+        lengthCm: state.lengthCm,
+        widthCm: state.widthCm,
+        heightCm: state.heightCm,
+        category: state.category,
+        customItemName: state.customItemName,
+        cod: state.cod,
+        estimatedValue: state.estimatedValue,
+        receivingStation: state.receivingStation,
+        dropoffStation: state.dropoffStation,
+        paymentMethod: state.paymentMethod,
+      }),
+      onRehydrateStorage: () => () => {
+        useParcelStore.setState({ hasHydrated: true, photos: [] });
+      },
+    },
+  ),
+);
 
 registerSessionCleanup('parcel', () => {
   useParcelStore.getState().resetParcel();
+  // Session cleanup is privacy-sensitive. Persist the cleared owner/draft
+  // immediately instead of leaving it in the normal debounce window.
+  parcelPersistStorage.flush(PARCEL_DRAFT_STORAGE_KEY).catch(() => undefined);
 });
