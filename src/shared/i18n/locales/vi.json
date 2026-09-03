@@ -1901,9 +1901,13 @@
       "descriptionRequired": "Hãy mô tả vấn đề bạn gặp phải.",
       "descriptionInvalid": "Mô tả chưa hợp lệ. Hãy kiểm tra và thử lại.",
       "descriptionTooLong": "Mô tả không được vượt quá 2.000 ký tự.",
+      "evidencePickerTitle": "Ảnh chứng từ",
+      "evidencePickerHelper": "Tối đa {{count}} ảnh hóa đơn, biên nhận hoặc tình trạng hàng. Ảnh được nén và xóa dữ liệu vị trí trước khi tải lên.",
+      "evidencePhotoLabel": "chứng từ",
       "submit": "Gửi cho nhà xe",
       "successTitle": "Nhà xe đã nhận báo cáo",
       "successDescription": "Bạn có thể theo dõi kết quả trong mục theo dõi kiện hàng.",
+      "successWithEvidenceDescription": "Báo cáo và ảnh chứng từ đã được gửi. Bạn có thể theo dõi kết quả trong mục theo dõi kiện hàng.",
       "errorTitle": "Chưa thể gửi báo cáo",
       "types": {
         "MISSING": "Không tìm thấy kiện hàng",

@@ -1901,9 +1901,13 @@
       "descriptionRequired": "Describe the issue you are experiencing.",
       "descriptionInvalid": "The description is not valid. Check it and try again.",
       "descriptionTooLong": "Description must not exceed 2,000 characters.",
+      "evidencePickerTitle": "Evidence photos",
+      "evidencePickerHelper": "Add up to {{count}} photos of invoices, receipts, or item condition. Photos are compressed and location metadata is removed before upload.",
+      "evidencePhotoLabel": "evidence",
       "submit": "Send to operator",
       "successTitle": "Operator received your report",
       "successDescription": "You can follow the result from parcel tracking.",
+      "successWithEvidenceDescription": "Your report and evidence photos were sent. You can follow the result from parcel tracking.",
       "errorTitle": "Could not send the report",
       "types": {
         "MISSING": "Cannot find the parcel",

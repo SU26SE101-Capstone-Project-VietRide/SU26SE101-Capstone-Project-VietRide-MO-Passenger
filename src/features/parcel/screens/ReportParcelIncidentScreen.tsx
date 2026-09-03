@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { ParcelStackParamList } from '@app/navigation/types';
-import { AppKeyboardAwareScrollView, Input } from '@shared/components';
+import { AppKeyboardAwareScrollView, Input, PhotoPicker } from '@shared/components';
 import { getLocalizedApiErrorMessage, toApiError } from '@shared/api/errors';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useThemedStyles } from '@shared/hooks';
@@ -27,6 +27,7 @@ import {
   type AppTheme,
 } from '@shared/theme';
 import { useReportParcelIncident } from '../hooks/useParcelReliabilityQueries';
+import { useParcelPhotoUpload } from '../hooks/useParcelPhotoUpload';
 import type { ParcelIncidentType } from '../types';
 import { PARCEL_ERROR_TRANSLATION_KEYS } from '../utils/parcelPresentation';
 
@@ -40,6 +41,7 @@ type IncidentNavigation = NativeStackNavigationProp<
 // The endpoint allows a nullable description. Passenger requires one so the
 // operator receives an actionable report while preserving the 2,000-character limit.
 const DESCRIPTION_MAX_LENGTH = 2_000;
+const MAX_INCIDENT_EVIDENCE_PHOTOS = 3;
 // BE shares one incident enum across USER/SYSTEM/ASSISTANT reporters, but v1.98.1
 // explicitly accepts only these three values from a Passenger caller.
 const PASSENGER_REPORTABLE_INCIDENT_TYPES = [
@@ -58,13 +60,22 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
     'DELIVERY_NOT_RECEIVED',
   );
   const [description, setDescription] = useState('');
+  const [evidencePhotoUris, setEvidencePhotoUris] = useState<string[]>([]);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const mutation = useReportParcelIncident(route.params.parcelId);
+  const {
+    uploadParcelPhoto: uploadIncidentEvidencePhoto,
+    isUploadingParcelPhoto: isUploadingIncidentEvidence,
+    resetParcelPhotoUpload: resetIncidentEvidenceUpload,
+  } = useParcelPhotoUpload();
+  const uploadedEvidenceUrlsRef = useRef(new Map<string, string>());
+  const submitInFlightRef = useRef(false);
 
   const trimmedDescription = description.trim();
+  const isSubmitting = mutation.isPending || isUploadingIncidentEvidence;
   const canSubmit = trimmedDescription.length > 0
     && trimmedDescription.length <= DESCRIPTION_MAX_LENGTH
-    && !mutation.isPending;
+    && !isSubmitting;
   const visibleError = useMemo(() => {
     if (fieldError) return fieldError;
     if (description.length > DESCRIPTION_MAX_LENGTH) {
@@ -73,21 +84,62 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
     return null;
   }, [description.length, fieldError, t]);
 
+  const handleEvidenceChange = useCallback((nextUris: string[]) => {
+    const normalizedUris = Array.from(new Set(
+      nextUris.map((uri) => uri.trim()).filter(Boolean),
+    )).slice(0, MAX_INCIDENT_EVIDENCE_PHOTOS);
+    const selectedUris = new Set(normalizedUris);
+
+    for (const cachedUri of uploadedEvidenceUrlsRef.current.keys()) {
+      if (!selectedUris.has(cachedUri)) {
+        uploadedEvidenceUrlsRef.current.delete(cachedUri);
+      }
+    }
+    setEvidencePhotoUris(normalizedUris);
+  }, []);
+
+  const uploadEvidencePhotos = useCallback(async (): Promise<string[]> => {
+    const evidenceUrls: string[] = [];
+
+    for (const sourceUri of evidencePhotoUris) {
+      let evidenceUrl = uploadedEvidenceUrlsRef.current.get(sourceUri);
+      if (!evidenceUrl) {
+        evidenceUrl = await uploadIncidentEvidencePhoto(sourceUri);
+        uploadedEvidenceUrlsRef.current.set(sourceUri, evidenceUrl);
+      }
+      evidenceUrls.push(evidenceUrl);
+    }
+
+    return evidenceUrls;
+  }, [evidencePhotoUris, uploadIncidentEvidencePhoto]);
+
   const handleSubmit = useCallback(async () => {
+    if (submitInFlightRef.current) {
+      return;
+    }
     if (!canSubmit) {
       setFieldError(t('parcel.incident.descriptionRequired'));
       return;
     }
+    submitInFlightRef.current = true;
     setFieldError(null);
     try {
+      const evidenceUrls = await uploadEvidencePhotos();
       await mutation.mutateAsync({
         parcelId: route.params.parcelId,
         incidentType,
         description: trimmedDescription,
-        evidenceUrls: [],
+        evidenceUrls,
       });
+      uploadedEvidenceUrlsRef.current.clear();
+      setEvidencePhotoUris([]);
+      resetIncidentEvidenceUpload();
       showSnackbar({
-        message: t('parcel.incident.successDescription'),
+        message: t(
+          evidenceUrls.length > 0
+            ? 'parcel.incident.successWithEvidenceDescription'
+            : 'parcel.incident.successDescription',
+        ),
         tone: 'success',
       });
       navigation.goBack();
@@ -104,15 +156,19 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
         t('parcel.incident.errorTitle'),
         getLocalizedApiErrorMessage(error, t, PARCEL_ERROR_TRANSLATION_KEYS),
       );
+    } finally {
+      submitInFlightRef.current = false;
     }
   }, [
     canSubmit,
     incidentType,
     mutation,
     navigation,
+    resetIncidentEvidenceUpload,
     route.params.parcelId,
     t,
     trimmedDescription,
+    uploadEvidencePhotos,
   ]);
 
   return (
@@ -185,6 +241,17 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
             textAlignVertical="top"
           />
 
+          <PhotoPicker
+            value={evidencePhotoUris}
+            onChange={handleEvidenceChange}
+            disabled={isSubmitting}
+            maxPhotos={MAX_INCIDENT_EVIDENCE_PHOTOS}
+            title={t('parcel.incident.evidencePickerTitle')}
+            photoLabel={t('parcel.incident.evidencePhotoLabel')}
+            helperText={t('parcel.incident.evidencePickerHelper', {
+              count: MAX_INCIDENT_EVIDENCE_PHOTOS,
+            })}
+          />
 
           <Pressable
             testID="parcel-incident-submit"
@@ -198,7 +265,7 @@ export function ReportParcelIncidentScreen(): React.JSX.Element {
               pressed && canSubmit ? styles.pressed : null,
             ]}
           >
-            {mutation.isPending ? (
+            {isSubmitting ? (
               <ActivityIndicator color={theme.colors.textInverse} />
             ) : (
               <Text style={styles.submitText}>{t('parcel.incident.submit')}</Text>
@@ -262,7 +329,7 @@ const createStyles = (theme: AppTheme) => ({
   },
   chipTextSelected: { color: theme.colors.primary },
   textArea: { minHeight: 132, paddingTop: spacing.md },
-  submitButton: { minHeight: 50, alignItems: 'center' as const, justifyContent: 'center' as const, borderRadius: borderRadius.md, backgroundColor: theme.colors.primary },
+  submitButton: { minHeight: 50, marginTop: spacing.xl, alignItems: 'center' as const, justifyContent: 'center' as const, borderRadius: borderRadius.md, backgroundColor: theme.colors.primary },
   submitDisabled: { opacity: 0.45 },
   submitText: { minWidth: 0, flexShrink: 1, paddingHorizontal: spacing.sm, color: theme.colors.textInverse, fontFamily: fontFamilies.bold, fontSize: fontSizes.md, textAlign: 'center' as const },
   pressed: { opacity: 0.8 },

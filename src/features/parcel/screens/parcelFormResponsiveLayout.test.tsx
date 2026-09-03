@@ -505,7 +505,7 @@ describe('Parcel reliability form responsive layout', () => {
       textAlign: 'center',
     });
   });
-  it('shows only passenger-observable issues and keeps the BE payload intact', async () => {
+  it('uploads selected evidence and keeps the passenger incident payload intact', async () => {
     await act(async () => {
       renderer = ReactTestRenderer.create(<ReportParcelIncidentScreen />);
     });
@@ -528,10 +528,12 @@ describe('Parcel reliability form responsive layout', () => {
     const descriptionInput = renderer!.root.findByProps({
       label: 'parcel.incident.descriptionLabel',
     });
+    const photoPicker = renderer!.root.findByProps({ testID: 'photo-picker' });
 
     await act(async () => {
       damagedChip?.props.onPress();
       descriptionInput.props.onChangeText('The parcel box is torn.');
+      photoPicker.props.onChange(['file://damage.jpg', 'file://invoice.jpg']);
     });
 
     const submit = renderer!.root.findByProps({
@@ -541,14 +543,94 @@ describe('Parcel reliability form responsive layout', () => {
 
     await act(async () => {
       submit.props.onPress();
-      await Promise.resolve();
+      await new Promise(resolve => setTimeout(resolve, 0));
     });
 
+    expect(mockUploadEvidence).toHaveBeenNthCalledWith(1, 'file://damage.jpg');
+    expect(mockUploadEvidence).toHaveBeenNthCalledWith(2, 'file://invoice.jpg');
+    expect(mockUploadEvidence.mock.invocationCallOrder[1]).toBeLessThan(
+      mockReportIncident.mock.invocationCallOrder[0],
+    );
     expect(mockReportIncident).toHaveBeenCalledWith({
       parcelId: '11111111-1111-4111-8111-111111111111',
       incidentType: 'DAMAGED',
       description: 'The parcel box is torn.',
+      evidenceUrls: [
+        'https://storage.example/file%3A%2F%2Fdamage.jpg.jpg',
+        'https://storage.example/file%3A%2F%2Finvoice.jpg.jpg',
+      ],
+    });
+    expect(mockResetEvidenceUpload).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps incident evidence optional', async () => {
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ReportParcelIncidentScreen />);
+    });
+
+    await act(async () => {
+      renderer!.root.findByProps({
+        label: 'parcel.incident.descriptionLabel',
+      }).props.onChangeText('The recipient did not receive the parcel.');
+    });
+    await act(async () => {
+      renderer!.root.findByProps({ testID: 'parcel-incident-submit' }).props.onPress();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    expect(mockUploadEvidence).not.toHaveBeenCalled();
+    expect(mockReportIncident).toHaveBeenCalledWith({
+      parcelId: '11111111-1111-4111-8111-111111111111',
+      incidentType: 'DELIVERY_NOT_RECEIVED',
+      description: 'The recipient did not receive the parcel.',
       evidenceUrls: [],
+    });
+  });
+
+  it('reuses uploaded evidence URLs when a later upload fails and the report is retried', async () => {
+    mockUploadEvidence
+      .mockResolvedValueOnce('https://storage.example/uploaded.jpg')
+      .mockRejectedValueOnce(new Error('temporary upload failure'))
+      .mockResolvedValueOnce('https://storage.example/retried.jpg');
+    await act(async () => {
+      renderer = ReactTestRenderer.create(<ReportParcelIncidentScreen />);
+    });
+
+    const descriptionInput = renderer!.root.findByProps({
+      label: 'parcel.incident.descriptionLabel',
+    });
+    const photoPicker = renderer!.root.findByProps({ testID: 'photo-picker' });
+    await act(async () => {
+      descriptionInput.props.onChangeText('The parcel contents are damaged.');
+      photoPicker.props.onChange(['file://uploaded.jpg', 'file://retry.jpg']);
+    });
+
+    await act(async () => {
+      renderer!.root.findByProps({ testID: 'parcel-incident-submit' }).props.onPress();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    expect(mockReportIncident).not.toHaveBeenCalled();
+    expect(renderer!.root.findByProps({ testID: 'photo-picker' }).props.value).toEqual([
+      'file://uploaded.jpg',
+      'file://retry.jpg',
+    ]);
+
+    await act(async () => {
+      renderer!.root.findByProps({ testID: 'parcel-incident-submit' }).props.onPress();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    expect(mockUploadEvidence).toHaveBeenCalledTimes(3);
+    expect(mockUploadEvidence).toHaveBeenNthCalledWith(3, 'file://retry.jpg');
+    expect(mockReportIncident).toHaveBeenCalledWith({
+      parcelId: '11111111-1111-4111-8111-111111111111',
+      incidentType: 'DELIVERY_NOT_RECEIVED',
+      description: 'The parcel contents are damaged.',
+      evidenceUrls: [
+        'https://storage.example/uploaded.jpg',
+        'https://storage.example/retried.jpg',
+      ],
     });
   });
 });
