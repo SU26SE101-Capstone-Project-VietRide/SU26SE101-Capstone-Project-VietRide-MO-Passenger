@@ -13,6 +13,7 @@ import type {
 } from './reliability';
 
 export * from './reliability';
+export * from './savedRecipient';
 
 export type ParcelSize = 'small' | 'medium' | 'large';
 export const PARCEL_SIZE_CATEGORIES = [

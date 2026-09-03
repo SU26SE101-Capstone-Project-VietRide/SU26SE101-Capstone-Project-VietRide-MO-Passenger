@@ -23,6 +23,7 @@ import {
   CheckCircle,
   WarningCircle,
   Wallet,
+  AddressBook,
 } from 'phosphor-react-native';
 
 import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
@@ -102,6 +103,12 @@ export function ProfileOverviewScreen(): React.JSX.Element {
       title: t('profile.history'),
       icon: ClockCounterClockwise,
       onPress: () => navigation.navigate('BookingHistory', { initialTab: 'ticket' }),
+    },
+    {
+      id: 'saved-recipients',
+      title: t('profile.addressBook'),
+      icon: AddressBook,
+      onPress: () => navigation.navigate('SavedRecipients'),
     },
     {
       id: 'settings',

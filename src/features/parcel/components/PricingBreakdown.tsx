@@ -81,46 +81,6 @@ function PricingBreakdownComponent({
   return (
     <View style={styles.summaryContent}>
       <View style={styles.card}>
-        <View style={styles.cardAccent} />
-        <Text style={styles.cardHeading}>
-          {t('parcel.summary.routeInformation')}
-        </Text>
-        <View style={styles.summaryRoute}>
-          <View style={styles.routeTrack}>
-            <View style={styles.dotStart} />
-            <View style={styles.dottedDivider} />
-            <View style={styles.dotEnd} />
-          </View>
-          <View style={styles.routeDetailsText}>
-            <View style={styles.routeStationSection}>
-              <Text style={styles.routeLabelText}>
-                {t('parcel.route.from')}
-              </Text>
-              <Text style={styles.routeStationName}>
-                {receivingStation?.name || t('parcel.route.originTerminal')}
-              </Text>
-              {receivingStation?.city ? (
-                <Text style={styles.routeStationCity}>
-                  {receivingStation.city}
-                </Text>
-              ) : null}
-            </View>
-            <View style={styles.routeStationSection}>
-              <Text style={styles.routeLabelText}>{t('parcel.route.to')}</Text>
-              <Text style={styles.routeStationName}>
-                {dropoffStation?.name || t('parcel.route.destinationTerminal')}
-              </Text>
-              {dropoffStation?.city ? (
-                <Text style={styles.routeStationCity}>
-                  {dropoffStation.city}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.card}>
         <Text style={styles.cardHeading}>
           {t('parcel.summary.packageSpecifications')}
         </Text>
@@ -243,73 +203,11 @@ const createStyles = (theme: AppTheme) => ({
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
-  cardAccent: {
-    position: 'absolute',
-    top: 14,
-    left: 0,
-    width: 3.5,
-    height: 18,
-    borderRadius: 2,
-    backgroundColor: theme.colors.primary,
-  },
   cardHeading: {
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
     marginBottom: spacing.md,
-  },
-  summaryRoute: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  routeTrack: {
-    width: 18,
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  dotStart: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: theme.colors.primary,
-    marginTop: 6,
-  },
-  dottedDivider: {
-    flex: 1,
-    width: 2,
-    borderStyle: 'dashed',
-    borderLeftWidth: 1.5,
-    borderLeftColor: theme.colors.divider,
-    marginVertical: 4,
-  },
-  dotEnd: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: theme.colors.textSecondary,
-    marginBottom: 4,
-  },
-  routeDetailsText: {
-    flex: 1,
-  },
-  routeStationSection: {
-    marginBottom: spacing.md,
-  },
-  routeLabelText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textTertiary,
-    marginBottom: 2,
-  },
-  routeStationName: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.sm,
-    color: theme.colors.textPrimary,
-  },
-  routeStationCity: {
-    fontFamily: fontFamilies.regular,
-    fontSize: fontSizes.xs,
-    color: theme.colors.textSecondary,
   },
   specCardRow: {
     flexDirection: 'row',

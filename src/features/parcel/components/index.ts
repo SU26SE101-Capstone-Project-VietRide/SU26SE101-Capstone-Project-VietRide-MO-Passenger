@@ -14,4 +14,5 @@ export { StepHeaderWithMascot } from './StepHeaderWithMascot';
 export { StepProgressBar } from './StepProgressBar';
 export { WeightSlider } from './WeightSlider';
 export { RouteEditModal } from './RouteEditModal';
+export { SavedRecipientsModal } from './SavedRecipientsModal';
 export * from './create';

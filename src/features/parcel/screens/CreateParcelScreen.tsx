@@ -28,6 +28,7 @@ import { fontFamilies, fontSizes, spacing, borderRadius } from '@shared/theme';
 import { useTheme } from '@shared/contexts/ThemeContext';
 import { useCurrentCoordinates, useThemedStyles } from '@shared/hooks';
 import type { AppTheme } from '@shared/theme';
+import { useSavedRecipientsStore } from '../store/useSavedRecipientsStore';
 import { assertVnPaySdkAvailable, openVnPayPayment } from '@shared/payments';
 import {
   addApiCalendarDays,
@@ -175,6 +176,7 @@ export function CreateParcelScreen(): React.JSX.Element {
     phone?: string;
     email?: string;
   }>({});
+  const [saveRecipientToBook, setSaveRecipientToBook] = useState(true);
 
   // Optional step 4 states
   const [photos, setPhotos] = useState<string[]>([]);
@@ -946,6 +948,14 @@ export function CreateParcelScreen(): React.JSX.Element {
           });
 
           parcelResult = await createParcelMutation.mutateAsync(payload);
+
+          if (saveRecipientToBook && recipientName.trim() && recipientPhone.trim()) {
+            void useSavedRecipientsStore.getState().saveOrTouchRecipient({
+              fullName: recipientName.trim(),
+              phoneNumber: normalizeVietnamPhone(recipientPhone),
+              email: recipientEmail.trim(),
+            });
+          }
         }
       } catch (error) {
         const apiError = toApiError(error);
@@ -1420,6 +1430,8 @@ export function CreateParcelScreen(): React.JSX.Element {
                   setRecipientErrors(curr => ({ ...curr, email: undefined }));
               }}
               recipientErrors={recipientErrors}
+              saveRecipient={saveRecipientToBook}
+              onSaveRecipientChange={setSaveRecipientToBook}
               photos={photos}
               onPhotosChange={handlePhotosChange}
               isPhotoUploading={isUploadingParcelPhoto}

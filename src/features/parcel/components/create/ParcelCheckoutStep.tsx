@@ -1,17 +1,21 @@
-import React, { memo, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
+  AddressBook,
+  Check,
   Clock,
   LockKey,
   MapPin,
   PencilSimple,
+  Star,
   Truck,
 } from 'phosphor-react-native';
 
@@ -33,6 +37,12 @@ import type { PromoOffer } from '@shared/utils/promo';
 import { formatDateTime } from '@shared/utils/format';
 import { formatParcelDimensions } from '../../config/parcelPackage';
 import { PricingBreakdown } from '../PricingBreakdown';
+import { SavedRecipientsModal } from '../SavedRecipientsModal';
+import {
+  selectSortedRecipients,
+  useSavedRecipientsStore,
+} from '../../store/useSavedRecipientsStore';
+import type { SavedRecipient } from '../../types/savedRecipient';
 import type { ParcelDimensions } from '../../config/parcelPackage';
 import type {
   ParcelAvailableVoucher,
@@ -53,6 +63,8 @@ export interface ParcelCheckoutStepProps {
   onRecipientPhoneChange: (value: string) => void;
   onRecipientEmailChange: (value: string) => void;
   recipientErrors: { name?: string; phone?: string; email?: string };
+  saveRecipient?: boolean;
+  onSaveRecipientChange?: (value: boolean) => void;
   photos: string[];
   onPhotosChange: (photos: string[]) => void;
   isPhotoUploading: boolean;
@@ -100,6 +112,8 @@ function ParcelCheckoutStepComponent({
   onRecipientPhoneChange,
   onRecipientEmailChange,
   recipientErrors,
+  saveRecipient = true,
+  onSaveRecipientChange,
   photos,
   onPhotosChange,
   isPhotoUploading,
@@ -140,6 +154,34 @@ function ParcelCheckoutStepComponent({
   const recipientPhoneRef = useRef<TextInput>(null);
   const recipientEmailRef = useRef<TextInput>(null);
   const [bottomBarHeight, setBottomBarHeight] = useState(80);
+  const [showRecipientsModal, setShowRecipientsModal] = useState(false);
+
+  const recipients = useSavedRecipientsStore(state => state.recipients);
+  const isLoaded = useSavedRecipientsStore(state => state.isLoaded);
+  const loadRecipients = useSavedRecipientsStore(state => state.loadRecipients);
+  const touchRecipient = useSavedRecipientsStore(state => state.touchRecipient);
+
+  React.useEffect(() => {
+    if (!isLoaded) {
+      void loadRecipients();
+    }
+  }, [isLoaded, loadRecipients]);
+
+  const quickRecipients = useMemo(() => {
+    return selectSortedRecipients(recipients).slice(0, 5);
+  }, [recipients]);
+
+  const handleSelectRecipient = useCallback(
+    (recipient: SavedRecipient) => {
+      onRecipientNameChange(recipient.fullName);
+      onRecipientPhoneChange(recipient.phoneNumber);
+      if (recipient.email) {
+        onRecipientEmailChange(recipient.email);
+      }
+      void touchRecipient(recipient.id);
+    },
+    [onRecipientNameChange, onRecipientPhoneChange, onRecipientEmailChange, touchRecipient],
+  );
 
   const canSubmit = canSubmitStep4({
     recipientName,
@@ -265,9 +307,71 @@ function ParcelCheckoutStepComponent({
 
         {/* Recipient Information Form */}
         <View style={styles.card}>
-          <Text style={styles.cardSectionTitle}>
-            {t('parcel.form.recipientTitle')}
-          </Text>
+          <View style={styles.recipientHeaderRow}>
+            <Text style={styles.cardSectionTitle}>
+              {t('parcel.form.recipientTitle')}
+            </Text>
+            <Pressable
+              testID="open-saved-recipients-button"
+              style={styles.addressBookButton}
+              onPress={() => setShowRecipientsModal(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('parcel.recipients.openBook')}
+            >
+              <AddressBook size={15} color={theme.colors.primary} weight="bold" />
+              <Text style={styles.addressBookButtonText}>
+                {t('parcel.recipients.openBook')}
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Quick pick recipient chips */}
+          {quickRecipients.length > 0 ? (
+            <View style={styles.quickPickContainer}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.quickPickScroll}
+              >
+                {quickRecipients.map(r => {
+                  const isSelected =
+                    recipientPhone.trim() === r.phoneNumber.trim() &&
+                    recipientName.trim() === r.fullName.trim();
+                  return (
+                    <Pressable
+                      key={r.id}
+                      testID={`quick-recipient-chip-${r.id}`}
+                      style={[
+                        styles.quickChip,
+                        isSelected && styles.quickChipSelected,
+                      ]}
+                      onPress={() => handleSelectRecipient(r)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${r.fullName}, ${r.phoneNumber}`}
+                    >
+                      {r.isDefault ? (
+                        <Star
+                          size={11}
+                          color={theme.colors.warningForeground}
+                          weight="fill"
+                        />
+                      ) : null}
+                      <Text
+                        style={[
+                          styles.quickChipText,
+                          isSelected && styles.quickChipTextSelected,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {r.fullName}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
+
           <Input
             ref={recipientNameRef}
             label={t('parcel.form.fullNameLabel')}
@@ -309,7 +413,42 @@ function ParcelCheckoutStepComponent({
             onChangeText={onRecipientEmailChange}
             accessibilityLabel={t('parcel.form.emailLabel')}
           />
+
+          {onSaveRecipientChange ? (
+            <Pressable
+              testID="save-recipient-checkbox"
+              style={styles.saveRecipientRow}
+              onPress={() => onSaveRecipientChange(!saveRecipient)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: Boolean(saveRecipient) }}
+            >
+              <View
+                style={[
+                  styles.checkboxBox,
+                  saveRecipient && styles.checkboxBoxChecked,
+                ]}
+              >
+                {saveRecipient ? (
+                  <Check
+                    size={11}
+                    color={theme.colors.textInverse}
+                    weight="bold"
+                  />
+                ) : null}
+              </View>
+              <Text style={styles.saveRecipientText}>
+                {t('parcel.recipients.saveForNextTime')}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
+
+        <SavedRecipientsModal
+          visible={showRecipientsModal}
+          onClose={() => setShowRecipientsModal(false)}
+          onSelectRecipient={handleSelectRecipient}
+          mode="picker"
+        />
 
         {/* Optional Photos & Declared Value */}
         <View style={styles.card}>
@@ -462,6 +601,86 @@ const createStyles = (theme: AppTheme) => ({
     fontFamily: fontFamilies.bold,
     fontSize: fontSizes.md,
     color: theme.colors.textPrimary,
+  },
+  recipientHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  addressBookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.primaryFaded,
+  },
+  addressBookButtonText: {
+    fontFamily: fontFamilies.bold,
+    fontSize: fontSizes.xs,
+    color: theme.colors.primary,
+  },
+  quickPickContainer: {
+    marginTop: -spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  quickPickScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  quickChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    maxWidth: 160,
+  },
+  quickChipSelected: {
+    backgroundColor: theme.colors.primaryFaded,
+    borderColor: theme.colors.primary,
+  },
+  quickChipText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
+    flexShrink: 1,
+  },
+  quickChipTextSelected: {
+    fontFamily: fontFamilies.bold,
+    color: theme.colors.primary,
+  },
+  saveRecipientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  checkboxBox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+  },
+  checkboxBoxChecked: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary,
+  },
+  saveRecipientText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: theme.colors.textSecondary,
   },
   sectionTitleRow: {
     minHeight: 44,

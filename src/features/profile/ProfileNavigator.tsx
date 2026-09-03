@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { ProfileStackParamList } from '@app/navigation/types';
 import { ProfileOverviewScreen } from './screens/ProfileOverviewScreen';
 import { EditProfileScreen } from './screens/EditProfileScreen';
+import { SavedRecipientsScreen } from './screens/SavedRecipientsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { SecurityScreen } from './screens/SecurityScreen';
 import { ChangePasswordScreen } from './screens/ChangePasswordScreen';
@@ -40,6 +41,7 @@ export function ProfileNavigator(): React.JSX.Element {
     >
       <Stack.Screen name="ProfileOverview" component={ProfileOverviewScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="SavedRecipients" component={SavedRecipientsScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="SecuritySettings" component={SecurityScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />

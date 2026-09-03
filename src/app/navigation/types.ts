@@ -100,6 +100,7 @@ export type ParcelStackParamList = {
 export type ProfileStackParamList = {
   ProfileOverview: undefined;
   EditProfile: undefined;
+  SavedRecipients: undefined;
   Settings: undefined;
   SecuritySettings: undefined;
   ChangePassword: undefined;
