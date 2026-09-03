@@ -206,6 +206,7 @@ describe('Parcel reliability form responsive layout', () => {
       claimSummary: { status: 'SUBMITTED' },
     };
     mockClaims = [{
+      acceptedEvidenceIds: [],
       availableActions: [],
       decidedAt: null,
       decisionDeadline: null,
@@ -213,6 +214,8 @@ describe('Parcel reliability form responsive layout', () => {
       paidAt: null,
       payoutDeadline: null,
       policySnapshot: null,
+      proofStatus: null,
+      provenDirectLossVnd: null,
       status: 'SUBMITTED',
     }];
 
@@ -225,6 +228,8 @@ describe('Parcel reliability form responsive layout', () => {
     );
     expect(renderedKeys).toContain('parcel.claim.reviewTitle');
     expect(renderedKeys).toContain('parcel.claim.reviewDescription');
+    expect(renderedKeys).toContain('parcel.claim.proofStatuses.NOT_ASSESSED');
+    expect(renderedKeys).toContain('parcel.claim.proofDescriptions.NOT_ASSESSED');
     expect(renderedKeys).not.toContain('parcel.claim.cargoAward');
     expect(renderedKeys).not.toContain('parcel.claim.freightRefund');
     expect(renderedKeys).not.toContain('parcel.claim.totalAward');
@@ -236,6 +241,7 @@ describe('Parcel reliability form responsive layout', () => {
       claimSummary: { status: 'SUBMITTED' },
     };
     mockClaims = [{
+      acceptedEvidenceIds: [],
       availableActions: ['ADD_EVIDENCE'],
       decidedAt: null,
       decisionDeadline: null,
@@ -243,6 +249,8 @@ describe('Parcel reliability form responsive layout', () => {
       paidAt: null,
       payoutDeadline: null,
       policySnapshot: null,
+      proofStatus: null,
+      provenDirectLossVnd: null,
       status: 'SUBMITTED',
     }];
 
@@ -326,6 +334,7 @@ describe('Parcel reliability form responsive layout', () => {
 
   it('blocks an appeal that exceeds the deliberate Passenger input cap', async () => {
     mockClaims = [{
+      acceptedEvidenceIds: [],
       appealReason: null,
       appealedAt: null,
       appealedByUserId: null,
@@ -334,7 +343,7 @@ describe('Parcel reliability form responsive layout', () => {
       cargoAwardVnd: 0,
       claimId: '33333333-3333-4333-8333-333333333333',
       compensationRatePercent: 0,
-      decidedAt: null,
+      decidedAt: '2026-08-30T08:00:00Z',
       decidedBy: null,
       decisionDeadline: null,
       decisionReason: null,
@@ -351,6 +360,7 @@ describe('Parcel reliability form responsive layout', () => {
       policyCapVnd: 0,
       policySnapshot: null,
       policyVersion: 1,
+      proofStatus: 'NO_PROOF',
       provenDirectLossVnd: null,
       status: 'REJECTED',
       totalAwardVnd: 0,
@@ -386,6 +396,7 @@ describe('Parcel reliability form responsive layout', () => {
     };
     mockClaims = [{
       appeal: {
+        acceptedEvidenceIds: ['66666666-6666-4666-8666-666666666666'],
         appealId: '55555555-5555-4555-8555-555555555555',
         claimId: '33333333-3333-4333-8333-333333333333',
         originalClaimStatus: 'PAID',
@@ -404,17 +415,28 @@ describe('Parcel reliability form responsive layout', () => {
         decidedAt: '2026-08-30T09:00:00Z',
         payoutReferenceId: null,
         paidAt: null,
+        proofStatus: 'VERIFIED',
         availableActions: [],
       },
+      acceptedEvidenceIds: ['66666666-6666-4666-8666-666666666666'],
       availableActions: [],
       cargoAwardVnd: 1_500_000,
       decidedAt: '2026-08-29T08:00:00Z',
       decisionDeadline: null,
-      evidence: [],
+      evidence: [{
+        evidenceId: '66666666-6666-4666-8666-666666666666',
+        evidenceType: 'PHOTO',
+        reference: 'https://storage.example/invoice.jpg',
+        note: 'Invoice',
+        uploadedByUserId: '22222222-2222-4222-8222-222222222222',
+        createdAt: '2026-08-28T08:00:00Z',
+      }],
       freightRefundVnd: 100_000,
       paidAt: '2026-08-29T09:00:00Z',
       payoutDeadline: null,
       policySnapshot: null,
+      proofStatus: 'VERIFIED',
+      provenDirectLossVnd: 2_000_000,
       status: 'PAID',
       totalAwardVnd: 1_600_000,
     }];
@@ -426,13 +448,26 @@ describe('Parcel reliability form responsive layout', () => {
     expect(renderer!.root.findByProps({
       testID: 'parcel-claim-appeal-card',
     })).toBeDefined();
-    expect(renderer!.root.findByProps({ testID: 'status-chip' }).props.children).toBe(
-      'parcel.claim.appealStatuses.FUNDING_PENDING',
+    expect(renderer!.root.findByProps({
+      testID: 'parcel-claim-proof-assessment',
+    })).toBeDefined();
+    expect(renderer!.root.findByProps({
+      testID: 'parcel-appeal-proof-assessment',
+    })).toBeDefined();
+    const statusChipLabels = new Set(
+      renderer!.root.findAllByProps({ testID: 'status-chip' })
+        .map(node => node.props.children),
     );
+    expect(statusChipLabels).toContain('parcel.claim.appealStatuses.FUNDING_PENDING');
+    expect(statusChipLabels).toContain('parcel.claim.proofStatuses.VERIFIED');
+    expect(statusChipLabels).toContain('parcel.claim.acceptedForClaim');
+    expect(statusChipLabels).toContain('parcel.claim.acceptedForAppeal');
     const renderedKeys = new Set(
       renderer!.root.findAllByType(Text).map(node => node.props.children),
     );
     expect(renderedKeys).toContain('parcel.claim.appealCaseTitle');
+    expect(renderedKeys).toContain('parcel.claim.appealRevisedCargoAward');
+    expect(renderedKeys).toContain('parcel.claim.appealRevisedFreightRefund');
     expect(renderedKeys).toContain('parcel.claim.appealRevisedTotal');
     expect(renderedKeys).toContain('parcel.claim.appealSupplementaryAward');
     expect(renderedKeys).toContain('parcel.claim.appealAdditionalPayoutPending');

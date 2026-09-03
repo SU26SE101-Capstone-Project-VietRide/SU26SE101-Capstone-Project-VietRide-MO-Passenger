@@ -42,7 +42,10 @@ import {
 } from '../hooks/useParcelReliabilityQueries';
 import { useParcelPhotoUpload } from '../hooks/useParcelPhotoUpload';
 
-import { ParcelCompensationDisclosure } from '../components';
+import {
+  ParcelCompensationDisclosure,
+  ParcelProofAssessment,
+} from '../components';
 import {
   getParcelClaimAppealStatusLabelKey,
   getParcelClaimStatusLabelKey,
@@ -118,6 +121,14 @@ export function ParcelClaimScreen(): React.JSX.Element {
     : false;
   const isAppealAwaitingPayout = appeal?.status === 'ADJUSTMENT_APPROVED'
     || appeal?.status === 'FUNDING_PENDING';
+  const claimAcceptedEvidenceIds = useMemo(
+    () => new Set(claim?.acceptedEvidenceIds ?? []),
+    [claim?.acceptedEvidenceIds],
+  );
+  const appealAcceptedEvidenceIds = useMemo(
+    () => new Set(appeal?.acceptedEvidenceIds ?? []),
+    [appeal?.acceptedEvidenceIds],
+  );
 
   const refresh = useCallback(() => {
     Promise.all([
@@ -404,6 +415,13 @@ export function ParcelClaimScreen(): React.JSX.Element {
                     <Text style={styles.valueLabel}>{t('parcel.claim.status')}</Text>
                     <Text style={styles.valueText}>{claimStatusLabel}</Text>
                   </View>
+                  <ParcelProofAssessment
+                    testID="parcel-claim-proof-assessment"
+                    proofStatus={claim.proofStatus}
+                    decisionRecorded={hasDecision}
+                    provenDirectLossVnd={claim.provenDirectLossVnd}
+                    acceptedEvidenceCount={claim.acceptedEvidenceIds.length}
+                  />
                   {hasDecision ? (
                     <>
                       <View style={styles.valueRow}>
@@ -480,8 +498,32 @@ export function ParcelClaimScreen(): React.JSX.Element {
                       </View>
                     ) : null}
 
+                    <ParcelProofAssessment
+                      testID="parcel-appeal-proof-assessment"
+                      proofStatus={appeal.proofStatus}
+                      decisionRecorded={Boolean(appeal.decidedAt)}
+                      provenDirectLossVnd={appeal.revisedProvenDirectLossVnd}
+                      acceptedEvidenceCount={appeal.acceptedEvidenceIds.length}
+                    />
+
                     {hasRevisedAppealAward ? (
                       <View style={styles.appealAmounts}>
+                        <View style={styles.valueRow}>
+                          <Text style={styles.valueLabel}>
+                            {t('parcel.claim.appealRevisedCargoAward')}
+                          </Text>
+                          <Text style={styles.valueText}>
+                            {formatVnd(appeal.revisedCargoAwardVnd)}
+                          </Text>
+                        </View>
+                        <View style={styles.valueRow}>
+                          <Text style={styles.valueLabel}>
+                            {t('parcel.claim.appealRevisedFreightRefund')}
+                          </Text>
+                          <Text style={styles.valueText}>
+                            {formatVnd(appeal.revisedFreightRefundVnd)}
+                          </Text>
+                        </View>
                         <View style={styles.valueRow}>
                           <Text style={styles.valueLabel}>
                             {t('parcel.claim.appealRevisedTotal')}
@@ -533,9 +575,25 @@ export function ParcelClaimScreen(): React.JSX.Element {
                   </View>
                   {claim.evidence.length > 0 ? claim.evidence.map((evidence, index) => (
                     <View key={evidence.evidenceId} style={styles.evidenceRow}>
-                      <Text style={styles.evidenceType}>
-                        {t('parcel.claim.evidenceItem', { index: index + 1 })}
-                      </Text>
+                      <View style={styles.evidenceItemHeader}>
+                        <Text style={styles.evidenceType}>
+                          {t('parcel.claim.evidenceItem', { index: index + 1 })}
+                        </Text>
+                        <View style={styles.evidenceBadges}>
+                          {claimAcceptedEvidenceIds.has(evidence.evidenceId) ? (
+                            <StatusChip
+                              label={t('parcel.claim.acceptedForClaim')}
+                              tone="success"
+                            />
+                          ) : null}
+                          {appealAcceptedEvidenceIds.has(evidence.evidenceId) ? (
+                            <StatusChip
+                              label={t('parcel.claim.acceptedForAppeal')}
+                              tone="info"
+                            />
+                          ) : null}
+                        </View>
+                      </View>
                       {evidence.note ? <Text style={styles.evidenceNote}>{evidence.note}</Text> : null}
                     </View>
                   )) : (
@@ -656,7 +714,7 @@ const createStyles = (theme: AppTheme) => ({
   appealLabel: { color: theme.colors.textSecondary, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
   appealBody: { marginTop: spacing.xs, color: theme.colors.textPrimary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 20 },
   appealDecision: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.divider },
-  appealAmounts: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.divider },
+  appealAmounts: { paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.divider },
   valueRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, gap: spacing.md, marginBottom: spacing.sm },
   valueLabel: { flex: 1, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm },
   valueText: { minWidth: 0, flexShrink: 1, color: theme.colors.textPrimary, fontFamily: fontFamilies.medium, fontSize: fontSizes.sm, textAlign: 'right' as const },
@@ -669,6 +727,8 @@ const createStyles = (theme: AppTheme) => ({
   pendingText: { marginTop: spacing.sm, color: theme.colors.warningForeground, fontFamily: fontFamilies.medium, fontSize: fontSizes.xs },
   evidenceHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.sm },
   evidenceRow: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: theme.colors.divider },
+  evidenceItemHeader: { minWidth: 0, gap: spacing.sm },
+  evidenceBadges: { minWidth: 0, flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: spacing.xs },
   evidenceType: { color: theme.colors.textPrimary, fontFamily: fontFamilies.bold, fontSize: fontSizes.xs },
   evidenceNote: { marginTop: 2, color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.xs },
   evidenceDescription: { color: theme.colors.textSecondary, fontFamily: fontFamilies.regular, fontSize: fontSizes.sm, lineHeight: 20 },

@@ -6,6 +6,7 @@ export { CategoryChips } from './CategoryChips';
 export { PackageSizeSelector } from './PackageSizeSelector';
 export { ParcelDimensionsInput } from './ParcelDimensionsInput';
 export { ParcelCompensationDisclosure } from './ParcelCompensationDisclosure';
+export { ParcelProofAssessment } from './ParcelProofAssessment';
 export { ParcelPaymentMethodSelector } from './ParcelPaymentMethodSelector';
 export { PricingBreakdown } from './PricingBreakdown';
 export { PromoCodeInput } from './PromoCodeInput';

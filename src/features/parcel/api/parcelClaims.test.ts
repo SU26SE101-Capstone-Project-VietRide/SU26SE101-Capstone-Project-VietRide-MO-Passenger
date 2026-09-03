@@ -17,7 +17,8 @@ const claimWire = {
   incidentId: IDS.incident,
   status: 'FUNDING_PENDING',
   declaredValueVnd: 2_000_000,
-  provenDirectLossVnd: null,
+  proofStatus: 'VERIFIED',
+  provenDirectLossVnd: 2_000_000,
   compensationRatePercent: 80,
   policyCapVnd: 1_500_000,
   cargoAwardVnd: 1_500_000,
@@ -33,6 +34,7 @@ const claimWire = {
   appealReason: null,
   appealedByUserId: null,
   appealedAt: null,
+  acceptedEvidenceIds: [IDS.evidence],
   evidence: [{
     evidenceId: IDS.evidence,
     evidenceType: 'PHOTO',
@@ -64,6 +66,8 @@ describe('Parcel claim contract', () => {
     expect(claim.status).toBe('FUNDING_PENDING');
     expect(claim.paidAt).toBeNull();
     expect(claim.totalAwardVnd).toBe(1_600_000);
+    expect(claim.proofStatus).toBe('VERIFIED');
+    expect(claim.acceptedEvidenceIds).toEqual([IDS.evidence]);
     expect(claim.availableActions).toEqual(['APPEAL']);
     expect(claim.policySnapshot?.maxCompensationVnd).toBe(1_500_000);
     expect(claim.appeal).toBeNull();
@@ -83,6 +87,7 @@ describe('Parcel claim contract', () => {
         reason: 'The invoice was corrected.',
         submittedByUserId: IDS.user,
         submittedAt: NOW,
+        proofStatus: 'VERIFIED',
         revisedProvenDirectLossVnd: 2_500_000,
         revisedCargoAwardVnd: 2_000_000,
         revisedFreightRefundVnd: 100_000,
@@ -93,6 +98,7 @@ describe('Parcel claim contract', () => {
         decidedAt: NOW,
         payoutReferenceId: IDS.payout,
         paidAt: null,
+        acceptedEvidenceIds: [IDS.evidence],
         availableActions: ['DECIDE_APPEAL', 'OPERATOR_APPROVE'],
       },
     }])[0];
@@ -102,8 +108,10 @@ describe('Parcel claim contract', () => {
       appealId: IDS.appeal,
       originalClaimStatus: 'PAID',
       status: 'FUNDING_PENDING',
+      proofStatus: 'VERIFIED',
       revisedTotalAwardVnd: 2_100_000,
       supplementaryAwardVnd: 500_000,
+      acceptedEvidenceIds: [IDS.evidence],
       availableActions: [],
     });
   });
@@ -149,6 +157,10 @@ describe('Parcel claim contract', () => {
     }])).toThrow();
     expect(() => parseParcelClaims([{
       ...claimWire,
+      acceptedEvidenceIds: ['not-a-uuid'],
+    }])).toThrow();
+    expect(() => parseParcelClaims([{
+      ...claimWire,
       appeal: {
         appealId: 'not-a-uuid',
         claimId: IDS.claim,
@@ -178,5 +190,16 @@ describe('Parcel claim contract', () => {
       ...claimWire,
       availableActions: null,
     }])[0].availableActions).toEqual([]);
+  });
+
+  it('normalizes proof fields omitted by an older read model', () => {
+    const legacyWire: Record<string, unknown> = { ...claimWire };
+    delete legacyWire.proofStatus;
+    delete legacyWire.acceptedEvidenceIds;
+
+    const claim = parseParcelClaims([legacyWire])[0];
+
+    expect(claim.proofStatus).toBeNull();
+    expect(claim.acceptedEvidenceIds).toEqual([]);
   });
 });

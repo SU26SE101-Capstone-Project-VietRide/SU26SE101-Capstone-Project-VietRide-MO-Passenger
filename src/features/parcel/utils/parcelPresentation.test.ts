@@ -3,6 +3,7 @@ import vi from '@shared/i18n/locales/vi.json';
 
 import {
   getParcelClaimAppealStatusLabelKey,
+  getParcelClaimProofPresentation,
   getParcelClaimStatusLabelKey,
   getParcelCustodyEventLabelKey,
   getParcelIncidentStatusLabelKey,
@@ -55,6 +56,26 @@ describe('parcel Reliability presentation', () => {
   ])('maps appeal status %s to app-owned copy', (value, expected) => {
     expect(getParcelClaimAppealStatusLabelKey(value)).toBe(expected);
   });
+
+  it.each([
+    ['VERIFIED', false, 'parcel.claim.proofStatuses.VERIFIED', 'success'],
+    ['UNVERIFIED', true, 'parcel.claim.proofStatuses.UNVERIFIED', 'warning'],
+    ['NO_PROOF', true, 'parcel.claim.proofStatuses.NO_PROOF', 'neutral'],
+    [null, false, 'parcel.claim.proofStatuses.NOT_ASSESSED', 'info'],
+    [null, true, 'parcel.claim.proofStatuses.LEGACY', 'neutral'],
+    ['NEW_PROOF_STATE', true, 'parcel.claim.proofStatuses.UNKNOWN', 'neutral'],
+  ])(
+    'maps proof %s with decision=%s to safe Passenger copy',
+    (proofStatus, decisionRecorded, expectedLabel, expectedTone) => {
+      expect(getParcelClaimProofPresentation(
+        proofStatus,
+        decisionRecorded,
+      )).toMatchObject({
+        labelKey: expectedLabel,
+        tone: expectedTone,
+      });
+    },
+  );
 
   it.each([
     [
@@ -112,6 +133,9 @@ describe('parcel Reliability presentation', () => {
     expect(getParcelClaimAppealStatusLabelKey(unknownToken)).toBe(
       'parcel.claim.appealStatuses.UNKNOWN',
     );
+    expect(getParcelClaimProofPresentation(unknownToken, true).labelKey).toBe(
+      'parcel.claim.proofStatuses.UNKNOWN',
+    );
     expect(getParcelTrackingConfidenceDescriptionKey(unknownToken)).toBe(
       'parcel.reliability.confidenceDescriptions.UNKNOWN',
     );
@@ -144,6 +168,13 @@ describe('parcel Reliability presentation', () => {
 
   it('uses a clear, single-line Vietnamese label for the final shipment fee', () => {
     expect(vi.parcel.detail.finalTotal).toBe('Tổng phí chính thức');
+  });
+
+  it('describes the verified-proof rule without presenting the cargo cap as a total cap', () => {
+    expect(vi.parcel.compensation.rate).toBe('Tỷ lệ bồi thường hàng hóa');
+    expect(vi.parcel.compensation.cap).toBe('Trần bồi thường hàng hóa');
+    expect(vi.parcel.compensation.note).toContain('xác minh bằng chứng từ');
+    expect(vi.parcel.compensation.note).toContain('phí vận chuyển còn lại');
   });
 
   it.each([

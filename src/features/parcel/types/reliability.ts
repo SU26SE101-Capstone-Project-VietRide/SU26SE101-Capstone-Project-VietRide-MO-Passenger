@@ -195,6 +195,16 @@ export interface ParcelClaimEvidence {
   createdAt: string;
 }
 
+export const PARCEL_CLAIM_PROOF_STATUSES = [
+  'VERIFIED',
+  'UNVERIFIED',
+  'NO_PROOF',
+] as const;
+
+export type ParcelClaimProofStatus =
+  | (typeof PARCEL_CLAIM_PROOF_STATUSES)[number]
+  | (string & {});
+
 export const PARCEL_CLAIM_APPEAL_STATUSES = [
   'SUBMITTED',
   'UNDER_REVIEW',
@@ -217,6 +227,7 @@ export interface ParcelClaimAppeal {
   reason: string;
   submittedByUserId: string;
   submittedAt: string;
+  proofStatus: ParcelClaimProofStatus | null;
   revisedProvenDirectLossVnd: number | null;
   revisedCargoAwardVnd: number;
   revisedFreightRefundVnd: number;
@@ -227,6 +238,7 @@ export interface ParcelClaimAppeal {
   decidedAt: string | null;
   payoutReferenceId: string | null;
   paidAt: string | null;
+  acceptedEvidenceIds: string[];
   availableActions: ParcelPassengerAction[];
 }
 
@@ -236,6 +248,7 @@ export interface ParcelClaim {
   incidentId: string;
   status: string;
   declaredValueVnd: number | null;
+  proofStatus: ParcelClaimProofStatus | null;
   provenDirectLossVnd: number | null;
   compensationRatePercent: number;
   policyCapVnd: number;
@@ -252,6 +265,7 @@ export interface ParcelClaim {
   appealReason: string | null;
   appealedByUserId: string | null;
   appealedAt: string | null;
+  acceptedEvidenceIds: string[];
   evidence: ParcelClaimEvidence[];
   parcelSummary: ParcelReliabilityParcelSummary | null;
   incidentSummary: ParcelReliabilityIncidentSummary | null;

@@ -381,6 +381,7 @@ export const parcelClaimAppealSchema = z.object({
   reason: z.string().trim().min(1),
   submittedByUserId: z.string().uuid(),
   submittedAt: apiInstantSchema,
+  proofStatus: nullableOptional(statusTokenSchema),
   revisedProvenDirectLossVnd: safeNullableMoneySchema,
   revisedCargoAwardVnd: safeNonNegativeIntSchema,
   revisedFreightRefundVnd: safeNonNegativeIntSchema,
@@ -391,6 +392,8 @@ export const parcelClaimAppealSchema = z.object({
   decidedAt: nullableOptional(apiInstantSchema),
   payoutReferenceId: nullableUuidSchema,
   paidAt: nullableOptional(apiInstantSchema),
+  acceptedEvidenceIds: z.array(z.string().uuid()).optional()
+    .transform((value) => value ?? []),
   availableActions: parcelPassengerActionsSchema.nullable().optional()
     .transform((value) => value ?? []),
 });
@@ -401,6 +404,7 @@ export const parcelClaimSchema = z.object({
   incidentId: z.string().uuid(),
   status: statusTokenSchema,
   declaredValueVnd: safeNullableMoneySchema,
+  proofStatus: nullableOptional(statusTokenSchema),
   provenDirectLossVnd: safeNullableMoneySchema,
   compensationRatePercent: z.number().int().min(0).max(100),
   policyCapVnd: safeNonNegativeIntSchema,
@@ -417,6 +421,8 @@ export const parcelClaimSchema = z.object({
   appealReason: nullableTextSchema,
   appealedByUserId: nullableUuidSchema,
   appealedAt: nullableOptional(apiInstantSchema),
+  acceptedEvidenceIds: z.array(z.string().uuid()).optional()
+    .transform((value) => value ?? []),
   evidence: z.array(parcelClaimEvidenceSchema),
   parcelSummary: nullableOptional(parcelSummarySchema),
   incidentSummary: nullableOptional(parcelReliabilityIncidentSummarySchema),

@@ -6,6 +6,10 @@ export interface ParcelPresentation {
   tone: StatusChipTone;
 }
 
+export interface ParcelProofPresentation extends ParcelPresentation {
+  descriptionKey: string;
+}
+
 export const PARCEL_ERROR_TRANSLATION_KEYS: Readonly<Record<string, string>> = {
   SESSION_INVALIDATED: 'parcel.errors.sessionChanged',
   PARCEL_QUOTE_INVALID: 'parcel.errors.quoteInvalidDescription',
@@ -170,6 +174,44 @@ const PARCEL_CLAIM_APPEAL_STATUS_LABEL_KEYS: Readonly<Record<string, string>> = 
   PAID: 'parcel.claim.appealStatuses.PAID',
 };
 
+const PARCEL_CLAIM_PROOF_PRESENTATIONS: Readonly<
+  Record<string, ParcelProofPresentation>
+> = {
+  VERIFIED: {
+    labelKey: 'parcel.claim.proofStatuses.VERIFIED',
+    descriptionKey: 'parcel.claim.proofDescriptions.VERIFIED',
+    tone: 'success',
+  },
+  UNVERIFIED: {
+    labelKey: 'parcel.claim.proofStatuses.UNVERIFIED',
+    descriptionKey: 'parcel.claim.proofDescriptions.UNVERIFIED',
+    tone: 'warning',
+  },
+  NO_PROOF: {
+    labelKey: 'parcel.claim.proofStatuses.NO_PROOF',
+    descriptionKey: 'parcel.claim.proofDescriptions.NO_PROOF',
+    tone: 'neutral',
+  },
+};
+
+const PENDING_PROOF_PRESENTATION: ParcelProofPresentation = {
+  labelKey: 'parcel.claim.proofStatuses.NOT_ASSESSED',
+  descriptionKey: 'parcel.claim.proofDescriptions.NOT_ASSESSED',
+  tone: 'info',
+};
+
+const LEGACY_PROOF_PRESENTATION: ParcelProofPresentation = {
+  labelKey: 'parcel.claim.proofStatuses.LEGACY',
+  descriptionKey: 'parcel.claim.proofDescriptions.LEGACY',
+  tone: 'neutral',
+};
+
+const UNKNOWN_PROOF_PRESENTATION: ParcelProofPresentation = {
+  labelKey: 'parcel.claim.proofStatuses.UNKNOWN',
+  descriptionKey: 'parcel.claim.proofDescriptions.UNKNOWN',
+  tone: 'neutral',
+};
+
 const PARCEL_TRACKING_CONFIDENCE_DESCRIPTION_KEYS: Readonly<Record<string, string>> = {
   CONFIRMED_SCAN: 'parcel.reliability.confidenceDescriptions.CONFIRMED_SCAN',
   MANUAL_EXCEPTION: 'parcel.reliability.confidenceDescriptions.MANUAL_EXCEPTION',
@@ -251,6 +293,20 @@ export const getParcelClaimAppealStatusLabelKey = (
   status,
   'parcel.claim.appealStatuses.UNKNOWN',
 );
+
+export const getParcelClaimProofPresentation = (
+  proofStatus: string | null | undefined,
+  decisionRecorded: boolean,
+): ParcelProofPresentation => {
+  const normalizedStatus = proofStatus?.trim().toUpperCase();
+  if (!normalizedStatus) {
+    return decisionRecorded
+      ? LEGACY_PROOF_PRESENTATION
+      : PENDING_PROOF_PRESENTATION;
+  }
+  return PARCEL_CLAIM_PROOF_PRESENTATIONS[normalizedStatus]
+    ?? UNKNOWN_PROOF_PRESENTATION;
+};
 
 export const getParcelTrackingConfidenceDescriptionKey = (
   confidence: string | null | undefined,
